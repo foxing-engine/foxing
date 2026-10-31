@@ -308,7 +308,24 @@ fn you_cannot_travel_mid_fight_and_retreat_costs_a_hit() {
     ok(&mut w, "dave", "pto", json!([]));
     w.fixed_now = Some(Timestamp(100_000));
     assert_eq!(combat::hp(&w, f.citizen), hurt);
+    // PTO is absence: a paused clock that kept earning banked every chunk at full
+    // value (#3). Reads and the way back are all that is left.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["east"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().starts_with("You are on PTO"), "{err}");
+    let err = call(&mut w, "dave", ActorKind::Citizen, "attack", json!([])).unwrap_err();
+    assert!(err.to_string().starts_with("You are on PTO"), "{err}");
+    ok(&mut w, "dave", "look", json!([]));
+    ok(&mut w, "dave", "chunks", json!([]));
     ok(&mut w, "dave", "resume", json!([]));
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "travel", json!(["west"]));
     w.fixed_now = Some(Timestamp(200_000));
     assert!(
         (combat::hp(&w, f.citizen) - (hurt + 10.0).min(MAX_HP)).abs() < 1e-6,

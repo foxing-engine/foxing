@@ -67,7 +67,8 @@ pub fn level(world: &World, window: EntityId) -> f64 {
         .filter(|e| e.kind == "chunk")
         .filter_map(|e| world.store.read_field(e.id, CHUNK, "value", now).ok())
         .filter_map(|v| v.as_f64())
-        .sum()
+        .sum::<f64>()
+        .max(0.0)
 }
 
 /// The query behind `chunks` and `palace`: every chunk in a container, every field.
@@ -79,24 +80,59 @@ pub fn chunks_query(container: EntityId) -> Value {
     })
 }
 
-/// Chunk rows rendered from an observation of a window or palace.
+/// How many chunk rows a readout lists; the rest are summed in one line. The
+/// observation engine refuses a relation past its breadth (a hundred), and a window
+/// holds more than that after an afternoon on pto, so the driver's own readout is
+/// built from the store, largest first, and never fails for a legal state.
+pub const ROWS_SHOWN: usize = 100;
+
+/// Chunk rows of a window or palace, largest value first, with an observation of the
+/// same rows when the engine can give one (it cites the moment; past the breadth it
+/// is null and the rows stand on their own).
 fn chunk_rows(
     world: &World,
     ctx: &CallContext,
     container: EntityId,
 ) -> Result<(Vec<Value>, Value), CommandError> {
-    let obs = super::observe_as(world, ctx, chunks_query(container))?;
-    let rows = obs.observation.root["relations"]["contents"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default()
-        .into_iter()
-        .map(|n| {
-            let c = &n["components"][CHUNK];
-            json!({"id": n["id"], "source": c["source"], "tier": c["tier"], "size": c["size"], "vividity": c["vividity"], "value": c["value"]})
+    let now = world.now();
+    let mut rows: Vec<Value> = world
+        .store
+        .children(container)
+        .filter(|e| e.kind == "chunk")
+        .map(|e| {
+            let f = |name: &str| world.store.read_field(e.id, CHUNK, name, now).ok();
+            json!({"id": e.id.0, "source": f("source"), "tier": f("tier"), "size": f("size"), "vividity": f("vividity"), "value": f("value")})
         })
         .collect();
-    Ok((rows, serde_json::to_value(obs).unwrap_or(Value::Null)))
+    rows.sort_by(|a, b| {
+        b["value"]
+            .as_f64()
+            .unwrap_or(0.0)
+            .partial_cmp(&a["value"].as_f64().unwrap_or(0.0))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let observation = if rows.len() <= ROWS_SHOWN {
+        super::observe_as(world, ctx, chunks_query(container))
+            .ok()
+            .and_then(|o| serde_json::to_value(o).ok())
+            .unwrap_or(Value::Null)
+    } else {
+        Value::Null
+    };
+    Ok((rows, observation))
+}
+
+/// The rows past `ROWS_SHOWN`, as one line: how many, and what they are worth.
+fn rest_line(rows: &[Value]) -> Option<String> {
+    if rows.len() <= ROWS_SHOWN {
+        return None;
+    }
+    let rest = &rows[ROWS_SHOWN..];
+    let worth: f64 = rest.iter().filter_map(|r| r["value"].as_f64()).sum();
+    Some(format!(
+        "  … and {} smaller, worth {worth:.2} together (the {ROWS_SHOWN} largest are listed; observe the window with a where on value for the rest)",
+        rest.len()
+    ))
 }
 
 /// The one line that says how fast the window fades, so nobody has to measure it.
@@ -109,7 +145,9 @@ fn fade_rate(active_hl_ms: i64) -> String {
 }
 
 fn rows_text(rows: &[Value]) -> Vec<String> {
-    rows.iter()
+    let mut out: Vec<String> = rows
+        .iter()
+        .take(ROWS_SHOWN)
         .map(|r| {
             format!(
                 "  chunk-{} {:<10} {:>9.2} of {:<6} vividity {:.2}",
@@ -120,7 +158,9 @@ fn rows_text(rows: &[Value]) -> Vec<String> {
                 r["vividity"].as_f64().unwrap_or(0.0)
             )
         })
-        .collect()
+        .collect();
+    out.extend(rest_line(rows));
+    out
 }
 
 pub(crate) fn resolve_chunk(
@@ -220,7 +260,7 @@ pub fn register(world: &mut World, curves: Curves) {
         Box::new(move |w: &mut World, ctx, _| {
             let f = me(w, ctx)?;
             let (rows, observation) = chunk_rows(w, ctx, f.window)?;
-            let level: f64 = rows.iter().filter_map(|r| r["value"].as_f64()).sum();
+            let level = level(w, f.window);
             let attack = super::combat::attack_for_level(level);
             let rate = fade_rate(active_hl_ms);
             let text = if rows.is_empty() {
@@ -380,7 +420,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.pto", "Kept names only. Pause your own clock. Nothing of yours fades or heals until you resume. (The real rules allow two 7-day windows a year; the slice does not enforce that yet.)"),
+        CommandSpec::new("disremembered.pto", "Kept names only. Leave for a while: your clock stops, so nothing of yours fades or heals until you resume, and until then you may only look, map, time, chunks, palace, log, feedback, resume and leave. (The real rules allow two 7-day windows a year; the slice does not enforce that yet.)"),
         Box::new(|w: &mut World, ctx, _| {
             super::kept_only(w, ctx, "pause its clock")?;
             me(w, ctx)?;

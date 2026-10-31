@@ -263,6 +263,17 @@ pub enum QueryError {
         /// The limit in force.
         limit: usize,
     },
+    /// A relation asked for more entities than one relation may: the request, not
+    /// the world, was too big. Distinct from `TooMany`, where the world was.
+    #[error("relation {relation} asks for {asked} entities; the most one relation may ask for is {limit}. Ask for at most {limit}.")]
+    LimitTooHigh {
+        /// The relation.
+        relation: String,
+        /// The limit the query asked for.
+        asked: usize,
+        /// The most it may ask for.
+        limit: usize,
+    },
     /// The whole query touched more entities than allowed.
     #[error("query touches more than {max} entities")]
     TooManyEntities {
@@ -414,9 +425,9 @@ fn check_relations(
         }
         if let Some(l) = rq.limit {
             if l > limits.max_breadth {
-                return Err(QueryError::TooMany {
+                return Err(QueryError::LimitTooHigh {
                     relation: name.clone(),
-                    found: l,
+                    asked: l,
                     limit: limits.max_breadth,
                 });
             }

@@ -507,6 +507,10 @@ impl World {
     ) -> Result<Outcome, CommandError> {
         let registry = Arc::clone(&self.registry);
         let before = self.last_active(&ctx.actor);
+        // A citizen on PTO reads and returns; nothing else.
+        if let Some(spec) = registry.resolve(name) {
+            crate::disremembered::check_pto(self, ctx, spec.verb())?;
+        }
         let out = registry.call(self, ctx, name, args);
         // A citizen who acted is present; after an absence, that is an arrival. A refused
         // command touches nothing, so a name the world does not know leaves no trace. A

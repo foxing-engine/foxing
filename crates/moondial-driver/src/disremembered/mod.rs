@@ -278,6 +278,32 @@ fn account_scope(actor: &str) -> ClockId {
     ClockId(format!("account:{actor}"))
 }
 
+/// What a citizen on PTO may still do: read, and come back. PTO is absence: a clock
+/// that stops while its owner keeps earning is a bank, and the world is named for
+/// fading. A player held it open for an afternoon and banked every chunk at full
+/// value; this is the fix, and the description says so.
+pub const ON_PTO: &[&str] = &[
+    "look", "map", "time", "chunks", "palace", "log", "feedback", "resume", "leave", "pto",
+];
+
+/// Refuse a world-changing verb from a citizen whose clock is paused.
+pub fn check_pto(world: &World, ctx: &CallContext, verb: &str) -> Result<(), CommandError> {
+    if ctx.kind != moondial_registry::ActorKind::Citizen || ON_PTO.contains(&verb) {
+        return Ok(());
+    }
+    let paused = world
+        .store
+        .clock(&account_scope(&ctx.actor))
+        .is_some_and(|c| c.is_paused_at(world.now()));
+    if paused {
+        return Err(CommandError::precondition(format!(
+            "You are on PTO: the world does not move for you, and you do not move it. `resume` first. (While paused you may {}.)",
+            ON_PTO[..ON_PTO.len() - 1].join(", ")
+        )));
+    }
+    Ok(())
+}
+
 /// Change a citizen's passphrase: the old one must be right, the new one acceptable.
 /// Never a gate verb, so the words never reach the log.
 pub fn change_passphrase(

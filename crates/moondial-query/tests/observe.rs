@@ -488,9 +488,10 @@ fn limits_and_names_are_checked_before_anything_runs() {
             json!({"root": "here", "relations": {"contents": {"limit": 50}}}),
             &tight
         ),
-        QueryError::TooMany {
+        // The request was too big, not the world: its own error, so the advice fits.
+        QueryError::LimitTooHigh {
             relation: "contents".into(),
-            found: 50,
+            asked: 50,
             limit: 2
         }
     );

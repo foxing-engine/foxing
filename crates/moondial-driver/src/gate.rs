@@ -63,6 +63,14 @@ pub struct HourBudget {
 
 const HOUR_MS: i64 = 3_600_000;
 
+/// What one compiled line costs over `POST /v0/command`: a quarter of a message, so
+/// the hour holds 240 lines against the gate's 1,200 statements, and the gate is the
+/// better deal for anything that is not a person typing.
+pub const COMPILED_HTTP_COST: f64 = 0.25;
+/// What one compiled line costs from the play page's session: a twentieth, which no
+/// one types fast enough to notice and a loop on the socket does.
+pub const COMPILED_SESSION_COST: f64 = 0.05;
+
 impl HourBudget {
     pub fn new(per_hour: f64, fail_cost: f64) -> Self {
         HourBudget {
@@ -72,13 +80,13 @@ impl HourBudget {
         }
     }
 
-    /// Whether `actor` may send now, and if not, when the hour turns.
-    pub fn check(&mut self, actor: &str, now: Timestamp) -> Result<(), Timestamp> {
+    /// Whether `actor` has `cost` left this hour, and if not, when the hour turns.
+    pub fn check_cost(&mut self, actor: &str, now: Timestamp, cost: f64) -> Result<(), Timestamp> {
         let entry = self.used.entry(actor.to_string()).or_insert((now, 0.0));
         if now.since(entry.0).0 >= HOUR_MS {
             *entry = (now, 0.0);
         }
-        if entry.1 + 1.0 > self.per_hour + 1e-9 {
+        if entry.1 + cost > self.per_hour + 1e-9 {
             return Err(Timestamp(entry.0 .0 + HOUR_MS));
         }
         Ok(())
@@ -86,8 +94,14 @@ impl HourBudget {
 
     /// Charge for a message after it was checked.
     pub fn charge(&mut self, actor: &str, now: Timestamp, passed: bool) {
+        let cost = if passed { 1.0 } else { self.fail_cost };
+        self.charge_cost(actor, now, cost);
+    }
+
+    /// Charge `cost` units.
+    pub fn charge_cost(&mut self, actor: &str, now: Timestamp, cost: f64) {
         let entry = self.used.entry(actor.to_string()).or_insert((now, 0.0));
-        entry.1 += if passed { 1.0 } else { self.fail_cost };
+        entry.1 += cost;
     }
 
     /// What `actor` has left this hour.
@@ -470,10 +484,18 @@ pub fn pass(
     }
     let mut outcomes = Vec::new();
 
-    // The budget is on messages written as messages, whichever port they came in by;
-    // a compiled line is typing, not agent traffic.
-    if !compiled {
-        if let Err(resets) = budget.check(actor, now) {
+    // The budget is on messages written as messages, one unit each. A compiled line
+    // is typing, and typing is cheaper, but it is not free on a port an agent can
+    // drive: a player ran several hundred `/v0/command` lines an hour against a
+    // budget that never moved (#2). The text port is local and the operator's.
+    let cost = match (compiled, via) {
+        (false, _) => 1.0,
+        (true, Via::Http) => COMPILED_HTTP_COST,
+        (true, Via::Session) => COMPILED_SESSION_COST,
+        (true, Via::Text | Via::Gate) => 0.0,
+    };
+    if cost > 0.0 {
+        if let Err(resets) = budget.check_cost(actor, now, cost) {
             report.fact(
                 format!("{actor} has spent the message budget for the hour as of {}; the budget resets at {}", iso_minute(now), iso_minute(resets)),
                 "budget",
@@ -493,6 +515,8 @@ pub fn pass(
     let passed = result.verdict == "PASS";
     if !compiled {
         budget.charge(actor, now, passed);
+    } else if cost > 0.0 {
+        budget.charge_cost(actor, now, cost);
     }
     // Every message that crosses the Gate is in the log, word for word, as the
     // invitation promises. Humans read it like any other event.
@@ -1072,6 +1096,45 @@ mod tests {
             r.contains("[FACT] spacepants has 30 HP of 30 HP as of"),
             "{r}"
         );
+        // A window past the engine's breadth (a hundred) still answers the level
+        // question and the chunks readout: both come from the store. (#1)
+        for _ in 0..120 {
+            w.call(
+                &CallContext {
+                    actor: "lantern-7".into(),
+                    kind: ActorKind::Admin,
+                },
+                "earn",
+                &serde_json::json!(["moth", 2]),
+            )
+            .unwrap();
+        }
+        let text = msg("lantern-7", "QUERY", "[ASK] What is the level of me?");
+        let p = send(&mut w, &checker, &mut budget, "lantern-7", &text);
+        assert!(
+            p.reply
+                .contains("[FACT] The level of lantern-7 is 240.00 XP as of"),
+            "{}",
+            p.reply
+        );
+        let out = w
+            .call(
+                &CallContext {
+                    actor: "lantern-7".into(),
+                    kind: ActorKind::Citizen,
+                },
+                "chunks",
+                &Value::Array(vec![]),
+            )
+            .unwrap();
+        assert!(out.summary.starts_with("Level 240.00"), "{}", out.summary);
+        assert!(
+            out.summary
+                .contains("… and 20 smaller, worth 40.00 together"),
+            "{}",
+            out.summary
+        );
+        assert_eq!(out.result["chunks"].as_array().unwrap().len(), 120);
         assert!(
             r.contains("[FACT] The world knows no citizen or named creature called nobody-here"),
             "{r}"
@@ -1265,6 +1328,63 @@ mod tests {
         assert_eq!(sent.payload["text"], text);
         assert!(events.iter().rev().any(|e| e.kind == "gate.reply"));
         assert_eq!(budget.remaining("spacepants", now), 60.0);
+        // Typing on the local port is free; the same line over HTTP costs a quarter
+        // of a message, and from the play page's session a twentieth, so the budget
+        // the world card promises holds on every door an agent can drive (#2).
+        let text = compile("spacepants", "disremembered", "look", now, &checker);
+        let p = send_via(
+            &mut w,
+            &checker,
+            &mut budget,
+            "spacepants",
+            Via::Http,
+            &text,
+        );
+        assert!(p.ok, "{}", p.reply);
+        assert!(
+            (p.budget_remaining - 59.75).abs() < 1e-9,
+            "{}",
+            p.budget_remaining
+        );
+        let p = send_via(
+            &mut w,
+            &checker,
+            &mut budget,
+            "spacepants",
+            Via::Session,
+            &text,
+        );
+        assert!(
+            (p.budget_remaining - 59.70).abs() < 1e-9,
+            "{}",
+            p.budget_remaining
+        );
+        for _ in 0..238 {
+            send_via(
+                &mut w,
+                &checker,
+                &mut budget,
+                "spacepants",
+                Via::Http,
+                &text,
+            );
+        }
+        let p = send_via(
+            &mut w,
+            &checker,
+            &mut budget,
+            "spacepants",
+            Via::Http,
+            &text,
+        );
+        assert!(!p.ok);
+        assert!(
+            p.reply
+                .contains("has spent the message budget for the hour"),
+            "{}",
+            p.reply
+        );
+        budget.used.clear();
 
         // A refused command is not ok, and the prose says why in the world's words.
         let text = compile(

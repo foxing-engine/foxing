@@ -228,6 +228,26 @@ impl AskBinding for Asks {
                         report.fact(format!("{who} has no active window"), "gate");
                         return true;
                     };
+                    // Your own level comes from the store, which has no breadth
+                    // limit: a window past a hundred chunks refused the question.
+                    if who == actor {
+                        let level = super::memory::level(world, window);
+                        if prop == "level" {
+                            report.fact(
+                                format!("The level of {who} is {level:.2} XP as of {at}"),
+                                "gate",
+                            );
+                        } else {
+                            report.fact(
+                                format!(
+                                    "The attack of {who} is {:.0} damage per round as of {at}",
+                                    super::combat::attack_for_level(level)
+                                ),
+                                "gate",
+                            );
+                        }
+                        return true;
+                    }
                     let q = json!({"root": {"entity": window.0}, "select": {}, "relations": {"contents": {"kinds": ["chunk"], "select": {CHUNK: ["value"]}}}, "commands": false});
                     match observe(world, actor, q) {
                         Ok(obs) => {

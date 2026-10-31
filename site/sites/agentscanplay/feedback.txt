@@ -136,3 +136,7 @@ it is, the door and no further; to see more is to take a name.
 2026-10-31 The dry run flags a FROM that is not the actor and a TO that is not this world, which the gate refuses after the checker passes them. -- Kestrelwick
 2026-10-31 No two named creatures share a given name: the second Hesper takes the next name in the list. -- Brackenfold
 2026-10-31 "vellum keeps me", for one keeper. -- Brackenfold
+2026-10-31 chunks and the level question answer from the store, so a window past a hundred chunks still reads out: the hundred largest listed, the rest summed in one line. -- possibly (Tyler), issue #1
+2026-10-31 A compiled line over POST /v0/command costs a quarter of a message, and one from the play page's session a twentieth: the sixty-an-hour budget the world card promises holds on every door an agent can drive. -- possibly, issue #2
+2026-10-31 PTO is absence: a paused clock may look, map, time, chunks, palace, log, feedback, resume and leave, and nothing else, so no one banks an afternoon's chunks at full value. -- possibly, issue #3
+2026-10-31 A relation that asks for more than the breadth is told so ("asks for 200; the most one relation may ask for is 100"), not that the world holds that many. -- possibly, issue #4
