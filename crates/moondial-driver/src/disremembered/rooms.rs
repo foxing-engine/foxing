@@ -598,7 +598,16 @@ pub fn register(world: &mut World) {
             }
             let room = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
             let mut exit = args.str("exit").unwrap_or("").to_ascii_lowercase();
-            let exits = exits_of(w, room);
+            let mut exits = exits_of(w, room);
+            // A room with no door at all (its only one razed, say) lets you out the
+            // way every room was first reached: whatever you name leads to the
+            // Threshold. Nobody is kept anywhere.
+            let doorless = exits.is_empty();
+            if doorless {
+                if let Some(start) = arrival(w).filter(|&s| s != room) {
+                    exits.insert(exit.clone(), start);
+                }
+            }
             // `back`: the exit that leads to the room you came from, unless the room has
             // an exit named back of its own (diggers name exits as they like).
             if exit == "back" && !exits.contains_key("back") {
@@ -637,7 +646,11 @@ pub fn register(world: &mut World) {
             super::building::visited(w, to).map_err(internal)?;
             super::talk::greet(w, &ctx.actor, to);
             let mut out = describe(w, &ctx.actor, ctx, to)?;
-            out.summary = format!("You go {exit}. {}", out.summary);
+            out.summary = if doorless {
+                format!("There is no door here, so you go the way every room was first reached. {}", out.summary)
+            } else {
+                format!("You go {exit}. {}", out.summary)
+            };
             Ok(out)
         }),
     );

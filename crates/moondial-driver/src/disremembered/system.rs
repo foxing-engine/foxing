@@ -132,6 +132,36 @@ pub(crate) fn line_for(e: &moondial_log::Event) -> String {
 pub const FEEDBACK: &str = "disremembered.feedback";
 const MAX_FEEDBACK_CHARS: usize = 1200;
 
+/// Move a citizen to a room by the operator's hand: any fight ends, they arrive as if
+/// they had walked in, the room they are in forgets the way they came.
+fn move_citizen(
+    w: &mut World,
+    name: &str,
+    citizen: moondial_store::EntityId,
+    room: moondial_store::EntityId,
+) -> Result<(), CommandError> {
+    super::combat::leave_fight(w, name, citizen).map_err(internal)?;
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: citizen,
+            parent: Some(room),
+        },
+    )
+    .map_err(internal)?;
+    super::combat::on_arrival(w, name, citizen, room).map_err(internal)?;
+    super::building::visited(w, room).map_err(internal)?;
+    let rname = super::plain_str(w, room, super::ROOM, "name")
+        .unwrap_or("?")
+        .to_string();
+    super::combat::narrate(
+        w,
+        name,
+        format!("The world has moved you. You are in {rname}."),
+    );
+    Ok(())
+}
+
 pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
@@ -330,22 +360,30 @@ pub fn register(world: &mut World) {
                     "{key} is a seed room, the world's own; it is not razed."
                 )));
             }
-            let who: Vec<String> = w
-                .store
-                .children(room)
-                .filter(|e| e.kind == "citizen")
-                .filter_map(|e| super::plain_str(w, e.id, super::CITIZEN, "name").map(str::to_string))
-                .collect();
-            if !who.is_empty() {
-                return Err(CommandError::precondition(format!(
-                    "{} {} in {key}; a room is razed empty.",
-                    who.join(", "),
-                    if who.len() == 1 { "is" } else { "are" }
-                )));
-            }
             let name = super::plain_str(w, room, super::ROOM, "name")
                 .unwrap_or(&key)
                 .to_string();
+            // Whoever stands in it is put out at the Threshold first: a room razed
+            // under someone, or an orphan with someone in it, must not strand them.
+            let inside: Vec<(moondial_store::EntityId, String)> = w
+                .store
+                .children(room)
+                .filter(|e| e.kind == "citizen")
+                .filter_map(|e| {
+                    super::plain_str(w, e.id, super::CITIZEN, "name").map(|n| (e.id, n.to_string()))
+                })
+                .collect();
+            let evicted: Vec<String> = inside.iter().map(|(_, n)| n.clone()).collect();
+            if let Some(start) = super::rooms::arrival(w) {
+                for (id, n) in &inside {
+                    super::combat::narrate(
+                        w,
+                        n,
+                        format!("{name} is unmade around you, and you are at the Threshold."),
+                    );
+                    move_citizen(w, n, *id, start)?;
+                }
+            }
             // Every exit anywhere that led here goes with it.
             let leading: Vec<(moondial_store::EntityId, serde_json::Map<String, serde_json::Value>)> = w
                 .store
@@ -387,15 +425,20 @@ pub fn register(world: &mut World) {
             let _ = w.note(
                 Actor::Driver,
                 "disremembered.razed",
-                json!({"room": room.0, "key": key, "name": name, "exits_dropped": unlinked, "creatures": creatures}),
+                json!({"room": room.0, "key": key, "name": name, "exits_dropped": unlinked, "creatures": creatures, "evicted": evicted}),
             );
             Ok(Outcome::new(
                 format!(
-                    "{name} is gone, with {creatures} creature{} and the {unlinked} exit{} that led to it.",
+                    "{name} is gone, with {creatures} creature{} and the {unlinked} exit{} that led to it.{}",
                     if creatures == 1 { "" } else { "s" },
-                    if unlinked == 1 { "" } else { "s" }
+                    if unlinked == 1 { "" } else { "s" },
+                    if evicted.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" {} put out at the Threshold.", evicted.join(", "))
+                    }
                 ),
-                json!({"room": room.0, "key": key, "razed": true, "exits_dropped": unlinked, "creatures": creatures}),
+                json!({"room": room.0, "key": key, "razed": true, "exits_dropped": unlinked, "creatures": creatures, "evicted": evicted}),
             ))
         }),
     );
@@ -403,9 +446,9 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.bring",
-            "Admin: bring a creature to a room, by the room's key. The room is told something came in; the record says it wandered.",
+            "Admin: bring a creature, or a citizen, to a room by the room's key. A creature: the room is told something came in and the record says it wandered. A citizen: they arrive there as if they had walked in, and are told the world moved them.",
         )
-        .param("creature", ParamType::Entity, true, "a creature's given name, or its id (creature-101)")
+        .param("creature", ParamType::Entity, true, "a creature's given name or id (creature-101), or a citizen's name")
         .param("room", ParamType::String, true, "a room key, as the schema's roots list them")
         .allowed(&[ActorKind::Admin]),
         Box::new(|w: &mut World, _, args: &Args| {
@@ -421,14 +464,30 @@ pub fn register(world: &mut World) {
                         .map(moondial_store::EntityId)
                         .filter(|id| w.store.entity(*id).is_some_and(|e| e.kind == "creature"))
                 });
-            let Some(creature) = creature else {
-                return Err(CommandError::precondition(format!(
-                    "No creature is named or numbered {who}."
-                )));
-            };
             let key = args.str("room").unwrap_or_default().trim().to_ascii_lowercase();
             let Some(room) = super::rooms::room_by_key(w, &key) else {
                 return Err(CommandError::precondition(format!("No room has the key {key}.")));
+            };
+            let Some(creature) = creature else {
+                // A citizen: the one way out of a room that has none, and the
+                // operator's hand otherwise.
+                let Some(f) = super::find_citizen(w, &who) else {
+                    return Err(CommandError::precondition(format!(
+                        "No creature is named or numbered {who}, and no citizen is called that."
+                    )));
+                };
+                let name = super::plain_str(w, f.citizen, super::CITIZEN, "name")
+                    .unwrap_or(&who)
+                    .to_string();
+                let rname = super::plain_str(w, room, super::ROOM, "name")
+                    .unwrap_or("?")
+                    .to_string();
+                move_citizen(w, &name, f.citizen, room)?;
+                w.notice(format!("**{name}** was moved to {rname} by the operator."));
+                return Ok(Outcome::new(
+                    format!("{name} is in {rname} now."),
+                    json!({"citizen": f.citizen.0, "room": room.0, "key": key}),
+                ));
             };
             w.record(
                 Actor::Driver,

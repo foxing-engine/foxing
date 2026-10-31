@@ -3497,9 +3497,8 @@ fn the_operator_can_raze_a_dug_room_and_banish_a_name() {
     let chunk = format!("chunk-{}", out.result["chunk"].as_u64().unwrap());
     let out = ok(&mut w, "dave", "dig", json!(["down", chunk, "A Probe"]));
     let key = out.result["key"].as_str().unwrap().to_string();
-    let room = EntityId(out.result["room"].as_u64().unwrap());
     let threshold = rooms::room_by_key(&w, "threshold").unwrap();
-    // A seed room is not razed; a room with someone in it is not razed.
+    // A seed room is not razed.
     let err = call(
         &mut w,
         "dave",
@@ -3509,16 +3508,62 @@ fn the_operator_can_raze_a_dug_room_and_banish_a_name() {
     )
     .unwrap_err();
     assert!(err.to_string().contains("seed room"), "{err}");
+    // A room dug off the probe, with probe in it, when the probe is razed: an orphan
+    // with no door. Nobody is kept anywhere: any travel leads to the Threshold, and
+    // the operator can bring a citizen out by hand too.
     ok(&mut w, "probe", "travel", json!(["down"]));
-    let err = call(&mut w, "dave", ActorKind::Admin, "raze", json!([&key])).unwrap_err();
-    assert!(err.to_string().contains("probe is in"), "{err}");
-    ok(&mut w, "probe", "travel", json!(["up"]));
-    // Empty, it goes, and the exit that led down with it.
+    ok(&mut w, "dave", "travel", json!(["down"]));
+    let out = admin(&mut w, "dave", "earn", json!(["hydra", 100, 1.0]));
+    let c2 = format!("chunk-{}", out.result["chunk"].as_u64().unwrap());
+    let out = ok(&mut w, "dave", "dig", json!(["down", c2, "A Deeper Probe"]));
+    let deeper = EntityId(out.result["room"].as_u64().unwrap());
+    let deeper_key = out.result["key"].as_str().unwrap().to_string();
+    ok(&mut w, "probe", "travel", json!(["down"]));
+    ok(&mut w, "dave", "travel", json!(["up"]));
+    let out = admin(&mut w, "dave", "raze", json!([&key]));
+    assert!(out.summary.contains("2 exits"), "{}", out.summary);
+    assert!(
+        rooms::exits_of(&w, deeper).is_empty(),
+        "the orphan has no door"
+    );
+    let out = ok(&mut w, "probe", "travel", json!(["anywhere"]));
+    assert!(
+        out.summary.starts_with(
+            "There is no door here, so you go the way every room was first reached. The Threshold."
+        ),
+        "{}",
+        out.summary
+    );
+    admin(&mut w, "dave", "bring", json!(["probe", &deeper_key]));
+    assert_eq!(
+        rooms::room_of(&w, super::find_citizen(&w, "probe").unwrap().citizen),
+        Some(deeper)
+    );
+    let out = admin(&mut w, "dave", "bring", json!(["probe", "threshold"]));
+    assert_eq!(out.summary, "probe is in The Threshold now.");
+    admin(&mut w, "dave", "raze", json!([&deeper_key]));
+    // Dug anew, with probe inside: razed under them, they are put out at the
+    // Threshold, and the exit that led down goes with the room.
+    let out = admin(&mut w, "dave", "earn", json!(["hydra", 100, 1.0]));
+    let c3 = format!("chunk-{}", out.result["chunk"].as_u64().unwrap());
+    let out = ok(&mut w, "dave", "dig", json!(["down", c3, "A Probe"]));
+    let key = out.result["key"].as_str().unwrap().to_string();
+    let room = EntityId(out.result["room"].as_u64().unwrap());
+    ok(&mut w, "probe", "travel", json!(["down"]));
     let out = admin(&mut w, "dave", "raze", json!([&key]));
     assert!(
         out.summary.starts_with("A Probe is gone"),
         "{}",
         out.summary
+    );
+    assert!(
+        out.summary.ends_with("probe put out at the Threshold."),
+        "{}",
+        out.summary
+    );
+    assert_eq!(
+        rooms::room_of(&w, super::find_citizen(&w, "probe").unwrap().citizen),
+        Some(threshold)
     );
     assert_eq!(out.result["exits_dropped"], 1);
     assert!(w.store.entity(room).is_none());
