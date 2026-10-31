@@ -3542,3 +3542,144 @@ fn the_operator_can_raze_a_dug_room_and_banish_a_name() {
     assert!(err.to_string().contains("No citizen"), "{err}");
     login(&mut w, "probe", "test", "another-passphrase").unwrap();
 }
+
+#[test]
+fn the_map_is_laid_out_from_the_threshold_and_you_remember_only_where_you_stood() {
+    use super::atlas;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    // The seed map is coherent: every exit has a way back, and no room is shoved.
+    let l = atlas::layout(&w);
+    assert!(l.one_way.is_empty(), "{:?}", l.one_way);
+    assert!(l.shoved.is_empty(), "{:?}", l.shoved);
+    let at = |l: &atlas::Layout, key: &str| {
+        let p = l.rooms.iter().find(|p| p.key == key).unwrap();
+        (p.x, p.y, p.z, p.placed)
+    };
+    assert_eq!(at(&l, "threshold"), (0, 0, 0, "compass"));
+    assert_eq!(at(&l, "fogbank"), (1, 0, 0, "compass"));
+    assert_eq!(at(&l, "midden"), (1, 1, 0, "compass"));
+    assert_eq!(at(&l, "lantern-row"), (0, -1, 0, "compass"));
+    assert_eq!(at(&l, "stairwell"), (0, -1, -1, "compass"));
+    assert_eq!(at(&l, "cistern"), (0, -1, -2, "compass"));
+    // The Undertow's "surface" is a named exit: it sits beside the Cistern.
+    assert_eq!(at(&l, "undertow"), (1, -1, -2, "compass"));
+    assert_eq!(
+        l.rooms
+            .iter()
+            .find(|p| p.key == "undertow")
+            .unwrap()
+            .from
+            .as_ref()
+            .unwrap()
+            .1,
+        "east"
+    );
+    let seeds = l.rooms.len();
+
+    // A named door off the Threshold sits beside it; a dug room that wants a taken
+    // cell is shoved, and the report says so.
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let earn = |w: &mut World| {
+        let out = admin(w, "dave", "earn", json!(["hydra", 100, 1.0]));
+        format!("chunk-{}", out.result["chunk"].as_u64().unwrap())
+    };
+    let c = earn(&mut w);
+    ok(&mut w, "dave", "dig", json!(["teapot", c, "The Teapot"]));
+    let l = atlas::layout(&w);
+    assert_eq!(l.rooms.len(), seeds + 1);
+    let (x, y, z, placed) = at(&l, &l.rooms.last().unwrap().key.clone());
+    assert_eq!((z, placed), (0, "beside"));
+    assert!(
+        (x, y) != (1, 0) && (x, y) != (0, -1),
+        "not on the Fogbank or Lantern Row"
+    );
+    // From the Teapot, dig toward the Fogbank's cell: shoved.
+    ok(&mut w, "dave", "travel", json!(["teapot"]));
+    let back = rooms::exits_of(
+        &w,
+        rooms::room_of(&w, super::find_citizen(&w, "dave").unwrap().citizen).unwrap(),
+    );
+    assert!(back.contains_key("back"), "{back:?}");
+    let want = if (x, y) == (0, 1) { "north" } else { "west" }; // toward (0,0): taken
+    let c = earn(&mut w);
+    ok(&mut w, "dave", "dig", json!([want, c, "The Shove"]));
+    let l = atlas::layout(&w);
+    let shove = l.rooms.iter().find(|p| p.name == "The Shove").unwrap();
+    assert_eq!(shove.placed, "shoved");
+    assert_eq!(l.shoved.len(), 1, "{:?}", l.shoved);
+    assert!(l.shoved[0].starts_with("The Shove ("), "{}", l.shoved[0]);
+    assert!(l.one_way.is_empty());
+
+    // What dave remembers: the Threshold (stood in), the Teapot (here) and its exits.
+    let hl = 10_000.0 * atlas::ATLAS_HALF_LIVES; // the test world's ten-second half-life
+    let m = atlas::remembered_map(&w, "dave", hl).unwrap();
+    let names = |m: &Value| -> Vec<String> {
+        m["rooms"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["name"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let n = names(&m);
+    assert!(
+        n.contains(&"The Threshold".to_string())
+            && n.contains(&"The Teapot".to_string())
+            && n.contains(&"The Shove".to_string()),
+        "{n:?}"
+    );
+    assert!(
+        !n.contains(&"The Fogbank".to_string()),
+        "never stood there: {n:?}"
+    );
+    // All three are in sight from the Teapot; nothing else is remembered yet.
+    assert!(
+        m["summary"].as_str().unwrap().starts_with(
+            "You are in The Teapot; you can see 2 ways out. The rest of the map is blank"
+        ),
+        "{}",
+        m["summary"]
+    );
+    // Walk to the Fogbank and back: remembered; then the hours pass and it dims, and
+    // the map says so.
+    ok(&mut w, "dave", "travel", json!(["back"]));
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    let m = atlas::remembered_map(&w, "dave", hl).unwrap();
+    let fog = m["rooms"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["name"] == "The Fogbank")
+        .unwrap()
+        .clone();
+    assert_eq!(fog["memory"], 1.0, "visible from the Threshold");
+    w.fixed_now = Some(w.now().plus(Duration((hl * 1.5) as i64)));
+    ok(&mut w, "dave", "travel", json!(["teapot"]));
+    let out = ok(&mut w, "dave", "map", json!([]));
+    assert!(
+        out.summary.contains("Half-remembered: The Fogbank"),
+        "{}",
+        out.summary
+    );
+    let fog = out.result["rooms"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["name"] == "The Fogbank")
+        .unwrap()
+        .clone();
+    let mem = fog["memory"].as_f64().unwrap();
+    assert!(mem > 0.3 && mem < 0.4, "{mem}");
+    // And gone, long after.
+    w.fixed_now = Some(w.now().plus(Duration((hl * 6.0) as i64)));
+    let out = ok(&mut w, "dave", "map", json!([]));
+    assert!(!out.summary.contains("Fogbank"), "{}", out.summary);
+    // The Threshold is in sight from the Teapot; beyond it, nothing is left.
+    assert!(
+        out.summary.contains("The rest of the map is blank"),
+        "{}",
+        out.summary
+    );
+}

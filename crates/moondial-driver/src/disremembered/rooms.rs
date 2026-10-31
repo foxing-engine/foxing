@@ -404,6 +404,8 @@ pub fn describe(
     ctx: &moondial_registry::CallContext,
     room: EntityId,
 ) -> Result<Outcome, moondial_registry::CommandError> {
+    // Standing here is remembering it: the mini-map is what you have seen.
+    super::atlas::mark_seen(world, actor, room)?;
     let obs = super::observe_as(world, ctx, look_query(room))?;
     let root = &obs.observation.root;
     let name = root["components"][ROOM]["name"]

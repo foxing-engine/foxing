@@ -41,6 +41,7 @@ approved_verbs:
   observe: {params: [{name: query, type: string, required: true}]}
   # movement and world
   look: {params: []}
+  map: {params: []}
   travel: {params: [{name: exit, type: string, required: true}]}
   rest: {params: []}
   move:

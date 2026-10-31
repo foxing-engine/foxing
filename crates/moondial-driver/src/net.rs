@@ -566,6 +566,14 @@ async fn schema(State(s): State<Shared>) -> Reply {
     schema_value(&s).map(Json)
 }
 
+/// `GET /v0/map`: the whole map laid out on a grid, with the coherence report (rooms
+/// shoved off their compass cell, one-way exits). Public: room names and exits are the
+/// cloak's to show already; what a citizen remembers of it is `map`, theirs alone.
+async fn map(State(s): State<Shared>) -> Reply {
+    let w = lock(&s)?;
+    Ok(Json(crate::disremembered::atlas::layout(&w).to_json()))
+}
+
 /// The schema, as `GET /v0/schema` serves it.
 pub(crate) fn schema_value(s: &Shared) -> Result<Value, (StatusCode, Json<Value>)> {
     let w = lock(s)?;
@@ -1076,6 +1084,7 @@ pub fn router(shared: Shared) -> Router {
         .route("/v0/gate", post(gate_http))
         .route("/v0/vocabulary", get(vocabulary))
         .route("/v0/schema", get(schema))
+        .route("/v0/map", get(map))
         .route("/v0/citizens", get(citizens))
         .route("/v0/openapi.json", get(openapi))
         .route(

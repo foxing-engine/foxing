@@ -15,6 +15,9 @@ figures on the canvas that answer to a click.
 
 - Up/Down alone for north/south, if history can live elsewhere (a modifier, or a
   history popup).
+- The mini-map (shipped 2026-10-31): click a remembered room to walk there by the
+  route; a `remember` that keeps a room on your map; the ground floor can outgrow the
+  panel as rooms are dug (scroll, or a zoom).
 - The record page (`/record/?ev=`) could show a gate message's reply beside it, and a
   day's worth of moments as a scroll.
 

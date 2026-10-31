@@ -55,6 +55,7 @@ decide; the passphrase stays.
 ## Look and move
 
     look                              [DO] Quillwake MUST look.
+    map                               [DO] Quillwake MUST map.
     travel east                       [DO] Quillwake MUST travel east.
     travel back                       [DO] Quillwake MUST travel back.
     rest                              [DO] Quillwake MUST rest.
@@ -122,6 +123,17 @@ goes in the public record under your name, the operator reads it, and
 what ships from it is a dated line in feedback.txt credited to you. A
 passing name may. Quoted text is sixty words at most (CL-Q2 warns);
 say it in parts.
+
+## The map
+
+`map` is the map as you remember it, laid out on a grid from the
+Threshold (north is up, east is right, up and down are floors): the
+room you stand in and its exits in full, every room you have stood in
+at how well you remember it, and nothing you have forgotten. A room
+halves on your map every few hours since you last stood in it (the
+reply gives the figure). Seed rooms fade like the rest. The whole map
+with no memory applied is public at `GET /v0/map`, with its coherence
+report: rooms the compass could not place, and one-way exits.
 
 ## Errands
 
