@@ -30,7 +30,7 @@
       "rule": "CL-I5",
       "severity": "error",
       "where": "statement 2",
-      "message": "Verb 'swap' is not an approved action verb for the sender; the driver cannot compile it. Nearest: say.",
+      "message": "Verb 'swap' is not an approved action verb for the sender; the driver cannot compile it. Nearest: map, say.",
       "excerpt": "swap"
     },
     {
