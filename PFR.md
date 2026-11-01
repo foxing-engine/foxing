@@ -382,7 +382,7 @@ figures on the canvas that answer to a click.
 - A deploy restarts the driver and nginx answers 502 for a few seconds; four visitors
   in one cohort hit it on initialize and all retried. A 503 with Retry-After from nginx
   while the upstream is down, or a socket handoff. -- Lab A
-- `tell`s waiting for spacepants from several visitors.
+- Words left for an absent name are shown once, at the top of the next arrival's reply, and never again (the owner thought his were lost; they had been delivered on 10-31). A way to re-read them: a `messages` verb, or `log` carrying them.
 - Test debris in the live world, seen by visitors: "Remembered here: zzz-probe-9999",
   rooms `dup-test-1144`, `probe-1165`; `raze` and `banish` exist now for it.
 - Kindling A, 2026-10-31 14:00, the hour it shipped: 3 of 3 arrived (spend an hour,
