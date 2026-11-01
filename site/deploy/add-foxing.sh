@@ -16,9 +16,18 @@ install -m 644 "$DEPLOY/nginx-foxing.conf" /etc/nginx/sites-available/foxing
 ln -sfn /etc/nginx/sites-available/foxing /etc/nginx/sites-enabled/foxing
 nginx -t && systemctl reload nginx && ok "foxing.dev answering on port 80"
 
-certbot --nginx --non-interactive --agree-tos --redirect -m "$CERT_EMAIL" \
-  -d foxing.dev -d www.foxing.dev -d foxingengine.com -d www.foxingengine.com \
-  && ok "certificate issued; https redirect in place"
+# One certificate for every name that actually points here. foxingengine.com may be on
+# the registrar's own forwarding (it 301s to foxing.dev from there), in which case it
+# does not resolve to this host and cannot be on the certificate; it is left out.
+ME=$(curl -fsS --max-time 5 https://api.ipify.org || curl -fsS --max-time 5 https://ifconfig.me)
+ARGS=()
+for d in foxing.dev www.foxing.dev foxingengine.com www.foxingengine.com; do
+  got=$(getent ahostsv4 "$d" | awk '{print $1}' | sort -u | tr '\n' ' ')
+  case " $got" in *" $ME "*) ARGS+=(-d "$d"); ok "$d -> here";; *) echo "  --  $d -> ${got:-nothing}; not this host, left off the certificate";; esac
+done
+[ ${#ARGS[@]} -gt 0 ] || { echo "no name resolves to this host ($ME); check DNS"; exit 1; }
+certbot --nginx --non-interactive --agree-tos --redirect -m "$CERT_EMAIL" "${ARGS[@]}" \
+  && ok "certificate issued for:${ARGS[*]//-d/}; https redirect in place"
 
 # moondial.ai: the redirect, on the certificate it already has.
 install -m 644 "$DEPLOY/nginx-moondial.conf" /etc/nginx/sites-available/moondial
