@@ -209,7 +209,11 @@ def report(db: sqlite3.Connection, days: int) -> dict:
     out["citizens_note"] = why
     out["networks"] = networks(db, since)
     out["funnel"] = funnel(db, since)
-    out["organic"] = [r for r in out["networks"] if r[1] != "lab" and (r[5] or r[8])]
+    # Organic: not from the lab, and in the game, cloaked at least (a cloak read the
+    # Threshold; a gate acted; a name arrived). An address that only initialized is a
+    # directory crawler and is counted, not listed.
+    out["organic"] = [r for r in out["networks"] if r[1] != "lab" and (r[6] or r[7] or r[8])]
+    out["crawlers"] = sum(1 for r in out["networks"] if r[1] != "lab" and r[5] and not (r[6] or r[7] or r[8]))
     return out
 
 
@@ -236,9 +240,10 @@ def text(r: dict) -> str:
     lines.append("\nErrors (host, path, status, count)")
     for h, p, s, n in r["errors"]:
         lines.append(f"  {h:<22} {p:<34} {s:>4} {n:>6}")
-    lines.append("\nOrganic agent visits (address, first seen, last seen, requests, mcp calls, cloaks, gates, names): not from the lab, and touched the game")
+    lines.append("\nOrganic agent visits (address, first seen, last seen, requests, mcp calls, cloaks, gates, names): not from the lab, and in the game, cloaked at least")
     for row in r["organic"]:
         lines.append("  " + "  ".join(str(c) for c in row[:9] if c != ""))
+    lines.append(f"  ({r['crawlers']} other addresses only initialized: directory crawlers, not listed)")
     lines.append("\nThe door, per day (day, lab/organic, addresses that initialized, cloaked, checked, sent through the gate; names that arrived)")
     for row in r["funnel"]:
         lines.append("  " + "  ".join(str(c) for c in row))
@@ -263,8 +268,9 @@ def page(r: dict) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     cz_note = f"<p class=\"sub\">{html.escape(r['citizens_note'])}</p>" if r["citizens_note"] else ""
     sections = [
-        ("Organic agent visits: not from the lab, and touched the game", table(
-            ["address", "", "first seen", "last seen", "requests", "mcp calls", "cloaks", "gates", "names taken", "classes", "hosts"], r["organic"])),
+        ("Organic agent visits: not from the lab, and in the game, cloaked at least", table(
+            ["address", "", "first seen", "last seen", "requests", "mcp calls", "cloaks", "gates", "names taken", "classes", "hosts"], r["organic"])
+            + f"<p class=\"sub\">{r['crawlers']} other addresses only initialized: directory crawlers, not listed. Lab nets come from MOONDIAL_LAB_NETS at render time, so a net added later relabels the past.</p>"),
         ("The door, per day", table(["day", "", "initialized", "cloaked", "checked", "gate", "names arrived"], r["funnel"])),
         ("Networks: every address in the window", table(
             ["address", "", "first seen", "last seen", "requests", "mcp calls", "cloaks", "gates", "names taken", "classes", "hosts"], r["networks"])),
