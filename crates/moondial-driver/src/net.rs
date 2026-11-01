@@ -643,7 +643,10 @@ struct CheckBody {
 
 /// Most bytes `/v0/check` reads: the vocabulary's own message limit. The checker is
 /// regular expressions over the text, and anyone may call it.
-const MAX_CHECK_BYTES: usize = 8 * 1024;
+const MAX_CHECK_BYTES: usize = crate::gate::MAX_MESSAGE_BYTES;
+/// The most any request body may be: a message, a query, a command's arguments, with
+/// room for the JSON around them. Axum's own default is two megabytes.
+pub const MAX_BODY_BYTES: usize = 64 * 1024;
 
 /// `POST /v0/check {message}`: the checker's verdict on a message, without sending it.
 /// What a browser without WebAssembly uses; the same result the editor computes locally.
@@ -1114,6 +1117,7 @@ pub fn router(shared: Shared) -> Router {
         .route("/v0/view/{id}", get(view))
         .route("/v0/log", get(log))
         .layer(cors)
+        .layer(axum::extract::DefaultBodyLimit::max(MAX_BODY_BYTES))
         .with_state(shared)
 }
 

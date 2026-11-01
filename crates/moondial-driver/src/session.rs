@@ -109,7 +109,9 @@ fn touched(e: &moondial_log::Event) -> Vec<u64> {
 }
 
 pub async fn upgrade(ws: WebSocketUpgrade, State(s): State<Shared>) -> Response {
-    ws.on_upgrade(move |socket| run(socket, s))
+    ws.max_message_size(crate::net::MAX_BODY_BYTES)
+        .max_frame_size(crate::net::MAX_BODY_BYTES)
+        .on_upgrade(move |socket| run(socket, s))
 }
 
 async fn run(socket: WebSocket, s: Shared) {

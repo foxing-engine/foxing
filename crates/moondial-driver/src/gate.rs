@@ -63,6 +63,10 @@ pub struct HourBudget {
 
 const HOUR_MS: i64 = 3_600_000;
 
+/// The most a message may be, in bytes, by any door: eight kilobytes, which is the
+/// checker's own limit at `/v0/check` and twenty statements of a hundred words.
+pub const MAX_MESSAGE_BYTES: usize = 8 * 1024;
+
 /// What one compiled line costs over `POST /v0/command`: a quarter of a message, so
 /// the hour holds 240 lines against the gate's 1,200 statements, and the gate is the
 /// better deal for anything that is not a person typing.
@@ -470,6 +474,30 @@ pub fn pass(
 ) -> Passage {
     let world_name = world.id.0.clone();
     let now = world.now();
+    // One cap on what a message may be, whichever door it came in by: the checker
+    // is regular expressions over the text and the log keeps every byte.
+    if text.len() > MAX_MESSAGE_BYTES {
+        let short = text.chars().take(200).collect::<String>();
+        let result = checker.check(&short);
+        let mut report = Report::new(&world_name, actor, None);
+        report.fact(
+            format!(
+                "The message is {} bytes; the world reads at most {MAX_MESSAGE_BYTES}",
+                text.len()
+            ),
+            "gate",
+        );
+        budget.charge_cost(actor, now, if compiled { 0.0 } else { budget.fail_cost });
+        return finish(
+            world,
+            short,
+            result,
+            report,
+            false,
+            budget.remaining(actor, now),
+            Vec::new(),
+        );
+    }
     let result = checker.check(text);
     let msg = &result.message;
     let r#ref = msg.field("REF").filter(|r| !r.is_empty());
@@ -1390,6 +1418,15 @@ mod tests {
             "{}",
             p.reply
         );
+        budget.used.clear();
+
+        // A message past the byte cap is refused at the door, by every door, for a
+        // quarter unit written or nothing typed.
+        let long = format!("FROM: spacepants\nTO: disremembered\nINTENT: REQUEST\nREF: x\n\n[DO] spacepants MUST say \"{}\".\n", "a".repeat(MAX_MESSAGE_BYTES));
+        let p = send_via(&mut w, &checker, &mut budget, "spacepants", Via::Gate, &long);
+        assert!(!p.ok);
+        assert!(p.reply.contains("the world reads at most 8192"), "{}", p.reply);
+        assert!((p.budget_remaining - 59.75).abs() < 1e-9, "{}", p.budget_remaining);
         budget.used.clear();
 
         // A refused command is not ok, and the prose says why in the world's words.

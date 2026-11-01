@@ -862,6 +862,11 @@ pub fn register(world: &mut World) {
                 .split_whitespace()
                 .collect::<Vec<_>>()
                 .join(" ");
+            if want.chars().count() > 200 {
+                return Err(CommandError::precondition(
+                    "A want is at most 200 characters; look says it in one line.",
+                ));
+            }
             if want.is_empty() {
                 clear(w, creature)?;
                 return Ok(Outcome::new(

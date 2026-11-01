@@ -13,6 +13,9 @@ fade timers, the story counter, the quickstart overlay (`?`), header buttons, co
 replies, owner's tools, phone width, the Lately feed with permalinks, transcript export,
 figures on the canvas that answer to a click.
 
+- The marks (shipped 2026-10-31: room names, blows, gains, wants, births, the
+  Clocktower, speech, labels, your own name): a mark for a named creature's name and
+  for other citizens' names; a legend in `?`; the same marks on the record page.
 - Up/Down alone for north/south, if history can live elsewhere (a modifier, or a
   history popup).
 - Admin on the play page: `admin <token>` in the terminal (the session's login frame

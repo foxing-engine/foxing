@@ -54,6 +54,17 @@
   .line.clear { color: var(--dim); font-size: 12px; white-space: pre-wrap; border-left: 2px solid var(--line); padding-left: 10px; margin: 2px 0 6px; }
   header label { color: var(--dim); font-size: 13px; cursor: pointer; margin-left: 14px; white-space: nowrap; }
   header label input { vertical-align: -1px; margin-right: 4px; }
+  /* What matters in a line, marked for a reader: a blow, a gain, a want, a birth, the
+     Clocktower, speech, your own name, and the labels of a room's parts. */
+  .line .hit { color: #e4836f; }
+  .line .earn { color: #9bd3a4; }
+  .line .want { color: var(--dust); }
+  .line .born { color: #c9a7e8; }
+  .line .tower { color: var(--dust); font-style: italic; }
+  .line .speech { color: #f3eedf; font-style: italic; }
+  .line .me { background: rgba(217,181,122,.16); border-radius: 3px; padding: 0 2px; }
+  .line .lbl { color: var(--dim); }
+  .line .room { color: var(--ink); font-weight: 600; }
   .line.cmd { color: var(--ink); }
   .line.cmd b { color: var(--dust); font-weight: 400; display: inline-block; min-width: 11ch; }
   .line.cmd i { color: var(--dim); font-style: normal; }
@@ -472,13 +483,52 @@
   // ---- transcript ----
   const FADE_LINES = 40;
   let lastPrinted = "";
+  // The marks: each rule wraps what it matches in a span, first rule first, and a
+  // piece already marked is left alone. The text itself is never changed.
+  const MARKS = [
+    ["tower", /The Clocktower strikes\.[^\n]*/g],
+    ["room", /(?<=^(?:You (?:go|take) [^.\n]+\. )?)(?!You |There |Nothing |Something )(?:The |An? )?[A-Z][\w' -]{2,40}\.(?= [A-Z])/g],
+    ["hit", /[^.\n]{1,40}? (?:hits you for [\d.]+\. You have [\d.]+\/[\d.]+\.|comes at you[^.\n]*\.|surfaces beside you[^.\n]*\.|stands up out of the water[^.\n]*\.|takes hold[^.\n]*\.)|You (?:have )?die[sd]?\b[^.\n]*\.|You wake[^.\n]*\.|Attack it, or retreat\.|Retreat first, or finish it\./g],
+    ["earn", /chunk-\d+ worth [\d.]+ XP(?:, vividity [\d.]+)?(?: \([^)]*\))?|worth double|You remember the carrying[^.\n]*\.|It leaves [^.\n]* behind \(item-\d+\)|has earned its name[^.\n]*\./g],
+    ["lbl", /Nothing hunts here\./g],
+    ["born", /(?:A \*\*)?[\w-]+\*\* was born[^.]*\.|Something has come of it[^.]*\.|was born in [^.]*\./g],
+    ["want", /[\w-]+ wants (?:a story about|word carried to) [^.]*\.|: the one it wants|not the one it wants/g],
+    ["speech", /[\u201c"][^\u201c\u201d"\n]{1,600}[\u201d"]/g],
+    ["lbl", /\b(?:Exits|Here|Also here|On the ground|Remembered here|Ways out of [^:]+):/g],
+  ];
+  function mark(text) {
+    let segs = [{ t: text, c: null }];
+    const me = actor ? new RegExp("\\b" + actor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "g") : null;
+    const rules = me ? [...MARKS, ["me", me]] : MARKS;
+    for (const [cls, re] of rules) {
+      const next = [];
+      for (const seg of segs) {
+        if (seg.c) { next.push(seg); continue; }
+        let last = 0; re.lastIndex = 0; let m;
+        while ((m = re.exec(seg.t))) {
+          if (m.index > last) next.push({ t: seg.t.slice(last, m.index), c: null });
+          next.push({ t: m[0], c: cls }); last = m.index + m[0].length;
+          if (!m[0].length) re.lastIndex++;
+        }
+        if (last < seg.t.length) next.push({ t: seg.t.slice(last), c: null });
+      }
+      segs = next;
+    }
+    const frag = document.createDocumentFragment();
+    for (const seg of segs) {
+      if (!seg.c) { frag.append(seg.t); continue; }
+      const sp = document.createElement("span"); sp.className = seg.c; sp.textContent = seg.t; frag.append(sp);
+    }
+    return frag;
+  }
   function print(text, cls = "") {
     // Compact: the narrator's repeat of what was just printed is dropped.
     if ($("compact") && $("compact").checked && text && cls !== "you" && text === lastPrinted) return document.createElement("div");
     if (cls !== "you") lastPrinted = text;
     const el = document.createElement("div");
     el.className = "line " + cls;
-    el.textContent = text;
+    // The world's prose and the narrator's lines are marked; the rest is plain.
+    if (cls === "" || cls === "tell") el.append(mark(text)); else el.textContent = text;
     log.appendChild(el);
     age();
     log.scrollTop = log.scrollHeight;

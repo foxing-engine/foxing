@@ -22,6 +22,9 @@ pub enum LoginError {
     /// A new name that is an old name in other letters.
     #[error("That name is taken, as {taken}. Log in as {taken}, or choose another name.")]
     Taken { taken: String },
+    /// A passphrase longer than anyone types.
+    #[error("A passphrase is at most {max} bytes.")]
+    TooLong { max: usize },
     /// A passphrase is required.
     #[error("login <name> <passphrase>: the passphrase is set on first login and required after.")]
     Missing,
@@ -45,8 +48,16 @@ pub fn acceptable(passphrase: &str) -> Result<(), LoginError> {
             min: MIN_PASSPHRASE,
         });
     }
+    if passphrase.len() > MAX_PASSPHRASE_BYTES {
+        return Err(LoginError::TooLong {
+            max: MAX_PASSPHRASE_BYTES,
+        });
+    }
     Ok(())
 }
+
+/// The most a passphrase may be: hashing is work, and a kilobyte is nobody's secret.
+pub const MAX_PASSPHRASE_BYTES: usize = 256;
 
 /// Hash a passphrase for storage.
 pub fn hash(passphrase: &str) -> Result<String, LoginError> {
