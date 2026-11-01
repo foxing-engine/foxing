@@ -973,6 +973,7 @@ mod tests {
             !p.reply.contains("stands up out of the water"),
             "nothing has happened yet"
         );
+        crate::disremembered::grown(&mut w, "lantern-7");
         w.fixed_now = Some(w.now().plus(Duration::seconds(9)));
         w.tick();
         // The next message's reply says what the hollow did, as the narrator's quote.

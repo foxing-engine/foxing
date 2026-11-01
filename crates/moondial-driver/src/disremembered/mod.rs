@@ -278,7 +278,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // stopped, and when each window was taken (the quota is on these).
             .field("pto", FieldKind::Plain, Visibility::Public)
             .field("pto_since", FieldKind::Plain, Visibility::Public)
-            .field("pto_taken", FieldKind::Plain, Visibility::Public),
+            .field("pto_taken", FieldKind::Plain, Visibility::Public)
+            // When the name was taken. A new name is not hunted for its first hour.
+            .field("named_at", FieldKind::Plain, Visibility::Public),
         ComponentSchema::new(ACCOUNT, 1).field(
             "passphrase_hash",
             FieldKind::Plain,
@@ -765,6 +767,7 @@ pub fn login_as(
     fields.insert("name".into(), Field::Plain(json!(actor)));
     fields.insert("origin".into(), Field::Plain(json!(origin)));
     fields.insert("passing".into(), Field::Plain(json!(passing)));
+    fields.insert("named_at".into(), Field::Plain(json!(world.now().0)));
     world
         .record(
             me.clone(),
@@ -1034,6 +1037,19 @@ pub fn register(world: &mut World, curves: Curves) {
     cloak::register(world);
     building::register(world);
     system::register(world);
+}
+
+/// For tests: a name old enough to be hunted. A new name is spared ambushes for an
+/// hour, and most tests are over in seconds.
+#[cfg(test)]
+pub(crate) fn grown(world: &mut World, name: &str) {
+    let f = find_citizen(world, name).expect("a citizen to age");
+    let mut changes = BTreeMap::new();
+    changes.insert(
+        "named_at".into(),
+        Field::Plain(json!(world.now().0 - kindle::GRACE_MS - 1)),
+    );
+    set_citizen_fields(world, name, f.citizen, changes).expect("aged");
 }
 
 #[cfg(test)]

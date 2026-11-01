@@ -92,9 +92,16 @@ pub fn register(world: &mut World, curves: Curves) {
             };
             let text = args.str("text").unwrap_or("").split_whitespace().collect::<Vec<_>>().join(" ");
             let words = text.split_whitespace().count();
-            if words < MIN_WORDS {
+            // Paid by distinct words: fifty-five "la"s paid as much as a real story once.
+            let distinct = text
+                .split_whitespace()
+                .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase())
+                .filter(|w| !w.is_empty())
+                .collect::<std::collections::BTreeSet<_>>()
+                .len();
+            if distinct < MIN_WORDS {
                 return Err(CommandError::precondition(format!(
-                    "A story is at least {MIN_WORDS} words; that was {words}."
+                    "A story is at least {MIN_WORDS} different words; that was {distinct}."
                 )));
             }
             if text.chars().count() > MAX_STORY_CHARS {
@@ -123,7 +130,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let wanted = super::errand::wants_story(w, creature, &text);
             // About a third of an XP a word: the creature's mood is a fifth either way,
             // so no length is the right length to the decimal.
-            let paid = (super::jitter(w, words.min(MAX_WORDS_PAID) as f64 * XP_PER_WORD, 0.8, 1.2)
+            let paid = (super::jitter(w, distinct.min(MAX_WORDS_PAID) as f64 * XP_PER_WORD, 0.8, 1.2)
                 * super::economy::rate(w, "pay"))
             .round()
                 * if wanted { 2.0 } else { 1.0 };

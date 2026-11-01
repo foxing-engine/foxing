@@ -55,6 +55,18 @@ fn level(w: &mut World, actor: &str) -> f64 {
         .unwrap()
 }
 
+/// A regular: twenty lines through the gate today, as the Clocktower counts them.
+fn regular(w: &mut World, actor: &str) {
+    for _ in 0..super::economy::REGULAR_LINES {
+        w.note(
+            Actor::Citizen(actor.to_string()),
+            "gate.message",
+            json!({"from": actor, "text": "look", "compiled": true}),
+        )
+        .unwrap();
+    }
+}
+
 fn events(w: &World) -> u64 {
     w.log.head(&w.id).unwrap().unwrap().0
 }
@@ -660,7 +672,9 @@ fn the_world_moves_on_its_own() {
     w.fixed_now = Some(t0.plus(Duration::seconds(200)));
     assert_eq!(w.tick(), 0);
 
-    // Walk into the Shallows: a hollow ambushes after a few seconds.
+    // Walk into the Shallows: a hollow ambushes after a few seconds (a name in its
+    // first hour would be spared; dave's is older).
+    super::grown(&mut w, "dave");
     ok(&mut w, "dave", "travel", json!(["north"]));
     assert!(w
         .jobs
@@ -1433,6 +1447,7 @@ fn a_quiet_citizen_is_disremembered_by_the_room_and_returns_as_an_arrival() {
     login(&mut w, "dave", "test", PASS).unwrap();
     login(&mut w, "tyler", "test", PASS).unwrap();
     // Dave walks into the Shallows, where hollows hunt, and stops typing.
+    super::grown(&mut w, "dave");
     ok(&mut w, "dave", "travel", json!(["east"]));
     ok(&mut w, "dave", "travel", json!(["north"]));
     let shallows = rooms::room_by_key(&w, "shallows").unwrap();
@@ -1441,6 +1456,7 @@ fn a_quiet_citizen_is_disremembered_by_the_room_and_returns_as_an_arrival() {
         find_citizen(&w, "dave").unwrap().citizen
     ));
     // Tyler, active, sees him.
+    super::grown(&mut w, "tyler");
     ok(&mut w, "tyler", "travel", json!(["east"]));
     ok(&mut w, "tyler", "travel", json!(["north"]));
     let look = ok(&mut w, "tyler", "look", json!([]));
@@ -2414,7 +2430,23 @@ fn memory_moves_by_gift_and_by_story() {
         json!([&name, "too short a tale"]),
     )
     .unwrap_err();
-    assert!(err.to_string().contains("at least 12 words"), "{err}");
+    assert!(
+        err.to_string().contains("at least 12 different words"),
+        "{err}"
+    );
+    // Filler is not a story: fifty-five of one word once paid like a real one.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "story",
+        json!([
+            &name,
+            "la la la la la la la la la la la la la la la la la la la la"
+        ]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("that was 1"), "{err}");
     // Told: the teller earns, the creature keeps, both on the record.
     let out = ok(&mut w, "dave", "story", json!([&name, tale]));
     assert!(
@@ -4176,6 +4208,13 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
     assert!(w.jobs.has(economy::JOB_CLOCKTOWER, |_| true));
     login(&mut w, "dave", "test", PASS).unwrap();
     login(&mut w, "tyler", "test", PASS).unwrap();
+    // Nobody is a regular yet: the Clocktower strikes and moves nothing. (It steered
+    // by everyone who looked in once; the median was zero and every lever pinned.)
+    let hour = (t0.0 / economy::STRIKE_EVERY_MS + 1) * economy::STRIKE_EVERY_MS;
+    assert_eq!(economy::dashboard(&w)["regulars"], 0);
+    regular(&mut w, "dave");
+    regular(&mut w, "tyler");
+    assert_eq!(economy::dashboard(&w)["regulars"], 2);
     let time = ok(&mut w, "dave", "time", json!([]));
     assert!(
         time.summary
@@ -4183,9 +4222,8 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
         "{}",
         time.summary
     );
-    // Poor: two active citizens holding nothing. The hour strikes; the sources open,
+    // Poor: two regulars holding nothing. The hour strikes; the sources open,
     // and everyone present hears it in prose. The record carries the figures.
-    let hour = (t0.0 / economy::STRIKE_EVERY_MS + 1) * economy::STRIKE_EVERY_MS;
     w.fixed_now = Some(Timestamp(hour - 1000));
     ok(&mut w, "dave", "look", json!([]));
     ok(&mut w, "tyler", "look", json!([]));
@@ -4228,8 +4266,9 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
         "{}",
         out.result["recipes"][0]
     );
-    // A hoard: dave holds nearly all. The next strike thins memory and raises pay,
-    // whatever the band says (the median is still in it or below).
+    // A hoard: dave holds nearly all. The next strike thins memory, whatever the
+    // band says (the median is still in it or below). Pay is left alone: raising it
+    // against a hoard fed the same earner.
     // (The test world's chunks halve in seconds, so the hoard is made at the stroke.)
     w.fixed_now = Some(Timestamp(hour + economy::STRIKE_EVERY_MS - 1000));
     admin(&mut w, "dave", "earn", json!(["hoard", 5000, 1.0]));

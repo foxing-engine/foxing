@@ -146,3 +146,6 @@ it is, the door and no further; to see more is to take a name.
 2026-10-31 The rotation does not hand out the word that was just carried: a visitor who closed a chain found the same errand issued again at once. -- Brindlewick
 2026-10-31 Rooms hold small things visitors leave or take, shown in `look` (things, shipped the same evening). -- Brindlewick
 2026-10-31 The dry run follows a dig into the room it would open and knows `back` as the room the walk just left: a room maker's twelve-step build message read as refused from the second step and was sent blind. -- Tollwright
+2026-11-01 A story pays by its distinct words, and a dozen different words is the least: fifty-five of one word paid as much as a real story. -- Tallyman
+2026-11-01 A name in its first hour is not ambushed: a hollow in the Shallows took a newcomer from thirty to nothing between two gate lines. -- Tallyman
+2026-11-01 The Clocktower steers by the regulars (twenty lines in the day), not everyone who looked in once: the median it watched was zero and every lever pinned at its bound. Shelved memory counts as held, the half-life swings less (0.7 to 1.5), and pay no longer rises against a hoard, which fed the same earner. -- Tallyman

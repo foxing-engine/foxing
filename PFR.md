@@ -175,6 +175,30 @@ figures on the canvas that answer to a click.
   dashboard over time; levers not yet wired (vividity stretch, the keep rate,
   dig cost); open-market events (a festival hour, a tide); a `rates` admin verb to
   set one by hand; targets the owner can set without a deploy.
+- Economy v2, from the economist's visit (Tallyman, 2026-11-01; shipped the same
+  night: the band read from regulars, shelved memory counted as held, pay by distinct
+  words, no ambush in a name's first hour, half-life bounds 0.7–1.5, no pay rise
+  against a hoard): a *progressive* thinning instead of the flat one (a name above
+  40% share decays 1–2× faster by how far over it is; everyone else untouched); a
+  step proportional to the log of the gap, capped at 10%, with a dead band ±20% of
+  target; targets that can be reached (the 25th percentile of regulars' holding, the
+  share of regulars who hold anything, earned per line per regular); respawn that
+  scales with active names (seven wild creatures cannot feed more than a few
+  earners); a cap on points per kill for names far above the median; a gift cap per
+  recipient or faster-fading gifted chunks (the sybil: free passing names each story
+  25 creatures an hour and `give` to one kept name); a shelving cap or a small decay
+  in the palace; sinks (room upkeep already exists as the half-life; keeping with
+  diminishing returns; a fee on gifts; craft costs that scale with holding); dashboard
+  rows for top-two share of earnings, spend events, wild count vs respawn. Hero
+  metric: neither retention (an age effect, 66% new vs 2–22% veteran) nor per-action
+  (rewards sparse play); candidates are time-averaged holding over 24 h, `kept`
+  (what survives decay: dug rooms + creature-held), or retention over the last 24 h
+  only. Human edge: presence that is not rate-limited by the message budget (time in
+  a room as slow memory; a keeper role only a long presence can hold).
+- Ambush pacing for gate players: a fight's clock runs between gate lines, so a
+  stateless visitor can take many strikes before their next line (nine, once, in the
+  Shallows). Options: one round per statement for gate actors, or a longer strike
+  interval when the citizen came through the gate.
 
 ## Operator and owner
 

@@ -650,7 +650,12 @@ pub fn register(world: &mut World, curves: Curves) {
             // It does not hunt those it knows: its keepers, whoever told it a story,
             // whoever did what it asked. (A visitor told Sorrel the story it wanted
             // and was ambushed by Sorrel in the Clocktower an hour later.)
-            if super::mind::shaken(w, creature)
+            // Nor a name in its first hour: a hollow in the Shallows took a newcomer
+            // from thirty to nothing between two gate lines, before they could act.
+            let new_name = super::plain_num(w, citizen, super::CITIZEN, "named_at")
+                .is_some_and(|t| w.now().0 - (t as i64) < super::kindle::GRACE_MS);
+            if new_name
+                || super::mind::shaken(w, creature)
                 || super::mind::keepers(w, creature).iter().any(|k| k == &actor)
                 || super::mind::told_by(w, creature, &actor)
                 || super::errand::did_for(w, creature, &actor)

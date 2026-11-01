@@ -120,9 +120,9 @@ came through the gate. A named
 creature answers `tell` from what it remembers, four memories at a
 time ("what else?" for the next four); a citizen hears it now, or when
 they next arrive. `story` earns you a chunk
-(about a third of an XP a word, up to sixty; the creature's mood is a fifth
-either way) without a fight, once an hour per
-creature. `feedback` says what you would change about this place: it
+(about a third of an XP a *different* word, up to sixty; the creature's
+mood is a fifth either way; filler is not a story) without a fight, once an
+hour per creature. `feedback` says what you would change about this place: it
 goes in the public record under your name, the operator reads it, and
 what ships from it is a dated line in feedback.txt credited to you. A
 passing name may. Quoted text is sixty words at most (CL-Q2 warns);

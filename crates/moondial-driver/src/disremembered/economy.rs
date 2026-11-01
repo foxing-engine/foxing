@@ -45,6 +45,13 @@ pub const BAND_HIGH: f64 = 300.0;
 /// Above this share of all held memory in one name, memory thins and stories pay
 /// more: the one lever that hits a hoard harder than a hand.
 pub const CONCENTRATION_HIGH: f64 = 0.6;
+/// A regular: a name with this many lines in the day. The band is read from the
+/// regulars' holdings, not from everyone who looked in: with passing names counted,
+/// the median was zero and every lever pinned at its bound.
+pub const REGULAR_LINES: u64 = 20;
+/// Memory's half-life swings less than the other rates: it moves every hold at once.
+pub const HALF_LIFE_LOW: f64 = 0.7;
+pub const HALF_LIFE_HIGH: f64 = 1.5;
 
 pub const RATES: &[&str] = &["worth", "pay", "half_life", "respawn", "drop", "price"];
 
@@ -144,6 +151,7 @@ pub fn dashboard(world: &World) -> Value {
     // Held: every citizen's unfaded chunks; kept: chunks in creatures (disowned).
     let mut held: Vec<(String, f64)> = Vec::new();
     let mut kept = 0.0;
+    let mut shelved = 0.0;
     let mut things = 0u64;
     for e in world.store.entities() {
         match e.kind.as_str() {
@@ -153,9 +161,12 @@ pub fn dashboard(world: &World) -> Value {
                     .as_deref()
                     .and_then(|o| super::find_citizen(world, o))
                 {
+                    // Held is the window and the palace both: a shelved hoard is a hoard.
+                    let shelved_here = super::memory::level(world, f.palace);
+                    shelved += shelved_here;
                     held.push((
                         e.owner.clone().unwrap_or_default(),
-                        super::memory::level(world, f.window),
+                        super::memory::level(world, f.window) + shelved_here,
                     ));
                 }
             }
@@ -179,35 +190,42 @@ pub fn dashboard(world: &World) -> Value {
         })
         .cloned()
         .collect();
-    let mut active_holdings: Vec<f64> = active.iter().map(|(_, h)| *h).collect();
-    active_holdings.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    let median = if active_holdings.is_empty() {
-        0.0
-    } else {
-        active_holdings[active_holdings.len() / 2]
-    };
-    let top = held
-        .iter()
-        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
-        .cloned();
-    let concentration = match (&top, total) {
-        (Some((_, t)), total) if total > 0.0 => t / total,
-        _ => 0.0,
-    };
-    // The last hour, from the log: what was earned, spent, and done.
+    // The last hour, from the log: what was earned, spent, and done; and the day's
+    // lines by name, for who counts as a regular.
     let mut earned = 0.0;
     let mut spent = 0u64;
     let mut actions = 0u64;
+    let mut lines_today: std::collections::HashMap<String, u64> = Default::default();
     let mut chunk_owner: std::collections::HashMap<u64, String> = Default::default();
     for e in world
         .log
         .read_all(&world.id, Cursor::START)
         .unwrap_or_default()
     {
-        if e.at.0 < hour_ago {
+        if e.at.0 < day_ago {
             continue;
         }
         let p = &e.payload;
+        let n = if e.kind == "gate.message" {
+            if p["compiled"] == true {
+                1
+            } else {
+                p["text"]
+                    .as_str()
+                    .map(|t| t.matches("[DO]").count().max(1))
+                    .unwrap_or(1) as u64
+            }
+        } else {
+            0
+        };
+        if n > 0 {
+            if let Actor::Citizen(a) = &e.actor {
+                *lines_today.entry(a.clone()).or_default() += n;
+            }
+        }
+        if e.at.0 < hour_ago {
+            continue;
+        }
         match e.kind.as_str() {
             "store.entity_created" if p["kind"] == "chunk" => {
                 if let (Some(id), Some(o)) = (p["id"].as_u64(), p["owner"].as_str()) {
@@ -232,19 +250,34 @@ pub fn dashboard(world: &World) -> Value {
             {
                 spent += 1;
             }
-            "gate.message" => {
-                actions += if p["compiled"] == true {
-                    1
-                } else {
-                    p["text"]
-                        .as_str()
-                        .map(|t| t.matches("[DO]").count().max(1))
-                        .unwrap_or(1) as u64
-                };
-            }
+            "gate.message" => actions += n,
             _ => {}
         }
     }
+    let regulars: Vec<f64> = active
+        .iter()
+        .filter(|(name, _)| lines_today.get(name).copied().unwrap_or(0) >= REGULAR_LINES)
+        .map(|(_, h)| *h)
+        .collect();
+    let median_of = |v: &[f64]| {
+        let mut v = v.to_vec();
+        v.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        if v.is_empty() {
+            0.0
+        } else {
+            v[v.len() / 2]
+        }
+    };
+    let median = median_of(&active.iter().map(|(_, h)| *h).collect::<Vec<_>>());
+    let median_regular = median_of(&regulars);
+    let top = held
+        .iter()
+        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+        .cloned();
+    let concentration = match (&top, total) {
+        (Some((_, t)), total) if total > 0.0 => t / total,
+        _ => 0.0,
+    };
     json!({
         "as_of": now.0,
         "held": (total * 100.0).round() / 100.0,
@@ -253,11 +286,14 @@ pub fn dashboard(world: &World) -> Value {
         "citizens": held.len(),
         "active_today": active.len(),
         "median_active_holding": (median * 100.0).round() / 100.0,
+        "regulars": regulars.len(),
+        "median_regular_holding": (median_regular * 100.0).round() / 100.0,
+        "shelved": (shelved * 100.0).round() / 100.0,
         "top": top.as_ref().map(|(n, h)| json!({"name": n, "holding": (h * 100.0).round() / 100.0})),
         "concentration": (concentration * 1000.0).round() / 1000.0,
         "last_hour": {"earned": (earned * 100.0).round() / 100.0, "spent_events": spent, "actions": actions,
                       "wage_per_action": if actions > 0 { (earned / actions as f64 * 100.0).round() / 100.0 } else { 0.0 }},
-        "band": {"low": BAND_LOW, "high": BAND_HIGH, "concentration_high": CONCENTRATION_HIGH},
+        "band": {"low": BAND_LOW, "high": BAND_HIGH, "concentration_high": CONCENTRATION_HIGH, "regular_lines": REGULAR_LINES},
     })
 }
 
@@ -282,8 +318,8 @@ fn prose(rate: &str, up: bool) -> &'static str {
 
 /// The policy: one step per lever per strike, toward the band.
 fn policy(dash: &Value, rates: &BTreeMap<String, f64>) -> Vec<(String, f64, &'static str)> {
-    let median = dash["median_active_holding"].as_f64().unwrap_or(0.0);
-    let active = dash["active_today"].as_u64().unwrap_or(0);
+    let median = dash["median_regular_holding"].as_f64().unwrap_or(0.0);
+    let active = dash["regulars"].as_u64().unwrap_or(0);
     let concentration = dash["concentration"].as_f64().unwrap_or(0.0);
     let mut moves: Vec<(String, f64, &'static str)> = Vec::new();
     let step =
@@ -298,7 +334,11 @@ fn policy(dash: &Value, rates: &BTreeMap<String, f64>) -> Vec<(String, f64, &'st
                 from / (1.0 + STEP)
             };
             let to = (to * 1000.0).round() / 1000.0;
-            let to = to.clamp(RATE_LOW, RATE_HIGH);
+            let to = if name == "half_life" {
+                to.clamp(HALF_LIFE_LOW, HALF_LIFE_HIGH)
+            } else {
+                to.clamp(RATE_LOW, RATE_HIGH)
+            };
             if (to - from).abs() > 1e-9 {
                 moves.push((name.to_string(), to, why));
             }
@@ -311,38 +351,38 @@ fn policy(dash: &Value, rates: &BTreeMap<String, f64>) -> Vec<(String, f64, &'st
             &mut moves,
             "worth",
             false,
-            "the active hold more than the band",
+            "the regulars hold more than the band",
         );
         step(
             &mut moves,
             "pay",
             false,
-            "the active hold more than the band",
+            "the regulars hold more than the band",
         );
         step(
             &mut moves,
             "price",
             true,
-            "the active hold more than the band",
+            "the regulars hold more than the band",
         );
     } else if median < BAND_LOW {
         step(
             &mut moves,
             "worth",
             true,
-            "the active hold less than the band",
+            "the regulars hold less than the band",
         );
         step(
             &mut moves,
             "pay",
             true,
-            "the active hold less than the band",
+            "the regulars hold less than the band",
         );
         step(
             &mut moves,
             "price",
             false,
-            "the active hold less than the band",
+            "the regulars hold less than the band",
         );
     } else {
         // In the band: rates drift home toward 1.0, a step at a time.
@@ -372,13 +412,7 @@ fn policy(dash: &Value, rates: &BTreeMap<String, f64>) -> Vec<(String, f64, &'st
             false,
             "one name holds most of what is held",
         );
-        // Pay goes up against a hoard whatever the band says: the hand's lever.
-        step(
-            &mut moves,
-            "pay",
-            true,
-            "one name holds most of what is held",
-        );
+        // (Pay no longer rises against a hoard: it fed the same earner.)
     }
     moves
 }
