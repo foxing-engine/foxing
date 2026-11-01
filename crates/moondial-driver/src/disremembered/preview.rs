@@ -111,7 +111,17 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &moondial_clear::Mess
                     }) {
                         Some(&to) => {
                             room = Some(to);
-                            (true, format!("goes {} to {}", arg(0), room_name(Some(to))))
+                            (
+                                true,
+                                format!(
+                                    "{} to {}",
+                                    rooms::went(&arg(0))
+                                        .trim_end_matches('.')
+                                        .replacen("You go", "goes", 1)
+                                        .replacen("You take", "takes", 1),
+                                    room_name(Some(to))
+                                ),
+                            )
                         }
                         None => (
                             false,

@@ -168,6 +168,17 @@ pub const ROOMS: &[RoomDef] = &[
     },
 ];
 
+/// How leaving reads: "You go east." for a compass word, "You go back.", and "You
+/// take the orrery." for a door with a name of its own ("You go orrery." was wrong).
+pub fn went(exit: &str) -> String {
+    match exit {
+        "north" | "south" | "east" | "west" | "up" | "down" | "back" | "in" | "out" => {
+            format!("You go {exit}.")
+        }
+        _ => format!("You take the {exit}."),
+    }
+}
+
 /// The room entity with this key.
 pub fn room_by_key(world: &World, key: &str) -> Option<EntityId> {
     world
@@ -649,7 +660,7 @@ pub fn register(world: &mut World) {
             out.summary = if doorless {
                 format!("There is no door here, so you go the way every room was first reached. {}", out.summary)
             } else {
-                format!("You go {exit}. {}", out.summary)
+                format!("{} {}", went(&exit), out.summary)
             };
             Ok(out)
         }),

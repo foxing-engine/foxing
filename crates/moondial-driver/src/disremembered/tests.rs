@@ -3171,6 +3171,9 @@ REF: s-1
     assert_eq!(what[0], "true shows The Threshold");
     assert_eq!(what[1], "true goes east to The Fogbank");
     assert_eq!(what[2], "true goes south to The Midden");
+    // A door with a name of its own is taken, not gone: "You take the orrery."
+    assert_eq!(rooms::went("orrery"), "You take the orrery.");
+    assert_eq!(rooms::went("back"), "You go back.");
     assert!(
         what[3].starts_with(&format!(
             "true tells {name} the ragpicker a story: the one it wants, worth double"
