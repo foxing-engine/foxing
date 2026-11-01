@@ -178,7 +178,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("size", FieldKind::Plain, Visibility::Owner)
             .field("vividity", FieldKind::Plain, Visibility::Owner)
             .field("source", FieldKind::Plain, Visibility::Public)
-            .field("tier", FieldKind::Plain, Visibility::Public),
+            .field("tier", FieldKind::Plain, Visibility::Public)
+            // What a taxed gift keeps of its half-life, when it was taxed.
+            .field("taxed", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(ROOM, 2)
             .field("key", FieldKind::Plain, Visibility::Public)
             .field("name", FieldKind::Plain, Visibility::Public)

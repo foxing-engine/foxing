@@ -703,3 +703,37 @@ pub fn register(world: &mut World) {
 pub fn ensure_wander(world: &mut World) -> Result<(), String> {
     schedule_wander(world)
 }
+
+/// "a wisp", "an engrosser": the article a kind takes.
+pub fn an(kind: &str) -> String {
+    let vowel = kind
+        .chars()
+        .next()
+        .is_some_and(|c| "aeiou".contains(c.to_ascii_lowercase()));
+    format!("{} {kind}", if vowel { "an" } else { "a" })
+}
+
+/// What an unnamed creature goes on doing when spoken to: it has no name to listen
+/// with, and each kind has its own way of not listening. (The ragpicker's "goes on
+/// sorting" was every kind's line once, clerks and tipstaff included.)
+pub fn goes_on(kind: &str) -> &'static str {
+    match kind {
+        "wisp" => "goes on drifting",
+        "hollow" => "stands where it stands",
+        "revenant" => "goes on waiting",
+        "inkling" => "goes on fluttering",
+        "mothwing" => "works the branches",
+        "ragpicker" => "goes on sorting",
+        "drowned" => "sinks a little",
+        "sitter" => "faces the wall",
+        "hourhand" => "goes on turning",
+        "keeper" => "goes on keeping",
+        "lamprey" => "stays fastened to the shelf",
+        "usher" => "waits at your elbow",
+        "censor" => "goes on stamping",
+        "cataloguer" => "turns a page",
+        "engrosser" => "writes down that you spoke, and nothing of what you said",
+        "tipstaff" => "keeps the rail",
+        _ => "goes on with what it was doing",
+    }
+}

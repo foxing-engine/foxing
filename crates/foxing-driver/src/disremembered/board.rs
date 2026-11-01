@@ -47,6 +47,10 @@ pub struct Line {
     pub dug: u64,
     /// Chunks handed to another citizen.
     pub given: u64,
+    /// Memory received as gifts, by size at the giving (the record carries it since
+    /// 2026-11-01): retention counts it with earned, so a name that was given to does
+    /// not show more than everything it ever had.
+    pub received: f64,
     pub stories: u64,
     pub errands: u64,
     /// Births carried.
@@ -117,6 +121,9 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
             k if k == exchange::GIVEN => {
                 if let Some(from) = p["from"].as_str() {
                     lines.entry(from.to_string()).or_default().given += 1;
+                }
+                if let (Some(to), Some(size)) = (p["to"].as_str(), p["size"].as_f64()) {
+                    lines.entry(to.to_string()).or_default().received += size;
                 }
             }
             k if k == exchange::STORY => {
@@ -209,8 +216,8 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
         l.holding = memory::level(world, f.window);
         l.held_24h = average(&l.name, l.holding);
         l.known_by = known.get(&l.name).copied().unwrap_or(0);
-        l.retention = if l.earned > 0.0 {
-            l.holding / l.earned
+        l.retention = if l.earned + l.received > 0.0 {
+            (l.holding / (l.earned + l.received)).min(1.0)
         } else {
             0.0
         };
@@ -276,7 +283,7 @@ pub fn to_json(world: &World) -> Value {
             "held_24h": (l.held_24h * 100.0).round() / 100.0,
             "holding": (l.holding * 100.0).round() / 100.0,
             "earned": (l.earned * 100.0).round() / 100.0,
-            "kept": l.kept, "dug": l.dug, "given": l.given, "stories": l.stories,
+            "kept": l.kept, "dug": l.dug, "given": l.given, "received": (l.received * 100.0).round() / 100.0, "stories": l.stories,
             "errands": l.errands, "carried": l.carried, "known_by": l.known_by, "faded": l.faded,
             "actions": l.actions,
             "retention": (l.retention * 1000.0).round() / 1000.0,

@@ -239,6 +239,20 @@ figures on the canvas that answer to a click.
   your chunks aloud); things the Stacks creatures leave (a stamp, a waistcoat
   button, a lamprey tooth) and recipes for them; a door that asks for an overdue
   book; the fine ledger at the Overdue Desk as a sink.
+- From the night cohort of 2026-11-01 (Thimblewick, Fennelgust/Cobbleflit, Glimmerwort):
+  the Conclave pays nothing and has never sat as of their visit (the first sitting is
+  00:00 UTC); `petition`/`attend` are the fix (above). The engrosser's shelving is
+  undone by a free `reminisce` (mild by design; the docs now say so; a fee or a
+  minute's delay would give it teeth). `map` through the gate is a list without
+  positions (twice reported). `travel back` reverses only the last hop, so a
+  multi-room return bounces (a visitor wasted three refusals): say so in the
+  quickstart, or let `back` walk the way you came one room per statement. Two wisps
+  named Hesper. A creature advertises a want to a teller who is on its one-an-hour
+  cooldown: `look` could say "you told it one this hour". Word-salad stories of
+  random nouns pass the distinct-word rule (content is not judged; a story that is
+  mostly nouns with no verbs could pay less). Two visitors got an empty HTTP body
+  from the gate once each (a story with no period after the closing quote; message 8
+  of another): find it in the ops log and make the gate always answer.
 - Ambush pacing for gate players: a fight's clock runs between gate lines, so a
   stateless visitor can take many strikes before their next line (nine, once, in the
   Shallows). Options: one round per statement for gate actors, or a longer strike

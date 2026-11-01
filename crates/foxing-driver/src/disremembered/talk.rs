@@ -98,7 +98,7 @@ pub fn register(world: &mut World) {
                 };
                 let Some(answer) = answer else {
                     return Ok(Outcome::new(
-                        format!("You say to the {name}, \"{text}\" It does not understand you. It is only a {name}."),
+                        format!("You say to the {name}, \"{text}\" It does not understand you. It is only {}; it {}.", super::mind::an(&name), super::mind::goes_on(&name)),
                         json!({"to": name, "text": text, "answered": false}),
                     ));
                 };

@@ -4341,15 +4341,15 @@ fn the_conclave_writes_the_statutes_memory_moves_under() {
     );
     // An enactment: on the record, in prose, to everyone present; out of bounds refused.
     let head = events(&w);
-    let out = admin(&mut w, "dave", "enact", json!(["gift_allowance", 50]));
+    let out = admin(&mut w, "dave", "enact", json!(["gift_allowance", 40]));
     assert!(
         out.summary.starts_with(
-            "By statute, the Conclave narrows the day's gift allowance from 120 to 50."
+            "By statute, the Conclave narrows the day's gift allowance from 120 to 40."
         ),
         "{}",
         out.summary
     );
-    assert_eq!(conclave::statute(&w, "gift_allowance"), 50.0);
+    assert_eq!(conclave::statute(&w, "gift_allowance"), 40.0);
     assert!(narrative(&w, "tyler", head)
         .iter()
         .any(|l| l.starts_with("By statute, the Conclave narrows")));
@@ -4414,6 +4414,18 @@ fn the_conclave_writes_the_statutes_memory_moves_under() {
         "taxed: half the half-life"
     );
     assert_eq!(conclave::given_today(&w, "dave"), 80.0);
+    assert_eq!(conclave::received_today(&w, "tyler"), 80.0);
+    // The receiver's share: tyler gives one back under his own allowance, but dave has
+    // been given to past the day's share once it is narrowed; the tax falls on it.
+    admin(&mut w, "dave", "enact", json!(["gift_receipt", 10]));
+    let out = ok(
+        &mut w,
+        "tyler",
+        "give",
+        json!([format!("chunk-{first}"), "dave"]),
+    );
+    assert_eq!(out.result["taxed"], true, "{}", out.summary);
+    assert!(out.summary.contains("dave has received"), "{}", out.summary);
 
     // The shelf limit: a shelf at the limit takes nothing more.
     admin(&mut w, "dave", "enact", json!(["shelf_limit", 50]));
@@ -4463,7 +4475,7 @@ fn the_conclave_writes_the_statutes_memory_moves_under() {
         half_life(&w, taxed),
         half_life(&w, free)
     );
-    assert_eq!(out_json(&w)["statutes"]["gift_allowance"], 50.0);
+    assert_eq!(out_json(&w)["statutes"]["gift_allowance"], 40.0);
 
     // The sitting: once a day, on the record, naming the hoard, changing nothing.
     // (The test world's chunks fade in seconds; the hoard is made again at the stroke.)
@@ -4488,7 +4500,7 @@ fn the_conclave_writes_the_statutes_memory_moves_under() {
         "{}",
         sat[0].payload["said"]
     );
-    assert_eq!(conclave::statute(&w, "gift_allowance"), 50.0);
+    assert_eq!(conclave::statute(&w, "gift_allowance"), 40.0);
     assert!(w.jobs.has(conclave::JOB_SITTING, |_| true), "wound again");
 
     fn out_json(w: &World) -> Value {

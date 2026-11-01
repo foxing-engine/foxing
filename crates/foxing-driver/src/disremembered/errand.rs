@@ -392,6 +392,12 @@ pub fn describe(world: &World, creature: EntityId) -> Option<String> {
             .unwrap_or_default();
         let here = world.store.entity(creature).and_then(|c| c.parent);
         let way = match (here, there) {
+            // The one it names is gone from the world (felled, or forgotten): say so,
+            // rather than leave the route blank as if it were merely unknown. (A
+            // visitor scanned every room for a Wren that was not there.)
+            (_, None) if mind::find_named(world, to).is_none() => {
+                " (there is no one by that name in the world now; the want will turn)".to_string()
+            }
             (Some(a), Some(b)) if a == b => " (it is here)".to_string(),
             (Some(a), Some(b)) => route(world, a, b)
                 .filter(|p| !p.is_empty())

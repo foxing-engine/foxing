@@ -111,7 +111,18 @@ fn chunk_rows(
         .filter(|e| e.kind == "chunk")
         .map(|e| {
             let f = |name: &str| world.store.read_field(e.id, CHUNK, name, now).ok();
-            json!({"id": e.id.0, "source": f("source"), "tier": f("tier"), "size": f("size"), "vividity": f("vividity"), "value": f("value")})
+            // Its own clock: the half-life (or the power law's scale) as it stands, so
+            // a taxed gift shows its faster fade here and not only to observe.
+            let halves = world
+                .store
+                .timed_field(e.id, CHUNK, "value")
+                .ok()
+                .and_then(|t| match t.curve {
+                    foxing_time::Curve::Exponential { half_life } => Some(half_life.0),
+                    foxing_time::Curve::PowerLaw { scale, .. } => Some(scale.0),
+                    _ => None,
+                });
+            json!({"id": e.id.0, "source": f("source"), "tier": f("tier"), "size": f("size"), "vividity": f("vividity"), "value": f("value"), "halves_ms": halves, "taxed": f("taxed")})
         })
         .collect();
     rows.sort_by(|a, b| {
@@ -160,12 +171,21 @@ fn rows_text(rows: &[Value]) -> Vec<String> {
         .take(ROWS_SHOWN)
         .map(|r| {
             format!(
-                "  chunk-{} {:<10} {:>9.2} of {:<6} vividity {:.2}",
+                "  chunk-{} {:<10} {:>9.2} of {:<6} vividity {:.2}{}{}",
                 r["id"],
                 r["source"].as_str().unwrap_or("?"),
                 r["value"].as_f64().unwrap_or(0.0),
                 r["size"],
-                r["vividity"].as_f64().unwrap_or(0.0)
+                r["vividity"].as_f64().unwrap_or(0.0),
+                r["halves_ms"]
+                    .as_i64()
+                    .map(|ms| format!("  halves in {}", super::combat::human(ms)))
+                    .unwrap_or_default(),
+                if r["taxed"].is_number() {
+                    "  (taxed)"
+                } else {
+                    ""
+                }
             )
         })
         .collect();
@@ -308,14 +328,16 @@ pub fn register(world: &mut World, curves: Curves) {
         Box::new(|w: &mut World, ctx, _| {
             let f = me(w, ctx)?;
             let (rows, observation) = chunk_rows(w, ctx, f.palace)?;
+            let on_shelf: f64 = rows.iter().filter_map(|r| r["value"].as_f64()).sum();
+            let limit = super::conclave::statute(w, "shelf_limit");
             let text = if rows.is_empty() {
-                "Your palace is empty.".to_string()
+                format!("Your palace is empty. The shelf holds {limit:.0} at most, by the Conclave's statute.")
             } else {
-                format!("Palace\n{}", rows_text(&rows).join("\n"))
+                format!("Palace, {on_shelf:.2} on the shelf of {limit:.0} the statute allows\n{}", rows_text(&rows).join("\n"))
             };
             Ok(Outcome::new(
                 text,
-                json!({"chunks": rows, "observation": observation}),
+                json!({"chunks": rows, "on_shelf": on_shelf, "shelf_limit": limit, "observation": observation}),
             ))
         }),
     );

@@ -58,6 +58,13 @@ pub const STATUTES: &[StatuteDef] = &[
         what: "what a gift over the allowance keeps of its half-life: at 0.5 it thins twice as fast in the receiver's hands",
     },
     StatuteDef {
+        name: "gift_receipt",
+        default: 240.0,
+        low: 0.0,
+        high: 100_000.0,
+        what: "how much memory (XP) a name may receive in gifts in a day, from all givers together, before the gift tax falls on what it receives; free names could otherwise each give their allowance to one",
+    },
+    StatuteDef {
         name: "hoard_share",
         default: 0.4,
         low: 0.1,
@@ -236,6 +243,8 @@ fn prose(name: &str, from: f64, to: f64) -> String {
     match (name, up) {
         ("gift_allowance", true) => format!("By statute, the Conclave enlarges the day's gift allowance from {from:.0} to {to:.0}. A name may now be generous a little further before the Conclave takes notice."),
         ("gift_allowance", false) => format!("By statute, the Conclave narrows the day's gift allowance from {from:.0} to {to:.0}. Generosity beyond it is not forbidden. It is noted."),
+        ("gift_receipt", true) => format!("By statute, the Conclave enlarges a name's share of gifts received from {from:.0} to {to:.0} a day. A name may now be given to a little further before the Conclave takes notice."),
+        ("gift_receipt", false) => format!("By statute, the Conclave narrows a name's share of gifts received from {from:.0} to {to:.0} a day. Beyond it, what is given thins in the hands that take it, whoever gave."),
         ("gift_tax", true) => format!("The Conclave relents. A gift past the allowance now keeps {} of its half-life, where it kept {}. The Conclave was always merciful; the Book now says so.", pct(to), pct(from)),
         ("gift_tax", false) => format!("The Conclave tightens the gift tax. A gift past the allowance now keeps {} of its half-life, where it kept {}, and thins the faster in the hands that take it. The Conclave regrets nothing, and has entered that it regrets nothing.", pct(to), pct(from)),
         ("hoard_share", true) => format!("The Conclave raises the mark of a hoard from {} to {} of all that is held. Fewer names will be found upon the Roll. The Conclave has not grown lenient. The world has grown worthy.", pct(from), pct(to)),
@@ -268,6 +277,34 @@ pub const KEYS: &[&str] = &[
     "minute-room",
     "engrossing-room",
 ];
+
+/// What a room of the Conclave shows beyond its prose: the Roll of Hoards, chalked on
+/// its slate; the Book's standing at the Lectern. Nothing elsewhere.
+pub fn room_note(world: &World, room: EntityId) -> Option<String> {
+    match super::plain_str(world, room, super::ROOM, "key")? {
+        "roll-hall" => {
+            let hoards = book(world, "hoards").unwrap_or_else(|| json!({}));
+            let names: Vec<String> = hoards
+                .as_object()
+                .map(|m| {
+                    m.iter()
+                        .map(|(n, s)| format!("{n}, {:.0}%", s.as_f64().unwrap_or(0.0) * 100.0))
+                        .collect()
+                })
+                .unwrap_or_default();
+            Some(if names.is_empty() {
+                "The slate is clean. The chalk is new.".to_string()
+            } else {
+                format!("Chalked on the slate: {}.", names.join("; "))
+            })
+        }
+        "book-lectern" => Some(format!(
+            "The Book lies open at {} statutes; `statutes` reads them.",
+            STATUTES.len()
+        )),
+        _ => None,
+    }
+}
 
 /// Whether a room is one of the Conclave's.
 pub fn is_house(world: &World, room: EntityId) -> bool {
@@ -339,6 +376,18 @@ pub fn given_today(world: &World, actor: &str) -> f64 {
         .iter()
         .filter(|e| e.kind == super::exchange::GIVEN && e.at.0 >= day_ago)
         .filter(|e| e.payload["from"] == actor)
+        .map(|e| e.payload["size"].as_f64().unwrap_or(0.0))
+        .sum()
+}
+
+/// What `actor` has received in gifts in the last day, by the same record.
+pub fn received_today(world: &World, actor: &str) -> f64 {
+    let day_ago = world.now().0 - 86_400_000;
+    world
+        .recent_events(5000)
+        .iter()
+        .filter(|e| e.kind == super::exchange::GIVEN && e.at.0 >= day_ago)
+        .filter(|e| e.payload["to"] == actor)
         .map(|e| e.payload["size"].as_f64().unwrap_or(0.0))
         .sum()
 }
@@ -423,8 +472,8 @@ pub fn sit(world: &mut World) -> Result<(), String> {
     wind(world)
 }
 
-/// The book as prose, for `statutes`.
-pub fn text(world: &World) -> String {
+/// The book as prose, for `statutes`; `in_house` adds what is carved over the door.
+pub fn text(world: &World, in_house: bool) -> String {
     let mut lines = vec!["The Conclave's statutes:".to_string()];
     for s in STATUTES {
         lines.push(format!(
@@ -449,13 +498,15 @@ pub fn text(world: &World) -> String {
         "A statute changes by enactment, on the public record. The Conclave sits once a day."
             .to_string(),
     );
-    let n = entity(world)
-        .and_then(|e| plain_num(world, e, CONCLAVE, "sittings"))
-        .unwrap_or(0.0) as usize;
-    lines.push(format!(
-        "Carved over the door: {}",
-        SAYINGS[n % SAYINGS.len()]
-    ));
+    if in_house {
+        let n = entity(world)
+            .and_then(|e| plain_num(world, e, CONCLAVE, "sittings"))
+            .unwrap_or(0.0) as usize;
+        lines.push(format!(
+            "Carved over the door: {}",
+            SAYINGS[n % SAYINGS.len()]
+        ));
+    }
     lines.join("\n")
 }
 
@@ -506,11 +557,11 @@ pub fn register(world: &mut World) {
         ),
         Box::new(|w: &mut World, ctx, _: &Args| {
             // Read at the Lectern, the Book itself: the Conclave says one line over it.
-            let at_lectern = super::find_citizen(w, &ctx.actor)
-                .and_then(|f| super::rooms::room_of(w, f.citizen))
+            let here = super::find_citizen(w, &ctx.actor).and_then(|f| super::rooms::room_of(w, f.citizen));
+            let at_lectern = here
                 .and_then(|r| super::plain_str(w, r, super::ROOM, "key").map(|k| k == "book-lectern"))
                 .unwrap_or(false);
-            let body = text(w);
+            let body = text(w, here.is_some_and(|r| is_house(w, r)));
             Ok(Outcome::new(
                 if at_lectern { format!("The Book is open. The Conclave permits you to read it.\n{body}") } else { body },
                 to_json(w),

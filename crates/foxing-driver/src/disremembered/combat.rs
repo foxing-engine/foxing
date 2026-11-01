@@ -941,7 +941,13 @@ pub fn register(world: &mut World, curves: Curves) {
                     chunk.0,
                     vividity,
                     if vividity > 0.6 { " (you nearly died; this one will last)" } else { "" },
-                    left.as_ref().map(|(id, n)| format!(" It leaves {n} behind (item-{}); take it.", id.0)).unwrap_or_default(),
+                    match &left {
+                        Some((id, n)) => format!(" It leaves {n} behind (item-{}); take it.", id.0),
+                        // Say when the roll missed, so a visitor can tell a missed
+                        // roll from a broken one (ten kills, nothing, and no way to know).
+                        None if super::craft::material_for(&cname).is_some() => " Nothing of it is left behind this time.".to_string(),
+                        None => String::new(),
+                    },
                     throes.map(|t| format!(" {t}")).unwrap_or_default()
                 ));
                 return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": true, "chunk": chunk.0, "xp": xp, "vividity": vividity, "hp": my_hp, "left": left.as_ref().map(|(id, n)| json!({"item": id.0, "name": n}))})));
@@ -989,7 +995,11 @@ pub fn register(world: &mut World, curves: Curves) {
                 };
                 return Ok(Outcome::new(msg, json!({"died": true, "lost": lost})));
             }
-            let mended = if super::stacks::trick_of(w, creature).is_some() { " It will be whole again by the time you come back; the Stacks keep their own." } else { "" };
+            let mended = match super::stacks::trick_of(w, creature) {
+                Some(super::stacks::Trick::Enter) | Some(super::stacks::Trick::Below) => " It will be whole again by the time you come back; the Conclave keeps its order.",
+                Some(_) => " It will be whole again by the time you come back; the Stacks keep their own.",
+                None => "",
+            };
             Ok(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}. You have {:.0}/{:.0}.{mended}", hp(w, f.citizen), super::MAX_HP), json!({"died": false, "hp": hp(w, f.citizen)})))
         }),
     );

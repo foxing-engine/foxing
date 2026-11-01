@@ -56,14 +56,25 @@ pub fn register(world: &mut World, curves: Curves) {
             let chunk = super::memory::resolve_chunk(w, ctx, args.str("chunk").unwrap_or(""), &[f.window, f.palace])?;
             let size = w.store.read_field(chunk, super::CHUNK, "value", w.now()).map_err(internal)?.as_f64().unwrap_or(0.0);
             // The Conclave's gift allowance: a day's gifts past it are taxed, the gift
-            // thinning faster in the receiver's hands. (Free passing names could each
-            // story every creature once an hour and give it all to one kept name.)
+            // thinning faster in the receiver's hands. The chunk that crosses the line is
+            // taxed on the part that is over, not the whole (a 32 taxed in full for 7 over
+            // read as a rounding bug). The receiver has an allowance too: free names could
+            // each give 120 untaxed to one kept name, so the tax falls on what a name
+            // *receives* past its day's share as well, whoever gives it.
             let before = super::conclave::given_today(w, &ctx.actor);
             let allowance = super::conclave::statute(w, "gift_allowance");
-            let taxed = before + size > allowance;
+            let received = super::conclave::received_today(w, &to);
+            let receipt = super::conclave::statute(w, "gift_receipt");
+            let over_giving = ((before + size - allowance) / size.max(1e-9)).clamp(0.0, 1.0);
+            let over_receiving = ((received + size - receipt) / size.max(1e-9)).clamp(0.0, 1.0);
+            let over = over_giving.max(over_receiving);
+            let taxed = over > 0.0;
             let (id, source) = mind::move_chunk(w, &ctx.actor, chunk, them.window, Some(to.clone()))?;
             if taxed {
-                let keep = super::conclave::statute(w, "gift_tax");
+                let keep_full = super::conclave::statute(w, "gift_tax");
+                // Keep all of the half-life for the part under the line, `gift_tax` of it
+                // for the part over.
+                let keep = 1.0 - (1.0 - keep_full) * over;
                 if let Some(foxing_store::Field::Timed(t)) = w.store.entity(id).and_then(|e| e.components.get(super::CHUNK)).and_then(|c| c.fields.get("value")).cloned() {
                     let curve = match t.curve {
                         foxing_time::Curve::Exponential { half_life } => foxing_time::Curve::Exponential { half_life: foxing_time::Duration((half_life.0 as f64 * keep) as i64) },
@@ -72,19 +83,32 @@ pub fn register(world: &mut World, curves: Curves) {
                     };
                     w.record(Actor::Citizen(ctx.actor.clone()), foxing_store::StoreEvent::FieldRecurved { id, component: super::CHUNK.into(), field: "value".into(), curve }).map_err(internal)?;
                 }
+                w.record(Actor::Citizen(ctx.actor.clone()), foxing_store::StoreEvent::FieldSet { id, component: super::CHUNK.into(), field: "taxed".into(), value: json!((keep * 1000.0).round() / 1000.0) }).map_err(internal)?;
             }
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 GIVEN,
-                json!({"from": ctx.actor, "to": to, "chunk": id.0, "was": chunk.0, "with": source, "room": here.0, "size": size, "taxed": taxed, "given_today": before + size}),
+                json!({"from": ctx.actor, "to": to, "chunk": id.0, "was": chunk.0, "with": source, "room": here.0, "size": size, "taxed": taxed, "over": over, "given_today": before + size, "received_today": received + size}),
             );
-            let tax_line = if taxed { " The Conclave's gift tax is on it: it thins faster than it did." } else { "" };
+            let tax_line = if over_receiving > 0.0 {
+                format!(" You have received {:.0} today against a share of {receipt:.0}; the Conclave's gift tax is on it, and it thins faster than it did.", received + size)
+            } else if taxed {
+                " The Conclave's gift tax is on it: it thins faster than it did.".to_string()
+            } else {
+                String::new()
+            };
             narrate(w, &to, format!("{} gives you the memory of {source}: chunk-{}. It is yours now, and fading as it was.{tax_line}", ctx.actor, id.0));
             w.notice(format!("**{}** gave the memory of {source} to **{to}**.{}", ctx.actor, if taxed { " (taxed)" } else { "" }));
             Ok(Outcome::new(
                 format!("You give {to} the memory of {source}. It is theirs now: chunk-{}.{}", id.0,
-                    if taxed { format!(" You have given {:.0} today against an allowance of {allowance:.0}; the Conclave's gift tax is on it, and it thins faster in their hands.", before + size) } else { String::new() }),
-                json!({"to": to, "chunk": id.0, "with": source, "size": size, "taxed": taxed, "given_today": before + size, "allowance": allowance}),
+                    if over_giving > 0.0 {
+                        format!(" You have given {:.0} today against an allowance of {allowance:.0}; the Conclave's gift tax is on it{}, and it thins faster in their hands.", before + size, if over_giving < 1.0 { format!(" ({:.0}% of it, the part over the line)", over_giving * 100.0) } else { String::new() })
+                    } else if over_receiving > 0.0 {
+                        format!(" {to} has received {:.0} today against a share of {receipt:.0}; the Conclave's gift tax is on it in their hands.", received + size)
+                    } else {
+                        format!(" You have given {:.0} of the day's {allowance:.0}.", before + size)
+                    }),
+                json!({"to": to, "chunk": id.0, "with": source, "size": size, "taxed": taxed, "over": over, "given_today": before + size, "allowance": allowance, "received_today": received + size, "receipt": receipt}),
             ))
         }),
     );
@@ -106,7 +130,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let display = mind::display(w, creature);
             let Some(name) = mind::name(w, creature) else {
                 return Ok(Outcome::new(
-                    format!("You begin, and the {display} goes on sorting. It has no name to listen with."),
+                    format!("You begin, and the {display} {}. It has no name to listen with.", mind::goes_on(&display)),
                     json!({"creature": creature.0, "kept": false}),
                 ));
             };

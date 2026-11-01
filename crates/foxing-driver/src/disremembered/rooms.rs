@@ -849,6 +849,10 @@ pub fn describe(
             text.push_str(&e);
         }
     }
+    if let Some(note) = super::conclave::room_note(world, room) {
+        text.push(' ');
+        text.push_str(&note);
+    }
     text.push_str(&if others.is_empty() {
         " You are alone.".to_string()
     } else {
