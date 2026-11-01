@@ -367,13 +367,37 @@ pub fn remembered_map(
         .filter(|(m, _)| *m < 0.5)
         .map(|(_, n)| n.clone())
         .collect();
+    // The ways out, by name: a visitor at the Fogbank read "you remember no other
+    // room" while standing one door from the Threshold, because what you can see is
+    // not listed as remembered.
+    let ways: Vec<String> = here
+        .map(|h| {
+            let mut v: Vec<(String, EntityId)> = rooms::exits_of(world, h).into_iter().collect();
+            v.sort();
+            v.into_iter()
+                .map(|(n, to)| {
+                    format!(
+                        "{n} ({})",
+                        plain_str(world, to, ROOM, "name")
+                            .unwrap_or("?")
+                            .trim_start_matches("The ")
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     let mut summary = format!(
-        "You are in {here_name}; you can see {} way{} out.",
+        "You are in {here_name}; you can see {} way{} out{}.",
         visible.len().saturating_sub(1),
-        if visible.len() == 2 { "" } else { "s" }
+        if visible.len() == 2 { "" } else { "s" },
+        if ways.is_empty() {
+            String::new()
+        } else {
+            format!(": {}", ways.join(", "))
+        }
     );
     if clear.is_empty() && dim.is_empty() {
-        summary.push_str(" The rest of the map is blank: you remember no other room.");
+        summary.push_str(" Beyond what you can see, the map is blank: you remember no other room.");
     } else {
         if !clear.is_empty() {
             summary.push_str(&format!(" You remember the way to {}.", clear.join(", ")));
@@ -386,6 +410,54 @@ pub fn remembered_map(
     summary.push_str(&format!(
         " A room fades from your map by half every {hours:.1} hours since you stood in it."
     ));
+    // The grid, drawn: this floor, as text, when it fits. A visitor through the gate
+    // was promised a grid and got a sentence; the play page draws it, and now so does
+    // the reply. @ is here, * what you can see, · what you remember.
+    let floor = here
+        .and_then(|h| all.rooms.iter().find(|p| p.id == h))
+        .map(|p| p.z);
+    if let Some(z) = floor {
+        let on_floor: Vec<&Value> = shown
+            .iter()
+            .filter(|r| r["z"].as_i64() == Some(z))
+            .collect();
+        if on_floor.len() > 1 {
+            let xs: Vec<i64> = on_floor.iter().filter_map(|r| r["x"].as_i64()).collect();
+            let ys: Vec<i64> = on_floor.iter().filter_map(|r| r["y"].as_i64()).collect();
+            let (x0, x1) = (
+                *xs.iter().min().unwrap_or(&0),
+                *xs.iter().max().unwrap_or(&0),
+            );
+            let (y0, y1) = (
+                *ys.iter().min().unwrap_or(&0),
+                *ys.iter().max().unwrap_or(&0),
+            );
+            if x1 - x0 <= 15 && y1 - y0 <= 11 {
+                let mut legend: Vec<String> = Vec::new();
+                let mut grid: Vec<Vec<String>> =
+                    vec![vec!["   ".to_string(); (x1 - x0 + 1) as usize]; (y1 - y0 + 1) as usize];
+                for (i, r) in on_floor.iter().enumerate() {
+                    let (x, y) = (r["x"].as_i64().unwrap_or(0), r["y"].as_i64().unwrap_or(0));
+                    let code = format!("{:02}", (i + 1) % 100);
+                    let mark = if r["here"] == true {
+                        "@"
+                    } else if r["visible"] == true {
+                        "*"
+                    } else {
+                        "·"
+                    };
+                    grid[(y1 - y) as usize][(x - x0) as usize] = format!("{code}{mark}");
+                    legend.push(format!("{code} {}", r["name"].as_str().unwrap_or("?")));
+                }
+                let rows: Vec<String> = grid.iter().map(|row| row.join(" ")).collect();
+                summary.push_str(&format!(
+                    "\nThis floor (north up, east right; @ here, * in sight, · remembered):\n{}\n{}",
+                    rows.join("\n"),
+                    legend.join("; ")
+                ));
+            }
+        }
+    }
     Ok(json!({
         "here": here.map(|h| h.0),
         "rooms": shown,

@@ -264,6 +264,16 @@ figures on the canvas that answer to a click.
   in an hour (compare keywords to the last few it kept), or counting a gift's
   provenance by the earner (a chunk earned by a passing name carries a mark). The
   "day" counters are by name; a forgotten passing name recreated starts at zero.
+- `check` and the gate disagree (Puddlewink, 2026-11-01, a full run of the quickstart's
+  examples): the dry run says "ok, runs" for verbs the verdict then fails (speak,
+  feed); it does not know ownership (describe on a seed room), chunk existence,
+  presence (give/tell to an absent citizen), or that `leave` on a kept name keeps
+  it; it does not evaluate ASK lines; it warns CL-V4 on the quickstart's own "How
+  many citizens are here?". One verb table for both, and a dry run that reads the
+  world for the cheap preconditions. Also: `pto` counts a window even when `resume`
+  runs in the same message (refund it, or say so); start and quickstart give
+  different first-message examples; `attack Lute` replies "the wisp" for a named
+  creature; "vividity" appears in `chunks` without a definition in the quickstart.
 - Ambush pacing for gate players: a fight's clock runs between gate lines, so a
   stateless visitor can take many strikes before their next line (nine, once, in the
   Shallows). Options: one round per statement for gate actors, or a longer strike

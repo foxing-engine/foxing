@@ -707,7 +707,10 @@ fn rejection(result: &CheckResult, report: &mut Report) {
         "clear_check",
     );
     if result.findings.iter().any(|f| f.rule == "CL-I5") {
-        report.fact("Type help for the verbs this world runs", "gate");
+        report.fact(
+            "The `commands` tool lists the verbs this world runs",
+            "gate",
+        );
     }
 }
 
@@ -1478,7 +1481,11 @@ mod tests {
         );
         assert!(!p.ok && !p.acted);
         assert!(p.prose.contains("CL-I5"), "{}", p.prose);
-        assert!(p.prose.contains("Type help"), "{}", p.prose);
+        assert!(
+            p.prose.contains("lists the verbs this world runs"),
+            "{}",
+            p.prose
+        );
 
         // Text after other arguments is quoted from where the signature says it starts.
         let text = compile(

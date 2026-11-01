@@ -3850,10 +3850,24 @@ fn the_map_is_laid_out_from_the_threshold_and_you_remember_only_where_you_stood(
         !n.contains(&"The Fogbank".to_string()),
         "never stood there: {n:?}"
     );
-    // All three are in sight from the Teapot; nothing else is remembered yet.
+    // All three are in sight from the Teapot; nothing else is remembered yet. The
+    // floor is drawn, with the Teapot marked here and the others in sight.
+    assert!(
+        m["summary"].as_str().unwrap().contains("02@"),
+        "{}",
+        m["summary"]
+    );
+    assert!(
+        m["summary"]
+            .as_str()
+            .unwrap()
+            .contains("01 The Threshold; 02 The Teapot; 03 The Shove"),
+        "{}",
+        m["summary"]
+    );
     assert!(
         m["summary"].as_str().unwrap().starts_with(
-            "You are in The Teapot; you can see 2 ways out. The rest of the map is blank"
+            "You are in The Teapot; you can see 2 ways out: back (Threshold), west (Shove). Beyond what you can see, the map is blank"
         ),
         "{}",
         m["summary"]
@@ -3895,7 +3909,8 @@ fn the_map_is_laid_out_from_the_threshold_and_you_remember_only_where_you_stood(
     assert!(!out.summary.contains("Fogbank"), "{}", out.summary);
     // The Threshold is in sight from the Teapot; beyond it, nothing is left.
     assert!(
-        out.summary.contains("The rest of the map is blank"),
+        out.summary
+            .contains("Beyond what you can see, the map is blank"),
         "{}",
         out.summary
     );
