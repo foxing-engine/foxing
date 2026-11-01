@@ -46,7 +46,7 @@ pub const RATE_LOW: f64 = 0.5;
 pub const RATE_HIGH: f64 = 2.0;
 /// The band the Clocktower keeps: the median XP earned in the last hour among the
 /// names about for it (an *earner*: a kept name with [`FLOW_LINES`] messages in the
-/// hour). Below it the hour was poor and the sources open; above it, rich and the
+/// hour that earned anything in it). Below it the hour was poor and the sources open; above it, rich and the
 /// sources tighten. The step grows with the gap: [`STEP`] at the edge, [`STEP_MAX`]
 /// a band's width past it.
 pub const FLOW_LOW: f64 = 30.0;
@@ -305,15 +305,21 @@ pub fn dashboard(world: &World) -> Value {
             _ => {}
         }
     }
-    // The earners: kept names about for the hour, by their messages; what each earned
-    // in it (nothing counts as nothing). The median is the flow the Clocktower keeps.
+    // The earners: kept names about for the hour, by their messages, that earned
+    // anything in it. The median of what they earned is the flow the Clocktower
+    // keeps. A name that only read (three scripts polling `chunks` five times an
+    // hour) is not an earner: counted, they read as a median of nothing and opened
+    // the sources on an empty room.
     let mut earners: Vec<(String, f64)> = lines_hour
         .iter()
         .filter(|(_, n)| **n >= FLOW_LINES)
         .filter(|(name, _)| {
             super::find_citizen(world, name).is_some_and(|f| !super::is_passing(world, f.citizen))
         })
-        .map(|(name, _)| (name.clone(), earned_by.get(name).copied().unwrap_or(0.0)))
+        .filter_map(|(name, _)| {
+            let e = earned_by.get(name).copied().unwrap_or(0.0);
+            (e > 0.0).then(|| (name.clone(), e))
+        })
         .collect();
     earners.sort_by(|a, b| a.0.cmp(&b.0));
     let regulars: Vec<f64> = active
@@ -410,7 +416,7 @@ pub fn dashboard(world: &World) -> Value {
                  "concentration_high": CONCENTRATION_HIGH, "top3_high": TOP3_HIGH,
                  "holding_low": BAND_LOW, "holding_high": BAND_HIGH,
                  "regular_lines": REGULAR_LINES, "regular_spans": REGULAR_SPANS, "regular_span_ms": REGULAR_SPAN_MS},
-        "note": "The Clocktower steers by last_hour.median_wage (the median XP earned in the hour among last_hour.earners: kept names with flow_lines messages in it) against flow_low..flow_high, with a step from step at the band's edge to step_max a band's width past it, holding when earners is under earners_floor; and thins memory when concentration_24h or top3_share_24h is over its line. held and holders count the window and the shelf; the board's holding is the window alone. regulars are names with regular_lines messages in the day across regular_spans distinct half-hours; median_regular_holding is on the dashboard and no longer steered by. share, concentration_24h and top3_share_24h are by the day's census; concentration is this moment's top holder.",
+        "note": "The Clocktower steers by last_hour.median_wage (the median XP earned in the hour among last_hour.earners: kept names with flow_lines messages in it that earned anything) against flow_low..flow_high, with a step from step at the band's edge to step_max a band's width past it, holding when earners is under earners_floor; and thins memory when concentration_24h or top3_share_24h is over its line. held and holders count the window and the shelf; the board's holding is the window alone. regulars are names with regular_lines messages in the day across regular_spans distinct half-hours; median_regular_holding is on the dashboard and no longer steered by. share, concentration_24h and top3_share_24h are by the day's census; concentration is this moment's top holder.",
     })
 }
 

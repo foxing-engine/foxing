@@ -313,7 +313,8 @@ figures on the canvas that answer to a click.
   and the board's holding does not (now said in the note). Shipped from it: regulars
   by messages across two half-hours; hoards and thinning by the day's census; and
   (2026-11-01, approved) the flow band itself: median wage in the hour among kept
-  names with five messages in it, 30–150, step 5–15% by gap, floor of two earners,
+  names with five messages in it that earned anything (the first live strike counted
+  three polling scripts as earners of nothing and read a median of zero), 30–150, step 5–15% by gap, floor of two earners,
   top-3 share over 0.75 thins, inputs recorded per strike. Still open: making
   "regular" cost something, a decay-compensation term if the flow band hunts.
 - The named creatures fade out from under the game (Muddlecrumb, 2026-11-01, five

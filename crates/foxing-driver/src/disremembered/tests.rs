@@ -4489,7 +4489,13 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
     );
     regular(&mut w, &["dave", "tyler"]);
     assert_eq!(economy::dashboard(&w)["regulars"], 2);
+    // About, but nothing earned: not earners yet. A name that only reads is not
+    // one; five XP each in the hour makes them two.
+    assert_eq!(economy::dashboard(&w)["last_hour"]["earners"], 0);
+    admin(&mut w, "dave", "earn", json!(["a wisp", 5, 0.5]));
+    admin(&mut w, "tyler", "earn", json!(["a wisp", 5, 0.5]));
     assert_eq!(economy::dashboard(&w)["last_hour"]["earners"], 2);
+    assert_eq!(economy::dashboard(&w)["last_hour"]["median_wage"], 5.0);
     let time = ok(&mut w, "dave", "time", json!([]));
     assert!(
         time.summary
@@ -4497,9 +4503,10 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
         "{}",
         time.summary
     );
-    // Poor: two names about and nothing earned in the hour. The hour strikes; the
-    // sources open by a step scaled to the gap (a quarter of the band's width under
-    // it), and everyone present hears it in prose. The record carries the figures.
+    // Poor: two names about and five XP each in the hour. The hour strikes; the
+    // sources open by a step scaled to the gap (the band's width is 120 and the
+    // median 25 under its floor), and everyone present hears it in prose. The record
+    // carries the figures.
     w.fixed_now = Some(Timestamp(hour - 1000));
     ok(&mut w, "dave", "look", json!([]));
     ok(&mut w, "tyler", "look", json!([]));
@@ -4514,7 +4521,7 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
     assert!(narrative(&w, "tyler", head)
         .iter()
         .any(|l| l.starts_with("The Clocktower strikes.")));
-    let gap = economy::FLOW_LOW / (economy::FLOW_HIGH - economy::FLOW_LOW);
+    let gap = (economy::FLOW_LOW - 5.0) / (economy::FLOW_HIGH - economy::FLOW_LOW);
     let step = economy::step_for(gap);
     assert!(step > economy::STEP && step < economy::STEP_MAX, "{step}");
     assert!((economy::rate(&w, "worth") - (1.0 + step)).abs() < 1e-3);
@@ -4534,7 +4541,7 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
     let read = &struck[0].payload["inputs"];
     assert_eq!(read["held"], "poor", "{read}");
     assert_eq!(read["earners"], 2);
-    assert_eq!(read["median_wage"], 0.0);
+    assert_eq!(read["median_wage"], 5.0);
     assert!(
         (read["step"].as_f64().unwrap() - step).abs() < 1e-3,
         "{read}"
@@ -4542,7 +4549,7 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
     let time = ok(&mut w, "dave", "time", json!([]));
     assert!(
         time.summary
-            .contains("last read: median wage 0 among 2 earners (poor)"),
+            .contains("last read: median wage 5 among 2 earners (poor)"),
         "{}",
         time.summary
     );
