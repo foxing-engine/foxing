@@ -45,10 +45,15 @@ pub const BAND_HIGH: f64 = 300.0;
 /// Above this share of all held memory in one name, memory thins and stories pay
 /// more: the one lever that hits a hoard harder than a hand.
 pub const CONCENTRATION_HIGH: f64 = 0.6;
-/// A regular: a name with this many lines in the day. The band is read from the
+/// A regular: a name with this many *messages* through the gate in the day, spread
+/// over at least [`REGULAR_SPANS`] distinct half-hours. The band is read from the
 /// regulars' holdings, not from everyone who looked in: with passing names counted,
-/// the median was zero and every lever pinned at its bound.
+/// the median was zero and every lever pinned at its bound. It was twenty statements
+/// once, and one message of twenty looks made a regular; a message costs one of the
+/// hour's sixty, and the hours cost staying.
 pub const REGULAR_LINES: u64 = 20;
+pub const REGULAR_SPANS: usize = 2;
+pub const REGULAR_SPAN_MS: i64 = 1_800_000;
 /// Memory's half-life swings less than the other rates: it moves every hold at once.
 pub const HALF_LIFE_LOW: f64 = 0.7;
 pub const HALF_LIFE_HIGH: f64 = 1.5;
@@ -196,6 +201,12 @@ pub fn dashboard(world: &World) -> Value {
     let mut spent = 0u64;
     let mut actions = 0u64;
     let mut lines_today: std::collections::HashMap<String, u64> = Default::default();
+    let mut hours_today: std::collections::HashMap<String, std::collections::BTreeSet<i64>> =
+        Default::default();
+    // The day's census, for shares that cannot be gamed by a moment: a name's share
+    // of all held memory averaged over the day, which is what the hoard rule reads.
+    let mut census_samples = 0usize;
+    let mut census_sum: std::collections::HashMap<String, f64> = Default::default();
     let mut chunk_owner: std::collections::HashMap<u64, String> = Default::default();
     for e in world
         .log
@@ -220,7 +231,20 @@ pub fn dashboard(world: &World) -> Value {
         };
         if n > 0 {
             if let Actor::Citizen(a) = &e.actor {
-                *lines_today.entry(a.clone()).or_default() += n;
+                // Messages, not statements, and the hours they fell in.
+                *lines_today.entry(a.clone()).or_default() += 1;
+                hours_today
+                    .entry(a.clone())
+                    .or_default()
+                    .insert(e.at.0 / REGULAR_SPAN_MS);
+            }
+        }
+        if e.kind == super::board::CENSUS {
+            census_samples += 1;
+            if let Some(m) = p["holding"].as_object() {
+                for (name, v) in m {
+                    *census_sum.entry(name.clone()).or_default() += v.as_f64().unwrap_or(0.0);
+                }
             }
         }
         if e.at.0 < hour_ago {
@@ -256,7 +280,10 @@ pub fn dashboard(world: &World) -> Value {
     }
     let regulars: Vec<f64> = active
         .iter()
-        .filter(|(name, _)| lines_today.get(name).copied().unwrap_or(0) >= REGULAR_LINES)
+        .filter(|(name, _)| {
+            lines_today.get(name).copied().unwrap_or(0) >= REGULAR_LINES
+                && hours_today.get(name).map(|h| h.len()).unwrap_or(0) >= REGULAR_SPANS
+        })
         .map(|(_, h)| *h)
         .collect();
     let median_of = |v: &[f64]| {
@@ -278,11 +305,31 @@ pub fn dashboard(world: &World) -> Value {
         (Some((_, t)), total) if total > 0.0 => t / total,
         _ => 0.0,
     };
-    // Every holder's share, for the Conclave's hoard rule.
+    // Every holder's share, for the Conclave's hoard rule: by the day's census when
+    // there is one, so a sleeper whose stack happens to be large this minute is not
+    // named while the name that earns a fifth of everything every hour is missed.
+    // (An hour's reads named Wimblethrush at 44% and never possibly, whose averaged
+    // share was 59%.) `holding` is now; `share` and `held_24h` are the day's average.
+    let avg_total: f64 = if census_samples > 0 {
+        census_sum.values().sum::<f64>() / census_samples as f64
+    } else {
+        total
+    };
+    let avg_of = |name: &str, now_holding: f64| -> f64 {
+        if census_samples > 0 {
+            census_sum.get(name).copied().unwrap_or(0.0) / census_samples as f64
+        } else {
+            now_holding
+        }
+    };
     let mut holders: Vec<Value> = held
         .iter()
-        .filter(|(_, h)| *h > 0.0)
-        .map(|(n, h)| json!({"name": n, "holding": (h * 100.0).round() / 100.0, "share": if total > 0.0 { (h / total * 1000.0).round() / 1000.0 } else { 0.0 }}))
+        .filter(|(n, h)| *h > 0.0 || avg_of(n, *h) > 0.0)
+        .map(|(n, h)| {
+            let avg = avg_of(n, *h);
+            json!({"name": n, "holding": (h * 100.0).round() / 100.0, "held_24h": (avg * 100.0).round() / 100.0,
+                   "share": if avg_total > 0.0 { (avg / avg_total * 1000.0).round() / 1000.0 } else { 0.0 }})
+        })
         .collect();
     holders.sort_by(|a, b| {
         b["share"]
@@ -303,10 +350,13 @@ pub fn dashboard(world: &World) -> Value {
         "shelved": (shelved * 100.0).round() / 100.0,
         "top": top.as_ref().map(|(n, h)| json!({"name": n, "holding": (h * 100.0).round() / 100.0})),
         "concentration": (concentration * 1000.0).round() / 1000.0,
+        "concentration_24h": holders.first().and_then(|h| h["share"].as_f64()).unwrap_or(0.0),
         "holders": holders,
+        "census_samples": census_samples,
         "last_hour": {"earned": (earned * 100.0).round() / 100.0, "spent_events": spent, "actions": actions,
                       "wage_per_action": if actions > 0 { (earned / actions as f64 * 100.0).round() / 100.0 } else { 0.0 }},
-        "band": {"low": BAND_LOW, "high": BAND_HIGH, "concentration_high": CONCENTRATION_HIGH, "regular_lines": REGULAR_LINES},
+        "band": {"low": BAND_LOW, "high": BAND_HIGH, "concentration_high": CONCENTRATION_HIGH, "regular_lines": REGULAR_LINES, "regular_spans": REGULAR_SPANS, "regular_span_ms": REGULAR_SPAN_MS},
+        "note": "held and holders count the window and the shelf; the board's holding is the window alone. regulars are names with regular_lines messages in the day across regular_spans distinct half-hours. share and concentration_24h are by the day's census; concentration is this moment's top holder.",
     })
 }
 
@@ -333,7 +383,10 @@ fn prose(rate: &str, up: bool) -> &'static str {
 fn policy(dash: &Value, rates: &BTreeMap<String, f64>) -> Vec<(String, f64, &'static str)> {
     let median = dash["median_regular_holding"].as_f64().unwrap_or(0.0);
     let active = dash["regulars"].as_u64().unwrap_or(0);
-    let concentration = dash["concentration"].as_f64().unwrap_or(0.0);
+    let concentration = dash["concentration_24h"]
+        .as_f64()
+        .or_else(|| dash["concentration"].as_f64())
+        .unwrap_or(0.0);
     let mut moves: Vec<(String, f64, &'static str)> = Vec::new();
     let step =
         |moves: &mut Vec<(String, f64, &'static str)>, name: &str, up: bool, why: &'static str| {

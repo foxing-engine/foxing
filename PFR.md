@@ -293,6 +293,17 @@ figures on the canvas that answer to a click.
   down… You go west" into a different room): when the actor died since their last
   message, refuse the rest of the message with "You woke at the Threshold; read the
   room first." Venom should also say how many ticks remain when it reports late.
+- Clocktower v2, from the watcher (Marmalade, 2026-11-01, two strikes with the
+  dashboard open): the controller chases a stock that fades 50% an hour with 5% steps
+  (pay reaches its bound after 14 strikes; the median fell 54 to 37 in seventy
+  minutes with no one acting differently), so target a *flow* (median earned per hour
+  among names active in the last hour, or wage per action) with a decay-compensation
+  term and a step that scales with the gap; a floor on activity so it does not raise
+  pay into an empty room; a band on the top-3 share by the day's census; publish the
+  exact inputs each strike used; make "regular" cost something that is not a
+  request (stories or errands done, an age); the dashboard's held counts the shelf
+  and the board's holding does not (now said in the note). Shipped from it: regulars
+  by messages across two half-hours; hoards and thinning by the day's census.
 - Ambush pacing for gate players: a fight's clock runs between gate lines, so a
   stateless visitor can take many strikes before their next line (nine, once, in the
   Shallows). Options: one round per statement for gate actors, or a longer strike

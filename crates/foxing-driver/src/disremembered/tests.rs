@@ -61,14 +61,23 @@ fn level(w: &mut World, actor: &str) -> f64 {
 }
 
 /// A regular: twenty lines through the gate today, as the Clocktower counts them.
-fn regular(w: &mut World, actor: &str) {
-    for _ in 0..super::economy::REGULAR_LINES {
-        w.note(
-            Actor::Citizen(actor.to_string()),
-            "gate.message",
-            json!({"from": actor, "text": "look", "compiled": true}),
-        )
-        .unwrap();
+/// A regular: twenty messages through the gate today across two half-hours, as the
+/// Clocktower counts them. Half go in now, half a quarter-hour on (the clock is left
+/// there: the log is in order, and the tests that call this set the hour after).
+fn regular(w: &mut World, actors: &[&str]) {
+    let now = w.now();
+    for i in 0..super::economy::REGULAR_LINES {
+        if i == super::economy::REGULAR_LINES / 2 {
+            w.fixed_now = Some(Timestamp(now.0 + 15 * 60 * 1000));
+        }
+        for actor in actors {
+            w.note(
+                Actor::Citizen(actor.to_string()),
+                "gate.message",
+                json!({"from": actor, "text": "look", "compiled": true}),
+            )
+            .unwrap();
+        }
     }
 }
 
@@ -4244,8 +4253,7 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
     // by everyone who looked in once; the median was zero and every lever pinned.)
     let hour = (t0.0 / economy::STRIKE_EVERY_MS + 1) * economy::STRIKE_EVERY_MS;
     assert_eq!(economy::dashboard(&w)["regulars"], 0);
-    regular(&mut w, "dave");
-    regular(&mut w, "tyler");
+    regular(&mut w, &["dave", "tyler"]);
     assert_eq!(economy::dashboard(&w)["regulars"], 2);
     let time = ok(&mut w, "dave", "time", json!([]));
     assert!(
@@ -4459,11 +4467,13 @@ fn the_conclave_writes_the_statutes_memory_moves_under() {
     // The hoard tax: dave holds nearly everything. The Clocktower strikes, the
     // Conclave reads the ledger and names him; what he earns after thins faster, and
     // what tyler earns does not.
-    admin(&mut w, "dave", "earn", json!(["hoard", 5000, 1.0]));
-    regular(&mut w, "dave");
-    regular(&mut w, "tyler");
+    regular(&mut w, &["dave", "tyler"]);
     let hour = (t0.0 / economy::STRIKE_EVERY_MS + 1) * economy::STRIKE_EVERY_MS;
     w.fixed_now = Some(Timestamp(hour - 1000));
+    // (The test world's chunks fade in seconds: the hoard is made at the stroke, and
+    // the census that the hoard rule reads is taken then.)
+    admin(&mut w, "dave", "earn", json!(["hoard", 5000, 1.0]));
+    super::board::census(&mut w).unwrap();
     ok(&mut w, "dave", "look", json!([]));
     let head = events(&w);
     w.fixed_now = Some(Timestamp(hour + 1));
