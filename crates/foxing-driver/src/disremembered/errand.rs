@@ -29,6 +29,8 @@ use std::collections::BTreeMap;
 pub const ERRAND: &str = "disremembered.errand";
 /// An errand was done: `{from, creature, name, kind, want, to}`. Public.
 pub const DONE: &str = "disremembered.errand_done";
+/// A want of the world's own was dropped before it was done: `{creature, name, why}`.
+pub const TURNED: &str = "disremembered.errand_turned";
 /// What carrying a word earns.
 pub const WORD_XP: f64 = 20.0;
 
@@ -687,6 +689,27 @@ pub fn sweep(world: &mut World) -> Result<(), String> {
         );
         let by = if stale { "the rotation" } else { "forgetting" };
         set_story(world, c, &want, by).map_err(|e| e.to_string())?;
+    }
+    // A word for a creature that is gone, or has lost its name, is no errand: the
+    // want turns now, not after hours (Hesper wanted word carried to a Wren that had
+    // forgotten its name for five hours, and the dead want came back with its own
+    // name). Operator-set words stand; the world's own are dropped.
+    for &c in &named {
+        let dead = of(world, c).is_some_and(|e| {
+            e.word.is_some()
+                && rotatable(&e.word_by)
+                && e.word_to
+                    .as_deref()
+                    .is_some_and(|to| mind::find_named(world, to).is_none())
+        });
+        if dead {
+            clear_word(world, c).map_err(|e| e.to_string())?;
+            let _ = world.note(
+                Actor::Driver,
+                TURNED,
+                json!({"creature": c.0, "name": mind::name(world, c), "why": "the one it named is gone"}),
+            );
+        }
     }
     // One word in the air.
     let any_word = named

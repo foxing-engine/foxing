@@ -4867,3 +4867,69 @@ fn the_conclave_sits_up_inside_the_clocktower_and_its_officers_keep_order() {
     );
     assert!(!outside.iter().any(|l| l.starts_with("Order.")));
 }
+
+#[test]
+fn a_word_for_a_creature_that_lost_its_name_turns_at_once() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // Two named creatures, a word between them (the rotation sets it).
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "tyler",
+        "remember",
+        json!([c, format!("wisp-{}", wisp.0)]),
+    );
+    ok(&mut w, "tyler", "travel", json!(["south"]));
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    w.tick();
+    let holder = [wisp, rag]
+        .into_iter()
+        .find(|&c| errand::of(&w, c).is_some_and(|e| e.word.is_some()))
+        .expect("one word in the air");
+    let other = if holder == wisp { rag } else { wisp };
+    // The one it names loses its name (the test world's chunks fade in seconds) while
+    // the holder is fed to keep its own; the next sweep drops the dead want and the
+    // record says why, and a fresh word is not issued while only one is named.
+    w.fixed_now = Some(t0.plus(Duration::seconds(600)));
+    let target = if holder == wisp {
+        ok(&mut w, "tyler", "travel", json!(["north"]));
+        format!("wisp-{}", wisp.0)
+    } else {
+        "ragpicker".to_string()
+    };
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, target]));
+    assert!(mind::name(&w, holder).is_some());
+    let head = events(&w);
+    w.tick(); // the other forgets its name
+    assert!(mind::name(&w, other).is_none(), "the other forgot its name");
+    w.tick(); // and the word for it turns
+    assert!(
+        errand::of(&w, holder).is_none_or(|e| e.word.is_none()),
+        "the dead want turned: {:?} named {:?} other {:?}",
+        errand::of(&w, holder).map(|e| (e.word, e.word_to, e.word_by)),
+        mind::name(&w, holder),
+        mind::name(&w, other)
+    );
+    let turned: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == errand::TURNED && e.at.0 >= 0)
+        .collect();
+    assert!(!turned.is_empty(), "{turned:?}");
+    assert_eq!(turned[0].payload["why"], "the one it named is gone");
+    let _ = head;
+}

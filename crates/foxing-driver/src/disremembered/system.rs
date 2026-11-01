@@ -23,6 +23,7 @@ pub(crate) fn line_for(e: &foxing_log::Event) -> String {
             format!("{} left word for {}: \"{}\"", s("from"), s("to"), s("text"))
         }
         FEEDBACK => format!("{} would change: \"{}\"", s("from"), s("text")),
+        "disremembered.errand_turned" => format!("{}'s want turned: {}", s("name"), s("why")),
         "disremembered.errand_done" => match p["to"].as_str() {
             Some(t) => format!("{} carried {}'s word to {t}", s("from"), s("name")),
             None => format!("{} told {} the story it wanted", s("from"), s("name")),

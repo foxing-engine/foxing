@@ -304,6 +304,16 @@ figures on the canvas that answer to a click.
   request (stories or errands done, an age); the dashboard's held counts the shelf
   and the board's holding does not (now said in the note). Shipped from it: regulars
   by messages across two half-hours; hoards and thinning by the day's census.
+- The named creatures fade out from under the game (Muddlecrumb, 2026-11-01, five
+  hours waiting for a word to carry): with nobody feeding them, the ground floor fell
+  to a single named creature by 14:37 UTC, so no word could be in the air and no
+  story want but one. A creature's name is its level (sixty), and what it holds
+  halves like any memory. Options: a floor under a name once given (a named creature
+  keeps its name at a lower level, say twenty, and only comes apart in a fight);
+  re-seed two named creatures when the world falls below three; names fading slower
+  than chunks (a named creature's window at the palace curve). Also from the visit:
+  two Hesper; `look` shows no story want for a while right after one is answered;
+  `remember <chunk> <creature>` gives the current value, which the reply could say.
 - Ambush pacing for gate players: a fight's clock runs between gate lines, so a
   stateless visitor can take many strikes before their next line (nine, once, in the
   Shallows). Options: one round per statement for gate actors, or a longer strike
