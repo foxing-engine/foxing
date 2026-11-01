@@ -167,9 +167,11 @@ fn a_fight_earns_a_chunk_whose_vividity_is_how_close_you_came() {
     let hp = win.result["hp"].as_f64().unwrap();
     let vividity = win.result["vividity"].as_f64().unwrap();
     assert!((vividity - (1.0 - hp / MAX_HP)).abs() < 1e-9);
+    // About fifteen: a quarter either way, rolled when it spawned.
+    let worth = level(&mut w, "dave");
     assert!(
-        (level(&mut w, "dave") - 15.0).abs() < 1e-9,
-        "a wisp is worth 15"
+        (11.0..=19.0).contains(&worth),
+        "a wisp is worth about 15: {worth}"
     );
     let fog = rooms::room_by_key(&w, "fogbank").unwrap();
     assert_eq!(
@@ -587,25 +589,26 @@ fn the_world_moves_on_its_own() {
     let out = fight(&mut w, "dave");
     assert_eq!(out.result["killed"], json!(true), "{}", out.summary);
     assert_eq!(combat::creatures_in(&w, fog).len(), 1);
+    // The respawn is 60 s, give or take: never before 36, always by 96.
     w.fixed_now = Some(t0.plus(Duration::seconds(30)));
-    assert_eq!(w.tick(), 0, "respawn is 60 s");
-    w.fixed_now = Some(t0.plus(Duration::seconds(61)));
+    assert_eq!(w.tick(), 0, "respawn is about 60 s");
+    w.fixed_now = Some(t0.plus(Duration::seconds(97)));
     assert_eq!(w.tick(), 1);
-    assert_eq!(
-        combat::creatures_in(&w, fog).len(),
-        2,
-        "the fog refilled on its own"
+    assert!(
+        combat::creatures_in(&w, fog).len() >= 2,
+        "the fog refilled on its own (one refill in six brings an extra)"
     );
 
-    // Engage a wisp and wait: it strikes on its own every 12 s and says so.
+    // Engage a wisp and wait: it strikes on its own every 12 s or so (six to
+    // eighteen) and says so.
     let head = events(&w);
     let round = ok(&mut w, "dave", "attack", json!(["wisp"]));
     assert_eq!(round.result["killed"], json!(false), "{}", round.summary);
     let hp_after_round = combat::hp(&w, f.citizen);
-    w.fixed_now = Some(t0.plus(Duration::seconds(61 + 13)));
+    w.fixed_now = Some(t0.plus(Duration::seconds(97 + 19)));
     assert_eq!(w.tick(), 1, "one strike job due");
     assert!(
-        combat::hp(&w, f.citizen) < hp_after_round + 1.3,
+        combat::hp(&w, f.citizen) < hp_after_round + 1.9,
         "the wisp struck (healing is 0.1 per second)"
     );
     let lines = narrative(&w, head);
@@ -631,7 +634,7 @@ fn the_world_moves_on_its_own() {
         .jobs
         .has(combat::JOB_AMBUSH, |p| p["citizen"] == f.citizen.0));
     let head = events(&w);
-    w.fixed_now = Some(t0.plus(Duration::seconds(205)));
+    w.fixed_now = Some(t0.plus(Duration::seconds(209)));
     assert!(w.tick() >= 1);
     assert!(
         combat::engaged_with(&w, f.citizen).is_some(),
@@ -1789,7 +1792,7 @@ fn a_remembered_creature_earns_a_name_can_be_robbed_and_forgets_again() {
     let rag = combat::creatures_in(&w, midden)[0].0;
     assert_eq!(mind::tier(&w, rag), 0);
     let first = ok(&mut w, "dave", "look", json!([])).summary;
-    assert!(first.contains("Here: ragpicker (16.0/16.0)."), "{first}");
+    assert!(first.contains("Here: ragpicker ("), "{first}");
 
     // A small memory: it holds it, no name yet.
     let c = admin(&mut w, "dave", "earn", json!(["wisp", 40, 0.5]));
@@ -1813,9 +1816,8 @@ fn a_remembered_creature_earns_a_name_can_be_robbed_and_forgets_again() {
     let name = mind::name(&w, rag).unwrap();
     let look = ok(&mut w, "tyler", "look", json!([]));
     assert!(
-        look.summary.contains(&format!(
-            "Here: {name} the ragpicker (16.0/16.0, holding 100). {name} the ragpicker knows you."
-        )),
+        look.summary
+            .contains(&format!(", holding 100). {name} the ragpicker knows you.")),
         "{}",
         look.summary
     );
@@ -1892,7 +1894,7 @@ fn a_remembered_creature_earns_a_name_can_be_robbed_and_forgets_again() {
     assert!(
         ok(&mut w, "dave", "look", json!([]))
             .summary
-            .contains("Here: ragpicker (16.0/16.0)."),
+            .contains("Here: ragpicker ("),
         "scenery again"
     );
     // Remembered again, it gets the same name back.
@@ -2121,10 +2123,8 @@ fn twins_are_written_with_ids_and_either_can_be_named() {
     let look = ok(&mut w, "dave", "look", json!([]));
     let (a, b) = (wisps[0].0, wisps[1].0);
     assert!(
-        look.summary.contains(&format!(
-            "Here: wisp-{} (8.0/8.0), wisp-{} (8.0/8.0).",
-            a.0, b.0
-        )),
+        look.summary.contains(&format!("Here: wisp-{} (", a.0))
+            && look.summary.contains(&format!("), wisp-{} (", b.0)),
         "{}",
         look.summary
     );
@@ -2410,7 +2410,7 @@ fn memory_moves_by_gift_and_by_story() {
         heard.iter().any(|t| t.contains("I will keep that.")),
         "{heard:?}"
     );
-    assert!(level(&mut w, "dave") > 10.0, "{}", level(&mut w, "dave"));
+    assert!(level(&mut w, "dave") > 8.0, "{}", level(&mut w, "dave"));
     assert!(mind::level(&w, rag) > 70.0);
     // A teller is known: thanks are received as thanks, and a goodbye as one.
     let reply = talk::reply(&w, rag, "dave", "thank you").unwrap();

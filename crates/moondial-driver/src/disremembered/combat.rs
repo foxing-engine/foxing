@@ -164,7 +164,15 @@ const LEVEL_PER_ATTACK: f64 = 10.0;
 /// On death, the chance in a hundred of losing one window chunk.
 const CONCUSSION_PERCENT: u32 = 50;
 /// Seconds between arriving in a room and an aggressive creature noticing you.
-const AMBUSH_SECONDS: i64 = 4;
+/// An ambush comes this many seconds after an arrival, at the earliest and latest.
+pub const AMBUSH_SECONDS_LOW: i64 = 2;
+pub const AMBUSH_SECONDS_HIGH: i64 = 8;
+/// A respawn lands between these fractions of the room's figure.
+pub const RESPAWN_LOW: f64 = 0.6;
+pub const RESPAWN_HIGH: f64 = 1.6;
+/// A creature's own strike lands between these fractions of its figure.
+pub const STRIKE_LOW: f64 = 0.5;
+pub const STRIKE_HIGH: f64 = 1.5;
 
 pub const JOB_RESPAWN: &str = "disremembered.respawn";
 pub const JOB_STRIKE: &str = "disremembered.strike";
@@ -260,8 +268,18 @@ pub fn fill(world: &mut World, room: EntityId) -> Result<usize, StoreError> {
     };
     let count = plain_num(world, room, SPAWN, "count").unwrap_or(0.0) as usize;
     let Some(d) = def(&key) else { return Ok(0) };
+    // One refill in six brings one more than the room's figure: the fog has two
+    // wisps, mostly, and now and then three. (Never fewer: a room below its figure
+    // is what a boot refills, and a short room would refill forever.) A room
+    // already at its figure is left as it is.
+    let have = creatures_in(world, room).len();
+    let count = if have < count && world.roll(6) == 0 {
+        count + 1
+    } else {
+        count
+    };
     let mut spawned = 0;
-    for _ in creatures_in(world, room).len()..count {
+    for _ in have..count {
         spawn_one(world, room, d)?;
         spawned += 1;
     }
@@ -285,12 +303,17 @@ pub(crate) fn spawn_one(
             scopes: vec![],
         },
     )?;
+    // No two of a kind are quite alike: hit points within a fifth of the figure,
+    // worth within a quarter. `look` shows the hit points, so a careful fighter can
+    // pick the weaker one; the worth is found out at the end.
+    let hp = (super::jitter(world, d.hp, 0.8, 1.2) * 10.0).round() / 10.0;
+    let xp = super::jitter(world, d.xp, 0.75, 1.25).round();
     let mut fields = BTreeMap::new();
     fields.insert("name".into(), Field::Plain(json!(d.name)));
-    fields.insert("hp".into(), Field::Plain(json!(d.hp)));
-    fields.insert("max_hp".into(), Field::Plain(json!(d.hp)));
+    fields.insert("hp".into(), Field::Plain(json!(hp)));
+    fields.insert("max_hp".into(), Field::Plain(json!(hp)));
     fields.insert("attack".into(), Field::Plain(json!(d.attack)));
-    fields.insert("xp".into(), Field::Plain(json!(d.xp)));
+    fields.insert("xp".into(), Field::Plain(json!(xp)));
     world.record(
         Actor::Driver,
         StoreEvent::ComponentSet {
@@ -317,7 +340,10 @@ pub(crate) fn def_by_key(key: &str) -> Option<&'static CreatureDef> {
 
 /// Schedule the room's refill after its respawn interval, unless one is pending.
 fn schedule_respawn(world: &mut World, room: EntityId) -> Result<(), String> {
-    let secs = plain_num(world, room, SPAWN, "respawn_seconds").unwrap_or(60.0) as i64;
+    let secs = plain_num(world, room, SPAWN, "respawn_seconds").unwrap_or(60.0);
+    // Between three fifths and eight fifths of the figure: a room refills "in a
+    // couple of minutes", never on the minute.
+    let secs = super::jitter(world, secs, RESPAWN_LOW, RESPAWN_HIGH) as i64;
     let due = world.now().plus(moondial_time::Duration::seconds(secs));
     world
         .schedule_once(JOB_RESPAWN, due, json!({"room": room.0}), |p| {
@@ -402,10 +428,11 @@ pub fn on_arrival(
         .filter(|(id, _, _, _)| is_aggressive(world, *id))
         .map(|c| c.0)
         .collect();
-    let due = world
-        .now()
-        .plus(moondial_time::Duration::seconds(AMBUSH_SECONDS));
     for creature in hunters {
+        // Each hunter picks its own moment, two to eight seconds in.
+        let secs = AMBUSH_SECONDS_LOW
+            + world.roll((AMBUSH_SECONDS_HIGH - AMBUSH_SECONDS_LOW + 1) as u32) as i64;
+        let due = world.now().plus(moondial_time::Duration::seconds(secs));
         world.schedule_once(
             JOB_AMBUSH,
             due,
@@ -426,7 +453,11 @@ fn schedule_strike(
     let secs = creature_def(world, creature)
         .map(|d| d.strike_seconds)
         .unwrap_or(10);
-    let due = world.now().plus(moondial_time::Duration::seconds(secs));
+    // Half to one and a half times its figure: "every ten seconds or so".
+    let secs = super::jitter(world, secs as f64, STRIKE_LOW, STRIKE_HIGH).round() as i64;
+    let due = world
+        .now()
+        .plus(moondial_time::Duration::seconds(secs.max(1)));
     world
         .schedule_once(
             JOB_STRIKE,

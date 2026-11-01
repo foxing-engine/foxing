@@ -202,6 +202,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("word_to", FieldKind::Plain, Visibility::Public)
             .field("word_by", FieldKind::Plain, Visibility::Public)
             .field("story_at", FieldKind::Plain, Visibility::Public)
+            // When a want of the world's own turns (about four hours on, rolled).
+            .field("story_until", FieldKind::Plain, Visibility::Public)
             .field("word_at", FieldKind::Plain, Visibility::Public)
             .field("story_prev", FieldKind::Plain, Visibility::Public)
             .field("prev_keywords", FieldKind::Plain, Visibility::Public)
@@ -277,6 +279,15 @@ pub fn schemas() -> Vec<ComponentSchema> {
 
 fn account_scope(actor: &str) -> ClockId {
     ClockId(format!("account:{actor}"))
+}
+
+/// `base` scaled by a roll between `low` and `high`: the world's timings and
+/// rewards vary around their figures, so nothing can be set a clock by. A respawn
+/// is "about two minutes", a strike "every ten seconds or so", a wisp "worth about
+/// fifteen"; an agent that farms on a cadence meets the world instead.
+pub fn jitter(world: &mut World, base: f64, low: f64, high: f64) -> f64 {
+    let t = world.roll(1000) as f64 / 999.0;
+    base * (low + (high - low) * t)
 }
 
 /// What a citizen on PTO may still do: read, and come back. PTO is absence: a clock

@@ -71,6 +71,8 @@ pub struct Errand {
     pub keywords: Vec<String>,
     pub story_by: String,
     pub story_at: i64,
+    /// When a want of the world's own turns, if set; else story_at + ROTATION_MS.
+    pub story_until: i64,
     pub word: Option<String>,
     pub word_to: Option<String>,
     pub word_by: String,
@@ -106,6 +108,9 @@ pub fn of(world: &World, creature: EntityId) -> Option<Errand> {
             .collect(),
         story_by: str_of("story_by").unwrap_or_default(),
         story_at: plain(&f, "story_at").and_then(|v| v.as_i64()).unwrap_or(0),
+        story_until: plain(&f, "story_until")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0),
         word: str_of("word"),
         word_to: str_of("word_to"),
         word_by: str_of("word_by").unwrap_or_default(),
@@ -167,11 +172,16 @@ pub fn set_story(
     want: &str,
     by: &str,
 ) -> Result<(), CommandError> {
+    // A want of the world's own turns after about four hours: three and a quarter
+    // to four and three quarters, rolled when it is set, so the turn cannot be
+    // waited for to the minute.
+    let until = world.now().0 + super::jitter(world, ROTATION_MS as f64, 0.8, 1.2) as i64;
     write(
         world,
         creature,
         vec![
             ("story", json!(want)),
+            ("story_until", json!(until)),
             // The rotation's wants end in a clause about forgetting; the keywords are
             // the thing wanted, not the template.
             (
@@ -358,7 +368,12 @@ pub fn describe(world: &World, creature: EntityId) -> Option<String> {
     let mut parts = Vec::new();
     if let Some(want) = &e.story {
         let left = if rotatable(&e.story_by) && e.story_at > 0 {
-            let ms = (e.story_at + ROTATION_MS - world.now().0).max(0);
+            let until = if e.story_until > 0 {
+                e.story_until
+            } else {
+                e.story_at + ROTATION_MS
+            };
+            let ms = (until - world.now().0).max(0);
             let h = (ms + 3_599_999) / 3_600_000;
             format!(
                 " (for about {h} hour{} more)",
@@ -644,7 +659,14 @@ pub fn sweep(world: &mut World) -> Result<(), String> {
     for &c in &named {
         let current = of(world, c);
         let stale = current.as_ref().is_some_and(|e| {
-            e.story.is_some() && rotatable(&e.story_by) && now.0 - e.story_at >= ROTATION_MS
+            e.story.is_some()
+                && rotatable(&e.story_by)
+                && now.0
+                    >= if e.story_until > 0 {
+                        e.story_until
+                    } else {
+                        e.story_at + ROTATION_MS
+                    }
         });
         if current.as_ref().is_some_and(|e| e.story.is_some()) && !stale {
             continue;

@@ -945,7 +945,7 @@ mod tests {
             !p.reply.contains("stands up out of the water"),
             "nothing has happened yet"
         );
-        w.fixed_now = Some(w.now().plus(Duration::seconds(5)));
+        w.fixed_now = Some(w.now().plus(Duration::seconds(9)));
         w.tick();
         // The next message's reply says what the hollow did, as the narrator's quote.
         let text = msg("lantern-7", "REQUEST", "[DO] lantern-7 MUST look.");

@@ -127,6 +127,11 @@ figures on the canvas that answer to a click.
 - The verbs that carried a feedback line in-world: "tell them what you think", "play"
   (Opus), "spend an hour".
 
+- Randomness round two (round one shipped 2026-10-31: respawn, strike and ambush
+  timing, spawn hit points and worth, story pay, the rotation's turn): a creature
+  that wanders off mid-fight; a room whose exits shift once in a long while; the
+  memory sweep's minute; a creature's mood that changes what it wants mid-want.
+
 ## Operator and owner
 
 - Show HN, with a log dump, when the game is further along.
