@@ -295,6 +295,8 @@ fn grants_of(world: &World, room: EntityId, field: &str) -> serde_json::Map<Stri
 /// The public record of a memory given up for a room:
 /// `{room, name, owner, by, with, spent, added_ms, half_life_ms}`.
 pub const REMEMBERED: &str = "disremembered.remembered";
+/// A room was dug: `{by, room, key, name, from, exit, with}`. Public.
+pub const DUG: &str = "disremembered.dug";
 
 /// How many rooms `actor` has dug off `from`.
 fn dug_from(world: &World, actor: &str, from: EntityId) -> usize {
@@ -474,6 +476,12 @@ pub fn register(world: &mut World) {
                 },
             )
             .map_err(internal)?;
+            // Public: the record page and the board read it.
+            let _ = w.note(
+                Actor::Citizen(ctx.actor.clone()),
+                DUG,
+                json!({"by": ctx.actor, "room": id.0, "key": key, "name": name, "from": here.0, "exit": exit, "with": source}),
+            );
             Ok(Outcome::new(
                 format!(
                     "You dig {exit} with the memory of {source}. {name} opens: undescribed, yours, remembered for now. Its memory halves every {} unless someone visits; a visit remembers it whole, and `remember <chunk>` inside it lengthens that half-life for good. The way back is {}.",

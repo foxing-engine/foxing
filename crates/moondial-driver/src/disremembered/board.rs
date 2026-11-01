@@ -54,6 +54,15 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
     {
         let p = &e.payload;
         match e.kind.as_str() {
+            // A dug room: the room's creation under its digger's name (the public
+            // disremembered.dug came later, and the count must not double).
+            "store.entity_created" if p["kind"] == "room" => {
+                if let (Some(by), Actor::Citizen(a)) = (p["owner"].as_str(), &e.actor) {
+                    if a == by {
+                        lines.entry(by.to_string()).or_default().dug += 1;
+                    }
+                }
+            }
             "store.entity_created" if p["kind"] == "chunk" => {
                 if let (Some(id), Some(owner)) = (p["id"].as_u64(), p["owner"].as_str()) {
                     chunk_owner.insert(id, owner.to_string());
@@ -80,12 +89,6 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
             k if k == super::building::REMEMBERED => {
                 if let Some(by) = p["by"].as_str() {
                     lines.entry(by.to_string()).or_default().kept += 1;
-                }
-            }
-            "disremembered.dug" => {
-                // The digger is the event's actor; the payload names the room.
-                if let Actor::Citizen(by) = &e.actor {
-                    lines.entry(by.clone()).or_default().dug += 1;
                 }
             }
             k if k == exchange::GIVEN => {

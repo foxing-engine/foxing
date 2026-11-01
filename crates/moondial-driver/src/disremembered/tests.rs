@@ -3784,8 +3784,18 @@ fn the_board_holds_the_present_and_the_record_the_rest() {
             "A story about a lantern that went out and was lit again by a stranger."
         ]),
     );
+    let c = admin(&mut w, "tyler", "earn", json!(["hydra", 100, 1.0]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "dig", json!(["teapot", c, "The Teapot"]));
     let (lines, forgotten) = board::board(&w);
     assert_eq!(forgotten, 1, "the passing name that left is off the board");
+    assert_eq!(lines.iter().find(|l| l.name == "tyler").unwrap().dug, 1);
+    assert!(w
+        .log
+        .read_all(&w.id, moondial_log::Cursor::START)
+        .unwrap()
+        .iter()
+        .any(|e| e.kind == super::building::DUG && e.payload["by"] == "tyler"));
     let dave = lines.iter().find(|l| l.name == "dave").unwrap();
     let tyler = lines.iter().find(|l| l.name == "tyler").unwrap();
     // Earned is the record: the two chunks dave made, and the story's. Given and kept
@@ -3795,7 +3805,10 @@ fn the_board_holds_the_present_and_the_record_the_rest() {
         "{}",
         dave.earned
     );
-    assert_eq!(tyler.earned, 0.0);
+    assert_eq!(
+        tyler.earned, 100.0,
+        "the chunk spent on the dig was tyler's own"
+    );
     assert_eq!(dave.given, 1);
     assert_eq!(dave.kept, 1);
     assert_eq!(dave.stories, 1);

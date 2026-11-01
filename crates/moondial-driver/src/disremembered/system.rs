@@ -79,6 +79,7 @@ pub(crate) fn line_for(e: &moondial_log::Event) -> String {
         ),
         "disremembered.wandered" => format!("a {} wandered in", s("kind")),
         "disremembered.razed" => format!("the operator razed {}", s("name")),
+        "disremembered.dug" => format!("{} dug {}", s("by"), s("name")),
         "gate.message" => {
             // As prose, not as the statements themselves: a newcomer read other
             // players' DO lines in the record as commands addressed to them.

@@ -139,6 +139,7 @@ pub(crate) fn visible(world: &World, viewer: &Viewer, now: Timestamp, e: &Event)
         || e.kind == crate::disremembered::memory::FADED
         || e.kind == crate::disremembered::kindle::BORN
         || e.kind == "disremembered.razed"
+        || e.kind == crate::disremembered::building::DUG
     {
         return true;
     }
