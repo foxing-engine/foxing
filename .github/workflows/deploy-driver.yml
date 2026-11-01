@@ -106,7 +106,7 @@ jobs:
           # Release layout: the binary, deploy/ (server scripts + nginx snippets), analytics/.
           mkdir -p stage/deploy stage/analytics
           install -m 755 out/foxing-driver stage/foxing-driver
-          ln -s foxing-driver stage/foxing-driver
+          ln -s foxing-driver stage/moondial-driver
           cp deploy/server/* stage/deploy/
           cp -r site/deploy/nginx-snippets stage/deploy/
           cp site/deploy/setup-analytics.sh stage/deploy/
