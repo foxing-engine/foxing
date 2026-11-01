@@ -4933,3 +4933,45 @@ fn a_word_for_a_creature_that_lost_its_name_turns_at_once() {
     assert_eq!(turned[0].payload["why"], "the one it named is gone");
     let _ = head;
 }
+
+#[test]
+fn death_costs_a_share_of_the_window_on_a_curve_of_level() {
+    assert!(combat::death_share(0.0) < 1e-9);
+    assert!(
+        (combat::death_share(10.0) - 0.016).abs() < 0.002,
+        "a newcomer loses almost nothing"
+    );
+    assert!((combat::death_share(300.0) - 0.25).abs() < 1e-9);
+    assert!((combat::death_share(1000.0) - 0.385).abs() < 0.001);
+    assert!(combat::death_share(1.0e9) < 0.5 + 1e-9);
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let f = find_citizen(&w, "dave").unwrap();
+    // Ten XP: a death takes nothing (less than one XP is owed).
+    admin(&mut w, "dave", "earn", json!(["small", 10, 0.5]));
+    assert!(combat::die(&mut w, "dave", &f).unwrap().is_none());
+    assert!((level(&mut w, "dave") - 10.0).abs() < 0.5);
+    // A thousand: about a third goes, in chunks picked at random, and the record says.
+    for _ in 0..10 {
+        admin(&mut w, "dave", "earn", json!(["big", 100, 0.5]));
+    }
+    let before = level(&mut w, "dave");
+    let lost = combat::die(&mut w, "dave", &f).unwrap();
+    assert!(lost.is_some(), "{lost:?}");
+    let after = level(&mut w, "dave");
+    let share = 1.0 - after / before;
+    assert!(
+        (0.35..=0.5).contains(&share),
+        "lost {share:.2} of {before:.0}: {lost:?}"
+    );
+    let died: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == combat::DIED)
+        .collect();
+    assert_eq!(died.len(), 2);
+    assert!(died[1].payload["lost"].as_array().unwrap().len() >= 3);
+}

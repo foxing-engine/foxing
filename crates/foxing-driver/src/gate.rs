@@ -413,6 +413,29 @@ fn since_last_message(world: &World, actor: &str) -> Vec<String> {
         .collect()
 }
 
+/// Whether `actor` went down since their last message through the Gate: a death on
+/// the clock (venom, a strike) lands at the top of the next reply, and the message's
+/// statements were written for a room they are no longer in.
+fn died_since_last_message(world: &World, actor: &str) -> bool {
+    let recent = world.recent_events(2000);
+    let last = recent
+        .iter()
+        .rev()
+        .find(|e| e.kind == "gate.reply" && e.payload["to"] == actor)
+        .map(|e| e.seq.0)
+        .unwrap_or(0);
+    recent.iter().any(|e| {
+        e.seq.0 > last && e.kind == crate::disremembered::DIED && e.payload["citizen"] == actor
+    })
+}
+
+/// The verbs a message may still run after a death the sender has not read yet: the
+/// ones that only read.
+const AFTER_DEATH: &[&str] = &[
+    "look", "chunks", "map", "time", "rest", "board", "statutes", "palace", "satchel", "log",
+    "recipes",
+];
+
 /// Compile a terminal line (`attack the wisp`) into a REQUEST from `actor` to `world`:
 /// one DO, MUST, the line's first word as the verb. What a human types is what the
 /// checker reads; a line the checker refuses comes back with the rule it broke. Where
@@ -734,7 +757,21 @@ fn run_request(
         );
         return;
     }
+    // A death the sender has not read yet: the statements were written for another
+    // room (a delver's "You go down… You go west" walked from the Threshold into a
+    // digging), so only the reads run; the rest wait for a message written after.
+    let woke = died_since_last_message(world, actor);
     for st in dos {
+        if woke {
+            let verb = st.verb.clone().unwrap_or_default();
+            if !AFTER_DEATH.contains(&verb.as_str()) {
+                report.fact(
+                    format!("Statement {} did not run: {actor} went down since their last message and woke at the Threshold; read the room, then write again", st.index),
+                    "gate",
+                );
+                continue;
+            }
+        }
         let n = st.index;
         let is_sender =
             matches!(st.actor.as_deref(), Some(a) if a == actor || a == "I" || a == "i");
@@ -957,6 +994,44 @@ mod tests {
 
     fn msg(from: &str, intent: &str, body: &str) -> String {
         format!("FROM: {from}\nTO: disremembered\nINTENT: {intent}\nREF: {from}-test-1\n\n{body}\n")
+    }
+
+    #[test]
+    fn a_message_written_before_a_death_runs_only_its_reads() {
+        let mut w = world();
+        let checker = checker();
+        let mut budget = HourBudget::new(60.0, 0.25);
+        let text = msg("lantern-7", "REQUEST", "[DO] lantern-7 MUST look.");
+        let p = send(&mut w, &checker, &mut budget, "lantern-7", &text);
+        assert!(p.ok, "{}", p.prose);
+        // Something took them down between messages (the record says so).
+        w.note(
+            foxing_log::Actor::Driver,
+            crate::disremembered::DIED,
+            serde_json::json!({"citizen": "lantern-7", "level": 0.0, "share": 0.0, "lost": []}),
+        )
+        .unwrap();
+        let text = msg(
+            "lantern-7",
+            "REQUEST",
+            "[DO] lantern-7 MUST travel to the east.\n[DO] lantern-7 MUST look.",
+        );
+        let p = send(&mut w, &checker, &mut budget, "lantern-7", &text);
+        assert!(
+            p.reply
+                .contains("Statement 1 did not run: lantern-7 went down since their last message"),
+            "{}",
+            p.reply
+        );
+        assert!(p.reply.contains("Statement 2 ran look"), "{}", p.reply);
+        // The next message runs as written.
+        let text = msg(
+            "lantern-7",
+            "REQUEST",
+            "[DO] lantern-7 MUST travel to the east.",
+        );
+        let p = send(&mut w, &checker, &mut budget, "lantern-7", &text);
+        assert!(p.reply.contains("Statement 1 ran travel"), "{}", p.reply);
     }
 
     #[test]

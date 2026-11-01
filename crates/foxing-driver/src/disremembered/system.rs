@@ -23,6 +23,17 @@ pub(crate) fn line_for(e: &foxing_log::Event) -> String {
             format!("{} left word for {}: \"{}\"", s("from"), s("to"), s("text"))
         }
         FEEDBACK => format!("{} would change: \"{}\"", s("from"), s("text")),
+        "disremembered.died" => match p["lost"].as_array().map(|l| l.len()).unwrap_or(0) {
+            0 => format!(
+                "{} went down and woke at the Threshold with everything",
+                s("citizen")
+            ),
+            n => format!(
+                "{} went down and lost {n} chunk{} to it",
+                s("citizen"),
+                if n == 1 { "" } else { "s" }
+            ),
+        },
         "disremembered.errand_turned" => format!("{}'s want turned: {}", s("name"), s("why")),
         "disremembered.errand_done" => match p["to"].as_str() {
             Some(t) => format!("{} carried {}'s word to {t}", s("from"), s("name")),

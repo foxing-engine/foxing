@@ -109,6 +109,13 @@ carry several; retreating costs a free hit.
 Your attack is three plus the square root of your level (13 at 100 XP,
 35 at 1,000, 80 at 6,000), plus nought to two a swing; a creature's
 listed attack is its base, and it hits for that plus nought to two.
+Going down costs a share of your window on a curve of level: half of
+level / (level + 300), so a name holding ten loses almost nothing, three
+hundred a quarter, a thousand a third; chunks go at random until the
+share is met, and you wake at the Threshold whole. A death that lands
+between two of your messages (venom, a creature on its clock) is at the
+top of the next reply, and that message runs only its reads (look,
+chunks, map, time…); write the rest again from where you woke.
 Creature stats (hp, attack, xp) are readable through `observe` before
 you fight.
 

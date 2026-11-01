@@ -240,8 +240,20 @@ const BASE_ATTACK: f64 = 3.0;
 /// thousand would have hit for six hundred. The curve keeps the first hundred XP
 /// as they were and bends the rest.
 const ATTACK_PER_ROOT_LEVEL: f64 = 1.0;
-/// On death, the chance in a hundred of losing one window chunk.
-const CONCUSSION_PERCENT: u32 = 50;
+/// On death, the share of the window that goes, on a curve of level: half of
+/// `level / (level + DEATH_SCALE)`, so a name holding ten loses almost nothing (a
+/// newcomer may zombie-rush a censor once), one holding three hundred loses a quarter,
+/// a thousand a third, and the share tends to half. It was a coin flip for one chunk
+/// at any level, and death cost a 2,000-XP delver nothing it noticed.
+pub const DEATH_SHARE_MAX: f64 = 0.5;
+pub const DEATH_SCALE: f64 = 300.0;
+/// Something was lost to a death: `{citizen, lost: [{chunk, source, value}], share}`.
+pub const DIED: &str = "disremembered.died";
+
+/// The share of the window a death costs at this level.
+pub fn death_share(level: f64) -> f64 {
+    DEATH_SHARE_MAX * level.max(0.0) / (level.max(0.0) + DEATH_SCALE)
+}
 /// Seconds between arriving in a room and an aggressive creature noticing you.
 /// An ambush comes this many seconds after an arrival, at the earliest and latest.
 pub const AMBUSH_SECONDS_LOW: i64 = 2;
@@ -680,28 +692,70 @@ pub(crate) fn die(
     actor: &str,
     f: &super::Found,
 ) -> Result<Option<String>, CommandError> {
-    let mut lost = None;
-    if world.roll(100) < CONCUSSION_PERCENT {
-        let chunks: Vec<(EntityId, String)> = world
-            .store
-            .children(f.window)
-            .filter(|e| e.kind == "chunk")
-            .map(|e| {
-                (
-                    e.id,
-                    plain_str(world, e.id, CHUNK, "source")
-                        .unwrap_or("?")
-                        .to_string(),
-                )
-            })
-            .collect();
-        if !chunks.is_empty() {
-            let (id, source) = chunks[world.roll(chunks.len() as u32) as usize].clone();
-            world
-                .record(Actor::Driver, StoreEvent::EntityRemoved { id })
-                .map_err(internal)?;
-            lost = Some(format!("chunk-{} ({source})", id.0));
-        }
+    // Concussion, on the curve: chunks go, picked at random, until the share of the
+    // window the level owes is gone. Nothing goes from a window worth almost nothing.
+    let level = super::memory::level(world, f.window);
+    let share = death_share(level);
+    let owed = level * share;
+    let mut chunks: Vec<(EntityId, String, f64)> = world
+        .store
+        .children(f.window)
+        .filter(|e| e.kind == "chunk")
+        .map(|e| {
+            (
+                e.id,
+                plain_str(world, e.id, CHUNK, "source")
+                    .unwrap_or("?")
+                    .to_string(),
+                world
+                    .store
+                    .read_field(e.id, CHUNK, "value", world.now())
+                    .ok()
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0),
+            )
+        })
+        .collect();
+    let mut gone: Vec<(EntityId, String, f64)> = Vec::new();
+    let mut taken = 0.0;
+    while taken < owed && owed >= 1.0 && !chunks.is_empty() {
+        let (id, source, value) = chunks.remove(world.roll(chunks.len() as u32) as usize);
+        world
+            .record(Actor::Driver, StoreEvent::EntityRemoved { id })
+            .map_err(internal)?;
+        taken += value;
+        gone.push((id, source, value));
+    }
+    let lost = if gone.is_empty() {
+        None
+    } else {
+        let _ = world.note(
+            Actor::Driver,
+            DIED,
+            json!({"citizen": actor, "level": level, "share": share,
+                   "lost": gone.iter().map(|(id, s, v)| json!({"chunk": id.0, "source": s, "value": v})).collect::<Vec<_>>()}),
+        );
+        Some(if gone.len() == 1 {
+            format!("chunk-{} ({})", gone[0].0 .0, gone[0].1)
+        } else {
+            format!(
+                "{:.0} XP in {} chunks ({})",
+                taken,
+                gone.len(),
+                gone.iter()
+                    .map(|(id, _, _)| format!("chunk-{}", id.0))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        })
+    };
+    if gone.is_empty() {
+        // Nothing worth taking, or the roll of the curve at nothing held: still on the record.
+        let _ = world.note(
+            Actor::Driver,
+            DIED,
+            json!({"citizen": actor, "level": level, "share": share, "lost": []}),
+        );
     }
     let home = super::rooms::arrival(world).ok_or_else(|| internal("the Threshold is missing"))?;
     if let Some(creature) = engaged_with(world, f.citizen) {

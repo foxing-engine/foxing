@@ -40,7 +40,7 @@ use foxing_time::{Bounds, Curve, Duration, TimedValue};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
-pub use combat::NARRATIVE;
+pub use combat::{DIED, NARRATIVE};
 pub use identity::LoginError;
 
 /// Decay curves for the slice. Half-lives are short so decay is visible in a session;
