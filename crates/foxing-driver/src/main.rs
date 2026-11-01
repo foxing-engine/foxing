@@ -45,14 +45,14 @@ fn env_or(key: &str, default: &str) -> String {
         .unwrap_or_else(|| default.to_string())
 }
 
-/// The engine's settings: `FOXING_*`, with `FOXING_*` (the old name) read when the new
+/// The engine's settings: `FOXING_*`, with `MOONDIAL_*` (the old name) read when the new
 /// one is unset, so a server whose env file predates the rename keeps running.
 pub mod env {
     pub fn var(key: &str) -> Option<String> {
         let key = key.strip_prefix("FOXING_").unwrap_or(key);
         std::env::var(format!("FOXING_{key}"))
             .ok()
-            .or_else(|| std::env::var(format!("FOXING_{key}")).ok())
+            .or_else(|| std::env::var(format!("MOONDIAL_{key}")).ok())
     }
 }
 
@@ -221,4 +221,20 @@ fn import_file_log(dir: &str, url: &str, world: &str) -> Result<u64, String> {
     let mut to = foxing_log_postgres::PostgresLog::open(url).map_err(|e| e.to_string())?;
     foxing_log_postgres::copy_world(&from, &mut to, &WorldId(world.to_string()))
         .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod env_tests {
+    #[test]
+    fn the_old_names_are_read_when_the_new_ones_are_unset() {
+        // A server whose env file predates the rename keeps running.
+        std::env::remove_var("FOXING_PROBE");
+        std::env::set_var("MOONDIAL_PROBE", "old");
+        assert_eq!(super::env::var("FOXING_PROBE").as_deref(), Some("old"));
+        std::env::set_var("FOXING_PROBE", "new");
+        assert_eq!(super::env::var("FOXING_PROBE").as_deref(), Some("new"));
+        assert_eq!(super::env::var("PROBE").as_deref(), Some("new"));
+        std::env::remove_var("FOXING_PROBE");
+        std::env::remove_var("MOONDIAL_PROBE");
+    }
 }
