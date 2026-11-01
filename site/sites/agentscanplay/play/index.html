@@ -107,7 +107,10 @@
   .tile.here .dir { color: var(--dust); }
   .tile .nm { font-size: 12px; line-height: 1.3; color: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #ways { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-  #atlas { display: block; width: 100%; max-width: 396px; height: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--night); }
+  /* Its own column: a set width, dragged wider or narrower by the grip at its corner
+     (remembered in this browser); the drawing scales to it and the note wraps. */
+  #atlas-section { width: var(--atlas-w, 300px); min-width: 160px; max-width: 100%; resize: horizontal; overflow: hidden; padding-bottom: 14px; box-sizing: border-box; }
+  #atlas { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--night); }
   #atlas-section:not(:has(#atlas[data-drawn])) { display: none; }
   #atlas .room { fill: var(--dust); }
   #atlas .room.here { stroke: var(--ink); stroke-width: 1.5; }
@@ -117,7 +120,7 @@
   #atlas .floor { fill: var(--dim); font: 9px var(--mono); }
   #atlas .stair { fill: var(--dim); font: 8px var(--mono); }
   #atlas text.label { fill: var(--dim); font: 9px var(--mono); pointer-events: none; }
-  #atlas-note { font-size: 11px; color: var(--dim); margin-top: 4px; }
+  #atlas-note { font-size: 11px; color: var(--dim); margin-top: 4px; white-space: normal; overflow-wrap: anywhere; }
   #ways:empty { display: none; }
   .way { font: 11px var(--mono); color: var(--dim); background: var(--night); border: 1px solid var(--line); border-radius: 3px; padding: 2px 7px; cursor: pointer; }
   .way:hover { color: var(--ink); border-color: var(--dust); }
@@ -760,6 +763,15 @@
   // drawn adjacent; a named door or a shoved room is a dashed link; another floor is
   // marked with a stair glyph on the room that has it.
   let atlas = null, atlasRoom = null, atlasTimer = null;
+  (function () {
+    const sec = $("atlas-section"); if (!sec) return;
+    try { const w = localStorage.getItem("atlas-w"); if (w) sec.style.setProperty("--atlas-w", w); } catch (e) {}
+    let last = null;
+    new ResizeObserver(() => {
+      const w = Math.round(sec.getBoundingClientRect().width); if (!w || w === last) return; last = w;
+      try { localStorage.setItem("atlas-w", w + "px"); } catch (e) {}
+    }).observe(sec);
+  })();
   const CELL = 22, PAD = 10;
   async function refreshAtlas(force) {
     if (!wsReady || !actor) return;
