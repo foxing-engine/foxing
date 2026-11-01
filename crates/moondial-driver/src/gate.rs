@@ -1423,10 +1423,25 @@ mod tests {
         // A message past the byte cap is refused at the door, by every door, for a
         // quarter unit written or nothing typed.
         let long = format!("FROM: spacepants\nTO: disremembered\nINTENT: REQUEST\nREF: x\n\n[DO] spacepants MUST say \"{}\".\n", "a".repeat(MAX_MESSAGE_BYTES));
-        let p = send_via(&mut w, &checker, &mut budget, "spacepants", Via::Gate, &long);
+        let p = send_via(
+            &mut w,
+            &checker,
+            &mut budget,
+            "spacepants",
+            Via::Gate,
+            &long,
+        );
         assert!(!p.ok);
-        assert!(p.reply.contains("the world reads at most 8192"), "{}", p.reply);
-        assert!((p.budget_remaining - 59.75).abs() < 1e-9, "{}", p.budget_remaining);
+        assert!(
+            p.reply.contains("the world reads at most 8192"),
+            "{}",
+            p.reply
+        );
+        assert!(
+            (p.budget_remaining - 59.75).abs() < 1e-9,
+            "{}",
+            p.budget_remaining
+        );
         budget.used.clear();
 
         // A refused command is not ok, and the prose says why in the world's words.
