@@ -527,12 +527,14 @@ pub fn carried_word(
     let sender_name = mind::name(world, sender).unwrap_or_else(|| "someone".into());
     let f = me_by_name(world, actor)?;
     let curves = super::Curves::with_half_life(foxing_time::Duration::seconds(3 * 3600));
+    // A word carried pays more when names are few: the errands are what keep them.
+    let word_xp = (WORD_XP * mind::scarcity(world)).round();
     let chunk = super::memory::earn_chunk(
         world,
         actor,
         f.window,
         &format!("carrying {sender_name}'s word to {receiver_name}"),
-        WORD_XP,
+        word_xp,
         0.5,
         &curves,
     )?;
@@ -555,7 +557,7 @@ pub fn carried_word(
         world,
         actor,
         format!(
-            "You remember the carrying: chunk-{} worth {WORD_XP:.0} XP.",
+            "You remember the carrying: chunk-{} worth {word_xp:.0} XP.",
             chunk.0
         ),
     );

@@ -90,6 +90,16 @@ pub(crate) fn line_for(e: &foxing_log::Event) -> String {
             p["name"].as_str().unwrap_or(&s("kind"))
         ),
         "disremembered.wandered" => format!("a {} wandered in", s("kind")),
+        "disremembered.confided" => format!(
+            "{} the {} told {} a story, {} named left",
+            s("teller_name"),
+            s("kind"),
+            match p["listener_name"].as_str() {
+                Some(n) => format!("{n} the {}", s("listener_kind")),
+                None => format!("the {}", s("listener_kind")),
+            },
+            p["named"].as_u64().unwrap_or(0)
+        ),
         "disremembered.razed" => format!("the operator razed {}", s("name")),
         "disremembered.dug" => format!("{} dug {}", s("by"), s("name")),
         "disremembered.clocktower" => s("said").to_string(),

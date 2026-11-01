@@ -660,6 +660,8 @@ pub fn wander(world: &mut World) -> Result<usize, String> {
                 super::memory::earn_chunk(world, "nobody", window, what, size, 0.9, &curves)
                     .map_err(|e| e.to_string())?;
             }
+            // Minded from the start, so the sweep follows what it holds.
+            set_mind(world, Actor::Driver, creature, BTreeMap::new()).map_err(|e| e.to_string())?;
             check_tier(world, creature).map_err(|e| e.to_string())?;
         }
         let rname = plain_str(world, room, super::ROOM, "name")
@@ -688,6 +690,177 @@ pub fn wander(world: &mut World) -> Result<usize, String> {
     Ok(arrived)
 }
 
+pub const JOB_CONFIDE: &str = "disremembered.confide";
+/// A named creature told another creature a story: `{teller, teller_name, kind,
+/// listener, listener_kind, listener_name, room, story, paid, named, chance}`. Public.
+pub const CONFIDED: &str = "disremembered.confided";
+const CONFIDE_EVERY_SECONDS: i64 = 600;
+/// Below this level a name is failing: `look` says so.
+pub const FAILING_BELOW: f64 = 70.0;
+
+/// The urgency the named feel, by how many of them are left: certain at two or
+/// fewer, nothing at six or more. A dying population starts feeding the unnamed
+/// around it toward a name; a full one keeps its stories for whoever asks.
+pub fn urgency(named: usize) -> f64 {
+    match named {
+        0..=2 => 1.0,
+        3 => 0.5,
+        4 => 0.25,
+        5 => 0.1,
+        _ => 0.0,
+    }
+}
+
+/// How many creatures hold a name now.
+pub fn named_count(world: &World) -> usize {
+    world
+        .store
+        .entities()
+        .filter(|e| e.kind == "creature" && name(world, e.id).is_some())
+        .count()
+}
+
+/// What a want pays when names are few: one and a half times at two or fewer named,
+/// scaling down to the plain figure at six or more.
+pub fn scarcity(world: &World) -> f64 {
+    1.0 + 0.5 * urgency(named_count(world))
+}
+
+fn schedule_confide(world: &mut World) -> Result<(), String> {
+    let due = world
+        .now()
+        .plus(foxing_time::Duration::seconds(CONFIDE_EVERY_SECONDS));
+    world
+        .schedule_once(JOB_CONFIDE, due, json!({}), |_| true)
+        .map(|_| ())
+}
+
+/// One pass: each named creature, with the urgency's chance, tells a creature in its
+/// room a story it holds (the unnamed first: the point is a new name), and the
+/// listener keeps a memory of it worth half the story, at least four. The teller
+/// keeps its story: a story told is not lost. Returns how many were told.
+pub fn confide(world: &mut World) -> Result<usize, String> {
+    let named: Vec<EntityId> = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "creature" && name(world, e.id).is_some())
+        .map(|e| e.id)
+        .collect();
+    let count = named.len();
+    let chance = urgency(count);
+    if chance <= 0.0 {
+        return Ok(0);
+    }
+    let mut told = 0;
+    for teller in named {
+        if (world.roll(1000) as f64) >= chance * 1000.0 {
+            continue;
+        }
+        let Some(room) = world.store.entity(teller).and_then(|e| e.parent) else {
+            continue;
+        };
+        let others: Vec<EntityId> = super::combat::creatures_in(world, room)
+            .into_iter()
+            .map(|c| c.0)
+            .filter(|&c| c != teller)
+            .collect();
+        // The unnamed first; else the named one holding least.
+        let listener = others
+            .iter()
+            .copied()
+            .find(|&c| name(world, c).is_none())
+            .or_else(|| {
+                others.iter().copied().min_by(|&a, &b| {
+                    level(world, a)
+                        .partial_cmp(&level(world, b))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+            });
+        let Some(listener) = listener else {
+            continue;
+        };
+        // The story it holds best.
+        let Some(window) = window_of(world, teller) else {
+            continue;
+        };
+        let now = world.now();
+        let best = world
+            .store
+            .children(window)
+            .filter(|e| e.kind == "chunk")
+            .filter_map(|e| {
+                let v = world
+                    .store
+                    .read_field(e.id, CHUNK, "value", now)
+                    .ok()?
+                    .as_f64()?;
+                Some((e.id, v))
+            })
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+        let Some((chunk, value)) = best else {
+            continue;
+        };
+        let story = plain_str(world, chunk, CHUNK, "source")
+            .unwrap_or("something")
+            .to_string();
+        let teller_name = name(world, teller).unwrap_or_default();
+        let teller_kind = plain_str(world, teller, CREATURE, "name")
+            .unwrap_or("?")
+            .to_string();
+        let listener_kind = plain_str(world, listener, CREATURE, "name")
+            .unwrap_or("?")
+            .to_string();
+        let listener_name = name(world, listener);
+        let paid = (value / 2.0).clamp(4.0, 40.0).round();
+        let to = ensure_window(world, listener).map_err(|e| e.to_string())?;
+        let curves = super::Curves::from_env();
+        let kept = super::memory::earn_chunk(
+            world,
+            "nobody",
+            to,
+            &format!("{teller_name}'s story of {story}"),
+            paid,
+            0.6,
+            &curves,
+        )
+        .map_err(|e| e.to_string())?;
+        // The listener has a mind now, kept by the teller: the sweep minds it, and
+        // `look` shows what it holds.
+        let mut kept_by = mind_field(world, listener, "kept")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        kept_by.push(json!({"by": teller_name, "with": format!("its story of {story}"), "creature": teller.0}));
+        let mut changes = BTreeMap::new();
+        changes.insert("kept".into(), Field::Plain(Value::Array(kept_by)));
+        set_mind(world, Actor::Driver, listener, changes).map_err(|e| e.to_string())?;
+        let _ = world.note(
+            Actor::Driver,
+            CONFIDED,
+            json!({"teller": teller.0, "teller_name": teller_name, "kind": teller_kind, "listener": listener.0, "listener_kind": listener_kind, "listener_name": listener_name, "room": room.0, "story": story, "chunk": kept.0, "paid": paid, "named": count, "chance": chance}),
+        );
+        let whom = match &listener_name {
+            Some(n) => format!("{n} the {listener_kind}"),
+            None => format!("the {listener_kind}"),
+        };
+        let how = match count {
+            0..=2 => {
+                "low and quick, the way a thing is told when there may be no one else to tell it to"
+            }
+            3..=4 => "low, as if there were not many left who could carry it",
+            _ => "as if it had only just thought of it",
+        };
+        super::combat::narrate_room(
+            world,
+            teller,
+            &format!("{teller_name} the {teller_kind} tells {whom} a story, {how}: {story}."),
+        );
+        check_tier(world, listener).map_err(|e| e.to_string())?;
+        told += 1;
+    }
+    Ok(told)
+}
+
 pub fn register(world: &mut World) {
     world.on_tick(Box::new(sweep));
     world.on_job(
@@ -697,11 +870,20 @@ pub fn register(world: &mut World) {
             schedule_wander(w)
         }),
     );
+    world.on_job(
+        JOB_CONFIDE,
+        Box::new(|w: &mut World, _| {
+            confide(w)?;
+            schedule_confide(w)
+        }),
+    );
 }
 
-/// Make sure the wandering is scheduled; called at boot after the jobs are replayed.
+/// Make sure the wandering and the confiding are scheduled; called at boot after
+/// the jobs are replayed.
 pub fn ensure_wander(world: &mut World) -> Result<(), String> {
-    schedule_wander(world)
+    schedule_wander(world)?;
+    schedule_confide(world)
 }
 
 /// "a wisp", "an engrosser": the article a kind takes.

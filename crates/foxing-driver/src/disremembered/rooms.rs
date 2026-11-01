@@ -5,7 +5,7 @@
 //! Rooms are entities with `disremembered.room`, `disremembered.exits` and, where something lives,
 //! `disremembered.spawn`. Travel moves the citizen entity from one room to another.
 
-use super::{internal, me, plain_str, EXITS, ROOM, SPAWN};
+use super::{internal, me, mind, plain_str, EXITS, ROOM, SPAWN};
 use crate::world::World;
 use foxing_log::Actor;
 use foxing_registry::{CommandSpec, Outcome, ParamType};
@@ -815,6 +815,11 @@ pub fn describe(
                     None => kind.to_string(),
                 };
                 let holds = match c["mind"]["level"].as_f64() {
+                    Some(l)
+                        if l >= 0.5 && c["mind"]["name"].is_string() && l < mind::FAILING_BELOW =>
+                    {
+                        format!(", holding {l:.0}, its name failing")
+                    }
                     Some(l) if l >= 0.5 => format!(", holding {l:.0}"),
                     _ => String::new(),
                 };

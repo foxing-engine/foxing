@@ -193,7 +193,12 @@ pub fn register(world: &mut World, curves: Curves) {
                 * super::economy::rate(w, "pay")
                 * 0.5f64.powi(repeats as i32))
             .round()
-                * if wanted { 2.0 } else { 1.0 };
+                * if wanted {
+                    // The one it wanted is worth double, and more when names are few.
+                    2.0 * super::mind::scarcity(w)
+                } else {
+                    1.0
+                };
             let gist = gist(&text);
             let heard_line = match repeats {
                 0 => String::new(),

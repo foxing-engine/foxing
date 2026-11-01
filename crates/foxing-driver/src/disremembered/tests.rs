@@ -5270,3 +5270,127 @@ fn a_passing_names_chunk_bears_the_mark_and_is_taxed_in_full_when_given() {
     assert_eq!(out.result["marked"], false, "{}", out.summary);
     assert_eq!(out.result["taxed"], false, "{}", out.summary);
 }
+
+#[test]
+fn the_named_confide_in_the_unnamed_when_names_are_few() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    ok(&mut w, "tyler", "travel", json!(["south"]));
+    // One named creature in the world: the ragpicker, holding a story of tyler's.
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 90, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let name = mind::name(&w, rag).unwrap();
+    assert_eq!(mind::named_count(&w), 1);
+    assert_eq!(mind::urgency(1), 1.0);
+    assert_eq!(mind::urgency(3), 0.5);
+    assert_eq!(mind::urgency(6), 0.0);
+    assert_eq!(
+        mind::scarcity(&w),
+        1.5,
+        "a want pays half again when names are few"
+    );
+    // An unnamed wisp is brought from the fogbank to the midden to be told.
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    admin(
+        &mut w,
+        "tyler",
+        "bring",
+        json!([format!("creature-{}", wisp.0), "midden"]),
+    );
+    assert!(combat::creatures_in(&w, midden).iter().any(|c| c.0 == wisp));
+    assert!(mind::name(&w, wisp).is_none());
+    assert_eq!(mind::level(&w, wisp), 0.0);
+    // Ten minutes on, the confiding job runs: certain at one named. The wisp holds the
+    // story's memory now, the room heard it told, and the record is public. (The
+    // test world's chunks halve in seconds, so the ragpicker is fed again at the
+    // stroke to keep its name for the telling.)
+    w.fixed_now = Some(t0.plus(Duration::seconds(599)));
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 90, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([&c, &name]));
+    let head = events(&w);
+    w.fixed_now = Some(t0.plus(Duration::seconds(601)));
+    assert!(w.tick() >= 1);
+    let told: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == mind::CONFIDED)
+        .collect();
+    assert_eq!(told.len(), 1, "{told:?}");
+    assert_eq!(told[0].payload["teller"], rag.0);
+    assert_eq!(told[0].payload["listener"], wisp.0);
+    assert_eq!(told[0].payload["named"], 1);
+    assert!(told[0].payload["paid"].as_f64().unwrap() >= 4.0);
+    assert!(mind::level(&w, wisp) > 0.0, "{}", mind::level(&w, wisp));
+    let heard = narrative(&w, "tyler", head);
+    assert!(
+        heard.iter().any(|l| l.starts_with(&format!(
+            "{name} the ragpicker tells the wisp a story, low and quick"
+        ))),
+        "{heard:?}"
+    );
+    assert!(crate::observe::visible(
+        &w,
+        &Viewer::actor("nobody"),
+        w.now(),
+        &told[0]
+    ));
+    // The ragpicker's own story is still its own: a story told is not lost.
+    assert!(mind::level(&w, rag) > 0.0);
+    // The wisp shows what it holds now. A name failing is said in the room: the test
+    // world's chunks halve in ten seconds, so a few seconds on the ragpicker is under
+    // seventy and still named.
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    assert!(
+        look.summary.contains("wisp (9.0/9.0, holding "),
+        "{}",
+        look.summary
+    );
+    w.fixed_now = Some(t0.plus(Duration::seconds(607)));
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    assert!(
+        look.summary.contains(&format!("{name} the ragpicker ("))
+            && look.summary.contains("its name failing"),
+        "{}",
+        look.summary
+    );
+    // With six named, nobody confides: five more unnamed creatures are named here.
+    let unnamed: Vec<EntityId> = w
+        .store
+        .entities()
+        .filter(|e| e.kind == "creature" && e.id != rag && mind::name(&w, e.id).is_none())
+        .map(|e| e.id)
+        .take(5)
+        .collect();
+    assert_eq!(unnamed.len(), 5);
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 90, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([&c, &name]));
+    for id in unnamed {
+        let c = admin(&mut w, "tyler", "earn", json!(["hollow", 90, 0.5]));
+        let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+        admin(
+            &mut w,
+            "tyler",
+            "bring",
+            json!([format!("creature-{}", id.0), "midden"]),
+        );
+        ok(
+            &mut w,
+            "tyler",
+            "remember",
+            json!([&c, format!("creature-{}", id.0)]),
+        );
+    }
+    assert!(mind::named_count(&w) >= 6, "{}", mind::named_count(&w));
+    assert_eq!(mind::scarcity(&w), 1.0);
+    assert_eq!(mind::confide(&mut w).unwrap(), 0);
+}
