@@ -26,8 +26,11 @@ for d in foxing.dev www.foxing.dev foxingengine.com www.foxingengine.com; do
   case " $got" in *" $ME "*) ARGS+=(-d "$d"); ok "$d -> here";; *) echo "  --  $d -> ${got:-nothing}; not this host, left off the certificate";; esac
 done
 [ ${#ARGS[@]} -gt 0 ] || { echo "no name resolves to this host ($ME); check DNS"; exit 1; }
-certbot --nginx --non-interactive --agree-tos --redirect -m "$CERT_EMAIL" "${ARGS[@]}" \
-  && ok "certificate issued for:${ARGS[*]//-d/}; https redirect in place"
+if certbot --nginx --non-interactive --agree-tos --redirect -m "$CERT_EMAIL" "${ARGS[@]}"; then
+  ok "certificate issued for:${ARGS[*]//-d/}; https redirect in place"
+else
+  echo "  --  certbot returned non-zero; if foxing.dev answers over https anyway, carry on (the redirect below still goes in)"
+fi
 
 # moondial.ai: the redirect, on the certificate it already has.
 install -m 644 "$DEPLOY/nginx-moondial.conf" /etc/nginx/sites-available/moondial
