@@ -7,7 +7,7 @@ set -euo pipefail
 
 # /srv/foxing once migrate-to-foxing.sh has run on this host; /srv/moondial before.
 APP_DIR=$([ -d /srv/foxing ] && echo /srv/foxing || echo /srv/moondial)
-UNIT=$([ -f /etc/systemd/system/foxing.service ] && echo foxing || echo foxing)
+UNIT=$([ -f /etc/systemd/system/foxing.service ] && echo foxing || echo moondial)
 KEEP_RELEASES=5
 REL_NAME="${1:?release name required}"
 REL="$APP_DIR/releases/$REL_NAME"
