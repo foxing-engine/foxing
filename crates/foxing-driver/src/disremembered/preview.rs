@@ -59,8 +59,9 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &foxing_clear::Messag
     run_checked(world, actor, passing, msg, None)
 }
 
-/// As [`run`], with the checker's verdict and rule ids on top: a message the checker
-/// fails is refused whole, whatever the statements would have done.
+/// The dry run, with the checker's verdict and rule ids on top: a message the checker
+/// fails is refused whole, whatever the statements would have done. (`run`, without
+/// them, is the tests' shorthand.)
 pub fn run_checked(
     world: &World,
     actor: &str,
