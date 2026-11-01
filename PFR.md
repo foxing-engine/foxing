@@ -208,6 +208,15 @@ figures on the canvas that answer to a click.
   unique (rename one, or let the errand text say which); `observe` as a DO needs a
   JSON query object (say so in the quickstart); "Tell the underloam …" is a player's
   room text that `tell` cannot answer.
+- The Conclave's verbs, as the Architect designed them (design/conclave.md §5; the
+  rooms, officers, sitting and enactment prose shipped 2026-11-01): `petition
+  <statute> rise|fall "reason"` in the Petitioners' Gallery, kept names only, a
+  10+ XP chunk into the minutes, one a day, one step; regulars' petitions lie upon
+  the table and are read at midnight, others are received and filed; carried when a
+  third of the day's regulars and at least three names agree; a hoard's petition to
+  ease its own tax never counts. `attend`: free, your name read out at midnight.
+  Three refusals to keep: no petition aimed at a name, no statute that takes back
+  held memory, no standing for sale or seat to win.
 - The Conclave round two (scaffolding shipped 2026-11-01: the book, five statutes,
   `enact`/`statutes`, the daily sitting that names the hoards and changes nothing,
   /v0/conclave): a policy for the sitting (raise the gift allowance when gifts are

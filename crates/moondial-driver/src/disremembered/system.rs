@@ -95,6 +95,12 @@ pub(crate) fn line_for(e: &moondial_log::Event) -> String {
                 s("citizen"),
                 s("source")
             ),
+            Some("entered") => format!(
+                "an engrosser entered {}'s memory of {} into the minutes",
+                s("citizen"),
+                s("source")
+            ),
+            Some("below") => format!("the tipstaff showed {} below the bar", s("citizen")),
             _ => format!("a {} did something to {}", s("kind"), s("citizen")),
         },
         "disremembered.left" => format!("a {} left {} behind", s("kind"), s("name")),

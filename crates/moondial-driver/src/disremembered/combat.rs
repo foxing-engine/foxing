@@ -205,6 +205,31 @@ pub const CREATURES: &[CreatureDef] = &[
         glyph: "Q",
         tint: "#e8e0c0",
     },
+    // The Conclave's clerks and its Sergeant of the Bar. Neither starts a fight.
+    CreatureDef {
+        key: "engrosser",
+        name: "engrosser",
+        hp: 80.0,
+        attack: 7.0,
+        xp: 320.0,
+        aggressive: false,
+        strike_seconds: 10,
+        ambush: "looks up from the minutes, dips its pen, and writes down that you have arrived.",
+        glyph: "E",
+        tint: "#2a2a3a",
+    },
+    CreatureDef {
+        key: "tipstaff",
+        name: "tipstaff",
+        hp: 140.0,
+        attack: 10.0,
+        xp: 600.0,
+        aggressive: false,
+        strike_seconds: 9,
+        ambush: "lowers its staff across the rail and asks, in a voice made for a much larger room, whether you have business before the Conclave.",
+        glyph: "T",
+        tint: "#c0a060",
+    },
 ];
 
 /// Base damage per round before the level bonus.
@@ -704,9 +729,10 @@ pub fn register(world: &mut World, curves: Curves) {
         }),
     );
 
+    let c = curves.clone();
     world.on_job(
         JOB_STRIKE,
-        Box::new(|w: &mut World, job| {
+        Box::new(move |w: &mut World, job| {
             let creature = EntityId(job.payload["creature"].as_u64().unwrap_or(0));
             let citizen = EntityId(job.payload["citizen"].as_u64().unwrap_or(0));
             let actor = job.payload["actor"].as_str().unwrap_or("").to_string();
@@ -726,7 +752,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 });
                 return Ok(());
             }
-            let (trick, over) = super::stacks::trick(w, creature, citizen, &actor)?;
+            let (trick, over) = super::stacks::trick(w, &c, creature, citizen, &actor)?;
             narrate(w, &actor, format!("The {cname} hits you for {taken:.0}. You have {:.0}/{:.0}.{}", hp(w, citizen), super::MAX_HP, trick.map(|t| format!(" {t}")).unwrap_or_default()));
             if over {
                 return Ok(());
@@ -735,9 +761,10 @@ pub fn register(world: &mut World, curves: Curves) {
         }),
     );
 
+    let c2 = curves.clone();
     world.on_job(
         JOB_AMBUSH,
-        Box::new(|w: &mut World, job| {
+        Box::new(move |w: &mut World, job| {
             let creature = EntityId(job.payload["creature"].as_u64().unwrap_or(0));
             let citizen = EntityId(job.payload["citizen"].as_u64().unwrap_or(0));
             let actor = job.payload["actor"].as_str().unwrap_or("").to_string();
@@ -776,7 +803,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 });
                 return Ok(());
             }
-            let (trick, over) = super::stacks::trick(w, creature, citizen, &actor)?;
+            let (trick, over) = super::stacks::trick(w, &c2, creature, citizen, &actor)?;
             let clock = clock_line(w, creature);
             narrate(w, &actor, format!("The {dname} {dambush} It hits you for {taken:.0}. You have {:.0}/{:.0}.{} {clock}", hp(w, citizen), super::MAX_HP, match &trick { Some(t) => format!(" {t}"), None => " Attack it, or retreat.".to_string() }));
             if over {
@@ -903,7 +930,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 // What it leaves behind, one time in three.
                 let left = super::craft::leave_behind(w, &curves, room, creature, &cname)?;
                 // The dying throes of a creature of the Stacks: its trick, once more.
-                let (throes, _) = super::stacks::throes(w, creature, f.citizen, &ctx.actor).map_err(internal)?;
+                let (throes, _) = super::stacks::throes(w, &curves, creature, f.citizen, &ctx.actor).map_err(internal)?;
                 w.record(Actor::Driver, StoreEvent::EntityRemoved { id: creature }).map_err(internal)?;
                 schedule_respawn(w, room).map_err(internal)?;
                 set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
@@ -934,7 +961,7 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             let my_hp = hp(w, f.citizen);
             lines.push(format!("You have {my_hp:.0}/{:.0}.", super::MAX_HP));
-            let (trick, _) = super::stacks::trick(w, creature, f.citizen, &ctx.actor).map_err(internal)?;
+            let (trick, _) = super::stacks::trick(w, &curves, creature, f.citizen, &ctx.actor).map_err(internal)?;
             if let Some(t) = trick {
                 lines.push(t);
             }

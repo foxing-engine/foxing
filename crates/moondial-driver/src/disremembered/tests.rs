@@ -39,6 +39,11 @@ fn call(
     )
 }
 
+/// The curves the test world runs on.
+fn curves() -> Curves {
+    Curves::with_half_life(Duration::seconds(10))
+}
+
 fn ok(w: &mut World, actor: &str, verb: &str, args: Value) -> Outcome {
     call(w, actor, ActorKind::Citizen, verb, args.clone())
         .unwrap_or_else(|e| panic!("{verb} {args}: {e}"))
@@ -2303,7 +2308,8 @@ fn names_match_in_any_case_and_a_kind_never_means_a_named_creature() {
         ok(&mut w, "dave", "attack", json!([&name])).result["creature"],
         "wisp"
     );
-    ok(&mut w, "dave", "retreat", json!([]));
+    // (The named wisp may have gone down in that blow; then there is no fight to leave.)
+    let _ = call(&mut w, "dave", ActorKind::Citizen, "retreat", json!([]));
     // A named creature is found anywhere by its name, with its room.
     let (found, room) = mind::find_named(&w, &name.to_ascii_uppercase()).unwrap();
     assert_eq!(found, a);
@@ -3795,7 +3801,14 @@ fn the_map_is_laid_out_from_the_threshold_and_you_remember_only_where_you_stood(
     ok(&mut w, "dave", "dig", json!(["teapot", c, "The Teapot"]));
     let l = atlas::layout(&w);
     assert_eq!(l.rooms.len(), seeds + 1);
-    let (x, y, z, placed) = at(&l, &l.rooms.last().unwrap().key.clone());
+    let teapot = l
+        .rooms
+        .iter()
+        .find(|r| r.name == "The Teapot")
+        .unwrap()
+        .key
+        .clone();
+    let (x, y, z, placed) = at(&l, &teapot);
     assert_eq!((z, placed), (0, "beside"));
     assert!(
         (x, y) != (1, 0) && (x, y) != (0, -1),
@@ -4333,15 +4346,16 @@ fn the_conclave_writes_the_statutes_memory_moves_under() {
     let head = events(&w);
     let out = admin(&mut w, "dave", "enact", json!(["gift_allowance", 50]));
     assert!(
-        out.summary
-            .starts_with("The Conclave enacts: the day's gift allowance falls from 120 to 50 XP."),
+        out.summary.starts_with(
+            "By statute, the Conclave narrows the day's gift allowance from 120 to 50."
+        ),
         "{}",
         out.summary
     );
     assert_eq!(conclave::statute(&w, "gift_allowance"), 50.0);
     assert!(narrative(&w, "tyler", head)
         .iter()
-        .any(|l| l.starts_with("The Conclave enacts:")));
+        .any(|l| l.starts_with("By statute, the Conclave narrows")));
     let err = call(
         &mut w,
         "dave",
@@ -4436,7 +4450,7 @@ fn the_conclave_writes_the_statutes_memory_moves_under() {
     assert!(
         narrative(&w, "dave", head)
             .iter()
-            .any(|l| l.starts_with("The Conclave's hoard tax is on you")),
+            .any(|l| l.starts_with("The Conclave notes that dave holds")),
         "{:?}",
         narrative(&w, "dave", head)
     );
@@ -4473,7 +4487,7 @@ fn the_conclave_writes_the_statutes_memory_moves_under() {
         sat[0].payload["said"]
             .as_str()
             .unwrap()
-            .contains("names a hoard: dave"),
+            .starts_with("The Conclave has sat. It names one hoard, dave, holding"),
         "{}",
         sat[0].payload["said"]
     );
@@ -4514,7 +4528,7 @@ fn the_lower_stacks_lie_under_the_archive_and_their_creatures_have_tricks() {
         .unwrap();
     let mut landed = None;
     for _ in 0..40 {
-        let (line, over) = stacks::trick(&mut w, censor, f.citizen, "dave").unwrap();
+        let (line, over) = stacks::trick(&mut w, &curves(), censor, f.citizen, "dave").unwrap();
         assert!(!over);
         if let Some(l) = line {
             landed = Some(l);
@@ -4533,7 +4547,7 @@ fn the_lower_stacks_lie_under_the_archive_and_their_creatures_have_tricks() {
     // A lamprey's venom: four ticks of two, a minute long, on the record.
     let sump = rooms::room_by_key(&w, "pulp-sump").unwrap();
     let lamprey = combat::creatures_in(&w, sump)[0].0;
-    let (line, over) = stacks::trick(&mut w, lamprey, f.citizen, "dave").unwrap();
+    let (line, over) = stacks::trick(&mut w, &curves(), lamprey, f.citizen, "dave").unwrap();
     assert!(!over);
     assert!(line.unwrap().contains("the venom will work"));
     assert!(w
@@ -4574,7 +4588,7 @@ fn the_lower_stacks_lie_under_the_archive_and_their_creatures_have_tricks() {
     .unwrap();
     let mut moved = None;
     for _ in 0..40 {
-        let (line, over) = stacks::trick(&mut w, usher, f.citizen, "dave").unwrap();
+        let (line, over) = stacks::trick(&mut w, &curves(), usher, f.citizen, "dave").unwrap();
         if let Some(l) = line {
             assert!(over);
             moved = Some(l);
@@ -4682,4 +4696,139 @@ fn the_census_counts_the_world_and_the_board_averages_the_day() {
         out.summary
     );
     assert!(out.result["citizens"][0]["held_24h"].as_f64().unwrap() > 50.0);
+}
+
+#[test]
+fn the_conclave_sits_up_inside_the_clocktower_and_its_officers_keep_order() {
+    use super::{conclave, stacks};
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    // Eleven rooms, by the escapement from the Stopped Clocktower, and back.
+    for k in conclave::KEYS {
+        assert!(rooms::room_by_key(&w, k).is_some(), "{k}");
+    }
+    let tower = rooms::room_by_key(&w, "clocktower").unwrap();
+    let stair = rooms::room_by_key(&w, "escapement-stair").unwrap();
+    assert_eq!(
+        rooms::exits_of(&w, tower).get("escapement").copied(),
+        Some(stair)
+    );
+    assert_eq!(
+        rooms::exits_of(&w, stair).get("escapement").copied(),
+        Some(tower)
+    );
+    assert!(conclave::is_house(&w, stair) && !conclave::is_house(&w, tower));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    w.tick(); // the spawns fill
+    let f = find_citizen(&w, "dave").unwrap();
+    // At the Lectern the Book speaks first; elsewhere it is just the book.
+    let lectern = rooms::room_by_key(&w, "book-lectern").unwrap();
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: f.citizen,
+            parent: Some(lectern),
+        },
+    )
+    .unwrap();
+    let out = ok(&mut w, "dave", "statutes", json!([]));
+    assert!(
+        out.summary.starts_with(
+            "The Book is open. The Conclave permits you to read it.\nThe Conclave's statutes:"
+        ),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary
+            .contains("Carved over the door: WHAT THE CONCLAVE WRITES, MEMORY OBEYS."),
+        "{}",
+        out.summary
+    );
+    assert!(!ok(&mut w, "tyler", "statutes", json!([]))
+        .summary
+        .starts_with("The Book is open"));
+    // An engrosser enters a chunk into the minutes: shelved, not halved.
+    let tally = rooms::room_by_key(&w, "tally-room").unwrap();
+    let clerk = combat::creatures_in(&w, tally)[0].0;
+    assert_eq!(stacks::trick_of(&w, clerk), Some(stacks::Trick::Enter));
+    let chunk = admin(&mut w, "dave", "earn", json!(["a lantern", 40, 0.5])).result["chunk"]
+        .as_u64()
+        .unwrap();
+    let mut landed = None;
+    for _ in 0..40 {
+        let (line, over) = stacks::trick(&mut w, &curves(), clerk, f.citizen, "dave").unwrap();
+        assert!(!over);
+        if let Some(l) = line {
+            landed = Some(l);
+            break;
+        }
+    }
+    assert!(landed.unwrap().starts_with("An engrosser enters chunk-"));
+    assert_eq!(
+        w.store.entity(EntityId(chunk)).unwrap().parent,
+        Some(f.palace)
+    );
+    assert!(matches!(
+        w.store
+            .timed_field(EntityId(chunk), CHUNK, "value")
+            .unwrap()
+            .curve,
+        moondial_time::Curve::PowerLaw { .. }
+    ));
+    // The tipstaff shows you below the bar: the Gallery, never out of the house.
+    let rail = rooms::room_by_key(&w, "brass-rail").unwrap();
+    let sergeant = combat::creatures_in(&w, rail)[0].0;
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: f.citizen,
+            parent: Some(rail),
+        },
+    )
+    .unwrap();
+    let mut shown = None;
+    for _ in 0..40 {
+        let (line, over) = stacks::trick(&mut w, &curves(), sergeant, f.citizen, "dave").unwrap();
+        if let Some(l) = line {
+            assert!(over);
+            shown = Some(l);
+            break;
+        }
+    }
+    assert!(shown
+        .unwrap()
+        .starts_with("The tipstaff shows you below the bar."));
+    assert_eq!(
+        rooms::room_of(&w, f.citizen),
+        rooms::room_by_key(&w, "petition-gallery")
+    );
+    // The sitting, heard in the house as a ceremony and outside as one line.
+    let midnight = (t0.0 / conclave::SIT_EVERY_MS + 1) * conclave::SIT_EVERY_MS;
+    w.fixed_now = Some(Timestamp(midnight - 1000));
+    ok(&mut w, "dave", "look", json!([]));
+    ok(&mut w, "tyler", "look", json!([]));
+    let head = events(&w);
+    w.fixed_now = Some(Timestamp(midnight + 1));
+    w.tick();
+    let inside = narrative(&w, "dave", head);
+    assert!(
+        inside.iter().any(|l| l
+            == "Order. The Conclave is in session. It is midnight, because the Conclave has sat."),
+        "{inside:?}"
+    );
+    assert!(inside
+        .iter()
+        .any(|l| l == "The minutes are engrossed. The Conclave rises. The Conclave remains."));
+    assert!(inside.iter().any(|l| l.starts_with("The Book is opened at the Lectern. The statutes that stand are these: gift allowance at 120;")), "{inside:?}");
+    let outside = narrative(&w, "tyler", head);
+    assert!(
+        outside
+            .iter()
+            .any(|l| l
+                .starts_with("The Conclave has sat. It has read the Ledger and finds no hoard")),
+        "{outside:?}"
+    );
+    assert!(!outside.iter().any(|l| l.starts_with("Order.")));
 }

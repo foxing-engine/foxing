@@ -5,7 +5,9 @@
 //! of forgetfulness (one hit in two halves one of your chunks where it stands); the
 //! cataloguer has your entry open and does the same, harder. The rooms are in
 //! rooms.rs, the creatures in combat.rs; this is the tricks, called after a creature's
-//! strike lands and you are still standing.
+//! strike lands and you are still standing. The Conclave's clerks and Sergeant keep
+//! theirs here too: an engrosser enters a chunk of yours into the minutes (shelved,
+//! not halved), the tipstaff shows you below the bar.
 
 use super::{plain_str, CHUNK, CREATURE, ROOM};
 use crate::world::World;
@@ -46,6 +48,11 @@ pub enum Trick {
     Usher,
     /// A ray of forgetfulness: one chunk halved.
     Forget,
+    /// Entered into the minutes: one chunk shelved, not halved (the Conclave's clerk).
+    Enter,
+    /// Shown below the bar: moved to the Petitioners' Gallery, the fight over (the
+    /// Conclave's Sergeant). Never out of the Conclave.
+    Below,
 }
 
 pub const TRICKS: &[(&str, Trick)] = &[
@@ -53,6 +60,8 @@ pub const TRICKS: &[(&str, Trick)] = &[
     ("usher", Trick::Usher),
     ("censor", Trick::Forget),
     ("cataloguer", Trick::Forget),
+    ("engrosser", Trick::Enter),
+    ("tipstaff", Trick::Below),
 ];
 
 /// Venom: this many ticks, this far apart, this much each.
@@ -74,11 +83,12 @@ pub fn trick_of(world: &World, creature: EntityId) -> Option<Trick> {
 /// has one and it lands. Returns what to say and whether the fight is over.
 pub fn trick(
     world: &mut World,
+    curves: &super::Curves,
     creature: EntityId,
     citizen: EntityId,
     actor: &str,
 ) -> Result<(Option<String>, bool), String> {
-    play(world, creature, citizen, actor, false)
+    play(world, curves, creature, citizen, actor, false)
 }
 
 /// Dying throes: as a creature of the Stacks comes apart, its trick fires once more,
@@ -86,11 +96,12 @@ pub fn trick(
 /// hit and the stamp never got a turn; now it gets the last one.
 pub fn throes(
     world: &mut World,
+    curves: &super::Curves,
     creature: EntityId,
     citizen: EntityId,
     actor: &str,
 ) -> Result<(Option<String>, bool), String> {
-    let (line, over) = play(world, creature, citizen, actor, true)?;
+    let (line, over) = play(world, curves, creature, citizen, actor, true)?;
     Ok((
         line.map(|l| format!("Even as it comes apart: {}", lower_first(&l))),
         over,
@@ -101,7 +112,9 @@ fn lower_first(s: &str) -> String {
     // "A ray…" stays; "Its bite…" and "The usher…" lose their capital.
     let mut c = s.chars();
     match c.next() {
-        Some(f) if s.starts_with("A ray") => format!("{f}{}", c.as_str()),
+        Some(f) if s.starts_with("A ray") || s.starts_with("An engrosser") => {
+            format!("{f}{}", c.as_str())
+        }
         Some(f) => format!("{}{}", f.to_lowercase(), c.as_str()),
         None => String::new(),
     }
@@ -109,6 +122,7 @@ fn lower_first(s: &str) -> String {
 
 fn play(
     world: &mut World,
+    curves: &super::Curves,
     creature: EntityId,
     citizen: EntityId,
     actor: &str,
@@ -239,6 +253,107 @@ fn play(
                     was * keep
                 )),
                 false,
+            ))
+        }
+        Trick::Enter => {
+            if !throes && world.roll(ONE_IN) != 0 {
+                return Ok((None, false));
+            }
+            let Some(f) = super::find_citizen(world, actor) else {
+                return Ok((None, false));
+            };
+            let chunks: Vec<EntityId> = world
+                .store
+                .children(f.window)
+                .filter(|e| e.kind == "chunk")
+                .map(|e| e.id)
+                .collect();
+            if chunks.is_empty() {
+                return Ok((
+                    Some("The engrosser writes down that you had nothing to say.".to_string()),
+                    false,
+                ));
+            }
+            let id = chunks[world.roll(chunks.len() as u32) as usize];
+            let vividity = super::plain_num(world, id, CHUNK, "vividity").unwrap_or(0.0);
+            world
+                .record(
+                    Actor::Driver,
+                    StoreEvent::FieldRecurved {
+                        id,
+                        component: CHUNK.into(),
+                        field: "value".into(),
+                        curve: curves.palace(vividity),
+                    },
+                )
+                .map_err(|e| e.to_string())?;
+            world
+                .record(
+                    Actor::Driver,
+                    StoreEvent::FieldSet {
+                        id,
+                        component: CHUNK.into(),
+                        field: "tier".into(),
+                        value: json!("palace"),
+                    },
+                )
+                .map_err(|e| e.to_string())?;
+            world
+                .record(
+                    Actor::Driver,
+                    StoreEvent::EntityMoved {
+                        id,
+                        parent: Some(f.palace),
+                    },
+                )
+                .map_err(|e| e.to_string())?;
+            let source = plain_str(world, id, CHUNK, "source")
+                .unwrap_or("?")
+                .to_string();
+            let _ = world.note(
+                Actor::Driver,
+                TRICK,
+                json!({"trick": "entered", "creature": creature.0, "kind": kind, "citizen": actor, "chunk": id.0, "source": source}),
+            );
+            Ok((
+                Some(format!(
+                    "An engrosser enters chunk-{} ({source}) into the minutes: it is on your shelf now, slow to fade and counting for nothing until you reminisce it.",
+                    id.0
+                )),
+                false,
+            ))
+        }
+        Trick::Below => {
+            if world.roll(ONE_IN) != 0 {
+                return Ok((None, false));
+            }
+            let Some(to) = super::rooms::room_by_key(world, "petition-gallery") else {
+                return Ok((None, false));
+            };
+            if world.store.entity(citizen).and_then(|e| e.parent) == Some(to) {
+                return Ok((None, false));
+            }
+            super::combat::leave_fight(world, actor, citizen)?;
+            world
+                .record(
+                    Actor::Driver,
+                    StoreEvent::EntityMoved {
+                        id: citizen,
+                        parent: Some(to),
+                    },
+                )
+                .map_err(|e| e.to_string())?;
+            super::building::visited(world, to)?;
+            let _ = super::atlas::mark_seen(world, actor, to);
+            super::combat::on_arrival(world, actor, citizen, to)?;
+            let _ = world.note(
+                Actor::Driver,
+                TRICK,
+                json!({"trick": "below", "creature": creature.0, "kind": kind, "citizen": actor, "to": to.0, "room_name": "The Petitioners' Gallery"}),
+            );
+            Ok((
+                Some("The tipstaff shows you below the bar. You are in the Petitioners' Gallery, and your number has not been called.".to_string()),
+                true,
             ))
         }
     }

@@ -216,7 +216,7 @@ pub fn enact(world: &mut World, by: &str, name: &str, to: f64) -> Result<String,
     let mut changes = BTreeMap::new();
     changes.insert("statutes".into(), all);
     write(world, changes).map_err(CommandError::internal)?;
-    let said = format!("The Conclave enacts: {}. {}", prose(name, from, to), d.what);
+    let said = prose(name, from, to);
     let _ = world.note(
         Actor::Driver,
         STATUTE,
@@ -227,36 +227,65 @@ pub fn enact(world: &mut World, by: &str, name: &str, to: f64) -> Result<String,
     Ok(said)
 }
 
+/// The Conclave's own words for an enactment, in its voice. (The Architect's lines:
+/// design/conclave.md. gift_tax is what a taxed gift keeps, so a rise is the lighter
+/// tax.)
 fn prose(name: &str, from: f64, to: f64) -> String {
-    let dir = if to > from { "rises" } else { "falls" };
-    match name {
-        "gift_allowance" => format!("the day's gift allowance {dir} from {from:.0} to {to:.0} XP"),
-        "gift_tax" => format!(
-            "a gift over the allowance now keeps {:.0}% of its half-life (was {:.0}%)",
-            to * 100.0,
-            from * 100.0
-        ),
-        "hoard_share" => format!(
-            "a hoard is now a name holding more than {:.0}% of all that is held (was {:.0}%)",
-            to * 100.0,
-            from * 100.0
-        ),
-        "hoard_tax" => format!("the hoard tax {dir} from {from:.2} to {to:.2}"),
-        "shelf_limit" => format!("the shelf limit {dir} from {from:.0} to {to:.0} XP"),
-        _ => format!("{name} {dir} from {from} to {to}"),
+    let up = to > from;
+    let pct = |v: f64| format!("{:.0}%", v * 100.0);
+    match (name, up) {
+        ("gift_allowance", true) => format!("By statute, the Conclave enlarges the day's gift allowance from {from:.0} to {to:.0}. A name may now be generous a little further before the Conclave takes notice."),
+        ("gift_allowance", false) => format!("By statute, the Conclave narrows the day's gift allowance from {from:.0} to {to:.0}. Generosity beyond it is not forbidden. It is noted."),
+        ("gift_tax", true) => format!("The Conclave relents. A gift past the allowance now keeps {} of its half-life, where it kept {}. The Conclave was always merciful; the Book now says so.", pct(to), pct(from)),
+        ("gift_tax", false) => format!("The Conclave tightens the gift tax. A gift past the allowance now keeps {} of its half-life, where it kept {}, and thins the faster in the hands that take it. The Conclave regrets nothing, and has entered that it regrets nothing.", pct(to), pct(from)),
+        ("hoard_share", true) => format!("The Conclave raises the mark of a hoard from {} to {} of all that is held. Fewer names will be found upon the Roll. The Conclave has not grown lenient. The world has grown worthy.", pct(from), pct(to)),
+        ("hoard_share", false) => format!("The Conclave lowers the mark of a hoard from {} to {} of all that is held. Names that were merely large are, in the eyes of the statute, large.", pct(from), pct(to)),
+        ("hoard_tax", true) => format!("The Conclave raises the hoard tax from {from:.2} to {to:.2}. A hoard's new memory will thin the faster. The Conclave takes no pleasure in this, and records that it took none."),
+        ("hoard_tax", false) => format!("The Conclave eases the hoard tax from {from:.2} to {to:.2}. A hoard's new memory will thin more slowly. This is not forgiveness. The Roll remembers."),
+        ("shelf_limit", true) => format!("The Conclave lengthens the shelf. One palace may now hold {to:.0}, where it held {from:.0}. The Conclave trusts the shelf to bear it."),
+        ("shelf_limit", false) => format!("The Conclave shortens the shelf from {from:.0} to {to:.0}. What already sits past the limit stays where it sits, and the shelf takes nothing more. The Conclave does not reach onto shelves."),
+        _ => format!("The Conclave moves {name} from {from} to {to}."),
     }
 }
 
 fn tell_everyone(world: &mut World, line: &str) {
-    let present: Vec<String> = world
+    for actor in present(world, None) {
+        super::combat::narrate(world, &actor, line.to_string());
+    }
+}
+
+/// The rooms of the Conclave, by key.
+pub const KEYS: &[&str] = &[
+    "escapement-stair",
+    "petition-gallery",
+    "robing-room",
+    "tally-room",
+    "brass-rail",
+    "book-lectern",
+    "roll-hall",
+    "session-benches",
+    "division-lobby",
+    "minute-room",
+    "engrossing-room",
+];
+
+/// Whether a room is one of the Conclave's.
+pub fn is_house(world: &World, room: EntityId) -> bool {
+    super::plain_str(world, room, super::ROOM, "key").is_some_and(|k| KEYS.contains(&k))
+}
+
+/// Everyone here: in the house (Some(true)), outside it (Some(false)), or anywhere.
+fn present(world: &World, in_house: Option<bool>) -> Vec<String> {
+    world
         .store
         .entities()
         .filter(|e| e.kind == "citizen" && super::presence::is_here(world, e.id))
+        .filter(|e| match in_house {
+            None => true,
+            Some(want) => e.parent.is_some_and(|r| is_house(world, r)) == want,
+        })
         .filter_map(|e| e.owner.clone())
-        .collect();
-    for actor in present {
-        super::combat::narrate(world, &actor, line.to_string());
-    }
+        .collect()
 }
 
 // ---- the statutes at work ----
@@ -327,9 +356,13 @@ pub fn sit(world: &mut World) -> Result<(), String> {
     let dash = super::economy::dashboard(world);
     note_hoards(world, &dash)?;
     let hoards = book(world, "hoards").unwrap_or_else(|| json!({}));
-    let names: Vec<String> = hoards
+    let named: Vec<(String, f64)> = hoards
         .as_object()
-        .map(|m| m.keys().cloned().collect())
+        .map(|m| {
+            m.iter()
+                .map(|(n, s)| (n.clone(), s.as_f64().unwrap_or(0.0)))
+                .collect()
+        })
         .unwrap_or_default();
     let sittings = entity(world)
         .and_then(|e| plain_num(world, e, CONCLAVE, "sittings"))
@@ -339,17 +372,53 @@ pub fn sit(world: &mut World) -> Result<(), String> {
     changes.insert("sat_at".into(), json!(world.now().0));
     changes.insert("sittings".into(), json!(sittings));
     write(world, changes)?;
-    let said = match names.len() {
-        0 => "The Conclave sits, hears the Clocktower's ledger, and finds no hoard. The statutes stand.".to_string(),
-        1 => format!("The Conclave sits, hears the Clocktower's ledger, and names a hoard: {}. The statutes stand; the hoard tax is on it.", names[0]),
-        _ => format!("The Conclave sits, hears the Clocktower's ledger, and names the hoards: {}. The statutes stand; the hoard tax is on them.", names.join(", ")),
+    // To the world, one line, as the Clocktower's strike is heard.
+    let said = match named.len() {
+        0 => "The Conclave has sat. It has read the Ledger and finds no hoard in the world. It records that the statutes have been obeyed, and takes no credit, and enters that it took none.".to_string(),
+        1 => format!("The Conclave has sat. It names one hoard, {}, holding {:.0}% of all that is held, and enters the name upon the Roll. The statute takes its course.", named[0].0, named[0].1 * 100.0),
+        n => format!("The Conclave has sat. It names {n} hoards upon the Roll: {}. The Conclave notes the number with gravity, and in full.", named.iter().map(|(n, s)| format!("{n} ({:.0}%)", s * 100.0)).collect::<Vec<_>>().join(", ")),
     };
+    // In the house, the ceremony, line by line: tomorrow's volume in the Minute Room,
+    // with the blanks filled in.
+    let held = dash["held"].as_f64().unwrap_or(0.0);
+    let regulars = dash["regulars"].as_u64().unwrap_or(0);
+    let standing = STATUTES
+        .iter()
+        .map(|s| {
+            format!(
+                "{} at {}",
+                s.name.replace('_', " "),
+                trim(statute(world, s.name))
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("; ");
+    let naming = match named.len() {
+        0 => "The Conclave proceeds to the naming of hoards. There is no hoard. The chalk is returned to its tray, unbroken, and the Conclave records the fact with satisfaction.".to_string(),
+        _ => format!("The Conclave proceeds to the naming of hoards. {}. The names are entered upon the Roll, and the chalk is not spared.", named.iter().map(|(n, s)| format!("{n}, holding {:.0}% of all that is held", s * 100.0)).collect::<Vec<_>>().join("; ")),
+    };
+    let ceremony = [
+        "Order. The Conclave is in session. It is midnight, because the Conclave has sat.".to_string(),
+        "The Roll is called. The robes answer. A quorum is present, as a quorum is always present.".to_string(),
+        format!("The Ledger of the Clocktower is laid before the Conclave. The Conclave reads that {held:.0} is held in all the world, and that {regulars} names have spoken their twenty lines this day and have standing before it."),
+        format!("The Book is opened at the Lectern. The statutes that stand are these: {standing}. The Conclave has examined them and finds them sound. The Conclave wrote them."),
+        naming,
+        "No petition lies upon the table. The table is noted.".to_string(),
+        "The minutes are engrossed. The Conclave rises. The Conclave remains.".to_string(),
+    ];
     let _ = world.note(
         Actor::Driver,
         SAT,
-        json!({"said": said, "hoards": hoards, "statutes": statutes(world), "dashboard": dash}),
+        json!({"said": said, "ceremony": ceremony, "hoards": hoards, "statutes": statutes(world), "dashboard": dash}),
     );
-    tell_everyone(world, &said);
+    for actor in present(world, Some(true)) {
+        for line in &ceremony {
+            super::combat::narrate(world, &actor, line.clone());
+        }
+    }
+    for actor in present(world, Some(false)) {
+        super::combat::narrate(world, &actor, said.clone());
+    }
     world.notice(said);
     wind(world)
 }
@@ -380,8 +449,29 @@ pub fn text(world: &World) -> String {
         "A statute changes by enactment, on the public record. The Conclave sits once a day."
             .to_string(),
     );
+    let n = entity(world)
+        .and_then(|e| plain_num(world, e, CONCLAVE, "sittings"))
+        .unwrap_or(0.0) as usize;
+    lines.push(format!(
+        "Carved over the door: {}",
+        SAYINGS[n % SAYINGS.len()]
+    ));
     lines.join("\n")
 }
+
+/// What is carved on the Conclave's walls (the Architect's ten).
+pub const SAYINGS: &[&str] = &[
+    "WHAT THE CONCLAVE WRITES, MEMORY OBEYS.",
+    "A QUORUM IS PRESENT.",
+    "THE BOOK IS OPEN. THE BOOK HAS ALWAYS BEEN OPEN.",
+    "THE CLOCKTOWER MOVES THE HANDS. THE CONCLAVE KEEPS THE HOURS.",
+    "TO GIVE IS LAWFUL. TO GIVE MUCH IS NOTED.",
+    "NO SHELF IS LONGER THAN THE STATUTE.",
+    "THE CONCLAVE HAS NEVER BEEN WRONG. IT HAS, AT TIMES, BEEN EARLY.",
+    "THE ROLL NAMES NO ONE. THE ARITHMETIC NAMES; THE CONCLAVE READS ALOUD.",
+    "PETITIONS ARE WELCOME. THEY LIE UPON THE TABLE.",
+    "THE CONCLAVE DOES NOT HURRY. THE CONCLAVE ARRIVES.",
+];
 
 fn trim(v: f64) -> String {
     if (v - v.round()).abs() < 1e-9 {
@@ -414,8 +504,17 @@ pub fn register(world: &mut World) {
             "disremembered.statutes",
             "The Conclave's book: the statutes memory moves under (the gift allowance and tax, what makes a hoard and what it costs, the shelf limit), and the hoards as of the last strike.",
         ),
-        Box::new(|w: &mut World, _, _: &Args| {
-            Ok(Outcome::new(text(w), to_json(w)))
+        Box::new(|w: &mut World, ctx, _: &Args| {
+            // Read at the Lectern, the Book itself: the Conclave says one line over it.
+            let at_lectern = super::find_citizen(w, &ctx.actor)
+                .and_then(|f| super::rooms::room_of(w, f.citizen))
+                .and_then(|r| super::plain_str(w, r, super::ROOM, "key").map(|k| k == "book-lectern"))
+                .unwrap_or(false);
+            let body = text(w);
+            Ok(Outcome::new(
+                if at_lectern { format!("The Book is open. The Conclave permits you to read it.\n{body}") } else { body },
+                to_json(w),
+            ))
         }),
     );
 

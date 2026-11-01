@@ -492,7 +492,7 @@ pub fn strike(world: &mut World) -> Result<(), String> {
         let f = super::conclave::hoard_factor(world, actor);
         if f > 1.0 + 1e-9 {
             super::combat::narrate(world, actor, format!(
-                "The Conclave's hoard tax is on you: you hold {:.0}% of all that is held, and what you earn this hour thins {f:.2} times as fast.",
+                "The Conclave notes that {actor} holds {:.0}% of all that is held, and enters the name upon the Roll. The statute takes its course: what you earn this hour thins {f:.2} times as fast.",
                 super::conclave::hoard_share_of(world, actor).unwrap_or(0.0) * 100.0
             ));
         }
