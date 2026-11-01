@@ -468,6 +468,15 @@ pub fn notice_everyone(world: &mut World, room: EntityId) -> Result<(), String> 
     Ok(())
 }
 
+/// "It strikes on its own every ten seconds or so while you stand here, typing or
+/// not." Said when a fight begins, so the clock is no surprise.
+fn clock_line(world: &World, creature: EntityId) -> String {
+    let secs = creature_def(world, creature)
+        .map(|d| d.strike_seconds)
+        .unwrap_or(10);
+    format!("It strikes on its own every {secs} seconds or so while you stand here, typing or not; retreat ends that.")
+}
+
 /// A citizen has arrived in a room: anything aggressive there will notice them soon.
 pub fn on_arrival(
     world: &mut World,
@@ -764,7 +773,8 @@ pub fn register(world: &mut World, curves: Curves) {
                 return Ok(());
             }
             let (trick, over) = super::stacks::trick(w, creature, citizen, &actor)?;
-            narrate(w, &actor, format!("The {dname} {dambush} It hits you for {taken:.0}. You have {:.0}/{:.0}.{}", hp(w, citizen), super::MAX_HP, match &trick { Some(t) => format!(" {t}"), None => " Attack it, or retreat.".to_string() }));
+            let clock = clock_line(w, creature);
+            narrate(w, &actor, format!("The {dname} {dambush} It hits you for {taken:.0}. You have {:.0}/{:.0}.{} {clock}", hp(w, citizen), super::MAX_HP, match &trick { Some(t) => format!(" {t}"), None => " Attack it, or retreat.".to_string() }));
             if over {
                 return Ok(());
             }
@@ -840,10 +850,14 @@ pub fn register(world: &mut World, curves: Curves) {
                     super::mind::display(w, creature)
                 )));
             }
+            let mut began = None;
             if engaged_with(w, f.citizen) != Some(creature) {
                 set_engaged(w, &ctx.actor, f.citizen, Some(creature)).map_err(internal)?;
                 end_fight(w, f.citizen).map_err(internal)?;
                 schedule_strike(w, &ctx.actor, f.citizen, creature).map_err(internal)?;
+                // The clock, said once: a visitor died between two messages and read
+                // it only on the next.
+                began = Some(clock_line(w, creature));
             }
 
             // You strike.
@@ -852,6 +866,11 @@ pub fn register(world: &mut World, curves: Curves) {
             let chp = (plain_num(w, creature, CREATURE, "hp").unwrap_or(0.0) - dmg).max(0.0);
             w.record(Actor::Citizen(ctx.actor.clone()), StoreEvent::FieldSet { id: creature, component: CREATURE.into(), field: "hp".into(), value: json!(chp) }).map_err(internal)?;
             let mut lines = vec![format!("You hit the {cname} for {dmg:.0}.")];
+            if chp > 0.0 {
+                if let Some(c) = began.take() {
+                    lines.push(c);
+                }
+            }
 
             if chp <= 0.0 {
                 // A creature that holds memories does not die: you take one, it is shaken.
@@ -879,17 +898,20 @@ pub fn register(world: &mut World, curves: Curves) {
                 let xp = plain_num(w, creature, CREATURE, "xp").unwrap_or(0.0);
                 // What it leaves behind, one time in three.
                 let left = super::craft::leave_behind(w, &curves, room, creature, &cname)?;
+                // The dying throes of a creature of the Stacks: its trick, once more.
+                let (throes, _) = super::stacks::throes(w, creature, f.citizen, &ctx.actor).map_err(internal)?;
                 w.record(Actor::Driver, StoreEvent::EntityRemoved { id: creature }).map_err(internal)?;
                 schedule_respawn(w, room).map_err(internal)?;
                 set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
                 end_fight(w, f.citizen).map_err(internal)?;
                 let chunk = super::memory::earn_chunk(w, &ctx.actor, f.window, &cname, xp, vividity, &curves)?;
                 lines.push(format!(
-                    "The {cname} comes apart. You remember it: chunk-{} worth {xp:.0} XP, vividity {:.2}{}.{charm_line}{}",
+                    "The {cname} comes apart. You remember it: chunk-{} worth {xp:.0} XP, vividity {:.2}{}.{charm_line}{}{}",
                     chunk.0,
                     vividity,
                     if vividity > 0.6 { " (you nearly died; this one will last)" } else { "" },
-                    left.as_ref().map(|(id, n)| format!(" It leaves {n} behind (item-{}); take it.", id.0)).unwrap_or_default()
+                    left.as_ref().map(|(id, n)| format!(" It leaves {n} behind (item-{}); take it.", id.0)).unwrap_or_default(),
+                    throes.map(|t| format!(" {t}")).unwrap_or_default()
                 ));
                 return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": true, "chunk": chunk.0, "xp": xp, "vividity": vividity, "hp": my_hp, "left": left.as_ref().map(|(id, n)| json!({"item": id.0, "name": n}))})));
             }

@@ -78,6 +78,42 @@ pub fn trick(
     citizen: EntityId,
     actor: &str,
 ) -> Result<(Option<String>, bool), String> {
+    play(world, creature, citizen, actor, false)
+}
+
+/// Dying throes: as a creature of the Stacks comes apart, its trick fires once more,
+/// and the venom and the ray always land. A strong name felled everything in one
+/// hit and the stamp never got a turn; now it gets the last one.
+pub fn throes(
+    world: &mut World,
+    creature: EntityId,
+    citizen: EntityId,
+    actor: &str,
+) -> Result<(Option<String>, bool), String> {
+    let (line, over) = play(world, creature, citizen, actor, true)?;
+    Ok((
+        line.map(|l| format!("Even as it comes apart: {}", lower_first(&l))),
+        over,
+    ))
+}
+
+fn lower_first(s: &str) -> String {
+    // "A ray…" stays; "Its bite…" and "The usher…" lose their capital.
+    let mut c = s.chars();
+    match c.next() {
+        Some(f) if s.starts_with("A ray") => format!("{f}{}", c.as_str()),
+        Some(f) => format!("{}{}", f.to_lowercase(), c.as_str()),
+        None => String::new(),
+    }
+}
+
+fn play(
+    world: &mut World,
+    creature: EntityId,
+    citizen: EntityId,
+    actor: &str,
+    throes: bool,
+) -> Result<(Option<String>, bool), String> {
     let Some(t) = trick_of(world, creature) else {
         return Ok((None, false));
     };
@@ -148,7 +184,7 @@ pub fn trick(
             ))
         }
         Trick::Forget => {
-            if world.roll(ONE_IN) != 0 {
+            if !throes && world.roll(ONE_IN) != 0 {
                 return Ok((None, false));
             }
             let Some(f) = super::find_citizen(world, actor) else {
