@@ -574,6 +574,13 @@ async fn map(State(s): State<Shared>) -> Reply {
     Ok(Json(crate::disremembered::atlas::layout(&w).to_json()))
 }
 
+/// `GET /v0/board`: the leaderboard. Public: what each name holds now and what the
+/// record says it earned, kept, gave, told and carried.
+async fn board(State(s): State<Shared>) -> Reply {
+    let w = lock(&s)?;
+    Ok(Json(crate::disremembered::board::to_json(&w)))
+}
+
 /// The schema, as `GET /v0/schema` serves it.
 pub(crate) fn schema_value(s: &Shared) -> Result<Value, (StatusCode, Json<Value>)> {
     let w = lock(s)?;
@@ -1085,6 +1092,7 @@ pub fn router(shared: Shared) -> Router {
         .route("/v0/vocabulary", get(vocabulary))
         .route("/v0/schema", get(schema))
         .route("/v0/map", get(map))
+        .route("/v0/board", get(board))
         .route("/v0/citizens", get(citizens))
         .route("/v0/openapi.json", get(openapi))
         .route(

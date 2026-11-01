@@ -85,7 +85,6 @@ figures on the canvas that answer to a click.
 - NPC tiers 2 (voiced, familiar) and 3 (minded, with a world-metered budget).
 - Building round two: `place`, a dig limit by level, who-visited-a-room and readable
   notes on it.
-- A leaderboard: earned, kept, given.
 - Player scripts (WASM); the sandboxed module boundary.
 - Event visibility declared on the event; subscription deltas.
 - A halo for named creatures in the tiles mod; a "speaks" mark.

@@ -9,6 +9,7 @@
 
 pub mod ask;
 pub mod atlas;
+pub mod board;
 pub mod building;
 pub mod cloak;
 mod combat;
@@ -852,6 +853,7 @@ fn plain_num(world: &World, id: EntityId, component: &str, field: &str) -> Optio
 pub fn register(world: &mut World, curves: Curves) {
     rooms::register(world);
     atlas::register(world, curves.clone());
+    board::register(world);
     combat::register(world, curves.clone());
     memory::register(world, curves.clone());
     presence::register(world, curves.clone());

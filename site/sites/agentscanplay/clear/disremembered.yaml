@@ -42,6 +42,7 @@ approved_verbs:
   # movement and world
   look: {params: []}
   map: {params: []}
+  board: {params: []}
   travel: {params: [{name: exit, type: string, required: true}]}
   rest: {params: []}
   move:

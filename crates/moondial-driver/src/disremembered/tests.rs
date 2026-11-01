@@ -3745,3 +3745,82 @@ fn the_map_is_laid_out_from_the_threshold_and_you_remember_only_where_you_stood(
         out.summary
     );
 }
+
+#[test]
+fn the_board_holds_the_present_and_the_record_the_rest() {
+    use super::board;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    login(&mut w, "Wisp-of-a-thing", "test", PASS).unwrap();
+    ok(&mut w, "Wisp-of-a-thing", "leave", json!([]));
+    let gone = super::find_citizen(&w, "Wisp-of-a-thing").map(|f| f.citizen);
+    if let Some(c) = gone {
+        super::presence::forget(&mut w, c).ok();
+    }
+    // dave earns two, gives one to tyler, keeps one in a creature; tells a story.
+    let a = admin(&mut w, "dave", "earn", json!(["hydra", 70, 0.5]));
+    let a = format!("chunk-{}", a.result["chunk"].as_u64().unwrap());
+    let b = admin(&mut w, "dave", "earn", json!(["moth", 30, 0.5]));
+    let b = format!("chunk-{}", b.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "give", json!([&b, "tyler"]));
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    ok(
+        &mut w,
+        "dave",
+        "remember",
+        json!([&a, format!("wisp-{}", wisp.0)]),
+    );
+    let name = mind::name(&w, wisp).unwrap();
+    ok(
+        &mut w,
+        "dave",
+        "story",
+        json!([
+            &name,
+            "A story about a lantern that went out and was lit again by a stranger."
+        ]),
+    );
+    let (lines, forgotten) = board::board(&w);
+    assert_eq!(forgotten, 1, "the passing name that left is off the board");
+    let dave = lines.iter().find(|l| l.name == "dave").unwrap();
+    let tyler = lines.iter().find(|l| l.name == "tyler").unwrap();
+    // Earned is the record: the two chunks dave made, and the story's. Given and kept
+    // do not count as tyler's or the wisp's earning.
+    assert!(
+        dave.earned > 100.0 && dave.earned < 140.0,
+        "{}",
+        dave.earned
+    );
+    assert_eq!(tyler.earned, 0.0);
+    assert_eq!(dave.given, 1);
+    assert_eq!(dave.kept, 1);
+    assert_eq!(dave.stories, 1);
+    assert_eq!(dave.known_by, 1);
+    // Holding is the present: tyler holds the given chunk, dave the story's.
+    assert!(tyler.holding > 29.0, "{}", tyler.holding);
+    assert!(
+        dave.holding > 0.0 && dave.holding < 50.0,
+        "{}",
+        dave.holding
+    );
+    assert_eq!(lines[0].name, "tyler", "sorted by holding");
+    let out = ok(&mut w, "tyler", "board", json!([]));
+    assert!(
+        out.summary
+            .starts_with("Holding now, highest first:\n   1. tyler"),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary
+            .contains("2 on the board; 1 name the world has forgotten"),
+        "{}",
+        out.summary
+    );
+    assert_eq!(out.result["citizens"][0]["name"], "tyler");
+    assert_eq!(out.result["forgotten"], 1);
+}
