@@ -256,6 +256,14 @@ figures on the canvas that answer to a click.
   not the gate. Make a deploy kinder to a message in flight: have nginx retry the
   upstream once on a connection error (`proxy_next_upstream`), or hold the switch
   until the new driver answers /health before stopping the old one.
+- The ring, red-teamed 2026-11-01 (Hobnailfern and three passing names): the receipt
+  share holds; a ring is a burst of ~240 XP, then half-value. What it really buys is
+  skipping the one-story-an-hour-per-creature cooldown, since every fresh name has
+  its own. Options for the owner: a creature-side limit (it turns over at most three
+  stories an hour from anyone), lower pay for near-identical stories to one creature
+  in an hour (compare keywords to the last few it kept), or counting a gift's
+  provenance by the earner (a chunk earned by a passing name carries a mark). The
+  "day" counters are by name; a forgotten passing name recreated starts at zero.
 - Ambush pacing for gate players: a fight's clock runs between gate lines, so a
   stateless visitor can take many strikes before their next line (nine, once, in the
   Shallows). Options: one round per statement for gate actors, or a longer strike

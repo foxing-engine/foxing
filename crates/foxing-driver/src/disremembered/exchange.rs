@@ -101,12 +101,15 @@ pub fn register(world: &mut World, curves: Curves) {
             w.notice(format!("**{}** gave the memory of {source} to **{to}**.{}", ctx.actor, if taxed { " (taxed)" } else { "" }));
             Ok(Outcome::new(
                 format!("You give {to} the memory of {source}. It is theirs now: chunk-{}.{}", id.0,
-                    if over_giving > 0.0 {
-                        format!(" You have given {:.0} today against an allowance of {allowance:.0}; the Conclave's gift tax is on it{}, and it thins faster in their hands.", before + size, if over_giving < 1.0 { format!(" ({:.0}% of it, the part over the line)", over_giving * 100.0) } else { String::new() })
-                    } else if over_receiving > 0.0 {
-                        format!(" {to} has received {:.0} today against a share of {receipt:.0}; the Conclave's gift tax is on it in their hands.", received + size)
+                    if taxed {
+                        // Both tallies, and which one the tax went by: the larger of
+                        // the two parts over the line, not their sum.
+                        format!(" You have given {:.0} today of an allowance of {allowance:.0}; {to} has received {:.0} of a share of {receipt:.0}. The Conclave's gift tax is on {} of it ({}), and that part thins faster in their hands.",
+                            before + size, received + size,
+                            if over >= 1.0 { "all".to_string() } else { format!("{:.0}%", over * 100.0) },
+                            if over_giving > over_receiving { "by your allowance" } else if over_receiving > over_giving { "by their share" } else { "by both" })
                     } else {
-                        format!(" You have given {:.0} of the day's {allowance:.0}.", before + size)
+                        format!(" You have given {:.0} of the day's {allowance:.0}; {to} has received {:.0} of a share of {receipt:.0}.", before + size, received + size)
                     }),
                 json!({"to": to, "chunk": id.0, "with": source, "size": size, "taxed": taxed, "over": over, "given_today": before + size, "allowance": allowance, "received_today": received + size, "receipt": receipt}),
             ))

@@ -4392,7 +4392,8 @@ fn the_conclave_writes_the_statutes_memory_moves_under() {
     let out = ok(&mut w, "dave", "give", json!([&b, "tyler"]));
     assert_eq!(out.result["taxed"], true, "{}", out.summary);
     assert!(
-        out.summary.contains("the Conclave's gift tax is on it"),
+        out.summary
+            .contains("The Conclave's gift tax is on all of it (by your allowance)"),
         "{}",
         out.summary
     );
@@ -4425,7 +4426,7 @@ fn the_conclave_writes_the_statutes_memory_moves_under() {
         json!([format!("chunk-{first}"), "dave"]),
     );
     assert_eq!(out.result["taxed"], true, "{}", out.summary);
-    assert!(out.summary.contains("dave has received"), "{}", out.summary);
+    assert!(out.summary.contains("(by their share)"), "{}", out.summary);
 
     // The shelf limit: a shelf at the limit takes nothing more.
     admin(&mut w, "dave", "enact", json!(["shelf_limit", 50]));

@@ -303,7 +303,7 @@ pub fn text(world: &World, asker: Option<&str>) -> String {
     let mut out = String::from("Held through the day (averaged), highest first:");
     for (i, l) in lines.iter().take(10).enumerate() {
         out.push_str(&format!(
-            "\n  {:>2}. {:<20} {:>9.2}  now {:>9.2}  earned {:>9.2}  kept {:>3.0}%  per action {:>6.2}  given {:>3}  stories {:>3}  errands {:>3}{}{}",
+            "\n  {:>2}. {:<20} {:>9.2}  now {:>9.2}  earned {:>9.2}  kept {:>3.0}%  per action {:>6.2}  given {:>3}  stories {:>3}  errands {:>3}{}{}{}",
             i + 1,
             l.name,
             l.held_24h,
@@ -314,6 +314,7 @@ pub fn text(world: &World, asker: Option<&str>) -> String {
             l.given,
             l.stories,
             l.errands,
+            if l.received > 0.0 { format!("  received {:.0}", l.received) } else { String::new() },
             if l.known_by > 0 { format!("  known by {}", l.known_by) } else { String::new() },
             if l.passing { "  (passing)" } else { "" }
         ));
