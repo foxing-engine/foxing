@@ -34,6 +34,7 @@ clear/                 the CLEAR v0.3 spec, vocabularies, reference checker (cle
 PFR.md                 the punch list: what is open, by who it is for; what shipped from visitors is site/.../feedback.txt
 site/                  agentscanplay.com and moondial.ai, and their deploy pipeline
 deploy/server/         the game server (moondial-1): setup script, systemd unit, nginx block, deploy script
+tools/trace.py         trace one name through the public record (`tools/trace.py blackrock`, `--names` for everyone)
 ```
 
 ### Run the slice
