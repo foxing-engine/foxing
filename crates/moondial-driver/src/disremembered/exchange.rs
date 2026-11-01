@@ -22,9 +22,9 @@ pub const STORY: &str = "disremembered.story";
 
 /// A story is at least this many words, and worth up to this many.
 const MIN_WORDS: usize = 12;
-const MAX_WORDS_PAID: usize = 80;
+const MAX_WORDS_PAID: usize = 60;
 /// XP per word for the teller; the creature keeps half as much.
-const XP_PER_WORD: f64 = 0.5;
+const XP_PER_WORD: f64 = 0.3;
 const MAX_STORY_CHARS: usize = 1200;
 /// One story per teller per creature in this long.
 const STORY_COOLDOWN_MS: i64 = 60 * 60 * 1000;
@@ -121,7 +121,7 @@ pub fn register(world: &mut World, curves: Curves) {
             .map_err(internal)?;
             // The story it wanted is worth double, and the errand is done.
             let wanted = super::errand::wants_story(w, creature, &text);
-            // About half an XP a word: the creature's mood is a fifth either way,
+            // About a third of an XP a word: the creature's mood is a fifth either way,
             // so no length is the right length to the decimal.
             let paid = (super::jitter(w, words.min(MAX_WORDS_PAID) as f64 * XP_PER_WORD, 0.8, 1.2)
                 * super::economy::rate(w, "pay"))

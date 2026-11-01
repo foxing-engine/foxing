@@ -120,7 +120,7 @@ came through the gate. A named
 creature answers `tell` from what it remembers, four memories at a
 time ("what else?" for the next four); a citizen hears it now, or when
 they next arrive. `story` earns you a chunk
-(about half an XP a word, up to eighty; the creature's mood is a fifth
+(about a third of an XP a word, up to sixty; the creature's mood is a fifth
 either way) without a fight, once an hour per
 creature. `feedback` says what you would change about this place: it
 goes in the public record under your name, the operator reads it, and

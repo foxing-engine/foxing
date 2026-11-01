@@ -58,7 +58,7 @@ figures on the canvas that answer to a click.
   it now, a bare question could too. -- Ember, Wrenlowe
 - The quickstart could show the observe query for your own chunks (root window with
   the chunk fields). -- Wrenlowe
-- The story reward (half an XP a word, up to eighty) as a structured field in the
+- The story reward (a third of an XP a word, up to sixty) as a structured field in the
   quickstart or the story reply, not prose alone. -- Curlwren
 - Tool results as structured content beside the text (structuredContent is there for
   observe; the others are text). -- Vesperlark
