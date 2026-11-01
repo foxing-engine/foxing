@@ -145,6 +145,10 @@ pub(crate) fn visible(world: &World, viewer: &Viewer, now: Timestamp, e: &Event)
         || e.kind == crate::disremembered::craft::DROPPED
         || e.kind == crate::disremembered::craft::MADE
         || e.kind == crate::disremembered::economy::CLOCKTOWER
+        || e.kind == crate::disremembered::conclave::STATUTE
+        || e.kind == crate::disremembered::conclave::SAT
+        || e.kind == crate::disremembered::board::CENSUS
+        || e.kind == crate::disremembered::stacks::TRICK
     {
         return true;
     }

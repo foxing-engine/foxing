@@ -149,3 +149,6 @@ it is, the door and no further; to see more is to take a name.
 2026-11-01 A story pays by its distinct words, and a dozen different words is the least: fifty-five of one word paid as much as a real story. -- Tallyman
 2026-11-01 A name in its first hour is not ambushed: a hollow in the Shallows took a newcomer from thirty to nothing between two gate lines. -- Tallyman
 2026-11-01 The Clocktower steers by the regulars (twenty lines in the day), not everyone who looked in once: the median it watched was zero and every lever pinned at its bound. Shelved memory counts as held, the half-life swings less (0.7 to 1.5), and pay no longer rises against a hoard, which fed the same earner. -- Tallyman
+2026-11-01 The board leads with held_24h, a name's holding averaged over the last day (the world counts itself every ten minutes): retention was an age effect and per-action rewarded sparse play. -- Tallyman
+2026-11-01 Gifts past a day's allowance are taxed (the gift thins faster in the receiver's hands), a hoard's new memory thins faster by how far over the share it is and no one else's, and a shelf has a limit: the Conclave's first statutes, read by `statutes`, public at /v0/conclave. -- Tallyman
+2026-11-01 The quickstart says how a passing name feeds a creature (`remember <chunk> <creature>`): there is no `feed` verb, and the checker let it through. -- Tarnwick

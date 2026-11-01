@@ -81,6 +81,22 @@ pub(crate) fn line_for(e: &moondial_log::Event) -> String {
         "disremembered.razed" => format!("the operator razed {}", s("name")),
         "disremembered.dug" => format!("{} dug {}", s("by"), s("name")),
         "disremembered.clocktower" => s("said").to_string(),
+        "disremembered.statute" | "disremembered.conclave_sat" => s("said").to_string(),
+        "disremembered.trick" => match p["trick"].as_str() {
+            Some("venom") => format!("a {} bit {}; the venom works", s("kind"), s("citizen")),
+            Some("ushered") => format!(
+                "an usher showed {} out, to {}",
+                s("citizen"),
+                s("room_name")
+            ),
+            Some("forget") => format!(
+                "a {} turned a ray of forgetfulness on {}: the memory of {} is thinner",
+                s("kind"),
+                s("citizen"),
+                s("source")
+            ),
+            _ => format!("a {} did something to {}", s("kind"), s("citizen")),
+        },
         "disremembered.left" => format!("a {} left {} behind", s("kind"), s("name")),
         "disremembered.took" => format!("{} took {}", s("by"), s("name")),
         "disremembered.dropped" => format!("{} set down {}", s("by"), s("name")),

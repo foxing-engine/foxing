@@ -155,6 +155,56 @@ pub const CREATURES: &[CreatureDef] = &[
         glyph: "K",
         tint: "#e0e0ee",
     },
+    // The Lower Stacks, under the Archive: higher things, each with a trick of its
+    // own (stacks.rs has the tricks).
+    CreatureDef {
+        key: "lamprey",
+        name: "lamprey",
+        hp: 45.0,
+        attack: 7.0,
+        xp: 180.0,
+        aggressive: true,
+        strike_seconds: 9,
+        ambush: "unfastens from the underside of a shelf and fastens on you.",
+        glyph: "l",
+        tint: "#9aa878",
+    },
+    CreatureDef {
+        key: "usher",
+        name: "usher",
+        hp: 60.0,
+        attack: 8.0,
+        xp: 240.0,
+        aggressive: true,
+        strike_seconds: 10,
+        ambush: "is at your elbow in a waistcoat. \"This way, please.\"",
+        glyph: "U",
+        tint: "#b8a888",
+    },
+    CreatureDef {
+        key: "censor",
+        name: "censor",
+        hp: 70.0,
+        attack: 9.0,
+        xp: 320.0,
+        aggressive: true,
+        strike_seconds: 9,
+        ambush: "looks up from the desk and raises the stamp.",
+        glyph: "C",
+        tint: "#a84848",
+    },
+    CreatureDef {
+        key: "cataloguer",
+        name: "cataloguer",
+        hp: 110.0,
+        attack: 13.0,
+        xp: 600.0,
+        aggressive: false,
+        strike_seconds: 8,
+        ambush: "turns a page. It has your entry open.",
+        glyph: "Q",
+        tint: "#e8e0c0",
+    },
 ];
 
 /// Base damage per round before the level bonus.
@@ -471,7 +521,7 @@ fn schedule_strike(
 }
 
 /// The fight is over for this citizen: no more strikes come.
-fn end_fight(world: &mut World, citizen: EntityId) -> Result<(), String> {
+pub(crate) fn end_fight(world: &mut World, citizen: EntityId) -> Result<(), String> {
     world.cancel(JOB_STRIKE, |p| p["citizen"] == citizen.0)?;
     world.cancel(JOB_AMBUSH, |p| p["citizen"] == citizen.0)?;
     Ok(())
@@ -491,7 +541,7 @@ pub fn engaged_with(world: &World, citizen: EntityId) -> Option<EntityId> {
     world.store.entity(EntityId(id)).map(|e| e.id)
 }
 
-fn set_engaged(
+pub(crate) fn set_engaged(
     world: &mut World,
     actor: &str,
     citizen: EntityId,
@@ -520,7 +570,11 @@ pub fn hp(world: &World, citizen: EntityId) -> f64 {
         .unwrap_or(0.0)
 }
 
-fn commit_hp(world: &mut World, citizen: EntityId, value: f64) -> Result<(), StoreError> {
+pub(crate) fn commit_hp(
+    world: &mut World,
+    citizen: EntityId,
+    value: f64,
+) -> Result<(), StoreError> {
     world.record(
         Actor::Driver,
         StoreEvent::FieldCommitted {
@@ -552,7 +606,11 @@ fn creature_strikes(
 }
 
 /// Death: concussion, then wake at the Threshold at full health, disengaged.
-fn die(world: &mut World, actor: &str, f: &super::Found) -> Result<Option<String>, CommandError> {
+pub(crate) fn die(
+    world: &mut World,
+    actor: &str,
+    f: &super::Found,
+) -> Result<Option<String>, CommandError> {
     let mut lost = None;
     if world.roll(100) < CONCUSSION_PERCENT {
         let chunks: Vec<(EntityId, String)> = world
@@ -627,7 +685,11 @@ pub fn register(world: &mut World, curves: Curves) {
                 });
                 return Ok(());
             }
-            narrate(w, &actor, format!("The {cname} hits you for {taken:.0}. You have {:.0}/{:.0}.", hp(w, citizen), super::MAX_HP));
+            let (trick, over) = super::stacks::trick(w, creature, citizen, &actor)?;
+            narrate(w, &actor, format!("The {cname} hits you for {taken:.0}. You have {:.0}/{:.0}.{}", hp(w, citizen), super::MAX_HP, trick.map(|t| format!(" {t}")).unwrap_or_default()));
+            if over {
+                return Ok(());
+            }
             schedule_strike(w, &actor, citizen, creature)
         }),
     );
@@ -673,7 +735,11 @@ pub fn register(world: &mut World, curves: Curves) {
                 });
                 return Ok(());
             }
-            narrate(w, &actor, format!("The {dname} {dambush} It hits you for {taken:.0}. You have {:.0}/{:.0}. Attack it, or retreat.", hp(w, citizen), super::MAX_HP));
+            let (trick, over) = super::stacks::trick(w, creature, citizen, &actor)?;
+            narrate(w, &actor, format!("The {dname} {dambush} It hits you for {taken:.0}. You have {:.0}/{:.0}.{}", hp(w, citizen), super::MAX_HP, match &trick { Some(t) => format!(" {t}"), None => " Attack it, or retreat.".to_string() }));
+            if over {
+                return Ok(());
+            }
             schedule_strike(w, &actor, citizen, creature)
         }),
     );
@@ -810,6 +876,10 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             let my_hp = hp(w, f.citizen);
             lines.push(format!("You have {my_hp:.0}/{:.0}.", super::MAX_HP));
+            let (trick, _) = super::stacks::trick(w, creature, f.citizen, &ctx.actor).map_err(internal)?;
+            if let Some(t) = trick {
+                lines.push(t);
+            }
             Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": false, "died": false, "creature_hp": chp, "hp": my_hp})))
         }),
     );

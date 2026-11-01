@@ -36,12 +36,13 @@ pub fn earn_chunk(
         )
         .map_err(internal)?;
     let now = world.now();
-    // New memory fades at the world's rate: the Clocktower's one lever on time.
+    // New memory fades at the world's rate: the Clocktower's one lever on time. A
+    // hoard's fades faster still, by the Conclave's statute, on the hoard alone.
+    let pace =
+        super::economy::rate(world, "half_life") / super::conclave::hoard_factor(world, actor);
     let curve = match curves.active(vividity) {
         moondial_time::Curve::Exponential { half_life } => moondial_time::Curve::Exponential {
-            half_life: moondial_time::Duration(
-                (half_life.0 as f64 * super::economy::rate(world, "half_life")) as i64,
-            ),
+            half_life: moondial_time::Duration((half_life.0 as f64 * pace) as i64),
         },
         c => c,
     };
@@ -361,6 +362,15 @@ pub fn register(world: &mut World, curves: Curves) {
             let f = me(w, ctx)?;
             let id = resolve_chunk(w, ctx, args.str("chunk").unwrap_or(""), &[f.window])?;
             let vividity = plain_num(w, id, CHUNK, "vividity").unwrap_or(0.0);
+            // The Conclave's shelf limit: a shelf at the limit takes nothing more.
+            let limit = super::conclave::statute(w, "shelf_limit");
+            let on_shelf = super::conclave::shelved(w, f.palace);
+            let this = w.store.read_field(id, CHUNK, "value", w.now()).map_err(internal)?.as_f64().unwrap_or(0.0);
+            if on_shelf + this > limit {
+                return Err(CommandError::precondition(format!(
+                    "Your shelf holds {on_shelf:.0} and the Conclave's limit is {limit:.0}; chunk-{} at {this:.0} will not fit.", id.0
+                )));
+            }
             let actor = Actor::Citizen(ctx.actor.clone());
             w.record(actor.clone(), StoreEvent::FieldRecurved { id, component: CHUNK.into(), field: "value".into(), curve: c.palace(vividity) }).map_err(internal)?;
             w.record(actor.clone(), StoreEvent::FieldSet { id, component: CHUNK.into(), field: "tier".into(), value: json!("palace") }).map_err(internal)?;

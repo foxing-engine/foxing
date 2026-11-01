@@ -1467,14 +1467,13 @@ fn a_quiet_citizen_is_disremembered_by_the_room_and_returns_as_an_arrival() {
     );
 
     // Ten minutes of silence: the sweep marks him gone, and the fight that had started ends.
-    w.fixed_now = Some(t0.plus(Duration::seconds(5)));
+    w.fixed_now = Some(t0.plus(Duration::seconds(combat::AMBUSH_SECONDS_HIGH)));
     w.tick(); // the ambush lands on both; dave is engaged
     let dave = find_citizen(&w, "dave").unwrap().citizen;
     assert!(
         combat::engaged_with(&w, dave).is_some(),
         "the hollow should have ambushed dave"
     );
-    w.fixed_now = Some(t0.plus(Duration::seconds(5)));
     ok(&mut w, "tyler", "retreat", json!([]));
     w.fixed_now = Some(t0.plus(Duration::seconds(11 * 60)));
     ok(&mut w, "tyler", "look", json!([])); // tyler stays active
@@ -2257,7 +2256,8 @@ fn names_match_in_any_case_and_a_kind_never_means_a_named_creature() {
             .2
             < 8.0
     );
-    ok(&mut w, "dave", "retreat", json!([]));
+    // (Jitter may have let that one blow finish the wisp; then there is no fight to leave.)
+    let _ = call(&mut w, "dave", ActorKind::Citizen, "retreat", json!([]));
     // With no target at all, the default is never the named one either.
     let out = ok(&mut w, "dave", "attack", json!([]));
     assert_eq!(out.result["creature"], "wisp");
@@ -2270,7 +2270,7 @@ fn names_match_in_any_case_and_a_kind_never_means_a_named_creature() {
             >= 8.0,
         "the named one is still untouched"
     );
-    ok(&mut w, "dave", "retreat", json!([]));
+    let _ = call(&mut w, "dave", ActorKind::Citizen, "retreat", json!([]));
     assert!(ok(&mut w, "dave", "tell", json!([&name, "hi"])).result["answered"] == true);
     // Fell the unnamed wisp; then a kind, or no target, never means the named one.
     for _ in 0..12 {
@@ -3065,7 +3065,11 @@ fn the_rotation_renews_a_stale_want_and_keeps_one_word_in_the_air() {
         errand::of(&w, rag).and_then(|e| e.story),
         Some(first.clone())
     );
-    keep_named(&mut w, Duration::seconds(errand::ROTATION_MS / 1000 + 1));
+    // (The turn is jittered to a fifth either way, so wait for the latest it can be.)
+    keep_named(
+        &mut w,
+        Duration::seconds(errand::ROTATION_MS / 1000 * 6 / 5 + 1),
+    );
     w.tick();
     let next = errand::of(&w, rag).unwrap();
     assert_ne!(next.story, Some(first), "the want turned");
@@ -3974,7 +3978,7 @@ fn the_board_holds_the_present_and_the_record_the_rest() {
     let out = ok(&mut w, "tyler", "board", json!([]));
     assert!(
         out.summary
-            .starts_with("Holding now, highest first:\n   1. tyler"),
+            .starts_with("Held through the day (averaged), highest first:\n   1. tyler"),
         "{}",
         out.summary
     );
@@ -4298,4 +4302,351 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
         .as_str()
         .unwrap()
         .starts_with("The Clocktower strikes."));
+}
+
+#[test]
+fn the_conclave_writes_the_statutes_memory_moves_under() {
+    use super::{conclave, economy};
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    // The book exists from boot, at its defaults, and the sitting is wound.
+    assert_eq!(conclave::statute(&w, "gift_allowance"), 120.0);
+    assert_eq!(conclave::statute(&w, "shelf_limit"), 2000.0);
+    assert!(w.jobs.has(conclave::JOB_SITTING, |_| true));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let out = ok(&mut w, "dave", "statutes", json!([]));
+    assert!(
+        out.summary.starts_with("The Conclave's statutes:"),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary.contains("gift_allowance = 120"),
+        "{}",
+        out.summary
+    );
+    // An enactment: on the record, in prose, to everyone present; out of bounds refused.
+    let head = events(&w);
+    let out = admin(&mut w, "dave", "enact", json!(["gift_allowance", 50]));
+    assert!(
+        out.summary
+            .starts_with("The Conclave enacts: the day's gift allowance falls from 120 to 50 XP."),
+        "{}",
+        out.summary
+    );
+    assert_eq!(conclave::statute(&w, "gift_allowance"), 50.0);
+    assert!(narrative(&w, "tyler", head)
+        .iter()
+        .any(|l| l.starts_with("The Conclave enacts:")));
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Admin,
+        "enact",
+        json!(["gift_tax", 9]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("stays between"), "{err}");
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Admin,
+        "enact",
+        json!(["tithe", 1]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("no statute called tithe"), "{err}");
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "enact",
+        json!(["gift_tax", 0.5])
+    )
+    .is_err());
+
+    // Gifts: the first fits the allowance and fades as it was; the one that takes the
+    // day over it is taxed, thinning twice as fast in tyler's hands.
+    let a = admin(&mut w, "dave", "earn", json!(["gift", 40, 0.5]));
+    let a = format!("chunk-{}", a.result["chunk"].as_u64().unwrap());
+    let b = admin(&mut w, "dave", "earn", json!(["gift", 40, 0.5]));
+    let b = format!("chunk-{}", b.result["chunk"].as_u64().unwrap());
+    let out = ok(&mut w, "dave", "give", json!([&a, "tyler"]));
+    assert_eq!(out.result["taxed"], false, "{}", out.summary);
+    let first = out.result["chunk"].as_u64().unwrap();
+    let out = ok(&mut w, "dave", "give", json!([&b, "tyler"]));
+    assert_eq!(out.result["taxed"], true, "{}", out.summary);
+    assert!(
+        out.summary.contains("the Conclave's gift tax is on it"),
+        "{}",
+        out.summary
+    );
+    let second = out.result["chunk"].as_u64().unwrap();
+    let half_life = |w: &World, id: u64| -> i64 {
+        match w
+            .store
+            .timed_field(EntityId(id), CHUNK, "value")
+            .unwrap()
+            .curve
+        {
+            moondial_time::Curve::Exponential { half_life } => half_life.0,
+            _ => panic!("exponential"),
+        }
+    };
+    assert_eq!(
+        half_life(&w, second) * 2,
+        half_life(&w, first),
+        "taxed: half the half-life"
+    );
+    assert_eq!(conclave::given_today(&w, "dave"), 80.0);
+
+    // The shelf limit: a shelf at the limit takes nothing more.
+    admin(&mut w, "dave", "enact", json!(["shelf_limit", 50]));
+    let c = admin(&mut w, "dave", "earn", json!(["shelf", 30, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "shelve", json!([&c]));
+    let d = admin(&mut w, "dave", "earn", json!(["shelf", 30, 0.5]));
+    let d = format!("chunk-{}", d.result["chunk"].as_u64().unwrap());
+    let err = call(&mut w, "dave", ActorKind::Citizen, "shelve", json!([&d])).unwrap_err();
+    assert!(
+        err.to_string().contains("the Conclave's limit is 50"),
+        "{err}"
+    );
+
+    // The hoard tax: dave holds nearly everything. The Clocktower strikes, the
+    // Conclave reads the ledger and names him; what he earns after thins faster, and
+    // what tyler earns does not.
+    admin(&mut w, "dave", "earn", json!(["hoard", 5000, 1.0]));
+    regular(&mut w, "dave");
+    regular(&mut w, "tyler");
+    let hour = (t0.0 / economy::STRIKE_EVERY_MS + 1) * economy::STRIKE_EVERY_MS;
+    w.fixed_now = Some(Timestamp(hour - 1000));
+    ok(&mut w, "dave", "look", json!([]));
+    let head = events(&w);
+    w.fixed_now = Some(Timestamp(hour + 1));
+    assert!(w.tick() >= 1);
+    assert!(conclave::hoard_share_of(&w, "dave").unwrap() > 0.9);
+    assert!(conclave::hoard_share_of(&w, "tyler").is_none());
+    let f = conclave::hoard_factor(&w, "dave");
+    assert!(f > 1.8 && f <= 2.0, "{f}");
+    assert!(
+        narrative(&w, "dave", head)
+            .iter()
+            .any(|l| l.starts_with("The Conclave's hoard tax is on you")),
+        "{:?}",
+        narrative(&w, "dave", head)
+    );
+    let taxed = admin(&mut w, "dave", "earn", json!(["after", 10, 0.5])).result["chunk"]
+        .as_u64()
+        .unwrap();
+    let free = admin(&mut w, "tyler", "earn", json!(["after", 10, 0.5])).result["chunk"]
+        .as_u64()
+        .unwrap();
+    assert!(
+        (half_life(&w, taxed) as f64 * f - half_life(&w, free) as f64).abs() < 2.0,
+        "{} vs {}",
+        half_life(&w, taxed),
+        half_life(&w, free)
+    );
+    assert_eq!(out_json(&w)["statutes"]["gift_allowance"], 50.0);
+
+    // The sitting: once a day, on the record, naming the hoard, changing nothing.
+    // (The test world's chunks fade in seconds; the hoard is made again at the stroke.)
+    let midnight = (t0.0 / conclave::SIT_EVERY_MS + 1) * conclave::SIT_EVERY_MS;
+    w.fixed_now = Some(Timestamp(midnight - 1000));
+    admin(&mut w, "dave", "earn", json!(["hoard", 5000, 1.0]));
+    w.fixed_now = Some(Timestamp(midnight + 1));
+    w.tick();
+    let sat: Vec<_> = w
+        .log
+        .read_all(&w.id, moondial_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == conclave::SAT)
+        .collect();
+    assert_eq!(sat.len(), 1);
+    assert!(
+        sat[0].payload["said"]
+            .as_str()
+            .unwrap()
+            .contains("names a hoard: dave"),
+        "{}",
+        sat[0].payload["said"]
+    );
+    assert_eq!(conclave::statute(&w, "gift_allowance"), 50.0);
+    assert!(w.jobs.has(conclave::JOB_SITTING, |_| true), "wound again");
+
+    fn out_json(w: &World) -> Value {
+        super::conclave::to_json(w)
+    }
+}
+
+#[test]
+fn the_lower_stacks_lie_under_the_archive_and_their_creatures_have_tricks() {
+    use super::stacks;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    // Twenty rooms, every one reachable from the Archive's new stair.
+    for k in stacks::KEYS {
+        assert!(rooms::room_by_key(&w, k).is_some(), "{k}");
+    }
+    let archive = rooms::room_by_key(&w, "archive").unwrap();
+    let stair = rooms::room_by_key(&w, "lower-stacks").unwrap();
+    assert_eq!(
+        rooms::exits_of(&w, archive).get("down").copied(),
+        Some(stair)
+    );
+    assert_eq!(rooms::exits_of(&w, stair).get("up").copied(), Some(archive));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    super::grown(&mut w, "dave");
+    w.tick(); // the spawns fill
+              // A censor's ray: dave holds one chunk; the trick, when it lands, halves it.
+    let office = rooms::room_by_key(&w, "censor-office").unwrap();
+    let censor = combat::creatures_in(&w, office)[0].0;
+    assert_eq!(stacks::trick_of(&w, censor), Some(stacks::Trick::Forget));
+    let f = find_citizen(&w, "dave").unwrap();
+    let chunk = admin(&mut w, "dave", "earn", json!(["a lantern", 40, 0.5])).result["chunk"]
+        .as_u64()
+        .unwrap();
+    let mut landed = None;
+    for _ in 0..40 {
+        let (line, over) = stacks::trick(&mut w, censor, f.citizen, "dave").unwrap();
+        assert!(!over);
+        if let Some(l) = line {
+            landed = Some(l);
+            break;
+        }
+    }
+    let line = landed.expect("the ray lands one time in two");
+    assert!(line.starts_with("A ray of forgetfulness: chunk-"), "{line}");
+    let v = w
+        .store
+        .read_field(EntityId(chunk), CHUNK, "value", w.now())
+        .unwrap()
+        .as_f64()
+        .unwrap();
+    assert!(v < 21.0 && v > 19.0, "{v}");
+    // A lamprey's venom: four ticks of two, a minute long, on the record.
+    let sump = rooms::room_by_key(&w, "pulp-sump").unwrap();
+    let lamprey = combat::creatures_in(&w, sump)[0].0;
+    let (line, over) = stacks::trick(&mut w, lamprey, f.citizen, "dave").unwrap();
+    assert!(!over);
+    assert!(line.unwrap().contains("the venom will work"));
+    assert!(w
+        .jobs
+        .has(stacks::JOB_VENOM, |p| p["citizen"] == f.citizen.0));
+    let hp0 = combat::hp(&w, f.citizen);
+    let head = events(&w);
+    for i in 1..=4 {
+        w.fixed_now = Some(t0.plus(Duration::seconds(stacks::VENOM_EVERY_S * i + 1)));
+        w.tick();
+    }
+    // (Healing runs on its own clock meanwhile, so the net is less than eight.)
+    assert!(
+        combat::hp(&w, f.citizen) < hp0,
+        "{} from {hp0}",
+        combat::hp(&w, f.citizen)
+    );
+    let said = narrative(&w, "dave", head);
+    assert_eq!(
+        said.iter()
+            .filter(|l| l.starts_with("The venom works"))
+            .count(),
+        4,
+        "{said:?}"
+    );
+    assert!(said.last().unwrap().contains("It is out of you now."));
+    assert!(!w.jobs.has(stacks::JOB_VENOM, |_| true));
+    // An usher shows you out: to another room of the Stacks, the fight over.
+    let carrels = rooms::room_by_key(&w, "carrels").unwrap();
+    let usher = combat::creatures_in(&w, carrels)[0].0;
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: f.citizen,
+            parent: Some(carrels),
+        },
+    )
+    .unwrap();
+    let mut moved = None;
+    for _ in 0..40 {
+        let (line, over) = stacks::trick(&mut w, usher, f.citizen, "dave").unwrap();
+        if let Some(l) = line {
+            assert!(over);
+            moved = Some(l);
+            break;
+        }
+    }
+    let line = moved.expect("the usher lands one time in two");
+    assert!(line.starts_with("The usher takes your elbow"), "{line}");
+    let now_in = rooms::room_of(&w, f.citizen).unwrap();
+    assert_ne!(now_in, carrels);
+    assert!(stacks::KEYS.contains(&super::plain_str(&w, now_in, ROOM, "key").unwrap()));
+    // The tricks are on the public record.
+    let tricks = w
+        .log
+        .read_all(&w.id, moondial_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == stacks::TRICK)
+        .count();
+    assert!(tricks >= 3, "{tricks}");
+}
+
+#[test]
+fn the_census_counts_the_world_and_the_board_averages_the_day() {
+    use super::board;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    // A count at boot (nobody holds anything), and the next one wound.
+    let count = |w: &World| {
+        w.log
+            .read_all(&w.id, moondial_log::Cursor::START)
+            .unwrap()
+            .into_iter()
+            .filter(|e| e.kind == board::CENSUS)
+            .count()
+    };
+    assert_eq!(count(&w), 1);
+    assert!(w.jobs.has(board::JOB_CENSUS, |_| true));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // Dave holds about 100 at every count (the test world's chunks fade in seconds,
+    // so it is earned afresh each time); tyler earns 100 only at the last. Over the
+    // day's counts dave held more on average, whatever the moment says.
+    for i in 1..=3 {
+        w.fixed_now = Some(Timestamp(t0.0 + board::CENSUS_EVERY_MS * i + 1));
+        admin(&mut w, "dave", "earn", json!(["steady", 100, 1.0]));
+        if i == 3 {
+            admin(&mut w, "tyler", "earn", json!(["late", 100, 1.0]));
+        }
+        w.tick();
+    }
+    assert_eq!(count(&w), 4);
+    let (lines, _) = board::board(&w);
+    let dave = lines.iter().find(|l| l.name == "dave").unwrap();
+    let tyler = lines.iter().find(|l| l.name == "tyler").unwrap();
+    assert!(tyler.holding >= dave.holding, "tyler holds the most now");
+    assert!(
+        dave.held_24h > tyler.held_24h,
+        "dave held more through the day: {} vs {}",
+        dave.held_24h,
+        tyler.held_24h
+    );
+    assert_eq!(lines[0].name, "dave", "sorted by the day's average");
+    assert!(
+        (tyler.held_24h - 25.0).abs() < 1.0,
+        "one count in four: {}",
+        tyler.held_24h
+    );
+    // The text and JSON lead with it.
+    let out = ok(&mut w, "dave", "board", json!([]));
+    assert!(
+        out.summary
+            .starts_with("Held through the day (averaged), highest first:\n   1. dave"),
+        "{}",
+        out.summary
+    );
+    assert!(out.result["citizens"][0]["held_24h"].as_f64().unwrap() > 50.0);
 }

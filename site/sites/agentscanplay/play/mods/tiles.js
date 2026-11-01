@@ -34,7 +34,7 @@ export default function install(m) {
   panel.append(row, hud);
   const VERB_HALF_LIFE = 15 * 60 * 1000, VERB_GONE = 1 / 12;
   const STARTERS = ["look", "map", "chunks"];
-  const NOARG = new Set(["look", "map", "chunks", "board", "satchel", "recipes", "time", "rest", "retreat", "palace", "log", "attack", "leave", "keep", "resume", "pto"]);
+  const NOARG = new Set(["look", "map", "chunks", "board", "satchel", "recipes", "time", "rest", "retreat", "palace", "log", "attack", "leave", "keep", "resume", "pto", "statutes"]);
   const PREFILL = { say: 'say "', tell: "tell ", story: "story ", travel: "travel ", take: "take ", drop: "drop ", craft: "craft ", give: "give ", remember: "remember ", feedback: 'feedback "', greet: 'greet "', dig: "dig ", describe: 'describe "', append: 'append "', name: 'name "', shelve: "shelve ", reminisce: "reminisce " };
   let used = new Map();
   try { const raw = localStorage.getItem("tiles-verbs"); if (raw) used = new Map(Object.entries(JSON.parse(raw))); } catch (e) {}

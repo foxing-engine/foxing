@@ -13,6 +13,7 @@ pub mod board;
 pub mod building;
 pub mod cloak;
 mod combat;
+pub mod conclave;
 pub mod craft;
 pub mod economy;
 pub mod errand;
@@ -25,6 +26,7 @@ pub mod presence;
 pub mod preview;
 pub mod rooms;
 pub mod speech;
+pub mod stacks;
 pub mod system;
 pub mod talk;
 
@@ -152,6 +154,8 @@ pub fn schema_notes() -> Vec<&'static str> {
         "The map is the graph of exits; `map` lays it out on a grid from the Threshold (north up, east right, up and down floors) and returns only what you remember: the room you stand in and its exits in full, every room you have stood in at how well you remember it (disremembered.atlas.seen, yours alone; it halves every few hours), nothing you have forgotten.",
         "A thing (kind item, disremembered.item) is a material a creature left behind when it came apart (one in three do; take it) or something made of materials and a memory (craft, from recipes). A citizen's things are in their satchel (kind satchel, a child of the citizen); things lying in a room are the room's children. Things fade on the palace curve and are forgotten below five percent. A made thing works while carried: a lantern keeps the map in your memory twice as long; a moth charm makes your next fight's memory more vivid, once.",
         "The world's rates are on its one disremembered.economy entity (kind economy): scales around 1.0 on what a creature is worth, what a story pays, how fast new memory fades, how long a room takes to refill, how often a creature leaves something, and what a recipe's memory costs. Once an hour the Clocktower strikes (a public disremembered.clocktower): it reads the world and moves rates a step toward the band it keeps, and says so in prose; time gives the figures, GET /v0/economy the dashboard.",
+        "The Conclave is the legislature: its statutes are on the one disremembered.conclave entity (kind conclave), numbers memory moves under: gift_allowance (XP a name may give in a day) and gift_tax (what a gift over it keeps of its half-life), hoard_share (the share of all held memory above which a name is a hoard) and hoard_tax (how much faster a hoard's new memory thins, by how far over), shelf_limit (what may sit on one shelf). The hoards are named at each strike (hoards: {name: share}). A statute changes by enactment, a public disremembered.statute said in prose; the Conclave sits once a day (disremembered.conclave_sat). statutes reads the book; GET /v0/conclave serves it.",
+        "Every ten minutes the world counts itself: a public disremembered.census with every kept name's holding. The board's first column, held_24h, is a name's holding averaged over the day's census, and the board is sorted by it.",
         "A citizen's disremembered.presence says whether they are here (acting within the last ten minutes) or a trace the room still remembers; gone_at is when they went quiet. A room's contents relation returns traced citizens too, with the room as parent, while look lists them as remembered: select disremembered.presence here to tell the two apart. Thirty days after gone_at the world forgets the citizen (a disremembered.forgotten event) and the name is free.",
     ]
 }
@@ -245,6 +249,13 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("price", FieldKind::Plain, Visibility::Public)
             .field("struck_at", FieldKind::Plain, Visibility::Public)
             .field("strikes", FieldKind::Plain, Visibility::Public),
+        // The Conclave's book: the statutes memory moves under, the hoards as of
+        // the last strike, and when it last sat.
+        ComponentSchema::new(conclave::CONCLAVE, 1)
+            .field("statutes", FieldKind::Plain, Visibility::Public)
+            .field("hoards", FieldKind::Plain, Visibility::Public)
+            .field("sat_at", FieldKind::Plain, Visibility::Public)
+            .field("sittings", FieldKind::Plain, Visibility::Public),
         ComponentSchema::new(mind::MIND, 1)
             .field("tier", FieldKind::Plain, Visibility::Public)
             .field("name", FieldKind::Plain, Visibility::Public)
@@ -556,6 +567,8 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     combat::ensure_spawns(world)?;
     building::reframe_all(world)?;
     economy::ensure(world)?;
+    conclave::ensure(world)?;
+    board::ensure(world)?;
     mind::ensure_wander(world)
 }
 
@@ -1026,6 +1039,8 @@ pub fn register(world: &mut World, curves: Curves) {
     board::register(world);
     craft::register(world, curves.clone());
     economy::register(world);
+    conclave::register(world);
+    stacks::register(world);
     combat::register(world, curves.clone());
     memory::register(world, curves.clone());
     presence::register(world, curves.clone());

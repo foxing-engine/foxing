@@ -7,6 +7,13 @@
 //! told, the words carried, the births carried, and the creatures that know the name.
 //! Names the world has forgotten are off the board (their count stays, as a line); a
 //! passing name is on it while it lasts, marked.
+//!
+//! The hero column is `held_24h`: a name's holding averaged over the last day, read
+//! from the census the world takes of itself every ten minutes (`disremembered.census`,
+//! every kept name's level). Holding now rewards whoever earned last; retention is an
+//! age effect (a new name keeps most of what little it earned); per-action rewards
+//! sparse play. What a name held *on average through the day* is what stayed in the
+//! world, and a person at a keyboard an hour a day can hold it as well as an agent.
 
 use super::{errand, exchange, kindle, memory, mind, CHUNK};
 use crate::world::World;
@@ -15,12 +22,22 @@ use moondial_registry::{ActorKind, CommandError, CommandSpec, Outcome};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashMap};
 
+/// The census: `{holding: {name: level}}` for every kept name holding anything. Public.
+pub const CENSUS: &str = "disremembered.census";
+pub const JOB_CENSUS: &str = "disremembered.census";
+/// How often the world counts itself.
+pub const CENSUS_EVERY_MS: i64 = 600_000;
+/// The day the hero column averages over.
+pub const DAY_MS: i64 = 86_400_000;
+
 /// One citizen's line.
 #[derive(Debug, Default, Clone)]
 pub struct Line {
     pub name: String,
     pub passing: bool,
     pub here: bool,
+    /// Holding averaged over the last day's census: the hero column.
+    pub held_24h: f64,
     /// Unfaded chunks now.
     pub holding: f64,
     /// Every chunk ever created under the name, by size.
@@ -152,6 +169,32 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
             }
         }
     }
+    // The day's census, for the hero column: a name absent from a count held nothing.
+    let day_ago = world.now().0 - DAY_MS;
+    let mut samples = 0usize;
+    let mut sums: HashMap<String, f64> = HashMap::new();
+    for e in world
+        .log
+        .read_all(&world.id, Cursor::START)
+        .unwrap_or_default()
+    {
+        if e.kind != CENSUS || e.at.0 < day_ago {
+            continue;
+        }
+        samples += 1;
+        if let Some(m) = e.payload["holding"].as_object() {
+            for (n, v) in m {
+                *sums.entry(n.clone()).or_default() += v.as_f64().unwrap_or(0.0);
+            }
+        }
+    }
+    let average = |name: &str, now: f64| -> f64 {
+        if samples == 0 {
+            now
+        } else {
+            sums.get(name).copied().unwrap_or(0.0) / samples as f64
+        }
+    };
     let mut out = Vec::new();
     for (name, mut l) in lines {
         let Some(f) = super::find_citizen(world, &name) else {
@@ -164,6 +207,7 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
         l.passing = super::is_passing(world, f.citizen);
         l.here = super::presence::is_here(world, f.citizen);
         l.holding = memory::level(world, f.window);
+        l.held_24h = average(&l.name, l.holding);
         l.known_by = known.get(&l.name).copied().unwrap_or(0);
         l.retention = if l.earned > 0.0 {
             l.holding / l.earned
@@ -192,6 +236,7 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
             name: name.to_string(),
             passing: super::is_passing(world, f.citizen),
             here: super::presence::is_here(world, f.citizen),
+            held_24h: average(name, memory::level(world, f.window)),
             holding: memory::level(world, f.window),
             known_by: known.get(name).copied().unwrap_or(0),
             ..Default::default()
@@ -203,9 +248,14 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
         .filter(|n| super::find_citizen(world, n).is_none())
         .count() as u64;
     out.sort_by(|a, b| {
-        b.holding
-            .partial_cmp(&a.holding)
+        b.held_24h
+            .partial_cmp(&a.held_24h)
             .unwrap_or(std::cmp::Ordering::Equal)
+            .then(
+                b.holding
+                    .partial_cmp(&a.holding)
+                    .unwrap_or(std::cmp::Ordering::Equal),
+            )
             .then(
                 b.earned
                     .partial_cmp(&a.earned)
@@ -223,6 +273,7 @@ pub fn to_json(world: &World) -> Value {
         "as_of": world.now().0,
         "citizens": lines.iter().map(|l| json!({
             "name": l.name, "passing": l.passing, "here": l.here,
+            "held_24h": (l.held_24h * 100.0).round() / 100.0,
             "holding": (l.holding * 100.0).round() / 100.0,
             "earned": (l.earned * 100.0).round() / 100.0,
             "kept": l.kept, "dug": l.dug, "given": l.given, "stories": l.stories,
@@ -232,7 +283,7 @@ pub fn to_json(world: &World) -> Value {
             "per_action": (l.per_action * 100.0).round() / 100.0,
         })).collect::<Vec<_>>(),
         "forgotten": forgotten,
-        "note": "holding is the sum of unfaded chunks now and falls while you are away; the rest is the record and does not fade. retention is holding over earned; per_action is holding over actions through the Gate (a typed line is one, a written message its DO lines). Names the world has forgotten are off the board.",
+        "note": "held_24h is holding averaged over the last day's census (every ten minutes), and the board is sorted by it; holding is the sum of unfaded chunks now and falls while you are away; the rest is the record and does not fade. retention is holding over earned; per_action is holding over actions through the Gate (a typed line is one, a written message its DO lines). Names the world has forgotten are off the board.",
     })
 }
 
@@ -242,12 +293,13 @@ pub fn text(world: &World, asker: Option<&str>) -> String {
     if lines.is_empty() {
         return "The board is empty: no one is here.".into();
     }
-    let mut out = String::from("Holding now, highest first:");
+    let mut out = String::from("Held through the day (averaged), highest first:");
     for (i, l) in lines.iter().take(10).enumerate() {
         out.push_str(&format!(
-            "\n  {:>2}. {:<20} {:>9.2}  earned {:>9.2}  kept {:>3.0}%  per action {:>6.2}  given {:>3}  stories {:>3}  errands {:>3}{}{}",
+            "\n  {:>2}. {:<20} {:>9.2}  now {:>9.2}  earned {:>9.2}  kept {:>3.0}%  per action {:>6.2}  given {:>3}  stories {:>3}  errands {:>3}{}{}",
             i + 1,
             l.name,
+            l.held_24h,
             l.holding,
             l.earned,
             l.retention * 100.0,
@@ -264,21 +316,65 @@ pub fn text(world: &World, asker: Option<&str>) -> String {
             if i >= 10 {
                 let l = &lines[i];
                 out.push_str(&format!(
-                    "\n  …\n  {:>2}. {:<20} {:>9.2}  earned {:>9.2}  kept {:>3.0}%  per action {:>6.2}  given {:>3}  stories {:>3}  errands {:>3}",
-                    i + 1, l.name, l.holding, l.earned, l.retention * 100.0, l.per_action, l.given, l.stories, l.errands
+                    "\n  …\n  {:>2}. {:<20} {:>9.2}  now {:>9.2}  earned {:>9.2}  kept {:>3.0}%  per action {:>6.2}  given {:>3}  stories {:>3}  errands {:>3}",
+                    i + 1, l.name, l.held_24h, l.holding, l.earned, l.retention * 100.0, l.per_action, l.given, l.stories, l.errands
                 ));
             }
         }
     }
     out.push_str(&format!(
-        "\n{} on the board; {forgotten} name{} the world has forgotten. Holding fades while you are away; the rest is the record. kept% is holding over all you earned; per action is holding over your lines through the Gate.",
+        "\n{} on the board; {forgotten} name{} the world has forgotten. The first figure is holding averaged over the last day; now is holding this moment, which fades while you are away; the rest is the record. kept% is holding over all you earned; per action is holding over your lines through the Gate.",
         lines.len(),
         if forgotten == 1 { "" } else { "s" }
     ));
     out
 }
 
+/// The census: every kept name's level, on the record, every ten minutes.
+pub fn census(world: &mut World) -> Result<(), String> {
+    let mut holding = serde_json::Map::new();
+    let citizens: Vec<(String, moondial_store::EntityId)> = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "citizen" && !super::is_passing(world, e.id))
+        .filter_map(|e| e.owner.clone().map(|o| (o, e.id)))
+        .collect();
+    for (name, _) in citizens {
+        if let Some(f) = super::find_citizen(world, &name) {
+            let v = memory::level(world, f.window);
+            if v > 0.005 {
+                holding.insert(name, json!((v * 100.0).round() / 100.0));
+            }
+        }
+    }
+    let _ = world.note(Actor::Driver, CENSUS, json!({"holding": holding}));
+    wind(world)
+}
+
+fn wind(world: &mut World) -> Result<(), String> {
+    let due = world.now().plus(moondial_time::Duration(CENSUS_EVERY_MS));
+    world
+        .schedule_once(JOB_CENSUS, due, json!({}), |_| true)
+        .map(|_| ())
+}
+
+/// At boot: a count now if the last is stale (a restart within the ten minutes
+/// records nothing), so the board has a figure, and the next one wound.
+pub fn ensure(world: &mut World) -> Result<(), String> {
+    let last = world
+        .recent_events(2000)
+        .iter()
+        .rev()
+        .find(|e| e.kind == CENSUS)
+        .map(|e| e.at.0);
+    if last.is_some_and(|t| world.now().0 - t < CENSUS_EVERY_MS) {
+        return wind(world);
+    }
+    census(world)
+}
+
 pub fn register(world: &mut World) {
+    world.on_job(JOB_CENSUS, Box::new(|w: &mut World, _| census(w)));
     world.register(
         CommandSpec::new(
             "disremembered.board",

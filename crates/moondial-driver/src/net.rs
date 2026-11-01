@@ -588,6 +588,12 @@ async fn economy(State(s): State<Shared>) -> Reply {
     Ok(Json(crate::disremembered::economy::to_json(&w)))
 }
 
+/// `GET /v0/conclave`: the statutes, the hoards, the enactments. Public.
+async fn conclave(State(s): State<Shared>) -> Reply {
+    let w = lock(&s)?;
+    Ok(Json(crate::disremembered::conclave::to_json(&w)))
+}
+
 /// The schema, as `GET /v0/schema` serves it.
 pub(crate) fn schema_value(s: &Shared) -> Result<Value, (StatusCode, Json<Value>)> {
     let w = lock(s)?;
@@ -1104,6 +1110,7 @@ pub fn router(shared: Shared) -> Router {
         .route("/v0/map", get(map))
         .route("/v0/board", get(board))
         .route("/v0/economy", get(economy))
+        .route("/v0/conclave", get(conclave))
         .route("/v0/citizens", get(citizens))
         .route("/v0/openapi.json", get(openapi))
         .route(

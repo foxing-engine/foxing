@@ -278,6 +278,18 @@ pub fn dashboard(world: &World) -> Value {
         (Some((_, t)), total) if total > 0.0 => t / total,
         _ => 0.0,
     };
+    // Every holder's share, for the Conclave's hoard rule.
+    let mut holders: Vec<Value> = held
+        .iter()
+        .filter(|(_, h)| *h > 0.0)
+        .map(|(n, h)| json!({"name": n, "holding": (h * 100.0).round() / 100.0, "share": if total > 0.0 { (h / total * 1000.0).round() / 1000.0 } else { 0.0 }}))
+        .collect();
+    holders.sort_by(|a, b| {
+        b["share"]
+            .as_f64()
+            .partial_cmp(&a["share"].as_f64())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     json!({
         "as_of": now.0,
         "held": (total * 100.0).round() / 100.0,
@@ -291,6 +303,7 @@ pub fn dashboard(world: &World) -> Value {
         "shelved": (shelved * 100.0).round() / 100.0,
         "top": top.as_ref().map(|(n, h)| json!({"name": n, "holding": (h * 100.0).round() / 100.0})),
         "concentration": (concentration * 1000.0).round() / 1000.0,
+        "holders": holders,
         "last_hour": {"earned": (earned * 100.0).round() / 100.0, "spent_events": spent, "actions": actions,
                       "wage_per_action": if actions > 0 { (earned / actions as f64 * 100.0).round() / 100.0 } else { 0.0 }},
         "band": {"low": BAND_LOW, "high": BAND_HIGH, "concentration_high": CONCENTRATION_HIGH, "regular_lines": REGULAR_LINES},
@@ -467,11 +480,22 @@ pub fn strike(world: &mut World) -> Result<(), String> {
         .filter(|e| e.kind == "citizen" && super::presence::is_here(world, e.id))
         .filter_map(|e| e.owner.clone())
         .collect();
-    for actor in present {
-        super::combat::narrate(world, &actor, line.clone());
+    for actor in &present {
+        super::combat::narrate(world, actor, line.clone());
     }
     if !moves.is_empty() {
         world.notice(format!("{line} ({})", rates_line(&after)));
+    }
+    // The Conclave reads the ledger: who is a hoard this hour, and the hoard hears it.
+    super::conclave::note_hoards(world, &dash)?;
+    for actor in &present {
+        let f = super::conclave::hoard_factor(world, actor);
+        if f > 1.0 + 1e-9 {
+            super::combat::narrate(world, actor, format!(
+                "The Conclave's hoard tax is on you: you hold {:.0}% of all that is held, and what you earn this hour thins {f:.2} times as fast.",
+                super::conclave::hoard_share_of(world, actor).unwrap_or(0.0) * 100.0
+            ));
+        }
     }
     wind(world)
 }

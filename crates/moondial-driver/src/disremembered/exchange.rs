@@ -54,17 +54,37 @@ pub fn register(world: &mut World, curves: Curves) {
                 )));
             }
             let chunk = super::memory::resolve_chunk(w, ctx, args.str("chunk").unwrap_or(""), &[f.window, f.palace])?;
+            let size = w.store.read_field(chunk, super::CHUNK, "value", w.now()).map_err(internal)?.as_f64().unwrap_or(0.0);
+            // The Conclave's gift allowance: a day's gifts past it are taxed, the gift
+            // thinning faster in the receiver's hands. (Free passing names could each
+            // story every creature once an hour and give it all to one kept name.)
+            let before = super::conclave::given_today(w, &ctx.actor);
+            let allowance = super::conclave::statute(w, "gift_allowance");
+            let taxed = before + size > allowance;
             let (id, source) = mind::move_chunk(w, &ctx.actor, chunk, them.window, Some(to.clone()))?;
+            if taxed {
+                let keep = super::conclave::statute(w, "gift_tax");
+                if let Some(moondial_store::Field::Timed(t)) = w.store.entity(id).and_then(|e| e.components.get(super::CHUNK)).and_then(|c| c.fields.get("value")).cloned() {
+                    let curve = match t.curve {
+                        moondial_time::Curve::Exponential { half_life } => moondial_time::Curve::Exponential { half_life: moondial_time::Duration((half_life.0 as f64 * keep) as i64) },
+                        moondial_time::Curve::PowerLaw { scale, exponent } => moondial_time::Curve::PowerLaw { scale: moondial_time::Duration((scale.0 as f64 * keep) as i64), exponent },
+                        c => c,
+                    };
+                    w.record(Actor::Citizen(ctx.actor.clone()), moondial_store::StoreEvent::FieldRecurved { id, component: super::CHUNK.into(), field: "value".into(), curve }).map_err(internal)?;
+                }
+            }
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 GIVEN,
-                json!({"from": ctx.actor, "to": to, "chunk": id.0, "was": chunk.0, "with": source, "room": here.0}),
+                json!({"from": ctx.actor, "to": to, "chunk": id.0, "was": chunk.0, "with": source, "room": here.0, "size": size, "taxed": taxed, "given_today": before + size}),
             );
-            narrate(w, &to, format!("{} gives you the memory of {source}: chunk-{}. It is yours now, and fading as it was.", ctx.actor, id.0));
-            w.notice(format!("**{}** gave the memory of {source} to **{to}**.", ctx.actor));
+            let tax_line = if taxed { " The Conclave's gift tax is on it: it thins faster than it did." } else { "" };
+            narrate(w, &to, format!("{} gives you the memory of {source}: chunk-{}. It is yours now, and fading as it was.{tax_line}", ctx.actor, id.0));
+            w.notice(format!("**{}** gave the memory of {source} to **{to}**.{}", ctx.actor, if taxed { " (taxed)" } else { "" }));
             Ok(Outcome::new(
-                format!("You give {to} the memory of {source}. It is theirs now: chunk-{}.", id.0),
-                json!({"to": to, "chunk": id.0, "with": source}),
+                format!("You give {to} the memory of {source}. It is theirs now: chunk-{}.{}", id.0,
+                    if taxed { format!(" You have given {:.0} today against an allowance of {allowance:.0}; the Conclave's gift tax is on it, and it thins faster in their hands.", before + size) } else { String::new() }),
+                json!({"to": to, "chunk": id.0, "with": source, "size": size, "taxed": taxed, "given_today": before + size, "allowance": allowance}),
             ))
         }),
     );

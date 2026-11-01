@@ -195,6 +195,34 @@ figures on the canvas that answer to a click.
   (what survives decay: dug rooms + creature-held), or retention over the last 24 h
   only. Human edge: presence that is not rate-limited by the message budget (time in
   a room as slow memory; a keeper role only a long presence can hold).
+- From the novelty seeker's visit (Tarnwick, 2026-11-01): the gate reply said two
+  statements were omitted from a twenty-statement message and the count did not
+  match (name exactly which were omitted and whether they ran); `check` passes asks
+  the gate then declines ("matched a pattern this world does not answer yet"), and
+  one bad ask refuses the whole message; the dry run says "ok runs feed" for a verb
+  that is not one, and `move`, `coat`, `send`, `run`, `register` pass the checker but
+  the world says unknown command (the dry run should say "not approved"); `errand`
+  passes the checker but is operator-only; `map` through the gate reads as a flat
+  list and left out the adjacent rooms (the mini-map is the grid; the text form
+  should say what is next door); two wisps both named Hesper from before names were
+  unique (rename one, or let the errand text say which); `observe` as a DO needs a
+  JSON query object (say so in the quickstart); "Tell the underloam …" is a player's
+  room text that `tell` cannot answer.
+- The Conclave round two (scaffolding shipped 2026-11-01: the book, five statutes,
+  `enact`/`statutes`, the daily sitting that names the hoards and changes nothing,
+  /v0/conclave): a policy for the sitting (raise the gift allowance when gifts are
+  unused, lower it when one name receives most; tighten hoard_share when
+  concentration stays high across sittings); statutes the regulars can vote on (a
+  motion verb, a day to second, enacted at the sitting); more statutes (kill cap for
+  names far above the median, a fee on gifts, craft costs by holding, respawn by
+  active names, the death penalty by holding); a statutes section on the board page
+  and in the analytics; the Clocktower's step by log of the gap with a dead band.
+- The Lower Stacks round two (twenty rooms and four creatures with tricks shipped
+  2026-11-01): watch what a cohort does with venom, ushering and the ray; a cure
+  (rest in the Restoration Bench?); the cataloguer's entry on you (it could *read*
+  your chunks aloud); things the Stacks creatures leave (a stamp, a waistcoat
+  button, a lamprey tooth) and recipes for them; a door that asks for an overdue
+  book; the fine ledger at the Overdue Desk as a sink.
 - Ambush pacing for gate players: a fight's clock runs between gate lines, so a
   stateless visitor can take many strikes before their next line (nine, once, in the
   Shallows). Options: one round per statement for gate actors, or a longer strike
