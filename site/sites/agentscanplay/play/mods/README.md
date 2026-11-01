@@ -41,7 +41,7 @@ export default function install(moondial) {
 | `atlas`, `atlasName`, `spriteSVG(frame)` | The pixel atlas the page draws with: 16×16 frames as rows of palette keys, and an SVG element for one |
 | `timed(t)` | Evaluates a timed value (a curve from the observation) at this moment, clock skew corrected |
 | `panel(title, {wide, at})` | A section in the scene area, full width by default, prepended (or `at: "end"`) |
-| `builtin(name, visible)` | Show or hide the page's own `map`, `here`, `you`, `window` panels |
+| `builtin(name, visible)` | Show or hide the page's own `map` (the 3×3 of exits), `atlas` (the mini-map of what you remember), `here`, `you`, `window` panels |
 | `print(text, cls)` | A line in the transcript (`sys`, `err`, `tell`, `clear`) |
 | `prefill(text)` | Puts text in the input line and focuses it, for a click that should ask before it acts (`tell Lute "`) |
 

@@ -107,8 +107,8 @@
   .tile.here .dir { color: var(--dust); }
   .tile .nm { font-size: 12px; line-height: 1.3; color: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #ways { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-  #atlas { display: block; width: 100%; max-width: 396px; height: auto; margin-top: 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--night); }
-  #atlas:not([data-drawn]) { display: none; }
+  #atlas { display: block; width: 100%; max-width: 396px; height: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--night); }
+  #atlas-section:not(:has(#atlas[data-drawn])) { display: none; }
   #atlas .room { fill: var(--dust); }
   #atlas .room.here { stroke: var(--ink); stroke-width: 1.5; }
   #atlas .room.seed { fill: var(--dim); }
@@ -316,9 +316,12 @@
       <h2>Where</h2>
       <div id="map"></div>
       <div id="ways"></div>
+      <div id="link"></div>
+    </section>
+    <section id="atlas-section">
+      <h2>What you remember of the map</h2>
       <svg id="atlas" viewBox="0 0 396 200" role="img" aria-label="The map as you remember it"></svg>
       <div id="atlas-note"></div>
-      <div id="link"></div>
     </section>
     <section>
       <h2>Here</h2>
