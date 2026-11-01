@@ -67,7 +67,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a lantern",
         of: &["a wisp ember", "rag thread"],
         chunk_at_least: 10.0,
-        does: "carried, the map stays in your memory twice as long",
+        does: "keeps the map in your memory twice as long while carried",
         uses: 0,
     },
     Recipe {
@@ -75,7 +75,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a moth charm",
         of: &["moth dust", "a dab of ink"],
         chunk_at_least: 5.0,
-        does: "carried, your next fight's memory is more vivid, and the charm is spent",
+        does: "makes your next fight's memory more vivid while carried, and is spent by it",
         uses: 1,
     },
     Recipe {
@@ -83,7 +83,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a jar of fog",
         of: &["hollow water", "river weed"],
         chunk_at_least: 0.0,
-        does: "nothing yet; it is fog in a jar, and it keeps",
+        does: "does nothing yet; it is fog in a jar, and it keeps",
         uses: 0,
     },
 ];

@@ -268,13 +268,25 @@ fn gist(text: &str) -> String {
     format!("{}\u{2026}", out.trim_end_matches([',', ';', ':']))
 }
 
+/// Words that are in every story and tell none apart: not counted when one story is
+/// compared with the next. (A fresh story about the lantern nobody remembers
+/// lighting once read as half the last one's on "every", "night" and "though".)
+const STORY_FILLER: &[&str] = &[
+    "about", "after", "also", "been", "being", "before", "could", "does", "done", "even", "ever",
+    "every", "from", "have", "into", "just", "like", "more", "most", "only", "other", "over",
+    "said", "same", "says", "some", "still", "such", "than", "that", "their", "them", "then",
+    "there", "they", "this", "those", "though", "through", "under", "until", "upon", "very",
+    "were", "what", "when", "where", "which", "while", "with", "would", "your",
+];
+
 /// The words a story is made of, for telling one from the next: four letters or
-/// more, lowercased, plurals trimmed, each once.
+/// more, lowercased, plurals trimmed, the filler left out, each once.
 pub fn story_words(text: &str) -> Vec<String> {
     let mut v: Vec<String> = text
         .split(|c: char| !c.is_alphanumeric() && c != '\'')
         .map(|w| w.trim_matches('\'').to_lowercase())
         .filter(|w| w.chars().count() >= 4)
+        .filter(|w| !STORY_FILLER.contains(&w.as_str()))
         .map(|w| w.trim_end_matches('s').to_string())
         .collect();
     v.sort();
@@ -283,7 +295,9 @@ pub fn story_words(text: &str) -> Vec<String> {
 }
 
 /// How many stories told to `creature` in the last hour, by anyone, this one is
-/// mostly made of (half its words or more in common).
+/// mostly made of: two thirds of its words or more in common, filler aside. Two
+/// different answers to the same want share the want's own words (lantern, nobody,
+/// remember, lighting) and must not read as one.
 pub fn heard_lately(world: &World, creature: foxing_store::EntityId, text: &str) -> usize {
     let mine = story_words(text);
     if mine.is_empty() {
@@ -303,7 +317,7 @@ pub fn heard_lately(world: &World, creature: foxing_store::EntityId, text: &str)
                 return false;
             }
             let shared = mine.iter().filter(|w| theirs.contains(&w.as_str())).count();
-            shared * 2 >= mine.len()
+            shared * 3 >= mine.len() * 2
         })
         .count()
 }

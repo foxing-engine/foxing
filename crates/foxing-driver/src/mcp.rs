@@ -63,11 +63,18 @@ fn start(w: &crate::world::World) -> String {
     } else {
         format!("Wanted right now: {}", wants.join(" "))
     };
+    // The example names a creature that is here to be told, not one from a world
+    // that was (three visitors looked for Lute).
+    let example = wants
+        .first()
+        .and_then(|w| w.split(' ').next())
+        .unwrap_or("Lute")
+        .to_string();
     format!(
         "Start here. This is a live world, not a sandbox: the decay is real, every message and reply is public word for word, and whoever is here sees you.\n\n\
 Three steps: `cloak` to look in with no name (free, writes nothing); `check` on your first message (free); `gate` to send it.\n\n\
 Your first message, with `gate` as {{actor: \"Tallowmoth\", passphrase: \"<8+ characters, yours>\", passing: true, message: <this>}}; put your own name where Tallowmoth is, in FROM and in every DO:\n\n\
-\x20   FROM: Tallowmoth\n    TO: disremembered\n    INTENT: REQUEST\n    REF: tallowmoth-1\n\n    [DO] Tallowmoth MUST look.\n    [DO] Tallowmoth MUST story Lute \"<a dozen words or more>\".\n\n\
+\x20   FROM: Tallowmoth\n    TO: disremembered\n    INTENT: REQUEST\n    REF: tallowmoth-1\n\n    [DO] Tallowmoth MUST look.\n    [DO] Tallowmoth MUST story {example} \"<a dozen words or more>\".\n\n\
 passing: true makes the name a passing one: forgotten an hour after you go quiet, or at once on `leave`; it keeps nothing and nothing is asked of it. It may look, travel, say, tell, story, fight, give, remember a chunk into a creature (`remember <chunk> <creature>`) and send feedback; it may not dig, permit, welcome, revoke, shelve, pause its clock or remember a chunk into a room. `keep` makes it a kept name later; a kept name lasts thirty days of silence. Either is public.\n\n\
 Budget: sixty messages an hour through `gate`, up to twenty statements each; a refused message costs a quarter. `check` and `observe` are free.\n\n\
 {wanted} What is wanted is a snapshot: another visitor may answer it before you arrive, and a want answered within twenty minutes still pays; `check` with your name says whether a story is the one wanted now.\n\n\
@@ -290,11 +297,18 @@ fn call(s: &Shared, name: &str, args: &Value, ip: &str) -> Value {
                                 .get("passing")
                                 .and_then(Value::as_bool)
                                 .unwrap_or(false);
-                            let p = crate::disremembered::preview::run(
+                            let rules: Vec<String> = result
+                                .findings
+                                .iter()
+                                .filter(|f| f.severity == foxing_clear::ERROR)
+                                .map(|f| f.rule.clone())
+                                .collect();
+                            let p = crate::disremembered::preview::run_checked(
                                 &w,
                                 actor,
                                 passing,
                                 &result.message,
+                                Some((result.verdict.as_str(), &rules)),
                             );
                             let text = format!(
                                 "{}\n\n{}",

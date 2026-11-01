@@ -382,6 +382,11 @@ pub fn register(world: &mut World) {
                     "An exit is one lowercase word, up to 16 letters (hyphens allowed).",
                 ));
             }
+            if exit == "back" {
+                return Err(CommandError::precondition(
+                    "'back' is the way you came, not a door; name the exit something else.",
+                ));
+            }
             if let Some(word) = crate::gate::world_checker().collision(&exit) {
                 return Err(CommandError::precondition(format!(
                     "'{word}' is a word CLEAR reserves; an exit may not be it."
@@ -549,7 +554,8 @@ pub fn register(world: &mut World) {
                 ));
                 return Ok(Outcome::new(
                     if before == after {
-                        format!("You give up the memory of {source}, and the {after} keeps it. It holds {level:.0} now.{next}")
+                        format!("You give up the memory of {source}, and {} keeps it. It holds {level:.0} now.{next}",
+                            if super::mind::name(w, creature).is_some() { after.clone() } else { format!("the {after}") })
                     } else {
                         format!("You give up the memory of {source}, and the {before} keeps it. It holds {level:.0} now, and it is {after}.")
                     },

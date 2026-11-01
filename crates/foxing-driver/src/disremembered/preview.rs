@@ -54,9 +54,30 @@ pub fn name_status(world: &World, actor: &str) -> (String, String) {
 /// One line per DO: what it would do, or why it would be refused; and the header
 /// faults the gate would refuse the whole message for (FROM not the actor, TO not this
 /// world), which the checker alone does not see.
+#[cfg(test)]
 pub fn run(world: &World, actor: &str, passing: bool, msg: &foxing_clear::Message) -> Value {
+    run_checked(world, actor, passing, msg, None)
+}
+
+/// As [`run`], with the checker's verdict and rule ids on top: a message the checker
+/// fails is refused whole, whatever the statements would have done.
+pub fn run_checked(
+    world: &World,
+    actor: &str,
+    passing: bool,
+    msg: &foxing_clear::Message,
+    checked: Option<(&str, &[String])>,
+) -> Value {
     let statements = &msg.statements;
     let mut header: Vec<String> = Vec::new();
+    if let Some((verdict, rules)) = checked {
+        if verdict != "PASS" {
+            header.push(format!(
+                "the checker's verdict is {verdict} ({}): the gate refuses the whole message and charges a quarter",
+                rules.join(", ")
+            ));
+        }
+    }
     let from = msg.field("FROM").unwrap_or("");
     if from != actor {
         header.push(format!(
@@ -200,6 +221,45 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &foxing_clear::Messag
                 false,
                 format!("refused: {verb} is the operator's, not a citizen's"),
             )
+        } else if spec.is_some_and(|s| args.len() > s.params.len()) {
+            (
+                false,
+                format!(
+                    "refused: {verb} takes {} argument{}; the DO gives {}",
+                    spec.map(|s| s.params.len()).unwrap_or(0),
+                    if spec.map(|s| s.params.len()) == Some(1) {
+                        ""
+                    } else {
+                        "s"
+                    },
+                    args.len()
+                ),
+            )
+        } else if let Some(missing) = spec.and_then(|s| {
+            let need = s.params.iter().filter(|p| p.required).count();
+            (args.len() < need).then(|| {
+                s.params
+                    .iter()
+                    .filter(|p| p.required)
+                    .skip(args.len())
+                    .map(|p| p.name.clone())
+                    .collect::<Vec<_>>()
+            })
+        }) {
+            // The checker fails this on CL-I6; the dry run once said "ok, runs take"
+            // for a bare `take` the verdict then refused.
+            (
+                false,
+                format!(
+                    "refused: {verb} needs {} ({})",
+                    if missing.len() == 1 {
+                        "an argument"
+                    } else {
+                        "arguments"
+                    },
+                    missing.join(", ")
+                ),
+            )
         } else if passing && KEPT_ONLY.contains(&verb.as_str()) {
             (
                 false,
@@ -295,6 +355,7 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &foxing_clear::Messag
                             }) => (false, format!("refused: one story an hour per creature, and {} had one from you within the hour", mind::display(world, c))),
                             Some(_) => {
                                 let wanted = errand::wants_story(world, c, &arg(1));
+                                let heard = super::exchange::heard_lately(world, c, &arg(1));
                                 // Not the one wanted: say what it listens for, so the
                                 // next draft can be.
                                 let listens = errand::of(world, c)
@@ -303,17 +364,22 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &foxing_clear::Messag
                                 (
                                     true,
                                     format!(
-                                        "tells {} a story{}",
+                                        "tells {} a story{}{}",
                                         mind::display(world, c),
-                                        if wanted {
-                                            ": the one it wants, worth double".to_string()
-                                        } else if let Some(k) = listens {
-                                            format!(
-                                                ", not the one it wants (it listens for {k})"
-                                            )
-                                        } else {
-                                            String::new()
-                                        }
+                                            if wanted {
+                                                ": the one it wants, worth double".to_string()
+                                            } else if let Some(k) = listens {
+                                                format!(
+                                                    ", not the one it wants (it listens for {k})"
+                                                )
+                                            } else {
+                                                String::new()
+                                            },
+                                            if heard > 0 {
+                                                format!("; it has heard {heard} much like it this hour, so this one pays {}", if heard == 1 { "half" } else { "less than half" })
+                                            } else {
+                                                String::new()
+                                            }
                                     ),
                                 )
                             }
@@ -357,7 +423,16 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &foxing_clear::Messag
                         ("attack", Some(c)) => {
                             let kind = plain_str(world, c, super::CREATURE, "name").unwrap_or("?");
                             let asked = who.trim().trim_start_matches("the ").to_lowercase();
-                            if mind::name(world, c).is_some() && (asked.is_empty() || asked == kind)
+                            if let Some(ms) = mind::shaken_for(world, c) {
+                                (
+                                    false,
+                                    format!(
+                                        "refused: {} is not itself yet, for {}",
+                                        mind::display(world, c),
+                                        super::combat::human(ms)
+                                    ),
+                                )
+                            } else if mind::name(world, c).is_some() && (asked.is_empty() || asked == kind)
                             {
                                 (
                                     false,
@@ -408,7 +483,7 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &foxing_clear::Messag
                                 .map(|r| super::combat::creatures_in(world, r))
                                 .unwrap_or_default()
                                 .into_iter()
-                                .find(|c| mind::name(world, c.0).is_none());
+                                .find(|c| mind::name(world, c.0).is_none() && !mind::shaken(world, c.0));
                             match unnamed {
                                 Some(c) => (true, format!("strikes the {}", c.1)),
                                 None => (
@@ -429,9 +504,30 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &foxing_clear::Messag
                     if passing {
                         "leaves; the name is forgotten at once".into()
                     } else {
-                        "leaves; the room forgets you now, and the name stays kept".into()
+                        "leaves; the room remembers you a while, and the name stays kept".into()
                     },
                 ),
+                "take" => {
+                    let wanted = arg(0).trim().trim_start_matches("item-").to_lowercase();
+                    let here = room
+                        .map(|r| super::craft::things_in(world, r))
+                        .unwrap_or_default();
+                    let found = here.iter().any(|t| {
+                        t["name"].as_str().is_some_and(|n| {
+                            n.to_lowercase() == wanted
+                                || n.to_lowercase() == format!("a {wanted}")
+                                || n.to_lowercase().trim_start_matches("a ") == wanted
+                        }) || t["id"].as_u64().is_some_and(|id| id.to_string() == wanted)
+                    });
+                    if found {
+                        (true, format!("takes {}", arg(0)))
+                    } else {
+                        (
+                            false,
+                            format!("refused: there is no {} here to take", arg(0)),
+                        )
+                    }
+                }
                 "shelve" | "reminisce" | "remember" => match my_chunk(&arg(0)) {
                     Ok(_) => (true, format!("runs {verb} on {}", arg(0))),
                     Err(why) => (false, format!("refused: {why}")),

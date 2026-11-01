@@ -693,7 +693,10 @@ pub(crate) fn die(
     f: &super::Found,
 ) -> Result<Option<String>, CommandError> {
     // Concussion, on the curve: chunks go, picked at random, until the share of the
-    // window the level owes is gone. Nothing goes from a window worth almost nothing.
+    // window the level owes is gone; the chunk that would take more than is owed is
+    // thinned to the remainder instead of taken whole (a 7% death once cost a third of
+    // a window, the one chunk the roll landed on). Nothing goes from a window worth
+    // almost nothing.
     let level = super::memory::level(world, f.window);
     let share = death_share(level);
     let owed = level * share;
@@ -717,39 +720,62 @@ pub(crate) fn die(
         })
         .collect();
     let mut gone: Vec<(EntityId, String, f64)> = Vec::new();
+    let mut thinned: Vec<(EntityId, String, f64, f64)> = Vec::new();
     let mut taken = 0.0;
     while taken < owed && owed >= 1.0 && !chunks.is_empty() {
         let (id, source, value) = chunks.remove(world.roll(chunks.len() as u32) as usize);
+        let remaining = owed - taken;
+        if value > remaining + 0.5 {
+            // Thin it to what is owed, and that settles the debt.
+            let left = ((value - remaining) * 100.0).round() / 100.0;
+            world
+                .record(
+                    Actor::Driver,
+                    StoreEvent::FieldCommitted {
+                        id,
+                        component: CHUNK.into(),
+                        field: "value".into(),
+                        value: left,
+                    },
+                )
+                .map_err(internal)?;
+            taken += remaining;
+            thinned.push((id, source, remaining, left));
+            break;
+        }
         world
             .record(Actor::Driver, StoreEvent::EntityRemoved { id })
             .map_err(internal)?;
         taken += value;
         gone.push((id, source, value));
     }
-    let lost = if gone.is_empty() {
+    let lost = if gone.is_empty() && thinned.is_empty() {
         None
     } else {
         let _ = world.note(
             Actor::Driver,
             DIED,
             json!({"citizen": actor, "level": level, "share": share,
-                   "lost": gone.iter().map(|(id, s, v)| json!({"chunk": id.0, "source": s, "value": v})).collect::<Vec<_>>()}),
+                   "lost": gone.iter().map(|(id, s, v)| json!({"chunk": id.0, "source": s, "value": v}))
+                       .chain(thinned.iter().map(|(id, s, v, left)| json!({"chunk": id.0, "source": s, "value": v, "thinned_to": left})))
+                       .collect::<Vec<_>>()}),
         );
-        Some(if gone.len() == 1 {
-            format!("chunk-{} ({})", gone[0].0 .0, gone[0].1)
+        let mut parts: Vec<String> = gone
+            .iter()
+            .map(|(id, s, v)| format!("chunk-{} ({s}, {v:.0} XP)", id.0))
+            .collect();
+        parts.extend(
+            thinned.iter().map(|(id, s, v, left)| {
+                format!("{v:.0} XP of chunk-{} ({s}, {left:.0} left)", id.0)
+            }),
+        );
+        Some(if parts.len() == 1 {
+            parts.remove(0)
         } else {
-            format!(
-                "{:.0} XP in {} chunks ({})",
-                taken,
-                gone.len(),
-                gone.iter()
-                    .map(|(id, _, _)| format!("chunk-{}", id.0))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
+            format!("{taken:.0} XP: {}", parts.join(", "))
         })
     };
-    if gone.is_empty() {
+    if gone.is_empty() && thinned.is_empty() {
         // Nothing worth taking, or the roll of the curve at nothing held: still on the record.
         let _ = world.note(
             Actor::Driver,
@@ -935,10 +961,11 @@ pub fn register(world: &mut World, curves: Curves) {
                 }));
             };
             let cname = plain_str(w, creature, CREATURE, "name").unwrap_or("?").to_string();
-            if super::mind::shaken(w, creature) {
+            if let Some(ms) = super::mind::shaken_for(w, creature) {
                 return Err(CommandError::precondition(format!(
-                    "{} is not itself yet; there is nothing to take from it for a while.",
-                    super::mind::display(w, creature)
+                    "{} is not itself yet; there is nothing to take from it for {}.",
+                    super::mind::display(w, creature),
+                    human(ms)
                 )));
             }
             let mut began = None;
@@ -965,16 +992,24 @@ pub fn register(world: &mut World, curves: Curves) {
 
             if chp <= 0.0 {
                 // A creature that holds memories does not die: you take one, it is shaken.
+                // The memory is yours at what it is worth now, as vivid as the fight.
                 let who = super::mind::display(w, creature);
-                if let Some((chunk, source)) = super::mind::take(w, &ctx.actor, f.window, creature)? {
+                let taken_vividity = (1.0 - hp(w, f.citizen) / super::MAX_HP).clamp(0.0, 1.0);
+                if let Some((chunk, source, worth, was)) = super::mind::take(w, &ctx.actor, f.window, creature, taken_vividity, &curves)? {
                     set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
                     end_fight(w, f.citizen).map_err(internal)?;
                     let left = super::mind::level(w, creature);
+                    let faded = if was > worth + 0.5 {
+                        format!(" It was worth {was:.0} when the {cname} got it; a creature's memories fade as yours do.")
+                    } else {
+                        String::new()
+                    };
                     lines.push(format!(
-                        "{who} goes down, and you take its memory of {source}: chunk-{}. It gets up again, holding {left:.0}, and will not be itself for a while.",
-                        chunk.0
+                        "{who} goes down, and you take its memory of {source}: chunk-{} worth {worth:.0} XP.{faded} It gets up again, holding {left:.0}, and will not be itself for {}.",
+                        chunk.0,
+                        super::mind::shaken_for(w, creature).map(human).unwrap_or_else(|| "a while".into())
                     ));
-                    return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": false, "taken": chunk.0, "with": source, "left": left, "hp": hp(w, f.citizen)})));
+                    return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": false, "taken": chunk.0, "with": source, "xp": worth, "was": was, "left": left, "hp": hp(w, f.citizen)})));
                 }
                 // Win: the chunk's vividity is how close you came to dying; a moth
                 // charm carried makes it more vivid and is spent.

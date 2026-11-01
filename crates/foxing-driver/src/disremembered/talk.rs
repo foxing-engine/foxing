@@ -485,11 +485,15 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
             ));
         }
         s.push('.');
-        s.push_str(&format!(
-            " {} keep{} me.",
-            list(&keepers),
-            if keepers.len() == 1 { "s" } else { "" }
-        ));
+        if keepers.is_empty() {
+            s.push_str(" No one keeps me.");
+        } else {
+            s.push_str(&format!(
+                " {} keep{} me.",
+                list(&keepers),
+                if keepers.len() == 1 { "s" } else { "" }
+            ));
+        }
         if let Some((by, with)) = taken {
             s.push_str(&format!(
                 " {by} took my {with}. I remember that it is gone, which is not the same."
@@ -605,7 +609,31 @@ fn held(world: &World, creature: EntityId) -> Vec<String> {
         })
         .collect();
     v.sort_by_key(|(id, _)| std::cmp::Reverse(*id));
-    v.into_iter().map(|(_, s)| s).collect()
+    // The same memory held twice (a story told twice, two tellings of Ossian's) is
+    // one line with a count, not two lines.
+    let mut out: Vec<(String, usize)> = Vec::new();
+    for (_, s) in v {
+        match out.iter_mut().find(|(t, _)| *t == s) {
+            Some((_, n)) => *n += 1,
+            None => out.push((s, 1)),
+        }
+    }
+    out.into_iter()
+        .map(|(s, n)| {
+            if n > 1 {
+                format!(
+                    "{s} (twice{})",
+                    if n > 2 {
+                        format!(", {n} times")
+                    } else {
+                        String::new()
+                    }
+                )
+            } else {
+                s
+            }
+        })
+        .collect()
 }
 
 fn first_gift(world: &World, creature: EntityId) -> Option<String> {
@@ -670,14 +698,37 @@ fn recent(world: &World, creature: EntityId, room: Option<EntityId>) -> Vec<Stri
             if seen_names.insert(n.clone(), ()).is_none() {
                 out.push(format!("{n} came"));
             }
-        } else if e.kind == SAY && e.payload["room"] == room.0 && e.payload["creature"].is_null() {
+        } else if e.kind == SAY
+            && e.payload["room"] == room.0
+            && e.payload["creature"].is_null()
+            // Said to the room, or to this creature: not what someone told another.
+            && match e.payload["to"].as_str() {
+                None => true,
+                Some(to) => {
+                    // To this creature, or to a citizen: yes. To another creature: no.
+                    let mine = mind::display(world, creature);
+                    mine.eq_ignore_ascii_case(to)
+                        || mind::name(world, creature).is_some_and(|n| n.eq_ignore_ascii_case(to))
+                        || !world.store.entities().any(|c| {
+                            c.kind == "creature"
+                                && c.id != creature
+                                && (mind::display(world, c.id).eq_ignore_ascii_case(to)
+                                    || mind::name(world, c.id)
+                                        .is_some_and(|n| n.eq_ignore_ascii_case(to)))
+                        })
+                }
+            }
+        {
             let from = e.payload["from"].as_str().unwrap_or("someone");
-            let text: String = e.payload["text"]
-                .as_str()
-                .unwrap_or("")
-                .chars()
-                .take(60)
-                .collect();
+            let text = e.payload["text"].as_str().unwrap_or("");
+            let text = if text.chars().count() > 60 {
+                // Cut on a word, and say so.
+                let cut: String = text.chars().take(60).collect();
+                let at = cut.rfind(' ').unwrap_or(cut.len());
+                format!("{}…", &cut[..at])
+            } else {
+                text.to_string()
+            };
             out.push(format!("{from} said, \"{text}\""));
         } else if e.kind == super::building::REMEMBERED && e.payload["creature"] == creature.0 {
             out.push(format!(

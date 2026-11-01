@@ -837,7 +837,12 @@ pub fn describe(
                     ),
                     _ => String::new(),
                 };
-                format!("{who} ({}/{}{holds}{born})", c["hp"], c["max_hp"])
+                let shaken = if c["mind"]["shaken"] == true {
+                    ", not itself yet"
+                } else {
+                    ""
+                };
+                format!("{who} ({}/{}{holds}{shaken}{born})", c["hp"], c["max_hp"])
             })
             .collect();
         text.push_str(&format!(" Here: {}.", list.join(", ")));

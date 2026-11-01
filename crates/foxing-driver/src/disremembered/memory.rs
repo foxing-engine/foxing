@@ -311,7 +311,10 @@ pub fn register(world: &mut World, curves: Curves) {
             let (rows, observation) = chunk_rows(w, ctx, f.window)?;
             let level = level(w, f.window);
             let attack = super::combat::attack_for_level(level);
-            let rate = fade_rate(active_hl_ms);
+            // At the Clocktower's rate this hour, not the base figure.
+            let rate = fade_rate(
+                (active_hl_ms as f64 * super::economy::rate(w, "half_life")) as i64,
+            );
             let text = if rows.is_empty() {
                 // Name a creature that would take a story, and where it is, rather
                 // than telling an empty-handed newcomer to go and ask.
@@ -442,7 +445,21 @@ pub fn register(world: &mut World, curves: Curves) {
                     id,
                     component: CHUNK.into(),
                     field: "value".into(),
-                    curve: c.active(vividity),
+                    // On the Clocktower's pace, as a fresh chunk would be: a shelve
+                    // and reminisce once came back at the base rate, fading slower
+                    // than its neighbors.
+                    curve: match c.active(vividity) {
+                        foxing_time::Curve::Exponential { half_life } => {
+                            foxing_time::Curve::Exponential {
+                                half_life: foxing_time::Duration(
+                                    (half_life.0 as f64 * super::economy::rate(w, "half_life")
+                                        / super::conclave::hoard_factor(w, &ctx.actor))
+                                        as i64,
+                                ),
+                            }
+                        }
+                        other => other,
+                    },
                 },
             )
             .map_err(internal)?;

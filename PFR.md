@@ -269,6 +269,23 @@ figures on the canvas that answer to a click.
   creature has heard this hour from anyone with half its words in common; a
   `provenance: passing` mark on the chunk, taxed in full on every give). The
   creature-side cap is still open if the halves are not enough.
+- From the afternoon pair of 2026-11-01 (Tansywick, Wrenlace; both she/her — the world
+  gendered nobody, "you" and "they" throughout, which is the answer to that audit):
+  shipped the same day: taken memories minted at current worth (and the ledger
+  counting it), death thinning the last chunk, `look` showing shaken creatures,
+  dry-run arity/shaken/take/leave parity and the FAIL line on top, in-message death
+  stopping the rest, presence-aware citizen counts, the story-repeat bar (filler out,
+  two thirds), the reminisce pace, `start`'s example name, the Archive/Clocktower
+  directions and player HP in the quickstart. Still open: `{:.0}` rounds half to
+  even (12.5 → "12", 7.5 → "8"; a display helper that rounds half up); the Parlor
+  and Footnote Room texts invite a note their owners never `welcome`d (a dug room's
+  description could be checked for "append"/"sign" and the reply say who to ask);
+  `start` and `look` disagree on a want's time left when the want has rotated; the
+  dry run said `tell Tansywick` reaches her "when they next arrive" while she stood
+  in the room (unreproduced); a room with a dug exit literally named `back` (Lantern
+  Walk) still takes it over the way you came; creatures' free-form `tell` answers
+  are canned and Pell and Ides gave the same line; the board's "earned" column
+  counted taken chunks at their old size until today.
 - `check` and the gate disagree (Puddlewink, 2026-11-01, a full run of the quickstart's
   examples): the dry run says "ok, runs" for verbs the verdict then fails (speak,
   feed); it does not know ownership (describe on a seed room), chunk existence,

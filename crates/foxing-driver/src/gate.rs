@@ -760,7 +760,10 @@ fn run_request(
     // A death the sender has not read yet: the statements were written for another
     // room (a delver's "You go down… You go west" walked from the Threshold into a
     // digging), so only the reads run; the rest wait for a message written after.
-    let woke = died_since_last_message(world, actor);
+    // The same holds for the statements after a death inside one message: they too
+    // were written for the room the sender was in (an `attack` written for the
+    // Stacks once hit a Threshold wisp, where nothing hunts).
+    let mut woke = died_since_last_message(world, actor);
     for st in dos {
         if woke {
             let verb = st.verb.clone().unwrap_or_default();
@@ -804,6 +807,9 @@ fn run_request(
         };
         match world.call(&ctx, &verb, &args) {
             Ok(out) => {
+                if out.result["died"] == Value::Bool(true) {
+                    woke = true;
+                }
                 outcomes.push(StatementOutcome {
                     statement: n,
                     verb: verb.clone(),

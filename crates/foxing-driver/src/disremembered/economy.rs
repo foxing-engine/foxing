@@ -707,9 +707,14 @@ pub fn last_read_line(world: &World) -> String {
         return "the last strike recorded no figures".to_string();
     }
     format!(
-        "last read: median wage {:.0} among {} earners ({}), step {:.3}",
+        "last read: median wage {:.0} among {} earner{} ({}), step {:.3}",
         i["median_wage"].as_f64().unwrap_or(0.0),
         i["earners"].as_u64().unwrap_or(0),
+        if i["earners"].as_u64() == Some(1) {
+            ""
+        } else {
+            "s"
+        },
         i["held"].as_str().unwrap_or("?"),
         i["step"].as_f64().unwrap_or(0.0)
     )

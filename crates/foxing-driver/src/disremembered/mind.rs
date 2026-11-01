@@ -206,9 +206,15 @@ pub fn keepers(world: &World, creature: EntityId) -> Vec<String> {
 
 /// Still reeling from a memory taken.
 pub fn shaken(world: &World, creature: EntityId) -> bool {
+    shaken_for(world, creature).is_some()
+}
+
+/// How much longer it is shaken, in ms, if it is.
+pub fn shaken_for(world: &World, creature: EntityId) -> Option<i64> {
     mind_field(world, creature, "shaken_until")
         .and_then(Value::as_i64)
-        .is_some_and(|t| t > world.now().0)
+        .map(|t| t - world.now().0)
+        .filter(|ms| *ms > 0)
 }
 
 fn set_mind(
@@ -335,12 +341,19 @@ pub fn give(
 
 /// One of a creature's memories goes to the one who felled it. The creature is shaken
 /// and stands back up whole. `None` when it had nothing to take.
+/// Returns the new chunk, what it was of, what it is worth now, and what it was worth
+/// when the creature got it. The memory is minted afresh at its *current* value, on
+/// the killer's own curve: a memory that had faded to a tenth in the creature's keeping
+/// once arrived showing "0.07 of 38.0", a kill line said nothing of its worth, and the
+/// ledger counted the 38.
 pub fn take(
     world: &mut World,
     killer: &str,
     killer_window: EntityId,
     creature: EntityId,
-) -> Result<Option<(EntityId, String)>, CommandError> {
+    vividity: f64,
+    curves: &super::Curves,
+) -> Result<Option<(EntityId, String, f64, f64)>, CommandError> {
     let Some(window) = window_of(world, creature) else {
         return Ok(None);
     };
@@ -354,7 +367,33 @@ pub fn take(
         return Ok(None);
     }
     let pick = chunks[world.roll(chunks.len() as u32) as usize];
-    let (id, source) = move_chunk(world, killer, pick, killer_window, Some(killer.to_string()))?;
+    let now = world.now();
+    let worth = world
+        .store
+        .read_field(pick, CHUNK, "value", now)
+        .ok()
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let worth = (worth * 100.0).round() / 100.0;
+    let was = plain_num(world, pick, CHUNK, "size").unwrap_or(worth);
+    let source = plain_str(world, pick, CHUNK, "source")
+        .unwrap_or("something")
+        .to_string();
+    world
+        .record(
+            Actor::Citizen(killer.to_string()),
+            StoreEvent::EntityRemoved { id: pick },
+        )
+        .map_err(internal)?;
+    let id = super::memory::earn_chunk(
+        world,
+        killer,
+        killer_window,
+        &source,
+        worth,
+        vividity,
+        curves,
+    )?;
     let room = world.store.entity(creature).and_then(|e| e.parent);
     let secs = room
         .and_then(|r| plain_num(world, r, super::SPAWN, "respawn_seconds"))
@@ -382,10 +421,10 @@ pub fn take(
     let _ = world.note(
         Actor::Citizen(killer.to_string()),
         TAKEN,
-        json!({"creature": creature.0, "kind": kind, "name": name(world, creature), "by": killer, "chunk": id.0, "with": source}),
+        json!({"creature": creature.0, "kind": kind, "name": name(world, creature), "by": killer, "chunk": id.0, "with": source, "worth": worth, "was": was}),
     );
     check_tier(world, creature)?;
-    Ok(Some((id, source)))
+    Ok(Some((id, source, worth, was)))
 }
 
 /// Gain a tier at its bar, lose it at half the bar.

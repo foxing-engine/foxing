@@ -67,10 +67,13 @@ pub(crate) fn line_for(e: &foxing_log::Event) -> String {
         "disremembered.forgotten" => format!("the world forgot {}; the name is free", s("name")),
         "disremembered.remembered" => match p["creature"].as_u64() {
             Some(_) => format!(
-                "{} gave the memory of {} to the {}",
+                "{} gave the memory of {} to {}",
                 s("by"),
                 s("with"),
-                s("kind")
+                match p["name"].as_str() {
+                    Some(n) => format!("{n} the {}", s("kind")),
+                    None => format!("the {}", s("kind")),
+                }
             ),
             None => format!(
                 "{} kept {} with the memory of {}",

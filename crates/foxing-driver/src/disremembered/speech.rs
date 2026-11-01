@@ -62,7 +62,13 @@ pub fn register(world: &mut World) {
                 .filter(|c| c.1 == "engrosser")
                 .count();
             let heard = match (listeners.len(), clerks) {
-                (0, 0) => "No one else is here to hear it.".to_string(),
+                (0, 0) => {
+                    if super::combat::creatures_in(w, room).is_empty() {
+                        "No one else is here to hear it.".to_string()
+                    } else {
+                        "No other citizen is here to hear it.".to_string()
+                    }
+                }
                 (0, 1) => "An engrosser writes it down, word for word.".to_string(),
                 (0, _) => "The engrossers write it down, word for word, and pass it along still wet.".to_string(),
                 (1, 0) => format!("{} hears you.", listeners[0]),

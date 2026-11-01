@@ -397,12 +397,25 @@ impl AskBinding for Asks {
                     } else {
                         "citizen"
                     };
-                    let q = json!({"root": {"entity": room_id.0}, "select": {ROOM: ["name"]}, "relations": {"contents": {"kinds": [kind], "select": {CITIZEN: ["name"], super::CREATURE: ["name"]}}}, "commands": false});
+                    let q = json!({"root": {"entity": room_id.0}, "select": {ROOM: ["name"]}, "relations": {"contents": {"kinds": [kind], "select": {CITIZEN: ["name"], super::CREATURE: ["name"], super::presence::PRESENCE: ["here"]}}}, "commands": false});
                     match observe(world, actor, q) {
                         Ok(obs) => {
+                            // A citizen the room has forgotten still has it as a
+                            // parent; the count is of those here now, as `look`
+                            // counts them (sixteen were "in The Threshold" once
+                            // while `look` said you are alone).
                             let count = obs.observation.root["relations"]["contents"]
                                 .as_array()
-                                .map(Vec::len)
+                                .map(|v| {
+                                    v.iter()
+                                        .filter(|n| {
+                                            n["kind"] != "citizen"
+                                                || n["components"][super::presence::PRESENCE]
+                                                    ["here"]
+                                                    != false
+                                        })
+                                        .count()
+                                })
                                 .unwrap_or(0);
                             let name = room_name(&obs.observation.root);
                             report.fact(

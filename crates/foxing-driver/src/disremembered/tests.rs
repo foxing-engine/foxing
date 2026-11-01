@@ -316,8 +316,18 @@ fn death_is_a_concussion_and_a_walk_back() {
         .as_array()
         .unwrap()
         .len();
+    // Three chunks of ten: the share owed at thirty is small, so the chunk the roll
+    // lands on is thinned to it, not taken whole.
     match out.result["lost"].as_str() {
-        Some(_) => assert_eq!(chunks, 2, "concussion took one"),
+        Some(lost) => {
+            assert_eq!(chunks, 3, "thinned, not taken: {lost}");
+            assert!(lost.contains("XP of chunk-"), "{lost}");
+            assert!(
+                level(&mut w, "dave") < 30.0 && level(&mut w, "dave") > 27.0,
+                "{}",
+                level(&mut w, "dave")
+            );
+        }
         None => assert_eq!(chunks, 3),
     }
     // The same seed gives the same fight.
@@ -3439,7 +3449,7 @@ fn the_dry_run_and_the_gate_agree_on_verbs_preconditions_and_asks() {
     );
     assert_eq!(
         what[6],
-        "true leaves; the room forgets you now, and the name stays kept"
+        "true leaves; the room remembers you a while, and the name stays kept"
     );
     assert!(
         what[7].starts_with("true answers: ") && what[7].contains("citizen"),
@@ -5490,4 +5500,117 @@ fn the_named_confide_in_the_unnamed_when_names_are_few() {
     assert!(mind::named_count(&w) >= 6, "{}", mind::named_count(&w));
     assert_eq!(mind::scarcity(&w), 1.0);
     assert_eq!(mind::confide(&mut w).unwrap(), 0);
+}
+
+#[test]
+fn a_memory_taken_from_a_creature_is_minted_at_what_it_is_worth_now() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    // Tyler feeds a wisp 40; twenty seconds on (two test-world half-lives) it holds
+    // about 10. Dave fells it and takes the memory at that worth, not at 40.
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    let c = admin(&mut w, "tyler", "earn", json!(["a story", 40, 0.0]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "tyler",
+        "remember",
+        json!([&c, format!("creature-{}", wisp.0)]),
+    );
+    w.fixed_now = Some(t0.plus(Duration::seconds(20)));
+    let held = mind::level(&w, wisp);
+    assert!(held > 5.0 && held < 15.0, "{held}");
+    // Dry run: the wisp is whole, so it is struck; afterwards it is not itself.
+    let mut out = None;
+    for _ in 0..30 {
+        let o = ok(
+            &mut w,
+            "dave",
+            "attack",
+            json!([format!("creature-{}", wisp.0)]),
+        );
+        if o.result["taken"].is_number() || o.result["killed"] == json!(true) {
+            out = Some(o);
+            break;
+        }
+    }
+    let out = out.expect("the wisp goes down");
+    assert!(out.result["taken"].is_number(), "{}", out.summary);
+    let worth = out.result["xp"].as_f64().unwrap();
+    assert!((worth - held).abs() < 1.5, "worth {worth}, held {held}");
+    assert_eq!(out.result["was"], 40.0);
+    assert!(
+        out.summary.contains(&format!(
+            "worth {worth:.0} XP. It was worth 40 when the wisp got it"
+        )),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary.contains("will not be itself for "),
+        "{}",
+        out.summary
+    );
+    // The chunk shows the taken worth as its size, and `look` says the wisp is shaken.
+    let rows = ok(&mut w, "dave", "chunks", json!([]));
+    assert!(
+        rows.summary.contains(&format!("of {worth:.1}"))
+            || rows.summary.contains(&format!("of {worth:.0}")),
+        "{}",
+        rows.summary
+    );
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(look.summary.contains("not itself yet"), "{}", look.summary);
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "attack",
+        json!([format!("creature-{}", wisp.0)]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("not itself yet; there is nothing to take from it for 60s"),
+        "{err}"
+    );
+    // The dry run says the same, and refuses a bare `take` and a `look` with an argument.
+    let checker = crate::gate::checker();
+    let r = checker.check(&format!(
+        "FROM: dave\nTO: disremembered\nINTENT: REQUEST\nREF: d-9\n\n[DO] dave MUST attack creature-{}.\n[DO] dave MUST take.\n[DO] dave MUST look Ides.\n[DO] dave MUST take \"wisp ember\".\n",
+        wisp.0
+    ));
+    let p = preview::run_checked(&w, "dave", false, &r.message, Some((&r.verdict, &[])));
+    let what: Vec<String> = p["statements"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| l["what"].as_str().unwrap().to_string())
+        .collect();
+    assert!(
+        what[0].starts_with("refused: wisp is not itself yet, for "),
+        "{}",
+        what[0]
+    );
+    assert_eq!(what[1], "refused: take needs an argument (item)");
+    assert_eq!(what[2], "refused: look takes 0 arguments; the DO gives 1");
+    assert_eq!(what[3], "refused: there is no wisp ember here to take");
+    assert!(
+        p["header"][0]
+            .as_str()
+            .unwrap()
+            .starts_with("the checker's verdict is FAIL"),
+        "{}",
+        p["header"]
+    );
+    // Filler does not make two stories one.
+    assert_eq!(
+        exchange::story_words("Every night though the lantern that nobody remembers lighting"),
+        vec!["lantern", "lighting", "night", "nobody", "remember"]
+    );
 }
