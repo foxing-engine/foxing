@@ -529,10 +529,35 @@ pub(crate) fn end_fight(world: &mut World, citizen: EntityId) -> Result<(), Stri
 
 /// A citizen leaves a fight without a blow: gone quiet, the room disremembers them.
 pub(crate) fn leave_fight(world: &mut World, actor: &str, citizen: EntityId) -> Result<(), String> {
-    if engaged_with(world, citizen).is_some() {
+    if let Some(creature) = engaged_with(world, citizen) {
+        mend(world, creature).map_err(|e| e.to_string())?;
         set_engaged(world, actor, citizen, None).map_err(|e| e.to_string())?;
     }
     end_fight(world, citizen)
+}
+
+/// A creature of the Stacks left standing is whole again by the next time: a
+/// newcomer with an attack of three felled a censor in four trips and three deaths,
+/// the censor keeping every wound between them. The ground floor's creatures keep
+/// their wounds, as they always have; the Stacks keep their own.
+pub(crate) fn mend(world: &mut World, creature: EntityId) -> Result<(), StoreError> {
+    if super::stacks::trick_of(world, creature).is_none() {
+        return Ok(());
+    }
+    let max = plain_num(world, creature, CREATURE, "max_hp").unwrap_or(0.0);
+    let hp = plain_num(world, creature, CREATURE, "hp").unwrap_or(max);
+    if hp < max {
+        world.record(
+            Actor::Driver,
+            StoreEvent::FieldSet {
+                id: creature,
+                component: CREATURE.into(),
+                field: "hp".into(),
+                value: json!(max),
+            },
+        )?;
+    }
+    Ok(())
 }
 
 /// The creature a citizen is engaged with, if it still exists.
@@ -635,6 +660,9 @@ pub(crate) fn die(
         }
     }
     let home = super::rooms::arrival(world).ok_or_else(|| internal("the Threshold is missing"))?;
+    if let Some(creature) = engaged_with(world, f.citizen) {
+        mend(world, creature).map_err(internal)?;
+    }
     set_engaged(world, actor, f.citizen, None).map_err(internal)?;
     end_fight(world, f.citizen).map_err(internal)?;
     world
@@ -786,7 +814,11 @@ pub fn register(world: &mut World, curves: Curves) {
                 }
             }
             let Some(creature) = target else {
-                return Err(CommandError::precondition(if here.is_empty() { "There is nothing here to fight.".to_string() } else if args.str("creature").map_or(true, str::is_empty) {
+                // Where you are, when it is not where you think: a death earlier in the
+                // same message leaves you at the Threshold, and "No such creature here"
+                // read as an error.
+                let where_ = format!(" You are in {}.", plain_str(w, room, super::ROOM, "name").unwrap_or("?"));
+                return Err(CommandError::precondition(if here.is_empty() { format!("There is nothing here to fight.{where_}") } else if args.str("creature").map_or(true, str::is_empty) {
                     format!("Nothing unnamed is here to fight. {} {} a name, and {} struck only by that name.", here.iter().map(|c| super::mind::display(w, c.0)).collect::<Vec<_>>().join(" and "), if here.len() == 1 { "has" } else { "have" }, if here.len() == 1 { "is" } else { "are" })
                 } else {
                     // Named as look names them, so the retry can be copied from the refusal.
@@ -798,7 +830,7 @@ pub fn register(world: &mut World, curves: Curves) {
                             None if twins > 1 => format!("{kind}-{}", c.0 .0),
                             None => kind.to_string(),
                         }
-                    }).collect::<Vec<_>>().join(", "))
+                    }).collect::<Vec<_>>().join(", ")) + &where_
                 }));
             };
             let cname = plain_str(w, creature, CREATURE, "name").unwrap_or("?").to_string();
@@ -893,6 +925,7 @@ pub fn register(world: &mut World, curves: Curves) {
             };
             let cname = plain_str(w, creature, CREATURE, "name").unwrap_or("?").to_string();
             let (taken, dead) = creature_strikes(w, creature, f.citizen).map_err(internal)?;
+            mend(w, creature).map_err(internal)?;
             set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
             end_fight(w, f.citizen).map_err(internal)?;
             if dead {
@@ -903,7 +936,8 @@ pub fn register(world: &mut World, curves: Curves) {
                 };
                 return Ok(Outcome::new(msg, json!({"died": true, "lost": lost})));
             }
-            Ok(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}. You have {:.0}/{:.0}.", hp(w, f.citizen), super::MAX_HP), json!({"died": false, "hp": hp(w, f.citizen)})))
+            let mended = if super::stacks::trick_of(w, creature).is_some() { " It will be whole again by the time you come back; the Stacks keep their own." } else { "" };
+            Ok(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}. You have {:.0}/{:.0}.{mended}", hp(w, f.citizen), super::MAX_HP), json!({"died": false, "hp": hp(w, f.citizen)})))
         }),
     );
 

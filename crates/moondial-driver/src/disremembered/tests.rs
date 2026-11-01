@@ -4583,6 +4583,36 @@ fn the_lower_stacks_lie_under_the_archive_and_their_creatures_have_tricks() {
     let now_in = rooms::room_of(&w, f.citizen).unwrap();
     assert_ne!(now_in, carrels);
     assert!(stacks::KEYS.contains(&super::plain_str(&w, now_in, ROOM, "key").unwrap()));
+    // A creature of the Stacks left standing is whole again: wound the lamprey, back
+    // away, and it has mended (a censor was felled over four trips and three deaths).
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: f.citizen,
+            parent: Some(sump),
+        },
+    )
+    .unwrap();
+    w.record(
+        Actor::Driver,
+        StoreEvent::FieldSet {
+            id: lamprey,
+            component: super::CREATURE.into(),
+            field: "hp".into(),
+            value: json!(5.0),
+        },
+    )
+    .unwrap();
+    combat::set_engaged(&mut w, "dave", f.citizen, Some(lamprey)).unwrap();
+    let out = ok(&mut w, "dave", "retreat", json!([]));
+    assert!(out.summary.contains("whole again"), "{}", out.summary);
+    assert!(
+        combat::creatures_in(&w, sump)
+            .iter()
+            .any(|c| c.0 == lamprey && c.2 > 40.0),
+        "{:?}",
+        combat::creatures_in(&w, sump)
+    );
     // The tricks are on the public record.
     let tricks = w
         .log
