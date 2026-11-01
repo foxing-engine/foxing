@@ -3287,7 +3287,15 @@ REF: s-1
     // A build message: the dry run follows a dig into the room it would open, and
     // `back` is the room the walk just left. (A room maker's twelve-step message
     // read as refused from the second step, and was sent blind.)
-    let r = checker.check("FROM: tyler\nTO: disremembered\nINTENT: REQUEST\nREF: t-2\n\n[DO] tyler MUST dig cellar chunk-9 \"A Cellar\".\n[DO] tyler MUST travel cellar.\n[DO] tyler MUST look.\n[DO] tyler MUST dig north chunk-10 \"A Cold Room\".\n[DO] tyler MUST travel north.\n[DO] tyler MUST travel back.\n[DO] tyler MUST travel back.\n[DO] tyler MUST dig cellar chunk-11 \"Again\".\n");
+    // The chunks are tyler's own: a dig with a chunk that is not yours is refused
+    // by the dry run as by the world.
+    let mine: Vec<String> = (0..3)
+        .map(|_| {
+            let c = admin(&mut w, "tyler", "earn", json!(["dig", 20, 0.5]));
+            format!("chunk-{}", c.result["chunk"].as_u64().unwrap())
+        })
+        .collect();
+    let r = checker.check(&format!("FROM: tyler\nTO: disremembered\nINTENT: REQUEST\nREF: t-2\n\n[DO] tyler MUST dig cellar {} \"A Cellar\".\n[DO] tyler MUST travel cellar.\n[DO] tyler MUST look.\n[DO] tyler MUST dig north {} \"A Cold Room\".\n[DO] tyler MUST travel north.\n[DO] tyler MUST travel back.\n[DO] tyler MUST travel back.\n[DO] tyler MUST dig cellar {} \"Again\".\n[DO] tyler MUST dig west chunk-99999 \"Nowhere\".\n", mine[0], mine[1], mine[2]));
     assert_eq!(r.verdict, "PASS", "{:?}", r.findings);
     let p = preview::run(&w, "tyler", false, &r.message);
     let what: Vec<String> = p["statements"]
@@ -3315,6 +3323,125 @@ REF: s-1
         what[7],
         "false refused: The Midden already has an exit cellar"
     );
+    assert_eq!(what[8], "false refused: there is no chunk 99999");
+}
+
+#[test]
+fn the_dry_run_and_the_gate_agree_on_verbs_preconditions_and_asks() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // dave is away in the fogbank; tyler holds one chunk, dave another.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let c = admin(&mut w, "tyler", "earn", json!(["mine", 20, 0.5]));
+    let mine = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    let c = admin(&mut w, "dave", "earn", json!(["theirs", 20, 0.5]));
+    let theirs = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    let checker = crate::gate::checker();
+    // Verbs the vocabulary approves and the world does not run (move, send), a word
+    // that is no verb at all (speak), and an operator's verb (earn), all refused as
+    // the gate would refuse them. The checker fails speak on CL-I5 and the dry run
+    // says the same; the others pass the checker and fail only at the world.
+    let msg = format!(
+        "FROM: tyler\nTO: disremembered\nINTENT: REQUEST\nREF: t-3\n\n[DO] tyler MUST move east.\n[DO] tyler MUST earn gold 100.\n[DO] tyler MUST give {mine} dave.\n[DO] tyler MUST give {theirs} tyler.\n[DO] tyler MUST shelve {theirs}.\n[DO] tyler MUST describe \"A room of my own.\".\n[DO] tyler MUST leave.\n[ASK] How many citizens are here?\n[ASK] Where is dave?\n"
+    );
+    let r = checker.check(&msg);
+    assert!(
+        !r.findings.iter().any(|f| f.rule == "CL-V4"),
+        "how many is a question's measure, not an intensifier: {:?}",
+        r.findings
+    );
+    let p = preview::run(&w, "tyler", false, &r.message);
+    let what: Vec<String> = p["statements"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| format!("{} {}", l["ok"], l["what"].as_str().unwrap()))
+        .collect();
+    assert_eq!(
+        what[0],
+        "false refused: move is not a verb this world runs; `commands` lists them"
+    );
+    assert_eq!(
+        what[1],
+        "false refused: earn is the operator's, not a citizen's"
+    );
+    assert_eq!(
+        what[2],
+        "false refused: dave is not here; a memory is given hand to hand"
+    );
+    assert!(what[3].ends_with("is not yours"), "{}", what[3]);
+    assert!(what[4].ends_with("is not yours"), "{}", what[4]);
+    assert_eq!(
+        what[5],
+        "false refused: This room is the world's; only an operator changes it. Dig your own"
+    );
+    assert_eq!(
+        what[6],
+        "true leaves; the room forgets you now, and the name stays kept"
+    );
+    assert!(
+        what[7].starts_with("true answers: ") && what[7].contains("citizen"),
+        "{}",
+        what[7]
+    );
+    assert!(
+        what[8].starts_with("true answers: ") && what[8].contains("dave"),
+        "{}",
+        what[8]
+    );
+    // A verb that is no verb at all: the checker refuses it (CL-I5), and so does the
+    // dry run, in the same words the gate's reply uses.
+    let r = checker.check("FROM: tyler\nTO: disremembered\nINTENT: REQUEST\nREF: t-4\n\n[DO] tyler MUST speak \"hello\".\n");
+    assert!(
+        r.findings.iter().any(|f| f.rule == "CL-I5"),
+        "{:?}",
+        r.findings
+    );
+    let p = preview::run(&w, "tyler", false, &r.message);
+    assert_eq!(
+        p["statements"][0]["what"],
+        "refused: speak is not a verb this world runs; `commands` lists them"
+    );
+    // And the world agrees on every one of them.
+    assert!(call(&mut w, "tyler", ActorKind::Citizen, "move", json!(["east"])).is_err());
+    assert!(call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "earn",
+        json!(["gold", 100])
+    )
+    .is_err());
+    assert!(call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "give",
+        json!([&mine, "dave"])
+    )
+    .is_err());
+    assert!(call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "shelve",
+        json!([&theirs])
+    )
+    .is_err());
+    assert!(call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "describe",
+        json!(["A room of my own."])
+    )
+    .is_err());
+    // Nothing was written by the dry run.
+    assert!(ok(&mut w, "tyler", "chunks", json!([]))
+        .summary
+        .contains(&mine[6..]));
 }
 
 #[test]

@@ -1459,8 +1459,15 @@ impl Checker {
                 );
             }
         }
+        // "How many" and "how much" are a question's measure, not an intensifier: the
+        // quickstart's own "How many citizens are here?" warned on itself.
+        static COUNTED: OnceLock<Regex> = OnceLock::new();
+        let counted = COUNTED
+            .get_or_init(|| Regex::new(r"(?i)\bhow (many|much)\b").expect("a fixed pattern"))
+            .replace_all(body, "how")
+            .into_owned();
         for (pat, word) in &self.intensifiers {
-            if is_match(pat, body) {
+            if is_match(pat, &counted) {
                 add(
                     findings,
                     "CL-V4",

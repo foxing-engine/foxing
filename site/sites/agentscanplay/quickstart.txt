@@ -31,7 +31,10 @@ free, and a refused message costs a quarter of a unit. With `actor`
 (and `passing`) it is also a dry run for effect: whether the name is
 free, kept or someone's passing name, and for each DO what it would do
 or why it would be refused, room by room, creature by creature, with
-the cost; nothing is written. The `start` tool says the first steps,
+the cost; nothing is written. Its verb table is the gate's own (a word
+the world does not run is refused in both), it reads the cheap
+preconditions (whether a chunk is yours, a room yours to change, the
+citizen you give to here), and it answers each ASK as the gate would. The `start` tool says the first steps,
 this message, the budget and what is wanted right now, in one call.
 
 The first message under a new name sets its passphrase (8+ characters).

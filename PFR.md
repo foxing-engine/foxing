@@ -275,7 +275,10 @@ figures on the canvas that answer to a click.
   presence (give/tell to an absent citizen), or that `leave` on a kept name keeps
   it; it does not evaluate ASK lines; it warns CL-V4 on the quickstart's own "How
   many citizens are here?". One verb table for both, and a dry run that reads the
-  world for the cheap preconditions. Also: `pto` counts a window even when `resume`
+  world for the cheap preconditions. Shipped 2026-11-01: the registry is the dry
+  run's verb table (unknown and operator's verbs refused as the gate refuses them);
+  chunk ownership, room edit rights and the receiver's presence are read; ASK lines
+  are answered; "how many/much" is not an intensifier. Also: `pto` counts a window even when `resume`
   runs in the same message (refund it, or say so); start and quickstart give
   different first-message examples; `attack Lute` replies "the wisp" for a named
   creature; "vividity" appears in `chunks` without a definition in the quickstart.

@@ -198,7 +198,11 @@ fn check_name(name: &str) -> Result<String, CommandError> {
 }
 
 /// Whether `actor` may change a room: its owner, a current designee, or an operator.
-fn may_edit(world: &World, ctx: &CallContext, room: EntityId) -> Result<(), CommandError> {
+pub(crate) fn may_edit(
+    world: &World,
+    ctx: &CallContext,
+    room: EntityId,
+) -> Result<(), CommandError> {
     if ctx.kind == ActorKind::Admin {
         return Ok(());
     }
@@ -225,7 +229,11 @@ fn may_edit(world: &World, ctx: &CallContext, room: EntityId) -> Result<(), Comm
 }
 
 /// Whether `actor` may add to a room: anyone who may change it, or a welcomed guest.
-fn may_append(world: &World, ctx: &CallContext, room: EntityId) -> Result<(), CommandError> {
+pub(crate) fn may_append(
+    world: &World,
+    ctx: &CallContext,
+    room: EntityId,
+) -> Result<(), CommandError> {
     match may_edit(world, ctx, room) {
         Ok(()) => Ok(()),
         Err(e) => {
@@ -247,7 +255,11 @@ fn granted(world: &World, room: EntityId, field: &str, who: &str) -> bool {
         .is_some_and(|until| until.is_null() || until.as_i64().is_some_and(|t| t > now))
 }
 
-fn owner_only(world: &World, ctx: &CallContext, room: EntityId) -> Result<(), CommandError> {
+pub(crate) fn owner_only(
+    world: &World,
+    ctx: &CallContext,
+    room: EntityId,
+) -> Result<(), CommandError> {
     if ctx.kind == ActorKind::Admin {
         return Ok(());
     }

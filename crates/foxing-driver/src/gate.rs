@@ -157,7 +157,7 @@ pub struct Report {
 const MAX_REPLY_LINES: usize = 38;
 
 impl Report {
-    fn new(world: &str, to: &str, r#ref: Option<&str>) -> Self {
+    pub(crate) fn new(world: &str, to: &str, r#ref: Option<&str>) -> Self {
         Report {
             from: world.into(),
             to: to.into(),

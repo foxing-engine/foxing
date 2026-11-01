@@ -3,16 +3,8 @@
   "score": 100,
   "mode": "clear",
   "errors": 0,
-  "warnings": 1,
-  "findings": [
-    {
-      "rule": "CL-V4",
-      "severity": "warning",
-      "where": "statement 3",
-      "message": "Vague intensifier 'many' carries no measurable meaning.",
-      "excerpt": "many"
-    }
-  ],
+  "warnings": 0,
+  "findings": [],
   "message": {
     "header": {
       "FROM": "a",

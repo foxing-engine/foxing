@@ -5,9 +5,18 @@
 //! the verb would resolve it, a kept name's verb is refused for a passing one, and
 //! the name itself is reported as free, kept or passing. An estimate, not a promise:
 //! the world may change before the message arrives.
+//!
+//! The verb table is the registry's, the same one the gate runs: a word the world has
+//! no verb for is refused here as it would be there (a dry run once said "ok, runs
+//! speak" for a verb the verdict then failed). The cheap preconditions are read too:
+//! whether a chunk is yours, whether a room is yours to change, whether the citizen
+//! you give to is here. And an ASK is answered as the gate would answer it, since an
+//! answer is only a read.
 
 use super::{errand, mind, plain_str, presence, rooms, ROOM};
+use crate::gate::AskBinding;
 use crate::world::World;
+use foxing_registry::{ActorKind, CallContext};
 use foxing_store::EntityId;
 use serde_json::{json, Value};
 
@@ -85,10 +94,64 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &foxing_clear::Messag
     let mut dug_names: std::collections::BTreeMap<EntityId, String> = Default::default();
     let mut came_from: Option<EntityId> = world.came_from(actor);
     let mut next_virtual = u64::MAX - 1;
+    let ctx = CallContext {
+        actor: actor.to_string(),
+        kind: ActorKind::Citizen,
+    };
+    // A chunk of the actor's, by id, wherever it sits: what the verbs that take one
+    // would find.
+    let my_chunk = |arg: &str| -> Result<EntityId, String> {
+        let id: u64 = arg
+            .trim()
+            .trim_start_matches("chunk-")
+            .parse()
+            .map_err(|_| format!("'{arg}' is not a chunk id; chunks shows yours"))?;
+        let e = world
+            .store
+            .entity(EntityId(id))
+            .ok_or_else(|| format!("there is no chunk {id}"))?;
+        if e.kind != "chunk" || e.owner.as_deref() != Some(actor) {
+            return Err(format!("chunk {id} is not yours"));
+        }
+        Ok(EntityId(id))
+    };
     for st in statements
         .iter()
-        .filter(|s| s.r#type.as_deref() == Some("DO"))
+        .filter(|s| matches!(s.r#type.as_deref(), Some("DO") | Some("ASK")))
     {
+        if st.r#type.as_deref() == Some("ASK") {
+            // Answered as the gate would answer it: an answer is only a read.
+            let (ok, what) = if st.pattern.is_none() {
+                (
+                    false,
+                    "refused: matches no question pattern, so the gate cannot compile it"
+                        .to_string(),
+                )
+            } else {
+                let mut report = crate::gate::Report::new(&world.id.0, actor, None);
+                if super::ask::Asks.answer(world, actor, st, &mut report) {
+                    let answers: Vec<String> = report
+                        .lines
+                        .iter()
+                        .filter_map(|l| match l {
+                            crate::gate::Line::Fact { text, .. } => Some(text.clone()),
+                            _ => None,
+                        })
+                        .collect();
+                    (true, format!("answers: {}", answers.join("; ")))
+                } else {
+                    (
+                        false,
+                        "refused: matches a pattern this world does not answer yet".to_string(),
+                    )
+                }
+            };
+            if !ok {
+                refused += 1;
+            }
+            lines.push(json!({"statement": st.index, "verb": "ASK", "ok": ok, "what": what}));
+            continue;
+        }
         let verb = st.verb.clone().unwrap_or_default();
         let args: Vec<String> = st
             .args
@@ -126,7 +189,18 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &foxing_clear::Messag
             }
             e
         };
-        let (ok, what) = if passing && KEPT_ONLY.contains(&verb.as_str()) {
+        let spec = world.registry.resolve(&verb);
+        let (ok, what) = if spec.is_none() {
+            (
+                false,
+                format!("refused: {verb} is not a verb this world runs; `commands` lists them"),
+            )
+        } else if spec.is_some_and(|s| !s.allowed.contains(&ActorKind::Citizen)) {
+            (
+                false,
+                format!("refused: {verb} is the operator's, not a citizen's"),
+            )
+        } else if passing && KEPT_ONLY.contains(&verb.as_str()) {
             (
                 false,
                 format!("refused: {verb} is a kept name's; keep first"),
@@ -158,10 +232,17 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &foxing_clear::Messag
                             .or_default()
                             .insert(super::building::opposite_of(&exit).to_string(), here);
                         dug_names.insert(id, name.clone());
-                        (
-                            true,
-                            format!("digs {exit} from {here_name} to {name}, if the chunk is yours and the room allows it"),
-                        )
+                        match my_chunk(&arg(1)) {
+                            Err(why) if !dug_names.contains_key(&here) => {
+                                (false, format!("refused: {why}"))
+                            }
+                            _ => (
+                                true,
+                                format!(
+                                    "digs {exit} from {here_name} to {name}, if the room allows it"
+                                ),
+                            ),
+                        }
                     }
                 }
                 "travel" => match room.map(|r| exits_now_in(&dug, &dug_names, r)) {
@@ -289,10 +370,13 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &foxing_clear::Messag
                                 (true, format!("strikes {}", mind::display(world, c)))
                             }
                         }
-                        ("remember", Some(c)) => (
-                            true,
-                            format!("gives {} to {}", arg(0), mind::display(world, c)),
-                        ),
+                        ("remember", Some(c)) => match my_chunk(&arg(0)) {
+                            Ok(_) => (
+                                true,
+                                format!("gives {} to {}", arg(0), mind::display(world, c)),
+                            ),
+                            Err(why) => (false, format!("refused: {why}")),
+                        },
                         ("tell", None) => match super::canonical_name(world, &who) {
                             Some(cz) => {
                                 let here = super::find_citizen(world, &cz).is_some_and(|f| {
@@ -345,9 +429,61 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &foxing_clear::Messag
                     if passing {
                         "leaves; the name is forgotten at once".into()
                     } else {
-                        "leaves; the room forgets you now".into()
+                        "leaves; the room forgets you now, and the name stays kept".into()
                     },
                 ),
+                "shelve" | "reminisce" | "remember" => match my_chunk(&arg(0)) {
+                    Ok(_) => (true, format!("runs {verb} on {}", arg(0))),
+                    Err(why) => (false, format!("refused: {why}")),
+                },
+                "give" => match my_chunk(&arg(0)) {
+                    Err(why) => (false, format!("refused: {why}")),
+                    Ok(_) => {
+                        let typed = arg(1).trim().trim_start_matches("citizen-").to_string();
+                        match super::canonical_name(world, &typed) {
+                            None => (false, format!("refused: there is no one called {typed}")),
+                            Some(cz) if cz == actor => {
+                                (false, "refused: you give it to yourself".into())
+                            }
+                            Some(cz) => {
+                                let here = super::find_citizen(world, &cz).is_some_and(|f| {
+                                    rooms::room_of(world, f.citizen) == room
+                                        && presence::is_here(world, f.citizen)
+                                });
+                                if here {
+                                    (true, format!("gives {} to {cz}, who is here", arg(0)))
+                                } else {
+                                    (false, format!("refused: {cz} is not here; a memory is given hand to hand"))
+                                }
+                            }
+                        }
+                    }
+                },
+                "describe" | "name" | "append" | "permit" | "welcome" | "revoke" => {
+                    let here_name = room_name_in(&dug_names, room);
+                    match room {
+                        Some(r) if dug_names.contains_key(&r) => {
+                            (true, format!("runs {verb} on {here_name}, yours once dug"))
+                        }
+                        Some(r) => {
+                            let allowed = match verb.as_str() {
+                                "append" => super::building::may_append(world, &ctx, r),
+                                "permit" | "welcome" | "revoke" => {
+                                    super::building::owner_only(world, &ctx, r)
+                                }
+                                _ => super::building::may_edit(world, &ctx, r),
+                            };
+                            match allowed {
+                                Ok(()) => (true, format!("runs {verb} on {here_name}")),
+                                Err(e) => (
+                                    false,
+                                    format!("refused: {}", e.to_string().trim_end_matches('.')),
+                                ),
+                            }
+                        }
+                        None => (false, "refused: no room to change".into()),
+                    }
+                }
                 "keep" => (
                     true,
                     if passing {
@@ -356,9 +492,7 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &foxing_clear::Messag
                         "runs keep (already a kept name)".into()
                     },
                 ),
-                "feedback" | "say" | "greet" | "chunks" | "palace" | "time" | "log" | "rest"
-                | "retreat" | "give" | "observe" => (true, format!("runs {verb}")),
-                other => (true, format!("runs {other}, if the world knows it")),
+                other => (true, format!("runs {other}")),
             }
         };
         if !ok {
