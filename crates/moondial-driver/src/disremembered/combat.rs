@@ -209,8 +209,12 @@ pub const CREATURES: &[CreatureDef] = &[
 
 /// Base damage per round before the level bonus.
 const BASE_ATTACK: f64 = 3.0;
-/// Each this many points of level adds one to attack.
-const LEVEL_PER_ATTACK: f64 = 10.0;
+/// Attack grows with the square root of level: 3 at nothing, 13 at 100, 20 at 300,
+/// 35 at 1,000, 48 at 2,000, 80 at 6,000. It was a tenth of level, and a name with a
+/// few hundred XP felled everything in the Lower Stacks in one hit; a hoard of six
+/// thousand would have hit for six hundred. The curve keeps the first hundred XP
+/// as they were and bends the rest.
+const ATTACK_PER_ROOT_LEVEL: f64 = 1.0;
 /// On death, the chance in a hundred of losing one window chunk.
 const CONCUSSION_PERCENT: u32 = 50;
 /// Seconds between arriving in a room and an aggressive creature noticing you.
@@ -623,7 +627,7 @@ pub(crate) fn commit_hp(
 
 /// Damage per round at this level.
 pub fn attack_for_level(level: f64) -> f64 {
-    BASE_ATTACK + (level / LEVEL_PER_ATTACK).floor()
+    BASE_ATTACK + (ATTACK_PER_ROOT_LEVEL * level.max(0.0).sqrt()).floor()
 }
 
 /// The creature hits back. Returns the damage and whether the citizen died.

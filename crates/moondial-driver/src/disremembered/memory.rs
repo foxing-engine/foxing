@@ -289,7 +289,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 format!("Your window is empty. Level 0, attack {attack:.0}. A chunk is earned by felling a creature (attack; the Fogbank east of the Threshold has wisps) or by telling a named creature a story of a dozen words (story; {listener}). {rate}")
             } else {
                 format!(
-                    "Level {level:.2}, attack {attack:.0} (your level is the sum of these chunks' current values, so it falls as they fade and when you spend one)\n{}\n{rate}",
+                    "Level {level:.2}, attack {attack:.0} (your level is the sum of these chunks' current values, so it falls as they fade and when you spend one; attack is three and the square root of level)\n{}\n{rate}",
                     rows_text(&rows).join("\n")
                 )
             };

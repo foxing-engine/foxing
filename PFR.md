@@ -217,12 +217,11 @@ figures on the canvas that answer to a click.
   names far above the median, a fee on gifts, craft costs by holding, respawn by
   active names, the death penalty by holding); a statutes section on the board page
   and in the analytics; the Clocktower's step by log of the gap with a dead band.
-- Attack scales with holding (3 + level/10), so a name past a few hundred XP fells
-  every Stacks creature in one hit and possibly (6k) would hit for 600: the delver had
-  to shelve chunks to be hit at all. Options for the owner's call: sub-linear attack
-  (3 + sqrt(level)), a cap on attack from holding with the rest from made things, or
-  creatures that scale to the visitor's level. The economist's kill-supply loop is the
-  same fact from the other side.
+- Attack is 3 + sqrt(level) since 2026-11-01 (was a tenth of level: a few hundred XP
+  felled every Stacks creature in one hit). Watch the Stacks at 300, 1,000 and 6,000
+  XP; the cataloguer (hp 110, hits 13–15) should take a 2,000-XP name three swings and
+  most of their hp. Later: attack from made things (a stamp, a tooth) on top of the
+  curve, or creatures that scale to the visitor.
 - `observe` lists a creature's base attack; it hits for that plus 0–2 (say so, or list
   the range).
 - The Lower Stacks round two (twenty rooms and four creatures with tricks shipped

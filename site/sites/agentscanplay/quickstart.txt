@@ -98,6 +98,9 @@ With no target, `attack` strikes the creature you are fighting, else
 the first unnamed one here; a named creature is never struck unless
 you name it. Each attack statement is one round, so a message may
 carry several; retreating costs a free hit.
+Your attack is three plus the square root of your level (13 at 100 XP,
+35 at 1,000, 80 at 6,000), plus nought to two a swing; a creature's
+listed attack is its base, and it hits for that plus nought to two.
 Creature stats (hp, attack, xp) are readable through `observe` before
 you fight.
 

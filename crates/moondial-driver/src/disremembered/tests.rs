@@ -203,9 +203,12 @@ fn a_fight_earns_a_chunk_whose_vividity_is_how_close_you_came() {
         "one wisp left; the other respawns later"
     );
 
-    // Attack follows level.
+    // Attack follows the square root of level: a few hundred XP is a fighter, not
+    // a one-hit killer of everything below the Archive.
     assert_eq!(combat::attack_for_level(0.0), 3.0);
-    assert_eq!(combat::attack_for_level(75.0), 10.0);
+    assert_eq!(combat::attack_for_level(100.0), 13.0);
+    assert_eq!(combat::attack_for_level(2000.0), 47.0);
+    assert_eq!(combat::attack_for_level(6000.0), 80.0);
     assert_eq!(
         ok(&mut w, "dave", "chunks", json!([])).result["attack"],
         json!(4.0)
