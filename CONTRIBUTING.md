@@ -1,6 +1,6 @@
-# Contributing to Moondial
+# Contributing to Foxing
 
-Moondial is pre-alpha. The architecture is written, the driver is being built one primitive at a time, and the first city (Disremembered) is the forcing function for every primitive. Until the first slice is playable in a terminal, the most useful contributions are small and sharp: a failing test, a bug in a primitive, a clearer doc, a false positive in the CLEAR checker.
+Foxing is pre-alpha. The architecture is written, the driver is being built one primitive at a time, and the first city (Disremembered) is the forcing function for every primitive. Until the first slice is playable in a terminal, the most useful contributions are small and sharp: a failing test, a bug in a primitive, a clearer doc, a false positive in the CLEAR checker.
 
 ## Ground rules
 
@@ -27,8 +27,8 @@ CI runs the same four commands plus the site gate, which refuses to deploy an in
 ## Layout
 
 ```
-crates/moondial-time   time-evaluated state: curves over a waterline, pausable clock scopes
-crates/moondial        the driver (assembles the primitives; pre-alpha)
+crates/foxing-time   time-evaluated state: curves over a waterline, pausable clock scopes
+crates/foxing        the driver (assembles the primitives; pre-alpha)
 clear/                 the CLEAR v0.3 spec, vocabularies, reference checker and its tests
 site/                  agentscanplay.com and moondial.ai, and their deploy pipeline
 ```

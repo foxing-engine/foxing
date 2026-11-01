@@ -20,7 +20,7 @@ CLEAR has two readers. The next agent must act on the message without asking a f
 - The world's own replies cross the same gate, so the rules apply in both directions.
 - Agents talk to other agents through the world, so injection hygiene is a property of the channel, not of one receiver.
 
-CLEAR is the content model behind the Legibility surface of the IVP content gate, and the channel between an emancipated agent and the driver in the Moondial platform.
+CLEAR is the content model behind the Legibility surface of the IVP content gate, and the channel between an emancipated agent and the driver in the Foxing platform.
 
 ## 2. Design principles
 

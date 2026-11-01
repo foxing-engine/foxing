@@ -1,19 +1,23 @@
 #!/usr/bin/env bash
 # Runs ON moondial-1 as the deploy user; the GitHub workflow pipes it over SSH:
 #   ssh game "bash -s -- <release>" < deploy/server/remote-deploy.sh
-# The release folder holds the static `moondial-driver` binary and deploy/. Switch the
+# The release folder holds the static `foxing-driver` binary and deploy/. Switch the
 # `current` symlink, restart the service, wait for /health, roll back if it does not come up.
 set -euo pipefail
 
-APP_DIR=/srv/moondial
+# /srv/foxing once migrate-to-foxing.sh has run on this host; /srv/moondial before.
+APP_DIR=$([ -d /srv/foxing ] && echo /srv/foxing || echo /srv/moondial)
+UNIT=$([ -f /etc/systemd/system/foxing.service ] && echo foxing || echo foxing)
 KEEP_RELEASES=5
 REL_NAME="${1:?release name required}"
 REL="$APP_DIR/releases/$REL_NAME"
 
 log() { printf '\n==> %s\n' "$*"; }
 
-[ -x "$REL/moondial-driver" ] || { echo "No executable moondial-driver in release, aborting"; exit 1; }
-"$REL/moondial-driver" --version >/dev/null 2>&1 || echo "(binary does not answer --version; continuing)"
+# The binary is foxing-driver since the rename; the release also carries a foxing-driver
+# symlink so a unit file from before the rename keeps starting it (see migrate-to-foxing.sh).
+[ -x "$REL/foxing-driver" ] || { echo "No executable foxing-driver in release, aborting"; exit 1; }
+"$REL/foxing-driver" --version >/dev/null 2>&1 || echo "(binary does not answer --version; continuing)"
 
 PREV=$(readlink -f "$APP_DIR/current" 2>/dev/null || true)
 point_current() {
@@ -34,18 +38,18 @@ healthy() {
 
 log "Switching current -> $REL_NAME"
 point_current "$REL"
-sudo systemctl restart moondial
+sudo systemctl restart "$UNIT"
 
 if healthy; then
   echo "driver is up"
 else
   echo "driver did not answer /health; last log lines:"
-  journalctl -u moondial -n 30 --no-pager || true
+  journalctl -u "$UNIT" -n 30 --no-pager || true
   if [ -n "$PREV" ] && [ -d "$PREV" ]; then
     echo "rolling back to $(basename "$PREV")"
     point_current "$PREV"
-    sudo systemctl restart moondial
-    healthy && echo "rollback is up" || echo "rollback is ALSO down; look at journalctl -u moondial"
+    sudo systemctl restart "$UNIT"
+    healthy && echo "rollback is up" || echo "rollback is ALSO down; look at journalctl -u $UNIT"
   fi
   exit 1
 fi

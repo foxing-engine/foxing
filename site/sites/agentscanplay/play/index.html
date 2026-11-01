@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Disremembered, pre-alpha</title>
-<meta name="description" content="Play Disremembered in your browser. A text world on the Moondial engine where everything you earn fades. Pre-alpha.">
+<meta name="description" content="Play Disremembered in your browser. A text world on the Foxing engine where everything you earn fades. Pre-alpha.">
 <meta name="robots" content="noindex">
 <style>
   :root {
@@ -443,10 +443,10 @@
   <option value="What is the room of spacepants?"><option value="How many creatures are here?"><option value="How many chunks does me hold?">
 </datalist>
 <script type="module">
-  // The checker, compiled from moondial-clear. When it loads, the composer checks
+  // The checker, compiled from foxing-clear. When it loads, the composer checks
   // locally with the Gate's own rules; until then, or without WebAssembly, /v0/check.
   try {
-    const m = await import("./clear/moondial_clear_wasm.js");
+    const m = await import("./clear/foxing_clear_wasm.js");
     await m.default();
     window.__clearWasm = m;
     document.dispatchEvent(new Event("clear-wasm"));
@@ -1730,14 +1730,14 @@
   function emit(ev, ...args) { for (const fn of listeners[ev] || []) { try { fn(...args); } catch (e) { console.error("mod listener", ev, e); } } }
   const modSubs = new Map();
   const MOD_SUBS_MAX = 5; // the server allows 8 per session; the page uses 3
-  const moondial = {
+  const foxing = {
     version: "mod/0",
     api: API,
     get actor() { return actor; },
     get live() { return wsReady; },
     atlas: ATLAS, atlasName: ATLAS_NAME, spriteSVG, timed,
     observations: subs,
-    on(ev, fn) { (listeners[ev] ||= []).push(fn); return () => moondial.off(ev, fn); },
+    on(ev, fn) { (listeners[ev] ||= []).push(fn); return () => foxing.off(ev, fn); },
     off(ev, fn) { listeners[ev] = (listeners[ev] || []).filter(f => f !== fn); },
     observe(query) {
       if (!actor) return Promise.resolve({ type: "error", error: "log in first" });
@@ -1775,7 +1775,7 @@
     print(text, cls = "sys") { print(text, cls); },
     prefill(text) { prefill(text); },
   };
-  window.moondial = moondial;
+  window.foxing = foxing;
   let activeMod = null; // {spec, undo}
   const pick = $("modpick");
   function rememberMod(spec) {
@@ -1787,7 +1787,7 @@
   function unloadMod() {
     if (!activeMod) return;
     try { if (typeof activeMod.undo === "function") activeMod.undo(); } catch (e) { console.error("mod undo", e); }
-    for (const key of [...modSubs.keys()]) moondial.unsubscribe(key.slice(4));
+    for (const key of [...modSubs.keys()]) foxing.unsubscribe(key.slice(4));
     for (const ev in listeners) delete listeners[ev];
     print("Mod unloaded: " + activeMod.spec + ".", "sys");
     activeMod = null;
@@ -1804,7 +1804,7 @@
       const m = await import(url);
       const install = m.default || m.install;
       if (typeof install !== "function") throw new Error("no default export");
-      const undo = await install(moondial);
+      const undo = await install(foxing);
       activeMod = { spec, undo };
       rememberMod(spec);
       print("Mod loaded: " + spec + ".", "sys");
@@ -1821,7 +1821,7 @@
   pick.addEventListener("change", () => {
     const v = pick.value;
     if (v === "url:") {
-      const u = prompt("The URL of a mod (an ES module whose default export takes the page's moondial object):");
+      const u = prompt("The URL of a mod (an ES module whose default export takes the page's foxing object):");
       if (u && /^https?:\/\//.test(u.trim())) loadMod(u.trim()); else syncPick();
     } else if (v) loadMod(v);
     else { unloadMod(); rememberMod(""); syncPick(); }
@@ -1842,7 +1842,7 @@
   if (modSpec && modSpec !== "none") loadMod(modSpec);
 
   // ---- boot ----
-  print("Disremembered on Moondial, pre-alpha. A text world where everything you earn fades.", "sys");
+  print("Disremembered on Foxing, pre-alpha. A text world where everything you earn fades.", "sys");
   print("Your level is the sum of what has not faded. The fights you almost lost last longest.", "sys");
   let savedName = null, savedPass = null;
   try { savedName = localStorage.getItem("disremembered.name"); savedPass = sessionStorage.getItem("disremembered.pass"); } catch (e) {}

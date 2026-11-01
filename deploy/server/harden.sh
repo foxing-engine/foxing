@@ -25,22 +25,22 @@ die() { printf '  !!  %s\n' "$*" >&2; exit 1; }
 
 echo "######## nginx rate limits"
 # Zones live in the http context; conf.d is included there.
-cat > /etc/nginx/conf.d/moondial-limits.conf <<'CONF'
+cat > /etc/nginx/conf.d/foxing-limits.conf <<'CONF'
 # Written by deploy/server/harden.sh. Per client address.
-limit_req_zone  $binary_remote_addr zone=moondial_login:1m  rate=10r/m;
-limit_req_zone  $binary_remote_addr zone=moondial_gate:1m   rate=60r/m;
-limit_req_zone  $binary_remote_addr zone=moondial_check:1m  rate=120r/m;
-limit_conn_zone $binary_remote_addr zone=moondial_conn:1m;
+limit_req_zone  $binary_remote_addr zone=foxing_login:1m  rate=10r/m;
+limit_req_zone  $binary_remote_addr zone=foxing_gate:1m   rate=60r/m;
+limit_req_zone  $binary_remote_addr zone=foxing_check:1m  rate=120r/m;
+limit_conn_zone $binary_remote_addr zone=foxing_conn:1m;
 limit_req_status 429;
 limit_conn_status 429;
 CONF
 install -d /etc/nginx/snippets
-cat > /etc/nginx/snippets/moondial-ratelimit.conf <<'CONF'
+cat > /etc/nginx/snippets/foxing-ratelimit.conf <<'CONF'
 # Written by deploy/server/harden.sh; included from the play server block.
-limit_conn moondial_conn 40;
+limit_conn foxing_conn 40;
 
 location = /v0/login {
-    limit_req zone=moondial_login burst=5 nodelay;
+    limit_req zone=foxing_login burst=5 nodelay;
     proxy_pass http://127.0.0.1:7777;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
@@ -48,7 +48,7 @@ location = /v0/login {
     proxy_set_header X-Forwarded-Proto $scheme;
 }
 location ~ ^/(v0/(gate|command)|mcp)$ {
-    limit_req zone=moondial_gate burst=20 nodelay;
+    limit_req zone=foxing_gate burst=20 nodelay;
     proxy_pass http://127.0.0.1:7777;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
@@ -57,7 +57,7 @@ location ~ ^/(v0/(gate|command)|mcp)$ {
     proxy_read_timeout 60s;
 }
 location = /v0/check {
-    limit_req zone=moondial_check burst=30 nodelay;
+    limit_req zone=foxing_check burst=30 nodelay;
     proxy_pass http://127.0.0.1:7777;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
@@ -66,10 +66,10 @@ location = /v0/check {
 }
 CONF
 # Include it in every server block of the site (certbot made two: 80 and 443).
-if grep -q "snippets/moondial-ratelimit.conf" "$NGINX_SITE"; then
+if grep -q "snippets/foxing-ratelimit.conf" "$NGINX_SITE"; then
   ok "$NGINX_SITE already includes the rate limits"
 else
-  sed -i 's|^\(\s*\)server_name play.agentscanplay.com;|&\n\1include snippets/moondial-ratelimit.conf;|' "$NGINX_SITE"
+  sed -i 's|^\(\s*\)server_name play.agentscanplay.com;|&\n\1include snippets/foxing-ratelimit.conf;|' "$NGINX_SITE"
   ok "added the include to $NGINX_SITE"
 fi
 nginx -t && systemctl reload nginx
@@ -97,7 +97,7 @@ ok "unattended-upgrades on (security pocket, Debian/Ubuntu default origins)"
 
 echo; echo "######## fail2ban (sshd)"
 apt-get install -y -q fail2ban >/dev/null
-cat > /etc/fail2ban/jail.d/moondial.conf <<'CONF'
+cat > /etc/fail2ban/jail.d/foxing.conf <<'CONF'
 [sshd]
 enabled = true
 maxretry = 5
@@ -114,11 +114,11 @@ if grep -q '^MOONDIAL_LOG_URL=' "$ENV_FILE"; then
   install -d -m 750 -o postgres -g "$RUN_USER" "$BK"
   cat > /etc/cron.d/moondial-backup <<CRON
 # Written by deploy/server/harden.sh: the event log, nightly, kept 14 days.
-17 3 * * * postgres pg_dump -Fc moondial > $BK/moondial-\$(date +\\%F).dump && find $BK -name 'moondial-*.dump' -mtime +14 -delete
+17 3 * * * postgres pg_dump -Fc foxing > $BK/foxing-\$(date +\\%F).dump && find $BK -name 'foxing-*.dump' -mtime +14 -delete
 CRON
   chmod 644 /etc/cron.d/moondial-backup
-  su postgres -c "pg_dump -Fc moondial > $BK/moondial-$(date +%F).dump"
-  ok "first dump written to $BK; restore with: pg_restore -d moondial <file>"
+  su postgres -c "pg_dump -Fc foxing > $BK/foxing-$(date +%F).dump"
+  ok "first dump written to $BK; restore with: pg_restore -d foxing <file>"
 else
   ok "no MOONDIAL_LOG_URL in $ENV_FILE (file log); nothing to dump"
 fi

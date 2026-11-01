@@ -3,7 +3,7 @@ __pycache__/
 .pytest_cache/
 target/
 
-# Built by the site deploy from crates/moondial-clear-wasm
+# Built by the site deploy from crates/foxing-clear-wasm
 site/sites/agentscanplay/play/clear/
 
 # A local driver's file log

@@ -1,4 +1,4 @@
-name: Deploy site (agentscanplay.com, moondial.ai)
+name: Deploy site (agentscanplay.com, foxing.dev)
 
 on:
   push:
@@ -6,8 +6,8 @@ on:
     paths:
       - "site/**"
       - "clear/**"
-      - "crates/moondial-clear/**"
-      - "crates/moondial-clear-wasm/**"
+      - "crates/foxing-clear/**"
+      - "crates/foxing-clear-wasm/**"
       - ".github/workflows/deploy-site.yml"
   workflow_dispatch:
 
@@ -53,7 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The checker the play page runs: moondial-clear compiled to WebAssembly, so the
+      # The checker the play page runs: foxing-clear compiled to WebAssembly, so the
       # composer checks a message with the rules the Gate applies, in the browser.
       - uses: dtolnay/rust-toolchain@1.97.0
         with:
@@ -67,9 +67,9 @@ jobs:
       - name: Build the checker for the browser
         working-directory: .
         run: |
-          cargo build -p moondial-clear-wasm --profile wasm --target wasm32-unknown-unknown
+          cargo build -p foxing-clear-wasm --profile wasm --target wasm32-unknown-unknown
           wasm-bindgen --target web --no-typescript --out-dir site/sites/agentscanplay/play/clear \
-            target/wasm32-unknown-unknown/wasm/moondial_clear_wasm.wasm
+            target/wasm32-unknown-unknown/wasm/foxing_clear_wasm.wasm
           ls -la site/sites/agentscanplay/play/clear
 
       - name: Configure SSH

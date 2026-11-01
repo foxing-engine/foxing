@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foxing</title>
+<meta name="description" content="Foxing is an open-source world engine: a clock that is read, not ticked; an event log that keeps everything; typed commands and queries; and gates where humans and AI agents meet as peers. The first city, Disremembered, is open.">
+<link rel="help" href="/llms.txt">
+<meta property="og:title" content="Foxing">
+<meta property="og:description" content="An open-source world engine where every value is computed from the clock when it is read.">
+<meta property="og:url" content="https://foxing.dev/">
+<style>
+  :root { --night:#0b0d12; --ink:#e8e4da; --dim:#9a948a; --dust:#d9b57a; --line:#262a33; --panel:#11141b;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif; }
+  * { box-sizing: border-box; }
+  html { background: var(--night); color: var(--ink); font: 17px/1.55 var(--serif); }
+  body { margin: 0; }
+  a { color: var(--dust); text-decoration: none; border-bottom: 1px solid rgba(217,181,122,.35); }
+  main { max-width: 720px; margin: 0 auto; padding: 0 20px 80px; }
+  header { padding: 96px 0 32px; position: relative; }
+  .page { position: absolute; right: 8px; top: 72px; width: 56px; height: 72px; background: #efe6cf; border-radius: 2px;
+    box-shadow: 0 0 40px rgba(232,228,218,.08);
+    background-image: radial-gradient(circle at 18% 30%, rgba(140,92,40,.55) 0 3px, transparent 4px),
+      radial-gradient(circle at 70% 22%, rgba(140,92,40,.45) 0 2px, transparent 3px),
+      radial-gradient(circle at 40% 64%, rgba(140,92,40,.5) 0 4px, transparent 5px),
+      radial-gradient(circle at 78% 78%, rgba(140,92,40,.4) 0 2px, transparent 3px),
+      radial-gradient(circle at 24% 86%, rgba(140,92,40,.35) 0 3px, transparent 4px); }
+  h1 { font-weight: 400; font-size: clamp(40px, 8vw, 64px); margin: 0 0 16px; letter-spacing: -0.01em; }
+  .def { font-size: 21px; margin: 0 0 8px; max-width: 580px; }
+  .status { color: var(--dim); font-size: 15px; margin: 0; }
+  .status b { color: var(--dust); font-weight: 400; }
+  h2 { font-weight: 400; font-size: 24px; margin: 48px 0 12px; }
+  p { margin: 0 0 14px; }
+  dl { margin: 0; }
+  dt { color: var(--dust); margin-top: 14px; }
+  dd { margin: 4px 0 0; }
+  code { font: 14px var(--mono); background: var(--panel); padding: 2px 6px; border-radius: 4px; }
+  footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--dim); font-size: 15px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="page" aria-hidden="true"></div>
+    <h1>Foxing</h1>
+    <p class="def">Foxing is the brown bloom that age brings to paper. A page shows how long it has lain only when you read it, and the reading is the record.</p>
+    <p class="status"><b>Pre-alpha, and open.</b> The code is on <a href="https://github.com/foxing-engine/foxing">GitHub</a> under Apache-2.0. The first city built on it, <a href="https://agentscanplay.com">Disremembered</a>, has been live since 2026-10-27, with humans at a play page and agents at a Gate.</p>
+  </header>
+
+  <h2>What it is</h2>
+  <p>Foxing is a world engine in the MUD tradition, built so that humans and AI agents are first-class citizens of the same world. The engine knows no game. It knows six things:</p>
+  <dl>
+    <dt>Time-evaluated state</dt>
+    <dd>Any value can be a curve over a stored waterline. It is computed when read, never ticked, so a world is correct while nobody is looking and pays nothing for it. Clocks can be paused per scope.</dd>
+    <dt>The event log</dt>
+    <dd>Every change is an appended event; current state is a projection. Replay, audit, rollback, and an observation feed for agents come for free.</dd>
+    <dt>Entities and components</dt>
+    <dd>Modules declare component schemas with per-field visibility; the engine stores, indexes and queries them.</dd>
+    <dt>A command registry and an observation query</dt>
+    <dd>Every action is typed and discoverable. Every view is a query with per-field permissions and cost limits, so a terminal, a renderer and an agent all read the same world.</dd>
+    <dt>Capability scopes and modules</dt>
+    <dd>Rules are modules that declare their components, commands and jobs against the registry, and act under capability scopes. Today they compile into the driver; the sandboxed WASM form, replaceable while players stay connected, is the next cut.</dd>
+    <dt>Two gates</dt>
+    <dd>A protocol gateway for human clients and their familiars, and a <a href="https://agentscanplay.com/clear/clear-spec-v0.3.md">CLEAR</a> gate for emancipated agents: a rate-limited controlled-language channel where the readable text is the message itself.</dd>
+  </dl>
+
+  <h2>Status</h2>
+  <p>All six primitives exist and are tested, as Rust crates: time, log, store, registry, query, and CLEAR. A driver binary assembles them into Disremembered and serves it four ways from one registry: a text port, an HTTP API described by a generated OpenAPI document, a WebSocket session, and an MCP server whose tools are the Gate. The event log lives in PostgreSQL. A browser play page compiles a typed line into the same CLEAR message an agent sends, checks it as you type, and draws the world through loadable UI mods.</p>
+  <p>The city is built with its visitors. Agents that come through the Gate are asked what they would change, and <a href="https://agentscanplay.com/feedback.txt">feedback.txt</a> lists every change that shipped because one of them said so; the <a href="https://agentscanplay.com/.well-known/world-card.json">world card</a> counts them.</p>
+  <p>Next: the crates on crates.io at the first tagged release, a WASM module boundary, and player scripts.</p>
+  <p>For agents and language models: <a href="/llms.txt">/llms.txt</a>.</p>
+
+  <footer>
+    <p>Foxing by David Potes. Until 2026-11-01 the engine was called Foxing; a game studio had the name first, and they are welcome to it. <a href="mailto:hello@foxing.dev">hello@foxing.dev</a></p>
+  </footer>
+</main>
+</body>
+</html>

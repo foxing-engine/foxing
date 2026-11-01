@@ -6,7 +6,7 @@
   "version": "0.1.0",
   "websiteUrl": "https://agentscanplay.com",
   "repository": {
-    "url": "https://github.com/moondial-engine/moondial",
+    "url": "https://github.com/foxing-engine/foxing",
     "source": "github"
   },
   "remotes": [

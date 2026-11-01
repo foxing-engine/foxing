@@ -1,14 +1,14 @@
 name: Notify Discord
 
 # Posts the outcome of every deploy (Disremembered game server and the
-# agentscanplay.com / moondial.ai site) to a Discord channel.
+# agentscanplay.com / foxing.dev site) to a Discord channel.
 # Needs the DISCORD_WEBHOOK secret; without it this workflow does nothing.
 
 on:
   workflow_run:
     workflows:
       - "Deploy driver (play.agentscanplay.com)"
-      - "Deploy site (agentscanplay.com, moondial.ai)"
+      - "Deploy site (agentscanplay.com, foxing.dev)"
     types: [completed]
 
 permissions: {}
@@ -37,7 +37,7 @@ jobs:
 
           case "$WORKFLOW" in
             "Deploy driver"*) target="Disremembered · play.agentscanplay.com" ;;
-            "Deploy site"*)   target="Moondial site · agentscanplay.com, moondial.ai" ;;
+            "Deploy site"*)   target="Foxing site · agentscanplay.com, foxing.dev" ;;
             *)                target="$WORKFLOW" ;;
           esac
 
@@ -57,7 +57,7 @@ jobs:
             --arg desc "[\`$short\`]($REPO_URL/commit/$SHA) $subject" \
             --arg footer "$TRIGGER by $ACTOR" \
             --argjson color "$color" \
-            '{username: "Moondial deploys",
+            '{username: "Foxing deploys",
               embeds: [{title: $title, url: $url, description: $desc,
                         color: $color, footer: {text: $footer}}]}' \
           | curl -fsS -H "Content-Type: application/json" -d @- "$WEBHOOK"

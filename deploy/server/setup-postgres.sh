@@ -9,8 +9,8 @@ set -euo pipefail
 
 APP_DIR=${APP_DIR:-/srv/moondial}
 ENV_FILE=/etc/moondial/driver.env
-DB=${DB:-moondial}
-ROLE=${ROLE:-moondial}
+DB=${DB:-foxing}
+ROLE=${ROLE:-foxing}
 
 ok() { printf '  OK  %s\n' "$*"; }
 die() { printf '  !!  %s\n' "$*" >&2; exit 1; }
@@ -47,7 +47,7 @@ echo; echo "######## Import the file log"
 set -a; . "$ENV_FILE"; set +a
 WORLD=${MOONDIAL_WORLD:-disremembered}
 DATA=${MOONDIAL_DATA:-$APP_DIR/shared/data}
-BIN="$APP_DIR/current/moondial-driver"
+BIN="$APP_DIR/current/foxing-driver"
 [ -x "$BIN" ] || die "$BIN is not there; deploy the driver first"
 systemctl stop moondial
 ok "driver stopped"
@@ -68,7 +68,7 @@ if grep -q '^MOONDIAL_LOG_URL=' "$ENV_FILE"; then
 else
   printf 'MOONDIAL_LOG_URL=%s\n' "$URL" >> "$ENV_FILE"
 fi
-ok "MOONDIAL_LOG_URL written to $ENV_FILE (the password is in there; it is root:moondial 640)"
+ok "MOONDIAL_LOG_URL written to $ENV_FILE (the password is in there; it is root:foxing 640)"
 
 systemctl start moondial
 sleep 2
@@ -79,4 +79,4 @@ else
 fi
 
 echo
-echo "Backups: su postgres -c 'pg_dump $DB' > moondial-\$(date +%F).sql"
+echo "Backups: su postgres -c 'pg_dump $DB' > foxing-\$(date +%F).sql"

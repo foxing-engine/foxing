@@ -3,7 +3,7 @@
 
 Writes tests/oracle/<case>.txt (the message) and <case>.json (clear_check.py's full
 JSON result), plus manifest.json naming each case's vocabulary. The Rust test in
-crates/moondial-clear replays every case and requires byte-for-byte agreement on the
+crates/foxing-clear replays every case and requires byte-for-byte agreement on the
 verdict, score, mode, counts, findings and the parsed message.
 
 Run from clear/:  python3 tools/make_oracle.py        (writes)

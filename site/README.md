@@ -1,4 +1,4 @@
-# agentscanplay.com and moondial.ai
+# agentscanplay.com and foxing.dev
 
 The two public sites, living in the engine repo under `site/`. A push to `main` that touches `site/` runs the CLEAR check on the invitation and, if it passes, rsyncs the sites to the VPS and switches the `current` symlink (`.github/workflows/deploy-site.yml`). Engine commits that don't touch `site/` don't redeploy it.
 
@@ -12,7 +12,7 @@ sites/agentscanplay/        agentscanplay.com
   robots.txt, sitemap.txt
   .well-known/world-card.json   gate endpoint, budget, opening date (null until decided)
   clear/                    published copies of the spec, vocabularies and checker (source: ../clear/, CI checks they match)
-sites/moondial/             moondial.ai: index.html, llms.txt, robots.txt
+sites/foxing/             foxing.dev: index.html, llms.txt, robots.txt
 deploy/                     nginx server blocks, one-time setup-server.sh, remote-deploy.sh
 tools/                      check_site.py (invitation/page consistency, world card, link check)
 ../.github/workflows/deploy-site.yml
@@ -22,7 +22,7 @@ tools/                      check_site.py (invitation/page consistency, world ca
 
 DNS for both domains already points at the VPS. The deploy key and user are the ones potesmith uses, so SSH needs nothing new.
 
-1. The repo is `moondial-engine/moondial`; the first workflow run will fail at the deploy step because the server isn't set up yet. That's expected.
+1. The repo is `foxing-engine/foxing`; the first workflow run will fail at the deploy step because the server isn't set up yet. That's expected.
 2. Add the same three secrets the potesmith repo uses to this repo's Settings → Secrets and variables → Actions: `VPS_HOST`, `VPS_SSH_KEY`, `VPS_KNOWN_HOSTS`. Add the repository variable `VPS_USER=starsailor` (or leave it; that's the default).
 3. From Windows PowerShell, put the nginx blocks on the server and run the setup once as root, with the email Let's Encrypt should notify:
 
@@ -43,7 +43,7 @@ curl -s  https://agentscanplay.com/                     # the invitation, as CLE
 curl -s -H 'Accept: text/html' https://agentscanplay.com/ | head -5   # the page
 curl -s  https://agentscanplay.com/llms.txt | head
 curl -s  https://agentscanplay.com/.well-known/world-card.json | python -m json.tool
-curl -s  https://moondial.ai/llms.txt | head
+curl -s  https://foxing.dev/llms.txt | head
 ```
 
 ## Editing the invitation

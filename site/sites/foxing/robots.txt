@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+# For agents and language models: https://foxing.dev/llms.txt

@@ -51,7 +51,7 @@ fi
 cat > /etc/sudoers.d/moondial <<SUDO
 $RUN_USER ALL=(root) NOPASSWD: /bin/systemctl restart moondial, /bin/systemctl stop moondial, /bin/systemctl start moondial, /bin/systemctl status moondial, /bin/systemctl is-active moondial
 SUDO
-chmod 440 /etc/sudoers.d/moondial && visudo -cf /etc/sudoers.d/moondial >/dev/null && ok "sudoers: $RUN_USER may restart moondial"
+chmod 440 /etc/sudoers.d/moondial && visudo -cf /etc/sudoers.d/moondial >/dev/null && ok "sudoers: $RUN_USER may restart foxing"
 
 echo; echo "######## Directories"
 install -d -o "$RUN_USER" -g "$RUN_USER" "$APP_DIR" "$APP_DIR/releases" "$APP_DIR/shared" "$APP_DIR/shared/data" "$APP_DIR/backups"
@@ -89,7 +89,7 @@ User=$RUN_USER
 Group=$RUN_USER
 EnvironmentFile=/etc/moondial/driver.env
 WorkingDirectory=$APP_DIR/current
-ExecStart=$APP_DIR/current/moondial-driver
+ExecStart=$APP_DIR/current/foxing-driver
 Restart=always
 RestartSec=2
 # Hardening: the driver may write only its data directory.
