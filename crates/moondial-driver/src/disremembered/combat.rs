@@ -741,22 +741,32 @@ pub fn register(world: &mut World, curves: Curves) {
                     ));
                     return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": false, "taken": chunk.0, "with": source, "left": left, "hp": hp(w, f.citizen)})));
                 }
-                // Win: the chunk's vividity is how close you came to dying.
+                // Win: the chunk's vividity is how close you came to dying; a moth
+                // charm carried makes it more vivid and is spent.
                 let my_hp = hp(w, f.citizen);
-                let vividity = (1.0 - my_hp / super::MAX_HP).clamp(0.0, 1.0);
+                let mut vividity = (1.0 - my_hp / super::MAX_HP).clamp(0.0, 1.0);
+                let mut charm_line = String::new();
+                if let Some(charm) = super::craft::carries(w, f.citizen, "charm") {
+                    vividity = (vividity + 0.3).min(1.0);
+                    let name = super::craft::spend(w, &ctx.actor, charm)?;
+                    charm_line = format!(" The {} you carried is spent, and the memory is the more vivid for it.", name.trim_start_matches("a "));
+                }
                 let xp = plain_num(w, creature, CREATURE, "xp").unwrap_or(0.0);
+                // What it leaves behind, one time in three.
+                let left = super::craft::leave_behind(w, &curves, room, creature, &cname)?;
                 w.record(Actor::Driver, StoreEvent::EntityRemoved { id: creature }).map_err(internal)?;
                 schedule_respawn(w, room).map_err(internal)?;
                 set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
                 end_fight(w, f.citizen).map_err(internal)?;
                 let chunk = super::memory::earn_chunk(w, &ctx.actor, f.window, &cname, xp, vividity, &curves)?;
                 lines.push(format!(
-                    "The {cname} comes apart. You remember it: chunk-{} worth {xp:.0} XP, vividity {:.2}{}.",
+                    "The {cname} comes apart. You remember it: chunk-{} worth {xp:.0} XP, vividity {:.2}{}.{charm_line}{}",
                     chunk.0,
                     vividity,
-                    if vividity > 0.6 { " (you nearly died; this one will last)" } else { "" }
+                    if vividity > 0.6 { " (you nearly died; this one will last)" } else { "" },
+                    left.as_ref().map(|(id, n)| format!(" It leaves {n} behind (item-{}); take it.", id.0)).unwrap_or_default()
                 ));
-                return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": true, "chunk": chunk.0, "xp": xp, "vividity": vividity, "hp": my_hp})));
+                return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": true, "chunk": chunk.0, "xp": xp, "vividity": vividity, "hp": my_hp, "left": left.as_ref().map(|(id, n)| json!({"item": id.0, "name": n}))})));
             }
 
             // It strikes back.

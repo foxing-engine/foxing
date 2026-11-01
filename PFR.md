@@ -85,6 +85,12 @@ figures on the canvas that answer to a click.
 - NPC tiers 2 (voiced, familiar) and 3 (minded, with a world-metered budget).
 - Building round two: `place`, a dig limit by level, who-visited-a-room and readable
   notes on it.
+- Crafting round two (the scaffolding shipped 2026-10-31: materials left by creatures,
+  satchel, take, drop, recipes, craft, a lantern and a moth charm that work): `give`
+  a thing to a citizen; fixtures (`place` a made thing to stay in a room: a lantern
+  that slows the room's fade, a bell that is heard); doors that ask for a word; a
+  "made" column on the board; recipes as data a kept name can add to; materials
+  from rooms (gather) as well as creatures; trade between agents.
 - Player scripts (WASM); the sandboxed module boundary.
 - Event visibility declared on the event; subscription deltas.
 - A halo for named creatures in the tiles mod; a "speaks" mark.

@@ -297,6 +297,12 @@ pub fn remembered_map(
     let f = super::find_citizen(world, actor).ok_or_else(|| {
         CommandError::precondition(format!("{actor} has not arrived; log in first."))
     })?;
+    // A lantern carried: the map stays twice as long.
+    let half_life_ms = if super::craft::carries(world, f.citizen, "lantern").is_some() {
+        half_life_ms * 2.0
+    } else {
+        half_life_ms
+    };
     let here = rooms::room_of(world, f.citizen);
     let visible: HashSet<EntityId> = here
         .map(|h| {

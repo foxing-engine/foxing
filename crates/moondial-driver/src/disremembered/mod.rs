@@ -13,6 +13,7 @@ pub mod board;
 pub mod building;
 pub mod cloak;
 mod combat;
+pub mod craft;
 pub mod errand;
 pub mod exchange;
 mod identity;
@@ -148,6 +149,7 @@ pub fn schema_notes() -> Vec<&'static str> {
         "A named creature with disremembered.errand wants something: story (a story whose words touch it, worth double) and/or word (carry it to the creature named in word_to, by travel and tell; look gives the route). The two parts are independent. A done part is a public disremembered.errand_done, it clears, and the creature knows who did it.",
         "A creature with disremembered.creature.parents was born of a chain: two named creatures whose words were carried both ways by one visitor (born_of). Its kind is a hybrid of theirs; mutation, when set, says what is strange about it. It is born unnamed, holding the carried word, knowing its carrier and parents; fed to 60 it takes the name it was dealt at birth. The birth is a public disremembered.born.",
         "The map is the graph of exits; `map` lays it out on a grid from the Threshold (north up, east right, up and down floors) and returns only what you remember: the room you stand in and its exits in full, every room you have stood in at how well you remember it (disremembered.atlas.seen, yours alone; it halves every few hours), nothing you have forgotten.",
+        "A thing (kind item, disremembered.item) is a material a creature left behind when it came apart (one in three do; take it) or something made of materials and a memory (craft, from recipes). A citizen's things are in their satchel (kind satchel, a child of the citizen); things lying in a room are the room's children. Things fade on the palace curve and are forgotten below five percent. A made thing works while carried: a lantern keeps the map in your memory twice as long; a moth charm makes your next fight's memory more vivid, once.",
         "A citizen's disremembered.presence says whether they are here (acting within the last ten minutes) or a trace the room still remembers; gone_at is when they went quiet. A room's contents relation returns traced citizens too, with the room as parent, while look lists them as remembered: select disremembered.presence here to tell the two apart. Thirty days after gone_at the world forgets the citizen (a disremembered.forgotten event) and the name is free.",
     ]
 }
@@ -218,6 +220,16 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("set_by", FieldKind::Plain, Visibility::Public),
         // A citizen's memory of the map: room id to when they last stood in it.
         ComponentSchema::new(atlas::ATLAS, 1).field("seen", FieldKind::Plain, Visibility::Owner),
+        // A thing: a material a creature left, or something made of materials and a
+        // memory. It fades on the palace curve; made_by and made_of are its record.
+        ComponentSchema::new(craft::ITEM, 1)
+            .field("name", FieldKind::Plain, Visibility::Public)
+            .field("kind", FieldKind::Plain, Visibility::Public)
+            .field("origin", FieldKind::Plain, Visibility::Public)
+            .field("made_by", FieldKind::Plain, Visibility::Public)
+            .field("made_of", FieldKind::Plain, Visibility::Public)
+            .field("uses", FieldKind::Plain, Visibility::Public)
+            .field("memory", FieldKind::Timed, Visibility::Public),
         ComponentSchema::new(mind::MIND, 1)
             .field("tier", FieldKind::Plain, Visibility::Public)
             .field("name", FieldKind::Plain, Visibility::Public)
@@ -991,6 +1003,7 @@ pub fn register(world: &mut World, curves: Curves) {
     rooms::register(world);
     atlas::register(world, curves.clone());
     board::register(world);
+    craft::register(world, curves.clone());
     combat::register(world, curves.clone());
     memory::register(world, curves.clone());
     presence::register(world, curves.clone());

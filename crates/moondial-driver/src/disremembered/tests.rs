@@ -3884,3 +3884,216 @@ fn the_board_holds_the_present_and_the_record_the_rest() {
     assert_eq!(out.result["citizens"][0]["name"], "tyler");
     assert_eq!(out.result["forgotten"], 1);
 }
+
+#[test]
+fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
+    use super::craft;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // The rule for what is left: by kind, and by the kind a hybrid begins with.
+    assert_eq!(craft::material_for("wisp"), Some("a wisp ember"));
+    assert_eq!(craft::material_for("ragwisp"), Some("rag thread"));
+    assert_eq!(craft::material_for("wispling"), Some("a wisp ember"));
+    assert_eq!(craft::material_for("nothing-like"), None);
+    // Nothing carried yet; the recipes say what is lacking.
+    let out = ok(&mut w, "dave", "satchel", json!([]));
+    assert!(
+        out.summary.starts_with("Your satchel is empty."),
+        "{}",
+        out.summary
+    );
+    let out = ok(&mut w, "dave", "recipes", json!([]));
+    assert!(
+        out.summary.contains(
+            "lantern  a lantern: of a wisp ember and rag thread and a chunk worth 10 or more"
+        ),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary
+            .contains("You lack a wisp ember and rag thread."),
+        "{}",
+        out.summary
+    );
+    // Materials the operator conjures, as a creature would leave them: the fog's
+    // wisps leave embers one time in three; here the dice are forced.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let mut embers = 0;
+    let mut seed = 1u64;
+    while embers < 2 && seed < 200 {
+        w.seed(seed);
+        seed += 1;
+        let out = fight(&mut w, "dave");
+        if out.result["left"].is_object() {
+            embers += 1;
+            assert!(
+                out.summary.contains("It leaves a wisp ember behind (item-"),
+                "{}",
+                out.summary
+            );
+        }
+        // The room refills on its own; bring one back by hand to keep fighting.
+        w.fixed_now = Some(w.now().plus(Duration::seconds(100)));
+        w.tick();
+        ok(&mut w, "dave", "rest", json!([]));
+        w.fixed_now = Some(w.now().plus(Duration::seconds(400)));
+        w.tick();
+    }
+    assert_eq!(embers, 2, "two embers left by the dice");
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("On the ground: a wisp ember (item-"),
+        "{}",
+        look.summary
+    );
+    // Take one by name, one by id.
+    let out = ok(&mut w, "dave", "take", json!(["wisp ember"]));
+    assert!(
+        out.summary.starts_with("You take a wisp ember."),
+        "{}",
+        out.summary
+    );
+    let left = craft::things_in(&w, fog);
+    assert_eq!(left.len(), 1);
+    ok(
+        &mut w,
+        "dave",
+        "take",
+        json!([format!("item-{}", left[0]["id"])]),
+    );
+    let out = ok(&mut w, "dave", "satchel", json!([]));
+    assert!(
+        out.summary.starts_with("You carry: a wisp ember (item-"),
+        "{}",
+        out.summary
+    );
+    assert_eq!(out.result["things"].as_array().unwrap().len(), 2);
+    // Rag thread, from a ragpicker: conjured here by moving one in and forcing it.
+    ok(&mut w, "dave", "travel", json!(["south"]));
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let mut thread = false;
+    let mut seed = 300u64;
+    while !thread && seed < 600 {
+        w.seed(seed);
+        seed += 1;
+        ok(&mut w, "dave", "rest", json!([]));
+        w.fixed_now = Some(w.now().plus(Duration::seconds(400)));
+        w.tick();
+        if combat::creatures_in(&w, midden).is_empty() {
+            w.fixed_now = Some(w.now().plus(Duration::seconds(400)));
+            w.tick();
+        }
+        let out = fight(&mut w, "dave");
+        if out.result["left"].is_object() {
+            thread = true;
+        }
+    }
+    assert!(thread);
+    ok(&mut w, "dave", "take", json!(["rag thread"]));
+    // A lantern: the materials and a chunk worth ten. Too small a chunk is refused.
+    let small = admin(&mut w, "dave", "earn", json!(["moth", 4, 0.5]));
+    let small = format!("chunk-{}", small.result["chunk"].as_u64().unwrap());
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "craft",
+        json!(["lantern", &small]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("takes 10 or more"), "{err}");
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "craft",
+        json!(["lantern"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("name one"), "{err}");
+    let big = admin(&mut w, "dave", "earn", json!(["hydra", 40, 1.0]));
+    let big = format!("chunk-{}", big.result["chunk"].as_u64().unwrap());
+    let out = ok(&mut w, "dave", "craft", json!(["lantern", &big]));
+    assert!(
+        out.summary
+            .starts_with("You make a lantern of a wisp ember and rag thread, spending chunk-"),
+        "{}",
+        out.summary
+    );
+    let lantern = EntityId(out.result["item"].as_u64().unwrap());
+    assert!(craft::carries(
+        &w,
+        super::find_citizen(&w, "dave").unwrap().citizen,
+        "lantern"
+    )
+    .is_some());
+    let out = ok(&mut w, "dave", "satchel", json!([]));
+    assert!(
+        out.summary.contains("a lantern (item-") && out.summary.contains("made by dave"),
+        "{}",
+        out.summary
+    );
+    // The lantern doubles the map's half-life.
+    let m = ok(&mut w, "dave", "map", json!([]));
+    assert_eq!(m.result["half_life_ms"], json!(10_000 * 4 * 2));
+    // Materials used are gone; one ember remains.
+    let things = craft::things_in(&w, w.store.entity(lantern).unwrap().parent.unwrap());
+    assert_eq!(things.len(), 2, "{things:?}");
+    // The record says what was made of what, publicly.
+    let made: Vec<_> = w
+        .log
+        .read_all(&w.id, moondial_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == craft::MADE)
+        .collect();
+    assert_eq!(made.len(), 1);
+    assert_eq!(
+        system::line_for(&made[0]),
+        "dave made a lantern of a wisp ember and rag thread"
+    );
+    assert!(crate::observe::visible(
+        &w,
+        &Viewer::actor("someone-else"),
+        w.now(),
+        &made[0]
+    ));
+    // Drop it: it lies here for the next one, and look says so.
+    let out = ok(&mut w, "dave", "drop", json!(["lantern"]));
+    assert!(
+        out.summary.starts_with("You set a lantern down here."),
+        "{}",
+        out.summary
+    );
+    assert!(ok(&mut w, "dave", "look", json!([]))
+        .summary
+        .contains("On the ground: a lantern (item-"));
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "drop",
+        json!(["lantern"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("You carry no such thing"), "{err}");
+    // Things fade: the palace curve halves at five active half-lives (fifty seconds
+    // here); long after, the sweep forgets them and the record says so.
+    w.fixed_now = Some(w.now().plus(Duration::seconds(50 * 40)));
+    w.tick();
+    assert!(
+        craft::things_in(&w, midden).is_empty(),
+        "the lantern is forgotten"
+    );
+    let faded = w
+        .log
+        .read_all(&w.id, moondial_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == memory::FADED && e.payload["source"] == "a lantern")
+        .count();
+    assert_eq!(faded, 1);
+}

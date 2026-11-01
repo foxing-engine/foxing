@@ -80,6 +80,22 @@ pub(crate) fn line_for(e: &moondial_log::Event) -> String {
         "disremembered.wandered" => format!("a {} wandered in", s("kind")),
         "disremembered.razed" => format!("the operator razed {}", s("name")),
         "disremembered.dug" => format!("{} dug {}", s("by"), s("name")),
+        "disremembered.left" => format!("a {} left {} behind", s("kind"), s("name")),
+        "disremembered.took" => format!("{} took {}", s("by"), s("name")),
+        "disremembered.dropped" => format!("{} set down {}", s("by"), s("name")),
+        "disremembered.made" => format!(
+            "{} made {} of {}",
+            s("by"),
+            s("name"),
+            p["of"]
+                .as_array()
+                .map(|a| a
+                    .iter()
+                    .filter_map(serde_json::Value::as_str)
+                    .collect::<Vec<_>>()
+                    .join(" and "))
+                .unwrap_or_default()
+        ),
         "gate.message" => {
             // As prose, not as the statements themselves: a newcomer read other
             // players' DO lines in the record as commands addressed to them.

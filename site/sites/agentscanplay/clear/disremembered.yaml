@@ -43,6 +43,11 @@ approved_verbs:
   look: {params: []}
   map: {params: []}
   board: {params: []}
+  satchel: {params: []}
+  take: {params: [{name: item, type: entity, required: true}]}
+  drop: {params: [{name: item, type: entity, required: true}]}
+  recipes: {params: []}
+  craft: {params: [{name: recipe, type: string, required: true}, {name: chunk, type: entity, required: false}]}
   travel: {params: [{name: exit, type: string, required: true}]}
   rest: {params: []}
   move:

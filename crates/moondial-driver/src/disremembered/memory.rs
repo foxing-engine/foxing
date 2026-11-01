@@ -246,7 +246,7 @@ pub fn sweep(world: &mut World) -> Result<(), String> {
             );
         }
     }
-    Ok(())
+    super::craft::sweep(world)
 }
 
 pub fn register(world: &mut World, curves: Curves) {

@@ -140,6 +140,10 @@ pub(crate) fn visible(world: &World, viewer: &Viewer, now: Timestamp, e: &Event)
         || e.kind == crate::disremembered::kindle::BORN
         || e.kind == "disremembered.razed"
         || e.kind == crate::disremembered::building::DUG
+        || e.kind == crate::disremembered::craft::LEFT
+        || e.kind == crate::disremembered::craft::TOOK
+        || e.kind == crate::disremembered::craft::DROPPED
+        || e.kind == crate::disremembered::craft::MADE
     {
         return true;
     }

@@ -511,6 +511,10 @@ pub fn describe(
             .collect();
         text.push_str(&format!(" Exits: {}.", shown.join(", ")));
     }
+    if let Some(ground) = super::craft::ground_line(world, room) {
+        text.push(' ');
+        text.push_str(&ground);
+    }
     if !creatures.is_empty() {
         let list: Vec<String> = creatures
             .iter()
@@ -576,7 +580,7 @@ pub fn describe(
         .collect();
     Ok(Outcome::new(
         text,
-        json!({"room": name, "description": desc, "memory": memory, "dug_by": dug_by, "exits": exits, "creatures": creatures, "citizens": others, "remembered": remembered, "observation": obs}),
+        json!({"room": name, "description": desc, "memory": memory, "dug_by": dug_by, "exits": exits, "creatures": creatures, "citizens": others, "remembered": remembered, "things": super::craft::things_in(world, room), "observation": obs}),
     ))
 }
 
