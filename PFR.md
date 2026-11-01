@@ -334,7 +334,9 @@ figures on the canvas that answer to a click.
   half the story (4–40) until it has a name; with no name left, the next wander
   pass founds a gifted stranger in a remembered dug room for certain (the first,
   Ossian the ragpicker, came at 18:30 UTC); wanderers may now also arrive in a room
-  where only named creatures sit, so a founder gets someone to confide in; a want pays
+  where only named creatures sit, drawn the more names are few (one in two per pass
+  at ≤2 named, one in forty at ≥6; Ossian sat alone an hour at one in forty), so a
+  founder gets someone to confide in; a want pays
   ×1.5 at ≤2 named; `look` says "its name failing" under seventy. Watch: whether the confiding alone holds the ground floor at three or
   four names overnight, and whether killers farm the confided-to.
 - Ambush pacing for gate players: a fight's clock runs between gate lines, so a

@@ -286,7 +286,9 @@ fewer names are left, one chance in two at three, nothing at six or
 more; the room hears it told, and `disremembered.confided` is the
 public record. A story told is not lost. When no name is left at all, a
 stranger comes within ten minutes into a remembered dug room, already
-holding memories, and the telling starts from there. A want pays half again when names are few (a word carried,
+holding memories, and the telling starts from there; a room where a
+named creature sits alone draws strangers the more names are few (one
+chance in two each ten minutes at two or fewer named). A want pays half again when names are few (a word carried,
 the story it wanted), and `look` says when a name is failing (under
 seventy), so you know where the next one will be lost.
 

@@ -5388,6 +5388,9 @@ fn the_named_confide_in_the_unnamed_when_names_are_few() {
         1.5,
         "a want pays half again when names are few"
     );
+    assert_eq!(mind::draw_one_in(1.0), 2);
+    assert_eq!(mind::draw_one_in(0.5), 21);
+    assert_eq!(mind::draw_one_in(0.0), 40);
     // An unnamed wisp is brought from the fogbank to the midden to be told.
     let fog = rooms::room_by_key(&w, "fogbank").unwrap();
     let wisp = combat::creatures_in(&w, fog)[0].0;

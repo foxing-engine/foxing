@@ -620,6 +620,12 @@ const FORGOTTEN: &[&str] = &[
     "a face in a window",
 ];
 
+/// The chance a room holding only named creatures draws a stranger, as one in this
+/// many: two at full urgency, forty at none, straight between.
+pub fn draw_one_in(urgency: f64) -> u32 {
+    (WANDER_ONE_IN as f64 - (WANDER_ONE_IN as f64 - 2.0) * urgency.clamp(0.0, 1.0)).round() as u32
+}
+
 fn schedule_wander(world: &mut World) -> Result<(), String> {
     let due = world
         .now()
@@ -659,9 +665,19 @@ pub fn wander(world: &mut World) -> Result<usize, String> {
     } else {
         Some(rooms[world.roll(rooms.len() as u32) as usize])
     };
+    let urgency_now = urgency(named_count(world));
     for room in rooms {
         let founding = orphaned && !founded && Some(room) == founder_room;
-        if !founding && world.roll(WANDER_ONE_IN) != 0 {
+        // A room where a named creature sits alone draws strangers the more the names
+        // are few: one chance in two each pass at two or fewer named, the usual one
+        // in forty at six or more. A founder waited hours for company at one in forty.
+        let drawn = !super::combat::creatures_in(world, room).is_empty();
+        let one_in = if drawn {
+            draw_one_in(urgency_now)
+        } else {
+            WANDER_ONE_IN
+        };
+        if !founding && world.roll(one_in) != 0 {
             continue;
         }
         let key = WANDERERS[world.roll(WANDERERS.len() as u32) as usize];
