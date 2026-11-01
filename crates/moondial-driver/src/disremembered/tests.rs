@@ -3426,6 +3426,26 @@ fn a_chain_closing_can_kindle_a_hybrid_that_knows_its_makers_and_opens_its_seale
         mind::keepers(&w, child),
         vec!["dave", &rag_name, &wisp_name]
     );
+    // A newborn is never the default target, and is not struck in its first hour.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "attack",
+        json!(["ragwisp"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string()
+            .starts_with("The ragwisp is newly born and not to be struck"),
+        "{err}"
+    );
+    let out = call(&mut w, "dave", ActorKind::Citizen, "attack", json!([]));
+    assert!(
+        out.map(|o| o.result["creature"] != "ragwisp")
+            .unwrap_or(true),
+        "attack with no target never picks a child"
+    );
     assert!(
         mind::level(&w, child) > errand::WORD_XP * 0.9,
         "born holding the word that made it"

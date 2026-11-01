@@ -702,7 +702,32 @@ pub fn sweep(world: &mut World) -> Result<(), String> {
             }
         }
         if !pairs.is_empty() {
-            let (from, to) = pairs[epoch % pairs.len()];
+            // Not the pair whose word was carried within the hour: a visitor who
+            // closed a chain found the same errand issued again at once.
+            let cutoff = now.0 - 3_600_000;
+            let recent: Vec<(String, String)> = world
+                .recent_events(2000)
+                .into_iter()
+                .filter(|ev| ev.kind == DONE && ev.at.0 >= cutoff && ev.payload["errand"] == "word")
+                .filter_map(|ev| {
+                    Some((
+                        ev.payload["name"].as_str()?.to_lowercase(),
+                        ev.payload["to"].as_str()?.to_lowercase(),
+                    ))
+                })
+                .collect();
+            let fresh = |&(a, b): &(EntityId, EntityId)| {
+                let an = mind::name(world, a).unwrap_or_default().to_lowercase();
+                let bn = mind::name(world, b).unwrap_or_default().to_lowercase();
+                !recent
+                    .iter()
+                    .any(|(x, y)| (x == &an && y == &bn) || (x == &bn && y == &an))
+            };
+            let start = epoch % pairs.len();
+            let (from, to) = (0..pairs.len())
+                .map(|i| pairs[(start + i) % pairs.len()])
+                .find(|p| fresh(p))
+                .unwrap_or(pairs[start]);
             let phrase = WORDS_IN_THE_AIR[(epoch + from.0 as usize) % WORDS_IN_THE_AIR.len()];
             let to_name = mind::name(world, to).unwrap_or_default();
             set_word(world, from, phrase, &to_name, "the rotation").map_err(|e| e.to_string())?;

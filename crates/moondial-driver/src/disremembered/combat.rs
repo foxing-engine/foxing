@@ -647,7 +647,14 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             let dname = plain_str(w, creature, CREATURE, "name").unwrap_or("creature").to_string();
             let dambush = ambush_line(w, creature);
-            if super::mind::shaken(w, creature) || super::mind::keepers(w, creature).iter().any(|k| k == &actor) {
+            // It does not hunt those it knows: its keepers, whoever told it a story,
+            // whoever did what it asked. (A visitor told Sorrel the story it wanted
+            // and was ambushed by Sorrel in the Clocktower an hour later.)
+            if super::mind::shaken(w, creature)
+                || super::mind::keepers(w, creature).iter().any(|k| k == &actor)
+                || super::mind::told_by(w, creature, &actor)
+                || super::errand::did_for(w, creature, &actor)
+            {
                 return Ok(());
             }
             set_engaged(w, &actor, citizen, Some(creature)).map_err(|e| e.to_string())?;
@@ -691,9 +698,22 @@ pub fn register(world: &mut World, curves: Curves) {
                     found
                 }
                 // With no target: the one you are fighting, else the first creature here
-                // that nobody has named. A named creature is never struck by default.
-                _ => engaged_with(w, f.citizen).filter(|id| here.iter().any(|c| c.0 == *id)).or_else(|| here.iter().find(|c| super::mind::name(w, c.0).is_none()).map(|c| c.0)),
+                // that nobody has named and nobody bore. A named creature is never struck
+                // by default, nor a child: one was felled at the Threshold by "attack".
+                _ => engaged_with(w, f.citizen).filter(|id| here.iter().any(|c| c.0 == *id)).or_else(|| here.iter().find(|c| super::mind::name(w, c.0).is_none() && super::kindle::born_at(w, c.0).is_none()).map(|c| c.0)),
             };
+            if let Some(c) = target {
+                if let Some(born) = super::kindle::born_at(w, c) {
+                    let age = w.now().0 - born;
+                    if age < super::kindle::GRACE_MS && super::mind::name(w, c).is_none() {
+                        return Err(CommandError::precondition(format!(
+                            "The {} is newly born and not to be struck for {} more; feed it instead, or let it be.",
+                            plain_str(w, c, CREATURE, "name").unwrap_or("creature"),
+                            human(super::kindle::GRACE_MS - age)
+                        )));
+                    }
+                }
+            }
             let Some(creature) = target else {
                 return Err(CommandError::precondition(if here.is_empty() { "There is nothing here to fight.".to_string() } else if args.str("creature").map_or(true, str::is_empty) {
                     format!("Nothing unnamed is here to fight. {} {} a name, and {} struck only by that name.", here.iter().map(|c| super::mind::display(w, c.0)).collect::<Vec<_>>().join(" and "), if here.len() == 1 { "has" } else { "have" }, if here.len() == 1 { "is" } else { "are" })

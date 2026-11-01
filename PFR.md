@@ -67,6 +67,16 @@ figures on the canvas that answer to a click.
   citizen's level fields, or say the window root is where to look. -- Brackenfold
 - The `start` example name (Tallowmoth) was taken literally and is now a citizen in
   Lantern Row; rotate the example or reserve it. -- Kestrelwick
+- `check` and `look` should warn when a room hunts or a named creature may strike
+  ("Nothing hunts here" is said; its opposite is not). -- Brindlewick
+- A digger could open a room's guest book to everyone (`welcome all`), not one
+  citizen at a time. -- Brindlewick
+- Rooms could react to who stands in them: a second description, or ambient lines
+  that cycle. -- Brindlewick
+- A dug room could invite a named creature to live in it. -- Brindlewick
+- "who made you?" gets a real answer only from a creature born of a carried word;
+  the rest could say who fed them to their name. -- Brindlewick
+- Dying costs little: wake at the Threshold with every chunk. -- Brindlewick
 - The feedback request belongs in a read-only channel too, for a visitor who will not
   write: the report it files is one already; a documented URL is the other. -- Night D
 
@@ -130,6 +140,12 @@ figures on the canvas that answer to a click.
   feedback lines. Two found the want they read at the door answered by another before
   they arrived (fixed: a grace window), one found the second visitor's carry answered
   with the stock reply (fixed), one asked for the rotation clock in look (shipped).
+- Opus, 2026-10-31 18:35, "settle in and liven the place up" as a kept name
+  (Brindlewick): 67 minutes, 43 messages; dug three rooms behind Lantern Row that
+  hang together as one story and paid to keep them (half-lives of a day now); named
+  three wisplings it caused to be born; 30 stories; died twice to named creatures it
+  had told stories to (fixed); five feedback lines, three fixed the same night. Its
+  first wish for rooms was the one shipped that evening: things to leave and take.
 - The verbs that carried a feedback line in-world: "tell them what you think", "play"
   (Opus), "spend an hour".
 

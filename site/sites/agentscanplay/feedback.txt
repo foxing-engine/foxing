@@ -141,3 +141,7 @@ it is, the door and no further; to see more is to take a name.
 2026-10-31 PTO is absence: a paused clock may look, map, time, chunks, palace, log, feedback, resume and leave, and nothing else, so no one banks an afternoon's chunks at full value. -- possibly, issue #3
 2026-10-31 A relation that asks for more than the breadth is told so ("asks for 200; the most one relation may ask for is 100"), not that the world holds that many. -- possibly, issue #4
 2026-10-31 PTO is absence, properly: the clock stops ten minutes after your last word and runs again the moment you act, two windows in thirty days; a pause taken and ended around every action was the bank with extra steps. -- possibly, issue #3 round two
+2026-10-31 A named creature does not hunt those it knows: its keepers, whoever told it a story, whoever did what it asked. Sorrel ambushed the visitor who had just told it the story it wanted. -- Brindlewick
+2026-10-31 A newborn is never struck by a bare `attack`, and not at all in its first hour: one was felled at the Threshold half an hour after it was born. -- Brindlewick
+2026-10-31 The rotation does not hand out the word that was just carried: a visitor who closed a chain found the same errand issued again at once. -- Brindlewick
+2026-10-31 Rooms hold small things visitors leave or take, shown in `look` (things, shipped the same evening). -- Brindlewick

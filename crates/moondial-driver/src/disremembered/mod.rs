@@ -305,7 +305,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("ambush", FieldKind::Plain, Visibility::Public)
             .field("parents", FieldKind::Plain, Visibility::Public)
             .field("born_of", FieldKind::Plain, Visibility::Public)
-            .field("mutation", FieldKind::Plain, Visibility::Public),
+            .field("mutation", FieldKind::Plain, Visibility::Public)
+            // When it was born; a newborn is not struck in its first hour.
+            .field("born_at", FieldKind::Plain, Visibility::Public),
     ]
 }
 

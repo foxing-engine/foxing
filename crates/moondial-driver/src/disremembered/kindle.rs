@@ -33,6 +33,13 @@ pub const MUTATION_IN: u32 = 6;
 pub const HEIR_NAME_IN: u32 = 3;
 /// Children alive at once, at most; the map is not a nursery.
 pub const MAX_CHILDREN: usize = 12;
+/// A newborn is not to be struck for this long: an hour to be found and fed.
+pub const GRACE_MS: i64 = 3_600_000;
+
+/// When a creature was born, if it was.
+pub fn born_at(world: &World, creature: EntityId) -> Option<i64> {
+    plain_num(world, creature, CREATURE, "born_at").map(|v| v as i64)
+}
 
 /// Syllables of the seed kinds, for the hybrid names; a kind not here is split by its
 /// vowels.
@@ -307,6 +314,7 @@ pub fn try_birth(
         Field::Plain(json!([sender_name, receiver_name])),
     );
     fields.insert("born_of".into(), Field::Plain(json!(carrier)));
+    fields.insert("born_at".into(), Field::Plain(json!(world.now().0)));
     fields.insert("mutation".into(), Field::Plain(json!(mutation)));
     world
         .record(
