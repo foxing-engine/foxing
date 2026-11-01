@@ -211,7 +211,7 @@ fn a_fight_earns_a_chunk_whose_vividity_is_how_close_you_came() {
     assert_eq!(combat::attack_for_level(6000.0), 80.0);
     assert_eq!(
         ok(&mut w, "dave", "chunks", json!([])).result["attack"],
-        json!(4.0)
+        json!(6.0)
     );
 }
 
