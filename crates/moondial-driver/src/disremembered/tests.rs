@@ -3218,6 +3218,37 @@ REF: s-1
     // Nothing was written by any of it.
     let out = ok(&mut w, "tyler", "look", json!([]));
     assert!(!out.summary.contains("Pennywren"), "{}", out.summary);
+    // A build message: the dry run follows a dig into the room it would open, and
+    // `back` is the room the walk just left. (A room maker's twelve-step message
+    // read as refused from the second step, and was sent blind.)
+    let r = checker.check("FROM: tyler\nTO: disremembered\nINTENT: REQUEST\nREF: t-2\n\n[DO] tyler MUST dig cellar chunk-9 \"A Cellar\".\n[DO] tyler MUST travel cellar.\n[DO] tyler MUST look.\n[DO] tyler MUST dig north chunk-10 \"A Cold Room\".\n[DO] tyler MUST travel north.\n[DO] tyler MUST travel back.\n[DO] tyler MUST travel back.\n[DO] tyler MUST dig cellar chunk-11 \"Again\".\n");
+    assert_eq!(r.verdict, "PASS", "{:?}", r.findings);
+    let p = preview::run(&w, "tyler", false, &r.message);
+    let what: Vec<String> = p["statements"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| format!("{} {}", l["ok"], l["what"].as_str().unwrap()))
+        .collect();
+    assert!(
+        what[0].starts_with("true digs cellar from The Midden to A Cellar"),
+        "{}",
+        what[0]
+    );
+    assert_eq!(what[1], "true takes the cellar to A Cellar (not dug yet)");
+    assert_eq!(what[2], "true shows A Cellar (not dug yet)");
+    assert!(
+        what[3].starts_with("true digs north from A Cellar (not dug yet) to A Cold Room"),
+        "{}",
+        what[3]
+    );
+    assert_eq!(what[4], "true goes north to A Cold Room (not dug yet)");
+    assert_eq!(what[5], "true goes back to A Cellar (not dug yet)");
+    assert_eq!(what[6], "true goes back to The Midden");
+    assert_eq!(
+        what[7],
+        "false refused: The Midden already has an exit cellar"
+    );
 }
 
 #[test]

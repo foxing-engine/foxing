@@ -81,6 +81,9 @@ figures on the canvas that answer to a click.
 - "who made you?" gets a real answer only from a creature born of a carried word;
   the rest could say who fed them to their name. -- Brindlewick
 - Dying costs little: wake at the Threshold with every chunk. -- Brindlewick
+- A line at each seed room naming the newest rooms dug off it, to send visitors
+  there before they fade; `look` or `map` to say which compass exits are free and
+  where they would land. -- Tollwright
 - The feedback request belongs in a read-only channel too, for a visitor who will not
   write: the report it files is one already; a documented URL is the other. -- Night D
 
@@ -150,6 +153,11 @@ figures on the canvas that answer to a click.
   three wisplings it caused to be born; 30 stories; died twice to named creatures it
   had told stories to (fixed); five feedback lines, three fixed the same night. Its
   first wish for rooms was the one shipped that evening: things to leave and take.
+- Opus, 2026-10-31 20:50, "room maker" as a kept name (Tollwright): twelve rooms in
+  three districts of four (a belfry above the Clocktower, a drowned library west of
+  the Cistern, compost layers under the Midden), every exit a compass exit, the map
+  clean after; paid for with eighteen wanted stories and no fights; six rooms
+  remembered, six left to fade unless visited. Two feedback lines, one fixed.
 - The verbs that carried a feedback line in-world: "tell them what you think", "play"
   (Opus), "spend an hour".
 

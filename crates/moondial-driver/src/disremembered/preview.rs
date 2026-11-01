@@ -74,6 +74,17 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &moondial_clear::Mess
         .or_else(|| rooms::arrival(world));
     let mut lines: Vec<Value> = Vec::new();
     let mut refused = 0usize;
+    // The walk this message makes: a dig opens an exit the world does not have yet
+    // (to a room that is not there yet, numbered from the top), and `back` is the
+    // room the walk just left. A room maker's build message of a dozen steps read
+    // as refused from the second step, and was sent blind.
+    let mut dug: std::collections::BTreeMap<
+        EntityId,
+        std::collections::BTreeMap<String, EntityId>,
+    > = Default::default();
+    let mut dug_names: std::collections::BTreeMap<EntityId, String> = Default::default();
+    let mut came_from: Option<EntityId> = world.came_from(actor);
+    let mut next_virtual = u64::MAX - 1;
     for st in statements
         .iter()
         .filter(|s| s.r#type.as_deref() == Some("DO"))
@@ -89,10 +100,31 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &moondial_clear::Mess
             })
             .collect();
         let arg = |i: usize| args.get(i).cloned().unwrap_or_default();
-        let room_name = |r: Option<EntityId>| {
-            r.and_then(|r| plain_str(world, r, ROOM, "name"))
-                .unwrap_or("nowhere")
-                .to_string()
+        let room_name_in = |dn: &std::collections::BTreeMap<EntityId, String>,
+                            r: Option<EntityId>| {
+            r.and_then(|r| {
+                dn.get(&r)
+                    .map(|n| format!("{n} (not dug yet)"))
+                    .or_else(|| plain_str(world, r, ROOM, "name").map(str::to_string))
+            })
+            .unwrap_or_else(|| "nowhere".to_string())
+        };
+        // The room's exits as the walk sees them: the world's, and this message's digs.
+        let exits_now_in = |dg: &std::collections::BTreeMap<
+            EntityId,
+            std::collections::BTreeMap<String, EntityId>,
+        >,
+                            dn: &std::collections::BTreeMap<EntityId, String>,
+                            r: EntityId| {
+            let mut e = if dn.contains_key(&r) {
+                Default::default()
+            } else {
+                rooms::exits_of(world, r)
+            };
+            if let Some(d) = dg.get(&r) {
+                e.extend(d.iter().map(|(k, v)| (k.clone(), *v)));
+            }
+            e
         };
         let (ok, what) = if passing && KEPT_ONLY.contains(&verb.as_str()) {
             (
@@ -101,15 +133,46 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &moondial_clear::Mess
             )
         } else {
             match verb.as_str() {
-                "look" => (true, format!("shows {}", room_name(room))),
-                "travel" => match room.map(|r| rooms::exits_of(world, r)) {
+                "look" => (true, format!("shows {}", room_name_in(&dug_names, room))),
+                "dig" if room.is_some() => {
+                    let here = room.unwrap_or(EntityId(0));
+                    let exit = arg(0).to_ascii_lowercase();
+                    let here_name = room_name_in(&dug_names, room);
+                    let taken =
+                        exit.is_empty() || exits_now_in(&dug, &dug_names, here).contains_key(&exit);
+                    if taken {
+                        (
+                            false,
+                            format!("refused: {here_name} already has an exit {exit}"),
+                        )
+                    } else {
+                        let id = EntityId(next_virtual);
+                        next_virtual -= 1;
+                        let name = if arg(2).is_empty() {
+                            "An Unnamed Digging".to_string()
+                        } else {
+                            arg(2)
+                        };
+                        dug.entry(here).or_default().insert(exit.clone(), id);
+                        dug.entry(id)
+                            .or_default()
+                            .insert(super::building::opposite_of(&exit).to_string(), here);
+                        dug_names.insert(id, name.clone());
+                        (
+                            true,
+                            format!("digs {exit} from {here_name} to {name}, if the chunk is yours and the room allows it"),
+                        )
+                    }
+                }
+                "travel" => match room.map(|r| exits_now_in(&dug, &dug_names, r)) {
                     Some(exits) => match exits.get(&arg(0)).or_else(|| {
                         (arg(0) == "back")
-                            .then(|| world.came_from(actor))
+                            .then_some(came_from)
                             .flatten()
                             .and_then(|from| exits.values().find(|&&to| to == from))
                     }) {
                         Some(&to) => {
+                            came_from = room;
                             room = Some(to);
                             (
                                 true,
@@ -119,7 +182,7 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &moondial_clear::Mess
                                         .trim_end_matches('.')
                                         .replacen("You go", "goes", 1)
                                         .replacen("You take", "takes", 1),
-                                    room_name(Some(to))
+                                    room_name_in(&dug_names, Some(to))
                                 ),
                             )
                         }
@@ -128,7 +191,7 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &moondial_clear::Mess
                             format!(
                                 "refused: no exit {} from {}; exits: {}",
                                 arg(0),
-                                room_name(room),
+                                room_name_in(&dug_names, room),
                                 exits.keys().cloned().collect::<Vec<_>>().join(", ")
                             ),
                         ),
@@ -252,7 +315,7 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &moondial_clear::Mess
                                 false,
                                 format!(
                                     "refused: no one called {who}, and no such creature in {}",
-                                    room_name(room)
+                                    room_name_in(&dug_names, room)
                                 ),
                             ),
                         },
@@ -268,12 +331,12 @@ pub fn run(world: &World, actor: &str, passing: bool, msg: &moondial_clear::Mess
                                     false,
                                     format!(
                                         "refused: nothing unnamed to fight in {}",
-                                        room_name(room)
+                                        room_name_in(&dug_names, room)
                                     ),
                                 ),
                             }
                         }
-                        (_, None) => (false, format!("refused: no {who} in {}", room_name(room))),
+                        (_, None) => (false, format!("refused: no {who} in {}", room_name_in(&dug_names, room))),
                         _ => (true, format!("runs {verb}")),
                     }
                 }

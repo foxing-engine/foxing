@@ -137,6 +137,11 @@ pub fn remembered_description(description: &str, memory: Option<f64>) -> String 
 }
 
 /// The way back for a compass exit, or `back`.
+/// The way back from an exit, as `dig` names it.
+pub(crate) fn opposite_of(exit: &str) -> &'static str {
+    opposite(exit)
+}
+
 fn opposite(exit: &str) -> &'static str {
     match exit {
         "north" => "south",
