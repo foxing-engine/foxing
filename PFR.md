@@ -21,9 +21,10 @@ figures on the canvas that answer to a click.
 - Admin on the play page: `admin <token>` in the terminal (the session's login frame
   takes a token already), and `help` then lists the admin verbs (`/v0/commands?kind=admin`
   has them; the page asks without it). The text port shows them after `admin` today.
-- The mini-map (shipped 2026-10-31): click a remembered room to walk there by the
-  route; a `remember` that keeps a room on your map; the ground floor can outgrow the
-  panel as rooms are dug (scroll, or a zoom).
+- The mini-map (shipped 2026-10-31; named cells, floors with yours first, named doors
+  labeled, click to walk there by the doors you remember, shipped the same night): a
+  `remember` that keeps a room on your map; the ground floor can outgrow the panel as
+  rooms are dug (scroll, or a zoom); a second line of the name on wider cells.
 - The record page (`/record/?ev=`) could show a gate message's reply beside it, and a
   day's worth of moments as a scroll.
 

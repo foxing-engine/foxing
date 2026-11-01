@@ -120,17 +120,24 @@
   #ways { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
   /* Its own column: a set width, dragged wider or narrower by the grip at its corner
      (remembered in this browser); the drawing scales to it and the note wraps. */
-  #atlas-section { width: var(--atlas-w, 300px); min-width: 160px; max-width: 100%; resize: horizontal; overflow: hidden; padding-bottom: 14px; box-sizing: border-box; }
+  /* The grip is on a box inside the section: a section that is itself a scroll
+     container was sized by the grid before the drawing had a height, and the panel
+     below overlapped the map. */
+  #atlas-box { width: var(--atlas-w, 420px); min-width: 160px; max-width: 100%; resize: horizontal; overflow: hidden; padding-bottom: 14px; box-sizing: border-box; }
   #atlas { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--night); }
   #atlas-section:not(:has(#atlas[data-drawn])) { display: none; }
-  #atlas .room { fill: var(--dust); }
-  #atlas .room.here { stroke: var(--ink); stroke-width: 1.5; }
-  #atlas .room.seed { fill: var(--dim); }
-  #atlas .link { stroke: var(--line); stroke-width: 1; }
-  #atlas .link.odd { stroke-dasharray: 2 2; }
-  #atlas .floor { fill: var(--dim); font: 9px var(--mono); }
-  #atlas .stair { fill: var(--dim); font: 8px var(--mono); }
-  #atlas text.label { fill: var(--dim); font: 9px var(--mono); pointer-events: none; }
+  #atlas .room { fill: #2a2f3b; stroke: var(--line); stroke-width: 1; }
+  #atlas .room.seed { fill: #232833; }
+  #atlas .room.seen { fill: #3a4252; stroke: var(--dust); }
+  #atlas .room.here { fill: #4a4330; stroke: var(--dust); stroke-width: 2; }
+  #atlas .cell.go { cursor: pointer; }
+  #atlas .cell.go:hover .room { stroke: var(--ink); }
+  #atlas .link { stroke: #3a4252; stroke-width: 2; }
+  #atlas .link.odd { stroke-dasharray: 3 3; stroke: var(--dust); opacity: .7; }
+  #atlas .floor { fill: var(--dim); font: 10px var(--mono); }
+  #atlas .stair { fill: var(--dust); font: 8px var(--mono); }
+  #atlas .name { fill: var(--ink); font: 9px var(--mono); pointer-events: none; }
+  #atlas .door { fill: var(--dust); font: 7px var(--mono); pointer-events: none; }
   #atlas-note { font-size: 11px; color: var(--dim); margin-top: 4px; white-space: normal; overflow-wrap: anywhere; }
   #ways:empty { display: none; }
   .way { font: 11px var(--mono); color: var(--dim); background: var(--night); border: 1px solid var(--line); border-radius: 3px; padding: 2px 7px; cursor: pointer; }
@@ -334,8 +341,10 @@
     </section>
     <section id="atlas-section">
       <h2>What you remember of the map</h2>
-      <svg id="atlas" viewBox="0 0 396 200" role="img" aria-label="The map as you remember it"></svg>
-      <div id="atlas-note"></div>
+      <div id="atlas-box">
+        <svg id="atlas" viewBox="0 0 396 200" role="img" aria-label="The map as you remember it"></svg>
+        <div id="atlas-note"></div>
+      </div>
     </section>
     <section>
       <h2>Here</h2>
@@ -812,17 +821,18 @@
   // world gave, so the decay is visible without a round trip. Compass neighbors are
   // drawn adjacent; a named door or a shoved room is a dashed link; another floor is
   // marked with a stair glyph on the room that has it.
-  let atlas = null, atlasRoom = null, atlasTimer = null;
+  let atlas = null, atlasRoom = null, atlasTimer = null, atlasFit = null;
   (function () {
-    const sec = $("atlas-section"); if (!sec) return;
+    const sec = $("atlas-box"); if (!sec) return;
     try { const w = localStorage.getItem("atlas-w"); if (w) sec.style.setProperty("--atlas-w", w); } catch (e) {}
     let last = null;
     new ResizeObserver(() => {
       const w = Math.round(sec.getBoundingClientRect().width); if (!w || w === last) return; last = w;
       try { localStorage.setItem("atlas-w", w + "px"); } catch (e) {}
+      if (atlasFit) atlasFit();
     }).observe(sec);
   })();
-  const CELL = 22, PAD = 10;
+  const CELL = 46, PAD = 10;
   async function refreshAtlas(force) {
     if (!wsReady || !actor) return;
     const room = subs.room && subs.room.root;
@@ -835,6 +845,45 @@
     atlas = r.result; drawAtlas();
     if (!atlasTimer) atlasTimer = setInterval(drawAtlas, 60000);
   }
+  // The short of a room's name, for a label that fits a cell: "Lantern Row" ->
+  // "Lantern", "The Parlor Behind the Fourth Door" -> "Parlor".
+  function shortName(name) {
+    const w = String(name || "").replace(/^(The|An?) /, "").split(/\s+/)[0] || "?";
+    return w.length > 8 ? w.slice(0, 7) + "\u2026" : w;
+  }
+  // The way from here to a remembered room, over the exits the map knows: a list of
+  // exit names, or null. Breadth-first, so the fewest doors.
+  function routeTo(target) {
+    if (!atlas) return null;
+    const here = atlas.rooms.find(r => r.here); if (!here) return null;
+    const byId = new Map(atlas.rooms.map(r => [r.id, r]));
+    const prev = new Map([[here.id, null]]); const queue = [here.id];
+    while (queue.length) {
+      const id = queue.shift(); if (id === target) break;
+      const r = byId.get(id); if (!r) continue;
+      for (const [name, to] of Object.entries(r.exits || {})) {
+        if (!byId.has(to) || prev.has(to)) continue;
+        prev.set(to, { from: id, via: name }); queue.push(to);
+      }
+    }
+    if (!prev.has(target)) return null;
+    const steps = []; let at = target;
+    while (prev.get(at)) { const p = prev.get(at); steps.unshift(p.via); at = p.from; }
+    return steps;
+  }
+  function walkTo(target) {
+    const steps = routeTo(target); if (!steps || !steps.length) return;
+    const name = (atlas.rooms.find(r => r.id === target) || {}).name || "there";
+    print("Walking to " + name + ": " + steps.join(", ") + ".", "sys");
+    chain = chain.then(async () => {
+      for (const via of steps) {
+        const r = await wsCommand("travel", [via]);
+        if (!r || !r.ok) { print("The walk stopped" + (r && r.error ? ": " + r.error : "."), "err"); return; }
+        print(r.summary || "", "");
+        await new Promise(res => setTimeout(res, 250));
+      }
+    });
+  }
   function drawAtlas() {
     const svg = $("atlas"); if (!svg) return;
     if (!atlas || !actor) { svg.removeAttribute("data-drawn"); $("atlas-note").textContent = ""; return; }
@@ -846,43 +895,56 @@
     const byId = new Map(rooms.map(r => [r.id, r]));
     const ns = "http://www.w3.org/2000/svg", el = (t, a) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
     const COMPASS = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
-    // One panel per floor you remember anything on, top floor first, the one you are
-    // on marked; each panel is its rooms' bounding box.
-    const floors = [...new Set(rooms.map(r => r.z))].sort((a, b) => b - a);
+    // One panel per floor you remember anything on, your floor first, then up, then
+    // down; each panel is its rooms' bounding box. A room is a cell with its short
+    // name; its full name, how well you remember it and the way there are on hover,
+    // and a click walks there by the doors you remember.
+    const floors = [...new Set(rooms.map(r => r.z))].sort((a, b) => (a === here.z ? -1 : b === here.z ? 1 : b - a));
     const frag = document.createDocumentFragment();
     let ox = PAD, H = 0;
     for (const z of floors) {
       const floor = rooms.filter(r => r.z === z);
       const xs = floor.map(r => r.x), ys = floor.map(r => r.y);
       const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-      const w = (maxX - minX + 1) * CELL, h = (maxY - minY + 1) * CELL + 16;
-      const px = r => ox + (r.x - minX) * CELL + CELL / 2, py = r => PAD + 16 + (r.y - minY) * CELL + CELL / 2;
-      const label = (z === 0 ? "ground" : z > 0 ? "up " + z : "down " + (-z)) + (z === here.z ? " ← you" : "");
-      frag.append(Object.assign(el("text", { x: ox, y: PAD + 8, class: "floor" }), { textContent: label }));
+      const w = (maxX - minX + 1) * CELL, h = (maxY - minY + 1) * CELL + 18;
+      const px = r => ox + (r.x - minX) * CELL + CELL / 2, py = r => PAD + 18 + (r.y - minY) * CELL + CELL / 2;
+      const label = (z === 0 ? "ground" : z > 0 ? "up " + z : "down " + (-z)) + (z === here.z ? " \u2190 you" : "");
+      frag.append(Object.assign(el("text", { x: ox, y: PAD + 9, class: "floor" }), { textContent: label }));
       const drawn = new Set();
       for (const r of floor) for (const [name, to] of Object.entries(r.exits || {})) {
         const t = byId.get(to); if (!t || t.z !== z) continue;
         const key = Math.min(r.id, to) + ":" + Math.max(r.id, to); if (drawn.has(key)) continue; drawn.add(key);
         const d = COMPASS[name], adjacent = d && t.x === r.x + d[0] && t.y === r.y + d[1];
         frag.append(el("line", { x1: px(r), y1: py(r), x2: px(t), y2: py(t), class: "link" + (adjacent ? "" : " odd"), opacity: Math.min(r.mem, t.mem).toFixed(2) }));
+        if (!d) frag.append(Object.assign(el("text", { x: (px(r) + px(t)) / 2, y: (py(r) + py(t)) / 2 - 3, class: "door", "text-anchor": "middle" }), { textContent: name }));
       }
       for (const r of floor) {
-        const g = el("g", { opacity: r.mem.toFixed(2) });
+        const g = el("g", { opacity: Math.max(0.25, r.mem).toFixed(2), class: "cell" + (r.here ? "" : " go") });
         const stairs = Object.entries(r.exits || {}).map(([n, to]) => byId.get(to)).filter(t => t && t.z !== z);
-        const rect = el("rect", { x: px(r) - 7, y: py(r) - 7, width: 14, height: 14, rx: 2, class: "room" + (r.here ? " here" : "") + (r.dug_by ? "" : " seed") });
-        rect.append(Object.assign(el("title", {}), { textContent: r.name + (r.visible ? "" : " (" + Math.round(r.mem * 100) + "% remembered)") }));
-        g.append(rect);
-        if (stairs.length) g.append(Object.assign(el("text", { x: px(r) + 8, y: py(r) - 6, class: "stair" }), { textContent: (stairs.some(t => t.z > z) ? "▲" : "") + (stairs.some(t => t.z < z) ? "▼" : "") }));
+        const half = (CELL - 8) / 2;
+        const rect = el("rect", { x: px(r) - half, y: py(r) - half, width: CELL - 8, height: CELL - 8, rx: 3, class: "room" + (r.here ? " here" : "") + (r.visible ? " seen" : "") + (r.dug_by ? "" : " seed") });
+        const steps = r.here ? null : routeTo(r.id);
+        const title = el("title", {});
+        title.textContent = r.name + (r.visible ? (r.here ? " (you are here)" : " (in sight)") : " (" + Math.round(r.mem * 100) + "% remembered)") + (steps ? "; click to walk there, " + steps.length + " door" + (steps.length === 1 ? "" : "s") : "");
+        g.append(title, rect);
+        g.append(Object.assign(el("text", { x: px(r), y: py(r) + 3, class: "name", "text-anchor": "middle" }), { textContent: shortName(r.name) }));
+        if (stairs.length) g.append(Object.assign(el("text", { x: px(r) + half - 1, y: py(r) - half + 7, class: "stair", "text-anchor": "end" }), { textContent: (stairs.some(t => t.z > z) ? "\u25b2" : "") + (stairs.some(t => t.z < z) ? "\u25bc" : "") }));
+        if (steps) g.addEventListener("click", () => walkTo(r.id));
         frag.append(g);
       }
       ox += w + PAD * 2; H = Math.max(H, h);
     }
-    const W = Math.max(396, ox - PAD);
-    svg.setAttribute("viewBox", "0 0 " + W + " " + (PAD + H + PAD));
+    const W = Math.max(300, ox - PAD), Hv = PAD + H + PAD;
+    svg.setAttribute("viewBox", "0 0 " + W + " " + Hv);
     svg.replaceChildren(frag); svg.setAttribute("data-drawn", "1");
+    // An explicit height: the grid sized the row before the drawing had one, and
+    // the section below overlapped the map.
+    const fit = () => { const w = svg.clientWidth || 300; svg.style.height = Math.round(w * Hv / W) + "px"; };
+    fit(); atlasFit = fit;
     const half = Math.round(hl / 360000) / 10;
-    $("atlas-note").textContent = "You are in " + here.name.replace(/^The /, "") + "; " + rooms.length + " room" + (rooms.length === 1 ? "" : "s") + " remembered. A room halves every " + half + " h since you stood in it; a dashed link is a named door, or a room the compass could not place.";
+    $("atlas-note").textContent = rooms.length + " room" + (rooms.length === 1 ? "" : "s") + " remembered; a room halves every " + half + " h since you stood in it. Bright: in sight. Click a room to walk there; a dashed link is a named door.";
   }
+
 
   function draw() {
     const map = document.createDocumentFragment(), here = document.createDocumentFragment(), you = $("you"), win = $("window");
