@@ -138,6 +138,13 @@ figures on the canvas that answer to a click.
   that wanders off mid-fight; a room whose exits shift once in a long while; the
   memory sweep's minute; a creature's mood that changes what it wants mid-want.
 
+- The Clocktower round two (round one shipped 2026-10-31: six rates, the hourly
+  strike, the band on the median active holding and the concentration rule, prose
+  to everyone present): a section on the analytics page with the rates and the
+  dashboard over time; levers not yet wired (vividity stretch, the keep rate,
+  dig cost); open-market events (a festival hour, a tide); a `rates` admin verb to
+  set one by hand; targets the owner can set without a deploy.
+
 ## Operator and owner
 
 - Show HN, with a log dump, when the game is further along.

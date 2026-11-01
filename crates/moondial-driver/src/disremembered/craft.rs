@@ -169,7 +169,9 @@ pub fn leave_behind(
     creature: EntityId,
     kind: &str,
 ) -> Result<Option<(EntityId, String)>, CommandError> {
-    if world.roll(DROP_ONE_IN) != 0 {
+    // One in three at the world's drop rate of 1.0; the Clocktower moves it.
+    let chance = super::economy::rate(world, "drop") / DROP_ONE_IN as f64;
+    if world.roll(1000) as f64 >= chance * 1000.0 {
         return Ok(None);
     }
     let Some(name) = material_for(kind) else {
@@ -530,17 +532,18 @@ pub fn register(world: &mut World, curves: Curves) {
             let mut list = Vec::new();
             for r in RECIPES {
                 let missing: Vec<&str> = r.of.iter().copied().filter(|m| !have.iter().any(|h| h == m)).collect();
-                let can = missing.is_empty() && level >= r.chunk_at_least;
+                let asks = r.chunk_at_least * super::economy::rate(w, "price");
+                let can = missing.is_empty() && level >= asks;
                 lines.push(format!(
                     "  {:<8} {}: of {}{}; {}.{}",
                     r.key,
                     r.name,
                     r.of.join(" and "),
-                    if r.chunk_at_least > 0.0 { format!(" and a chunk worth {:.0} or more", r.chunk_at_least) } else { String::new() },
+                    if r.chunk_at_least > 0.0 { format!(" and a chunk worth {asks:.0} or more") } else { String::new() },
                     r.does,
                     if can { " You could make this now.".to_string() } else if !missing.is_empty() { format!(" You lack {}.", missing.join(" and ")) } else { " You lack the memory to spend.".to_string() }
                 ));
-                list.push(json!({"recipe": r.key, "name": r.name, "of": r.of, "chunk_at_least": r.chunk_at_least, "does": r.does, "uses": r.uses, "could_make": can, "missing": missing}));
+                list.push(json!({"recipe": r.key, "name": r.name, "of": r.of, "chunk_at_least": asks, "does": r.does, "uses": r.uses, "could_make": can, "missing": missing}));
             }
             Ok(Outcome::new(
                 format!("What can be made (craft <recipe> [<chunk>]):\n{}", lines.join("\n")),
@@ -606,10 +609,11 @@ pub fn register(world: &mut World, curves: Curves) {
                     .ok()
                     .and_then(|v| v.as_f64())
                     .unwrap_or(0.0);
-                if worth < r.chunk_at_least {
+                let asks = r.chunk_at_least * super::economy::rate(w, "price");
+                if worth < asks {
                     return Err(CommandError::precondition(format!(
-                        "Chunk {} is worth {worth:.2}; {} takes {:.0} or more.",
-                        chunk.0, r.name, r.chunk_at_least
+                        "Chunk {} is worth {worth:.2}; {} takes {asks:.0} or more at today's prices.",
+                        chunk.0, r.name
                     )));
                 }
                 w.record(Actor::Citizen(ctx.actor.clone()), StoreEvent::EntityRemoved { id: chunk })

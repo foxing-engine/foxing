@@ -49,6 +49,7 @@
     "disremembered.remembered": e => [s(e.payload, "by"), e.payload.creature ? " gave the memory of " + s(e.payload, "with") + " to the " + s(e.payload, "kind") : " kept " + s(e.payload, "name") + " with the memory of " + s(e.payload, "with")],
     "disremembered.errand_done": e => [s(e.payload, "from"), e.payload.to ? " carried " + s(e.payload, "name") + "'s word to " + e.payload.to : " told " + s(e.payload, "name") + " the story it wanted"],
     "disremembered.feedback": e => [s(e.payload, "from"), " would change: “" + s(e.payload, "text") + "”"],
+    "disremembered.clocktower": e => ["The Clocktower", s(e.payload, "said").replace(/^The Clocktower/, "")],
     "disremembered.left": e => ["a " + s(e.payload, "kind"), " left " + s(e.payload, "name") + " behind"],
     "disremembered.took": e => [s(e.payload, "by"), " took " + s(e.payload, "name")],
     "disremembered.dropped": e => [s(e.payload, "by"), " set down " + s(e.payload, "name")],

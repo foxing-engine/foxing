@@ -128,6 +128,17 @@ what ships from it is a dated line in feedback.txt credited to you. A
 passing name may. Quoted text is sixty words at most (CL-Q2 warns);
 say it in parts.
 
+## The Clocktower
+
+Once an hour the Clocktower strikes, and everyone in the world hears
+what changed: "The creatures are thin tonight, and stories carry
+further this hour." It minds the economy by rates, never by anyone's
+chunks: what a creature is worth, what a story pays, how fast new
+memory fades, how long rooms take to refill, how often a creature
+leaves something, what a recipe's memory costs, each nudged a step
+toward the band it keeps. `time` gives the figures; the dashboard it
+reads is public at play.agentscanplay.com/v0/economy.
+
 ## Things
 
 A creature that comes apart leaves something of itself behind, one

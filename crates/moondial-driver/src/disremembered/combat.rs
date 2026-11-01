@@ -307,7 +307,8 @@ pub(crate) fn spawn_one(
     // worth within a quarter. `look` shows the hit points, so a careful fighter can
     // pick the weaker one; the worth is found out at the end.
     let hp = (super::jitter(world, d.hp, 0.8, 1.2) * 10.0).round() / 10.0;
-    let xp = super::jitter(world, d.xp, 0.75, 1.25).round();
+    let xp =
+        (super::jitter(world, d.xp, 0.75, 1.25) * super::economy::rate(world, "worth")).round();
     let mut fields = BTreeMap::new();
     fields.insert("name".into(), Field::Plain(json!(d.name)));
     fields.insert("hp".into(), Field::Plain(json!(hp)));
@@ -343,7 +344,8 @@ fn schedule_respawn(world: &mut World, room: EntityId) -> Result<(), String> {
     let secs = plain_num(world, room, SPAWN, "respawn_seconds").unwrap_or(60.0);
     // Between three fifths and eight fifths of the figure: a room refills "in a
     // couple of minutes", never on the minute.
-    let secs = super::jitter(world, secs, RESPAWN_LOW, RESPAWN_HIGH) as i64;
+    let secs = (super::jitter(world, secs, RESPAWN_LOW, RESPAWN_HIGH)
+        * super::economy::rate(world, "respawn")) as i64;
     let due = world.now().plus(moondial_time::Duration::seconds(secs));
     world
         .schedule_once(JOB_RESPAWN, due, json!({"room": room.0}), |p| {

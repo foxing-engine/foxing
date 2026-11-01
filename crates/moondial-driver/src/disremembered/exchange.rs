@@ -123,7 +123,9 @@ pub fn register(world: &mut World, curves: Curves) {
             let wanted = super::errand::wants_story(w, creature, &text);
             // About half an XP a word: the creature's mood is a fifth either way,
             // so no length is the right length to the decimal.
-            let paid = super::jitter(w, words.min(MAX_WORDS_PAID) as f64 * XP_PER_WORD, 0.8, 1.2).round()
+            let paid = (super::jitter(w, words.min(MAX_WORDS_PAID) as f64 * XP_PER_WORD, 0.8, 1.2)
+                * super::economy::rate(w, "pay"))
+            .round()
                 * if wanted { 2.0 } else { 1.0 };
             let gist = gist(&text);
             let kind = super::plain_str(w, creature, super::CREATURE, "name").unwrap_or("?").to_string();

@@ -144,6 +144,7 @@ pub(crate) fn visible(world: &World, viewer: &Viewer, now: Timestamp, e: &Event)
         || e.kind == crate::disremembered::craft::TOOK
         || e.kind == crate::disremembered::craft::DROPPED
         || e.kind == crate::disremembered::craft::MADE
+        || e.kind == crate::disremembered::economy::CLOCKTOWER
     {
         return true;
     }

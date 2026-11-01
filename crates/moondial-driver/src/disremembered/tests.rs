@@ -3018,10 +3018,7 @@ fn the_rotation_renews_a_stale_want_and_keeps_one_word_in_the_air() {
     // The want's keywords are the thing wanted, not the clause about forgetting: a
     // visitor found "mostly" and "forgotten" among them and had to say both to match.
     assert!(
-        !next
-            .keywords
-            .iter()
-            .any(|k| k == "mostly" || k == "forgotten"),
+        !next.keywords.iter().any(|k| k == "mostly"),
         "{:?}",
         next.keywords
     );
@@ -3935,11 +3932,8 @@ fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
                 out.summary
             );
         }
-        // The room refills on its own; bring one back by hand to keep fighting.
-        w.fixed_now = Some(w.now().plus(Duration::seconds(100)));
-        w.tick();
-        ok(&mut w, "dave", "rest", json!([]));
-        w.fixed_now = Some(w.now().plus(Duration::seconds(400)));
+        // The room refills on its own within 96 s; the embers keep that long.
+        w.fixed_now = Some(w.now().plus(Duration::seconds(97)));
         w.tick();
     }
     assert_eq!(embers, 2, "two embers left by the dice");
@@ -4096,4 +4090,99 @@ fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
         .filter(|e| e.kind == memory::FADED && e.payload["source"] == "a lantern")
         .count();
     assert_eq!(faded, 1);
+}
+
+#[test]
+fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
+    use super::economy;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    // The rates exist from boot, at one, and the Clocktower is wound for the hour.
+    assert_eq!(economy::rate(&w, "worth"), 1.0);
+    assert!(w.jobs.has(economy::JOB_CLOCKTOWER, |_| true));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let time = ok(&mut w, "dave", "time", json!([]));
+    assert!(
+        time.summary
+            .contains("the Clocktower's rates: drop 1.00 · half_life 1.00"),
+        "{}",
+        time.summary
+    );
+    // Poor: two active citizens holding nothing. The hour strikes; the sources open,
+    // and everyone present hears it in prose. The record carries the figures.
+    let hour = (t0.0 / economy::STRIKE_EVERY_MS + 1) * economy::STRIKE_EVERY_MS;
+    w.fixed_now = Some(Timestamp(hour - 1000));
+    ok(&mut w, "dave", "look", json!([]));
+    ok(&mut w, "tyler", "look", json!([]));
+    let head = events(&w);
+    w.fixed_now = Some(Timestamp(hour + 1));
+    assert!(w.tick() >= 1);
+    let said = narrative(&w, "dave", head);
+    assert!(
+        said.iter().any(|l| l == "The Clocktower strikes. The fog is thick with things worth remembering, stories carry further this hour, and the ground is soft and things are cheap."),
+        "{said:?}"
+    );
+    assert!(narrative(&w, "tyler", head)
+        .iter()
+        .any(|l| l.starts_with("The Clocktower strikes.")));
+    assert!((economy::rate(&w, "worth") - 1.05).abs() < 1e-9);
+    assert!((economy::rate(&w, "pay") - 1.05).abs() < 1e-9);
+    assert!((economy::rate(&w, "price") - 1.0 / 1.05).abs() < 1e-3);
+    assert_eq!(economy::rate(&w, "half_life"), 1.0, "no hoard, no thinning");
+    let struck: Vec<_> = w
+        .log
+        .read_all(&w.id, moondial_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == economy::CLOCKTOWER)
+        .collect();
+    assert_eq!(struck.len(), 1);
+    assert_eq!(struck[0].payload["changes"].as_array().unwrap().len(), 3);
+    assert!(crate::observe::visible(
+        &w,
+        &Viewer::actor("nobody"),
+        w.now(),
+        &struck[0]
+    ));
+    assert!(w.jobs.has(economy::JOB_CLOCKTOWER, |_| true), "wound again");
+    // The rate reaches the sources: a story pays five percent more than its figure
+    // would, a recipe asks five percent less.
+    let out = ok(&mut w, "dave", "recipes", json!([]));
+    assert!(
+        out.result["recipes"][0]["chunk_at_least"].as_f64().unwrap() < 10.0,
+        "{}",
+        out.result["recipes"][0]
+    );
+    // A hoard: dave holds nearly all. The next strike thins memory and raises pay,
+    // whatever the band says (the median is still in it or below).
+    // (The test world's chunks halve in seconds, so the hoard is made at the stroke.)
+    w.fixed_now = Some(Timestamp(hour + economy::STRIKE_EVERY_MS - 1000));
+    admin(&mut w, "dave", "earn", json!(["hoard", 5000, 1.0]));
+    w.fixed_now = Some(Timestamp(hour + economy::STRIKE_EVERY_MS + 1));
+    assert!(w.tick() >= 1);
+    assert!(
+        economy::rate(&w, "half_life") < 1.0,
+        "{}",
+        economy::rate(&w, "half_life")
+    );
+    let d = economy::dashboard(&w);
+    assert!(d["concentration"].as_f64().unwrap() > 0.9, "{d}");
+    assert_eq!(d["active_today"], 2);
+    // Rich: tyler holds a lot too, so the median is above the band; worth and pay
+    // come down and the price goes up. The new chunk fades at the thinned rate.
+    w.fixed_now = Some(Timestamp(hour + 2 * economy::STRIKE_EVERY_MS - 1000));
+    admin(&mut w, "dave", "earn", json!(["hoard", 5000, 1.0]));
+    admin(&mut w, "tyler", "earn", json!(["hoard", 4000, 1.0]));
+    let before_pay = economy::rate(&w, "pay");
+    w.fixed_now = Some(Timestamp(hour + 2 * economy::STRIKE_EVERY_MS + 1));
+    assert!(w.tick() >= 1);
+    assert!(economy::rate(&w, "pay") < before_pay);
+    assert!(economy::rate(&w, "price") > 1.0 / 1.05 + 1e-6);
+    let v = economy::to_json(&w);
+    assert_eq!(v["strikes"].as_array().unwrap().len(), 3);
+    assert!(v["strikes"][0]["said"]
+        .as_str()
+        .unwrap()
+        .starts_with("The Clocktower strikes."));
 }

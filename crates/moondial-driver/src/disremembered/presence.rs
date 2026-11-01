@@ -258,6 +258,23 @@ fn set_with_door(
         .map_err(|e| e.to_string())
 }
 
+/// When a citizen was last here: now if they are, else when the room disremembered
+/// them; None for one the world has never seen act.
+pub fn last_seen(world: &World, citizen: EntityId) -> Option<i64> {
+    if is_here(world, citizen) {
+        return Some(world.now().0);
+    }
+    match world
+        .store
+        .entity(citizen)
+        .and_then(|e| e.components.get(PRESENCE))
+        .and_then(|c| c.fields.get("gone_at"))
+    {
+        Some(Field::Plain(v)) => v.as_i64(),
+        _ => None,
+    }
+}
+
 /// The room disremembers a citizen who has gone quiet. Any fight ends without a blow.
 pub fn depart(world: &mut World, actor: &str, citizen: EntityId) -> Result<(), String> {
     if !is_here(world, citizen) {

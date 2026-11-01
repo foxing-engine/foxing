@@ -36,10 +36,19 @@ pub fn earn_chunk(
         )
         .map_err(internal)?;
     let now = world.now();
+    // New memory fades at the world's rate: the Clocktower's one lever on time.
+    let curve = match curves.active(vividity) {
+        moondial_time::Curve::Exponential { half_life } => moondial_time::Curve::Exponential {
+            half_life: moondial_time::Duration(
+                (half_life.0 as f64 * super::economy::rate(world, "half_life")) as i64,
+            ),
+        },
+        c => c,
+    };
     let mut fields = BTreeMap::new();
     fields.insert(
         "value".into(),
-        Field::Timed(TimedValue::new(size, now, curves.active(vividity))),
+        Field::Timed(TimedValue::new(size, now, curve)),
     );
     fields.insert("size".into(), Field::Plain(json!(size)));
     fields.insert("vividity".into(), Field::Plain(json!(vividity)));

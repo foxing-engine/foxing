@@ -14,6 +14,7 @@ pub mod building;
 pub mod cloak;
 mod combat;
 pub mod craft;
+pub mod economy;
 pub mod errand;
 pub mod exchange;
 mod identity;
@@ -150,6 +151,7 @@ pub fn schema_notes() -> Vec<&'static str> {
         "A creature with disremembered.creature.parents was born of a chain: two named creatures whose words were carried both ways by one visitor (born_of). Its kind is a hybrid of theirs; mutation, when set, says what is strange about it. It is born unnamed, holding the carried word, knowing its carrier and parents; fed to 60 it takes the name it was dealt at birth. The birth is a public disremembered.born.",
         "The map is the graph of exits; `map` lays it out on a grid from the Threshold (north up, east right, up and down floors) and returns only what you remember: the room you stand in and its exits in full, every room you have stood in at how well you remember it (disremembered.atlas.seen, yours alone; it halves every few hours), nothing you have forgotten.",
         "A thing (kind item, disremembered.item) is a material a creature left behind when it came apart (one in three do; take it) or something made of materials and a memory (craft, from recipes). A citizen's things are in their satchel (kind satchel, a child of the citizen); things lying in a room are the room's children. Things fade on the palace curve and are forgotten below five percent. A made thing works while carried: a lantern keeps the map in your memory twice as long; a moth charm makes your next fight's memory more vivid, once.",
+        "The world's rates are on its one disremembered.economy entity (kind economy): scales around 1.0 on what a creature is worth, what a story pays, how fast new memory fades, how long a room takes to refill, how often a creature leaves something, and what a recipe's memory costs. Once an hour the Clocktower strikes (a public disremembered.clocktower): it reads the world and moves rates a step toward the band it keeps, and says so in prose; time gives the figures, GET /v0/economy the dashboard.",
         "A citizen's disremembered.presence says whether they are here (acting within the last ten minutes) or a trace the room still remembers; gone_at is when they went quiet. A room's contents relation returns traced citizens too, with the room as parent, while look lists them as remembered: select disremembered.presence here to tell the two apart. Thirty days after gone_at the world forgets the citizen (a disremembered.forgotten event) and the name is free.",
     ]
 }
@@ -230,6 +232,19 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("made_of", FieldKind::Plain, Visibility::Public)
             .field("uses", FieldKind::Plain, Visibility::Public)
             .field("memory", FieldKind::Timed, Visibility::Public),
+        // The world's rates, which the Clocktower moves a step at a time: scales
+        // around 1.0 on what a creature is worth, what a story pays, how fast new
+        // memory fades, how long a room takes to refill, how often a creature leaves
+        // something, and what a recipe's memory costs.
+        ComponentSchema::new(economy::ECONOMY, 1)
+            .field("worth", FieldKind::Plain, Visibility::Public)
+            .field("pay", FieldKind::Plain, Visibility::Public)
+            .field("half_life", FieldKind::Plain, Visibility::Public)
+            .field("respawn", FieldKind::Plain, Visibility::Public)
+            .field("drop", FieldKind::Plain, Visibility::Public)
+            .field("price", FieldKind::Plain, Visibility::Public)
+            .field("struck_at", FieldKind::Plain, Visibility::Public)
+            .field("strikes", FieldKind::Plain, Visibility::Public),
         ComponentSchema::new(mind::MIND, 1)
             .field("tier", FieldKind::Plain, Visibility::Public)
             .field("name", FieldKind::Plain, Visibility::Public)
@@ -536,6 +551,7 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     rooms::ensure_rooms(world)?;
     combat::ensure_spawns(world)?;
     building::reframe_all(world)?;
+    economy::ensure(world)?;
     mind::ensure_wander(world)
 }
 
@@ -1004,6 +1020,7 @@ pub fn register(world: &mut World, curves: Curves) {
     atlas::register(world, curves.clone());
     board::register(world);
     craft::register(world, curves.clone());
+    economy::register(world);
     combat::register(world, curves.clone());
     memory::register(world, curves.clone());
     presence::register(world, curves.clone());

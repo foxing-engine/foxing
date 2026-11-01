@@ -80,6 +80,7 @@ pub(crate) fn line_for(e: &moondial_log::Event) -> String {
         "disremembered.wandered" => format!("a {} wandered in", s("kind")),
         "disremembered.razed" => format!("the operator razed {}", s("name")),
         "disremembered.dug" => format!("{} dug {}", s("by"), s("name")),
+        "disremembered.clocktower" => s("said").to_string(),
         "disremembered.left" => format!("a {} left {} behind", s("kind"), s("name")),
         "disremembered.took" => format!("{} took {}", s("by"), s("name")),
         "disremembered.dropped" => format!("{} set down {}", s("by"), s("name")),
@@ -597,15 +598,17 @@ pub fn register(world: &mut World) {
             let world_paused = w.store.clock(&ClockId::from(WORLD_CLOCK)).is_some_and(|c| c.is_paused_at(now));
             let mine_paused = w.store.clock(&account_scope(&ctx.actor)).is_some_and(|c| c.is_paused_at(now));
             let up = now.since(w.started).0 / 1000;
+            let rates = super::economy::rates(w);
             Ok(Outcome::new(
                 format!(
-                    "t={} world {} · your clock {} · driver up {}s",
+                    "t={} world {} · your clock {} · driver up {}s · the Clocktower's rates: {}",
                     now.0,
                     if world_paused { "frozen" } else { "running" },
                     if mine_paused { "paused (PTO)" } else { "running" },
-                    up
+                    up,
+                    super::economy::rates_line(&rates)
                 ),
-                json!({"now": now.0, "world_frozen": world_paused, "on_pto": mine_paused, "uptime_seconds": up}),
+                json!({"now": now.0, "world_frozen": world_paused, "on_pto": mine_paused, "uptime_seconds": up, "rates": rates}),
             ))
         }),
     );
