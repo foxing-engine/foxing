@@ -120,10 +120,10 @@ ExecStart=/usr/bin/python3 $APP_DIR/current/analytics/render.py --days 30 --html
 UNIT
 cat > /etc/systemd/system/analytics-render.timer <<'UNIT'
 [Unit]
-Description=Render the analytics page hourly
+Description=Render the analytics page every five minutes, after each collection
 [Timer]
-OnBootSec=5min
-OnUnitActiveSec=1h
+OnBootSec=6min
+OnUnitActiveSec=5min
 [Install]
 WantedBy=timers.target
 UNIT

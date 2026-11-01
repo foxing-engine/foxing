@@ -122,18 +122,21 @@ CREATE TABLE IF NOT EXISTS requests (
   accept_kind TEXT NOT NULL, ua_class TEXT NOT NULL, ua_name TEXT NOT NULL, ua TEXT NOT NULL,
   referer_host TEXT NOT NULL, visitor TEXT NOT NULL, ip TEXT NOT NULL DEFAULT ''
 );
-CREATE INDEX IF NOT EXISTS requests_day ON requests(day);
-CREATE INDEX IF NOT EXISTS requests_host_path ON requests(host, path);
-CREATE INDEX IF NOT EXISTS requests_ip ON requests(ip);
 CREATE TABLE IF NOT EXISTS salts (day TEXT PRIMARY KEY, salt TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS doors (
   id INTEGER PRIMARY KEY,
   ts TEXT NOT NULL, day TEXT NOT NULL, ip TEXT NOT NULL, lab INTEGER NOT NULL,
   kind TEXT NOT NULL, method TEXT NOT NULL, tool TEXT NOT NULL, actor TEXT NOT NULL, origin TEXT NOT NULL, fresh INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS cursor (file TEXT PRIMARY KEY, inode INTEGER NOT NULL, offset INTEGER NOT NULL);
+"""
+
+INDEXES = """
+CREATE INDEX IF NOT EXISTS requests_day ON requests(day);
+CREATE INDEX IF NOT EXISTS requests_host_path ON requests(host, path);
+CREATE INDEX IF NOT EXISTS requests_ip ON requests(ip);
 CREATE INDEX IF NOT EXISTS doors_day ON doors(day);
 CREATE INDEX IF NOT EXISTS doors_ip ON doors(ip);
-CREATE TABLE IF NOT EXISTS cursor (file TEXT PRIMARY KEY, inode INTEGER NOT NULL, offset INTEGER NOT NULL);
 """
 
 
@@ -253,9 +256,13 @@ def migrate(db: sqlite3.Connection) -> None:
 def main() -> int:
     os.makedirs(os.path.dirname(DB), exist_ok=True)
     db = sqlite3.connect(DB)
+    # The tables first, then the columns a store from before them lacks, then the
+    # indexes: an index on requests(ip) failed on a store older than the ip column.
     db.executescript(SCHEMA)
     with db:
         migrate(db)
+    db.executescript(INDEXES)
+    with db:
         n = read_new(db, LOG)
         d = read_new(db, OPS_LOG, ingest_ops_line)
         prune_salts(db)
