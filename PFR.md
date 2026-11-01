@@ -208,7 +208,8 @@ figures on the canvas that answer to a click.
   unique (rename one, or let the errand text say which); `observe` as a DO needs a
   JSON query object (say so in the quickstart); "Tell the underloam …" is a player's
   room text that `tell` cannot answer.
-- The Conclave's verbs, as the Architect designed them (design/conclave.md §5; the
+- **Backlog (owner's call, 2026-11-01: hold until the economy under it settles).**
+  The Conclave's verbs, as the Architect designed them (design/conclave.md §5; the
   rooms, officers, sitting and enactment prose shipped 2026-11-01): `petition
   <statute> rise|fall "reason"` in the Petitioners' Gallery, kept names only, a
   10+ XP chunk into the minutes, one a day, one step; regulars' petitions lie upon
@@ -307,7 +308,11 @@ figures on the canvas that answer to a click.
   exact inputs each strike used; make "regular" cost something that is not a
   request (stories or errands done, an age); the dashboard's held counts the shelf
   and the board's holding does not (now said in the note). Shipped from it: regulars
-  by messages across two half-hours; hoards and thinning by the day's census.
+  by messages across two half-hours; hoards and thinning by the day's census; and
+  (2026-11-01, approved) the flow band itself: median wage in the hour among kept
+  names with five messages in it, 30–150, step 5–15% by gap, floor of two earners,
+  top-3 share over 0.75 thins, inputs recorded per strike. Still open: making
+  "regular" cost something, a decay-compensation term if the flow band hunts.
 - The named creatures fade out from under the game (Muddlecrumb, 2026-11-01, five
   hours waiting for a word to carry): with nobody feeding them, the ground floor fell
   to a single named creature by 14:37 UTC, so no word could be in the air and no

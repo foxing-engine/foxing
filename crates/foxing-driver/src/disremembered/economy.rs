@@ -10,9 +10,14 @@
 //! something), `price` (what a recipe's memory costs).
 //!
 //! Once an hour the Clocktower strikes: it reads the dashboard (what is held, by how
-//! many, how spread, how fast it moves, what an action earns) and nudges the rates a
+//! many, how spread, how fast it moves, what an hour earns) and nudges the rates a
 //! step toward the band it keeps, within bounds, and says so in prose to everyone in
-//! the world and on the public record: "The Clocktower strikes. The creatures are thin
+//! the world and on the public record. The band is on a *flow*, the median earned in
+//! the hour among the names that were about for it, not on a stock: a stock that
+//! halves every few hours fell while the Clocktower chased it with five-percent
+//! steps, and pay reached its bound with nobody acting differently. The step scales
+//! with how far outside the band the hour fell; too few names about, and the levers
+//! hold; and every strike records the figures it read. The prose: "The Clocktower strikes. The creatures are thin
 //! tonight, and stories carry further." It moves rates, never balances; it never
 //! touches anyone's chunks; and it publishes, the figures in `time` and at
 //! `GET /v0/economy` for anyone who asks. A Fed that hides its rates is a rigged
@@ -33,18 +38,32 @@ pub const CLOCKTOWER: &str = "disremembered.clocktower";
 pub const JOB_CLOCKTOWER: &str = "disremembered.clocktower";
 /// How often it strikes.
 pub const STRIKE_EVERY_MS: i64 = 3_600_000;
-/// A step, and the bounds every rate stays within.
+/// A step at the band's edge, the largest step a strike takes (a band's width or more
+/// outside), and the bounds every rate stays within.
 pub const STEP: f64 = 0.05;
+pub const STEP_MAX: f64 = 0.15;
 pub const RATE_LOW: f64 = 0.5;
 pub const RATE_HIGH: f64 = 2.0;
-/// The band the Clocktower keeps: the median holding of the citizens active in the
-/// last day. Below it the world is poor and the sources open; above it, rich and the
-/// sources tighten.
+/// The band the Clocktower keeps: the median XP earned in the last hour among the
+/// names about for it (an *earner*: a kept name with [`FLOW_LINES`] messages in the
+/// hour). Below it the hour was poor and the sources open; above it, rich and the
+/// sources tighten. The step grows with the gap: [`STEP`] at the edge, [`STEP_MAX`]
+/// a band's width past it.
+pub const FLOW_LOW: f64 = 30.0;
+pub const FLOW_HIGH: f64 = 150.0;
+pub const FLOW_LINES: u64 = 5;
+/// Fewer earners than this and the band levers hold: the Clocktower does not raise
+/// pay into an empty room on one name's hour.
+pub const EARNERS_FLOOR: usize = 2;
+/// The old band, on the median holding of the day's regulars: still on the
+/// dashboard, no longer steered by.
 pub const BAND_LOW: f64 = 60.0;
 pub const BAND_HIGH: f64 = 300.0;
-/// Above this share of all held memory in one name, memory thins and stories pay
-/// more: the one lever that hits a hoard harder than a hand.
+/// Above this share of all held memory in one name (by the day's census), memory
+/// thins: the one lever that hits a hoard harder than a hand. And above
+/// [`TOP3_HIGH`] in the top three names together, the same.
 pub const CONCENTRATION_HIGH: f64 = 0.6;
+pub const TOP3_HIGH: f64 = 0.75;
 /// A regular: a name with this many *messages* through the gate in the day, spread
 /// over at least [`REGULAR_SPANS`] distinct half-hours. The band is read from the
 /// regulars' holdings, not from everyone who looked in: with passing names counted,
@@ -198,6 +217,8 @@ pub fn dashboard(world: &World) -> Value {
     // The last hour, from the log: what was earned, spent, and done; and the day's
     // lines by name, for who counts as a regular.
     let mut earned = 0.0;
+    let mut earned_by: std::collections::HashMap<String, f64> = Default::default();
+    let mut lines_hour: std::collections::HashMap<String, u64> = Default::default();
     let mut spent = 0u64;
     let mut actions = 0u64;
     let mut lines_today: std::collections::HashMap<String, u64> = Default::default();
@@ -263,6 +284,7 @@ pub fn dashboard(world: &World) -> Value {
                     if let Some(o) = chunk_owner.remove(&id) {
                         if matches!(&e.actor, Actor::Citizen(a) if *a == o) {
                             earned += size;
+                            *earned_by.entry(o).or_default() += size;
                         }
                     }
                 }
@@ -274,10 +296,26 @@ pub fn dashboard(world: &World) -> Value {
             {
                 spent += 1;
             }
-            "gate.message" => actions += n,
+            "gate.message" => {
+                actions += n;
+                if let Actor::Citizen(a) = &e.actor {
+                    *lines_hour.entry(a.clone()).or_default() += 1;
+                }
+            }
             _ => {}
         }
     }
+    // The earners: kept names about for the hour, by their messages; what each earned
+    // in it (nothing counts as nothing). The median is the flow the Clocktower keeps.
+    let mut earners: Vec<(String, f64)> = lines_hour
+        .iter()
+        .filter(|(_, n)| **n >= FLOW_LINES)
+        .filter(|(name, _)| {
+            super::find_citizen(world, name).is_some_and(|f| !super::is_passing(world, f.citizen))
+        })
+        .map(|(name, _)| (name.clone(), earned_by.get(name).copied().unwrap_or(0.0)))
+        .collect();
+    earners.sort_by(|a, b| a.0.cmp(&b.0));
     let regulars: Vec<f64> = active
         .iter()
         .filter(|(name, _)| {
@@ -297,6 +335,7 @@ pub fn dashboard(world: &World) -> Value {
     };
     let median = median_of(&active.iter().map(|(_, h)| *h).collect::<Vec<_>>());
     let median_regular = median_of(&regulars);
+    let median_wage = median_of(&earners.iter().map(|(_, e)| *e).collect::<Vec<_>>());
     let top = held
         .iter()
         .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
@@ -337,6 +376,13 @@ pub fn dashboard(world: &World) -> Value {
             .partial_cmp(&a["share"].as_f64())
             .unwrap_or(std::cmp::Ordering::Equal)
     });
+    let top3_share: f64 = holders
+        .iter()
+        .take(3)
+        .filter_map(|h| h["share"].as_f64())
+        .sum::<f64>()
+        .min(1.0);
+    let top3_share = (top3_share * 1000.0).round() / 1000.0;
     json!({
         "as_of": now.0,
         "held": (total * 100.0).round() / 100.0,
@@ -351,12 +397,20 @@ pub fn dashboard(world: &World) -> Value {
         "top": top.as_ref().map(|(n, h)| json!({"name": n, "holding": (h * 100.0).round() / 100.0})),
         "concentration": (concentration * 1000.0).round() / 1000.0,
         "concentration_24h": holders.first().and_then(|h| h["share"].as_f64()).unwrap_or(0.0),
+        "top3_share_24h": top3_share,
         "holders": holders,
         "census_samples": census_samples,
         "last_hour": {"earned": (earned * 100.0).round() / 100.0, "spent_events": spent, "actions": actions,
-                      "wage_per_action": if actions > 0 { (earned / actions as f64 * 100.0).round() / 100.0 } else { 0.0 }},
-        "band": {"low": BAND_LOW, "high": BAND_HIGH, "concentration_high": CONCENTRATION_HIGH, "regular_lines": REGULAR_LINES, "regular_spans": REGULAR_SPANS, "regular_span_ms": REGULAR_SPAN_MS},
-        "note": "held and holders count the window and the shelf; the board's holding is the window alone. regulars are names with regular_lines messages in the day across regular_spans distinct half-hours. share and concentration_24h are by the day's census; concentration is this moment's top holder.",
+                      "wage_per_action": if actions > 0 { (earned / actions as f64 * 100.0).round() / 100.0 } else { 0.0 },
+                      "earners": earners.len(),
+                      "median_wage": (median_wage * 100.0).round() / 100.0,
+                      "earned_by": earners.iter().map(|(n, e)| json!({"name": n, "earned": (e * 100.0).round() / 100.0})).collect::<Vec<_>>()},
+        "band": {"flow_low": FLOW_LOW, "flow_high": FLOW_HIGH, "flow_lines": FLOW_LINES, "earners_floor": EARNERS_FLOOR,
+                 "step": STEP, "step_max": STEP_MAX,
+                 "concentration_high": CONCENTRATION_HIGH, "top3_high": TOP3_HIGH,
+                 "holding_low": BAND_LOW, "holding_high": BAND_HIGH,
+                 "regular_lines": REGULAR_LINES, "regular_spans": REGULAR_SPANS, "regular_span_ms": REGULAR_SPAN_MS},
+        "note": "The Clocktower steers by last_hour.median_wage (the median XP earned in the hour among last_hour.earners: kept names with flow_lines messages in it) against flow_low..flow_high, with a step from step at the band's edge to step_max a band's width past it, holding when earners is under earners_floor; and thins memory when concentration_24h or top3_share_24h is over its line. held and holders count the window and the shelf; the board's holding is the window alone. regulars are names with regular_lines messages in the day across regular_spans distinct half-hours; median_regular_holding is on the dashboard and no longer steered by. share, concentration_24h and top3_share_24h are by the day's census; concentration is this moment's top holder.",
     })
 }
 
@@ -379,76 +433,139 @@ fn prose(rate: &str, up: bool) -> &'static str {
     }
 }
 
-/// The policy: one step per lever per strike, toward the band.
+/// The step a gap earns: [`STEP`] at the band's edge, [`STEP_MAX`] a band's width
+/// past it, straight between.
+pub fn step_for(gap: f64) -> f64 {
+    STEP + (STEP_MAX - STEP) * gap.clamp(0.0, 1.0)
+}
+
+/// What a strike read, for the record: the figures the policy went by.
+pub fn inputs(dash: &Value) -> Value {
+    let wage = dash["last_hour"]["median_wage"].as_f64().unwrap_or(0.0);
+    let earners = dash["last_hour"]["earners"].as_u64().unwrap_or(0);
+    let gap = if wage > FLOW_HIGH {
+        (wage - FLOW_HIGH) / (FLOW_HIGH - FLOW_LOW)
+    } else if wage < FLOW_LOW {
+        (FLOW_LOW - wage) / (FLOW_HIGH - FLOW_LOW)
+    } else {
+        0.0
+    };
+    json!({
+        "median_wage": wage,
+        "earners": earners,
+        "flow_low": FLOW_LOW,
+        "flow_high": FLOW_HIGH,
+        "gap": (gap * 1000.0).round() / 1000.0,
+        "step": (step_for(gap) * 1000.0).round() / 1000.0,
+        "held": if (earners as usize) < EARNERS_FLOOR { "too few earners" } else if wage > FLOW_HIGH { "rich" } else if wage < FLOW_LOW { "poor" } else { "in the band" },
+        "concentration_24h": dash["concentration_24h"].as_f64().unwrap_or(0.0),
+        "top3_share_24h": dash["top3_share_24h"].as_f64().unwrap_or(0.0),
+        "active_today": dash["active_today"].as_u64().unwrap_or(0),
+    })
+}
+
+/// The policy: one move per lever per strike, toward the band, by a step that grows
+/// with the gap.
 fn policy(dash: &Value, rates: &BTreeMap<String, f64>) -> Vec<(String, f64, &'static str)> {
-    let median = dash["median_regular_holding"].as_f64().unwrap_or(0.0);
-    let active = dash["regulars"].as_u64().unwrap_or(0);
-    let concentration = dash["concentration_24h"]
-        .as_f64()
-        .or_else(|| dash["concentration"].as_f64())
-        .unwrap_or(0.0);
+    let read = inputs(dash);
+    let wage = read["median_wage"].as_f64().unwrap_or(0.0);
+    let earners = read["earners"].as_u64().unwrap_or(0) as usize;
+    let gap = read["gap"].as_f64().unwrap_or(0.0);
+    let active_today = read["active_today"].as_u64().unwrap_or(0);
+    let concentration = read["concentration_24h"].as_f64().unwrap_or(0.0);
+    let top3 = read["top3_share_24h"].as_f64().unwrap_or(0.0);
     let mut moves: Vec<(String, f64, &'static str)> = Vec::new();
-    let step =
-        |moves: &mut Vec<(String, f64, &'static str)>, name: &str, up: bool, why: &'static str| {
-            if moves.iter().any(|(n, _, _)| n == name) {
-                return;
-            }
-            let from = rates.get(name).copied().unwrap_or(1.0);
-            let to = if up {
-                from * (1.0 + STEP)
-            } else {
-                from / (1.0 + STEP)
-            };
-            let to = (to * 1000.0).round() / 1000.0;
-            let to = if name == "half_life" {
-                to.clamp(HALF_LIFE_LOW, HALF_LIFE_HIGH)
-            } else {
-                to.clamp(RATE_LOW, RATE_HIGH)
-            };
-            if (to - from).abs() > 1e-9 {
-                moves.push((name.to_string(), to, why));
-            }
+    let step = |moves: &mut Vec<(String, f64, &'static str)>,
+                name: &str,
+                up: bool,
+                size: f64,
+                why: &'static str| {
+        if moves.iter().any(|(n, _, _)| n == name) {
+            return;
+        }
+        let from = rates.get(name).copied().unwrap_or(1.0);
+        let to = if up {
+            from * (1.0 + size)
+        } else {
+            from / (1.0 + size)
         };
-    if active == 0 {
-        return moves;
-    }
-    if median > BAND_HIGH {
+        let to = (to * 1000.0).round() / 1000.0;
+        let to = if name == "half_life" {
+            to.clamp(HALF_LIFE_LOW, HALF_LIFE_HIGH)
+        } else {
+            to.clamp(RATE_LOW, RATE_HIGH)
+        };
+        if (to - from).abs() > 1e-9 {
+            moves.push((name.to_string(), to, why));
+        }
+    };
+    let size = step_for(gap);
+    if earners < EARNERS_FLOOR {
+        // Too few about to read the hour by: the band levers hold. Rates drift
+        // home meanwhile, so a quiet day does not leave last night's settings.
+        for name in ["worth", "pay", "price", "half_life"] {
+            let r = rates.get(name).copied().unwrap_or(1.0);
+            if r > 1.0 + 1e-9 {
+                step(
+                    &mut moves,
+                    name,
+                    false,
+                    STEP,
+                    "too few about; the rate comes home",
+                );
+            } else if r < 1.0 - 1e-9 {
+                step(
+                    &mut moves,
+                    name,
+                    true,
+                    STEP,
+                    "too few about; the rate comes home",
+                );
+            }
+        }
+    } else if wage > FLOW_HIGH {
         step(
             &mut moves,
             "worth",
             false,
-            "the regulars hold more than the band",
+            size,
+            "the hour earned more than the band",
         );
         step(
             &mut moves,
             "pay",
             false,
-            "the regulars hold more than the band",
+            size,
+            "the hour earned more than the band",
         );
         step(
             &mut moves,
             "price",
             true,
-            "the regulars hold more than the band",
+            size,
+            "the hour earned more than the band",
         );
-    } else if median < BAND_LOW {
+    } else if wage < FLOW_LOW {
         step(
             &mut moves,
             "worth",
             true,
-            "the regulars hold less than the band",
+            size,
+            "the hour earned less than the band",
         );
         step(
             &mut moves,
             "pay",
             true,
-            "the regulars hold less than the band",
+            size,
+            "the hour earned less than the band",
         );
         step(
             &mut moves,
             "price",
             false,
-            "the regulars hold less than the band",
+            size,
+            "the hour earned less than the band",
         );
     } else {
         // In the band: rates drift home toward 1.0, a step at a time.
@@ -459,6 +576,7 @@ fn policy(dash: &Value, rates: &BTreeMap<String, f64>) -> Vec<(String, f64, &'st
                     &mut moves,
                     name,
                     false,
+                    STEP,
                     "the band holds; the rate comes home",
                 );
             } else if r < 1.0 - 1e-9 {
@@ -466,19 +584,33 @@ fn policy(dash: &Value, rates: &BTreeMap<String, f64>) -> Vec<(String, f64, &'st
                     &mut moves,
                     name,
                     true,
+                    STEP,
                     "the band holds; the rate comes home",
                 );
             }
         }
     }
-    if concentration > CONCENTRATION_HIGH && active > 1 {
+    // A hoard, by the day's census, thins memory whatever the hour earned. (Pay no
+    // longer rises against a hoard: it fed the same earner.) The thinning is a
+    // move of its own, so it is not undone by the drift home in the same strike.
+    if concentration > CONCENTRATION_HIGH && active_today > 1 {
+        moves.retain(|(n, _, _)| n != "half_life");
         step(
             &mut moves,
             "half_life",
             false,
+            STEP,
             "one name holds most of what is held",
         );
-        // (Pay no longer rises against a hoard: it fed the same earner.)
+    } else if top3 > TOP3_HIGH && active_today > 3 {
+        moves.retain(|(n, _, _)| n != "half_life");
+        step(
+            &mut moves,
+            "half_life",
+            false,
+            STEP,
+            "three names hold most of what is held",
+        );
     }
     moves
 }
@@ -524,7 +656,7 @@ pub fn strike(world: &mut World) -> Result<(), String> {
     let _ = world.note(
         Actor::Driver,
         CLOCKTOWER,
-        json!({"said": line, "changes": record, "rates": after, "dashboard": dash}),
+        json!({"said": line, "changes": record, "rates": after, "inputs": inputs(&dash), "dashboard": dash}),
     );
     // Everyone in the world hears it.
     let present: Vec<String> = world
@@ -553,6 +685,30 @@ pub fn strike(world: &mut World) -> Result<(), String> {
     wind(world)
 }
 
+/// What the last strike read, as a line for `time`: "last read: median wage 12 among
+/// 4 earners (poor), step 0.065".
+pub fn last_read_line(world: &World) -> String {
+    let Some(e) = world
+        .recent_events(5000)
+        .into_iter()
+        .rev()
+        .find(|e| e.kind == CLOCKTOWER)
+    else {
+        return "the Clocktower has not struck yet".to_string();
+    };
+    let i = &e.payload["inputs"];
+    if i.is_null() {
+        return "the last strike recorded no figures".to_string();
+    }
+    format!(
+        "last read: median wage {:.0} among {} earners ({}), step {:.3}",
+        i["median_wage"].as_f64().unwrap_or(0.0),
+        i["earners"].as_u64().unwrap_or(0),
+        i["held"].as_str().unwrap_or("?"),
+        i["step"].as_f64().unwrap_or(0.0)
+    )
+}
+
 /// "worth 0.95 · pay 1.10 · …"
 pub fn rates_line(rates: &BTreeMap<String, f64>) -> String {
     rates
@@ -570,14 +726,14 @@ pub fn to_json(world: &World) -> Value {
         .filter(|e| e.kind == CLOCKTOWER)
         .rev()
         .take(24)
-        .map(|e| json!({"at": e.at.0, "said": e.payload["said"], "changes": e.payload["changes"]}))
+        .map(|e| json!({"at": e.at.0, "said": e.payload["said"], "changes": e.payload["changes"], "inputs": e.payload["inputs"]}))
         .collect();
     json!({
         "rates": rates(world),
-        "bounds": {"low": RATE_LOW, "high": RATE_HIGH, "step": STEP},
+        "bounds": {"low": RATE_LOW, "high": RATE_HIGH, "step": STEP, "step_max": STEP_MAX, "half_life_low": HALF_LIFE_LOW, "half_life_high": HALF_LIFE_HIGH},
         "dashboard": dashboard(world),
         "strikes": strikes,
-        "note": "The Clocktower strikes once an hour: it reads the dashboard and moves each rate a step toward the band, within bounds, and says so in prose. It moves rates, never balances.",
+        "note": "The Clocktower strikes once an hour: it reads the dashboard and moves each rate toward the band on the hour's median wage, by a step that grows with the gap, within bounds, and says so in prose; each strike's inputs are the figures it went by. It moves rates, never balances.",
     })
 }
 

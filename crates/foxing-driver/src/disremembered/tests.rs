@@ -81,6 +81,21 @@ fn regular(w: &mut World, actors: &[&str]) {
     }
 }
 
+/// `n` messages through the gate now, from each: enough for the Clocktower to count
+/// them as about for the hour.
+fn messages(w: &mut World, actors: &[&str], n: u64) {
+    for _ in 0..n {
+        for actor in actors {
+            w.note(
+                Actor::Citizen(actor.to_string()),
+                "gate.message",
+                json!({"from": actor, "text": "look", "compiled": true}),
+            )
+            .unwrap();
+        }
+    }
+}
+
 fn events(w: &World) -> u64 {
     w.log.head(&w.id).unwrap().unwrap().0
 }
@@ -4249,12 +4264,18 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
     assert!(w.jobs.has(economy::JOB_CLOCKTOWER, |_| true));
     login(&mut w, "dave", "test", PASS).unwrap();
     login(&mut w, "tyler", "test", PASS).unwrap();
-    // Nobody is a regular yet: the Clocktower strikes and moves nothing. (It steered
-    // by everyone who looked in once; the median was zero and every lever pinned.)
+    // Nobody is about yet: the Clocktower would hold. (It steered by everyone who
+    // looked in once; the median was zero and every lever pinned.)
     let hour = (t0.0 / economy::STRIKE_EVERY_MS + 1) * economy::STRIKE_EVERY_MS;
     assert_eq!(economy::dashboard(&w)["regulars"], 0);
+    assert_eq!(economy::dashboard(&w)["last_hour"]["earners"], 0);
+    assert_eq!(
+        economy::inputs(&economy::dashboard(&w))["held"],
+        "too few earners"
+    );
     regular(&mut w, &["dave", "tyler"]);
     assert_eq!(economy::dashboard(&w)["regulars"], 2);
+    assert_eq!(economy::dashboard(&w)["last_hour"]["earners"], 2);
     let time = ok(&mut w, "dave", "time", json!([]));
     assert!(
         time.summary
@@ -4262,8 +4283,9 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
         "{}",
         time.summary
     );
-    // Poor: two regulars holding nothing. The hour strikes; the sources open,
-    // and everyone present hears it in prose. The record carries the figures.
+    // Poor: two names about and nothing earned in the hour. The hour strikes; the
+    // sources open by a step scaled to the gap (a quarter of the band's width under
+    // it), and everyone present hears it in prose. The record carries the figures.
     w.fixed_now = Some(Timestamp(hour - 1000));
     ok(&mut w, "dave", "look", json!([]));
     ok(&mut w, "tyler", "look", json!([]));
@@ -4278,9 +4300,12 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
     assert!(narrative(&w, "tyler", head)
         .iter()
         .any(|l| l.starts_with("The Clocktower strikes.")));
-    assert!((economy::rate(&w, "worth") - 1.05).abs() < 1e-9);
-    assert!((economy::rate(&w, "pay") - 1.05).abs() < 1e-9);
-    assert!((economy::rate(&w, "price") - 1.0 / 1.05).abs() < 1e-3);
+    let gap = economy::FLOW_LOW / (economy::FLOW_HIGH - economy::FLOW_LOW);
+    let step = economy::step_for(gap);
+    assert!(step > economy::STEP && step < economy::STEP_MAX, "{step}");
+    assert!((economy::rate(&w, "worth") - (1.0 + step)).abs() < 1e-3);
+    assert!((economy::rate(&w, "pay") - (1.0 + step)).abs() < 1e-3);
+    assert!((economy::rate(&w, "price") - 1.0 / (1.0 + step)).abs() < 1e-3);
     assert_eq!(economy::rate(&w, "half_life"), 1.0, "no hoard, no thinning");
     let struck: Vec<_> = w
         .log
@@ -4291,6 +4316,22 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
         .collect();
     assert_eq!(struck.len(), 1);
     assert_eq!(struck[0].payload["changes"].as_array().unwrap().len(), 3);
+    // What it went by is on the record, and `time` says it.
+    let read = &struck[0].payload["inputs"];
+    assert_eq!(read["held"], "poor", "{read}");
+    assert_eq!(read["earners"], 2);
+    assert_eq!(read["median_wage"], 0.0);
+    assert!(
+        (read["step"].as_f64().unwrap() - step).abs() < 1e-3,
+        "{read}"
+    );
+    let time = ok(&mut w, "dave", "time", json!([]));
+    assert!(
+        time.summary
+            .contains("last read: median wage 0 among 2 earners (poor)"),
+        "{}",
+        time.summary
+    );
     assert!(crate::observe::visible(
         &w,
         &Viewer::actor("nobody"),
@@ -4298,8 +4339,7 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
         &struck[0]
     ));
     assert!(w.jobs.has(economy::JOB_CLOCKTOWER, |_| true), "wound again");
-    // The rate reaches the sources: a story pays five percent more than its figure
-    // would, a recipe asks five percent less.
+    // The rate reaches the sources: a recipe asks less than its figure would.
     let out = ok(&mut w, "dave", "recipes", json!([]));
     assert!(
         out.result["recipes"][0]["chunk_at_least"].as_f64().unwrap() < 10.0,
@@ -4307,11 +4347,12 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
         out.result["recipes"][0]
     );
     // A hoard: dave holds nearly all. The next strike thins memory, whatever the
-    // band says (the median is still in it or below). Pay is left alone: raising it
-    // against a hoard fed the same earner.
+    // hour earned (nobody was about for it, so the band levers hold and the rates
+    // drift home). Pay is left alone: raising it against a hoard fed the same earner.
     // (The test world's chunks halve in seconds, so the hoard is made at the stroke.)
     w.fixed_now = Some(Timestamp(hour + economy::STRIKE_EVERY_MS - 1000));
     admin(&mut w, "dave", "earn", json!(["hoard", 5000, 1.0]));
+    let before_worth = economy::rate(&w, "worth");
     w.fixed_now = Some(Timestamp(hour + economy::STRIKE_EVERY_MS + 1));
     assert!(w.tick() >= 1);
     assert!(
@@ -4319,21 +4360,47 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
         "{}",
         economy::rate(&w, "half_life")
     );
+    assert!(economy::rate(&w, "worth") < before_worth, "drifting home");
+    assert!(economy::rate(&w, "worth") > 1.0, "not past it");
     let d = economy::dashboard(&w);
     assert!(d["concentration"].as_f64().unwrap() > 0.9, "{d}");
     assert_eq!(d["active_today"], 2);
-    // Rich: tyler holds a lot too, so the median is above the band; worth and pay
-    // come down and the price goes up. The new chunk fades at the thinned rate.
+    assert!(economy::last_read_line(&w).contains("too few earners"));
+    // Rich: both about for the hour and both earned thousands in it, so the median
+    // wage is far over the band; worth and pay come down by the largest step and
+    // the price goes up. The new chunk fades at the thinned rate.
     w.fixed_now = Some(Timestamp(hour + 2 * economy::STRIKE_EVERY_MS - 1000));
+    messages(&mut w, &["dave", "tyler"], economy::FLOW_LINES);
     admin(&mut w, "dave", "earn", json!(["hoard", 5000, 1.0]));
     admin(&mut w, "tyler", "earn", json!(["hoard", 4000, 1.0]));
     let before_pay = economy::rate(&w, "pay");
+    let d = economy::dashboard(&w);
+    assert_eq!(d["last_hour"]["earners"], 2, "{}", d["last_hour"]);
+    assert!(
+        d["last_hour"]["median_wage"].as_f64().unwrap() >= 4000.0,
+        "{}",
+        d["last_hour"]
+    );
     w.fixed_now = Some(Timestamp(hour + 2 * economy::STRIKE_EVERY_MS + 1));
     assert!(w.tick() >= 1);
-    assert!(economy::rate(&w, "pay") < before_pay);
-    assert!(economy::rate(&w, "price") > 1.0 / 1.05 + 1e-6);
+    assert!(
+        (economy::rate(&w, "pay") - before_pay / (1.0 + economy::STEP_MAX)).abs() < 1e-3,
+        "{}",
+        economy::rate(&w, "pay")
+    );
+    assert!(
+        economy::rate(&w, "price") > 1.0,
+        "{}",
+        economy::rate(&w, "price")
+    );
     let v = economy::to_json(&w);
     assert_eq!(v["strikes"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        v["strikes"][0]["inputs"]["held"], "rich",
+        "{}",
+        v["strikes"][0]
+    );
+    assert_eq!(v["strikes"][0]["inputs"]["step"], economy::STEP_MAX);
     assert!(v["strikes"][0]["said"]
         .as_str()
         .unwrap()

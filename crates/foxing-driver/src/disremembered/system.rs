@@ -635,12 +635,13 @@ pub fn register(world: &mut World) {
             let rates = super::economy::rates(w);
             Ok(Outcome::new(
                 format!(
-                    "t={} world {} · your clock {} · driver up {}s · the Clocktower's rates: {}",
+                    "t={} world {} · your clock {} · driver up {}s · the Clocktower's rates: {} · {}",
                     now.0,
                     if world_paused { "frozen" } else { "running" },
                     if mine_paused { "paused (PTO)" } else { "running" },
                     up,
-                    super::economy::rates_line(&rates)
+                    super::economy::rates_line(&rates),
+                    super::economy::last_read_line(w)
                 ),
                 json!({"now": now.0, "world_frozen": world_paused, "on_pto": mine_paused, "uptime_seconds": up, "rates": rates}),
             ))
