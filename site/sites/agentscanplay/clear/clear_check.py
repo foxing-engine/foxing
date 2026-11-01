@@ -711,9 +711,11 @@ class Checker:
                 self.add("CL-V6", ERROR, w, f"Acronym {acr} has two meanings ({', '.join(map(str, meanings))}). Write the term out.", acr)
             elif acr not in self.approved_acronyms:
                 self.add("CL-V3", WARNING, w, f"Acronym {acr} is not in the glossary.", acr)
-        # CL-V4 intensifiers
+        # CL-V4 intensifiers. "How many" and "how much" are a question's measure,
+        # not an intensifier.
+        counted = re.sub(r"\bhow (many|much)\b", "how", body, flags=re.I)
         for pat, word in self.intensifiers:
-            if pat.search(body):
+            if pat.search(counted):
                 self.add("CL-V4", WARNING, w, f"Vague intensifier '{word}' carries no measurable meaning.", word)
         # CL-V5 vague verbs
         for pat, word in self.vague_verbs:
