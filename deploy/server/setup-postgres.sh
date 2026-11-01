@@ -7,8 +7,10 @@
 # driver. The file log is left where it was, as the backup it now is.
 set -euo pipefail
 
-APP_DIR=${APP_DIR:-/srv/moondial}
-ENV_FILE=/etc/moondial/driver.env
+# /srv/foxing and /etc/foxing once migrate-to-foxing.sh has run on this host.
+APP_DIR=${APP_DIR:-$([ -d /srv/foxing ] && echo /srv/foxing || echo /srv/moondial)}
+ENV_FILE=$([ -f /etc/foxing/driver.env ] && echo /etc/foxing/driver.env || echo /etc/moondial/driver.env)
+UNIT=$([ -f /etc/systemd/system/foxing.service ] && echo foxing || echo moondial)
 DB=${DB:-foxing}
 ROLE=${ROLE:-foxing}
 
@@ -49,7 +51,7 @@ WORLD=${MOONDIAL_WORLD:-disremembered}
 DATA=${MOONDIAL_DATA:-$APP_DIR/shared/data}
 BIN="$APP_DIR/current/foxing-driver"
 [ -x "$BIN" ] || die "$BIN is not there; deploy the driver first"
-systemctl stop moondial
+systemctl stop "$UNIT"
 ok "driver stopped"
 if [ -f "$DATA/$WORLD.events.jsonl" ]; then
   if MOONDIAL_LOG_URL="$URL" MOONDIAL_WORLD="$WORLD" "$BIN" import "$DATA"; then
@@ -70,12 +72,12 @@ else
 fi
 ok "MOONDIAL_LOG_URL written to $ENV_FILE (the password is in there; it is root:foxing 640)"
 
-systemctl start moondial
+systemctl start "$UNIT"
 sleep 2
 if curl -fsS --max-time 3 http://127.0.0.1:7777/health | grep -q '"ok":true'; then
   ok "driver is up on PostgreSQL: $(curl -fsS http://127.0.0.1:7777/health)"
 else
-  die "driver did not come up; journalctl -u moondial -n 50"
+  die "driver did not come up; journalctl -u $UNIT -n 50"
 fi
 
 echo

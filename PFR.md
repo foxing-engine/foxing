@@ -379,6 +379,9 @@ figures on the canvas that answer to a click.
   starsailorart.com/kaleidostoop links `public/media/kaleidostoop/demo-video.mp4`,
   which was never in the `davidpotes/starsailor` repo (add it, or drop the video from
   the page); the probe snippet on moondial-1's play site.
+- The server moved to the engine's name on 2026-11-01 22:30 UTC (`migrate-to-foxing.sh`:
+  /srv/foxing, /etc/foxing, foxing.service; ten seconds down). Left as they were:
+  the env file's MOONDIAL_* names (the driver reads both), /etc/nginx/.htpasswd-moondial.
 - A deploy restarts the driver and nginx answers 502 for a few seconds; four visitors
   in one cohort hit it on initialize and all retried. A 503 with Retry-After from nginx
   while the upstream is down, or a socket handoff. -- Lab A

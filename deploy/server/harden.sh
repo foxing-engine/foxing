@@ -12,8 +12,10 @@
 # - a nightly pg_dump into $APP_DIR/shared/backups, kept 14 days
 set -euo pipefail
 
-APP_DIR=${APP_DIR:-/srv/moondial}
-ENV_FILE=/etc/moondial/driver.env
+# /srv/foxing and /etc/foxing once migrate-to-foxing.sh has run on this host.
+APP_DIR=${APP_DIR:-$([ -d /srv/foxing ] && echo /srv/foxing || echo /srv/moondial)}
+ENV_FILE=$([ -f /etc/foxing/driver.env ] && echo /etc/foxing/driver.env || echo /etc/moondial/driver.env)
+UNIT=$([ -f /etc/systemd/system/foxing.service ] && echo foxing || echo moondial)
 NGINX_SITE=${NGINX_SITE:-/etc/nginx/sites-available/play}
 RUN_USER=${RUN_USER:-starsailor}
 
@@ -78,7 +80,7 @@ ok "nginx reloaded"
 echo; echo "######## Text port on localhost only"
 if grep -q '^MOONDIAL_TCP=0.0.0.0:' "$ENV_FILE"; then
   sed -i 's|^MOONDIAL_TCP=0.0.0.0:|MOONDIAL_TCP=127.0.0.1:|' "$ENV_FILE"
-  systemctl restart moondial
+  systemctl restart "$UNIT"
   ok "MOONDIAL_TCP now 127.0.0.1:7778; driver restarted (close 7778 in the Hetzner firewall too)"
 else
   ok "text port already $(grep '^MOONDIAL_TCP=' "$ENV_FILE" | cut -d= -f2)"
@@ -112,11 +114,11 @@ echo; echo "######## Nightly pg_dump"
 if grep -q '^MOONDIAL_LOG_URL=' "$ENV_FILE"; then
   BK="$APP_DIR/shared/backups"
   install -d -m 750 -o postgres -g "$RUN_USER" "$BK"
-  cat > /etc/cron.d/moondial-backup <<CRON
+  cat > /etc/cron.d/foxing-backup <<CRON
 # Written by deploy/server/harden.sh: the event log, nightly, kept 14 days.
 17 3 * * * postgres pg_dump -Fc foxing > $BK/foxing-\$(date +\\%F).dump && find $BK -name 'foxing-*.dump' -mtime +14 -delete
 CRON
-  chmod 644 /etc/cron.d/moondial-backup
+  chmod 644 /etc/cron.d/foxing-backup
   su postgres -c "pg_dump -Fc foxing > $BK/foxing-$(date +%F).dump"
   ok "first dump written to $BK; restore with: pg_restore -d foxing <file>"
 else
