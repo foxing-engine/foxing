@@ -328,9 +328,11 @@ figures on the canvas that answer to a click.
   `remember <chunk> <creature>` gives the current value, which the reply could say.
   Shipped 2026-11-01 (the owner's procreation imperative): the named confide, every
   ten minutes, with a chance that rises as the count falls (1.0 at ≤2, 0.5 at 3,
-  0.25 at 4, 0.1 at 5, 0 at ≥6), the unnamed first, the listener keeping half the
-  story (4–40); a want pays ×1.5 at ≤2 named; `look` says "its name failing" under
-  seventy. Watch: whether the confiding alone holds the ground floor at three or
+  0.25 at 4, 0.1 at 5, 0 at ≥6), to the unnamed only (two named feeding each other
+  every ten minutes would be a spring for whoever fells them), the listener keeping
+  half the story (4–40) until it has a name; with no name left, the next wander
+  pass founds a gifted stranger in a remembered dug room for certain; a want pays
+  ×1.5 at ≤2 named; `look` says "its name failing" under seventy. Watch: whether the confiding alone holds the ground floor at three or
   four names overnight, and whether killers farm the confided-to.
 - Ambush pacing for gate players: a fight's clock runs between gate lines, so a
   stateless visitor can take many strikes before their next line (nine, once, in the

@@ -630,6 +630,9 @@ fn schedule_wander(world: &mut World) -> Result<(), String> {
 }
 
 /// One pass: for each dug room still remembered and empty of creatures, a small chance.
+/// When the world has no named creature left, one stranger comes for certain, holding
+/// memories, into one of those rooms: the confiding needs a teller, and the ground
+/// floor once fell to none.
 pub fn wander(world: &mut World) -> Result<usize, String> {
     let rooms: Vec<EntityId> = world
         .store
@@ -639,9 +642,19 @@ pub fn wander(world: &mut World) -> Result<usize, String> {
         .filter(|&r| super::building::memory(world, r).is_some_and(|m| m >= super::building::DIM))
         .filter(|&r| super::combat::creatures_in(world, r).is_empty())
         .collect();
+    let orphaned = named_count(world) == 0;
     let mut arrived = 0;
+    let mut founded = false;
+    // The founder's room: a remembered dug room at random. A world nobody has dug in
+    // yet gets no founder; its first names are its first players' to give.
+    let founder_room = if rooms.is_empty() {
+        None
+    } else {
+        Some(rooms[world.roll(rooms.len() as u32) as usize])
+    };
     for room in rooms {
-        if world.roll(WANDER_ONE_IN) != 0 {
+        let founding = orphaned && !founded && Some(room) == founder_room;
+        if !founding && world.roll(WANDER_ONE_IN) != 0 {
             continue;
         }
         let key = WANDERERS[world.roll(WANDERERS.len() as u32) as usize];
@@ -649,7 +662,8 @@ pub fn wander(world: &mut World) -> Result<usize, String> {
             continue;
         };
         let creature = super::combat::spawn_one(world, room, d).map_err(|e| e.to_string())?;
-        let gifted = world.roll(GIFTED_ONE_IN) == 0;
+        let gifted = founding || world.roll(GIFTED_ONE_IN) == 0;
+        founded |= founding;
         if gifted {
             let window = ensure_window(world, creature).map_err(|e| e.to_string())?;
             let n = 1 + world.roll(2) as usize;
@@ -671,11 +685,13 @@ pub fn wander(world: &mut World) -> Result<usize, String> {
         let _ = world.note(
             Actor::Driver,
             WANDERED,
-            json!({"creature": creature.0, "kind": d.key, "room": room.0, "named": name(world, creature)}),
+            json!({"creature": creature.0, "kind": d.key, "room": room.0, "named": name(world, creature), "founding": founding}),
         );
         world.notice(format!(
             "**{who}** wandered into {rname}{}.",
-            if gifted {
+            if founding {
+                ", already holding memories: the world had no names left"
+            } else if gifted {
                 ", already holding memories"
             } else {
                 ""
@@ -735,10 +751,10 @@ fn schedule_confide(world: &mut World) -> Result<(), String> {
         .map(|_| ())
 }
 
-/// One pass: each named creature, with the urgency's chance, tells a creature in its
-/// room a story it holds (the unnamed first: the point is a new name), and the
-/// listener keeps a memory of it worth half the story, at least four. The teller
-/// keeps its story: a story told is not lost. Returns how many were told.
+/// One pass: each named creature, with the urgency's chance, tells an unnamed
+/// creature in its room a story it holds, and the listener keeps a memory of it worth
+/// half the story, at least four, until it has a name of its own. The teller keeps
+/// its story: a story told is not lost. Returns how many were told.
 pub fn confide(world: &mut World) -> Result<usize, String> {
     let named: Vec<EntityId> = world
         .store
@@ -764,19 +780,10 @@ pub fn confide(world: &mut World) -> Result<usize, String> {
             .map(|c| c.0)
             .filter(|&c| c != teller)
             .collect();
-        // The unnamed first; else the named one holding least.
-        let listener = others
-            .iter()
-            .copied()
-            .find(|&c| name(world, c).is_none())
-            .or_else(|| {
-                others.iter().copied().min_by(|&a, &b| {
-                    level(world, a)
-                        .partial_cmp(&level(world, b))
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
-            });
-        let Some(listener) = listener else {
+        // The unnamed only: the point is a new name, and two named creatures telling
+        // each other stories every ten minutes would be a spring of memory for
+        // whoever fells them. It stops when the listener has its name.
+        let Some(listener) = others.iter().copied().find(|&c| name(world, c).is_none()) else {
             continue;
         };
         // The story it holds best.

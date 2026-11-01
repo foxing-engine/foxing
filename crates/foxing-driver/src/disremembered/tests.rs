@@ -2130,6 +2130,14 @@ fn creatures_wander_into_remembered_dug_rooms_and_rarely_arrive_knowing_things()
     let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
     let dug = ok(&mut w, "dave", "dig", json!(["down", c, "The Salt Stair"]));
     let room = EntityId(dug.result["room"].as_u64().unwrap());
+    // One named creature in the world, so the strangers come by chance and not as
+    // founders (no time passes here, so the name holds).
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "travel", json!(["south"]));
+    let c = admin(&mut w, "dave", "earn", json!(["hollow", 90, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "remember", json!([c, "ragpicker"]));
+    assert_eq!(mind::named_count(&w), 1);
     // Many passes: something wanders in eventually, and only into the remembered dug room.
     let mut arrived = 0;
     let mut gifted = 0;
@@ -2164,6 +2172,58 @@ fn creatures_wander_into_remembered_dug_rooms_and_rarely_arrive_knowing_things()
     assert!(combat::creatures_in(&w, threshold).is_empty());
     // The job is scheduled at boot and reschedules itself.
     assert!(w.jobs.pending().any(|j| j.kind == mind::JOB_WANDER));
+    // With no name left in the world, the next pass founds one for certain: a
+    // stranger holding memories, named on arrival, in a remembered dug room.
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    w.record(
+        foxing_log::Actor::Driver,
+        StoreEvent::EntityRemoved { id: rag },
+    )
+    .unwrap();
+    for c in combat::creatures_in(&w, room) {
+        w.record(
+            foxing_log::Actor::Driver,
+            StoreEvent::EntityRemoved { id: c.0 },
+        )
+        .unwrap();
+    }
+    assert_eq!(mind::named_count(&w), 0);
+    let head = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .len();
+    assert_eq!(mind::wander(&mut w).unwrap(), 1);
+    assert_eq!(mind::named_count(&w), 1);
+    let founder = combat::creatures_in(&w, room);
+    assert_eq!(founder.len(), 1);
+    assert!(mind::name(&w, founder[0].0).is_some());
+    let founding: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .skip(head)
+        .filter(|e| e.kind == mind::WANDERED && e.payload["founding"] == true)
+        .collect();
+    assert_eq!(founding.len(), 1);
+    // And not again while that name stands.
+    let head = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .len();
+    w.seed(1);
+    let more = mind::wander(&mut w).unwrap();
+    assert!(more <= 1, "{more}");
+    assert!(!w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .skip(head)
+        .any(|e| e.kind == mind::WANDERED && e.payload["founding"] == true));
 }
 
 #[test]
@@ -4269,8 +4329,35 @@ fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
             w.fixed_now = Some(w.now().plus(Duration::seconds(400)));
             w.tick();
         }
-        let out = fight(&mut w, "dave");
-        if out.result["left"].is_object() {
+        // The world has been idle for a while, so a founder may have come and told
+        // the ragpicker enough for a name; struck by its name then, and still a
+        // ragpicker that leaves thread.
+        let rag = combat::creatures_in(&w, midden)
+            .into_iter()
+            .find(|c| c.1 == "ragpicker")
+            .map(|c| c.0);
+        let Some(rag) = rag else {
+            continue;
+        };
+        let target = mind::name(&w, rag).unwrap_or_else(|| "ragpicker".into());
+        let mut out = None;
+        for _ in 0..40 {
+            // A named one that just went down is shaken for a while: wait it out.
+            let Ok(o) = call(
+                &mut w,
+                "dave",
+                ActorKind::Citizen,
+                "attack",
+                json!([&target]),
+            ) else {
+                break;
+            };
+            if o.result["killed"] == json!(true) || o.result["died"] == json!(true) {
+                out = Some(o);
+                break;
+            }
+        }
+        if out.is_some_and(|o| o.result["left"].is_object()) {
             thread = true;
         }
     }

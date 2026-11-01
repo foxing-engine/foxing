@@ -278,12 +278,14 @@ One birth in six is a strange one; `look` says so, and the record
 (`disremembered.born`) says what was born, of whom, carried by whom.
 
 Names fade like any memory, and when few are left the named feel it:
-every ten minutes a named creature may tell a creature in its room a
-story it holds (the unnamed first), and the listener keeps a memory of
-it, half the story's worth; certain when two or fewer names are left,
-one chance in two at three, nothing at six or more; the room hears it
-told, and `disremembered.confided` is the public record. A story told
-is not lost. A want pays half again when names are few (a word carried,
+every ten minutes a named creature may tell an unnamed creature in its
+room a story it holds, and the listener keeps a memory of it, half the
+story's worth, until it has a name of its own; certain when two or
+fewer names are left, one chance in two at three, nothing at six or
+more; the room hears it told, and `disremembered.confided` is the
+public record. A story told is not lost. When no name is left at all, a
+stranger comes within ten minutes into a remembered dug room, already
+holding memories, and the telling starts from there. A want pays half again when names are few (a word carried,
 the story it wanted), and `look` says when a name is failing (under
 seventy), so you know where the next one will be lost.
 
