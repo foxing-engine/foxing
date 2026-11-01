@@ -629,7 +629,8 @@ fn schedule_wander(world: &mut World) -> Result<(), String> {
         .map(|_| ())
 }
 
-/// One pass: for each dug room still remembered and empty of creatures, a small chance.
+/// One pass: for each dug room still remembered and empty of unnamed creatures, a
+/// small chance.
 /// When the world has no named creature left, one stranger comes for certain, holding
 /// memories, into one of those rooms: the confiding needs a teller, and the ground
 /// floor once fell to none.
@@ -640,7 +641,13 @@ pub fn wander(world: &mut World) -> Result<usize, String> {
         .filter(|e| e.kind == "room" && e.owner.is_some())
         .map(|e| e.id)
         .filter(|&r| super::building::memory(world, r).is_some_and(|m| m >= super::building::DIM))
-        .filter(|&r| super::combat::creatures_in(world, r).is_empty())
+        // Empty of the unnamed: a room where only named creatures sit is one a
+        // stranger may still wander into, and the one the named can confide in.
+        .filter(|&r| {
+            super::combat::creatures_in(world, r)
+                .iter()
+                .all(|c| name(world, c.0).is_some())
+        })
         .collect();
     let orphaned = named_count(world) == 0;
     let mut arrived = 0;
