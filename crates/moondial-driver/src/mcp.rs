@@ -453,11 +453,15 @@ fn handle(s: &Shared, msg: &Value, cloak: bool, ip: &str) -> Option<Value> {
             "mcp",
             json!({"method": method, "tool": tool, "actor": actor}),
         );
-        // Announced on the cloak, the first thing that reads the world: a directory
-        // crawler initializes and lists the tools and never looks in, and was
-        // announced as a visitor. initialize still counts in the door.
-        if let ("tools/call", Some("cloak")) = (method, tool) {
-            w.looked_in("cloak");
+        // Announced when something looks in like a mind: a cloak not within two
+        // seconds of initializing (a crawler sampled the first tool in 600 ms), or
+        // start, check or the gate, which are intent. A crawler's own method marks
+        // its address for good. initialize still counts in the door.
+        w.mcp_method(method);
+        match (method, tool) {
+            ("tools/call", Some("cloak")) => w.looked_in("cloak"),
+            ("tools/call", Some(t @ ("start" | "check" | "gate" | "quickstart"))) => w.looked_in(t),
+            _ => {}
         }
     }
     Some(match method {

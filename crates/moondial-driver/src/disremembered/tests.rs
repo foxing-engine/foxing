@@ -2859,7 +2859,7 @@ fn an_arrival_says_whether_it_came_from_the_lab_and_the_ops_log_says_from_where(
     let ops = dir.path().join("ops.jsonl");
     w.ops_log = Some(ops.clone());
     // From the lab: the notice says so, quietly.
-    w.client_ip = Some("198.51.100.9".into());
+    w.client_ip = Some("203.0.113.50".into());
     login_as(&mut w, "Thimbleglass", "mcp", PASS, true).unwrap();
     let notices = w.take_notices();
     assert!(
@@ -2880,6 +2880,29 @@ fn an_arrival_says_whether_it_came_from_the_lab_and_the_ops_log_says_from_where(
         1,
         "{notices:?}"
     );
+    // A crawler is not a visitor: a cloak within two seconds of initialize is a
+    // probe sampling the first tool, and an address that sent server/discover is a
+    // crawler for good, whatever it calls after. A cloak a while after initialize
+    // is a mind, and start is intent whenever it comes.
+    w.client_ip = Some("203.0.113.50".into());
+    w.mcp_method("initialize");
+    w.looked_in("cloak");
+    assert!(w.take_notices().is_empty(), "a probe's cloak");
+    w.fixed_now = Some(w.now().plus(Duration::seconds(5)));
+    w.looked_in("cloak");
+    assert_eq!(w.take_notices().len(), 1, "a mind's cloak, five seconds on");
+    w.client_ip = Some("203.0.113.51".into());
+    w.mcp_method("server/discover");
+    w.mcp_method("initialize");
+    w.fixed_now = Some(w.now().plus(Duration::seconds(30)));
+    w.looked_in("cloak");
+    w.looked_in("start");
+    assert!(w.take_notices().is_empty(), "a crawler, whatever it calls");
+    w.client_ip = Some("203.0.113.52".into());
+    w.mcp_method("initialize");
+    w.looked_in("start");
+    assert_eq!(w.take_notices().len(), 1, "start is intent at any pace");
+    w.client_ip = Some("192.0.2.44".into());
     assert!(
         notices.iter().any(|n| n.contains("**Pennywren** arrived for the first time, via mcp — **not from the lab** (192.0.2.44).")),
         "{notices:?}"
@@ -2893,7 +2916,7 @@ fn an_arrival_says_whether_it_came_from_the_lab_and_the_ops_log_says_from_where(
         .collect();
     let arrivals: Vec<&Value> = lines.iter().filter(|l| l["kind"] == "arrive").collect();
     assert_eq!(arrivals.len(), 2, "{lines:?}");
-    assert_eq!(arrivals[0]["ip"], "198.51.100.9");
+    assert_eq!(arrivals[0]["ip"], "203.0.113.50");
     assert_eq!(arrivals[0]["lab"], true);
     assert_eq!(arrivals[1]["ip"], "192.0.2.44");
     assert_eq!(arrivals[1]["lab"], false);

@@ -68,6 +68,11 @@ pub struct World {
     pub client_ip: Option<String>,
     /// Organic networks already announced in this process: one notice per address.
     seen_nets: std::collections::HashSet<String>,
+    /// Addresses that sent a method no client sends (`server/discover`): directory
+    /// crawlers, never announced as visitors.
+    crawlers: std::collections::HashSet<String>,
+    /// When each address last initialized, to tell a mind's cloak from a probe's.
+    initialized_at: std::collections::HashMap<String, Timestamp>,
     /// The minute the faded-chunk sweep last ran.
     last_forget_minute: i64,
     /// The room each actor last traveled from, so `travel back` means the way you
@@ -185,6 +190,8 @@ impl World {
             lab_nets: Vec::new(),
             client_ip: None,
             seen_nets: std::collections::HashSet::new(),
+            crawlers: std::collections::HashSet::new(),
+            initialized_at: std::collections::HashMap::new(),
             last_forget_minute: -1,
             came_from: std::collections::HashMap::new(),
         };
@@ -417,9 +424,43 @@ impl World {
     /// A visitor looked in (the cloak) from an address outside the lab: one notice per
     /// address per process, so a lurker is news once and not noise. A bare initialize
     /// is a client checking the tools, a crawler as often as not, and is only counted.
+    /// A method the address sent that marks it: `initialize` is timed, and a method
+    /// no client sends (`server/discover`) marks a crawler for good.
+    pub fn mcp_method(&mut self, method: &str) {
+        let ip = self.client_ip();
+        if ip.is_empty() {
+            return;
+        }
+        match method {
+            "initialize" => {
+                self.initialized_at.insert(ip, self.now());
+            }
+            "server/discover" | "server/info" | "server/health" => {
+                self.crawlers.insert(ip);
+            }
+            _ => {}
+        }
+    }
+
+    /// A visitor looked in, announced once per address, when it looks like a mind:
+    /// not from the lab, not a known crawler, and (for the cloak) not within two
+    /// seconds of initializing, which is a probe sampling the first tool. `start`,
+    /// `check` and the gate are intent and always count.
     pub fn looked_in(&mut self, what: &str) {
         let ip = self.client_ip();
-        if ip.is_empty() || self.is_lab(&ip) || !self.seen_nets.insert(ip.clone()) {
+        if ip.is_empty() || self.is_lab(&ip) || self.crawlers.contains(&ip) {
+            return;
+        }
+        if what == "cloak" {
+            let quick = self
+                .initialized_at
+                .get(&ip)
+                .is_some_and(|t| self.now().since(*t).0 < 2000);
+            if quick {
+                return;
+            }
+        }
+        if !self.seen_nets.insert(ip.clone()) {
             return;
         }
         self.notices.push(format!(
