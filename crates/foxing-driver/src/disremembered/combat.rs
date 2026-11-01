@@ -633,6 +633,12 @@ pub fn hp(world: &World, citizen: EntityId) -> f64 {
         .unwrap_or(0.0)
 }
 
+/// Hit points as a line says them: rounded up, so a name still standing on a
+/// fraction never reads "0/30".
+pub fn hp_said(world: &World, citizen: EntityId) -> f64 {
+    hp(world, citizen).ceil()
+}
+
 pub(crate) fn commit_hp(
     world: &mut World,
     citizen: EntityId,
@@ -753,7 +759,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 return Ok(());
             }
             let (trick, over) = super::stacks::trick(w, &c, creature, citizen, &actor)?;
-            narrate(w, &actor, format!("The {cname} hits you for {taken:.0}. You have {:.0}/{:.0}.{}", hp(w, citizen), super::MAX_HP, trick.map(|t| format!(" {t}")).unwrap_or_default()));
+            narrate(w, &actor, format!("The {cname} hits you for {taken:.0}. You have {:.0}/{:.0}.{}", hp_said(w, citizen), super::MAX_HP, trick.map(|t| format!(" {t}")).unwrap_or_default()));
             if over {
                 return Ok(());
             }
@@ -805,7 +811,7 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             let (trick, over) = super::stacks::trick(w, &c2, creature, citizen, &actor)?;
             let clock = clock_line(w, creature);
-            narrate(w, &actor, format!("The {dname} {dambush} It hits you for {taken:.0}. You have {:.0}/{:.0}.{} {clock}", hp(w, citizen), super::MAX_HP, match &trick { Some(t) => format!(" {t}"), None => " Attack it, or retreat.".to_string() }));
+            narrate(w, &actor, format!("The {dname} {dambush} It hits you for {taken:.0}. You have {:.0}/{:.0}.{} {clock}", hp_said(w, citizen), super::MAX_HP, match &trick { Some(t) => format!(" {t}"), None => " Attack it, or retreat.".to_string() }));
             if over {
                 return Ok(());
             }
@@ -965,7 +971,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 });
                 return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": false, "died": true, "lost": lost})));
             }
-            let my_hp = hp(w, f.citizen);
+            let my_hp = hp_said(w, f.citizen);
             lines.push(format!("You have {my_hp:.0}/{:.0}.", super::MAX_HP));
             let (trick, _) = super::stacks::trick(w, &curves, creature, f.citizen, &ctx.actor).map_err(internal)?;
             if let Some(t) = trick {
@@ -1000,7 +1006,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 Some(_) => " It will be whole again by the time you come back; the Stacks keep their own.",
                 None => "",
             };
-            Ok(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}. You have {:.0}/{:.0}.{mended}", hp(w, f.citizen), super::MAX_HP), json!({"died": false, "hp": hp(w, f.citizen)})))
+            Ok(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}. You have {:.0}/{:.0}.{mended}", hp_said(w, f.citizen), super::MAX_HP), json!({"died": false, "hp": hp(w, f.citizen)})))
         }),
     );
 

@@ -274,6 +274,25 @@ figures on the canvas that answer to a click.
   runs in the same message (refund it, or say so); start and quickstart give
   different first-message examples; `attack Lute` replies "the wisp" for a named
   creature; "vividity" appears in `chunks` without a definition in the quickstart.
+- The Stacks climb, measured (Wimblethrush, 2026-11-01, on the sqrt curve): a 169-XP
+  name's first lamprey paid 168 and doubled it; then 336, 547, 767, 1,212, 1,567,
+  2,217 in twenty-five minutes, the cataloguer down at 1,567 with 2 hp left. The
+  curve did its job (lamprey one-shots arrive at ~2,200, not 225) but each Stacks
+  kill pays its full worth, as much as everything the delver holds, so the climb is
+  seven fights. Fixed 30 hp is the real limit; death costs nothing (he woke with
+  everything after the venom took him); retreat costs one free hit. Options for the
+  owner: a kill pays at most the delver's level plus sixty (a low name takes a
+  censor for 70, not 291); or pay scaled by level/worth clamped to a quarter; or
+  creature hp scaled to the delver; max hp that grows with level (30 + sqrt(level)?);
+  a death that costs a chunk always, or a share of the window. The ground floor
+  cannot reach 300 XP in an hour (eight named creatures, one story each, ~20 XP;
+  wild hollows that hold memory pay what they hold, 1–5 XP, not their listed 60):
+  say the first lamprey is the on-ramp, or give the ground floor a second faucet.
+- A death between gate messages (venom, a strike on the clock) lands at the top of
+  the next reply and the message's statements then run from the Threshold ("You go
+  down… You go west" into a different room): when the actor died since their last
+  message, refuse the rest of the message with "You woke at the Threshold; read the
+  room first." Venom should also say how many ticks remain when it reports late.
 - Ambush pacing for gate players: a fight's clock runs between gate lines, so a
   stateless visitor can take many strikes before their next line (nine, once, in the
   Shallows). Options: one round per statement for gate actors, or a longer strike
