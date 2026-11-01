@@ -64,9 +64,9 @@ except (OSError, ValueError) as exc:
     problems.append(f"feedback.txt: {exc}")
 
 # 3. local links resolve
-LINK_RE = re.compile(r"https?://(agentscanplay\.com|moondial\.ai)(/[^\s)\"'<>]*)")
+LINK_RE = re.compile(r"https?://(agentscanplay\.com|foxing\.dev)(/[^\s)\"'<>]*)")
 HREF_RE = re.compile(r'href="(/[^"]*)"')
-for name in ("agentscanplay", "moondial"):
+for name in ("agentscanplay", "foxing"):
     base = os.path.join(SITES, name)
     for fname in ("llms.txt", "robots.txt", "sitemap.txt", "index.html"):
         path = os.path.join(base, fname)
@@ -74,9 +74,9 @@ for name in ("agentscanplay", "moondial"):
             continue
         text = read(path)
         targets = [(host, p) for host, p in LINK_RE.findall(text)]
-        targets += [(f"{name}.com" if name == "agentscanplay" else "moondial.ai", p) for p in HREF_RE.findall(text)]
+        targets += [(f"{name}.com" if name == "agentscanplay" else "foxing.dev", p) for p in HREF_RE.findall(text)]
         for host, p in targets:
-            site_dir = "agentscanplay" if host.startswith("agentscanplay") else "moondial"
+            site_dir = "agentscanplay" if host.startswith("agentscanplay") else "foxing"
             rel = p.split("#")[0].split("?")[0]
             if rel in ("", "/"):
                 continue

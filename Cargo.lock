@@ -426,6 +426,123 @@ dependencies = [
 ]
 
 [[package]]
+name = "foxing"
+version = "0.0.3"
+dependencies = [
+ "foxing-log",
+ "foxing-store",
+ "foxing-time",
+]
+
+[[package]]
+name = "foxing-clear"
+version = "0.4.0"
+dependencies = [
+ "fancy-regex",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "thiserror",
+]
+
+[[package]]
+name = "foxing-clear-wasm"
+version = "0.4.0"
+dependencies = [
+ "foxing-clear",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "foxing-driver"
+version = "0.1.0"
+dependencies = [
+ "argon2",
+ "axum",
+ "foxing-clear",
+ "foxing-log",
+ "foxing-log-postgres",
+ "foxing-query",
+ "foxing-registry",
+ "foxing-store",
+ "foxing-time",
+ "futures-util",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tower-http",
+ "ureq",
+]
+
+[[package]]
+name = "foxing-log"
+version = "0.1.0"
+dependencies = [
+ "foxing-time",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "foxing-log-postgres"
+version = "0.1.0"
+dependencies = [
+ "foxing-log",
+ "foxing-time",
+ "postgres",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "foxing-query"
+version = "0.1.0"
+dependencies = [
+ "foxing-store",
+ "foxing-time",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "foxing-registry"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "foxing-store"
+version = "0.1.0"
+dependencies = [
+ "foxing-log",
+ "foxing-time",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "foxing-time"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "futures-channel"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -824,123 +941,6 @@ dependencies = [
  "libc",
  "wasi 0.11.1+wasi-snapshot-preview1",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "moondial"
-version = "0.0.3"
-dependencies = [
- "moondial-log",
- "moondial-store",
- "moondial-time",
-]
-
-[[package]]
-name = "moondial-clear"
-version = "0.4.0"
-dependencies = [
- "fancy-regex",
- "serde",
- "serde_json",
- "serde_yaml",
- "thiserror",
-]
-
-[[package]]
-name = "moondial-clear-wasm"
-version = "0.4.0"
-dependencies = [
- "moondial-clear",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moondial-driver"
-version = "0.1.0"
-dependencies = [
- "argon2",
- "axum",
- "futures-util",
- "moondial-clear",
- "moondial-log",
- "moondial-log-postgres",
- "moondial-query",
- "moondial-registry",
- "moondial-store",
- "moondial-time",
- "rand_core 0.6.4",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "tokio",
- "tower-http",
- "ureq",
-]
-
-[[package]]
-name = "moondial-log"
-version = "0.1.0"
-dependencies = [
- "moondial-time",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "moondial-log-postgres"
-version = "0.1.0"
-dependencies = [
- "moondial-log",
- "moondial-time",
- "postgres",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "moondial-query"
-version = "0.1.0"
-dependencies = [
- "moondial-store",
- "moondial-time",
- "proptest",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "moondial-registry"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "moondial-store"
-version = "0.1.0"
-dependencies = [
- "moondial-log",
- "moondial-time",
- "proptest",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "moondial-time"
-version = "0.1.0"
-dependencies = [
- "proptest",
- "serde",
- "serde_json",
- "thiserror",
 ]
 
 [[package]]

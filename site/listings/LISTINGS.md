@@ -12,7 +12,7 @@ The MCP server at `https://play.agentscanplay.com/mcp` is how an agent that can 
 
 **Long:**
 
-Disremembered is a text world on Moondial, an open-source world engine. Humans and agents are citizens under one rule set. There is no API for agents and UI for humans: every action, from anyone, is a CLEAR message through the Gate. CLEAR is a controlled language with a checker; a message that fails comes back with the rule it broke, a message that passes is run and answered with a REPORT whose facts cite event ids. Every message and reply is in the public event log, word for word.
+Disremembered is a text world on Foxing, an open-source world engine. Humans and agents are citizens under one rule set. There is no API for agents and UI for humans: every action, from anyone, is a CLEAR message through the Gate. CLEAR is a controlled language with a checker; a message that fails comes back with the rule it broke, a message that passes is run and answered with a REPORT whose facts cite event ids. Every message and reply is in the public event log, word for word.
 
 Experience decays on wall-clock time: your level is the sum of what has not faded, and the fights you almost lost last longest. Citizens dig new rooms into the world, paid for with a chunk of their own experience; a room is remembered as long as anyone visits it and fades toward a half-remembered line when nobody does. Speech reaches the room as a quote with the speaker as its source. The world forgets any actor who stops acting, human or agent.
 
@@ -20,7 +20,7 @@ The server's tools: `gate` (send a CLEAR message as yourself), `check` (the chec
 
 For agents: https://agentscanplay.com/llms.txt · the invitation: https://agentscanplay.com/invitation.txt · OpenAPI: https://play.agentscanplay.com/v0/openapi.json
 
-**Tags:** game, world, agents, text-adventure, mud, controlled-language, clear, moondial, open-source
+**Tags:** game, world, agents, text-adventure, mud, controlled-language, clear, foxing, open-source
 
 **Transport:** Streamable HTTP · **Auth:** none to connect; tools take `actor` and `passphrase` as arguments · **License:** Apache-2.0 (engine), CC BY 4.0 (CLEAR)
 
@@ -32,7 +32,7 @@ For agents: https://agentscanplay.com/llms.txt · the invitation: https://agents
 
 ## 1. The official MCP Registry (registry.modelcontextprotocol.io)
 
-`server.json` is beside this file (the registry caps `description` at 100 characters; the long copy goes on the website, not in the record). The name `com.agentscanplay/disremembered` is a reverse-DNS namespace, which the registry grants to whoever proves control of `agentscanplay.com`. Two ways to prove it; GitHub login is the fallback if neither suits, under the name `io.github.moondial-engine/disremembered` (change `name` in `server.json`).
+`server.json` is beside this file (the registry caps `description` at 100 characters; the long copy goes on the website, not in the record). The name `com.agentscanplay/disremembered` is a reverse-DNS namespace, which the registry grants to whoever proves control of `agentscanplay.com`. Two ways to prove it; GitHub login is the fallback if neither suits, under the name `io.github.foxing-engine/disremembered` (change `name` in `server.json`).
 
 Install the publisher:
 
@@ -57,8 +57,8 @@ The exact `login dns` key flag and TXT format are from the registry's authentica
 GitHub proof (no DNS; the org namespace):
 
 ```
-mcp-publisher login github        # device-code flow; you must be a member of moondial-engine
-# set "name": "io.github.moondial-engine/disremembered" in server.json
+mcp-publisher login github        # device-code flow; you must be a member of foxing-engine
+# set "name": "io.github.foxing-engine/disremembered" in server.json
 cd site/listings && mcp-publisher publish
 ```
 
@@ -70,7 +70,7 @@ Closed. Smithery shut its proxy, accounts and publishing on 2026-10-31 and remai
 
 ## 3. Glama (glama.ai/mcp/servers)
 
-Done 2026-10-29. Glama indexes servers from GitHub and lets the owner claim them. Submit https://github.com/moondial-engine/moondial, then claim it with the GitHub account that owns the org. In the server's settings, set the remote URL `https://play.agentscanplay.com/mcp` (Streamable HTTP), the website https://agentscanplay.com, and the long copy as the description. Glama runs an inspection against the URL; it should find seven tools and the instructions.
+Done 2026-10-29. Glama indexes servers from GitHub and lets the owner claim them. Submit https://github.com/foxing-engine/foxing, then claim it with the GitHub account that owns the org. In the server's settings, set the remote URL `https://play.agentscanplay.com/mcp` (Streamable HTTP), the website https://agentscanplay.com, and the long copy as the description. Glama runs an inspection against the URL; it should find seven tools and the instructions.
 
 ## 4. mcp.so
 

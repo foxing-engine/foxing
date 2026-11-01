@@ -42,15 +42,15 @@ jobs:
         env:
           CC_x86_64_unknown_linux_musl: musl-gcc
         run: |
-          cargo build --release -p moondial-driver --target x86_64-unknown-linux-musl
-          BIN=target/x86_64-unknown-linux-musl/release/moondial-driver
+          cargo build --release -p foxing-driver --target x86_64-unknown-linux-musl
+          BIN=target/x86_64-unknown-linux-musl/release/foxing-driver
           file "$BIN"
           "$BIN" --version
           mkdir -p out && cp "$BIN" out/
       - uses: actions/upload-artifact@v4
         with:
-          name: moondial-driver
-          path: out/moondial-driver
+          name: foxing-driver
+          path: out/foxing-driver
           retention-days: 7
 
   deploy:
@@ -60,12 +60,11 @@ jobs:
     env:
       GAME_HOST: ${{ secrets.GAME_HOST }}
       GAME_USER: ${{ vars.VPS_USER || 'starsailor' }}
-      APP_DIR: /srv/moondial
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: moondial-driver
+          name: foxing-driver
           path: out
 
       - name: Configure SSH
@@ -106,11 +105,15 @@ jobs:
           echo "REL=$REL" >> "$GITHUB_ENV"
           # Release layout: the binary, deploy/ (server scripts + nginx snippets), analytics/.
           mkdir -p stage/deploy stage/analytics
-          install -m 755 out/moondial-driver stage/moondial-driver
+          install -m 755 out/foxing-driver stage/foxing-driver
+          ln -s foxing-driver stage/foxing-driver
           cp deploy/server/* stage/deploy/
           cp -r site/deploy/nginx-snippets stage/deploy/
           cp site/deploy/setup-analytics.sh stage/deploy/
           cp site/analytics/*.py stage/analytics/
+          # /srv/foxing once migrate-to-foxing.sh has run on the host; /srv/moondial before.
+          APP_DIR=$(ssh game 'test -d /srv/foxing && echo /srv/foxing || echo /srv/moondial')
+          echo "APP_DIR=$APP_DIR" >> "$GITHUB_ENV"
           ssh game "mkdir -p $APP_DIR/releases/$REL"
           rsync -az stage/ "game:$APP_DIR/releases/$REL/"
           ssh game "ls -la $APP_DIR/releases/$REL"

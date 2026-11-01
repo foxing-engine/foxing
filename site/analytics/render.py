@@ -30,7 +30,7 @@ LAB_NETS = os.environ.get("ANALYTICS_LAB_NETS", os.environ.get("MOONDIAL_LAB_NET
 def env_from_driver(key: str) -> str:
     """A value from the driver's env file, when the timer's own environment lacks it."""
     try:
-        with open(os.environ.get("MOONDIAL_DRIVER_ENV", "/etc/moondial/driver.env"), encoding="utf-8") as fh:
+        with open(os.environ.get("FOXING_DRIVER_ENV", os.environ.get("MOONDIAL_DRIVER_ENV", "/etc/moondial/driver.env")), encoding="utf-8") as fh:
             for line in fh:
                 if line.startswith(key + "="):
                     return line.split("=", 1)[1].strip().strip('"')
@@ -45,7 +45,7 @@ HTML_DIR = os.environ.get("ANALYTICS_HTML", "/srv/agentscanplay/shared/analytics
 
 # The game driver, for the citizens report: who came, by what door, and what they did.
 DRIVER = os.environ.get("MOONDIAL_HTTP_URL", "http://127.0.0.1:7777")
-DRIVER_ENV = os.environ.get("MOONDIAL_DRIVER_ENV", "/etc/moondial/driver.env")
+DRIVER_ENV = os.environ.get("FOXING_DRIVER_ENV", os.environ.get("MOONDIAL_DRIVER_ENV", "/etc/moondial/driver.env"))
 
 KEY_PATHS = ["/", "/invitation.txt", "/llms.txt", "/.well-known/world-card.json", "/clear/clear-spec-v0.3.md",
              "/clear/disremembered.yaml", "/clear/clear_check.py", "/robots.txt",
@@ -165,7 +165,7 @@ def citizens(days: int) -> tuple[list[dict], str]:
     if not tok:
         return [], "no admin token (set MOONDIAL_ADMIN_TOKEN or make the driver env readable)"
     since_ms = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp() * 1000)
-    req = urllib.request.Request(f"{DRIVER}/v0/citizens?since={since_ms}", headers={"X-Moondial-Admin": tok})
+    req = urllib.request.Request(f"{DRIVER}/v0/citizens?since={since_ms}", headers={"X-Foxing-Admin": tok})
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:
             return json.load(resp).get("citizens", []), ""
@@ -201,7 +201,7 @@ def report(db: sqlite3.Connection, days: int) -> dict:
     out["root_split"] = q(db, f"SELECT host, accept_kind, ua_class, COUNT(*) FROM requests {w} AND path = '/' GROUP BY host, accept_kind, ua_class ORDER BY host, 4 DESC", (since,))
     out["key_paths"] = q(db, f"SELECT host, path, COUNT(*), COUNT(DISTINCT visitor) FROM requests {w} AND path IN ({','.join('?' * len(KEY_PATHS))}) GROUP BY host, path ORDER BY host, 3 DESC", (since, *KEY_PATHS))
     out["agents"] = q(db, f"SELECT ua_class, ua_name, COUNT(*), COUNT(DISTINCT visitor), MAX(ts) FROM requests {w} AND ua_class IN ('ai-crawler','tool','agent') GROUP BY ua_class, ua_name ORDER BY 3 DESC LIMIT 40", (since,))
-    out["referers"] = q(db, f"SELECT referer_host, COUNT(*) FROM requests {w} AND referer_host != '' AND referer_host NOT IN ('agentscanplay.com','www.agentscanplay.com','moondial.ai','www.moondial.ai') GROUP BY referer_host ORDER BY 2 DESC LIMIT 25", (since,))
+    out["referers"] = q(db, f"SELECT referer_host, COUNT(*) FROM requests {w} AND referer_host != '' AND referer_host NOT IN ('agentscanplay.com','www.agentscanplay.com','foxing.dev','www.foxing.dev','moondial.ai','www.moondial.ai') GROUP BY referer_host ORDER BY 2 DESC LIMIT 25", (since,))
     out["daily"] = q(db, f"SELECT day, host, COUNT(*), COUNT(DISTINCT visitor) FROM requests {w} GROUP BY day, host ORDER BY day DESC, host", (since,))
     out["errors"] = q(db, "SELECT host, path, status, COUNT(*) FROM requests WHERE day >= ? AND status >= 400 GROUP BY host, path, status ORDER BY 4 DESC LIMIT 20", (since,))
     cz, why = citizens(days)
@@ -287,7 +287,7 @@ def page(r: dict) -> str:
     ]
     body = "".join(f"<h2>{html.escape(t)}</h2>{tb}" for t, tb in sections)
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow"><title>Moondial analytics</title>
+<meta name="robots" content="noindex, nofollow"><title>Foxing analytics</title>
 <style>
 :root {{ --night:#0b0d12; --ink:#e8e4da; --dim:#9a948a; --dust:#d9b57a; --line:#262a33; --panel:#11141b; }}
 html {{ background: var(--night); color: var(--ink); font: 15px/1.5 "Iowan Old Style", Palatino, Georgia, serif; }}
@@ -299,7 +299,7 @@ th, td {{ text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--li
 td:nth-child(n+3) {{ text-align: right; }} tr:hover td {{ background: var(--panel); }}
 td:nth-child(2) {{ color: var(--dust); }}
 </style></head><body><main>
-<h1>Moondial analytics</h1>
+<h1>Foxing analytics</h1>
 <p class="sub">Since {html.escape(r['since'])} ({r['days']} days) · rendered {now} · 2xx requests unless noted · addresses kept {html.escape(os.environ.get("ANALYTICS_RETENTION_DAYS", "90"))} days, operator-only · lab = {html.escape(LAB_NETS or "no lab nets set")}</p>
 {body}
 </main></body></html>"""

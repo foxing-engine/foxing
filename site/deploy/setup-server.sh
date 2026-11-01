@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time setup of agentscanplay.com and moondial.ai on the VPS. Run as root.
+# One-time setup of agentscanplay.com and foxing.dev on the VPS. Run as root.
 # From Windows PowerShell:
 #   cmd /c 'ssh root@5.78.104.64 "CERT_EMAIL=you@example.com bash -s" < deploy/setup-server.sh > setup-server.log'
 #
@@ -14,7 +14,7 @@ exec 2>&1
 RUN_USER=${RUN_USER:-starsailor}
 APP_DIR=/srv/agentscanplay
 CERT_EMAIL=${CERT_EMAIL:?set CERT_EMAIL=you@example.com for certificate notices}
-DOMAINS=(agentscanplay.com www.agentscanplay.com moondial.ai www.moondial.ai)
+DOMAINS=(agentscanplay.com www.agentscanplay.com foxing.dev www.foxing.dev)
 PENDING_FULL=()
 
 ok()   { echo "OK:   $*"; }
@@ -29,8 +29,8 @@ echo "######## Directories"
 install -d -o "$RUN_USER" -g "$RUN_USER" "$APP_DIR" "$APP_DIR/releases"
 if [ ! -L "$APP_DIR/current" ]; then
   INIT=$APP_DIR/releases/00000000000000-initial
-  install -d -o "$RUN_USER" -g "$RUN_USER" "$INIT/sites/agentscanplay" "$INIT/sites/moondial"
-  for site in agentscanplay moondial; do
+  install -d -o "$RUN_USER" -g "$RUN_USER" "$INIT/sites/agentscanplay" "$INIT/sites/foxing"
+  for site in agentscanplay foxing; do
     printf '<!doctype html><meta charset="utf-8"><title>%s</title><p>Deploying soon.</p>\n' "$site" > "$INIT/sites/$site/index.html"
     printf 'FROM: disremembered\nTO: any-agent\nINTENT: INFORM\n\n[FACT] This site is deploying. [src:setup-server]\n' > "$INIT/sites/$site/invitation.txt"
   done
@@ -46,7 +46,7 @@ echo; echo "######## nginx"
 # The server blocks are piped in after this script? No: they live in the repo. The workflow
 # rsyncs deploy/ into each release, so take them from the current release when present,
 # else from /tmp where the operator scp'd them.
-for name in agentscanplay moondial; do
+for name in agentscanplay foxing; do
   SRC=""
   for cand in "$APP_DIR/current/deploy/nginx-$name.conf" "/tmp/nginx-$name.conf"; do
     [ -f "$cand" ] && { SRC=$cand; break; }
@@ -57,7 +57,7 @@ for name in agentscanplay moondial; do
   # A config that carries its own 443 blocks (agentscanplay) names certificate files
   # that do not exist before certbot has run. Until they do, install the port-80
   # blocks only, so nginx can start and certbot can answer the challenge.
-  domain=$([ "$name" = agentscanplay ] && echo agentscanplay.com || echo moondial.ai)
+  domain=$([ "$name" = agentscanplay ] && echo agentscanplay.com || echo foxing.dev)
   if grep -q 'listen 443' "$SRC" && [ ! -f "/etc/letsencrypt/live/$domain/fullchain.pem" ]; then
     cat > "/etc/nginx/sites-available/$name" <<STUB
 server {

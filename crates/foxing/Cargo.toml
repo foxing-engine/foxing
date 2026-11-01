@@ -1,0 +1,15 @@
+[package]
+name = "foxing"
+version = "0.0.3"
+description = "Foxing: an open-source world engine where every value is computed from the clock when it is read. The driver crate; pre-alpha."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+readme = "../../README.md"
+
+[dependencies]
+foxing-time = { path = "../foxing-time", version = "0.1.0" }
+foxing-log = { path = "../foxing-log", version = "0.1.0" }
+foxing-store = { path = "../foxing-store", version = "0.1.0" }

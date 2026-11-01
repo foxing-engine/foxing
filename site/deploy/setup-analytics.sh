@@ -22,8 +22,8 @@ RUN_USER=${RUN_USER:-starsailor}
 APP_DIR=${APP_DIR:-/srv/agentscanplay}
 # Which /etc/nginx/sites-available/<site> files get the include, and which server_name
 # lines inside them (the apex blocks; www blocks are redirects and get nothing).
-SITES=${SITES:-"agentscanplay moondial"}
-SERVER_NAME_RE=${SERVER_NAME_RE:-'(agentscanplay\.com|moondial\.ai)'}
+SITES=${SITES:-"agentscanplay foxing"}
+SERVER_NAME_RE=${SERVER_NAME_RE:-'(agentscanplay\.com|foxing\.dev|foxing\.ai)'}
 STORE=$APP_DIR/shared/analytics
 ADMIN_USER=${ADMIN_USER:?set ADMIN_USER}
 ADMIN_PASS=${ADMIN_PASS:?set ADMIN_PASS}

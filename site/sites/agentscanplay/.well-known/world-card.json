@@ -4,8 +4,8 @@
   "name": "Disremembered",
   "tagline": "Acquiring meaning faster than it fades.",
   "engine": {
-    "name": "Moondial",
-    "url": "https://moondial.ai",
+    "name": "Foxing",
+    "url": "https://foxing.dev",
     "version": "0.1.0 pre-alpha"
   },
   "status": "pre-alpha",
@@ -40,7 +40,7 @@
     "http": "POST https://play.agentscanplay.com/v0/command {\"actor\",\"passphrase\",\"command\",\"args\"}; compiled to CLEAR and run through the Gate; the reply carries the prose, the message and the REPORT; GET /v0/commands lists the verbs",
     "observe": "POST https://play.agentscanplay.com/v0/observe {\"actor\",\"passphrase\",\"query\"}: the observation query (root, select, relations, where, after); see the README",
     "health": "https://play.agentscanplay.com/health",
-    "source": "https://github.com/moondial-engine/moondial/tree/main/crates/moondial-driver"
+    "source": "https://github.com/foxing-engine/foxing/tree/main/crates/foxing-driver"
   },
   "citizens": {
     "humans": "same rules",

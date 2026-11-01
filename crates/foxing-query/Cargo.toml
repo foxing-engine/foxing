@@ -1,0 +1,19 @@
+[package]
+name = "foxing-query"
+version = "0.1.0"
+description = "The Foxing observation query: a JSON document naming a root and a projection, answered with exactly those fields as one actor may see them, within declared limits."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+foxing-time = { path = "../foxing-time" }
+foxing-store = { path = "../foxing-store" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

@@ -19,12 +19,12 @@ as you, so load only mods you trust.
 ## The module
 
 ```js
-export default function install(moondial) {
+export default function install(foxing) {
   // set up; return a function to undo, or nothing
 }
 ```
 
-## `window.moondial` (protocol `mod/0`)
+## `window.foxing` (protocol `mod/0`)
 
 | Member | What it is |
 | --- | --- |

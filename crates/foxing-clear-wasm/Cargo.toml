@@ -1,0 +1,19 @@
+[package]
+name = "foxing-clear-wasm"
+version = "0.4.0"
+description = "The CLEAR v0.4 checker for the browser: the same foxing-clear, compiled to WebAssembly, so an editor checks every keystroke with the rules the Gate applies."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+foxing-clear = { path = "../foxing-clear" }
+serde_json = { workspace = true }
+wasm-bindgen = "0.2"
+

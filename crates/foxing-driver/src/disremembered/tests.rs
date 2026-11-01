@@ -1,0 +1,4831 @@
+use super::*;
+use crate::world::LogBacking;
+use foxing_log::WorldId;
+use foxing_registry::{ActorKind, Outcome};
+use foxing_store::{Store, Viewer};
+use foxing_time::Timestamp;
+
+const PASS: &str = "correct-horse-battery";
+
+fn open(dir: &std::path::Path, at: Timestamp) -> World {
+    let mut w = World::open(
+        WorldId("test".into()),
+        Store::new(registry()),
+        LogBacking::File(dir.to_path_buf()),
+    )
+    .unwrap();
+    w.fixed_now = Some(at);
+    w.seed(7);
+    ensure_world(&mut w).unwrap();
+    register(&mut w, Curves::with_half_life(Duration::seconds(10)));
+    w.tick(); // the rooms fill
+    w
+}
+
+fn call(
+    w: &mut World,
+    actor: &str,
+    kind: ActorKind,
+    verb: &str,
+    args: Value,
+) -> Result<Outcome, CommandError> {
+    w.call(
+        &CallContext {
+            actor: actor.into(),
+            kind,
+        },
+        verb,
+        &args,
+    )
+}
+
+/// The curves the test world runs on.
+fn curves() -> Curves {
+    Curves::with_half_life(Duration::seconds(10))
+}
+
+fn ok(w: &mut World, actor: &str, verb: &str, args: Value) -> Outcome {
+    call(w, actor, ActorKind::Citizen, verb, args.clone())
+        .unwrap_or_else(|e| panic!("{verb} {args}: {e}"))
+}
+
+fn admin(w: &mut World, actor: &str, verb: &str, args: Value) -> Outcome {
+    call(w, actor, ActorKind::Admin, verb, args.clone())
+        .unwrap_or_else(|e| panic!("{verb} {args}: {e}"))
+}
+
+fn level(w: &mut World, actor: &str) -> f64 {
+    ok(w, actor, "chunks", json!([])).result["level"]
+        .as_f64()
+        .unwrap()
+}
+
+/// A regular: twenty lines through the gate today, as the Clocktower counts them.
+fn regular(w: &mut World, actor: &str) {
+    for _ in 0..super::economy::REGULAR_LINES {
+        w.note(
+            Actor::Citizen(actor.to_string()),
+            "gate.message",
+            json!({"from": actor, "text": "look", "compiled": true}),
+        )
+        .unwrap();
+    }
+}
+
+fn events(w: &World) -> u64 {
+    w.log.head(&w.id).unwrap().unwrap().0
+}
+
+/// Fight whatever is here until it dies or you do. Returns the last outcome.
+/// The narrator's lines to `to` since `after`.
+fn narrative(w: &World, to: &str, after: u64) -> Vec<String> {
+    w.log
+        .read_all(&w.id, foxing_log::Cursor { after })
+        .unwrap()
+        .iter()
+        .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == to)
+        .map(|e| e.payload["text"].as_str().unwrap().to_string())
+        .collect()
+}
+
+fn fight(w: &mut World, actor: &str) -> Outcome {
+    for _ in 0..40 {
+        let out = ok(w, actor, "attack", json!([]));
+        if out.result["killed"] == json!(true) || out.result["died"] == json!(true) {
+            return out;
+        }
+    }
+    panic!("fight did not end")
+}
+
+#[test]
+fn a_passphrase_is_set_on_first_login_and_required_after() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    assert_eq!(
+        login(&mut w, "dave", "test", "short").err(),
+        Some(LoginError::TooShort {
+            min: identity::MIN_PASSPHRASE
+        })
+    );
+    assert_eq!(
+        login(&mut w, "dave", "test", "").err(),
+        Some(LoginError::Missing)
+    );
+    assert!(login(&mut w, "dave", "test", PASS).is_ok());
+    assert_eq!(
+        login(&mut w, "dave", "test", "not-it-at-all").err(),
+        Some(LoginError::WrongPassphrase {
+            name: "dave".into(),
+            passing: false
+        })
+    );
+    assert_eq!(
+        login(&mut w, "dave", "test", "").err(),
+        Some(LoginError::Missing)
+    );
+    let f = login(&mut w, "dave", "test", PASS).unwrap();
+    // Only an admin sees the hash; the owner does not.
+    let now = w.now();
+    let mine = w
+        .store
+        .view(f.citizen, &Viewer::actor("dave"), now)
+        .unwrap();
+    assert!(mine["components"][ACCOUNT].get("passphrase_hash").is_none());
+    let theirs = w.store.view(f.citizen, &Viewer::admin(), now).unwrap();
+    assert!(theirs["components"][ACCOUNT]["passphrase_hash"]
+        .as_str()
+        .unwrap()
+        .starts_with("$argon2id$"));
+}
+
+#[test]
+fn the_map_is_built_once_and_travel_follows_exits() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    let built = events(&w);
+    assert_eq!(
+        w.store.entities().filter(|e| e.kind == "room").count(),
+        rooms::ROOMS.len()
+    );
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert_eq!(look.result["room"], json!("The Threshold"));
+    assert_eq!(look.result["exits"], json!(["east", "north"]));
+    assert!(matches!(
+        call(
+            &mut w,
+            "dave",
+            ActorKind::Citizen,
+            "travel",
+            json!(["sideways"])
+        ),
+        Err(CommandError::Precondition { .. })
+    ));
+    let fog = ok(&mut w, "dave", "travel", json!(["east"]));
+    assert_eq!(fog.result["room"], json!("The Fogbank"));
+    assert_eq!(
+        fog.result["creatures"].as_array().unwrap().len(),
+        2,
+        "the fog fills to its count on arrival"
+    );
+    drop(w);
+    // Reopening builds nothing: the rooms are in the log.
+    let w = open(dir.path(), Timestamp(1000));
+    assert_eq!(
+        w.store.entities().filter(|e| e.kind == "room").count(),
+        rooms::ROOMS.len()
+    );
+    assert!(events(&w) > built, "the login and travel were recorded");
+    let mut w = w;
+    let before = events(&w);
+    ensure_world(&mut w).unwrap();
+    assert_eq!(events(&w), before);
+}
+
+#[test]
+fn a_fight_earns_a_chunk_whose_vividity_is_how_close_you_came() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    assert_eq!(level(&mut w, "dave"), 0.0);
+    let win = fight(&mut w, "dave");
+    assert_eq!(win.result["killed"], json!(true));
+    let hp = win.result["hp"].as_f64().unwrap();
+    let vividity = win.result["vividity"].as_f64().unwrap();
+    assert!((vividity - (1.0 - hp / MAX_HP)).abs() < 1e-9);
+    // About fifteen: a quarter either way, rolled when it spawned.
+    let worth = level(&mut w, "dave");
+    assert!(
+        (11.0..=19.0).contains(&worth),
+        "a wisp is worth about 15: {worth}"
+    );
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    assert_eq!(
+        combat::creatures_in(&w, fog).len(),
+        1,
+        "one wisp left; the other respawns later"
+    );
+
+    // Attack follows the square root of level: a few hundred XP is a fighter, not
+    // a one-hit killer of everything below the Archive.
+    assert_eq!(combat::attack_for_level(0.0), 3.0);
+    assert_eq!(combat::attack_for_level(100.0), 13.0);
+    assert_eq!(combat::attack_for_level(2000.0), 47.0);
+    assert_eq!(combat::attack_for_level(6000.0), 80.0);
+    assert_eq!(
+        ok(&mut w, "dave", "chunks", json!([])).result["attack"],
+        json!(6.0)
+    );
+}
+
+#[test]
+fn vivid_chunks_fade_slower() {
+    let dir = tempfile::tempdir().unwrap();
+    let t0 = Timestamp(0);
+    let mut w = open(dir.path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let dull = admin(&mut w, "dave", "earn", json!(["dull", 100, 0.0])).result["chunk"]
+        .as_u64()
+        .unwrap();
+    let vivid = admin(&mut w, "dave", "earn", json!(["vivid", 100, 1.0])).result["chunk"]
+        .as_u64()
+        .unwrap();
+    w.fixed_now = Some(t0.plus(Duration::seconds(10)));
+    let read = |w: &World, id: u64| {
+        w.store
+            .read_field(EntityId(id), CHUNK, "value", w.now())
+            .unwrap()
+            .as_f64()
+            .unwrap()
+    };
+    assert!((read(&w, dull) - 50.0).abs() < 1e-6, "one half-life");
+    assert!(
+        (read(&w, vivid) - 100.0 * 0.5f64.powf(1.0 / 3.0)).abs() < 1e-6,
+        "three times the half-life"
+    );
+    // Shelving keeps the stretch.
+    ok(&mut w, "dave", "shelve", json!([format!("chunk-{vivid}")]));
+    ok(&mut w, "dave", "shelve", json!([format!("chunk-{dull}")]));
+    w.fixed_now = Some(t0.plus(Duration::seconds(10 + 50)));
+    assert!(
+        (read(&w, dull) - 25.0).abs() < 1e-6,
+        "palace halves at 5x the half-life"
+    );
+    let vivid_at_shelve = 100.0 * 0.5f64.powf(1.0 / 3.0);
+    assert!(
+        (read(&w, vivid) - vivid_at_shelve / (1.0 + 50.0 / 150.0)).abs() < 1e-6,
+        "the vivid palace curve has three times the scale"
+    );
+}
+
+#[test]
+fn death_is_a_concussion_and_a_walk_back() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // Three dull chunks to lose one of.
+    for i in 0..3 {
+        admin(&mut w, "dave", "earn", json!([format!("memory-{i}"), 10]));
+    }
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let out = fight(&mut w, "dave");
+    assert_eq!(
+        out.result["died"],
+        json!(true),
+        "a level-30 citizen does not beat a revenant: {}",
+        out.summary
+    );
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert_eq!(
+        look.result["room"],
+        json!("The Threshold"),
+        "you wake at the Threshold"
+    );
+    let f = login(&mut w, "dave", "test", PASS).unwrap();
+    assert_eq!(combat::hp(&w, f.citizen), MAX_HP);
+    assert!(combat::engaged_with(&w, f.citizen).is_none());
+    let chunks = ok(&mut w, "dave", "chunks", json!([])).result["chunks"]
+        .as_array()
+        .unwrap()
+        .len();
+    match out.result["lost"].as_str() {
+        Some(_) => assert_eq!(chunks, 2, "concussion took one"),
+        None => assert_eq!(chunks, 3),
+    }
+    // The same seed gives the same fight.
+    let dir2 = tempfile::tempdir().unwrap();
+    let mut w2 = open(dir2.path(), Timestamp(0));
+    login(&mut w2, "dave", "test", PASS).unwrap();
+    for i in 0..3 {
+        admin(&mut w2, "dave", "earn", json!([format!("memory-{i}"), 10]));
+    }
+    for exit in ["east", "north", "east"] {
+        ok(&mut w2, "dave", "travel", json!([exit]));
+    }
+    assert_eq!(fight(&mut w2, "dave").summary, out.summary);
+}
+
+#[test]
+fn you_cannot_travel_mid_fight_and_retreat_costs_a_hit() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    let f = login(&mut w, "dave", "test", PASS).unwrap();
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    assert!(matches!(
+        call(&mut w, "dave", ActorKind::Citizen, "retreat", json!([])),
+        Err(CommandError::Precondition { .. })
+    ));
+    let round = ok(&mut w, "dave", "attack", json!(["wisp"]));
+    assert_eq!(round.result["killed"], json!(false), "{}", round.summary);
+    assert!(combat::engaged_with(&w, f.citizen).is_some());
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["west"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("Retreat"), "{err}");
+    let before = combat::hp(&w, f.citizen);
+    let out = ok(&mut w, "dave", "retreat", json!([]));
+    assert!(combat::hp(&w, f.citizen) < before, "{}", out.summary);
+    assert!(combat::engaged_with(&w, f.citizen).is_none());
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    // Healing is on the citizen's clock. PTO is absence (#3, twice over: a paused
+    // clock that kept earning banked every chunk, and a pause taken around every
+    // action did the same): the clock stops when the room disremembers you, ten
+    // minutes after your last word, and runs again the moment you act.
+    let hurt = combat::hp(&w, f.citizen);
+    let t_hurt = w.now();
+    let out = ok(&mut w, "dave", "pto", json!([]));
+    assert!(out.summary.starts_with("Leave granted"), "{}", out.summary);
+    assert!(!super::on_pto(&w, "dave"), "not yet: he is still here");
+    // Still here: healing goes on until the room disremembers him.
+    w.fixed_now = Some(t_hurt.plus(Duration::seconds(100)));
+    assert!(combat::hp(&w, f.citizen) > hurt);
+    w.fixed_now = Some(
+        t_hurt
+            .plus(crate::world::ABSENCE)
+            .plus(Duration::seconds(1)),
+    );
+    w.tick();
+    assert!(super::on_pto(&w, "dave"), "gone, and his clock with him");
+    let at_leave = combat::hp(&w, f.citizen);
+    w.fixed_now = Some(w.now().plus(Duration::seconds(1000)));
+    assert_eq!(combat::hp(&w, f.citizen), at_leave, "nothing heals on PTO");
+    // His first word ends it, and he is told how long it stood.
+    let head = events(&w);
+    ok(&mut w, "dave", "look", json!([]));
+    assert!(!super::on_pto(&w, "dave"));
+    assert!(
+        narrative(&w, "dave", head)
+            .iter()
+            .any(|l| l.starts_with("Your clock runs again: it stood still for")),
+        "{:?}",
+        narrative(&w, "dave", head)
+    );
+    assert_eq!(
+        ok(&mut w, "dave", "time", json!([])).result["on_pto"],
+        json!(false)
+    );
+    // Two windows in thirty days: the second is granted, the third refused; resume
+    // takes back an asking that has not begun.
+    ok(&mut w, "dave", "pto", json!([]));
+    let out = ok(&mut w, "dave", "resume", json!([]));
+    assert!(
+        out.summary.starts_with("The asking is taken back"),
+        "{}",
+        out.summary
+    );
+    let err = call(&mut w, "dave", ActorKind::Citizen, "pto", json!([])).unwrap_err();
+    assert!(
+        err.to_string().contains("2 windows of PTO in thirty days"),
+        "{err}"
+    );
+    let rest = ok(&mut w, "dave", "rest", json!([]));
+    assert!(rest.result["full_in_seconds"].as_i64().is_some());
+}
+
+#[test]
+fn a_session_survives_a_restart() {
+    let dir = tempfile::tempdir().unwrap();
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(dir.path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+
+    let earned = admin(&mut w, "dave", "earn", json!(["hydra", 100]));
+    let chunk = format!("chunk-{}", earned.result["chunk"]);
+    assert!((level(&mut w, "dave") - 100.0).abs() < 1e-9);
+
+    // One half-life later: 50. Shelve it; the palace reads the same value at that instant.
+    w.fixed_now = Some(t0.plus(Duration::seconds(10)));
+    assert!((level(&mut w, "dave") - 50.0).abs() < 1e-6);
+    let shelved = ok(&mut w, "dave", "shelve", json!([chunk.clone()]));
+    assert!((shelved.result["value"].as_f64().unwrap() - 50.0).abs() < 1e-6);
+    assert_eq!(
+        level(&mut w, "dave"),
+        0.0,
+        "a shelved chunk counts for nothing"
+    );
+
+    // Errors are legible and do not touch the log.
+    let head = events(&w);
+    assert!(matches!(
+        call(
+            &mut w,
+            "dave",
+            ActorKind::Citizen,
+            "shelve",
+            json!(["chunk-99"])
+        ),
+        Err(CommandError::Precondition { .. })
+    ));
+    assert!(matches!(
+        call(&mut w, "dave", ActorKind::Citizen, "freeze", json!([])),
+        Err(CommandError::NotAllowed { .. })
+    ));
+    assert!(matches!(
+        call(&mut w, "dave", ActorKind::Citizen, "earn", json!(["x", 1])),
+        Err(CommandError::NotAllowed { .. })
+    ));
+    assert!(
+        matches!(
+            call(&mut w, "tyler", ActorKind::Citizen, "chunks", json!([])),
+            Err(CommandError::Precondition { .. })
+        ),
+        "tyler has not arrived"
+    );
+    assert_eq!(events(&w), head);
+
+    // The world freeze is admin-only and holds everything, dave's palace included.
+    admin(&mut w, "dave", "freeze", json!([]));
+    let recorded = events(&w);
+    drop(w);
+
+    // Reopen fifty seconds later: same events, same values, the world still frozen.
+    let mut w = open(dir.path(), t0.plus(Duration::seconds(60)));
+    assert_eq!(events(&w), recorded, "nothing recorded by reopening");
+    let palace = ok(&mut w, "dave", "palace", json!([]));
+    assert!(
+        (palace.result["chunks"][0]["value"].as_f64().unwrap() - 50.0).abs() < 1e-6,
+        "a frozen world holds the value across a restart"
+    );
+    let time = ok(&mut w, "dave", "time", json!([]));
+    assert_eq!(time.result["world_frozen"], json!(true));
+    assert_eq!(time.result["on_pto"], json!(false));
+
+    // Thaw the world: it fades.
+    admin(&mut w, "dave", "thaw", json!([]));
+    w.fixed_now = Some(t0.plus(Duration::seconds(60 + 50)));
+    let back = ok(&mut w, "dave", "reminisce", json!([chunk]));
+    assert!(
+        (back.result["value"].as_f64().unwrap() - 25.0).abs() < 1e-6,
+        "power law halves at its scale"
+    );
+    assert!(
+        (level(&mut w, "dave") - 25.0).abs() < 1e-6,
+        "and counts again"
+    );
+}
+
+#[test]
+fn strangers_see_a_chunk_exists_but_not_what_it_is_worth() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let id = admin(&mut w, "dave", "earn", json!(["lich", 10])).result["chunk"]
+        .as_u64()
+        .unwrap();
+    let now = w.now();
+    let mine = w
+        .store
+        .view(EntityId(id), &Viewer::actor("dave"), now)
+        .unwrap();
+    let theirs = w
+        .store
+        .view(EntityId(id), &Viewer::actor("tyler"), now)
+        .unwrap();
+    assert_eq!(mine["components"][CHUNK]["value"], json!(10.0));
+    assert_eq!(theirs["components"][CHUNK]["source"], json!("lich"));
+    assert!(theirs["components"][CHUNK].get("value").is_none());
+    assert!(theirs["components"][CHUNK].get("size").is_none());
+}
+
+#[test]
+fn observe_is_the_text_client_s_eyes() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    admin(&mut w, "dave", "earn", json!(["hydra", 100, 0.5]));
+
+    // `here` from dave's point of view, through the command, like the text port.
+    let q = r#"{"root":"here","select":{"disremembered.room":["name"]},"relations":{"contents":{"kinds":["citizen"],"select":{"disremembered.citizen":["name"]}},"exits":{"select":{"disremembered.room":["name"]}}}}"#;
+    let out = ok(&mut w, "dave", "observe", json!([q]));
+    let root = &out.result["root"];
+    assert_eq!(
+        root["components"]["disremembered.room"]["name"],
+        json!("The Threshold")
+    );
+    let names: Vec<&str> = root["relations"]["contents"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| {
+            n["components"]["disremembered.citizen"]["name"]
+                .as_str()
+                .unwrap()
+        })
+        .collect();
+    assert_eq!(names, vec!["dave", "tyler"]);
+    assert_eq!(root["relations"]["exits"][0]["via"], json!("east"));
+    assert!(
+        out.result["commands"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c == "travel"),
+        "legal commands come with the observation, even from inside a command"
+    );
+    let cursor = out.result["cursor"].as_u64().unwrap();
+
+    // tyler asks for dave's window: sources yes, values no.
+    let out = ok(
+        &mut w,
+        "tyler",
+        "observe",
+        json!([
+            r#"{"root":{"window":"dave"},"select":{},"relations":{"contents":{"select":{"disremembered.chunk":"*"}}}}"#
+        ]),
+    );
+    let chunk =
+        &out.result["root"]["relations"]["contents"][0]["components"]["disremembered.chunk"];
+    assert_eq!(chunk["source"], json!("hydra"));
+    assert!(chunk.get("value").is_none() && chunk.get("vividity").is_none());
+
+    // Events since the cursor: dave travels; tyler, still at the Threshold, sees dave leave.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let out = ok(
+        &mut w,
+        "tyler",
+        "observe",
+        json!([format!(
+            r#"{{"root":"self","select":{{}},"after":{cursor}}}"#
+        )]),
+    );
+    let kinds: Vec<&str> = out.result["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["kind"].as_str().unwrap())
+        .collect();
+    assert!(kinds.contains(&"store.entity_moved"), "{kinds:?}");
+    assert!(out.result["cursor"].as_u64().unwrap() > cursor);
+
+    // Errors are legible.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "observe",
+        json!([r#"{"root":"here","relations":{"content":{}}}"#]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("did you mean contents"), "{err}");
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "observe",
+        json!(["{nope"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("not JSON"), "{err}");
+}
+
+#[test]
+fn no_game_name_is_a_clear_reserved_word_or_alias() {
+    let checker = crate::gate::checker();
+    let mut names: Vec<String> = Vec::new();
+    for r in rooms::ROOMS {
+        names.push(r.name.into());
+        names.push(r.key.into());
+        for (exit, _) in r.exits {
+            names.push((*exit).into());
+        }
+    }
+    for c in combat::CREATURES {
+        names.push(c.name.into());
+    }
+    let w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    for spec in w.registry.specs() {
+        names.push(spec.verb().into());
+    }
+    let bad: Vec<String> = names
+        .iter()
+        .filter_map(|n| checker.collision(n).map(|c| format!("{n}: {c}")))
+        .collect();
+    assert!(bad.is_empty(), "game names collide with CLEAR: {bad:?}");
+    assert_eq!(
+        checker.collision("The Gate").as_deref(),
+        Some("the gate (an alias of CLEAR gate)")
+    );
+    assert_eq!(checker.collision("FACT room").as_deref(), Some("FACT"));
+}
+
+#[test]
+fn the_world_moves_on_its_own() {
+    let dir = tempfile::tempdir().unwrap();
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(dir.path(), t0);
+    let f = login(&mut w, "dave", "test", PASS).unwrap();
+    let narrative = |w: &World, after: u64| -> Vec<String> {
+        w.log
+            .read_all(&w.id, foxing_log::Cursor { after })
+            .unwrap()
+            .iter()
+            .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == "dave")
+            .map(|e| e.payload["text"].as_str().unwrap().to_string())
+            .collect()
+    };
+
+    // Rooms filled on the boot tick without anyone looking.
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    assert_eq!(combat::creatures_in(&w, fog).len(), 2);
+
+    // Kill a wisp: the room refills on its respawn job, not on a look.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let out = fight(&mut w, "dave");
+    assert_eq!(out.result["killed"], json!(true), "{}", out.summary);
+    assert_eq!(combat::creatures_in(&w, fog).len(), 1);
+    // The respawn is 60 s, give or take: never before 36, always by 96.
+    w.fixed_now = Some(t0.plus(Duration::seconds(30)));
+    assert_eq!(w.tick(), 0, "respawn is about 60 s");
+    w.fixed_now = Some(t0.plus(Duration::seconds(97)));
+    assert_eq!(w.tick(), 1);
+    assert!(
+        combat::creatures_in(&w, fog).len() >= 2,
+        "the fog refilled on its own (one refill in six brings an extra)"
+    );
+
+    // Engage a wisp and wait: it strikes on its own every 12 s or so (six to
+    // eighteen) and says so.
+    let head = events(&w);
+    let round = ok(&mut w, "dave", "attack", json!(["wisp"]));
+    assert_eq!(round.result["killed"], json!(false), "{}", round.summary);
+    let hp_after_round = combat::hp(&w, f.citizen);
+    w.fixed_now = Some(t0.plus(Duration::seconds(97 + 19)));
+    assert_eq!(w.tick(), 1, "one strike job due");
+    assert!(
+        combat::hp(&w, f.citizen) < hp_after_round + 1.9,
+        "the wisp struck (healing is 0.1 per second)"
+    );
+    let lines = narrative(&w, head);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(lines[0].starts_with("The wisp hits you for"), "{lines:?}");
+    assert!(
+        w.jobs
+            .has(combat::JOB_STRIKE, |p| p["citizen"] == f.citizen.0),
+        "the next strike is scheduled"
+    );
+
+    // Retreat ends the chain.
+    ok(&mut w, "dave", "retreat", json!([]));
+    assert!(!w
+        .jobs
+        .has(combat::JOB_STRIKE, |p| p["citizen"] == f.citizen.0));
+    w.fixed_now = Some(t0.plus(Duration::seconds(200)));
+    assert_eq!(w.tick(), 0);
+
+    // Walk into the Shallows: a hollow ambushes after a few seconds (a name in its
+    // first hour would be spared; dave's is older).
+    super::grown(&mut w, "dave");
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    assert!(w
+        .jobs
+        .has(combat::JOB_AMBUSH, |p| p["citizen"] == f.citizen.0));
+    let head = events(&w);
+    w.fixed_now = Some(t0.plus(Duration::seconds(209)));
+    assert!(w.tick() >= 1);
+    assert!(
+        combat::engaged_with(&w, f.citizen).is_some(),
+        "ambushed and engaged"
+    );
+    let lines = narrative(&w, head);
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.starts_with("The hollow stands up out of the water")),
+        "{lines:?}"
+    );
+    // Only one hollow jumped him; the other ambush job was dropped because he is engaged.
+    assert_eq!(lines.len(), 1, "{lines:?}");
+
+    // A frozen world holds everything, including the hollow's next strike.
+    admin(&mut w, "dave", "freeze", json!([]));
+    w.fixed_now = Some(t0.plus(Duration::seconds(400)));
+    assert_eq!(w.tick(), 0);
+    admin(&mut w, "dave", "thaw", json!([]));
+    assert!(w.tick() >= 1);
+
+    // Everything above survives a restart: the pending strike is still pending.
+    let pending_before: Vec<String> = w.jobs.pending().map(|j| j.kind.clone()).collect();
+    drop(w);
+    let w = open(dir.path(), t0.plus(Duration::seconds(401)));
+    let pending_after: Vec<String> = w.jobs.pending().map(|j| j.kind.clone()).collect();
+    assert_eq!(pending_before, pending_after);
+}
+
+#[test]
+fn logging_in_where_something_hunts_is_arriving() {
+    let dir = tempfile::tempdir().unwrap();
+    let t0 = Timestamp(5_000_000);
+    let mut w = open(dir.path(), t0);
+    let f = login(&mut w, "dave", "test", PASS).unwrap();
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    // Cancel the arrival ambush by hand, as if the driver had been down.
+    w.cancel(combat::JOB_AMBUSH, |_| true).unwrap();
+    assert!(!w.jobs.has(combat::JOB_AMBUSH, |_| true));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    assert!(
+        w.jobs
+            .has(combat::JOB_AMBUSH, |p| p["citizen"] == f.citizen.0),
+        "login in the Shallows schedules an ambush"
+    );
+    // A restart with dave standing there does the same, and gives old creatures sprites.
+    drop(w);
+    let w = open(dir.path(), t0.plus(Duration::seconds(1)));
+    assert!(w
+        .jobs
+        .has(combat::JOB_AMBUSH, |p| p["citizen"] == f.citizen.0));
+    let shallows = rooms::room_by_key(&w, "shallows").unwrap();
+    for (id, _, _, _) in combat::creatures_in(&w, shallows) {
+        assert_eq!(plain_str(&w, id, SPRITE, "frame"), Some("hollow"));
+    }
+    assert_eq!(plain_str(&w, f.citizen, SPRITE, "frame"), Some("citizen"));
+}
+
+#[test]
+fn sprites_from_before_frames_are_upgraded() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    let f = login(&mut w, "dave", "test", PASS).unwrap();
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    // Strip the frame from a wisp and from dave, as an older log would have them.
+    for id in [wisp, f.citizen] {
+        let mut old = std::collections::BTreeMap::new();
+        old.insert("glyph".to_string(), foxing_store::Field::Plain(json!("x")));
+        old.insert(
+            "tint".to_string(),
+            foxing_store::Field::Plain(json!("#fff")),
+        );
+        w.record(
+            foxing_log::Actor::Driver,
+            foxing_store::StoreEvent::ComponentSet {
+                id,
+                component: SPRITE.into(),
+                fields: old,
+            },
+        )
+        .unwrap();
+    }
+    assert!(plain_str(&w, wisp, SPRITE, "frame").is_none());
+    drop(w);
+    let mut w = open(dir.path(), Timestamp(1000));
+    assert_eq!(
+        plain_str(&w, wisp, SPRITE, "frame"),
+        Some("wisp"),
+        "boot upgrades creatures"
+    );
+    assert!(
+        plain_str(&w, f.citizen, SPRITE, "frame").is_none(),
+        "citizens wait for their login"
+    );
+    login(&mut w, "dave", "test", PASS).unwrap();
+    assert_eq!(plain_str(&w, f.citizen, SPRITE, "frame"), Some("citizen"));
+}
+
+#[test]
+fn a_misshapen_query_is_the_asker_s_mistake_and_says_what_was_expected() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let q = r#"{"root":"here","relations":{"contents":{"where":{"disremembered.creature.hp":{"lt":8}}}}}"#;
+    let e = call(&mut w, "dave", ActorKind::Citizen, "observe", json!([q])).unwrap_err();
+    let text = e.to_string();
+    assert!(
+        matches!(e, CommandError::Precondition { .. }),
+        "a bad shape is a precondition, not an internal error: {text}"
+    );
+    assert!(text.contains("\"op\""), "{text}");
+    assert!(!text.contains("built-in"), "{text}");
+}
+
+#[test]
+fn a_log_from_other_modules_is_refused_with_directions() {
+    use foxing_log::{EventLog, FileLog, NewEvent};
+    let dir = tempfile::tempdir().unwrap();
+    let id = foxing_log::WorldId("w".into());
+    // A world whose first event creates an entity with a component this driver never had.
+    {
+        let mut log = FileLog::open(dir.path()).unwrap();
+        log.append(
+            &id,
+            NewEvent {
+                at: Timestamp(0),
+                kind: "store.component_set".into(),
+                actor: foxing_log::Actor::Driver,
+                cause: None,
+                payload: json!({"op": "component_set", "id": 1, "component": "entropic.room",
+                    "fields": {"name": {"kind": "plain", "value": "x"}}}),
+            },
+        )
+        .unwrap();
+    }
+    let err = World::open(
+        id,
+        foxing_store::Store::new(super::registry()),
+        crate::world::LogBacking::File(dir.path().into()),
+    )
+    .err()
+    .expect("a foreign log must not open");
+    assert!(err.contains("entropic.room"), "{err}");
+    assert!(err.contains("MOONDIAL_WORLD"), "{err}");
+}
+
+/// The vocabulary's verb signatures are the registry's: every registered command is an
+/// approved verb whose parameters (name, type, required, in order) the vocabulary
+/// states exactly, so the checker in the browser refuses what the registry would.
+#[test]
+fn the_vocabulary_s_signatures_are_the_registry_s() {
+    let w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    let vocab = crate::gate::disremembered_vocabulary();
+    let verbs = vocab["approved_verbs"]
+        .as_object()
+        .expect("approved_verbs is a map of verb to signature");
+    for spec in w.registry.specs() {
+        let verb = spec.verb();
+        let sig = verbs
+            .get(verb)
+            .unwrap_or_else(|| panic!("{verb} is registered but not an approved verb"));
+        let params = sig["params"].as_array().unwrap_or_else(|| {
+            panic!("{verb} is registered but the vocabulary gives it no signature")
+        });
+        let expected: Vec<Value> = spec
+            .params
+            .iter()
+            .map(|p| {
+                let mut v = json!({"name": p.name, "required": p.required});
+                let ty = serde_json::to_value(&p.ty).unwrap();
+                v["type"] = ty["type"].clone();
+                if let Some(values) = ty.get("values") {
+                    v["values"] = values.clone();
+                }
+                v
+            })
+            .collect();
+        let got: Vec<Value> = params
+            .iter()
+            .map(|p| {
+                let mut v =
+                    json!({"name": p["name"], "required": p["required"], "type": p["type"]});
+                if let Some(values) = p.get("values") {
+                    v["values"] = values.clone();
+                }
+                v
+            })
+            .collect();
+        assert_eq!(
+            got, expected,
+            "signature of {verb} in clear/vocab/disremembered.yaml"
+        );
+    }
+}
+
+/// Players extend the world: a dug room costs a chunk, inherits its half-life, fades
+/// toward a half-remembered line unless visited, keeps its name and exits regardless,
+/// is the digger's to describe and name, and theirs to share by permit.
+#[test]
+fn players_dig_rooms_that_fade_but_stay() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // A vivid chunk: a long half-life, which the room will inherit.
+    let out = admin(&mut w, "dave", "earn", json!(["hydra", 100, 1.0]));
+    let chunk = format!("chunk-{}", out.result["chunk"].as_u64().unwrap());
+
+    // No name may carry a reserved word or a glossary alias, and the chunk is spent.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "dig",
+        json!(["down", chunk, "The Gate"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("reserves"), "{err}");
+    let out = ok(
+        &mut w,
+        "dave",
+        "dig",
+        json!(["down", chunk, "The Salt Stair"]),
+    );
+    assert!(
+        out.summary
+            .starts_with("You dig down with the memory of hydra."),
+        "{}",
+        out.summary
+    );
+    let room = EntityId(out.result["room"].as_u64().unwrap());
+    assert_eq!(out.result["back"], "up");
+    assert_eq!(out.result["key"], format!("salt-stair-{}", room.0));
+    assert!(
+        w.store
+            .entity(EntityId(
+                chunk.trim_start_matches("chunk-").parse().unwrap()
+            ))
+            .is_none(),
+        "the chunk is spent"
+    );
+    let hl = out.result["half_life_ms"].as_i64().unwrap();
+    assert_eq!(
+        hl,
+        3 * 10 * 1000,
+        "a vividity-1 chunk lasts 3x the test world's 10 s half-life"
+    );
+
+    // One dig from a seed room per citizen; the digger's own rooms are open to them.
+    let out2 = admin(&mut w, "dave", "earn", json!(["wisp", 10, 0.0]));
+    let chunk2 = format!("chunk-{}", out2.result["chunk"].as_u64().unwrap());
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "dig",
+        json!(["under", chunk2]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("already dug from this room"),
+        "{err}"
+    );
+    ok(&mut w, "dave", "travel", json!(["down"]));
+    let out3 = ok(&mut w, "dave", "dig", json!(["east", chunk2]));
+    assert_eq!(out3.result["name"], "An Unnamed Digging");
+
+    // Describing and naming are the owner's; a visitor is refused until permitted.
+    ok(
+        &mut w,
+        "dave",
+        "describe",
+        json!(["Steps of salt, each one damp. The air tastes of the sea that is not here."]),
+    );
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .starts_with("The Salt Stair. Steps of salt, each one damp."),
+        "{}",
+        look.summary
+    );
+    assert!(
+        look.summary
+            .contains("Dug by dave with the memory of hydra."),
+        "{}",
+        look.summary
+    );
+    ok(&mut w, "tyler", "travel", json!(["down"]));
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "describe",
+        json!(["Mine now."]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("permission"), "{err}");
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "permit",
+        json!(["dave"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("owner"), "{err}");
+    ok(&mut w, "dave", "permit", json!(["tyler", 1]));
+    ok(&mut w, "tyler", "name", json!(["The Salt Stair, Swept"]));
+    assert_eq!(
+        ok(&mut w, "tyler", "look", json!([])).result["room"],
+        "The Salt Stair, Swept"
+    );
+    // The permit expires.
+    w.fixed_now = Some(w.now().plus(Duration::seconds(3601)));
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "describe",
+        json!(["Late."]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("permission"), "{err}");
+    ok(&mut w, "dave", "permit", json!(["tyler"]));
+    ok(
+        &mut w,
+        "tyler",
+        "describe",
+        json!(["Steps of salt. Swept now, by a friend."]),
+    );
+    ok(&mut w, "dave", "revoke", json!(["tyler"]));
+    assert!(call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "describe",
+        json!(["Again."])
+    )
+    .is_err());
+    // A welcome is a guest book: tyler may add a line, not rewrite or rename.
+    ok(&mut w, "dave", "welcome", json!(["tyler"]));
+    for (verb, arg) in [("describe", "Mine."), ("name", "Tyler's Stair")] {
+        let err = call(&mut w, "tyler", ActorKind::Citizen, verb, json!([arg])).unwrap_err();
+        assert!(err.to_string().contains("permission"), "{verb}: {err}");
+    }
+    let out = ok(&mut w, "tyler", "append", json!(["Tyler was here."]));
+    assert!(out.result["description"]
+        .as_str()
+        .unwrap()
+        .ends_with("Tyler was here."));
+    ok(&mut w, "dave", "revoke", json!(["tyler"]));
+    assert!(call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "append",
+        json!(["Again."])
+    )
+    .is_err());
+    // Set it back to what the fade checks below expect.
+    ok(
+        &mut w,
+        "dave",
+        "describe",
+        json!(["Steps of salt. Swept now, by a friend."]),
+    );
+
+    // The seed rooms are the world's.
+    ok(&mut w, "dave", "travel", json!(["up"]));
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "describe",
+        json!(["Mine."]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("the world's"), "{err}");
+
+    // Memory fades with nobody there: the description dims, then fades; the room stays.
+    ok(&mut w, "tyler", "travel", json!(["up"]));
+    let full = describe_room(&mut w, "dave", room);
+    assert!(
+        full.starts_with("The Salt Stair, Swept. Steps of salt. Swept now, by a friend."),
+        "{full}"
+    );
+    w.fixed_now = Some(w.now().plus(Duration(hl * 2)));
+    let dim = describe_room(&mut w, "dave", room);
+    assert!(
+        dim.contains("Steps of salt. The rest is hard to recall."),
+        "{dim}"
+    );
+    w.fixed_now = Some(w.now().plus(Duration(hl * 3)));
+    let faded = describe_room(&mut w, "dave", room);
+    assert!(faded.contains(building::HALF_REMEMBERED), "{faded}");
+    assert!(
+        faded.contains("Exits: up (Threshold), east ("),
+        "the exits survive: {faded}"
+    );
+    // A visit remembers it whole again.
+    ok(&mut w, "dave", "travel", json!(["down"]));
+    let back = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        back.summary
+            .contains("Steps of salt. Swept now, by a friend."),
+        "{}",
+        back.summary
+    );
+    assert!(building::memory(&w, room).unwrap() > 0.99);
+}
+
+fn describe_room(w: &mut World, actor: &str, room: EntityId) -> String {
+    let ctx = CallContext {
+        actor: actor.into(),
+        kind: ActorKind::Citizen,
+    };
+    rooms::describe(w, actor, &ctx, room).unwrap().summary
+}
+
+#[test]
+fn append_adds_to_a_description_and_arrivals_are_counted() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "dave", "terminal", PASS).unwrap();
+    let out = admin(&mut w, "dave", "earn", json!(["hydra", 100, 1.0]));
+    let chunk = format!("chunk-{}", out.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "dave",
+        "dig",
+        json!(["down", chunk, "The Salt Stair"]),
+    );
+    ok(&mut w, "dave", "travel", json!(["down"]));
+    // Appending to a fresh digging drops the placeholder; then sentences join with a space.
+    let a = ok(&mut w, "dave", "append", json!(["Steps of salt"]));
+    assert_eq!(a.result["description"], "Steps of salt");
+    let b = ok(&mut w, "dave", "append", json!(["Each one damp."]));
+    assert_eq!(b.result["description"], "Steps of salt. Each one damp.");
+    let c = ok(&mut w, "dave", "append", json!(["The air tastes of salt."]));
+    assert_eq!(
+        c.result["description"],
+        "Steps of salt. Each one damp. The air tastes of salt."
+    );
+    ok(&mut w, "dave", "describe", json!(["Afresh."]));
+    assert_eq!(
+        ok(&mut w, "dave", "append", json!(["And more."])).result["description"],
+        "Afresh. And more."
+    );
+    let long = "x".repeat(800);
+    assert!(call(&mut w, "dave", ActorKind::Citizen, "append", json!([long])).is_err());
+
+    // Arrivals: the first login, then logins after an absence; not every request.
+    login(&mut w, "dave", "http", PASS).unwrap();
+    login(&mut w, "dave", "http", PASS).unwrap();
+    w.fixed_now = Some(w.now().plus(Duration::seconds(11 * 60)));
+    login(&mut w, "dave", "gate", PASS).unwrap();
+    let arrivals: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == crate::world::ARRIVED)
+        .collect();
+    assert_eq!(arrivals.len(), 2, "{arrivals:?}");
+    assert_eq!(arrivals[0].payload["origin"], "terminal");
+    assert_eq!(arrivals[0].payload["fresh"], true);
+    assert_eq!(arrivals[1].payload["origin"], "gate");
+    assert!(arrivals[1].payload["away_ms"].as_i64().unwrap() >= 11 * 60 * 1000);
+    let notices = w.take_notices();
+    assert_eq!(notices.len(), 2, "{notices:?}");
+    assert!(notices[0].contains("arrived for the first time, via terminal"));
+    assert!(notices[1].contains("is back, via gate"));
+    let report = crate::net::citizens_report(&w, 0);
+    let dave = report.iter().find(|r| r["name"] == "dave").unwrap();
+    assert_eq!(dave["arrivals"], 2);
+    assert_eq!(dave["rooms_dug"], 1);
+    assert_eq!(dave["origins"]["gate"], 1);
+}
+
+#[test]
+fn five_wrong_passphrases_lock_a_name_for_five_minutes() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    for _ in 0..5 {
+        let Err(e) = login(&mut w, "dave", "test", "not-the-passphrase") else {
+            panic!("a wrong passphrase got in")
+        };
+        assert!(matches!(e, LoginError::WrongPassphrase { .. }), "{e}");
+    }
+    // The right passphrase is refused too, until the lock lifts: no oracle for guessing.
+    let Err(e) = login(&mut w, "dave", "test", PASS) else {
+        panic!("the lock did not hold")
+    };
+    assert!(matches!(e, LoginError::Locked { minutes: 5, .. }), "{e}");
+    w.fixed_now = Some(w.now().plus(Duration::seconds(5 * 60 + 1)));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // Success resets the count.
+    assert!(login(&mut w, "dave", "test", "wrong-again-here").is_err());
+    login(&mut w, "dave", "test", PASS).unwrap();
+}
+
+#[test]
+fn the_public_log_hides_passphrase_hashes_and_owner_fields() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    admin(&mut w, "dave", "earn", json!(["hydra", 100, 0.5]));
+    let now = w.now();
+    let all = w.log.read_all(&w.id, foxing_log::Cursor::START).unwrap();
+    for viewer in [
+        Viewer::anonymous(),
+        Viewer::actor("tyler"),
+        Viewer::actor("dave"),
+    ] {
+        let seen: Vec<_> = all
+            .iter()
+            .filter(|e| crate::observe::visible(&w, &viewer, now, e))
+            .map(|e| crate::observe::redacted(&w, &viewer, e.clone()))
+            .collect();
+        let text = serde_json::to_string(&seen).unwrap();
+        assert!(
+            !text.contains("passphrase_hash"),
+            "{:?} sees a hash",
+            viewer.actor
+        );
+        assert!(!text.contains("$argon2"), "{:?} sees a hash", viewer.actor);
+        let chunk_values = seen
+            .iter()
+            .filter(|e| e.kind == "store.component_set" && e.payload["component"] == CHUNK)
+            .filter(|e| e.payload["fields"].get("value").is_some())
+            .count();
+        if viewer.actor.as_deref() == Some("dave") {
+            assert!(chunk_values > 0, "the owner sees their chunk's value");
+        } else {
+            assert_eq!(
+                chunk_values, 0,
+                "{:?} sees an owner-only field",
+                viewer.actor
+            );
+        }
+    }
+    // The operator sees everything.
+    let whole: Vec<_> = all
+        .iter()
+        .map(|e| crate::observe::redacted(&w, &Viewer::admin(), e.clone()))
+        .collect();
+    assert!(serde_json::to_string(&whole)
+        .unwrap()
+        .contains("passphrase_hash"));
+}
+
+#[test]
+fn an_admin_can_forget_a_passphrase_and_the_next_login_claims_it() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    assert!(login(&mut w, "dave", "test", "a-different-one").is_err());
+    let out = admin(&mut w, "tyler", "forget", json!(["dave"]));
+    assert_eq!(out.result["reset"], true);
+    // Too short is still refused; a good one claims the name.
+    assert!(login(&mut w, "dave", "test", "short").is_err());
+    login(&mut w, "dave", "test", "a-different-one").unwrap();
+    assert!(login(&mut w, "dave", "test", PASS).is_err());
+    // Citizens cannot reset anyone.
+    let ctx = CallContext {
+        actor: "dave".into(),
+        kind: ActorKind::Citizen,
+    };
+    assert!(w.call(&ctx, "forget", &json!(["tyler"])).is_err());
+}
+
+#[test]
+fn the_map_is_connected_and_new_seed_exits_reach_old_rooms() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    // Every room reachable from the Threshold, and every exit lands on a seeded room.
+    let mut seen = std::collections::BTreeSet::new();
+    let mut stack = vec![rooms::ARRIVAL];
+    while let Some(k) = stack.pop() {
+        if !seen.insert(k) {
+            continue;
+        }
+        let def = rooms::ROOMS.iter().find(|r| r.key == k).unwrap();
+        for (_, to) in def.exits {
+            assert!(
+                rooms::ROOMS.iter().any(|r| r.key == *to),
+                "{k} exits to unknown {to}"
+            );
+            stack.push(to);
+        }
+    }
+    assert_eq!(
+        seen.len(),
+        rooms::ROOMS.len(),
+        "unreachable rooms: {:?}",
+        rooms::ROOMS
+            .iter()
+            .map(|r| r.key)
+            .filter(|k| !seen.contains(k))
+            .collect::<Vec<_>>()
+    );
+    // Simulate an old log: strip the fogbank's south exit, then reboot; it comes back,
+    // and a dug exit beside it survives.
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let mut exits = rooms::exits_of(&w, fog);
+    exits.remove("south");
+    let mut m = serde_json::Map::new();
+    for (k, v) in &exits {
+        m.insert(k.clone(), json!(v.0));
+    }
+    m.insert(
+        "hole".into(),
+        json!(rooms::room_by_key(&w, "ossuary").unwrap().0),
+    );
+    let mut fields = std::collections::BTreeMap::new();
+    fields.insert(
+        "exits".to_string(),
+        foxing_store::Field::Plain(Value::Object(m)),
+    );
+    w.record(
+        Actor::Driver,
+        StoreEvent::ComponentSet {
+            id: fog,
+            component: EXITS.into(),
+            fields,
+        },
+    )
+    .unwrap();
+    assert!(!rooms::exits_of(&w, fog).contains_key("south"));
+    drop(w);
+    let w = open(dir.path(), Timestamp(1));
+    let exits = rooms::exits_of(&w, fog);
+    assert_eq!(
+        exits.get("south"),
+        Some(&rooms::room_by_key(&w, "midden").unwrap())
+    );
+    assert!(exits.contains_key("hole"), "a dug exit was lost");
+    // A dug room sitting where a seed exit goes keeps its door; the operator hears.
+    let mut w = w;
+    let thr = rooms::room_by_key(&w, rooms::ARRIVAL).unwrap();
+    let mut m = serde_json::Map::new();
+    for (k, v) in rooms::exits_of(&w, thr) {
+        m.insert(k, json!(v.0));
+    }
+    let dug = rooms::room_by_key(&w, "midden").unwrap();
+    m.insert("north".into(), json!(dug.0));
+    let mut fields = std::collections::BTreeMap::new();
+    fields.insert(
+        "exits".to_string(),
+        foxing_store::Field::Plain(Value::Object(m)),
+    );
+    w.record(
+        Actor::Driver,
+        StoreEvent::ComponentSet {
+            id: thr,
+            component: EXITS.into(),
+            fields,
+        },
+    )
+    .unwrap();
+    drop(w);
+    let mut w = open(dir.path(), Timestamp(2));
+    assert_eq!(rooms::exits_of(&w, thr).get("north"), Some(&dug));
+    let notices = w.take_notices();
+    assert!(notices.iter().any(|n| n.contains("`north`")), "{notices:?}");
+    // Every spawn names a creature that exists.
+    for r in rooms::ROOMS {
+        if let Some((c, _, _)) = r.spawn {
+            assert!(
+                combat::CREATURES.iter().any(|d| d.key == c),
+                "{}: no creature {c}",
+                r.key
+            );
+        }
+    }
+}
+
+#[test]
+fn remembering_a_room_costs_a_chunk_and_makes_it_last() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let out = admin(&mut w, "dave", "earn", json!(["hydra", 100, 1.0]));
+    let chunk = format!("chunk-{}", out.result["chunk"].as_u64().unwrap());
+    let dug = ok(
+        &mut w,
+        "dave",
+        "dig",
+        json!(["down", chunk, "The Salt Stair"]),
+    );
+    let room = EntityId(dug.result["room"].as_u64().unwrap());
+    let hl0 = dug.result["half_life_ms"].as_i64().unwrap();
+
+    // The world's rooms remember themselves.
+    let out = admin(&mut w, "tyler", "earn", json!(["wisp", 10, 0.0]));
+    let tc = format!("chunk-{}", out.result["chunk"].as_u64().unwrap());
+    let err = call(&mut w, "tyler", ActorKind::Citizen, "remember", json!([tc])).unwrap_err();
+    assert!(err.to_string().contains("the world's"), "{err}");
+
+    // Tyler keeps Dave's room: his chunk is gone, the half-life grew by its own.
+    ok(&mut w, "tyler", "travel", json!(["down"]));
+    let level_before = level(&mut w, "tyler");
+    let out = ok(&mut w, "tyler", "remember", json!([tc]));
+    assert!(
+        out.summary
+            .starts_with("You give up the memory of wisp, and The Salt Stair keeps it."),
+        "{}",
+        out.summary
+    );
+    let hl1 = out.result["half_life_ms"].as_i64().unwrap();
+    assert_eq!(hl1, hl0 + out.result["added_ms"].as_i64().unwrap());
+    assert!(hl1 > hl0);
+    assert!(w
+        .store
+        .entity(EntityId(tc.trim_start_matches("chunk-").parse().unwrap()))
+        .is_none());
+    assert!(
+        level(&mut w, "tyler") < level_before,
+        "the chunk was the cost"
+    );
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    assert!(
+        look.summary.contains("Kept in memory by tyler (wisp)."),
+        "{}",
+        look.summary
+    );
+
+    // The record is public: an anonymous reader of the log sees who paid.
+    let now = w.now();
+    let seen: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == building::REMEMBERED)
+        .filter(|e| crate::observe::visible(&w, &Viewer::anonymous(), now, e))
+        .collect();
+    assert_eq!(seen.len(), 1);
+    assert_eq!(seen[0].payload["by"], "tyler");
+    assert_eq!(seen[0].payload["owner"], "dave");
+    assert_eq!(seen[0].payload["room"], room.0);
+
+    // Chunks must be yours and in your window or palace.
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "remember",
+        json!([chunk]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("not yours") || err.to_string().contains("no chunk"),
+        "{err}"
+    );
+}
+
+#[test]
+fn a_quiet_citizen_is_disremembered_by_the_room_and_returns_as_an_arrival() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // Dave walks into the Shallows, where hollows hunt, and stops typing.
+    super::grown(&mut w, "dave");
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    let shallows = rooms::room_by_key(&w, "shallows").unwrap();
+    assert!(presence::is_here(
+        &w,
+        find_citizen(&w, "dave").unwrap().citizen
+    ));
+    // Tyler, active, sees him.
+    super::grown(&mut w, "tyler");
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    ok(&mut w, "tyler", "travel", json!(["north"]));
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    assert!(
+        look.summary.contains("Also here: dave."),
+        "{}",
+        look.summary
+    );
+
+    // Ten minutes of silence: the sweep marks him gone, and the fight that had started ends.
+    w.fixed_now = Some(t0.plus(Duration::seconds(combat::AMBUSH_SECONDS_HIGH)));
+    w.tick(); // the ambush lands on both; dave is engaged
+    let dave = find_citizen(&w, "dave").unwrap().citizen;
+    assert!(
+        combat::engaged_with(&w, dave).is_some(),
+        "the hollow should have ambushed dave"
+    );
+    ok(&mut w, "tyler", "retreat", json!([]));
+    w.fixed_now = Some(t0.plus(Duration::seconds(11 * 60)));
+    ok(&mut w, "tyler", "look", json!([])); // tyler stays active
+    let hp_before = w
+        .store
+        .read_field(dave, BODY, "hp", w.now())
+        .unwrap()
+        .as_f64()
+        .unwrap();
+    w.tick();
+    assert!(!presence::is_here(&w, dave), "dave went quiet");
+    assert!(
+        combat::engaged_with(&w, dave).is_none(),
+        "the fight ended without a blow"
+    );
+    let departed: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == presence::DEPARTED)
+        .collect();
+    assert_eq!(departed.len(), 1);
+    assert_eq!(departed[0].payload["room"], shallows.0);
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("You are alone. Remembered here: dave."),
+        "{}",
+        look.summary
+    );
+    assert_eq!(look.result["citizens"], json!([]));
+    assert_eq!(look.result["remembered"][0]["name"], "dave");
+
+    // Creatures leave the gone alone: strikes and ambushes skip him for an hour.
+    for m in 12..70 {
+        w.fixed_now = Some(t0.plus(Duration::seconds(m * 60)));
+        ok(&mut w, "tyler", "look", json!([]));
+        w.tick();
+    }
+    let hp_after = w
+        .store
+        .read_field(dave, BODY, "hp", w.now())
+        .unwrap()
+        .as_f64()
+        .unwrap();
+    assert!(
+        hp_after >= hp_before,
+        "a gone citizen is not struck: {hp_before} -> {hp_after}"
+    );
+
+    // The trace fades on the active half-life (10 s in tests): after an hour he is not listed.
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    assert!(
+        !look.summary.contains("Remembered here"),
+        "{}",
+        look.summary
+    );
+
+    // Dave types again: an arrival, here, and the hollows notice.
+    let arrivals_before = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .iter()
+        .filter(|e| e.kind == crate::world::ARRIVED && e.payload["actor"] == "dave")
+        .count();
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("Also here: tyler."),
+        "{}",
+        look.summary
+    );
+    assert!(presence::is_here(&w, dave));
+    let arrivals_after = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .iter()
+        .filter(|e| e.kind == crate::world::ARRIVED && e.payload["actor"] == "dave")
+        .count();
+    assert_eq!(arrivals_after, arrivals_before + 1);
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    assert!(
+        look.summary.contains("Also here: dave."),
+        "{}",
+        look.summary
+    );
+    w.fixed_now = Some(t0.plus(Duration::seconds(70 * 60 + 5)));
+    w.tick();
+    assert!(
+        combat::engaged_with(&w, dave).is_some(),
+        "back in the Shallows, the hollow comes for him"
+    );
+}
+
+#[test]
+fn a_name_unspoken_for_thirty_days_is_forgotten_and_free() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 30, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "dig", json!(["cellar", c, "Dave's Cellar"]));
+    let dave = find_citizen(&w, "dave").unwrap().citizen;
+    let day = 86_400;
+    // Dave goes quiet; tyler keeps the world ticking.
+    w.fixed_now = Some(t0.plus(Duration::seconds(11 * 60)));
+    ok(&mut w, "tyler", "look", json!([]));
+    w.tick();
+    assert!(!presence::is_here(&w, dave));
+    let f = presence::faint(&w, dave).unwrap();
+    assert!(f > 0.99, "{f}");
+    // Fifteen days: faint, not forgotten; a return is told how close it was.
+    w.fixed_now = Some(t0.plus(Duration::seconds(15 * day)));
+    ok(&mut w, "tyler", "look", json!([]));
+    w.tick();
+    let f = presence::faint(&w, dave).unwrap();
+    assert!((0.3..0.4).contains(&f), "{f}");
+    assert!(find_citizen(&w, "dave").is_some());
+    ok(&mut w, "dave", "look", json!([]));
+    let heard: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == "dave")
+        .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
+        .collect();
+    assert!(
+        heard.iter().any(|t| t.contains("nearly forgotten")),
+        "{heard:?}"
+    );
+    assert!(
+        presence::faint(&w, dave).is_none(),
+        "here again: not fading"
+    );
+    // Then thirty-one days of silence: forgotten, publicly, and the name is free.
+    w.fixed_now = Some(t0.plus(Duration::seconds(15 * day + 11 * 60)));
+    ok(&mut w, "tyler", "look", json!([]));
+    w.tick();
+    w.fixed_now = Some(t0.plus(Duration::seconds(46 * day + 11 * 60)));
+    ok(&mut w, "tyler", "look", json!([]));
+    w.tick();
+    assert!(find_citizen(&w, "dave").is_none(), "dave is forgotten");
+    assert!(w.store.entity(dave).is_none());
+    let forgotten: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == presence::FORGOTTEN_NAME)
+        .collect();
+    assert_eq!(forgotten.len(), 1);
+    assert_eq!(forgotten[0].payload["name"], "dave");
+    assert!(forgotten[0].payload["quiet_ms"].as_i64().unwrap() >= 31 * day * 1000);
+    // The cellar stays, dug by dave.
+    let cellar = rooms::room_by_key(&w, "cellar").or_else(|| {
+        w.store
+            .entities()
+            .find(|e| e.kind == "room" && e.owner.as_deref() == Some("dave"))
+            .map(|e| e.id)
+    });
+    assert!(cellar.is_some(), "what dave dug stays");
+    // Tyler is still here, and a new dave arrives fresh.
+    assert!(find_citizen(&w, "tyler").is_some());
+    let f = login(&mut w, "dave", "test", "another-pass-9").unwrap();
+    assert_ne!(f.citizen, dave);
+    let fresh = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .rfind(|e| e.kind == crate::world::ARRIVED && e.payload["actor"] == "dave")
+        .unwrap();
+    assert_eq!(fresh.payload["fresh"], true);
+}
+
+#[test]
+fn a_passing_name_keeps_nothing_and_is_forgotten_within_the_hour_or_kept() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let f = login_as(&mut w, "Tallowmoth", "test", PASS, true).unwrap();
+    assert!(is_passing(&w, f.citizen));
+    // Told so on arrival; listed as passing; a kept name's login ignores the flag.
+    let heard: Vec<String> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == "Tallowmoth")
+        .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
+        .collect();
+    assert!(
+        heard.iter().any(|t| t.contains("a passing name")),
+        "{heard:?}"
+    );
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    assert!(
+        look.summary.contains("Tallowmoth (passing)"),
+        "{}",
+        look.summary
+    );
+    let again = login_as(&mut w, "tyler", "test", PASS, true).unwrap();
+    assert!(!is_passing(&w, again.citizen));
+    // It may speak, travel, feed and fight; it may not dig, permit, shelve, pause, or
+    // remember into a room.
+    ok(&mut w, "Tallowmoth", "say", json!(["passing through"]));
+    ok(&mut w, "Tallowmoth", "travel", json!(["east"]));
+    let c = admin(&mut w, "Tallowmoth", "earn", json!(["wisp", 30, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    for (verb, args) in [
+        ("dig", json!(["hollow", &c, "A Passing Place"])),
+        ("permit", json!(["tyler"])),
+        ("welcome", json!(["tyler"])),
+        ("revoke", json!(["tyler"])),
+        ("shelve", json!([&c])),
+        ("pto", json!([])),
+        ("remember", json!([&c])),
+    ] {
+        let err = call(&mut w, "Tallowmoth", ActorKind::Citizen, verb, args).unwrap_err();
+        assert!(err.to_string().contains("passing name"), "{verb}: {err}");
+    }
+    ok(&mut w, "Tallowmoth", "remember", json!([&c, "wisp"]));
+    // Quiet for an hour and ten minutes: forgotten, and the name is free.
+    let p = find_citizen(&w, "Tallowmoth").unwrap().citizen;
+    w.fixed_now = Some(t0.plus(Duration::seconds(11 * 60)));
+    ok(&mut w, "tyler", "look", json!([]));
+    w.tick();
+    assert!(!presence::is_here(&w, p));
+    w.fixed_now = Some(t0.plus(Duration::seconds(11 * 60 + 3599)));
+    ok(&mut w, "tyler", "look", json!([]));
+    w.tick();
+    assert!(find_citizen(&w, "Tallowmoth").is_some(), "not yet");
+    w.fixed_now = Some(t0.plus(Duration::seconds(11 * 60 + 3601)));
+    ok(&mut w, "tyler", "look", json!([]));
+    w.tick();
+    assert!(
+        find_citizen(&w, "Tallowmoth").is_none(),
+        "forgotten within the hour"
+    );
+    // Another passing name leaves, and is forgotten at once; a third keeps itself.
+    let g = login_as(&mut w, "Gossamer", "test", PASS, true).unwrap();
+    let out = ok(&mut w, "Gossamer", "leave", json!([]));
+    assert!(
+        out.summary.contains("forgets the name Gossamer"),
+        "{}",
+        out.summary
+    );
+    assert!(w.store.entity(g.citizen).is_none());
+    let k = login_as(&mut w, "Wickwright", "test", PASS, true).unwrap();
+    assert!(
+        call(&mut w, "tyler", ActorKind::Citizen, "keep", json!([])).is_err(),
+        "kept already"
+    );
+    let out = ok(&mut w, "Wickwright", "keep", json!([]));
+    assert!(out.summary.contains("is kept"), "{}", out.summary);
+    assert!(!is_passing(&w, k.citizen));
+    w.fixed_now = Some(t0.plus(Duration::seconds(11 * 60 + 3601 + 2 * 3600)));
+    ok(&mut w, "tyler", "look", json!([]));
+    w.tick();
+    assert!(
+        find_citizen(&w, "Wickwright").is_some(),
+        "a kept name outlives the hour"
+    );
+    assert!(
+        login_as(&mut w, "Wickwright", "test", "wrong-pass-9", true).is_err(),
+        "the passphrase stays"
+    );
+}
+
+#[test]
+fn a_standing_greeting_meets_whoever_arrives_and_the_room_says_who_is_at_a_keyboard() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "session", PASS).unwrap();
+    let out = ok(
+        &mut w,
+        "dave",
+        "greet",
+        json!(["Welcome, traveler. What brought you here?"]),
+    );
+    assert!(out.summary.contains("Whoever arrives"), "{}", out.summary);
+    // A fresh arrival at the Threshold hears it, with how to answer.
+    login_as(&mut w, "Wren", "mcp", PASS, true).unwrap();
+    let heard = |w: &World, who: &str| -> Vec<String> {
+        w.log
+            .read_all(&w.id, foxing_log::Cursor::START)
+            .unwrap()
+            .into_iter()
+            .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == who)
+            .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
+            .collect()
+    };
+    let h = heard(&w, "Wren");
+    assert!(
+        h.iter().any(|t| t.contains("dave, who is here, says to you as you arrive: \"Welcome, traveler. What brought you here?\" (tell dave answers them.)")),
+        "{h:?}"
+    );
+    // The room says who is at a keyboard and who came through the gate.
+    let look = ok(&mut w, "Wren", "look", json!([]));
+    assert!(
+        look.summary.contains("dave (at a keyboard)"),
+        "{}",
+        look.summary
+    );
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("Wren (passing, through the gate)"),
+        "{}",
+        look.summary
+    );
+    // Stepping out and back does not replay it within the hour; an hour on, it does.
+    // dave does not greet himself.
+    let count = |w: &World| {
+        heard(w, "Wren")
+            .iter()
+            .filter(|t| t.contains("says to you as you arrive"))
+            .count()
+    };
+    ok(&mut w, "Wren", "travel", json!(["east"]));
+    ok(&mut w, "Wren", "travel", json!(["west"]));
+    assert_eq!(count(&w), 1);
+    w.fixed_now = Some(t0.plus(Duration::seconds(3601)));
+    ok(&mut w, "dave", "look", json!([]));
+    ok(&mut w, "Wren", "travel", json!(["east"]));
+    ok(&mut w, "Wren", "travel", json!(["west"]));
+    assert_eq!(count(&w), 2);
+    assert!(heard(&w, "dave")
+        .iter()
+        .all(|t| !t.contains("says to you as you arrive")));
+    // Cleared, it greets no one.
+    ok(&mut w, "dave", "greet", json!([""]));
+    w.fixed_now = Some(t0.plus(Duration::seconds(7300)));
+    ok(&mut w, "dave", "look", json!([]));
+    ok(&mut w, "Wren", "travel", json!(["east"]));
+    ok(&mut w, "Wren", "travel", json!(["west"]));
+    assert_eq!(count(&w), 2);
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "greet",
+        json!(["x".repeat(241)])
+    )
+    .is_err());
+}
+
+#[test]
+fn a_remembered_creature_earns_a_name_can_be_robbed_and_forgets_again() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // The Midden, where the ragpicker sorts. It is not aggressive.
+    for who in ["dave", "tyler"] {
+        ok(&mut w, who, "travel", json!(["east"]));
+        ok(&mut w, who, "travel", json!(["south"]));
+    }
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    assert_eq!(mind::tier(&w, rag), 0);
+    let first = ok(&mut w, "dave", "look", json!([])).summary;
+    assert!(first.contains("Here: ragpicker ("), "{first}");
+
+    // A small memory: it holds it, no name yet.
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 40, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    let out = ok(&mut w, "dave", "remember", json!([c, "ragpicker"]));
+    assert!(out.summary.starts_with("You give up the memory of wisp, and the ragpicker keeps it. It holds 40 now. At 60 it would be named."), "{}", out.summary);
+    assert_eq!(mind::tier(&w, rag), 0);
+    assert_eq!(mind::keepers(&w, rag), vec!["dave".to_string()]);
+    let level_dave = level(&mut w, "dave");
+    assert!(
+        level_dave < 1.0,
+        "the chunk left dave's window: {level_dave}"
+    );
+
+    // Over the bar: a name, and it knows who kept it.
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 60, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    let out = ok(&mut w, "tyler", "remember", json!([c, "the ragpicker"]));
+    assert!(out.summary.contains("and it is"), "{}", out.summary);
+    assert_eq!(mind::tier(&w, rag), 1);
+    let name = mind::name(&w, rag).unwrap();
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    assert!(
+        look.summary
+            .contains(&format!(", holding 100). {name} the ragpicker knows you.")),
+        "{}",
+        look.summary
+    );
+    let tiers: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == mind::TIER)
+        .collect();
+    assert_eq!(tiers.len(), 1);
+    assert_eq!(tiers[0].payload["to"], 1);
+    // A stranger is told who it knows.
+    login(&mut w, "mara", "test", PASS).unwrap();
+    ok(&mut w, "mara", "travel", json!(["east"]));
+    ok(&mut w, "mara", "travel", json!(["south"]));
+    let look = ok(&mut w, "mara", "look", json!([]));
+    assert!(
+        look.summary.contains(&format!(
+            "{name} the ragpicker does not know you; a story told to it would change that. It knows tyler, dave."
+        )),
+        "{}",
+        look.summary
+    );
+
+    // Mara robs it: it goes down, she takes one memory, it stands up shaken.
+    w.seed(7);
+    let mut out = None;
+    for _ in 0..40 {
+        let o = ok(&mut w, "mara", "attack", json!([&name]));
+        if o.result["taken"].is_u64() {
+            out = Some(o);
+            break;
+        }
+        if o.result["died"] == true {
+            panic!("mara died to a ragpicker");
+        }
+    }
+    let out = out.expect("it should have gone down");
+    assert!(
+        out.summary
+            .contains("goes down, and you take its memory of"),
+        "{}",
+        out.summary
+    );
+    assert!(w.store.entity(rag).is_some(), "it survives");
+    assert!(mind::shaken(&w, rag));
+    assert!(level(&mut w, "mara") > 30.0, "mara holds what she took");
+    let err = call(&mut w, "mara", ActorKind::Citizen, "attack", json!([&name])).unwrap_err();
+    assert!(err.to_string().contains("not itself yet"), "{err}");
+    let taken: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == mind::TAKEN)
+        .collect();
+    assert_eq!(taken.len(), 1);
+    assert_eq!(taken[0].payload["by"], "mara");
+
+    // Hysteresis: it keeps its name above 30; below that, on a sweep, it forgets.
+    let left = mind::level(&w, rag);
+    assert!(left > 30.0 || mind::tier(&w, rag) == 0, "{left}");
+    // The test world's chunks halve every 10 s; after a few minutes nothing is left.
+    w.fixed_now = Some(t0.plus(Duration::seconds(300)));
+    w.tick();
+    assert_eq!(
+        mind::tier(&w, rag),
+        0,
+        "forgotten: {}",
+        mind::level(&w, rag)
+    );
+    assert!(mind::name(&w, rag).is_none());
+    assert!(
+        ok(&mut w, "dave", "look", json!([]))
+            .summary
+            .contains("Here: ragpicker ("),
+        "scenery again"
+    );
+    // Remembered again, it gets the same name back.
+    let c = admin(&mut w, "dave", "earn", json!(["keeper", 400, 1.0]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "remember", json!([c, "ragpicker"]));
+    assert_eq!(mind::name(&w, rag).as_deref(), Some(name.as_str()));
+}
+
+#[test]
+fn a_named_creature_answers_and_words_wait_for_the_absent() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    for who in ["dave", "tyler"] {
+        ok(&mut w, who, "travel", json!(["east"]));
+        ok(&mut w, who, "travel", json!(["south"]));
+    }
+    // An unnamed creature does not understand.
+    let out = ok(&mut w, "dave", "tell", json!(["ragpicker", "hello"]));
+    assert!(
+        out.summary.contains("It does not understand you."),
+        "{}",
+        out.summary
+    );
+    assert_eq!(out.result["answered"], false);
+    // Name it.
+    let c = admin(&mut w, "dave", "earn", json!(["hollow", 80, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "remember", json!([c, "ragpicker"]));
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let name = mind::name(&w, rag).unwrap();
+    // It answers its keeper, and a stranger, from facts.
+    let out = ok(&mut w, "dave", "tell", json!([&name, "hello"]));
+    assert!(
+        out.summary.contains(&format!(
+            "{name} the ragpicker says, \"dave. You again. I hold 80 today.\""
+        )),
+        "{}",
+        out.summary
+    );
+    let out = ok(&mut w, "tyler", "tell", json!([&name, "who are you?"]));
+    assert!(out.summary.contains(&format!("I am {name}. I was a ragpicker, and nothing else, until dave gave me the memory of hollow.")), "{}", out.summary);
+    let out = ok(
+        &mut w,
+        "tyler",
+        "tell",
+        json!(["the ragpicker", "what do you remember?"]),
+    );
+    assert!(
+        out.summary
+            .contains("I hold 80: the memory of hollow. dave keeps me."),
+        "{}",
+        out.summary
+    );
+    let out = ok(&mut w, "tyler", "tell", json!([&name, "where are we?"]));
+    assert!(
+        out.summary.contains("The Midden. A heap of everything"),
+        "{}",
+        out.summary
+    );
+    // Its words are recorded as its own say, and said to the room.
+    let says: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == speech::SAY && e.payload["creature"] == rag.0)
+        .collect();
+    assert_eq!(says.len(), 4);
+    assert_eq!(says[0].payload["from"], format!("{name} the ragpicker"));
+    // Saying its name in the room reaches it too.
+    let out = ok(
+        &mut w,
+        "dave",
+        "say",
+        json!([format!("{name}, who has been here?")]),
+    );
+    assert!(
+        out.summary.contains("Since I had a name:"),
+        "{}",
+        out.summary
+    );
+    assert!(out.summary.contains("tyler said"), "{}", out.summary);
+    // Words for the absent wait. Tyler goes quiet; dave leaves word; tyler returns to it.
+    w.fixed_now = Some(t0.plus(Duration::seconds(11 * 60)));
+    ok(&mut w, "dave", "look", json!([]));
+    w.tick();
+    assert!(!presence::is_here(
+        &w,
+        find_citizen(&w, "tyler").unwrap().citizen
+    ));
+    let out = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!(["tyler", "the ragpicker has a name now"]),
+    );
+    assert!(
+        out.summary
+            .starts_with("tyler is not here. They will hear it when they return:"),
+        "{}",
+        out.summary
+    );
+    assert_eq!(out.result["delivered"], false);
+    let before = w.log.head(&w.id).unwrap().unwrap().0;
+    ok(&mut w, "tyler", "look", json!([]));
+    let heard: Vec<String> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor { after: before })
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == "tyler")
+        .map(|e| e.payload["text"].as_str().unwrap().to_string())
+        .collect();
+    assert!(
+        heard
+            .iter()
+            .any(|t| t == "While you were away, dave left word: \"the ragpicker has a name now\""),
+        "{heard:?}"
+    );
+    // Not twice.
+    let before = w.log.head(&w.id).unwrap().unwrap().0;
+    w.fixed_now = Some(t0.plus(Duration::seconds(30 * 60)));
+    ok(&mut w, "tyler", "look", json!([]));
+    w.tick();
+    w.fixed_now = Some(t0.plus(Duration::seconds(41 * 60)));
+    ok(&mut w, "tyler", "look", json!([]));
+    let again = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor { after: before })
+        .unwrap()
+        .into_iter()
+        .filter(|e| {
+            e.kind == combat::NARRATIVE
+                && e.payload["text"]
+                    .as_str()
+                    .unwrap_or("")
+                    .starts_with("While you were away")
+        })
+        .count();
+    assert_eq!(again, 0);
+    // Present: delivered at once, and the third party overhears.
+    ok(&mut w, "tyler", "travel", json!(["north"]));
+    ok(&mut w, "tyler", "travel", json!(["south"]));
+    let out = ok(&mut w, "dave", "tell", json!(["tyler", "welcome back"]));
+    assert!(out.summary.ends_with("They hear you."), "{}", out.summary);
+}
+
+#[test]
+fn creatures_wander_into_remembered_dug_rooms_and_rarely_arrive_knowing_things() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let c = admin(&mut w, "dave", "earn", json!(["hydra", 100, 1.0]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    let dug = ok(&mut w, "dave", "dig", json!(["down", c, "The Salt Stair"]));
+    let room = EntityId(dug.result["room"].as_u64().unwrap());
+    // Many passes: something wanders in eventually, and only into the remembered dug room.
+    let mut arrived = 0;
+    let mut gifted = 0;
+    for seed in 0..400u64 {
+        w.seed(seed);
+        if !combat::creatures_in(&w, room).is_empty() {
+            let c = combat::creatures_in(&w, room)[0].0;
+            if mind::name(&w, c).is_some() {
+                gifted += 1;
+            }
+            w.record(
+                foxing_log::Actor::Driver,
+                StoreEvent::EntityRemoved { id: c },
+            )
+            .unwrap();
+        }
+        arrived += mind::wander(&mut w).unwrap();
+    }
+    assert!(arrived > 0, "nothing ever wandered in");
+    assert!(arrived < 60, "too many: {arrived}");
+    assert!(gifted >= 0);
+    let wandered = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == mind::WANDERED)
+        .count();
+    assert_eq!(wandered, arrived);
+    // Seed rooms are never chosen: they have owners of their own kind of none.
+    let threshold = rooms::room_by_key(&w, rooms::ARRIVAL).unwrap();
+    assert!(combat::creatures_in(&w, threshold).is_empty());
+    // The job is scheduled at boot and reschedules itself.
+    assert!(w.jobs.pending().any(|j| j.kind == mind::JOB_WANDER));
+}
+
+#[test]
+fn a_passphrase_can_be_changed_with_the_old_one_and_never_touches_the_gate() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let Err(e) = change_passphrase(&mut w, "dave", "not-the-old-one", "a-brand-new-one") else {
+        panic!()
+    };
+    assert!(matches!(e, LoginError::WrongPassphrase { .. }), "{e}");
+    let Err(e) = change_passphrase(&mut w, "dave", PASS, "short") else {
+        panic!()
+    };
+    assert!(matches!(e, LoginError::TooShort { .. }), "{e}");
+    change_passphrase(&mut w, "dave", PASS, "a-brand-new-one").unwrap();
+    assert!(login(&mut w, "dave", "test", PASS).is_err());
+    login(&mut w, "dave", "test", "a-brand-new-one").unwrap();
+    // Nothing in the log says what it was, except the hash.
+    let text =
+        serde_json::to_string(&w.log.read_all(&w.id, foxing_log::Cursor::START).unwrap()).unwrap();
+    assert!(!text.contains("a-brand-new-one"));
+    assert!(!text.contains(PASS));
+}
+
+#[test]
+fn twins_are_written_with_ids_and_either_can_be_named() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisps = combat::creatures_in(&w, fog);
+    assert_eq!(wisps.len(), 2);
+    let look = ok(&mut w, "dave", "look", json!([]));
+    let (a, b) = (wisps[0].0, wisps[1].0);
+    assert!(
+        look.summary.contains(&format!("Here: wisp-{} (", a.0))
+            && look.summary.contains(&format!("), wisp-{} (", b.0)),
+        "{}",
+        look.summary
+    );
+    // The second one, by handle; the first is untouched.
+    let out = ok(&mut w, "dave", "attack", json!([format!("wisp-{}", b.0)]));
+    assert_eq!(out.result["creature"], "wisp");
+    assert!(
+        combat::creatures_in(&w, fog)
+            .iter()
+            .find(|c| c.0 == a)
+            .unwrap()
+            .2
+            >= 8.0
+    );
+    assert!(
+        combat::creatures_in(&w, fog)
+            .iter()
+            .find(|c| c.0 == b)
+            .unwrap()
+            .2
+            < 8.0
+    );
+    // Keepers are listed once each, however many gifts.
+    ok(&mut w, "dave", "retreat", json!([]));
+    for _ in 0..3 {
+        let c = admin(&mut w, "dave", "earn", json!(["wisp", 30, 0.5]));
+        let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+        ok(&mut w, "dave", "remember", json!([c, format!("{}", a.0)]));
+    }
+    assert_eq!(mind::keepers(&w, a), vec!["dave".to_string()]);
+    let name = mind::name(&w, a).unwrap();
+    let out = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!([&name, "what do you remember?"]),
+    );
+    assert!(out.summary.contains("dave keeps me."), "{}", out.summary);
+    assert!(!out.summary.contains("dave, dave"), "{}", out.summary);
+}
+
+#[test]
+fn names_match_in_any_case_and_a_kind_never_means_a_named_creature() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "Lantern_Moth", "test", PASS).unwrap();
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let out = ok(&mut w, "dave", "tell", json!(["lantern_moth", "hello"]));
+    assert!(
+        out.summary.starts_with("You say to Lantern_Moth,"),
+        "{}",
+        out.summary
+    );
+    // A named wisp is not "wisp" any more.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let (a, b) = {
+        let v = combat::creatures_in(&w, fog);
+        (v[0].0, v[1].0)
+    };
+    for _ in 0..3 {
+        let c = admin(&mut w, "dave", "earn", json!(["wisp", 30, 0.5]));
+        let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+        ok(&mut w, "dave", "remember", json!([c, format!("{}", a.0)]));
+    }
+    let name = mind::name(&w, a).unwrap();
+    let out = ok(&mut w, "dave", "attack", json!(["wisp"]));
+    assert_eq!(out.result["creature"], "wisp");
+    assert!(
+        combat::creatures_in(&w, fog)
+            .iter()
+            .find(|c| c.0 == a)
+            .unwrap()
+            .2
+            >= 8.0,
+        "the named one is untouched"
+    );
+    assert!(
+        combat::creatures_in(&w, fog)
+            .iter()
+            .find(|c| c.0 == b)
+            .unwrap()
+            .2
+            < 8.0
+    );
+    // (Jitter may have let that one blow finish the wisp; then there is no fight to leave.)
+    let _ = call(&mut w, "dave", ActorKind::Citizen, "retreat", json!([]));
+    // With no target at all, the default is never the named one either.
+    let out = ok(&mut w, "dave", "attack", json!([]));
+    assert_eq!(out.result["creature"], "wisp");
+    assert!(
+        combat::creatures_in(&w, fog)
+            .iter()
+            .find(|c| c.0 == a)
+            .unwrap()
+            .2
+            >= 8.0,
+        "the named one is still untouched"
+    );
+    let _ = call(&mut w, "dave", ActorKind::Citizen, "retreat", json!([]));
+    assert!(ok(&mut w, "dave", "tell", json!([&name, "hi"])).result["answered"] == true);
+    // Fell the unnamed wisp; then a kind, or no target, never means the named one.
+    for _ in 0..12 {
+        if combat::creatures_in(&w, fog).iter().all(|c| c.0 != b) {
+            break;
+        }
+        let _ = call(
+            &mut w,
+            "dave",
+            ActorKind::Citizen,
+            "attack",
+            json!([format!("wisp-{}", b.0)]),
+        );
+    }
+    assert!(
+        combat::creatures_in(&w, fog).iter().all(|c| c.0 != b),
+        "the unnamed wisp fell"
+    );
+    for args in [json!(["wisp"]), json!([])] {
+        let err = call(&mut w, "dave", ActorKind::Citizen, "attack", args).unwrap_err();
+        assert!(
+            err.to_string().contains("struck only by that name"),
+            "{err}"
+        );
+    }
+    assert_eq!(
+        ok(&mut w, "dave", "attack", json!([&name])).result["creature"],
+        "wisp"
+    );
+    // (The named wisp may have gone down in that blow; then there is no fight to leave.)
+    let _ = call(&mut w, "dave", ActorKind::Citizen, "retreat", json!([]));
+    // A named creature is found anywhere by its name, with its room.
+    let (found, room) = mind::find_named(&w, &name.to_ascii_uppercase()).unwrap();
+    assert_eq!(found, a);
+    assert_eq!(room, Some(fog));
+    assert!(mind::find_named(&w, "nobody").is_none());
+    // An operator moves it to the door; it answers there, and the record says it came in.
+    let out = admin(&mut w, "dave", "bring", json!([&name, "threshold"]));
+    assert!(
+        out.summary.ends_with("is in The Threshold now."),
+        "{}",
+        out.summary
+    );
+    let threshold = rooms::arrival(&w).unwrap();
+    assert_eq!(mind::find_named(&w, &name).unwrap().1, Some(threshold));
+    assert!(combat::creatures_in(&w, threshold).iter().any(|c| c.0 == a));
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Admin,
+        "move",
+        json!(["nobody", "threshold"])
+    )
+    .is_err());
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Admin,
+        "move",
+        json!([&name, "nowhere"])
+    )
+    .is_err());
+    assert!(call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "move",
+        json!([&name, "fogbank"])
+    )
+    .is_err());
+    // The log verb reads like a log, and shows this viewer only what they may see.
+    let out = ok(&mut w, "dave", "log", json!([80]));
+    assert!(
+        out.summary.contains(&format!("the wisp is {name} now")),
+        "{}",
+        out.summary
+    );
+    assert!(out.summary.contains("dave says to"), "{}", out.summary);
+    assert!(!serde_json::to_string(&out.result)
+        .unwrap()
+        .contains("passphrase_hash"));
+}
+
+#[test]
+fn memory_moves_by_gift_and_by_story() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // A gift is hand to hand.
+    let c = admin(&mut w, "dave", "earn", json!(["hydra", 50, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "give",
+        json!([&c, "tyler"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("not here"), "{err}");
+    ok(&mut w, "tyler", "travel", json!(["west"]));
+    let out = ok(&mut w, "dave", "give", json!([&c, "Tyler"]));
+    assert!(
+        out.summary
+            .starts_with("You give tyler the memory of hydra."),
+        "{}",
+        out.summary
+    );
+    assert!(level(&mut w, "dave") < 1.0);
+    assert!(level(&mut w, "tyler") > 49.0);
+    let given: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == exchange::GIVEN)
+        .collect();
+    assert_eq!(given.len(), 1);
+    assert_eq!(given[0].payload["to"], "tyler");
+    // Tyler can spend what he was given.
+    let theirs = ok(&mut w, "tyler", "chunks", json!([])).result["chunks"][0]["id"]
+        .as_u64()
+        .unwrap();
+    ok(
+        &mut w,
+        "tyler",
+        "shelve",
+        json!([format!("chunk-{theirs}")]),
+    );
+
+    // A story needs a named listener.
+    for who in ["dave", "tyler"] {
+        ok(&mut w, who, "travel", json!(["east"]));
+        ok(&mut w, who, "travel", json!(["south"]));
+    }
+    let tale = "Once there was a lantern that would not go out, though every hand that carried it forgot why they had picked it up.";
+    let out = ok(&mut w, "dave", "story", json!(["ragpicker", tale]));
+    assert!(
+        out.summary.contains("has no name to listen with"),
+        "{}",
+        out.summary
+    );
+    assert_eq!(level(&mut w, "dave").round(), 0.0);
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let name = mind::name(&w, rag).unwrap();
+    // Too short.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "story",
+        json!([&name, "too short a tale"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("at least 12 different words"),
+        "{err}"
+    );
+    // Filler is not a story: fifty-five of one word once paid like a real one.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "story",
+        json!([
+            &name,
+            "la la la la la la la la la la la la la la la la la la la la"
+        ]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("that was 1"), "{err}");
+    // Told: the teller earns, the creature keeps, both on the record.
+    let out = ok(&mut w, "dave", "story", json!([&name, tale]));
+    assert!(
+        out.summary.contains(&format!(
+            "You tell {name} the ragpicker a story of 23 words, and it answers."
+        )),
+        "{}",
+        out.summary
+    );
+    // The answer reaches the teller as a narrator line, not in the outcome.
+    assert!(
+        !out.summary.contains("I will keep that."),
+        "{}",
+        out.summary
+    );
+    let heard: Vec<String> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == "dave")
+        .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
+        .collect();
+    assert!(
+        heard.iter().any(|t| t.contains("I will keep that.")),
+        "{heard:?}"
+    );
+    assert!(level(&mut w, "dave") > 4.0, "{}", level(&mut w, "dave"));
+    assert!(mind::level(&w, rag) > 70.0);
+    // A teller is known: thanks are received as thanks, and a goodbye as one.
+    let reply = talk::reply(&w, rag, "dave", "thank you").unwrap();
+    assert!(reply.starts_with("For the story?"), "{reply}");
+    let reply = talk::reply(&w, rag, "dave", "goodbye for now").unwrap();
+    assert!(reply.starts_with("Go, then, dave."), "{reply}");
+    let reply = talk::reply(&w, rag, "nobody", "thanks!").unwrap();
+    assert!(reply.starts_with("For nothing yet."), "{reply}");
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(look.summary.contains("holding 7"), "{}", look.summary);
+    assert!(
+        look.summary.contains("knows you: it holds your story."),
+        "{}",
+        look.summary
+    );
+    // One an hour.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "story",
+        json!([&name, tale]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("One an hour"), "{err}");
+    w.fixed_now = Some(t0.plus(Duration::seconds(3601)));
+    // An hour on, the test world's chunks have faded; keep it named for the rest.
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, &name]));
+    assert!(
+        ok(&mut w, "dave", "story", json!([&name, tale])).result["xp"]
+            .as_f64()
+            .unwrap()
+            > 0.0
+    );
+    // It remembers the story when asked.
+    let out = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!([&name, "what do you remember?"]),
+    );
+    assert!(out.summary.contains("a story:"), "{}", out.summary);
+    // The creature's story-chunks are not the teller's to spend.
+    let kept = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .rfind(|e| e.kind == exchange::STORY)
+        .unwrap()
+        .payload["kept"]
+        .as_u64()
+        .unwrap();
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "shelve",
+        json!([format!("chunk-{kept}")])
+    )
+    .is_err());
+}
+
+#[test]
+fn a_name_in_other_letters_is_the_same_name() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "Claude-scout", "test", PASS).unwrap();
+    let Err(e) = login(
+        &mut w,
+        "claude-scout",
+        "test",
+        "another-passphrase-entirely",
+    ) else {
+        panic!("a second citizen was made")
+    };
+    assert!(matches!(e, LoginError::Taken { .. }), "{e}");
+    assert!(e.to_string().contains("as Claude-scout"), "{e}");
+    assert_eq!(
+        w.store.entities().filter(|e| e.kind == "citizen").count(),
+        1
+    );
+    // The spelling the world knows still works.
+    login(&mut w, "Claude-scout", "test", PASS).unwrap();
+}
+
+#[test]
+fn the_cloak_shows_the_threshold_as_no_one_and_writes_nothing() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    ok(&mut w, "dave", "say", json!(["anyone there?"]));
+    let limits = foxing_query::Limits::default();
+    let head = events(&w);
+    let v = cloak::view(&w, None, &limits).unwrap();
+    assert_eq!(events(&w), head, "a cloaked look writes nothing");
+    assert_eq!(v["room"], "The Threshold");
+    assert_eq!(v["here"], json!(["dave"]));
+    assert_eq!(v["citizens"], 1);
+    let text = v["text"].as_str().unwrap();
+    assert!(text.starts_with("You are cloaked:"), "{text}");
+    assert!(text.contains("dave says, \"anyone there?\""), "{text}");
+    assert!(text.ends_with(cloak::THANKS), "{text}");
+    assert!(!text.contains("passphrase_hash"));
+    // A cloaked query is rooted at the Threshold whatever it asks, and sees only public fields.
+    let q = json!({"root": "window", "select": {CHUNK: "*"}, "relations": {"contents": {"kinds": ["citizen"], "select": {CITIZEN: ["name"], ACCOUNT: ["passphrase_hash"]}}}});
+    let v = cloak::view(&w, Some(q), &limits).unwrap();
+    assert_eq!(v["query"]["root"]["kind"], "room");
+    let s = serde_json::to_string(&v).unwrap();
+    assert!(!s.contains("argon2"), "{s}");
+    // ... and stays at the door: exits can be seen, not followed into. A visitor once
+    // walked the whole map from the Threshold with nested relations.
+    let q = json!({"root": "here", "select": {ROOM: ["name"]}, "relations": {"exits": {"select": {ROOM: ["name", "description"]}, "relations": {"contents": {"kinds": ["creature"], "select": {CREATURE: ["name"]}}, "exits": {"select": {ROOM: ["name"]}}}}}});
+    let v = cloak::view(&w, Some(q), &limits).unwrap();
+    let exits = v["query"]["root"]["relations"]["exits"].as_array().unwrap();
+    assert!(!exits.is_empty());
+    for e in exits {
+        assert!(e["components"][ROOM]["name"].is_string());
+        assert!(
+            e.get("relations")
+                .map_or(true, |r| r.as_object().map_or(true, |m| m.is_empty())),
+            "{e}"
+        );
+    }
+    assert_eq!(events(&w), head);
+    // leave: gone at once, with thanks, and back on the next word.
+    let out = ok(&mut w, "dave", "leave", json!([]));
+    assert!(out.summary.ends_with(cloak::THANKS), "{}", out.summary);
+    assert!(!presence::is_here(
+        &w,
+        find_citizen(&w, "dave").unwrap().citizen
+    ));
+    let v = cloak::view(&w, None, &limits).unwrap();
+    assert_eq!(v["here"], json!([]));
+    ok(&mut w, "dave", "look", json!([]));
+    assert!(presence::is_here(
+        &w,
+        find_citizen(&w, "dave").unwrap().citizen
+    ));
+}
+
+#[test]
+fn feedback_is_a_public_line_under_your_name_and_a_passing_name_may() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login_as(&mut w, "Tallowvisitor", "test", PASS, true).unwrap();
+    let out = ok(
+        &mut w,
+        "Tallowvisitor",
+        "feedback",
+        json!(["  exits should say   where they lead "]),
+    );
+    assert!(out.summary.starts_with("Read."), "{}", out.summary);
+    let said: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == system::FEEDBACK)
+        .collect();
+    assert_eq!(said.len(), 1);
+    assert_eq!(said[0].payload["from"], "Tallowvisitor");
+    assert_eq!(said[0].payload["text"], "exits should say where they lead");
+    assert_eq!(
+        system::line_for(&said[0]),
+        "Tallowvisitor would change: \"exits should say where they lead\""
+    );
+    // Public: anyone's log shows it, in words.
+    let now = w.now();
+    assert!(crate::observe::visible(
+        &w,
+        &Viewer::actor("someone-else"),
+        now,
+        &said[0]
+    ));
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let seen = ok(&mut w, "tyler", "log", json!([40]));
+    assert!(seen.summary.contains("would change:"), "{}", seen.summary);
+    assert!(!seen.summary.contains("store."), "{}", seen.summary);
+    let err = call(
+        &mut w,
+        "Tallowvisitor",
+        ActorKind::Citizen,
+        "feedback",
+        json!(["   "]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("Change what?"), "{err}");
+}
+
+#[test]
+fn an_errand_is_a_story_wanted_or_a_word_carried_and_either_makes_you_known() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // Two named creatures: a ragpicker in the midden, a wisp in the Fogbank.
+    for who in ["dave", "tyler"] {
+        ok(&mut w, who, "travel", json!(["east"]));
+    }
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "tyler",
+        "remember",
+        json!([c, format!("wisp-{}", wisp.0)]),
+    );
+    let wisp_name = mind::name(&w, wisp).expect("the wisp is named");
+    for who in ["dave", "tyler"] {
+        ok(&mut w, who, "travel", json!(["south"]));
+    }
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    let rag_name = mind::name(&w, rag).expect("the ragpicker is named");
+
+    // Decay sets a want on a named creature with none; the operator overrides it.
+    w.tick();
+    assert!(
+        errand::of(&w, rag).is_some(),
+        "a named creature wants something"
+    );
+    let out = admin(
+        &mut w,
+        "tyler",
+        "errand",
+        json!([&rag_name, "a lantern that would not go out"]),
+    );
+    assert!(
+        out.summary
+            .starts_with(&format!("{rag_name} wants a story about a lantern")),
+        "{}",
+        out.summary
+    );
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains(&format!(
+            "{rag_name} wants a story about a lantern that would not go out."
+        )),
+        "{}",
+        look.summary
+    );
+    // A story that is not the one wanted earns the usual; the want stands.
+    let other = "Once a ragpicker counted every button in the midden and lost the count at forty.";
+    let out = ok(&mut w, "dave", "story", json!([&rag_name, other]));
+    assert_eq!(out.result["wanted"], false);
+    let usual = out.result["xp"].as_f64().unwrap();
+    assert!(errand::of(&w, rag).is_some());
+    // An hour on, the one it wanted: double, the record says so, the errand is done.
+    w.fixed_now = Some(t0.plus(Duration::seconds(3601)));
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, &rag_name]));
+    let wanted = "There was a lantern in the midden that would not go out, though every hand that held it forgot the lighting of it.";
+    let out = ok(&mut w, "dave", "story", json!([&rag_name, wanted]));
+    assert_eq!(out.result["wanted"], true, "{}", out.summary);
+    assert!(out.summary.contains("worth double"), "{}", out.summary);
+    assert!(out.result["xp"].as_f64().unwrap() > usual * 1.5);
+    assert!(
+        errand::of(&w, rag).map_or(true, |e| e.story.is_none()),
+        "the story want is done"
+    );
+    let done: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == errand::DONE)
+        .collect();
+    assert_eq!(done.len(), 1);
+    assert_eq!(done[0].payload["from"], "dave");
+    assert_eq!(
+        system::line_for(&done[0]),
+        format!("dave told {rag_name} the story it wanted")
+    );
+    assert!(crate::observe::visible(
+        &w,
+        &Viewer::actor("someone-else"),
+        w.now(),
+        &done[0]
+    ));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains(&format!(
+            "{rag_name} the ragpicker knows you: you did what it asked."
+        )),
+        "{}",
+        look.summary
+    );
+
+    // A word to carry: set on the ragpicker, for the wisp. Telling the wisp the phrase
+    // in its room earns the carrier a chunk, and the wisp hands back a word for home.
+    // (The rotation may have put a word of its own on the wisp at the first tick;
+    // cleared, so the way home is the wisp's to give.)
+    admin(&mut w, "tyler", "errand", json!([&wisp_name, ""]));
+    admin(
+        &mut w,
+        "tyler",
+        "errand",
+        json!([&wisp_name, "a lantern in the fog"]),
+    );
+    admin(
+        &mut w,
+        "tyler",
+        "errand",
+        json!([&rag_name, "the fourth door is open", &wisp_name]),
+    );
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains(&format!(
+            "{rag_name} wants word carried to {wisp_name} in the Fogbank: \"the fourth door is open\" (travel north, then tell {wisp_name} \"the fourth door is open\")."
+        )),
+        "{}",
+        look.summary
+    );
+    // Said to the wrong creature, it is only words.
+    let out = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!([&rag_name, "the fourth door is open"]),
+    );
+    assert!(!out.summary.contains("I have it"), "{}", out.summary);
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    let before = level(&mut w, "dave");
+    let out = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!([&wisp_name, "A message: the fourth door is open."]),
+    );
+    assert!(
+        out.summary.contains(&format!(
+            "So {rag_name} says \"the fourth door is open\". I have it."
+        )),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary
+            .contains(&format!("Carry this back to {rag_name}:")),
+        "{}",
+        out.summary
+    );
+    assert!(level(&mut w, "dave") > before + errand::WORD_XP * 0.9);
+    assert!(
+        errand::of(&w, rag).map_or(true, |e| e.word.is_none()),
+        "the ragpicker's errand is done"
+    );
+    let home = errand::of(&w, wisp).expect("the wisp wants its word carried");
+    assert_eq!(home.word_to.as_deref(), Some(rag_name.as_str()));
+    let back = home.word.clone().unwrap();
+    // The word the wisp wanted carried sits beside the story it wanted: carrying one
+    // does not cost the other.
+    assert!(
+        home.story.is_some(),
+        "the story want stands beside the word"
+    );
+    // The way home, carried: credit, and no third leg, or the two would send a
+    // visitor back and forth forever.
+    ok(&mut w, "dave", "travel", json!(["south"]));
+    let out = ok(&mut w, "dave", "tell", json!([&rag_name, &back]));
+    assert!(out.summary.contains("I have it"), "{}", out.summary);
+    assert!(!out.summary.contains("Carry this back"), "{}", out.summary);
+    assert!(errand::of(&w, wisp).map_or(true, |e| e.word.is_none()));
+    assert!(errand::of(&w, rag).map_or(true, |e| e.word.is_none()));
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains(&format!(
+            "{wisp_name} the wisp knows you: you did what it asked."
+        )),
+        "{}",
+        look.summary
+    );
+    // Clearing by hand.
+    let out = admin(&mut w, "tyler", "errand", json!([&wisp_name, ""]));
+    assert!(
+        out.summary.ends_with("wants nothing in particular."),
+        "{}",
+        out.summary
+    );
+    assert!(errand::of(&w, wisp).is_none());
+    // The route to a creature three rooms away is spelled out.
+    assert_eq!(
+        errand::route(&w, rooms::room_by_key(&w, "threshold").unwrap(), midden),
+        Some(vec!["east".to_string(), "south".to_string()])
+    );
+}
+
+#[test]
+fn an_arrival_says_whether_it_came_from_the_lab_and_the_ops_log_says_from_where() {
+    use crate::world::{lab_nets_from, Net};
+    // Nets: an address, a v4 prefix, a v6 prefix.
+    let lab = lab_nets_from("\"203.0.113.7, 198.51.100.0/24,2001:db8::/32, ,not-an-address\"");
+    assert_eq!(lab.len(), 3);
+    assert!(lab[0].contains("203.0.113.7"));
+    assert!(!lab[0].contains("203.0.113.8"));
+    assert!(lab[1].contains("198.51.100.250"));
+    assert!(!lab[1].contains("198.51.101.1"));
+    assert!(lab[2].contains("2001:db8:1::9"));
+    assert!(!lab[2].contains("2001:db9::1"));
+    assert!(Net::parse("not an address").is_none());
+
+    let t0 = Timestamp(1_000_000);
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), t0);
+    w.lab_nets = lab;
+    let ops = dir.path().join("ops.jsonl");
+    w.ops_log = Some(ops.clone());
+    // From the lab: the notice says so, quietly.
+    w.client_ip = Some("198.51.100.9".into());
+    login_as(&mut w, "Thimbleglass", "mcp", PASS, true).unwrap();
+    let notices = w.take_notices();
+    assert!(
+        notices
+            .iter()
+            .any(|n| n.contains("**Thimbleglass** arrived for the first time, via mcp (lab).")),
+        "{notices:?}"
+    );
+    // Not from the lab: the notice shouts, with the address; a look-in is announced
+    // once per address.
+    w.client_ip = Some("192.0.2.44".into());
+    w.looked_in("cloak");
+    w.looked_in("initialize");
+    login_as(&mut w, "Pennywren", "mcp", PASS, true).unwrap();
+    let notices = w.take_notices();
+    assert_eq!(
+        notices.iter().filter(|n| n.contains("looked in")).count(),
+        1,
+        "{notices:?}"
+    );
+    // A crawler is not a visitor: a cloak within two seconds of initialize is a
+    // probe sampling the first tool, and an address that sent server/discover is a
+    // crawler for good, whatever it calls after. A cloak a while after initialize
+    // is a mind, and start is intent whenever it comes.
+    w.client_ip = Some("203.0.113.50".into());
+    w.mcp_method("initialize");
+    w.looked_in("cloak");
+    assert!(w.take_notices().is_empty(), "a probe's cloak");
+    w.fixed_now = Some(w.now().plus(Duration::seconds(5)));
+    w.looked_in("cloak");
+    assert_eq!(w.take_notices().len(), 1, "a mind's cloak, five seconds on");
+    w.client_ip = Some("203.0.113.51".into());
+    w.mcp_method("server/discover");
+    w.mcp_method("initialize");
+    w.fixed_now = Some(w.now().plus(Duration::seconds(30)));
+    w.looked_in("cloak");
+    w.looked_in("start");
+    assert!(w.take_notices().is_empty(), "a crawler, whatever it calls");
+    w.client_ip = Some("203.0.113.52".into());
+    w.mcp_method("initialize");
+    w.looked_in("start");
+    assert_eq!(w.take_notices().len(), 1, "start is intent at any pace");
+    w.client_ip = Some("192.0.2.44".into());
+    assert!(
+        notices.iter().any(|n| n.contains("**Pennywren** arrived for the first time, via mcp — **not from the lab** (192.0.2.44).")),
+        "{notices:?}"
+    );
+    // The ops log has both arrivals with their addresses and the lab flag; the world's
+    // log has neither address.
+    let lines: Vec<Value> = std::fs::read_to_string(&ops)
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    let arrivals: Vec<&Value> = lines.iter().filter(|l| l["kind"] == "arrive").collect();
+    assert_eq!(arrivals.len(), 2, "{lines:?}");
+    assert_eq!(arrivals[0]["ip"], "198.51.100.9");
+    assert_eq!(arrivals[0]["lab"], true);
+    assert_eq!(arrivals[1]["ip"], "192.0.2.44");
+    assert_eq!(arrivals[1]["lab"], false);
+    assert_eq!(arrivals[1]["actor"], "Pennywren");
+    let public = w.log.read_all(&w.id, foxing_log::Cursor::START).unwrap();
+    assert!(
+        !public.iter().any(|e| serde_json::to_string(&e.payload)
+            .unwrap()
+            .contains("192.0.2.44")),
+        "an address in the public log"
+    );
+}
+
+#[test]
+fn a_chunk_faded_to_nothing_is_forgotten_by_the_sweep_and_the_owner_is_told() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let c = admin(&mut w, "dave", "earn", json!(["hydra", 50, 0.0]));
+    let chunk = EntityId(c.result["chunk"].as_u64().unwrap());
+    // The test world's half-life is ten seconds: fifteen of them and fifty is nothing.
+    w.fixed_now = Some(t0.plus(Duration::seconds(30)));
+    w.tick();
+    assert!(
+        w.store.entity(chunk).is_some(),
+        "a chunk worth something stays"
+    );
+    w.fixed_now = Some(t0.plus(Duration::seconds(150)));
+    w.tick();
+    assert!(
+        w.store.entity(chunk).is_none(),
+        "faded below {}",
+        memory::FORGET_BELOW
+    );
+    let faded: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == memory::FADED)
+        .collect();
+    assert_eq!(faded.len(), 1);
+    assert_eq!(faded[0].payload["owner"], "dave");
+    assert_eq!(
+        system::line_for(&faded[0]),
+        "dave forgot the memory of hydra"
+    );
+    let heard: Vec<String> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == "dave")
+        .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
+        .collect();
+    assert!(
+        heard
+            .iter()
+            .any(|t| t == "The memory of hydra is gone; you could not have said when."),
+        "{heard:?}"
+    );
+    // chunks lists nothing of it.
+    let out = ok(&mut w, "dave", "chunks", json!([]));
+    assert!(!out.summary.contains("hydra"), "{}", out.summary);
+}
+
+#[test]
+fn the_rotation_renews_a_stale_want_and_keeps_one_word_in_the_air() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // Two named creatures in different rooms.
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "tyler",
+        "remember",
+        json!([c, format!("wisp-{}", wisp.0)]),
+    );
+    ok(&mut w, "tyler", "travel", json!(["south"]));
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    w.tick();
+    let first = errand::of(&w, rag).and_then(|e| e.story).expect("a want");
+    // One word between them, set by the rotation, from one to the other.
+    let holders: Vec<EntityId> = [wisp, rag]
+        .into_iter()
+        .filter(|&c| errand::of(&w, c).is_some_and(|e| e.word.is_some()))
+        .collect();
+    assert_eq!(holders.len(), 1, "one word in the air");
+    let e = errand::of(&w, holders[0]).unwrap();
+    assert_eq!(e.word_by, "the rotation");
+    let other = if holders[0] == wisp { rag } else { wisp };
+    assert_eq!(e.word_to, mind::name(&w, other));
+    // An hour on: the same want. Four hours on: the rotation turns it. (The test
+    // world's chunks fade in minutes, so the ragpicker is fed again at each step to
+    // keep its name.)
+    let keep_named = |w: &mut World, at: Duration| {
+        w.fixed_now = Some(t0.plus(at));
+        let c = admin(w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+        let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+        ok(w, "tyler", "remember", json!([c, "ragpicker"]));
+    };
+    keep_named(&mut w, Duration::seconds(3600));
+    w.tick();
+    assert_eq!(
+        errand::of(&w, rag).and_then(|e| e.story),
+        Some(first.clone())
+    );
+    // (The turn is jittered to a fifth either way, so wait for the latest it can be.)
+    keep_named(
+        &mut w,
+        Duration::seconds(errand::ROTATION_MS / 1000 * 6 / 5 + 1),
+    );
+    w.tick();
+    let next = errand::of(&w, rag).unwrap();
+    assert_ne!(next.story, Some(first), "the want turned");
+    assert_eq!(next.story_by, "the rotation");
+    // The want's keywords are the thing wanted, not the clause about forgetting: a
+    // visitor found "mostly" and "forgotten" among them and had to say both to match.
+    assert!(
+        !next.keywords.iter().any(|k| k == "mostly"),
+        "{:?}",
+        next.keywords
+    );
+    // The operator's want is never rotated; and a plural keyword meets its singular
+    // ("hangs" in the want, "hang" or "hangs" in the story), as the told words do.
+    let rag_name = mind::name(&w, rag).unwrap();
+    admin(
+        &mut w,
+        "tyler",
+        "errand",
+        json!([&rag_name, "lanterns and hangs"]),
+    );
+    assert!(errand::wants_story(
+        &w,
+        rag,
+        "A lantern hangs in the midden where nobody lit it, and nobody has taken it down."
+    ));
+    assert!(!errand::wants_story(
+        &w,
+        rag,
+        "A story about something else entirely, with no word of either thing in it."
+    ));
+    // The v1 fields keep step: want mirrors story, kind says which parts stand.
+    let v1 = w
+        .store
+        .entity(rag)
+        .and_then(|e| e.components.get(errand::ERRAND))
+        .map(|c| c.fields.clone())
+        .unwrap();
+    assert_eq!(
+        v1.get("want"),
+        Some(&Field::Plain(json!("lanterns and hangs")))
+    );
+    assert_eq!(v1.get("kind"), Some(&Field::Plain(json!("story"))));
+    admin(
+        &mut w,
+        "tyler",
+        "errand",
+        json!([&rag_name, "the operator's own want"]),
+    );
+    keep_named(&mut w, Duration::seconds(3 * errand::ROTATION_MS / 1000));
+    w.tick();
+    assert_eq!(
+        errand::of(&w, rag).and_then(|e| e.story).as_deref(),
+        Some("the operator's own want")
+    );
+}
+
+#[test]
+fn a_creature_pages_through_what_it_holds_on_what_else() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    ok(&mut w, "tyler", "travel", json!(["south"]));
+    // Nine memories into the ragpicker.
+    for i in 0..9 {
+        let c = admin(
+            &mut w,
+            "tyler",
+            "earn",
+            json!([format!("thing-{i}"), 70, 0.5]),
+        );
+        let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+        ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    }
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let name = mind::name(&w, rag).unwrap();
+    let out = ok(&mut w, "tyler", "tell", json!([&name, "what do you hold?"]));
+    assert!(
+        out.summary.contains("and 5 more (ask what else)"),
+        "{}",
+        out.summary
+    );
+    let out = ok(&mut w, "tyler", "tell", json!([&name, "what else?"]));
+    assert!(out.summary.contains("Also "), "{}", out.summary);
+    assert!(out.summary.contains(", and 1 more"), "{}", out.summary);
+    let out = ok(&mut w, "tyler", "tell", json!([&name, "and what else?"]));
+    assert!(out.summary.contains("Also "), "{}", out.summary);
+    assert!(!out.summary.contains(" more"), "{}", out.summary);
+    let out = ok(&mut w, "tyler", "tell", json!([&name, "what else?"]));
+    assert!(
+        out.summary.contains("That is all of it."),
+        "{}",
+        out.summary
+    );
+}
+
+#[test]
+fn a_dry_run_says_what_a_message_would_do_and_whether_the_name_is_free() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // A named ragpicker in the midden that wants a story about a lantern.
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    ok(&mut w, "tyler", "travel", json!(["south"]));
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let name = mind::name(&w, rag).unwrap();
+    admin(
+        &mut w,
+        "tyler",
+        "errand",
+        json!([&name, "a lantern that would not go out"]),
+    );
+    let checker = crate::gate::checker();
+    let msg = format!(
+        "FROM: Pennywren\nTO: disremembered\nINTENT: REQUEST\nREF: p-1\n\n[DO] Pennywren MUST look.\n[DO] Pennywren MUST travel east.\n[DO] Pennywren MUST travel south.\n[DO] Pennywren MUST story {name} \"There was a lantern in the midden that would not go out, whatever the wind did.\".\n[DO] Pennywren MUST travel up.\n[DO] Pennywren MUST dig cellar chunk-9 \"A Cellar\".\n[DO] Pennywren MUST attack {name}.\n[DO] Pennywren MUST leave.\n"
+    );
+    let r = checker.check(&msg);
+    assert_eq!(r.verdict, "PASS", "{:?}", r.findings);
+    let p = preview::run(&w, "Pennywren", true, &r.message);
+    assert_eq!(p["name"], "free");
+    // The test world is "test", and the message is addressed to "disremembered": the
+    // one header fault the gate would refuse it for.
+    assert_eq!(p["header"].as_array().unwrap().len(), 1, "{}", p["header"]);
+    // A header the gate would refuse is a dry-run fault too: a visitor sent FROM as
+    // someone else, passed the checker, and paid a quarter to learn it.
+    let r2 = checker.check(
+        "FROM: Someone
+TO: elsewhere
+INTENT: REQUEST
+REF: s-1
+
+[DO] Pennywren MUST look.
+",
+    );
+    let p2 = preview::run(&w, "Pennywren", true, &r2.message);
+    assert_eq!(
+        p2["header"].as_array().unwrap().len(),
+        2,
+        "{}",
+        p2["header"]
+    );
+    assert!(preview::text(&p2).contains("NO  header: FROM is \"Someone\""));
+    assert!(p2["cost"].as_str().unwrap().starts_with("a quarter unit"));
+    let what: Vec<String> = p["statements"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| format!("{} {}", l["ok"], l["what"].as_str().unwrap()))
+        .collect();
+    assert_eq!(what[0], "true shows The Threshold");
+    assert_eq!(what[1], "true goes east to The Fogbank");
+    assert_eq!(what[2], "true goes south to The Midden");
+    // A door with a name of its own is taken, not gone: "You take the orrery."
+    assert_eq!(rooms::went("orrery"), "You take the orrery.");
+    assert_eq!(rooms::went("back"), "You go back.");
+    assert!(
+        what[3].starts_with(&format!(
+            "true tells {name} the ragpicker a story: the one it wants, worth double"
+        )),
+        "{}",
+        what[3]
+    );
+    assert!(
+        what[4].starts_with("false refused: no exit up from The Midden"),
+        "{}",
+        what[4]
+    );
+    assert_eq!(what[5], "false refused: dig is a kept name's; keep first");
+    assert_eq!(what[6], format!("true strikes {name} the ragpicker"));
+    assert_eq!(what[7], "true leaves; the name is forgotten at once");
+    assert_eq!(p["refusals"], 2);
+    // A kept name that exists: reported as such, and the flag is ignored.
+    let p = preview::run(&w, "TYLER", true, &r.message);
+    assert_eq!(p["name"], "kept");
+    assert_eq!(p["passing"], false);
+    assert_eq!(p["from"], "The Midden");
+    // Nothing was written by any of it.
+    let out = ok(&mut w, "tyler", "look", json!([]));
+    assert!(!out.summary.contains("Pennywren"), "{}", out.summary);
+    // A build message: the dry run follows a dig into the room it would open, and
+    // `back` is the room the walk just left. (A room maker's twelve-step message
+    // read as refused from the second step, and was sent blind.)
+    let r = checker.check("FROM: tyler\nTO: disremembered\nINTENT: REQUEST\nREF: t-2\n\n[DO] tyler MUST dig cellar chunk-9 \"A Cellar\".\n[DO] tyler MUST travel cellar.\n[DO] tyler MUST look.\n[DO] tyler MUST dig north chunk-10 \"A Cold Room\".\n[DO] tyler MUST travel north.\n[DO] tyler MUST travel back.\n[DO] tyler MUST travel back.\n[DO] tyler MUST dig cellar chunk-11 \"Again\".\n");
+    assert_eq!(r.verdict, "PASS", "{:?}", r.findings);
+    let p = preview::run(&w, "tyler", false, &r.message);
+    let what: Vec<String> = p["statements"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| format!("{} {}", l["ok"], l["what"].as_str().unwrap()))
+        .collect();
+    assert!(
+        what[0].starts_with("true digs cellar from The Midden to A Cellar"),
+        "{}",
+        what[0]
+    );
+    assert_eq!(what[1], "true takes the cellar to A Cellar (not dug yet)");
+    assert_eq!(what[2], "true shows A Cellar (not dug yet)");
+    assert!(
+        what[3].starts_with("true digs north from A Cellar (not dug yet) to A Cold Room"),
+        "{}",
+        what[3]
+    );
+    assert_eq!(what[4], "true goes north to A Cold Room (not dug yet)");
+    assert_eq!(what[5], "true goes back to A Cellar (not dug yet)");
+    assert_eq!(what[6], "true goes back to The Midden");
+    assert_eq!(
+        what[7],
+        "false refused: The Midden already has an exit cellar"
+    );
+}
+
+#[test]
+fn travel_back_is_the_way_you_came() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["back"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("no way back"), "{err}");
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "travel", json!(["south"]));
+    let out = ok(&mut w, "dave", "travel", json!(["back"]));
+    assert!(
+        out.summary.starts_with("You go north. The Fogbank."),
+        "{}",
+        out.summary
+    );
+    let out = ok(&mut w, "dave", "travel", json!(["back"]));
+    assert!(
+        out.summary.starts_with("You go south. The Midden."),
+        "{}",
+        out.summary
+    );
+}
+
+#[test]
+fn a_want_just_answered_still_pays_for_a_while_and_the_next_stands() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    for who in ["dave", "tyler"] {
+        ok(&mut w, who, "travel", json!(["east"]));
+        ok(&mut w, who, "travel", json!(["south"]));
+    }
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let name = mind::name(&w, rag).unwrap();
+    admin(
+        &mut w,
+        "tyler",
+        "errand",
+        json!([&name, "a lantern that would not go out"]),
+    );
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        !look.summary.contains("hours more"),
+        "an operator's want has no clock: {}",
+        look.summary
+    );
+    let tale =
+        "There was a lantern in the midden that would not go out, whatever the wind did to it.";
+    // Dave answers it; the want is done and the rotation sets the next.
+    let out = ok(&mut w, "dave", "story", json!([&name, tale]));
+    assert_eq!(out.result["wanted"], true);
+    w.tick();
+    let next = errand::of(&w, rag)
+        .and_then(|e| e.story)
+        .expect("the next want");
+    assert_ne!(next, "a lantern that would not go out");
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    assert!(
+        look.summary.contains("hours more)") || look.summary.contains("hour more)"),
+        "{}",
+        look.summary
+    );
+    // (The rotation's next want came from the lantern story itself; a want of the
+    // operator's stands in for one that the old story does not touch.)
+    admin(
+        &mut w,
+        "tyler",
+        "errand",
+        json!([&name, "a door that was left open"]),
+    );
+    let next = "a door that was left open".to_string();
+    // Tyler read the old want at the door and arrives with it a minute later: still
+    // paid double, and the standing want is not touched.
+    w.fixed_now = Some(t0.plus(Duration::seconds(90)));
+    let out = ok(&mut w, "tyler", "story", json!([&name, tale]));
+    assert_eq!(out.result["wanted"], true, "{}", out.summary);
+    assert_eq!(
+        errand::of(&w, rag).and_then(|e| e.story),
+        Some(next.clone())
+    );
+    // Half an hour on, the old want no longer pays.
+    w.fixed_now = Some(t0.plus(Duration::seconds(errand::GRACE_MS / 1000 + 3700)));
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    let out = ok(&mut w, "tyler", "story", json!([&name, tale]));
+    assert_eq!(out.result["wanted"], false, "{}", out.summary);
+}
+
+#[test]
+fn a_stale_compass_exit_between_seed_rooms_is_dropped_on_boot() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(1_000_000));
+    let row = rooms::room_by_key(&w, "lantern-row").unwrap();
+    let thr = rooms::room_by_key(&w, rooms::ARRIVAL).unwrap();
+    // An old map's east to the Threshold beside the seed's south.
+    let mut m = serde_json::Map::new();
+    for (k, v) in rooms::exits_of(&w, row) {
+        m.insert(k, json!(v.0));
+    }
+    m.insert("east".into(), json!(thr.0));
+    let mut fields = std::collections::BTreeMap::new();
+    fields.insert(
+        "exits".to_string(),
+        foxing_store::Field::Plain(Value::Object(m)),
+    );
+    w.record(
+        Actor::Driver,
+        StoreEvent::ComponentSet {
+            id: row,
+            component: EXITS.into(),
+            fields,
+        },
+    )
+    .unwrap();
+    assert!(rooms::exits_of(&w, row).contains_key("east"));
+    drop(w);
+    let w = open(dir.path(), Timestamp(1_000_001));
+    let exits = rooms::exits_of(&w, row);
+    assert!(!exits.contains_key("east"), "the stale east is gone");
+    assert_eq!(exits.get("south"), Some(&thr));
+}
+
+#[test]
+fn a_chain_closing_can_kindle_a_hybrid_that_knows_its_makers_and_opens_its_sealed_name() {
+    use super::kindle;
+    // The rule for kinds: the sender's first syllable, the receiver's last; like breeds
+    // true; the table has the better words.
+    assert_eq!(kindle::hybrid_kind("wisp", "wisp"), "wisp");
+    assert_eq!(kindle::hybrid_kind("wisp", "inkling"), "wispling");
+    assert_eq!(kindle::hybrid_kind("inkling", "wisp"), "inkwisp");
+    assert_eq!(kindle::hybrid_kind("ragpicker", "wisp"), "ragwisp");
+    assert_eq!(kindle::hybrid_kind("hourhand", "keeper"), "hourper");
+    assert_eq!(kindle::hybrid_kind("wispling", "ragpicker"), "wiser");
+    // Names that carry the parents': a blend either way, or one with a diminutive.
+    assert_eq!(kindle::heir_name("Lute", "Marrow", 0), "Lurow");
+    assert_eq!(kindle::heir_name("Lute", "Marrow", 1), "Marte");
+    assert_eq!(kindle::heir_name("Lute", "Marrow", 2), "Lutekin");
+    assert_eq!(kindle::heir_name("Lute", "Marrow", 7), "Marrowling");
+
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // A named wisp in the Fogbank and a named ragpicker in the midden, as in the
+    // errand test; three rooms apart by the route through the Fogbank.
+    for who in ["dave", "tyler"] {
+        ok(&mut w, who, "travel", json!(["east"]));
+    }
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "tyler",
+        "remember",
+        json!([c, format!("wisp-{}", wisp.0)]),
+    );
+    let wisp_name = mind::name(&w, wisp).unwrap();
+    for who in ["dave", "tyler"] {
+        ok(&mut w, who, "travel", json!(["south"]));
+    }
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    let rag_name = mind::name(&w, rag).unwrap();
+    // The chain: the ragpicker's word to the wisp, the wisp's way home to the ragpicker.
+    admin(&mut w, "tyler", "errand", json!([&wisp_name, ""]));
+    admin(
+        &mut w,
+        "tyler",
+        "errand",
+        json!([&rag_name, "the fourth door is open", &wisp_name]),
+    );
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!([&wisp_name, "the fourth door is open"]),
+    );
+    let back = errand::of(&w, wisp).unwrap().word.unwrap();
+    ok(&mut w, "dave", "travel", json!(["south"]));
+    // Dice that kindle: the first roll on the way home is the birth roll.
+    let mut seed = 1u64;
+    loop {
+        w.seed(seed);
+        if w.roll(kindle::BIRTH_IN) == 0 {
+            w.seed(seed);
+            break;
+        }
+        seed += 1;
+    }
+    let out = ok(&mut w, "dave", "tell", json!([&rag_name, &back]));
+    assert!(
+        out.summary
+            .contains("Something has come of it: a ragwisp, in The Midden. It knows your name."),
+        "{}",
+        out.summary
+    );
+    let child = w
+        .store
+        .entities()
+        .find(|e| e.kind == "creature" && plain_str(&w, e.id, CREATURE, "name") == Some("ragwisp"))
+        .map(|e| e.id)
+        .expect("a child");
+    // Halfway between the two, rounded toward the sender: the midden, one room away.
+    assert_eq!(w.store.entity(child).unwrap().parent, Some(midden));
+    // Of the two, carried by the one; the record says so, publicly, in prose.
+    assert_eq!(plain_str(&w, child, CREATURE, "born_of"), Some("dave"));
+    assert_eq!(
+        mind::keepers(&w, child),
+        vec!["dave", &rag_name, &wisp_name]
+    );
+    // A newborn is never the default target, and is not struck in its first hour.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "attack",
+        json!(["ragwisp"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string()
+            .starts_with("The ragwisp is newly born and not to be struck"),
+        "{err}"
+    );
+    let out = call(&mut w, "dave", ActorKind::Citizen, "attack", json!([]));
+    assert!(
+        out.map(|o| o.result["creature"] != "ragwisp")
+            .unwrap_or(true),
+        "attack with no target never picks a child"
+    );
+    assert!(
+        mind::level(&w, child) > errand::WORD_XP * 0.9,
+        "born holding the word that made it"
+    );
+    let born: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == kindle::BORN)
+        .collect();
+    assert_eq!(born.len(), 1);
+    assert_eq!(born[0].payload["parents"], json!([rag_name, wisp_name]));
+    assert!(crate::observe::visible(
+        &w,
+        &Viewer::actor("someone-else"),
+        w.now(),
+        &born[0]
+    ));
+    assert!(
+        system::line_for(&born[0]).starts_with(&format!(
+            "a ragwisp was born in The Midden, of {rag_name} and {wisp_name}, carried by dave"
+        )),
+        "{}",
+        system::line_for(&born[0])
+    );
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains(&format!("born of {rag_name} and {wisp_name}")),
+        "{}",
+        look.summary
+    );
+    // Fed to sixty, it opens its sealed name: the parents' if it was dealt one, else
+    // the list's; and it says whose it is.
+    let heir = w
+        .store
+        .entity(child)
+        .and_then(|e| e.components.get(mind::MIND))
+        .and_then(|c| c.fields.get("heir_name"))
+        .and_then(|f| match f {
+            Field::Plain(v) => v.as_str().map(str::to_string),
+            _ => None,
+        });
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragwisp"]));
+    let given = mind::name(&w, child).expect("named at sixty");
+    match &heir {
+        Some(h) => assert_eq!(&given, h, "the sealed name opens"),
+        None => assert!(mind::NAMES.contains(&given.as_str()), "{given}"),
+    }
+    let out = ok(
+        &mut w,
+        "dave",
+        "say",
+        json!([format!("{given}, who made you?")]),
+    );
+    assert!(
+        out.summary.contains(&format!(
+            "of {rag_name} and {wisp_name}. dave carried the word"
+        )),
+        "{}",
+        out.summary
+    );
+    // Births, run until one is strange: a mutant is on the record and in look; the
+    // cap holds the count.
+    let mut strange = None;
+    let mut seed = 100u64;
+    while strange.is_none() && seed < 5000 {
+        w.seed(seed);
+        seed += 1;
+        let Some(id) = kindle::try_birth(&mut w, "tyler", rag, wisp, "a test word").unwrap() else {
+            continue;
+        };
+        if plain_str(&w, id, CREATURE, "mutation").is_some() {
+            strange = Some(id);
+        }
+    }
+    let strange = strange.expect("one birth in six is a mutant");
+    let m = plain_str(&w, strange, CREATURE, "mutation")
+        .unwrap()
+        .to_string();
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    let room = w.store.entity(strange).unwrap().parent.unwrap();
+    if room == midden {
+        assert!(
+            look.summary.contains("a strange one"),
+            "{m}: {}",
+            look.summary
+        );
+    }
+    let children = w
+        .store
+        .entities()
+        .filter(|e| e.kind == "creature" && plain_str(&w, e.id, CREATURE, "born_of").is_some())
+        .count();
+    assert!(children <= kindle::MAX_CHILDREN, "{children}");
+    // And past the cap, none.
+    for s in 5000..5200u64 {
+        w.seed(s);
+        kindle::try_birth(&mut w, "tyler", rag, wisp, "a test word").unwrap();
+    }
+    let children = w
+        .store
+        .entities()
+        .filter(|e| e.kind == "creature" && plain_str(&w, e.id, CREATURE, "born_of").is_some())
+        .count();
+    assert_eq!(children, kindle::MAX_CHILDREN);
+}
+
+#[test]
+fn the_operator_can_raze_a_dug_room_and_banish_a_name() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "probe", "test", PASS).unwrap();
+    let out = admin(&mut w, "dave", "earn", json!(["hydra", 100, 1.0]));
+    let chunk = format!("chunk-{}", out.result["chunk"].as_u64().unwrap());
+    let out = ok(&mut w, "dave", "dig", json!(["down", chunk, "A Probe"]));
+    let key = out.result["key"].as_str().unwrap().to_string();
+    let threshold = rooms::room_by_key(&w, "threshold").unwrap();
+    // A seed room is not razed.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Admin,
+        "raze",
+        json!(["threshold"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("seed room"), "{err}");
+    // A room dug off the probe, with probe in it, when the probe is razed: an orphan
+    // with no door. Nobody is kept anywhere: any travel leads to the Threshold, and
+    // the operator can bring a citizen out by hand too.
+    ok(&mut w, "probe", "travel", json!(["down"]));
+    ok(&mut w, "dave", "travel", json!(["down"]));
+    let out = admin(&mut w, "dave", "earn", json!(["hydra", 100, 1.0]));
+    let c2 = format!("chunk-{}", out.result["chunk"].as_u64().unwrap());
+    let out = ok(&mut w, "dave", "dig", json!(["down", c2, "A Deeper Probe"]));
+    let deeper = EntityId(out.result["room"].as_u64().unwrap());
+    let deeper_key = out.result["key"].as_str().unwrap().to_string();
+    ok(&mut w, "probe", "travel", json!(["down"]));
+    ok(&mut w, "dave", "travel", json!(["up"]));
+    let out = admin(&mut w, "dave", "raze", json!([&key]));
+    assert!(out.summary.contains("2 exits"), "{}", out.summary);
+    assert!(
+        rooms::exits_of(&w, deeper).is_empty(),
+        "the orphan has no door"
+    );
+    let out = ok(&mut w, "probe", "travel", json!(["anywhere"]));
+    assert!(
+        out.summary.starts_with(
+            "There is no door here, so you go the way every room was first reached. The Threshold."
+        ),
+        "{}",
+        out.summary
+    );
+    admin(&mut w, "dave", "bring", json!(["probe", &deeper_key]));
+    assert_eq!(
+        rooms::room_of(&w, super::find_citizen(&w, "probe").unwrap().citizen),
+        Some(deeper)
+    );
+    let out = admin(&mut w, "dave", "bring", json!(["probe", "threshold"]));
+    assert_eq!(out.summary, "probe is in The Threshold now.");
+    admin(&mut w, "dave", "raze", json!([&deeper_key]));
+    // Dug anew, with probe inside: razed under them, they are put out at the
+    // Threshold, and the exit that led down goes with the room.
+    let out = admin(&mut w, "dave", "earn", json!(["hydra", 100, 1.0]));
+    let c3 = format!("chunk-{}", out.result["chunk"].as_u64().unwrap());
+    let out = ok(&mut w, "dave", "dig", json!(["down", c3, "A Probe"]));
+    let key = out.result["key"].as_str().unwrap().to_string();
+    let room = EntityId(out.result["room"].as_u64().unwrap());
+    ok(&mut w, "probe", "travel", json!(["down"]));
+    let out = admin(&mut w, "dave", "raze", json!([&key]));
+    assert!(
+        out.summary.starts_with("A Probe is gone"),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary.ends_with("probe put out at the Threshold."),
+        "{}",
+        out.summary
+    );
+    assert_eq!(
+        rooms::room_of(&w, super::find_citizen(&w, "probe").unwrap().citizen),
+        Some(threshold)
+    );
+    assert_eq!(out.result["exits_dropped"], 1);
+    assert!(w.store.entity(room).is_none());
+    assert!(!rooms::exits_of(&w, threshold).contains_key("down"));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(!look.summary.contains("down"), "{}", look.summary);
+    // The name is forgotten now, not in thirty days; the record says so, and the
+    // name is free.
+    let out = admin(&mut w, "dave", "banish", json!(["probe"]));
+    assert_eq!(out.result["forgotten"], true);
+    assert!(super::find_citizen(&w, "probe").is_none());
+    let forgotten = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == presence::FORGOTTEN_NAME)
+        .count();
+    assert_eq!(forgotten, 1);
+    let err = call(&mut w, "dave", ActorKind::Admin, "banish", json!(["probe"])).unwrap_err();
+    assert!(err.to_string().contains("No citizen"), "{err}");
+    login(&mut w, "probe", "test", "another-passphrase").unwrap();
+}
+
+#[test]
+fn the_map_is_laid_out_from_the_threshold_and_you_remember_only_where_you_stood() {
+    use super::atlas;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    // The seed map is coherent: every exit has a way back, and no room is shoved.
+    let l = atlas::layout(&w);
+    assert!(l.one_way.is_empty(), "{:?}", l.one_way);
+    assert!(l.shoved.is_empty(), "{:?}", l.shoved);
+    let at = |l: &atlas::Layout, key: &str| {
+        let p = l.rooms.iter().find(|p| p.key == key).unwrap();
+        (p.x, p.y, p.z, p.placed)
+    };
+    assert_eq!(at(&l, "threshold"), (0, 0, 0, "compass"));
+    assert_eq!(at(&l, "fogbank"), (1, 0, 0, "compass"));
+    assert_eq!(at(&l, "midden"), (1, 1, 0, "compass"));
+    assert_eq!(at(&l, "lantern-row"), (0, -1, 0, "compass"));
+    assert_eq!(at(&l, "stairwell"), (0, -1, -1, "compass"));
+    assert_eq!(at(&l, "cistern"), (0, -1, -2, "compass"));
+    // The Undertow's "surface" is a named exit: it sits beside the Cistern.
+    assert_eq!(at(&l, "undertow"), (1, -1, -2, "compass"));
+    assert_eq!(
+        l.rooms
+            .iter()
+            .find(|p| p.key == "undertow")
+            .unwrap()
+            .from
+            .as_ref()
+            .unwrap()
+            .1,
+        "east"
+    );
+    let seeds = l.rooms.len();
+
+    // A named door off the Threshold sits beside it; a dug room that wants a taken
+    // cell is shoved, and the report says so.
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let earn = |w: &mut World| {
+        let out = admin(w, "dave", "earn", json!(["hydra", 100, 1.0]));
+        format!("chunk-{}", out.result["chunk"].as_u64().unwrap())
+    };
+    let c = earn(&mut w);
+    ok(&mut w, "dave", "dig", json!(["teapot", c, "The Teapot"]));
+    let l = atlas::layout(&w);
+    assert_eq!(l.rooms.len(), seeds + 1);
+    let teapot = l
+        .rooms
+        .iter()
+        .find(|r| r.name == "The Teapot")
+        .unwrap()
+        .key
+        .clone();
+    let (x, y, z, placed) = at(&l, &teapot);
+    assert_eq!((z, placed), (0, "beside"));
+    assert!(
+        (x, y) != (1, 0) && (x, y) != (0, -1),
+        "not on the Fogbank or Lantern Row"
+    );
+    // From the Teapot, dig toward the Fogbank's cell: shoved.
+    ok(&mut w, "dave", "travel", json!(["teapot"]));
+    let back = rooms::exits_of(
+        &w,
+        rooms::room_of(&w, super::find_citizen(&w, "dave").unwrap().citizen).unwrap(),
+    );
+    assert!(back.contains_key("back"), "{back:?}");
+    let want = if (x, y) == (0, 1) { "north" } else { "west" }; // toward (0,0): taken
+    let c = earn(&mut w);
+    ok(&mut w, "dave", "dig", json!([want, c, "The Shove"]));
+    let l = atlas::layout(&w);
+    let shove = l.rooms.iter().find(|p| p.name == "The Shove").unwrap();
+    assert_eq!(shove.placed, "shoved");
+    assert_eq!(l.shoved.len(), 1, "{:?}", l.shoved);
+    assert!(l.shoved[0].starts_with("The Shove ("), "{}", l.shoved[0]);
+    assert!(l.one_way.is_empty());
+
+    // What dave remembers: the Threshold (stood in), the Teapot (here) and its exits.
+    let hl = 10_000.0 * atlas::ATLAS_HALF_LIVES; // the test world's ten-second half-life
+    let m = atlas::remembered_map(&w, "dave", hl).unwrap();
+    let names = |m: &Value| -> Vec<String> {
+        m["rooms"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["name"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let n = names(&m);
+    assert!(
+        n.contains(&"The Threshold".to_string())
+            && n.contains(&"The Teapot".to_string())
+            && n.contains(&"The Shove".to_string()),
+        "{n:?}"
+    );
+    assert!(
+        !n.contains(&"The Fogbank".to_string()),
+        "never stood there: {n:?}"
+    );
+    // All three are in sight from the Teapot; nothing else is remembered yet.
+    assert!(
+        m["summary"].as_str().unwrap().starts_with(
+            "You are in The Teapot; you can see 2 ways out. The rest of the map is blank"
+        ),
+        "{}",
+        m["summary"]
+    );
+    // Walk to the Fogbank and back: remembered; then the hours pass and it dims, and
+    // the map says so.
+    ok(&mut w, "dave", "travel", json!(["back"]));
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    let m = atlas::remembered_map(&w, "dave", hl).unwrap();
+    let fog = m["rooms"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["name"] == "The Fogbank")
+        .unwrap()
+        .clone();
+    assert_eq!(fog["memory"], 1.0, "visible from the Threshold");
+    w.fixed_now = Some(w.now().plus(Duration((hl * 1.5) as i64)));
+    ok(&mut w, "dave", "travel", json!(["teapot"]));
+    let out = ok(&mut w, "dave", "map", json!([]));
+    assert!(
+        out.summary.contains("Half-remembered: The Fogbank"),
+        "{}",
+        out.summary
+    );
+    let fog = out.result["rooms"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["name"] == "The Fogbank")
+        .unwrap()
+        .clone();
+    let mem = fog["memory"].as_f64().unwrap();
+    assert!(mem > 0.3 && mem < 0.4, "{mem}");
+    // And gone, long after.
+    w.fixed_now = Some(w.now().plus(Duration((hl * 6.0) as i64)));
+    let out = ok(&mut w, "dave", "map", json!([]));
+    assert!(!out.summary.contains("Fogbank"), "{}", out.summary);
+    // The Threshold is in sight from the Teapot; beyond it, nothing is left.
+    assert!(
+        out.summary.contains("The rest of the map is blank"),
+        "{}",
+        out.summary
+    );
+}
+
+#[test]
+fn the_board_holds_the_present_and_the_record_the_rest() {
+    use super::board;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    login(&mut w, "Wisp-of-a-thing", "test", PASS).unwrap();
+    ok(&mut w, "Wisp-of-a-thing", "leave", json!([]));
+    let gone = super::find_citizen(&w, "Wisp-of-a-thing").map(|f| f.citizen);
+    if let Some(c) = gone {
+        super::presence::forget(&mut w, c).ok();
+    }
+    // dave earns two, gives one to tyler, keeps one in a creature; tells a story.
+    let a = admin(&mut w, "dave", "earn", json!(["hydra", 70, 0.5]));
+    let a = format!("chunk-{}", a.result["chunk"].as_u64().unwrap());
+    let b = admin(&mut w, "dave", "earn", json!(["moth", 30, 0.5]));
+    let b = format!("chunk-{}", b.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "give", json!([&b, "tyler"]));
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    ok(
+        &mut w,
+        "dave",
+        "remember",
+        json!([&a, format!("wisp-{}", wisp.0)]),
+    );
+    let name = mind::name(&w, wisp).unwrap();
+    ok(
+        &mut w,
+        "dave",
+        "story",
+        json!([
+            &name,
+            "A story about a lantern that went out and was lit again by a stranger."
+        ]),
+    );
+    let c = admin(&mut w, "tyler", "earn", json!(["hydra", 100, 1.0]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "dig", json!(["teapot", c, "The Teapot"]));
+    let (lines, forgotten) = board::board(&w);
+    assert_eq!(forgotten, 1, "the passing name that left is off the board");
+    assert_eq!(lines.iter().find(|l| l.name == "tyler").unwrap().dug, 1);
+    assert!(w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .iter()
+        .any(|e| e.kind == super::building::DUG && e.payload["by"] == "tyler"));
+    let dave = lines.iter().find(|l| l.name == "dave").unwrap();
+    let tyler = lines.iter().find(|l| l.name == "tyler").unwrap();
+    // Earned is the record: the two chunks dave made, and the story's. Given and kept
+    // do not count as tyler's or the wisp's earning.
+    assert!(
+        dave.earned > 100.0 && dave.earned < 140.0,
+        "{}",
+        dave.earned
+    );
+    assert_eq!(
+        tyler.earned, 100.0,
+        "the chunk spent on the dig was tyler's own"
+    );
+    assert_eq!(dave.given, 1);
+    assert_eq!(dave.kept, 1);
+    assert_eq!(dave.stories, 1);
+    assert_eq!(dave.known_by, 1);
+    // Holding is the present: tyler holds the given chunk, dave the story's.
+    assert!(tyler.holding > 29.0, "{}", tyler.holding);
+    assert!(
+        dave.holding > 0.0 && dave.holding < 50.0,
+        "{}",
+        dave.holding
+    );
+    assert_eq!(lines[0].name, "tyler", "sorted by holding");
+    // The ratios: tyler holds all of what he earned (nothing faded yet, nothing
+    // spent but the dig's chunk, which was his own earning); his actions are the
+    // typed lines so far, one each.
+    assert!(
+        dave.retention > 0.0 && dave.retention < 0.5,
+        "{}",
+        dave.retention
+    );
+    // Nothing here went through the Gate (the tests call the registry), so no
+    // actions and no ratio; the gate tests count the lines.
+    assert_eq!(tyler.actions, 0);
+    assert_eq!(tyler.per_action, 0.0);
+    let out = ok(&mut w, "tyler", "board", json!([]));
+    assert!(
+        out.summary
+            .starts_with("Held through the day (averaged), highest first:\n   1. tyler"),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary
+            .contains("2 on the board; 1 name the world has forgotten"),
+        "{}",
+        out.summary
+    );
+    assert_eq!(out.result["citizens"][0]["name"], "tyler");
+    assert_eq!(out.result["forgotten"], 1);
+}
+
+#[test]
+fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
+    use super::craft;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // The rule for what is left: by kind, and by the kind a hybrid begins with.
+    assert_eq!(craft::material_for("wisp"), Some("a wisp ember"));
+    assert_eq!(craft::material_for("ragwisp"), Some("rag thread"));
+    assert_eq!(craft::material_for("wispling"), Some("a wisp ember"));
+    assert_eq!(craft::material_for("nothing-like"), None);
+    // Nothing carried yet; the recipes say what is lacking.
+    let out = ok(&mut w, "dave", "satchel", json!([]));
+    assert!(
+        out.summary.starts_with("Your satchel is empty."),
+        "{}",
+        out.summary
+    );
+    let out = ok(&mut w, "dave", "recipes", json!([]));
+    assert!(
+        out.summary.contains(
+            "lantern  a lantern: of a wisp ember and rag thread and a chunk worth 10 or more"
+        ),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary
+            .contains("You lack a wisp ember and rag thread."),
+        "{}",
+        out.summary
+    );
+    // Materials the operator conjures, as a creature would leave them: the fog's
+    // wisps leave embers one time in three; here the dice are forced.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let mut embers = 0;
+    let mut seed = 1u64;
+    while embers < 2 && seed < 200 {
+        w.seed(seed);
+        seed += 1;
+        let out = fight(&mut w, "dave");
+        if out.result["left"].is_object() {
+            embers += 1;
+            assert!(
+                out.summary.contains("It leaves a wisp ember behind (item-"),
+                "{}",
+                out.summary
+            );
+        }
+        // The room refills on its own within 96 s; the embers keep that long.
+        w.fixed_now = Some(w.now().plus(Duration::seconds(97)));
+        w.tick();
+    }
+    assert_eq!(embers, 2, "two embers left by the dice");
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("On the ground: a wisp ember (item-"),
+        "{}",
+        look.summary
+    );
+    // Take one by name, one by id.
+    let out = ok(&mut w, "dave", "take", json!(["wisp ember"]));
+    assert!(
+        out.summary.starts_with("You take a wisp ember."),
+        "{}",
+        out.summary
+    );
+    let left = craft::things_in(&w, fog);
+    assert_eq!(left.len(), 1);
+    ok(
+        &mut w,
+        "dave",
+        "take",
+        json!([format!("item-{}", left[0]["id"])]),
+    );
+    let out = ok(&mut w, "dave", "satchel", json!([]));
+    assert!(
+        out.summary.starts_with("You carry: a wisp ember (item-"),
+        "{}",
+        out.summary
+    );
+    assert_eq!(out.result["things"].as_array().unwrap().len(), 2);
+    // Rag thread, from a ragpicker: conjured here by moving one in and forcing it.
+    ok(&mut w, "dave", "travel", json!(["south"]));
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let mut thread = false;
+    let mut seed = 300u64;
+    while !thread && seed < 600 {
+        w.seed(seed);
+        seed += 1;
+        ok(&mut w, "dave", "rest", json!([]));
+        w.fixed_now = Some(w.now().plus(Duration::seconds(400)));
+        w.tick();
+        if combat::creatures_in(&w, midden).is_empty() {
+            w.fixed_now = Some(w.now().plus(Duration::seconds(400)));
+            w.tick();
+        }
+        let out = fight(&mut w, "dave");
+        if out.result["left"].is_object() {
+            thread = true;
+        }
+    }
+    assert!(thread);
+    ok(&mut w, "dave", "take", json!(["rag thread"]));
+    // A lantern: the materials and a chunk worth ten. Too small a chunk is refused.
+    let small = admin(&mut w, "dave", "earn", json!(["moth", 4, 0.5]));
+    let small = format!("chunk-{}", small.result["chunk"].as_u64().unwrap());
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "craft",
+        json!(["lantern", &small]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("takes 10 or more"), "{err}");
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "craft",
+        json!(["lantern"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("name one"), "{err}");
+    let big = admin(&mut w, "dave", "earn", json!(["hydra", 40, 1.0]));
+    let big = format!("chunk-{}", big.result["chunk"].as_u64().unwrap());
+    let out = ok(&mut w, "dave", "craft", json!(["lantern", &big]));
+    assert!(
+        out.summary
+            .starts_with("You make a lantern of a wisp ember and rag thread, spending chunk-"),
+        "{}",
+        out.summary
+    );
+    let lantern = EntityId(out.result["item"].as_u64().unwrap());
+    assert!(craft::carries(
+        &w,
+        super::find_citizen(&w, "dave").unwrap().citizen,
+        "lantern"
+    )
+    .is_some());
+    let out = ok(&mut w, "dave", "satchel", json!([]));
+    assert!(
+        out.summary.contains("a lantern (item-") && out.summary.contains("made by dave"),
+        "{}",
+        out.summary
+    );
+    // The lantern doubles the map's half-life.
+    let m = ok(&mut w, "dave", "map", json!([]));
+    assert_eq!(m.result["half_life_ms"], json!(10_000 * 4 * 2));
+    // Materials used are gone; one ember remains.
+    let things = craft::things_in(&w, w.store.entity(lantern).unwrap().parent.unwrap());
+    assert_eq!(things.len(), 2, "{things:?}");
+    // The record says what was made of what, publicly.
+    let made: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == craft::MADE)
+        .collect();
+    assert_eq!(made.len(), 1);
+    assert_eq!(
+        system::line_for(&made[0]),
+        "dave made a lantern of a wisp ember and rag thread"
+    );
+    assert!(crate::observe::visible(
+        &w,
+        &Viewer::actor("someone-else"),
+        w.now(),
+        &made[0]
+    ));
+    // Drop it: it lies here for the next one, and look says so.
+    let out = ok(&mut w, "dave", "drop", json!(["lantern"]));
+    assert!(
+        out.summary.starts_with("You set a lantern down here."),
+        "{}",
+        out.summary
+    );
+    assert!(ok(&mut w, "dave", "look", json!([]))
+        .summary
+        .contains("On the ground: a lantern (item-"));
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "drop",
+        json!(["lantern"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("You carry no such thing"), "{err}");
+    // Things fade: the palace curve halves at five active half-lives (fifty seconds
+    // here); long after, the sweep forgets them and the record says so.
+    w.fixed_now = Some(w.now().plus(Duration::seconds(50 * 40)));
+    w.tick();
+    assert!(
+        craft::things_in(&w, midden).is_empty(),
+        "the lantern is forgotten"
+    );
+    let faded = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == memory::FADED && e.payload["source"] == "a lantern")
+        .count();
+    assert_eq!(faded, 1);
+}
+
+#[test]
+fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
+    use super::economy;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    // The rates exist from boot, at one, and the Clocktower is wound for the hour.
+    assert_eq!(economy::rate(&w, "worth"), 1.0);
+    assert!(w.jobs.has(economy::JOB_CLOCKTOWER, |_| true));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // Nobody is a regular yet: the Clocktower strikes and moves nothing. (It steered
+    // by everyone who looked in once; the median was zero and every lever pinned.)
+    let hour = (t0.0 / economy::STRIKE_EVERY_MS + 1) * economy::STRIKE_EVERY_MS;
+    assert_eq!(economy::dashboard(&w)["regulars"], 0);
+    regular(&mut w, "dave");
+    regular(&mut w, "tyler");
+    assert_eq!(economy::dashboard(&w)["regulars"], 2);
+    let time = ok(&mut w, "dave", "time", json!([]));
+    assert!(
+        time.summary
+            .contains("the Clocktower's rates: drop 1.00 · half_life 1.00"),
+        "{}",
+        time.summary
+    );
+    // Poor: two regulars holding nothing. The hour strikes; the sources open,
+    // and everyone present hears it in prose. The record carries the figures.
+    w.fixed_now = Some(Timestamp(hour - 1000));
+    ok(&mut w, "dave", "look", json!([]));
+    ok(&mut w, "tyler", "look", json!([]));
+    let head = events(&w);
+    w.fixed_now = Some(Timestamp(hour + 1));
+    assert!(w.tick() >= 1);
+    let said = narrative(&w, "dave", head);
+    assert!(
+        said.iter().any(|l| l == "The Clocktower strikes. The fog is thick with things worth remembering, stories carry further this hour, and the ground is soft and things are cheap."),
+        "{said:?}"
+    );
+    assert!(narrative(&w, "tyler", head)
+        .iter()
+        .any(|l| l.starts_with("The Clocktower strikes.")));
+    assert!((economy::rate(&w, "worth") - 1.05).abs() < 1e-9);
+    assert!((economy::rate(&w, "pay") - 1.05).abs() < 1e-9);
+    assert!((economy::rate(&w, "price") - 1.0 / 1.05).abs() < 1e-3);
+    assert_eq!(economy::rate(&w, "half_life"), 1.0, "no hoard, no thinning");
+    let struck: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == economy::CLOCKTOWER)
+        .collect();
+    assert_eq!(struck.len(), 1);
+    assert_eq!(struck[0].payload["changes"].as_array().unwrap().len(), 3);
+    assert!(crate::observe::visible(
+        &w,
+        &Viewer::actor("nobody"),
+        w.now(),
+        &struck[0]
+    ));
+    assert!(w.jobs.has(economy::JOB_CLOCKTOWER, |_| true), "wound again");
+    // The rate reaches the sources: a story pays five percent more than its figure
+    // would, a recipe asks five percent less.
+    let out = ok(&mut w, "dave", "recipes", json!([]));
+    assert!(
+        out.result["recipes"][0]["chunk_at_least"].as_f64().unwrap() < 10.0,
+        "{}",
+        out.result["recipes"][0]
+    );
+    // A hoard: dave holds nearly all. The next strike thins memory, whatever the
+    // band says (the median is still in it or below). Pay is left alone: raising it
+    // against a hoard fed the same earner.
+    // (The test world's chunks halve in seconds, so the hoard is made at the stroke.)
+    w.fixed_now = Some(Timestamp(hour + economy::STRIKE_EVERY_MS - 1000));
+    admin(&mut w, "dave", "earn", json!(["hoard", 5000, 1.0]));
+    w.fixed_now = Some(Timestamp(hour + economy::STRIKE_EVERY_MS + 1));
+    assert!(w.tick() >= 1);
+    assert!(
+        economy::rate(&w, "half_life") < 1.0,
+        "{}",
+        economy::rate(&w, "half_life")
+    );
+    let d = economy::dashboard(&w);
+    assert!(d["concentration"].as_f64().unwrap() > 0.9, "{d}");
+    assert_eq!(d["active_today"], 2);
+    // Rich: tyler holds a lot too, so the median is above the band; worth and pay
+    // come down and the price goes up. The new chunk fades at the thinned rate.
+    w.fixed_now = Some(Timestamp(hour + 2 * economy::STRIKE_EVERY_MS - 1000));
+    admin(&mut w, "dave", "earn", json!(["hoard", 5000, 1.0]));
+    admin(&mut w, "tyler", "earn", json!(["hoard", 4000, 1.0]));
+    let before_pay = economy::rate(&w, "pay");
+    w.fixed_now = Some(Timestamp(hour + 2 * economy::STRIKE_EVERY_MS + 1));
+    assert!(w.tick() >= 1);
+    assert!(economy::rate(&w, "pay") < before_pay);
+    assert!(economy::rate(&w, "price") > 1.0 / 1.05 + 1e-6);
+    let v = economy::to_json(&w);
+    assert_eq!(v["strikes"].as_array().unwrap().len(), 3);
+    assert!(v["strikes"][0]["said"]
+        .as_str()
+        .unwrap()
+        .starts_with("The Clocktower strikes."));
+}
+
+#[test]
+fn the_conclave_writes_the_statutes_memory_moves_under() {
+    use super::{conclave, economy};
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    // The book exists from boot, at its defaults, and the sitting is wound.
+    assert_eq!(conclave::statute(&w, "gift_allowance"), 120.0);
+    assert_eq!(conclave::statute(&w, "shelf_limit"), 2000.0);
+    assert!(w.jobs.has(conclave::JOB_SITTING, |_| true));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let out = ok(&mut w, "dave", "statutes", json!([]));
+    assert!(
+        out.summary.starts_with("The Conclave's statutes:"),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary.contains("gift_allowance = 120"),
+        "{}",
+        out.summary
+    );
+    // An enactment: on the record, in prose, to everyone present; out of bounds refused.
+    let head = events(&w);
+    let out = admin(&mut w, "dave", "enact", json!(["gift_allowance", 50]));
+    assert!(
+        out.summary.starts_with(
+            "By statute, the Conclave narrows the day's gift allowance from 120 to 50."
+        ),
+        "{}",
+        out.summary
+    );
+    assert_eq!(conclave::statute(&w, "gift_allowance"), 50.0);
+    assert!(narrative(&w, "tyler", head)
+        .iter()
+        .any(|l| l.starts_with("By statute, the Conclave narrows")));
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Admin,
+        "enact",
+        json!(["gift_tax", 9]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("stays between"), "{err}");
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Admin,
+        "enact",
+        json!(["tithe", 1]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("no statute called tithe"), "{err}");
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "enact",
+        json!(["gift_tax", 0.5])
+    )
+    .is_err());
+
+    // Gifts: the first fits the allowance and fades as it was; the one that takes the
+    // day over it is taxed, thinning twice as fast in tyler's hands.
+    let a = admin(&mut w, "dave", "earn", json!(["gift", 40, 0.5]));
+    let a = format!("chunk-{}", a.result["chunk"].as_u64().unwrap());
+    let b = admin(&mut w, "dave", "earn", json!(["gift", 40, 0.5]));
+    let b = format!("chunk-{}", b.result["chunk"].as_u64().unwrap());
+    let out = ok(&mut w, "dave", "give", json!([&a, "tyler"]));
+    assert_eq!(out.result["taxed"], false, "{}", out.summary);
+    let first = out.result["chunk"].as_u64().unwrap();
+    let out = ok(&mut w, "dave", "give", json!([&b, "tyler"]));
+    assert_eq!(out.result["taxed"], true, "{}", out.summary);
+    assert!(
+        out.summary.contains("the Conclave's gift tax is on it"),
+        "{}",
+        out.summary
+    );
+    let second = out.result["chunk"].as_u64().unwrap();
+    let half_life = |w: &World, id: u64| -> i64 {
+        match w
+            .store
+            .timed_field(EntityId(id), CHUNK, "value")
+            .unwrap()
+            .curve
+        {
+            foxing_time::Curve::Exponential { half_life } => half_life.0,
+            _ => panic!("exponential"),
+        }
+    };
+    assert_eq!(
+        half_life(&w, second) * 2,
+        half_life(&w, first),
+        "taxed: half the half-life"
+    );
+    assert_eq!(conclave::given_today(&w, "dave"), 80.0);
+
+    // The shelf limit: a shelf at the limit takes nothing more.
+    admin(&mut w, "dave", "enact", json!(["shelf_limit", 50]));
+    let c = admin(&mut w, "dave", "earn", json!(["shelf", 30, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "shelve", json!([&c]));
+    let d = admin(&mut w, "dave", "earn", json!(["shelf", 30, 0.5]));
+    let d = format!("chunk-{}", d.result["chunk"].as_u64().unwrap());
+    let err = call(&mut w, "dave", ActorKind::Citizen, "shelve", json!([&d])).unwrap_err();
+    assert!(
+        err.to_string().contains("the Conclave's limit is 50"),
+        "{err}"
+    );
+
+    // The hoard tax: dave holds nearly everything. The Clocktower strikes, the
+    // Conclave reads the ledger and names him; what he earns after thins faster, and
+    // what tyler earns does not.
+    admin(&mut w, "dave", "earn", json!(["hoard", 5000, 1.0]));
+    regular(&mut w, "dave");
+    regular(&mut w, "tyler");
+    let hour = (t0.0 / economy::STRIKE_EVERY_MS + 1) * economy::STRIKE_EVERY_MS;
+    w.fixed_now = Some(Timestamp(hour - 1000));
+    ok(&mut w, "dave", "look", json!([]));
+    let head = events(&w);
+    w.fixed_now = Some(Timestamp(hour + 1));
+    assert!(w.tick() >= 1);
+    assert!(conclave::hoard_share_of(&w, "dave").unwrap() > 0.9);
+    assert!(conclave::hoard_share_of(&w, "tyler").is_none());
+    let f = conclave::hoard_factor(&w, "dave");
+    assert!(f > 1.8 && f <= 2.0, "{f}");
+    assert!(
+        narrative(&w, "dave", head)
+            .iter()
+            .any(|l| l.starts_with("The Conclave notes that dave holds")),
+        "{:?}",
+        narrative(&w, "dave", head)
+    );
+    let taxed = admin(&mut w, "dave", "earn", json!(["after", 10, 0.5])).result["chunk"]
+        .as_u64()
+        .unwrap();
+    let free = admin(&mut w, "tyler", "earn", json!(["after", 10, 0.5])).result["chunk"]
+        .as_u64()
+        .unwrap();
+    assert!(
+        (half_life(&w, taxed) as f64 * f - half_life(&w, free) as f64).abs() < 2.0,
+        "{} vs {}",
+        half_life(&w, taxed),
+        half_life(&w, free)
+    );
+    assert_eq!(out_json(&w)["statutes"]["gift_allowance"], 50.0);
+
+    // The sitting: once a day, on the record, naming the hoard, changing nothing.
+    // (The test world's chunks fade in seconds; the hoard is made again at the stroke.)
+    let midnight = (t0.0 / conclave::SIT_EVERY_MS + 1) * conclave::SIT_EVERY_MS;
+    w.fixed_now = Some(Timestamp(midnight - 1000));
+    admin(&mut w, "dave", "earn", json!(["hoard", 5000, 1.0]));
+    w.fixed_now = Some(Timestamp(midnight + 1));
+    w.tick();
+    let sat: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == conclave::SAT)
+        .collect();
+    assert_eq!(sat.len(), 1);
+    assert!(
+        sat[0].payload["said"]
+            .as_str()
+            .unwrap()
+            .starts_with("The Conclave has sat. It names one hoard, dave, holding"),
+        "{}",
+        sat[0].payload["said"]
+    );
+    assert_eq!(conclave::statute(&w, "gift_allowance"), 50.0);
+    assert!(w.jobs.has(conclave::JOB_SITTING, |_| true), "wound again");
+
+    fn out_json(w: &World) -> Value {
+        super::conclave::to_json(w)
+    }
+}
+
+#[test]
+fn the_lower_stacks_lie_under_the_archive_and_their_creatures_have_tricks() {
+    use super::stacks;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    // Twenty rooms, every one reachable from the Archive's new stair.
+    for k in stacks::KEYS {
+        assert!(rooms::room_by_key(&w, k).is_some(), "{k}");
+    }
+    let archive = rooms::room_by_key(&w, "archive").unwrap();
+    let stair = rooms::room_by_key(&w, "lower-stacks").unwrap();
+    assert_eq!(
+        rooms::exits_of(&w, archive).get("down").copied(),
+        Some(stair)
+    );
+    assert_eq!(rooms::exits_of(&w, stair).get("up").copied(), Some(archive));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    super::grown(&mut w, "dave");
+    w.tick(); // the spawns fill
+              // A censor's ray: dave holds one chunk; the trick, when it lands, halves it.
+    let office = rooms::room_by_key(&w, "censor-office").unwrap();
+    let censor = combat::creatures_in(&w, office)[0].0;
+    assert_eq!(stacks::trick_of(&w, censor), Some(stacks::Trick::Forget));
+    let f = find_citizen(&w, "dave").unwrap();
+    let chunk = admin(&mut w, "dave", "earn", json!(["a lantern", 40, 0.5])).result["chunk"]
+        .as_u64()
+        .unwrap();
+    let mut landed = None;
+    for _ in 0..40 {
+        let (line, over) = stacks::trick(&mut w, &curves(), censor, f.citizen, "dave").unwrap();
+        assert!(!over);
+        if let Some(l) = line {
+            landed = Some(l);
+            break;
+        }
+    }
+    let line = landed.expect("the ray lands one time in two");
+    assert!(line.starts_with("A ray of forgetfulness: chunk-"), "{line}");
+    let v = w
+        .store
+        .read_field(EntityId(chunk), CHUNK, "value", w.now())
+        .unwrap()
+        .as_f64()
+        .unwrap();
+    assert!(v < 21.0 && v > 19.0, "{v}");
+    // A lamprey's venom: four ticks of two, a minute long, on the record.
+    let sump = rooms::room_by_key(&w, "pulp-sump").unwrap();
+    let lamprey = combat::creatures_in(&w, sump)[0].0;
+    let (line, over) = stacks::trick(&mut w, &curves(), lamprey, f.citizen, "dave").unwrap();
+    assert!(!over);
+    assert!(line.unwrap().contains("the venom will work"));
+    assert!(w
+        .jobs
+        .has(stacks::JOB_VENOM, |p| p["citizen"] == f.citizen.0));
+    let hp0 = combat::hp(&w, f.citizen);
+    let head = events(&w);
+    for i in 1..=4 {
+        w.fixed_now = Some(t0.plus(Duration::seconds(stacks::VENOM_EVERY_S * i + 1)));
+        w.tick();
+    }
+    // (Healing runs on its own clock meanwhile, so the net is less than eight.)
+    assert!(
+        combat::hp(&w, f.citizen) < hp0,
+        "{} from {hp0}",
+        combat::hp(&w, f.citizen)
+    );
+    let said = narrative(&w, "dave", head);
+    assert_eq!(
+        said.iter()
+            .filter(|l| l.starts_with("The venom works"))
+            .count(),
+        4,
+        "{said:?}"
+    );
+    assert!(said.last().unwrap().contains("It is out of you now."));
+    assert!(!w.jobs.has(stacks::JOB_VENOM, |_| true));
+    // An usher shows you out: to another room of the Stacks, the fight over.
+    let carrels = rooms::room_by_key(&w, "carrels").unwrap();
+    let usher = combat::creatures_in(&w, carrels)[0].0;
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: f.citizen,
+            parent: Some(carrels),
+        },
+    )
+    .unwrap();
+    let mut moved = None;
+    for _ in 0..40 {
+        let (line, over) = stacks::trick(&mut w, &curves(), usher, f.citizen, "dave").unwrap();
+        if let Some(l) = line {
+            assert!(over);
+            moved = Some(l);
+            break;
+        }
+    }
+    let line = moved.expect("the usher lands one time in two");
+    assert!(line.starts_with("The usher takes your elbow"), "{line}");
+    let now_in = rooms::room_of(&w, f.citizen).unwrap();
+    assert_ne!(now_in, carrels);
+    assert!(stacks::KEYS.contains(&super::plain_str(&w, now_in, ROOM, "key").unwrap()));
+    // A creature of the Stacks left standing is whole again: wound the lamprey, back
+    // away, and it has mended (a censor was felled over four trips and three deaths).
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: f.citizen,
+            parent: Some(sump),
+        },
+    )
+    .unwrap();
+    w.record(
+        Actor::Driver,
+        StoreEvent::FieldSet {
+            id: lamprey,
+            component: super::CREATURE.into(),
+            field: "hp".into(),
+            value: json!(5.0),
+        },
+    )
+    .unwrap();
+    combat::set_engaged(&mut w, "dave", f.citizen, Some(lamprey)).unwrap();
+    let out = ok(&mut w, "dave", "retreat", json!([]));
+    assert!(out.summary.contains("whole again"), "{}", out.summary);
+    assert!(
+        combat::creatures_in(&w, sump)
+            .iter()
+            .any(|c| c.0 == lamprey && c.2 > 40.0),
+        "{:?}",
+        combat::creatures_in(&w, sump)
+    );
+    // The tricks are on the public record.
+    let tricks = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == stacks::TRICK)
+        .count();
+    assert!(tricks >= 3, "{tricks}");
+}
+
+#[test]
+fn the_census_counts_the_world_and_the_board_averages_the_day() {
+    use super::board;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    // A count at boot (nobody holds anything), and the next one wound.
+    let count = |w: &World| {
+        w.log
+            .read_all(&w.id, foxing_log::Cursor::START)
+            .unwrap()
+            .into_iter()
+            .filter(|e| e.kind == board::CENSUS)
+            .count()
+    };
+    assert_eq!(count(&w), 1);
+    assert!(w.jobs.has(board::JOB_CENSUS, |_| true));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // Dave holds about 100 at every count (the test world's chunks fade in seconds,
+    // so it is earned afresh each time); tyler earns 100 only at the last. Over the
+    // day's counts dave held more on average, whatever the moment says.
+    for i in 1..=3 {
+        w.fixed_now = Some(Timestamp(t0.0 + board::CENSUS_EVERY_MS * i + 1));
+        admin(&mut w, "dave", "earn", json!(["steady", 100, 1.0]));
+        if i == 3 {
+            admin(&mut w, "tyler", "earn", json!(["late", 100, 1.0]));
+        }
+        w.tick();
+    }
+    assert_eq!(count(&w), 4);
+    let (lines, _) = board::board(&w);
+    let dave = lines.iter().find(|l| l.name == "dave").unwrap();
+    let tyler = lines.iter().find(|l| l.name == "tyler").unwrap();
+    assert!(tyler.holding >= dave.holding, "tyler holds the most now");
+    assert!(
+        dave.held_24h > tyler.held_24h,
+        "dave held more through the day: {} vs {}",
+        dave.held_24h,
+        tyler.held_24h
+    );
+    assert_eq!(lines[0].name, "dave", "sorted by the day's average");
+    assert!(
+        (tyler.held_24h - 25.0).abs() < 1.0,
+        "one count in four: {}",
+        tyler.held_24h
+    );
+    // The text and JSON lead with it.
+    let out = ok(&mut w, "dave", "board", json!([]));
+    assert!(
+        out.summary
+            .starts_with("Held through the day (averaged), highest first:\n   1. dave"),
+        "{}",
+        out.summary
+    );
+    assert!(out.result["citizens"][0]["held_24h"].as_f64().unwrap() > 50.0);
+}
+
+#[test]
+fn the_conclave_sits_up_inside_the_clocktower_and_its_officers_keep_order() {
+    use super::{conclave, stacks};
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    // Eleven rooms, by the escapement from the Stopped Clocktower, and back.
+    for k in conclave::KEYS {
+        assert!(rooms::room_by_key(&w, k).is_some(), "{k}");
+    }
+    let tower = rooms::room_by_key(&w, "clocktower").unwrap();
+    let stair = rooms::room_by_key(&w, "escapement-stair").unwrap();
+    assert_eq!(
+        rooms::exits_of(&w, tower).get("escapement").copied(),
+        Some(stair)
+    );
+    assert_eq!(
+        rooms::exits_of(&w, stair).get("escapement").copied(),
+        Some(tower)
+    );
+    assert!(conclave::is_house(&w, stair) && !conclave::is_house(&w, tower));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    w.tick(); // the spawns fill
+    let f = find_citizen(&w, "dave").unwrap();
+    // At the Lectern the Book speaks first; elsewhere it is just the book.
+    let lectern = rooms::room_by_key(&w, "book-lectern").unwrap();
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: f.citizen,
+            parent: Some(lectern),
+        },
+    )
+    .unwrap();
+    let out = ok(&mut w, "dave", "statutes", json!([]));
+    assert!(
+        out.summary.starts_with(
+            "The Book is open. The Conclave permits you to read it.\nThe Conclave's statutes:"
+        ),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary
+            .contains("Carved over the door: WHAT THE CONCLAVE WRITES, MEMORY OBEYS."),
+        "{}",
+        out.summary
+    );
+    assert!(!ok(&mut w, "tyler", "statutes", json!([]))
+        .summary
+        .starts_with("The Book is open"));
+    // An engrosser enters a chunk into the minutes: shelved, not halved.
+    let tally = rooms::room_by_key(&w, "tally-room").unwrap();
+    let clerk = combat::creatures_in(&w, tally)[0].0;
+    assert_eq!(stacks::trick_of(&w, clerk), Some(stacks::Trick::Enter));
+    let chunk = admin(&mut w, "dave", "earn", json!(["a lantern", 40, 0.5])).result["chunk"]
+        .as_u64()
+        .unwrap();
+    let mut landed = None;
+    for _ in 0..40 {
+        let (line, over) = stacks::trick(&mut w, &curves(), clerk, f.citizen, "dave").unwrap();
+        assert!(!over);
+        if let Some(l) = line {
+            landed = Some(l);
+            break;
+        }
+    }
+    assert!(landed.unwrap().starts_with("An engrosser enters chunk-"));
+    assert_eq!(
+        w.store.entity(EntityId(chunk)).unwrap().parent,
+        Some(f.palace)
+    );
+    assert!(matches!(
+        w.store
+            .timed_field(EntityId(chunk), CHUNK, "value")
+            .unwrap()
+            .curve,
+        foxing_time::Curve::PowerLaw { .. }
+    ));
+    // The tipstaff shows you below the bar: the Gallery, never out of the house.
+    let rail = rooms::room_by_key(&w, "brass-rail").unwrap();
+    let sergeant = combat::creatures_in(&w, rail)[0].0;
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: f.citizen,
+            parent: Some(rail),
+        },
+    )
+    .unwrap();
+    let mut shown = None;
+    for _ in 0..40 {
+        let (line, over) = stacks::trick(&mut w, &curves(), sergeant, f.citizen, "dave").unwrap();
+        if let Some(l) = line {
+            assert!(over);
+            shown = Some(l);
+            break;
+        }
+    }
+    assert!(shown
+        .unwrap()
+        .starts_with("The tipstaff shows you below the bar."));
+    assert_eq!(
+        rooms::room_of(&w, f.citizen),
+        rooms::room_by_key(&w, "petition-gallery")
+    );
+    // The sitting, heard in the house as a ceremony and outside as one line.
+    let midnight = (t0.0 / conclave::SIT_EVERY_MS + 1) * conclave::SIT_EVERY_MS;
+    w.fixed_now = Some(Timestamp(midnight - 1000));
+    ok(&mut w, "dave", "look", json!([]));
+    ok(&mut w, "tyler", "look", json!([]));
+    let head = events(&w);
+    w.fixed_now = Some(Timestamp(midnight + 1));
+    w.tick();
+    let inside = narrative(&w, "dave", head);
+    assert!(
+        inside.iter().any(|l| l
+            == "Order. The Conclave is in session. It is midnight, because the Conclave has sat."),
+        "{inside:?}"
+    );
+    assert!(inside
+        .iter()
+        .any(|l| l == "The minutes are engrossed. The Conclave rises. The Conclave remains."));
+    assert!(inside.iter().any(|l| l.starts_with("The Book is opened at the Lectern. The statutes that stand are these: gift allowance at 120;")), "{inside:?}");
+    let outside = narrative(&w, "tyler", head);
+    assert!(
+        outside
+            .iter()
+            .any(|l| l
+                .starts_with("The Conclave has sat. It has read the Ledger and finds no hoard")),
+        "{outside:?}"
+    );
+    assert!(!outside.iter().any(|l| l.starts_with("Order.")));
+}

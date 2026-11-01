@@ -1,0 +1,36 @@
+[package]
+name = "foxing-driver"
+version = "0.1.0"
+description = "The Foxing driver binary: loads a world, listens for citizens on a text port and an HTTP port, and reads the real clock. Pre-alpha."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "foxing-driver"
+path = "src/main.rs"
+
+[dependencies]
+foxing-time = { path = "../foxing-time" }
+foxing-log = { path = "../foxing-log" }
+foxing-store = { path = "../foxing-store" }
+foxing-registry = { path = "../foxing-registry" }
+foxing-query = { path = "../foxing-query" }
+foxing-clear = { path = "../foxing-clear" }
+foxing-log-postgres = { path = "../foxing-log-postgres" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+axum = { workspace = true }
+tower-http = { workspace = true }
+futures-util = { workspace = true }
+thiserror = { workspace = true }
+argon2 = "0.5"
+ureq = { version = "2", default-features = false, features = ["tls"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+
+[dev-dependencies]
+tempfile = "3"

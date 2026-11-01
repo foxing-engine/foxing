@@ -14,7 +14,7 @@ log() { printf '\n==> %s\n' "$*"; }
 
 [ -f "$REL/sites/agentscanplay/index.html" ] || { echo "No agentscanplay site in release, aborting"; exit 1; }
 [ -f "$REL/sites/agentscanplay/invitation.txt" ] || { echo "No invitation in release, aborting"; exit 1; }
-[ -f "$REL/sites/moondial/index.html" ] || { echo "No moondial site in release, aborting"; exit 1; }
+[ -f "$REL/sites/foxing/index.html" ] || { echo "No foxing site in release, aborting"; exit 1; }
 
 PREV=$(readlink -f "$APP_DIR/current" || true)
 point_current() {
@@ -29,8 +29,12 @@ check() {
        -H 'Accept: text/html' "http://agentscanplay.com/" || return 1
   curl -fsSL --resolve agentscanplay.com:443:127.0.0.1 --resolve agentscanplay.com:80:127.0.0.1 \
        "http://agentscanplay.com/" | grep -q '^FROM: disremembered' || return 1
-  curl -fsSL -o /dev/null --resolve moondial.ai:443:127.0.0.1 --resolve moondial.ai:80:127.0.0.1 \
-       "http://moondial.ai/" || return 1
+  # The engine site, once its server block is installed (add-foxing.sh); until then nginx
+  # answers for the default site and the check passes on the game site alone.
+  if [ -e /etc/nginx/sites-enabled/foxing ]; then
+    curl -fsSL -o /dev/null --resolve foxing.dev:443:127.0.0.1 --resolve foxing.dev:80:127.0.0.1 \
+         "http://foxing.dev/" || return 1
+  fi
 }
 
 log "Switching current -> $REL_NAME"
