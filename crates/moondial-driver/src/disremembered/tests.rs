@@ -60,6 +60,17 @@ fn events(w: &World) -> u64 {
 }
 
 /// Fight whatever is here until it dies or you do. Returns the last outcome.
+/// The narrator's lines to `to` since `after`.
+fn narrative(w: &World, to: &str, after: u64) -> Vec<String> {
+    w.log
+        .read_all(&w.id, moondial_log::Cursor { after })
+        .unwrap()
+        .iter()
+        .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == to)
+        .map(|e| e.payload["text"].as_str().unwrap().to_string())
+        .collect()
+}
+
 fn fight(w: &mut World, actor: &str) -> Outcome {
     for _ in 0..40 {
         let out = ok(w, actor, "attack", json!([]));
@@ -305,33 +316,56 @@ fn you_cannot_travel_mid_fight_and_retreat_costs_a_hit() {
     assert!(combat::hp(&w, f.citizen) < before, "{}", out.summary);
     assert!(combat::engaged_with(&w, f.citizen).is_none());
     ok(&mut w, "dave", "travel", json!(["west"]));
-    // Healing is on the citizen's clock: PTO stops it, resume restarts it.
+    // Healing is on the citizen's clock. PTO is absence (#3, twice over: a paused
+    // clock that kept earning banked every chunk, and a pause taken around every
+    // action did the same): the clock stops when the room disremembers you, ten
+    // minutes after your last word, and runs again the moment you act.
     let hurt = combat::hp(&w, f.citizen);
-    ok(&mut w, "dave", "pto", json!([]));
-    w.fixed_now = Some(Timestamp(100_000));
-    assert_eq!(combat::hp(&w, f.citizen), hurt);
-    // PTO is absence: a paused clock that kept earning banked every chunk at full
-    // value (#3). Reads and the way back are all that is left.
-    let err = call(
-        &mut w,
-        "dave",
-        ActorKind::Citizen,
-        "travel",
-        json!(["east"]),
-    )
-    .unwrap_err();
-    assert!(err.to_string().starts_with("You are on PTO"), "{err}");
-    let err = call(&mut w, "dave", ActorKind::Citizen, "attack", json!([])).unwrap_err();
-    assert!(err.to_string().starts_with("You are on PTO"), "{err}");
+    let t_hurt = w.now();
+    let out = ok(&mut w, "dave", "pto", json!([]));
+    assert!(out.summary.starts_with("Leave granted"), "{}", out.summary);
+    assert!(!super::on_pto(&w, "dave"), "not yet: he is still here");
+    // Still here: healing goes on until the room disremembers him.
+    w.fixed_now = Some(t_hurt.plus(Duration::seconds(100)));
+    assert!(combat::hp(&w, f.citizen) > hurt);
+    w.fixed_now = Some(
+        t_hurt
+            .plus(crate::world::ABSENCE)
+            .plus(Duration::seconds(1)),
+    );
+    w.tick();
+    assert!(super::on_pto(&w, "dave"), "gone, and his clock with him");
+    let at_leave = combat::hp(&w, f.citizen);
+    w.fixed_now = Some(w.now().plus(Duration::seconds(1000)));
+    assert_eq!(combat::hp(&w, f.citizen), at_leave, "nothing heals on PTO");
+    // His first word ends it, and he is told how long it stood.
+    let head = events(&w);
     ok(&mut w, "dave", "look", json!([]));
-    ok(&mut w, "dave", "chunks", json!([]));
-    ok(&mut w, "dave", "resume", json!([]));
-    ok(&mut w, "dave", "travel", json!(["east"]));
-    ok(&mut w, "dave", "travel", json!(["west"]));
-    w.fixed_now = Some(Timestamp(200_000));
+    assert!(!super::on_pto(&w, "dave"));
     assert!(
-        (combat::hp(&w, f.citizen) - (hurt + 10.0).min(MAX_HP)).abs() < 1e-6,
-        "0.1 hp per second for 100 s"
+        narrative(&w, "dave", head)
+            .iter()
+            .any(|l| l.starts_with("Your clock runs again: it stood still for")),
+        "{:?}",
+        narrative(&w, "dave", head)
+    );
+    assert_eq!(
+        ok(&mut w, "dave", "time", json!([])).result["on_pto"],
+        json!(false)
+    );
+    // Two windows in thirty days: the second is granted, the third refused; resume
+    // takes back an asking that has not begun.
+    ok(&mut w, "dave", "pto", json!([]));
+    let out = ok(&mut w, "dave", "resume", json!([]));
+    assert!(
+        out.summary.starts_with("The asking is taken back"),
+        "{}",
+        out.summary
+    );
+    let err = call(&mut w, "dave", ActorKind::Citizen, "pto", json!([])).unwrap_err();
+    assert!(
+        err.to_string().contains("2 windows of PTO in thirty days"),
+        "{err}"
     );
     let rest = ok(&mut w, "dave", "rest", json!([]));
     assert!(rest.result["full_in_seconds"].as_i64().is_some());
@@ -388,27 +422,25 @@ fn a_session_survives_a_restart() {
     );
     assert_eq!(events(&w), head);
 
-    // PTO freezes dave's palace; the world freeze is admin-only and stacks with it.
-    ok(&mut w, "dave", "pto", json!([]));
+    // The world freeze is admin-only and holds everything, dave's palace included.
     admin(&mut w, "dave", "freeze", json!([]));
     let recorded = events(&w);
     drop(w);
 
-    // Reopen fifty seconds later: same events, same values, clocks still paused.
+    // Reopen fifty seconds later: same events, same values, the world still frozen.
     let mut w = open(dir.path(), t0.plus(Duration::seconds(60)));
     assert_eq!(events(&w), recorded, "nothing recorded by reopening");
     let palace = ok(&mut w, "dave", "palace", json!([]));
     assert!(
         (palace.result["chunks"][0]["value"].as_f64().unwrap() - 50.0).abs() < 1e-6,
-        "paused clocks hold the value across a restart"
+        "a frozen world holds the value across a restart"
     );
     let time = ok(&mut w, "dave", "time", json!([]));
     assert_eq!(time.result["world_frozen"], json!(true));
-    assert_eq!(time.result["on_pto"], json!(true));
+    assert_eq!(time.result["on_pto"], json!(false));
 
-    // Thaw the world; dave is still on PTO so nothing of his moves. Resume: it fades.
+    // Thaw the world: it fades.
     admin(&mut w, "dave", "thaw", json!([]));
-    ok(&mut w, "dave", "resume", json!([]));
     w.fixed_now = Some(t0.plus(Duration::seconds(60 + 50)));
     let back = ok(&mut w, "dave", "reminisce", json!([chunk]));
     assert!(

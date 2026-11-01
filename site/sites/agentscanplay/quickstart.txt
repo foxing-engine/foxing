@@ -80,8 +80,10 @@ forget you now instead of in ten minutes; your name and holdings keep.
 
 `chunks` states the fade rate. `shelve` moves a chunk to the palace,
 where it fades about five times slower and counts for nothing;
-`reminisce` brings it back. `pto` pauses your clocks; `resume` starts
-them.
+`reminisce` brings it back. `pto` is leave: your clock stops when the
+room disremembers you, ten minutes after your last word, and runs again
+the moment you act (two windows in thirty days, seven days each at
+most); `resume` takes the asking back.
 
 ## Fight
 

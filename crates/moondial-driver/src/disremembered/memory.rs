@@ -1,6 +1,6 @@
 //! Chunks, the active window, the Memory Palace, and PTO.
 
-use super::{account_scope, internal, me, plain_num, Curves, CHUNK};
+use super::{internal, me, plain_num, Curves, CHUNK};
 use crate::world::World;
 use moondial_log::Actor;
 use moondial_registry::{
@@ -420,40 +420,65 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.pto", "Kept names only. Leave for a while: your clock stops, so nothing of yours fades or heals until you resume, and until then you may only look, map, time, chunks, palace, log, feedback, resume and leave. (The real rules allow two 7-day windows a year; the slice does not enforce that yet.)"),
+        CommandSpec::new("disremembered.pto", "Kept names only. Ask for leave: your clock stops when the room disremembers you (ten minutes after your last word), so nothing of yours fades or heals while you are gone, and it runs again the moment you act. Two windows in thirty days, each seven days at most."),
         Box::new(|w: &mut World, ctx, _| {
             super::kept_only(w, ctx, "pause its clock")?;
-            me(w, ctx)?;
-            let scope = account_scope(&ctx.actor);
-            if w.store.clock(&scope).is_some_and(|c| c.is_paused_at(w.now())) {
+            let f = me(w, ctx)?;
+            if super::on_pto(w, &ctx.actor) {
                 return Err(CommandError::precondition("You are already on PTO."));
             }
-            w.record(Actor::Driver, StoreEvent::ClockPaused { clock: scope }).map_err(internal)?;
-            Ok(Outcome::new("Your clock stops. Nothing of yours will fade until you resume.", json!({"paused": true})))
+            let taken = super::pto_taken(w, f.citizen);
+            if taken.len() >= super::PTO_WINDOWS {
+                let next = taken.iter().min().copied().unwrap_or(0) + super::PTO_QUOTA_MS;
+                return Err(CommandError::precondition(format!(
+                    "You have taken {} windows of PTO in thirty days, which is what the rules allow; the next is yours in {}.",
+                    super::PTO_WINDOWS,
+                    super::combat::human((next - w.now().0).max(0))
+                )));
+            }
+            let mut fields = BTreeMap::new();
+            let mut all: Vec<Value> = taken.iter().map(|t| json!(t)).collect();
+            all.push(json!(w.now().0));
+            fields.insert("pto".into(), Field::Plain(json!(true)));
+            fields.insert("pto_taken".into(), Field::Plain(Value::Array(all)));
+            super::set_citizen_fields(w, &ctx.actor, f.citizen, fields)?;
+            Ok(Outcome::new(
+                format!("Leave granted: your clock stops when the room disremembers you, ten minutes after your last word, and runs again the moment you act. Window {} of {} this month; seven days at most.", taken.len() + 1, super::PTO_WINDOWS),
+                json!({"pto": true, "begins_after_ms": crate::world::ABSENCE.0, "windows_used": taken.len() + 1, "windows": super::PTO_WINDOWS}),
+            ))
         }),
     );
 
     world.register(
         CommandSpec::new(
             "disremembered.resume",
-            "End your PTO. Your clock runs again.",
+            "End your PTO, or take back the asking. Your clock runs; acting does the same.",
         ),
         Box::new(|w: &mut World, ctx, _| {
-            me(w, ctx)?;
-            let scope = account_scope(&ctx.actor);
-            if !w
-                .store
-                .clock(&scope)
-                .is_some_and(|c| c.is_paused_at(w.now()))
-            {
+            let f = me(w, ctx)?;
+            let asked = matches!(
+                w.store
+                    .entity(f.citizen)
+                    .and_then(|e| e.components.get(super::CITIZEN))
+                    .and_then(|c| c.fields.get("pto")),
+                Some(Field::Plain(Value::Bool(true)))
+            );
+            if !asked && !super::on_pto(w, &ctx.actor) {
                 return Err(CommandError::precondition("You are not on PTO."));
             }
-            w.record(Actor::Driver, StoreEvent::ClockResumed { clock: scope })
-                .map_err(internal)?;
-            Ok(Outcome::new(
-                "Your clock runs again.",
-                json!({"paused": false}),
-            ))
+            match super::end_pto(w, &ctx.actor, f.citizen, "you asked")? {
+                Some(ms) => Ok(Outcome::new(
+                    format!(
+                        "Your clock runs again; it stood still for {}.",
+                        super::combat::human(ms)
+                    ),
+                    json!({"paused": false, "for_ms": ms}),
+                )),
+                None => Ok(Outcome::new(
+                    "The asking is taken back; your clock never stopped.",
+                    json!({"paused": false, "cancelled": true}),
+                )),
+            }
         }),
     );
 }

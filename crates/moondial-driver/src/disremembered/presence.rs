@@ -266,6 +266,8 @@ pub fn depart(world: &mut World, actor: &str, citizen: EntityId) -> Result<(), S
     super::combat::leave_fight(world, actor, citizen)?;
     set(world, actor, citizen, false)?;
     world.depart(actor);
+    // A citizen who asked for PTO gets it now, in their absence.
+    super::begin_pto(world, actor, citizen).map_err(|e| e.to_string())?;
     let room = world.store.entity(citizen).and_then(|e| e.parent);
     let name = plain_str(world, citizen, CITIZEN, "name")
         .unwrap_or(actor)
@@ -324,7 +326,7 @@ pub fn sweep(world: &mut World) -> Result<(), String> {
     for (actor, id) in quiet {
         depart(world, &actor, id)?;
     }
-    Ok(())
+    super::pto_sweep(world)
 }
 
 pub fn register(world: &mut World, curves: super::Curves) {

@@ -246,7 +246,12 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("passing", FieldKind::Plain, Visibility::Public)
             // A standing greeting: what this citizen says to whoever arrives where
             // they are, while they are here. Null when they have none.
-            .field("greeting", FieldKind::Plain, Visibility::Public),
+            .field("greeting", FieldKind::Plain, Visibility::Public)
+            // PTO: asked for (true until it begins or is cancelled), when the clock
+            // stopped, and when each window was taken (the quota is on these).
+            .field("pto", FieldKind::Plain, Visibility::Public)
+            .field("pto_since", FieldKind::Plain, Visibility::Public)
+            .field("pto_taken", FieldKind::Plain, Visibility::Public),
         ComponentSchema::new(ACCOUNT, 1).field(
             "passphrase_hash",
             FieldKind::Plain,
@@ -290,28 +295,149 @@ pub fn jitter(world: &mut World, base: f64, low: f64, high: f64) -> f64 {
     base * (low + (high - low) * t)
 }
 
-/// What a citizen on PTO may still do: read, and come back. PTO is absence: a clock
-/// that stops while its owner keeps earning is a bank, and the world is named for
-/// fading. A player held it open for an afternoon and banked every chunk at full
-/// value; this is the fix, and the description says so.
-pub const ON_PTO: &[&str] = &[
-    "look", "map", "time", "chunks", "palace", "log", "feedback", "resume", "leave", "pto",
-];
+/// PTO is absence. `pto` asks for it; the clock stops when the room disremembers
+/// you (ten minutes after your last word), and runs again the moment you act. Two
+/// windows in thirty days, each seven days at most, as the real rules say. A player
+/// held a paused clock open for an afternoon and banked every chunk at full value,
+/// then paused and resumed around every action when that was refused; a pause that
+/// begins only in your absence and ends with your first word cannot be farmed.
+pub const PTO_WINDOWS: usize = 2;
+pub const PTO_QUOTA_MS: i64 = 30 * 86_400_000;
+pub const PTO_MAX_MS: i64 = 7 * 86_400_000;
 
-/// Refuse a world-changing verb from a citizen whose clock is paused.
-pub fn check_pto(world: &World, ctx: &CallContext, verb: &str) -> Result<(), CommandError> {
-    if ctx.kind != moondial_registry::ActorKind::Citizen || ON_PTO.contains(&verb) {
+fn citizen_field(world: &World, citizen: EntityId, field: &str) -> Option<Value> {
+    world
+        .store
+        .entity(citizen)
+        .and_then(|e| e.components.get(CITIZEN))
+        .and_then(|c| c.fields.get(field))
+        .and_then(|f| match f {
+            Field::Plain(v) if !v.is_null() => Some(v.clone()),
+            _ => None,
+        })
+}
+
+/// Whether the actor's clock is paused now.
+pub fn on_pto(world: &World, actor: &str) -> bool {
+    world
+        .store
+        .clock(&account_scope(actor))
+        .is_some_and(|c| c.is_paused_at(world.now()))
+}
+
+/// The windows taken within the quota period.
+pub fn pto_taken(world: &World, citizen: EntityId) -> Vec<i64> {
+    let now = world.now().0;
+    citizen_field(world, citizen, "pto_taken")
+        .and_then(|v| v.as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .filter_map(Value::as_i64)
+        .filter(|&t| now - t < PTO_QUOTA_MS)
+        .collect()
+}
+
+/// Stop the clock: the room has disremembered a citizen who asked for PTO.
+pub fn begin_pto(world: &mut World, actor: &str, citizen: EntityId) -> Result<(), CommandError> {
+    if !matches!(
+        citizen_field(world, citizen, "pto"),
+        Some(Value::Bool(true))
+    ) || on_pto(world, actor)
+    {
         return Ok(());
     }
-    let paused = world
-        .store
-        .clock(&account_scope(&ctx.actor))
-        .is_some_and(|c| c.is_paused_at(world.now()));
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::ClockPaused {
+                clock: account_scope(actor),
+            },
+        )
+        .map_err(internal)?;
+    let mut f = BTreeMap::new();
+    f.insert("pto".into(), Field::Plain(json!(false)));
+    f.insert("pto_since".into(), Field::Plain(json!(world.now().0)));
+    set_citizen_fields(world, actor, citizen, f)?;
+    let _ = world.note(
+        Actor::Citizen(actor.to_string()),
+        "disremembered.pto",
+        json!({"actor": actor, "paused": true}),
+    );
+    Ok(())
+}
+
+/// Start the clock again: the citizen acted, or the window ran out, or they asked.
+pub fn end_pto(
+    world: &mut World,
+    actor: &str,
+    citizen: EntityId,
+    why: &str,
+) -> Result<Option<i64>, CommandError> {
+    let mut f = BTreeMap::new();
+    f.insert("pto".into(), Field::Plain(json!(false)));
+    let since = citizen_field(world, citizen, "pto_since").and_then(|v| v.as_i64());
+    let paused = on_pto(world, actor);
     if paused {
-        return Err(CommandError::precondition(format!(
-            "You are on PTO: the world does not move for you, and you do not move it. `resume` first. (While paused you may {}.)",
-            ON_PTO[..ON_PTO.len() - 1].join(", ")
-        )));
+        world
+            .record(
+                Actor::Driver,
+                StoreEvent::ClockResumed {
+                    clock: account_scope(actor),
+                },
+            )
+            .map_err(internal)?;
+        f.insert("pto_since".into(), Field::Plain(Value::Null));
+    }
+    set_citizen_fields(world, actor, citizen, f)?;
+    if paused {
+        let _ = world.note(
+            Actor::Citizen(actor.to_string()),
+            "disremembered.pto",
+            json!({"actor": actor, "paused": false, "why": why, "for_ms": since.map(|s| world.now().0 - s)}),
+        );
+        return Ok(Some(since.map(|s| world.now().0 - s).unwrap_or(0)));
+    }
+    Ok(None)
+}
+
+/// Before a citizen's command runs: a paused clock runs again, and the reply says so.
+pub fn check_pto(world: &mut World, ctx: &CallContext, _verb: &str) -> Result<(), CommandError> {
+    if ctx.kind != moondial_registry::ActorKind::Citizen || !on_pto(world, &ctx.actor) {
+        return Ok(());
+    }
+    let Some(f) = find_citizen(world, &ctx.actor) else {
+        return Ok(());
+    };
+    if let Some(ms) = end_pto(world, &ctx.actor, f.citizen, "you spoke")? {
+        combat::narrate(
+            world,
+            &ctx.actor,
+            format!(
+                "Your clock runs again: it stood still for {} while you were away.",
+                combat::human(ms)
+            ),
+        );
+    }
+    Ok(())
+}
+
+/// Every tick: a pause past its seven days ends on its own.
+pub fn pto_sweep(world: &mut World) -> Result<(), String> {
+    let now = world.now().0;
+    let due: Vec<(String, EntityId)> = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "citizen")
+        .filter_map(|e| e.owner.clone().map(|o| (o, e.id)))
+        .filter(|(actor, id)| {
+            on_pto(world, actor)
+                && citizen_field(world, *id, "pto_since")
+                    .and_then(|v| v.as_i64())
+                    .is_some_and(|s| now - s >= PTO_MAX_MS)
+        })
+        .collect();
+    for (actor, id) in due {
+        end_pto(world, &actor, id, "seven days").map_err(|e| e.to_string())?;
     }
     Ok(())
 }

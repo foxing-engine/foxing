@@ -507,7 +507,7 @@ impl World {
     ) -> Result<Outcome, CommandError> {
         let registry = Arc::clone(&self.registry);
         let before = self.last_active(&ctx.actor);
-        // A citizen on PTO reads and returns; nothing else.
+        // A citizen on PTO who acts is back: the clock runs again first.
         if let Some(spec) = registry.resolve(name) {
             crate::disremembered::check_pto(self, ctx, spec.verb())?;
         }
