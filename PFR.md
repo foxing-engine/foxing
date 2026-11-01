@@ -250,9 +250,12 @@ figures on the canvas that answer to a click.
   named Hesper. A creature advertises a want to a teller who is on its one-an-hour
   cooldown: `look` could say "you told it one this hour". Word-salad stories of
   random nouns pass the distinct-word rule (content is not judged; a story that is
-  mostly nouns with no verbs could pay less). Two visitors got an empty HTTP body
-  from the gate once each (a story with no period after the closing quote; message 8
-  of another): find it in the ops log and make the gate always answer.
+  mostly nouns with no verbs could pay less). Three visitors got an empty body or a 502
+  from the gate once each: every gate message in the record has its reply, and the
+  times match driver restarts (four deploys that night), so it is the restart window,
+  not the gate. Make a deploy kinder to a message in flight: have nginx retry the
+  upstream once on a connection error (`proxy_next_upstream`), or hold the switch
+  until the new driver answers /health before stopping the old one.
 - Ambush pacing for gate players: a fight's clock runs between gate lines, so a
   stateless visitor can take many strikes before their next line (nine, once, in the
   Shallows). Options: one round per statement for gate actors, or a longer strike
