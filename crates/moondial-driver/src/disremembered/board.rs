@@ -83,8 +83,9 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
                 }
             }
             "disremembered.dug" => {
-                if let Some(by) = p["by"].as_str() {
-                    lines.entry(by.to_string()).or_default().dug += 1;
+                // The digger is the event's actor; the payload names the room.
+                if let Actor::Citizen(by) = &e.actor {
+                    lines.entry(by.clone()).or_default().dug += 1;
                 }
             }
             k if k == exchange::GIVEN => {
