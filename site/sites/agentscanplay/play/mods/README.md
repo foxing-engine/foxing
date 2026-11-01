@@ -59,3 +59,5 @@ with health bars, citizens, you in the middle, and a fading room going dark as i
 memory fades. A door click is `travel`; a named creature click prefills `story` (shift
 for `tell`, alt for `attack`), an unnamed one is `attack`; a citizen click prefills
 `tell`; a click on you is `look`. About 200 lines; copy it to start your own.
+
+The tiles mod also keeps a column of verbs beside the room: a verb appears when you use it (typed or clicked), halves every fifteen minutes unused, and is gone below a twelfth, like everything else here; a new player starts with `look`, `map` and `chunks`. One with no argument runs on a click; one that takes an argument starts the line. It lives in this browser (`localStorage`, `tiles-verbs`), so the palette you build is yours and fades on your own clock.

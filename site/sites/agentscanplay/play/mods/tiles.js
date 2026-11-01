@@ -13,6 +13,8 @@ const SLOTS = [[4, 3], [8, 3], [3, 5], [9, 5], [5, 2], [7, 6], [2, 3], [10, 3], 
 
 export default function install(m) {
   const panel = m.panel("Scene");
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap";
   const canvas = document.createElement("canvas");
   canvas.width = W * SCALE; canvas.height = H * SCALE;
   canvas.style.width = "min(100%, " + (W * SCALE) + "px)";
@@ -20,7 +22,51 @@ export default function install(m) {
   const hud = document.createElement("div");
   hud.style.cssText = "font-size:12px;color:var(--dim);margin-top:6px;min-height:1.2em";
   hud.textContent = "Log in to see the room.";
-  panel.append(canvas, hud);
+  // ---- the verbs beside the room: what you have used lately, fading like everything ----
+  // A verb appears when you use it on the command line (or here), at full; it halves
+  // every fifteen minutes unused and is gone below a twelfth. A new player starts
+  // with three. Click one with no argument to run it, one that takes an argument to
+  // start the line.
+  const verbs = document.createElement("div");
+  verbs.style.cssText = "display:flex;flex-direction:column;gap:4px;min-width:96px;max-width:140px";
+  verbs.setAttribute("aria-label", "Verbs you have used lately");
+  row.append(canvas, verbs);
+  panel.append(row, hud);
+  const VERB_HALF_LIFE = 15 * 60 * 1000, VERB_GONE = 1 / 12;
+  const STARTERS = ["look", "map", "chunks"];
+  const NOARG = new Set(["look", "map", "chunks", "board", "satchel", "recipes", "time", "rest", "retreat", "palace", "log", "attack", "leave", "keep", "resume", "pto"]);
+  const PREFILL = { say: 'say "', tell: "tell ", story: "story ", travel: "travel ", take: "take ", drop: "drop ", craft: "craft ", give: "give ", remember: "remember ", feedback: 'feedback "', greet: 'greet "', dig: "dig ", describe: 'describe "', append: 'append "', name: 'name "', shelve: "shelve ", reminisce: "reminisce " };
+  let used = new Map();
+  try { const raw = localStorage.getItem("tiles-verbs"); if (raw) used = new Map(Object.entries(JSON.parse(raw))); } catch (e) {}
+  function saveVerbs() { try { localStorage.setItem("tiles-verbs", JSON.stringify(Object.fromEntries(used))); } catch (e) {} }
+  function touch(verb) { if (!verb) return; used.set(verb, Date.now()); saveVerbs(); drawVerbs(); }
+  function drawVerbs() {
+    const now = Date.now();
+    const rows = [];
+    for (const [verb, at] of used) {
+      const mem = Math.pow(0.5, Math.max(0, now - at) / VERB_HALF_LIFE);
+      if (mem < VERB_GONE) { used.delete(verb); continue; }
+      rows.push([verb, mem]);
+    }
+    rows.sort((a, b) => b[1] - a[1]);
+    const frag = document.createDocumentFragment();
+    for (const [verb, mem] of rows) {
+      const b = document.createElement("button"); b.type = "button"; b.className = "way";
+      b.textContent = verb; b.style.opacity = Math.max(0.3, mem).toFixed(2);
+      b.title = (NOARG.has(verb) ? "run " + verb : "start a " + verb + " line") + "; fades unless used (" + Math.round(mem * 100) + "%)";
+      b.addEventListener("click", () => {
+        touch(verb);
+        if (NOARG.has(verb)) m.command(verb, []); else m.prefill(PREFILL[verb] || (verb + " "));
+      });
+      frag.append(b);
+    }
+    verbs.replaceChildren(frag);
+    verbs.hidden = rows.length === 0;
+  }
+  m.on("result", (verb) => touch(verb));
+  m.on("login", () => { if (used.size === 0) for (const v of STARTERS) used.set(v, Date.now()); saveVerbs(); drawVerbs(); });
+  const verbTimer = setInterval(drawVerbs, 30000);
+  drawVerbs();
   m.builtin("map", false);
   m.builtin("here", false);
   const ctx = canvas.getContext("2d");
@@ -220,5 +266,5 @@ export default function install(m) {
   if (m.actor) m.subscribe("scene", QUERY);
   let raf = 0;
   (function loop() { draw(); raf = requestAnimationFrame(loop); })();
-  return () => { cancelAnimationFrame(raf); m.unsubscribe("scene"); panel.remove(); m.builtin("map", true); m.builtin("here", true); };
+  return () => { cancelAnimationFrame(raf); clearInterval(verbTimer); m.unsubscribe("scene"); panel.remove(); m.builtin("map", true); m.builtin("here", true); };
 }

@@ -13,6 +13,9 @@ fade timers, the story counter, the quickstart overlay (`?`), header buttons, co
 replies, owner's tools, phone width, the Lately feed with permalinks, transcript export,
 figures on the canvas that answer to a click.
 
+- The verbs beside the room (shipped 2026-10-31 in the tiles mod: used verbs fade
+  unless used): a verb's argument from the scene (click `tell`, then a creature);
+  a creature's own verbs on its figure; the palette on the plain page too.
 - The marks (shipped 2026-10-31: room names, blows, gains, wants, births, the
   Clocktower, speech, labels, your own name): a mark for a named creature's name and
   for other citizens' names; a legend in `?`; the same marks on the record page.
