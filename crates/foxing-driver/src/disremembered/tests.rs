@@ -4975,3 +4975,104 @@ fn death_costs_a_share_of_the_window_on_a_curve_of_level() {
     assert_eq!(died.len(), 2);
     assert!(died[1].payload["lost"].as_array().unwrap().len() >= 3);
 }
+
+#[test]
+fn a_story_a_creature_has_heard_this_hour_pays_by_halves() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    for who in ["dave", "tyler", "wren"] {
+        login(&mut w, who, "test", PASS).unwrap();
+        ok(&mut w, who, "travel", json!(["east"]));
+        ok(&mut w, who, "travel", json!(["south"]));
+    }
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 90, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let name = mind::name(&w, rag).unwrap();
+    let tale = "Once there was a lantern that would not go out, though every hand that carried it forgot why they had picked it up.";
+    let first = ok(&mut w, "dave", "story", json!([&name, tale]));
+    assert_eq!(first.result["repeats"], 0);
+    assert!(!first.summary.contains("has heard"), "{}", first.summary);
+    // The same tale from another mouth, reworded a little: half.
+    let again = "Once there was a lantern that would not go out, though every hand that carried it had forgotten why it was picked up at all.";
+    let second = ok(&mut w, "tyler", "story", json!([&name, again]));
+    assert_eq!(second.result["repeats"], 1, "{}", second.summary);
+    assert!(
+        second
+            .summary
+            .contains("It has heard one much like it this hour; this one pays half."),
+        "{}",
+        second.summary
+    );
+    // And a third: a quarter.
+    let third = ok(&mut w, "wren", "story", json!([&name, tale]));
+    assert_eq!(third.result["repeats"], 2, "{}", third.summary);
+    assert!(
+        third
+            .summary
+            .contains("It has heard 2 much like it this hour; this one pays a 4 part."),
+        "{}",
+        third.summary
+    );
+    let (a, b, c) = (
+        first.result["xp"].as_f64().unwrap(),
+        second.result["xp"].as_f64().unwrap(),
+        third.result["xp"].as_f64().unwrap(),
+    );
+    // Jitter is a fifth either way; halves are well outside it.
+    assert!(b < a * 0.7 && c < b * 0.7, "{a} {b} {c}");
+    // A different story is not a repeat.
+    let other = "The clock in the hall struck thirteen and nobody looked up from their soup, which was cold anyway.";
+    w.fixed_now = Some(t0.plus(Duration::seconds(3601)));
+    let c2 = admin(&mut w, "tyler", "earn", json!(["hollow", 90, 0.5]));
+    let c2 = format!("chunk-{}", c2.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c2, &name]));
+    let fresh = ok(&mut w, "dave", "story", json!([&name, other]));
+    assert_eq!(fresh.result["repeats"], 0, "{}", fresh.summary);
+    assert!(
+        exchange::heard_lately(&w, rag, tale) == 0,
+        "the hour has passed"
+    );
+}
+
+#[test]
+fn a_passing_names_chunk_bears_the_mark_and_is_taxed_in_full_when_given() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login_as(&mut w, "Tallowmoth", "test", PASS, true).unwrap();
+    // Earned by a passing name: marked, and shown so.
+    let c = admin(&mut w, "Tallowmoth", "earn", json!(["wisp", 30, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    let rows = ok(&mut w, "Tallowmoth", "chunks", json!([]));
+    assert_eq!(rows.result["chunks"][0]["provenance"], "passing");
+    assert!(rows.summary.contains("(passing)"), "{}", rows.summary);
+    // Given to a kept name well under every allowance: taxed in full anyway.
+    let out = ok(&mut w, "Tallowmoth", "give", json!([&c, "tyler"]));
+    assert_eq!(out.result["taxed"], true, "{}", out.summary);
+    assert_eq!(out.result["marked"], true);
+    assert_eq!(out.result["over"], 1.0);
+    assert!(out.summary.contains("bears the mark"), "{}", out.summary);
+    let theirs = out.result["chunk"].as_u64().unwrap();
+    // The mark travels: tyler gives it on to dave, and it is taxed again in full.
+    let out = ok(
+        &mut w,
+        "tyler",
+        "give",
+        json!([format!("chunk-{theirs}"), "dave"]),
+    );
+    assert_eq!(out.result["marked"], true, "{}", out.summary);
+    assert_eq!(out.result["taxed"], true);
+    let rows = ok(&mut w, "dave", "chunks", json!([]));
+    assert!(rows.summary.contains("(passing)"), "{}", rows.summary);
+    assert!(rows.summary.contains("(taxed)"), "{}", rows.summary);
+    // A kept name's own earnings carry no mark.
+    let k = admin(&mut w, "tyler", "earn", json!(["wisp", 30, 0.5]));
+    let k = format!("chunk-{}", k.result["chunk"].as_u64().unwrap());
+    let out = ok(&mut w, "tyler", "give", json!([&k, "dave"]));
+    assert_eq!(out.result["marked"], false, "{}", out.summary);
+    assert_eq!(out.result["taxed"], false, "{}", out.summary);
+}

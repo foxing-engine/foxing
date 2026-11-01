@@ -180,7 +180,10 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("source", FieldKind::Plain, Visibility::Public)
             .field("tier", FieldKind::Plain, Visibility::Public)
             // What a taxed gift keeps of its half-life, when it was taxed.
-            .field("taxed", FieldKind::Plain, Visibility::Owner),
+            .field("taxed", FieldKind::Plain, Visibility::Owner)
+            // Where it was earned: "passing" when a passing name earned it. The mark
+            // travels with the chunk through every hand it passes.
+            .field("provenance", FieldKind::Plain, Visibility::Public),
         ComponentSchema::new(ROOM, 2)
             .field("key", FieldKind::Plain, Visibility::Public)
             .field("name", FieldKind::Plain, Visibility::Public)

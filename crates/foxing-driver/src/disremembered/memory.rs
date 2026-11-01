@@ -55,6 +55,15 @@ pub fn earn_chunk(
     fields.insert("vividity".into(), Field::Plain(json!(vividity)));
     fields.insert("source".into(), Field::Plain(json!(source)));
     fields.insert("tier".into(), Field::Plain(json!("active")));
+    // A passing name's earnings are marked at the minting, and the mark goes with
+    // the chunk wherever it is given: a kept name cannot launder a ring of fresh
+    // names' stories through its own allowance.
+    if super::find_citizen(world, actor)
+        .map(|f| super::is_passing(world, f.citizen))
+        .unwrap_or(false)
+    {
+        fields.insert("provenance".into(), Field::Plain(json!("passing")));
+    }
     world
         .record(
             me,
@@ -66,6 +75,11 @@ pub fn earn_chunk(
         )
         .map_err(internal)?;
     Ok(id)
+}
+
+/// Whether a chunk was earned by a passing name, wherever it is now.
+pub fn is_passing_chunk(world: &World, chunk: EntityId) -> bool {
+    super::plain_str(world, chunk, CHUNK, "provenance") == Some("passing")
 }
 
 /// The sum of a window's chunk values now.
@@ -122,7 +136,7 @@ fn chunk_rows(
                     foxing_time::Curve::PowerLaw { scale, .. } => Some(scale.0),
                     _ => None,
                 });
-            json!({"id": e.id.0, "source": f("source"), "tier": f("tier"), "size": f("size"), "vividity": f("vividity"), "value": f("value"), "halves_ms": halves, "taxed": f("taxed")})
+            json!({"id": e.id.0, "source": f("source"), "tier": f("tier"), "size": f("size"), "vividity": f("vividity"), "value": f("value"), "halves_ms": halves, "taxed": f("taxed"), "provenance": f("provenance")})
         })
         .collect();
     rows.sort_by(|a, b| {
@@ -171,7 +185,7 @@ fn rows_text(rows: &[Value]) -> Vec<String> {
         .take(ROWS_SHOWN)
         .map(|r| {
             format!(
-                "  chunk-{} {:<10} {:>9.2} of {:<6} vividity {:.2}{}{}",
+                "  chunk-{} {:<10} {:>9.2} of {:<6} vividity {:.2}{}{}{}",
                 r["id"],
                 r["source"].as_str().unwrap_or("?"),
                 r["value"].as_f64().unwrap_or(0.0),
@@ -183,6 +197,11 @@ fn rows_text(rows: &[Value]) -> Vec<String> {
                     .unwrap_or_default(),
                 if r["taxed"].is_number() {
                     "  (taxed)"
+                } else {
+                    ""
+                },
+                if r["provenance"].as_str() == Some("passing") {
+                    "  (passing)"
                 } else {
                     ""
                 }

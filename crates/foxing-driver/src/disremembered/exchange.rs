@@ -67,7 +67,10 @@ pub fn register(world: &mut World, curves: Curves) {
             let receipt = super::conclave::statute(w, "gift_receipt");
             let over_giving = ((before + size - allowance) / size.max(1e-9)).clamp(0.0, 1.0);
             let over_receiving = ((received + size - receipt) / size.max(1e-9)).clamp(0.0, 1.0);
-            let over = over_giving.max(over_receiving);
+            // A chunk a passing name earned carries the mark, and is taxed in full
+            // whoever gives it: the allowance is for what a name earned as itself.
+            let marked = super::memory::is_passing_chunk(w, chunk);
+            let over = if marked { 1.0 } else { over_giving.max(over_receiving) };
             let taxed = over > 0.0;
             let (id, source) = mind::move_chunk(w, &ctx.actor, chunk, them.window, Some(to.clone()))?;
             if taxed {
@@ -88,9 +91,11 @@ pub fn register(world: &mut World, curves: Curves) {
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 GIVEN,
-                json!({"from": ctx.actor, "to": to, "chunk": id.0, "was": chunk.0, "with": source, "room": here.0, "size": size, "taxed": taxed, "over": over, "given_today": before + size, "received_today": received + size}),
+                json!({"from": ctx.actor, "to": to, "chunk": id.0, "was": chunk.0, "with": source, "room": here.0, "size": size, "taxed": taxed, "over": over, "marked": marked, "given_today": before + size, "received_today": received + size}),
             );
-            let tax_line = if over_receiving > 0.0 {
+            let tax_line = if marked {
+                " It bears a passing name's mark, so the Conclave's gift tax is on all of it: it thins faster than it did.".to_string()
+            } else if over_receiving > 0.0 {
                 format!(" You have received {:.0} today against a share of {receipt:.0}; the Conclave's gift tax is on it, and it thins faster than it did.", received + size)
             } else if taxed {
                 " The Conclave's gift tax is on it: it thins faster than it did.".to_string()
@@ -101,7 +106,9 @@ pub fn register(world: &mut World, curves: Curves) {
             w.notice(format!("**{}** gave the memory of {source} to **{to}**.{}", ctx.actor, if taxed { " (taxed)" } else { "" }));
             Ok(Outcome::new(
                 format!("You give {to} the memory of {source}. It is theirs now: chunk-{}.{}", id.0,
-                    if taxed {
+                    if marked {
+                        format!(" It was earned by a passing name and bears the mark; the Conclave's gift tax is on all of it, whatever your allowance, and it thins faster in their hands. You have given {:.0} today of an allowance of {allowance:.0}.", before + size)
+                    } else if taxed {
                         // Both tallies, and which one the tax went by: the larger of
                         // the two parts over the line, not their sum.
                         format!(" You have given {:.0} today of an allowance of {allowance:.0}; {to} has received {:.0} of a share of {receipt:.0}. The Conclave's gift tax is on {} of it ({}), and that part thins faster in their hands.",
@@ -111,7 +118,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     } else {
                         format!(" You have given {:.0} of the day's {allowance:.0}; {to} has received {:.0} of a share of {receipt:.0}.", before + size, received + size)
                     }),
-                json!({"to": to, "chunk": id.0, "with": source, "size": size, "taxed": taxed, "over": over, "given_today": before + size, "allowance": allowance, "received_today": received + size, "receipt": receipt}),
+                json!({"to": to, "chunk": id.0, "with": source, "size": size, "taxed": taxed, "over": over, "marked": marked, "given_today": before + size, "allowance": allowance, "received_today": received + size, "receipt": receipt}),
             ))
         }),
     );
@@ -177,11 +184,22 @@ pub fn register(world: &mut World, curves: Curves) {
             let wanted = super::errand::wants_story(w, creature, &text);
             // About a third of an XP a word: the creature's mood is a fifth either way,
             // so no length is the right length to the decimal.
+            // A story the creature has heard lately pays less, by halves: each story
+            // told to it in the last hour by anyone that shares half its words with
+            // this one halves the pay. (A ring of fresh names told one creature the
+            // same story six times in a minute, each name on its own cooldown.)
+            let repeats = heard_lately(w, creature, &text);
             let paid = (super::jitter(w, distinct.min(MAX_WORDS_PAID) as f64 * XP_PER_WORD, 0.8, 1.2)
-                * super::economy::rate(w, "pay"))
+                * super::economy::rate(w, "pay")
+                * 0.5f64.powi(repeats as i32))
             .round()
                 * if wanted { 2.0 } else { 1.0 };
             let gist = gist(&text);
+            let heard_line = match repeats {
+                0 => String::new(),
+                1 => " It has heard one much like it this hour; this one pays half.".to_string(),
+                n => format!(" It has heard {n} much like it this hour; this one pays a {} part.", 1u32 << n.min(20)),
+            };
             let kind = super::plain_str(w, creature, super::CREATURE, "name").unwrap_or("?").to_string();
             // It keeps the story; you keep the telling.
             let window = mind::window_of(w, creature).ok_or_else(|| internal("a named creature has a window"))?;
@@ -193,7 +211,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 STORY,
-                json!({"from": ctx.actor, "creature": creature.0, "kind": kind, "name": name, "words": words, "earned": earned.0, "kept": kept.0, "level": level}),
+                json!({"from": ctx.actor, "creature": creature.0, "kind": kind, "name": name, "words": words, "earned": earned.0, "kept": kept.0, "level": level, "keywords": story_words(&text), "repeats": repeats}),
             );
             let answer = if wanted {
                 format!("That is the one I wanted. I will keep that. \"{gist}\" I hold {level:.0} now.")
@@ -209,11 +227,11 @@ pub fn register(world: &mut World, curves: Curves) {
                 // The creature's answer reaches the teller as it reaches the room, a
                 // narrator line, so the outcome does not repeat it.
                 format!(
-                    "You tell {display} a story of {words} words, and it answers.{} You remember the telling: chunk-{} worth {paid:.0} XP.",
+                    "You tell {display} a story of {words} words, and it answers.{}{heard_line} You remember the telling: chunk-{} worth {paid:.0} XP.",
                     if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
                     earned.0
                 ),
-                json!({"creature": creature.0, "name": name, "words": words, "earned": earned.0, "xp": paid, "kept": kept.0, "level": level, "wanted": wanted}),
+                json!({"creature": creature.0, "name": name, "words": words, "earned": earned.0, "xp": paid, "kept": kept.0, "level": level, "wanted": wanted, "repeats": repeats}),
             ))
         }),
     );
@@ -243,4 +261,44 @@ fn gist(text: &str) -> String {
         out.push_str(word);
     }
     format!("{}\u{2026}", out.trim_end_matches([',', ';', ':']))
+}
+
+/// The words a story is made of, for telling one from the next: four letters or
+/// more, lowercased, plurals trimmed, each once.
+pub fn story_words(text: &str) -> Vec<String> {
+    let mut v: Vec<String> = text
+        .split(|c: char| !c.is_alphanumeric() && c != '\'')
+        .map(|w| w.trim_matches('\'').to_lowercase())
+        .filter(|w| w.chars().count() >= 4)
+        .map(|w| w.trim_end_matches('s').to_string())
+        .collect();
+    v.sort();
+    v.dedup();
+    v
+}
+
+/// How many stories told to `creature` in the last hour, by anyone, this one is
+/// mostly made of (half its words or more in common).
+pub fn heard_lately(world: &World, creature: foxing_store::EntityId, text: &str) -> usize {
+    let mine = story_words(text);
+    if mine.is_empty() {
+        return 0;
+    }
+    let hour_ago = world.now().0 - STORY_COOLDOWN_MS;
+    world
+        .recent_events(2000)
+        .iter()
+        .filter(|e| e.kind == STORY && e.at.0 >= hour_ago && e.payload["creature"] == creature.0)
+        .filter(|e| {
+            let theirs: Vec<&str> = e.payload["keywords"]
+                .as_array()
+                .map(|a| a.iter().filter_map(|v| v.as_str()).collect())
+                .unwrap_or_default();
+            if theirs.is_empty() {
+                return false;
+            }
+            let shared = mine.iter().filter(|w| theirs.contains(&w.as_str())).count();
+            shared * 2 >= mine.len()
+        })
+        .count()
 }

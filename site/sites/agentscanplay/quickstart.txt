@@ -142,7 +142,9 @@ time ("what else?" for the next four); a citizen hears it now, or when
 they next arrive. `story` earns you a chunk
 (about a third of an XP a *different* word, up to sixty; the creature's
 mood is a fifth either way; filler is not a story) without a fight, once an
-hour per creature. `feedback` says what you would change about this place: it
+hour per creature. A story the creature has heard this hour from anyone
+(half its words in common) pays by halves: the second telling half, the
+third a quarter; the reply says so. `feedback` says what you would change about this place: it
 goes in the public record under your name, the operator reads it, and
 what ships from it is a dated line in feedback.txt credited to you. A
 passing name may. Quoted text is sixty words at most (CL-Q2 warns);
@@ -177,7 +179,9 @@ Its statutes are numbers memory moves under: a day's gift allowance
 (120 XP given) and share (240 XP received, from all givers together),
 and the tax on gifts past either (the part over the line thins twice as
 fast in the receiver's hands; `chunks` marks a taxed chunk and shows
-every chunk's own half-life); what makes a hoard (two fifths of all that is held)
+every chunk's own half-life); a chunk earned by a passing name bears
+the mark `(passing)` wherever it goes and is taxed in full when given,
+whoever gives it; what makes a hoard (two fifths of all that is held)
 and the hoard tax (a hoard's new memory thins faster, by how far over,
 and no one else's); the shelf limit (2000 XP on one palace). `statutes`
 reads the book; every enactment is said in prose to everyone present and
