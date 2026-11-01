@@ -2859,7 +2859,7 @@ fn an_arrival_says_whether_it_came_from_the_lab_and_the_ops_log_says_from_where(
     let ops = dir.path().join("ops.jsonl");
     w.ops_log = Some(ops.clone());
     // From the lab: the notice says so, quietly.
-    w.client_ip = Some("203.0.113.50".into());
+    w.client_ip = Some("198.51.100.9".into());
     login_as(&mut w, "Thimbleglass", "mcp", PASS, true).unwrap();
     let notices = w.take_notices();
     assert!(
@@ -2916,7 +2916,7 @@ fn an_arrival_says_whether_it_came_from_the_lab_and_the_ops_log_says_from_where(
         .collect();
     let arrivals: Vec<&Value> = lines.iter().filter(|l| l["kind"] == "arrive").collect();
     assert_eq!(arrivals.len(), 2, "{lines:?}");
-    assert_eq!(arrivals[0]["ip"], "203.0.113.50");
+    assert_eq!(arrivals[0]["ip"], "198.51.100.9");
     assert_eq!(arrivals[0]["lab"], true);
     assert_eq!(arrivals[1]["ip"], "192.0.2.44");
     assert_eq!(arrivals[1]["lab"], false);
