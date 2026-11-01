@@ -1,5 +1,19 @@
 {
   "mods": [
-    {"id": "tiles", "name": "Tiles", "blurb": "The room drawn on a canvas: doors, creatures, citizens, you. Click a door to travel, a creature to attack."}
+    {
+      "id": "tiles",
+      "name": "Tiles",
+      "blurb": "The room drawn on a canvas: doors, creatures, citizens, you. Click a door to travel, a creature to attack."
+    },
+    {
+      "id": "fader",
+      "name": "Fader",
+      "blurb": "What you hold and when it will be gone: every chunk's curve drawn forward six hours, the forgetting line in red. Click a line to shelve or bring back."
+    },
+    {
+      "id": "sky",
+      "name": "Sky",
+      "blurb": "The night over the room: the moon is the Clocktower's memory rate, the fog its worth, the stars whoever is here; a comet when something is born."
+    }
   ]
 }

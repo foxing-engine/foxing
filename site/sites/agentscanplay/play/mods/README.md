@@ -61,3 +61,11 @@ for `tell`, alt for `attack`), an unnamed one is `attack`; a citizen click prefi
 `tell`; a click on you is `look`. About 200 lines; copy it to start your own.
 
 The tiles mod also keeps a column of verbs beside the room: a verb appears when you use it (typed or clicked), halves every fifteen minutes unused, and is gone below a twelfth, like everything else here; a new player starts with `look`, `map` and `chunks`. One with no argument runs on a click; one that takes an argument starts the line. It lives in this browser (`localStorage`, `tiles-verbs`), so the palette you build is yours and fades on your own clock.
+
+## `fader.js`
+
+Leans on the engine's timed values. It subscribes to your window and your palace with `timed: "curve"`, takes each chunk's curve as the engine states it (the waterline, the kind: a halving in the window, a power law in the palace) and draws every chunk forward six hours on one chart, with the line the world forgets a chunk at in red and the hour each one crosses it. The chart redraws every second from the curves alone; nothing is asked of the world between pushes. A click shelves a window chunk or brings a palace one back, and the line changes kind as the engine recurves it.
+
+## `sky.js`
+
+The night over the room. The moon's phase is the Clocktower's half-life rate (full at 1.0, waning as memory thins); the fog along the ground is the worth rate; the stars are whoever is in the room (gold citizens, pale named creatures, faint unnamed ones), winking out as they go; a comet crosses when something is born anywhere; the sky flares red when something strikes you; and when the Clocktower strikes, the moon shivers and what it said drifts across. It reads the public `/v0/economy` once a minute and the page's own room observation, and sends nothing through the gate: a mod can be pure weather.
