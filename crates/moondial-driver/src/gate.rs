@@ -1135,6 +1135,12 @@ mod tests {
             out.summary
         );
         assert_eq!(out.result["chunks"].as_array().unwrap().len(), 120);
+        // The board counts lantern-7's lines through the Gate: two written
+        // messages of eight and one ASK lines (an ASK counts one) and the one DO.
+        let (lines, _) = crate::disremembered::board::board(&w);
+        let l = lines.iter().find(|l| l.name == "lantern-7").unwrap();
+        assert!(l.actions >= 2, "{}", l.actions);
+        assert!((l.per_action - l.holding / l.actions as f64).abs() < 1e-9);
         assert!(
             r.contains("[FACT] The world knows no citizen or named creature called nobody-here"),
             "{r}"

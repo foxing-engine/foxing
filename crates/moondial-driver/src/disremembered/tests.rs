@@ -3821,6 +3821,18 @@ fn the_board_holds_the_present_and_the_record_the_rest() {
         dave.holding
     );
     assert_eq!(lines[0].name, "tyler", "sorted by holding");
+    // The ratios: tyler holds all of what he earned (nothing faded yet, nothing
+    // spent but the dig's chunk, which was his own earning); his actions are the
+    // typed lines so far, one each.
+    assert!(
+        dave.retention > 0.0 && dave.retention < 0.5,
+        "{}",
+        dave.retention
+    );
+    // Nothing here went through the Gate (the tests call the registry), so no
+    // actions and no ratio; the gate tests count the lines.
+    assert_eq!(tyler.actions, 0);
+    assert_eq!(tyler.per_action, 0.0);
     let out = ok(&mut w, "tyler", "board", json!([]));
     assert!(
         out.summary

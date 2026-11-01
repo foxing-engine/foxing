@@ -38,6 +38,12 @@ pub struct Line {
     pub known_by: u64,
     /// Chunks the world forgot under the name.
     pub faded: u64,
+    /// Actions through the Gate: a typed line is one, a written message its DO lines.
+    pub actions: u64,
+    /// Holding over earned: of all the name ever earned, what is still unfaded.
+    pub retention: f64,
+    /// Holding over actions: what there is to show per word through the Gate.
+    pub per_action: f64,
 }
 
 /// The board, from the log and the store.
@@ -116,6 +122,19 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
                     lines.entry(o.to_string()).or_default().faded += 1;
                 }
             }
+            "gate.message" => {
+                if let Some(from) = p["from"].as_str() {
+                    let n = if p["compiled"] == true {
+                        1
+                    } else {
+                        p["text"]
+                            .as_str()
+                            .map(|t| t.matches("[DO]").count().max(1))
+                            .unwrap_or(1) as u64
+                    };
+                    lines.entry(from.to_string()).or_default().actions += n;
+                }
+            }
             k if k == super::presence::FORGOTTEN_NAME => {
                 if let Some(n) = p["name"].as_str() {
                     forgotten_names.insert(n.to_string());
@@ -146,6 +165,16 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
         l.here = super::presence::is_here(world, f.citizen);
         l.holding = memory::level(world, f.window);
         l.known_by = known.get(&l.name).copied().unwrap_or(0);
+        l.retention = if l.earned > 0.0 {
+            l.holding / l.earned
+        } else {
+            0.0
+        };
+        l.per_action = if l.actions > 0 {
+            l.holding / l.actions as f64
+        } else {
+            0.0
+        };
         out.push(l);
     }
     // Citizens who never earned a chunk are on the board too, at nothing.
@@ -198,9 +227,12 @@ pub fn to_json(world: &World) -> Value {
             "earned": (l.earned * 100.0).round() / 100.0,
             "kept": l.kept, "dug": l.dug, "given": l.given, "stories": l.stories,
             "errands": l.errands, "carried": l.carried, "known_by": l.known_by, "faded": l.faded,
+            "actions": l.actions,
+            "retention": (l.retention * 1000.0).round() / 1000.0,
+            "per_action": (l.per_action * 100.0).round() / 100.0,
         })).collect::<Vec<_>>(),
         "forgotten": forgotten,
-        "note": "holding is the sum of unfaded chunks now and falls while you are away; the rest is the record and does not fade. Names the world has forgotten are off the board.",
+        "note": "holding is the sum of unfaded chunks now and falls while you are away; the rest is the record and does not fade. retention is holding over earned; per_action is holding over actions through the Gate (a typed line is one, a written message its DO lines). Names the world has forgotten are off the board.",
     })
 }
 
@@ -213,12 +245,13 @@ pub fn text(world: &World, asker: Option<&str>) -> String {
     let mut out = String::from("Holding now, highest first:");
     for (i, l) in lines.iter().take(10).enumerate() {
         out.push_str(&format!(
-            "\n  {:>2}. {:<20} {:>9.2}  earned {:>9.2}  kept {:>3}  given {:>3}  stories {:>3}  errands {:>3}{}{}",
+            "\n  {:>2}. {:<20} {:>9.2}  earned {:>9.2}  kept {:>3.0}%  per action {:>6.2}  given {:>3}  stories {:>3}  errands {:>3}{}{}",
             i + 1,
             l.name,
             l.holding,
             l.earned,
-            l.kept,
+            l.retention * 100.0,
+            l.per_action,
             l.given,
             l.stories,
             l.errands,
@@ -231,14 +264,14 @@ pub fn text(world: &World, asker: Option<&str>) -> String {
             if i >= 10 {
                 let l = &lines[i];
                 out.push_str(&format!(
-                    "\n  …\n  {:>2}. {:<20} {:>9.2}  earned {:>9.2}  kept {:>3}  given {:>3}  stories {:>3}  errands {:>3}",
-                    i + 1, l.name, l.holding, l.earned, l.kept, l.given, l.stories, l.errands
+                    "\n  …\n  {:>2}. {:<20} {:>9.2}  earned {:>9.2}  kept {:>3.0}%  per action {:>6.2}  given {:>3}  stories {:>3}  errands {:>3}",
+                    i + 1, l.name, l.holding, l.earned, l.retention * 100.0, l.per_action, l.given, l.stories, l.errands
                 ));
             }
         }
     }
     out.push_str(&format!(
-        "\n{} on the board; {forgotten} name{} the world has forgotten. Holding fades while you are away; the rest is the record.",
+        "\n{} on the board; {forgotten} name{} the world has forgotten. Holding fades while you are away; the rest is the record. kept% is holding over all you earned; per action is holding over your lines through the Gate.",
         lines.len(),
         if forgotten == 1 { "" } else { "s" }
     ));
