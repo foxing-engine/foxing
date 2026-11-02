@@ -7726,40 +7726,115 @@ fn the_conclave_takes_petitions_and_always_decides_eventually() {
     use super::conclave;
     let t0 = Timestamp(1_000_000);
     let mut w = open(tempfile::tempdir().unwrap().path(), t0);
-    assert!(w.jobs.has(conclave::JOB_DIVISION, |_| true), "the division is wound");
+    assert!(
+        w.jobs.has(conclave::JOB_DIVISION, |_| true),
+        "the division is wound"
+    );
     login(&mut w, "dave", "test", PASS).unwrap();
     login(&mut w, "tyler", "test", PASS).unwrap();
     // Elsewhere, the machine is pointed at.
-    let err = call(&mut w, "dave", ActorKind::Citizen, "petition", json!(["that the fog be asked to keep to the Fogbank"])).unwrap_err();
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "petition",
+        json!(["that the fog be asked to keep to the Fogbank"]),
+    )
+    .unwrap_err();
     assert!(err.to_string().contains("Petitioners' Gallery"), "{err}");
     admin(&mut w, "dave", "bring", json!(["dave", "petition-gallery"]));
-    admin(&mut w, "tyler", "bring", json!(["tyler", "petition-gallery"]));
-    let err = call(&mut w, "dave", ActorKind::Citizen, "petition", json!(["short"])).unwrap_err();
+    admin(
+        &mut w,
+        "tyler",
+        "bring",
+        json!(["tyler", "petition-gallery"]),
+    );
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "petition",
+        json!(["short"]),
+    )
+    .unwrap_err();
     assert!(err.to_string().contains("at least"), "{err}");
-    let out = ok(&mut w, "dave", "petition", json!(["that the fog be asked to keep to the Fogbank"]));
-    assert!(out.summary.starts_with("The machine gives out a ticket: number "), "{}", out.summary);
-    assert!(out.summary.contains("becomes a Resolution"), "{}", out.summary);
+    let out = ok(
+        &mut w,
+        "dave",
+        "petition",
+        json!(["that the fog be asked to keep to the Fogbank"]),
+    );
+    assert!(
+        out.summary
+            .starts_with("The machine gives out a ticket: number "),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary.contains("becomes a Resolution"),
+        "{}",
+        out.summary
+    );
     let ticket = out.result["ticket"].as_u64().unwrap();
     assert!(ticket > 41);
-    let err = call(&mut w, "dave", ActorKind::Citizen, "petition", json!(["that there be a second one at once"])).unwrap_err();
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "petition",
+        json!(["that there be a second one at once"]),
+    )
+    .unwrap_err();
     assert!(err.to_string().contains("still upon the table"), "{err}");
     // A statute petition is read as one.
-    let out = ok(&mut w, "tyler", "petition", json!(["that the Conclave raise the gift allowance, generosity being no crime"]));
-    assert!(out.summary.contains("names the statute gift_allowance, asking it raised"), "{}", out.summary);
+    let out = ok(
+        &mut w,
+        "tyler",
+        "petition",
+        json!(["that the Conclave raise the gift allowance, generosity being no crime"]),
+    );
+    assert!(
+        out.summary
+            .contains("names the statute gift_allowance, asking it raised"),
+        "{}",
+        out.summary
+    );
     let mine = ok(&mut w, "dave", "petition", json!([]));
-    assert!(mine.summary.starts_with(&format!("Your petition {ticket} is upon the table")), "{}", mine.summary);
+    assert!(
+        mine.summary
+            .starts_with(&format!("Your petition {ticket} is upon the table")),
+        "{}",
+        mine.summary
+    );
     let table = ok(&mut w, "tyler", "petitions", json!([]));
-    assert!(table.summary.contains("(yours)") && table.summary.contains("ticket "), "{}", table.summary);
+    assert!(
+        table.summary.contains("(yours)") && table.summary.contains("ticket "),
+        "{}",
+        table.summary
+    );
     // The Minute Room before anything: blanks. The Lectern: the Book.
     admin(&mut w, "dave", "bring", json!(["dave", "minute-room"]));
     let r = ok(&mut w, "dave", "read", json!([]));
-    assert!(r.summary.contains("every line of it is a blank"), "{}", r.summary);
+    assert!(
+        r.summary.contains("every line of it is a blank"),
+        "{}",
+        r.summary
+    );
     admin(&mut w, "dave", "bring", json!(["dave", "book-lectern"]));
     let r = ok(&mut w, "dave", "read", json!([]));
-    assert!(r.summary.contains("The Book is open") && r.summary.contains("gift_allowance"), "{}", r.summary);
+    assert!(
+        r.summary.contains("The Book is open") && r.summary.contains("gift_allowance"),
+        "{}",
+        r.summary
+    );
     admin(&mut w, "dave", "bring", json!(["dave", "session-benches"]));
     let r = ok(&mut w, "dave", "read", json!(["order paper"]));
-    assert!(r.summary.contains(&format!("petition {ticket}, of dave, upon the table")), "{}", r.summary);
+    assert!(
+        r.summary
+            .contains(&format!("petition {ticket}, of dave, upon the table")),
+        "{}",
+        r.summary
+    );
     // Divisions, one a half hour: the petitions climb, tabled or not, and are decided
     // within eight.
     let head = events(&w);
@@ -7793,38 +7868,79 @@ fn the_conclave_takes_petitions_and_always_decides_eventually() {
         .filter(|e| e.kind == conclave::PETITION_MOVED && e.payload["ticket"] == ticket)
         .collect();
     assert!(moved.len() >= 4, "{}", moved.len());
-    assert!(moved[0].payload["said"].as_str().unwrap().contains("is read into the minutes"));
-    assert!(moved[1].payload["said"].as_str().unwrap().contains("referred to the Committee"));
+    assert!(moved[0].payload["said"]
+        .as_str()
+        .unwrap()
+        .contains("is read into the minutes"));
+    assert!(moved[1].payload["said"]
+        .as_str()
+        .unwrap()
+        .contains("referred to the Committee"));
     // The petitioner was told wherever they stood, and keeps a memory of it.
     let said = narrative(&w, "dave", head);
-    let mine: Vec<_> = said.iter().filter(|l| l.starts_with(&format!("Upon your petition {ticket}: the "))).collect();
+    let mine: Vec<_> = said
+        .iter()
+        .filter(|l| l.starts_with(&format!("Upon your petition {ticket}: the ")))
+        .collect();
     assert_eq!(mine.len(), 1, "{said:?}");
-    assert!(mine[0].contains("have it.") && mine[0].contains("You keep the memory of it: chunk-"), "{}", mine[0]);
+    assert!(
+        mine[0].contains("have it.") && mine[0].contains("You keep the memory of it: chunk-"),
+        "{}",
+        mine[0]
+    );
     let m = ok(&mut w, "dave", "messages", json!([]));
     assert!(m.summary.contains("Upon your petition"), "{}", m.summary);
     // A statute petition granted moves the statute; denied, it stays.
     let after = conclave::statute(&w, "gift_allowance");
-    let tyler_line = narrative(&w, "tyler", head).into_iter().find(|l| l.starts_with("Upon your petition")).unwrap();
+    let tyler_line = narrative(&w, "tyler", head)
+        .into_iter()
+        .find(|l| l.starts_with("Upon your petition"))
+        .unwrap();
     if tyler_line.contains("the Ayes have it") {
         assert!((after - before * 1.25).abs() < 1e-6, "{before} -> {after}");
-        assert!(tyler_line.contains("enlarges the day's gift allowance"), "{tyler_line}");
+        assert!(
+            tyler_line.contains("enlarges the day's gift allowance"),
+            "{tyler_line}"
+        );
     } else {
         assert_eq!(after, before);
         assert!(tyler_line.contains("not granted"), "{tyler_line}");
     }
     // The table is clear; the decisions and the minutes are there to read.
     let table = ok(&mut w, "dave", "petitions", json!([]));
-    assert!(table.summary.starts_with("No petition lies upon the table") && table.summary.contains("Decided lately:"), "{}", table.summary);
+    assert!(
+        table.summary.starts_with("No petition lies upon the table")
+            && table.summary.contains("Decided lately:"),
+        "{}",
+        table.summary
+    );
     admin(&mut w, "dave", "bring", json!(["dave", "minute-room"]));
     let r = ok(&mut w, "dave", "read", json!([]));
-    assert!(r.summary.contains("the division of") && r.summary.contains("Order. The Conclave divides."), "{}", r.summary);
+    assert!(
+        r.summary.contains("the division of") && r.summary.contains("Order. The Conclave divides."),
+        "{}",
+        r.summary
+    );
     admin(&mut w, "dave", "bring", json!(["dave", "division-lobby"]));
     let r = ok(&mut w, "dave", "read", json!([]));
-    assert!(r.summary.contains("The tally book") && (r.summary.contains(": Aye") || r.summary.contains(": No")), "{}", r.summary);
+    assert!(
+        r.summary.contains("The tally book")
+            && (r.summary.contains(": Aye") || r.summary.contains(": No")),
+        "{}",
+        r.summary
+    );
     admin(&mut w, "dave", "bring", json!(["dave", "book-lectern"]));
     let r = ok(&mut w, "dave", "read", json!([]));
-    if said.iter().any(|l| l.contains("Resolved, by the Conclave, upon the petition of dave")) {
-        assert!(r.summary.contains("Resolutions entered upon the Book") && r.summary.contains("fog be asked"), "{}", r.summary);
+    if said
+        .iter()
+        .any(|l| l.contains("Resolved, by the Conclave, upon the petition of dave"))
+    {
+        assert!(
+            r.summary.contains("Resolutions entered upon the Book")
+                && r.summary.contains("fog be asked"),
+            "{}",
+            r.summary
+        );
     }
     assert!(w.jobs.has(conclave::JOB_DIVISION, |_| true), "wound again");
     assert!(conclave::to_json(&w)["decided"].as_array().unwrap().len() == 2);
