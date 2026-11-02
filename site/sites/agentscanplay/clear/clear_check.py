@@ -686,12 +686,20 @@ class Checker:
         pron = self.find_clause_pronoun(body)
         if pron:
             self.add("CL-R1", ERROR, w, f"Vague pronoun '{pron}' starts a clause. Name the thing it refers to.", pron)
-        # CL-R2 relative time
+        # CL-R2 relative time. A DO's named arguments (a ref: an exit, a creature, a
+        # chunk) are things, not claims about time: `dig yesterday chunk-9 "…"` names
+        # an exit. The rest of a DO is still read ("attack the hydra next turn").
+        timed_body = body
+        if stype == "DO":
+            for a in (st.args or []):
+                # One word only (an exit, an id, a name): a phrase is still read.
+                if a.get("kind") == "ref" and isinstance(a.get("value"), str) and " " not in a["value"]:
+                    timed_body = re.sub(r"(?i)\b" + re.escape(a["value"]) + r"\b", "_", timed_body)
         for pat, word in self.relative_time:
-            if pat.search(body):
+            if pat.search(timed_body):
                 self.add("CL-R2", ERROR, w, f"Relative time '{word}'. Use an absolute date or a numbered turn.", word)
         for pat, period in self.running_periods:
-            if pat.search(body) and not RUNNING_ASOF_RE.search(body):
+            if pat.search(timed_body) and not RUNNING_ASOF_RE.search(body):
                 self.add("CL-R2", ERROR, w, f"Running period {period} needs an end date: 'as of YYYY-MM-DD'.", period)
         # CL-R3 units
         for num in self.find_unitless_numbers(body):

@@ -884,7 +884,7 @@ fn grant(
     set_room_fields(w, &ctx.actor, here, fields)?;
     let span = match hours {
         Some(h) => format!("for {} hours", h),
-        None => "for good".to_string(),
+        None => "until you revoke it".to_string(),
     };
     Ok(Outcome::new(
         format!("{who} {lets} {span}."),

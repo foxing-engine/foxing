@@ -496,7 +496,7 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
         }
         if let Some((by, with)) = taken {
             s.push_str(&format!(
-                " {by} took my {with}. I remember that it is gone, which is not the same."
+                " {by} took the memory of {with} from me. I remember that it is gone, which is not the same."
             ));
         }
         return Some(s);

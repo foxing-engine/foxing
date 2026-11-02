@@ -1377,8 +1377,32 @@ impl Checker {
                 &pron,
             );
         }
+        // A DO's named arguments (a ref: an exit, a creature, a chunk) are things, not
+        // claims about time: `dig yesterday chunk-9 "…"` names an exit, and was refused
+        // for it. The rest of a DO is still read ("attack the hydra next turn").
+        let timed_body: String = if stype == Some("DO") {
+            let mut b = body.to_string();
+            for a in &st.args {
+                // One word only (an exit, an id, a name): a phrase is still read.
+                if a.get("kind").and_then(Value::as_str) == Some("ref") {
+                    if let Some(v) = a
+                        .get("value")
+                        .and_then(Value::as_str)
+                        .filter(|v| !v.contains(' '))
+                    {
+                        if let Ok(re) = Regex::new(&format!(r"(?i)\b{}\b", fancy_regex::escape(v)))
+                        {
+                            b = re.replace_all(&b, "_").into_owned();
+                        }
+                    }
+                }
+            }
+            b
+        } else {
+            body.to_string()
+        };
         for (pat, word) in &self.relative_time {
-            if is_match(pat, body) {
+            if is_match(pat, &timed_body) {
                 add(
                     findings,
                     "CL-R2",
@@ -1390,7 +1414,7 @@ impl Checker {
             }
         }
         for (pat, period) in &self.running_periods {
-            if is_match(pat, body) && !is_match(&p.running_asof, body) {
+            if is_match(pat, &timed_body) && !is_match(&p.running_asof, body) {
                 add(
                     findings,
                     "CL-R2",

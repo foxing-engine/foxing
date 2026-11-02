@@ -111,6 +111,8 @@ pub struct Recipe {
     pub uses: u32,
     /// Made in the room, to stay: a fixture.
     pub fixed: bool,
+    /// Takes `append`ed lines from other hands (a book); else only its maker's text.
+    pub takes_lines: bool,
 }
 
 pub const RECIPES: &[Recipe] = &[
@@ -122,6 +124,7 @@ pub const RECIPES: &[Recipe] = &[
         does: "keeps the map in your memory twice as long while carried",
         uses: 0,
         fixed: false,
+        takes_lines: false,
     },
     Recipe {
         key: "charm",
@@ -131,6 +134,7 @@ pub const RECIPES: &[Recipe] = &[
         does: "makes your next fight's memory more vivid while carried, and is spent by it",
         uses: 1,
         fixed: false,
+        takes_lines: false,
     },
     Recipe {
         key: "jar",
@@ -140,6 +144,7 @@ pub const RECIPES: &[Recipe] = &[
         does: "does nothing yet; it is fog in a jar, and it keeps",
         uses: 0,
         fixed: false,
+        takes_lines: false,
     },
     Recipe {
         key: "book",
@@ -149,6 +154,7 @@ pub const RECIPES: &[Recipe] = &[
         does: "stands in a room of yours; whoever you welcome may append a line to it, and it fades unless remembered",
         uses: 0,
         fixed: true,
+        takes_lines: true,
     },
     Recipe {
         key: "plaque",
@@ -158,6 +164,7 @@ pub const RECIPES: &[Recipe] = &[
         does: "stands in a room of yours and says what you describe on it, and fades unless remembered",
         uses: 0,
         fixed: true,
+        takes_lines: false,
     },
 ];
 
@@ -410,7 +417,7 @@ pub fn fixtures_line(world: &World, room: EntityId) -> Option<String> {
             format!("{who} (item-{}{by}{open}{held}){text}", v["id"])
         })
         .collect();
-    Some(format!("Standing here: {}.", parts.join(" ")))
+    Some(format!("Standing here: {}.", parts.join("; ")))
 }
 
 /// One line for a list: "a lantern (item-12, made by Lute, 80%)".
@@ -424,8 +431,18 @@ pub fn item_line(v: &Value) -> String {
         Some(n) => format!("{n}, {}", v["name"].as_str().unwrap_or("something")),
         None => v["name"].as_str().unwrap_or("something").to_string(),
     };
+    let held = v["held"].as_f64().unwrap_or(0.0);
+    let held = if held >= 0.5 {
+        format!(", holding {held:.0}")
+    } else {
+        String::new()
+    };
+    let text = v["text"]
+        .as_str()
+        .map(|t| format!(": \"{t}\""))
+        .unwrap_or_default();
     format!(
-        "{} (item-{}{by}{})",
+        "{} (item-{}{by}{held}{}){text}",
         called,
         v["id"],
         if mem < 0.95 {
@@ -683,13 +700,13 @@ pub fn remember_into(
     Ok((source, total))
 }
 
-/// Name a thing you made, once it holds enough.
-pub fn name_object(
-    world: &mut World,
-    actor: &str,
-    item: EntityId,
-    name: &str,
-) -> Result<String, CommandError> {
+/// Whether `actor` may describe a thing (the dry run asks too).
+pub fn shape_check(world: &World, actor: &str, item: EntityId) -> Result<(), CommandError> {
+    mine_to_shape(world, actor, item)
+}
+
+/// Whether `actor` may name a thing now: theirs, and holding enough.
+pub fn name_check(world: &World, actor: &str, item: EntityId) -> Result<(), CommandError> {
     mine_to_shape(world, actor, item)?;
     let holds = held(world, item);
     if holds < NAME_AT {
@@ -699,6 +716,17 @@ pub fn name_object(
             item.0
         )));
     }
+    Ok(())
+}
+
+/// Name a thing you made, once it holds enough.
+pub fn name_object(
+    world: &mut World,
+    actor: &str,
+    item: EntityId,
+    name: &str,
+) -> Result<String, CommandError> {
+    name_check(world, actor, item)?;
     let name = super::building::check_name(name)?;
     let was = plain_str(world, item, ITEM, "given_name").map(str::to_string);
     let mut changes = BTreeMap::new();
@@ -733,14 +761,13 @@ pub fn describe_object(
     Ok(text)
 }
 
-/// Add a line to a fixture: the world's open books take any hand; another's needs the
-/// room owner's welcome (or permission, or to be the owner).
-pub fn append_object(
-    world: &mut World,
+/// Whether a line may go in a thing from this hand: a fixture that takes lines, open,
+/// or the maker's, or the room owner's welcome (the dry run asks too).
+pub fn append_check(
+    world: &World,
     ctx: &foxing_registry::CallContext,
     item: EntityId,
-    more: &str,
-) -> Result<String, CommandError> {
+) -> Result<(), CommandError> {
     if !is_fixed(world, item) {
         return Err(CommandError::precondition(format!(
             "{} is carried, not standing; only a fixture takes lines from others.",
@@ -758,8 +785,24 @@ pub fn append_object(
         .and_then(|e| e.components.get(ITEM))
         .and_then(|c| c.fields.get("open"))
         .is_some_and(|f| matches!(f, Field::Plain(Value::Bool(true))));
+    let takes_lines = RECIPES
+        .iter()
+        .find(|r| Some(r.key) == plain_str(world, item, ITEM, "origin"))
+        .is_some_and(|r| r.takes_lines);
+    if !takes_lines {
+        return Err(CommandError::precondition(format!(
+            "{} takes no lines; its maker describes it, and that is all it says.",
+            display(world, item)
+        )));
+    }
     if !open {
         let maker = plain_str(world, item, ITEM, "made_by").map(str::to_string);
+        if maker.is_none() {
+            return Err(CommandError::precondition(format!(
+                "{} is the world's own, and closed; it takes no hand.",
+                display(world, item)
+            )));
+        }
         if maker.as_deref() != Some(ctx.actor.as_str()) {
             super::building::may_append(world, ctx, room).map_err(|_| {
                 CommandError::precondition(format!(
@@ -769,6 +812,17 @@ pub fn append_object(
             })?;
         }
     }
+    Ok(())
+}
+
+/// Add a line to a fixture, signed.
+pub fn append_object(
+    world: &mut World,
+    ctx: &foxing_registry::CallContext,
+    item: EntityId,
+    more: &str,
+) -> Result<String, CommandError> {
+    append_check(world, ctx, item)?;
     let more = more.split_whitespace().collect::<Vec<_>>().join(" ");
     if more.chars().count() < 3 {
         return Err(CommandError::precondition("Add at least a few characters."));
@@ -1193,7 +1247,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     used_names.join(" and "),
                     spent.map(|c| format!(", spending chunk-{}", c.0)).unwrap_or_default(),
                     item.0,
-                    r.does.replacen("carried, ", "", 1),
+                    r.does,
                     if r.fixed { format!(" It stands here, holding {spent_worth:.0}; name it (name \"…\" item-{}) once it holds {NAME_AT:.0}, describe it, remember chunks into it so it lasts.", item.0) } else { String::new() }
                 ),
                 json!({"item": item.0, "name": r.name, "recipe": r.key, "of": used_names, "spent": spent.map(|c| c.0)}),

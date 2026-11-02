@@ -846,6 +846,12 @@ fn faded_story(world: &World, creature: EntityId, now: foxing_time::Timestamp) -
                 .read_field(e.id, super::CHUNK, "value", now)
                 .ok()?
                 .as_f64()?;
+            // A story it has only just heard is not yet "mostly forgotten": the want
+            // came back for the story told five minutes before. Fresh ones wait.
+            let size = super::plain_num(world, e.id, super::CHUNK, "size").unwrap_or(value);
+            if size > 0.0 && value / size > 0.6 {
+                return None;
+            }
             Some((value, gist.trim_end_matches('\u{2026}').to_string()))
         })
         .collect();

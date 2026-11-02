@@ -435,7 +435,9 @@ pub fn remembered_map(
             if x1 - x0 <= 15 && y1 - y0 <= 11 {
                 let mut legend: Vec<String> = Vec::new();
                 let mut grid: Vec<Vec<String>> =
-                    vec![vec!["   ".to_string(); (x1 - x0 + 1) as usize]; (y1 - y0 + 1) as usize];
+                    // Empty cells are dots, not spaces: a reply through the gate
+                    // collapses whitespace, and the grid lost its columns.
+                    vec![vec![" . ".to_string(); (x1 - x0 + 1) as usize]; (y1 - y0 + 1) as usize];
                 for (i, r) in on_floor.iter().enumerate() {
                     let (x, y) = (r["x"].as_i64().unwrap_or(0), r["y"].as_i64().unwrap_or(0));
                     let code = format!("{:02}", (i + 1) % 100);

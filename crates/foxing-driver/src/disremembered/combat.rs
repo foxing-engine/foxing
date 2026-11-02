@@ -1039,7 +1039,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     "The {cname} comes apart. You remember it: chunk-{} worth {xp:.0} XP, vividity {:.2}{}.{charm_line}{}{}",
                     chunk.0,
                     vividity,
-                    if vividity > 0.6 { " (you nearly died; this one will last)" } else { "" },
+                    if vividity > 0.6 { " (you were near death for it; this one will last)" } else { "" },
                     match &left {
                         Some((id, n)) => format!(" It leaves {n} behind (item-{}); take it.", id.0),
                         // Say when the roll missed, so a visitor can tell a missed

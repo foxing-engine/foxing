@@ -205,9 +205,26 @@ impl Report {
             out.push_str(&format!("REF: {r}\n"));
         }
         out.push('\n');
-        let shown = self.lines.len().min(MAX_REPLY_LINES);
-        for line in &self.lines[..shown] {
-            match line {
+        // Over the limit, the receipts go first (what ran, which rule): what the
+        // world said is what the sender wrote for. A room-maker's ten digs lost
+        // their last two replies to "Statement N ran dig" lines.
+        let mut keep: Vec<usize> = (0..self.lines.len()).collect();
+        if keep.len() > MAX_REPLY_LINES {
+            let over = keep.len() - MAX_REPLY_LINES;
+            let mut dropped = 0;
+            keep.retain(|i| {
+                if dropped < over && self.receipts.contains(i) {
+                    dropped += 1;
+                    false
+                } else {
+                    true
+                }
+            });
+        }
+        let omitted_receipts = self.lines.len() - keep.len();
+        let shown = keep.len().min(MAX_REPLY_LINES);
+        for &i in &keep[..shown] {
+            match &self.lines[i] {
                 Line::Fact { text, src } => {
                     out.push_str(&format!("[FACT] {} [src:{src}]\n", sentence(text)))
                 }
@@ -216,10 +233,11 @@ impl Report {
                 }
             }
         }
-        if self.lines.len() > shown {
+        let omitted = omitted_receipts + (keep.len() - shown);
+        if omitted > 0 {
             out.push_str(&format!(
-                "[FACT] The world omitted {} statements from this reply under the statement limit. [src:gate]\n",
-                self.lines.len() - shown
+                "[FACT] The world omitted {omitted} statements from this reply under the statement limit{}. [src:gate]\n",
+                if omitted_receipts > 0 { ", the receipts first" } else { "" }
             ));
         }
         out
@@ -544,6 +562,16 @@ pub fn pass(
             report.quote(line, "narrator");
         }
     }
+    // Where this message's own statements begin in the record: what they cause to be
+    // said to the sender (a creature's answer to a story) goes in this reply, not
+    // the next one. ("Every reply says 'and it answers' but never gives an answer.")
+    let began = world
+        .log
+        .head(&world.id)
+        .ok()
+        .flatten()
+        .map(|s| s.0)
+        .unwrap_or(0);
     let mut outcomes = Vec::new();
 
     // The budget is on messages written as messages, one unit each. A compiled line
@@ -666,6 +694,18 @@ pub fn pass(
         }
     }
     let acted = matches!(intent, "REQUEST" | "QUERY");
+    if matches!(via, Via::Gate | Via::Http) {
+        let said: Vec<String> = world
+            .recent_events(500)
+            .iter()
+            .filter(|e| e.seq.0 > began)
+            .filter(|e| e.kind == crate::disremembered::NARRATIVE && e.payload["to"] == actor)
+            .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
+            .collect();
+        for line in said {
+            report.quote(line, "narrator");
+        }
+    }
     finish(
         world,
         text.to_string(),

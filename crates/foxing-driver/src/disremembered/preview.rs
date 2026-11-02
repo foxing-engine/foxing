@@ -556,6 +556,66 @@ pub fn run_checked(
                         }
                     }
                 },
+                // With an object: a thing of yours, or a fixture here, under the
+                // rules the verbs keep (maker, held, open, welcomed).
+                "describe" | "name" | "append" if args.len() >= 2 && !arg(1).trim().is_empty() => {
+                    match existing.as_ref().ok_or(()).and_then(|f| {
+                        super::craft::resolve_object(world, actor, f.citizen, &arg(1))
+                            .map_err(|_| ())
+                    }) {
+                        Err(()) => (
+                            false,
+                            format!(
+                                "refused: there is no {} in your satchel or standing here",
+                                arg(1)
+                            ),
+                        ),
+                        Ok(item) => {
+                            let called = super::craft::display(world, item);
+                            match verb.as_str() {
+                                "append" => match super::craft::append_check(world, &ctx, item) {
+                                    Ok(()) => (true, format!("writes a line in {called}")),
+                                    Err(e) => (
+                                        false,
+                                        format!("refused: {}", e.to_string().trim_end_matches('.')),
+                                    ),
+                                },
+                                "name" => match super::craft::name_check(world, actor, item) {
+                                    Ok(()) => (true, format!("names {called}")),
+                                    Err(e) => (
+                                        false,
+                                        format!("refused: {}", e.to_string().trim_end_matches('.')),
+                                    ),
+                                },
+                                _ => match super::craft::shape_check(world, actor, item) {
+                                    Ok(()) => (true, format!("describes {called}")),
+                                    Err(e) => (
+                                        false,
+                                        format!("refused: {}", e.to_string().trim_end_matches('.')),
+                                    ),
+                                },
+                            }
+                        }
+                    }
+                }
+                "craft" => {
+                    let key = arg(0).trim().to_lowercase();
+                    match super::craft::RECIPES.iter().find(|r| r.key == key || r.name.trim_start_matches("a ") == key) {
+                        None => (false, format!("refused: no recipe called {key}; recipes lists them")),
+                        Some(r) if r.fixed => match room {
+                            Some(rm) if dug_names.contains_key(&rm) => (true, format!("makes {} to stand in {}, yours once dug", r.name, room_name_in(&dug_names, room))),
+                            Some(rm) => match super::building::may_edit(world, &ctx, rm) {
+                                Ok(()) if super::craft::fixtures_in(world, rm).len() >= super::craft::FIXTURES_PER_ROOM => {
+                                    (false, format!("refused: {} already holds {} fixtures", room_name_in(&dug_names, room), super::craft::FIXTURES_PER_ROOM))
+                                }
+                                Ok(()) => (true, format!("makes {} to stand in {}, if you carry what it is made of", r.name, room_name_in(&dug_names, room))),
+                                Err(_) => (false, format!("refused: {} stands in a room you may build in, and {} is not yours", r.name, room_name_in(&dug_names, room))),
+                            },
+                            None => (false, "refused: no room to stand in".into()),
+                        },
+                        Some(r) => (true, format!("makes {}, if you carry what it is made of", r.name)),
+                    }
+                }
                 "describe" | "name" | "append" | "permit" | "welcome" | "revoke" => {
                     let here_name = room_name_in(&dug_names, room);
                     match room {

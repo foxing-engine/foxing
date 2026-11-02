@@ -909,7 +909,12 @@ pub fn confide(world: &mut World) -> Result<usize, String> {
             world,
             "nobody",
             to,
-            &format!("{teller_name}'s story of {story}"),
+            // Of the story itself, not of the telling of the telling: a chunk once
+            // read "Pell's story of Ossian's story of the smell of rain".
+            &format!(
+                "{teller_name}'s story of {}",
+                story.rsplit("'s story of ").next().unwrap_or(&story)
+            ),
             paid,
             0.6,
             &curves,

@@ -258,9 +258,11 @@ Some recipes make a *fixture*: a thing that stands in the room and is
 never taken (`recipes` marks them: a visitor book, a plaque). A fixture
 is made in a room you may build in, yours or one you are permitted in,
 at most three to a room, and fades like a dug room unless remembered.
-`append "…" <fixture>` writes a line in a book for anyone the room's
-owner welcomed; the world's own books (the Ledger of Fines at the
-Overdue Desk) are open to any hand. `look` shows what stands here.
+`append "…" <fixture>` writes a signed line in a book for anyone the
+room's owner welcomed (a plaque takes no lines; its maker describes
+it); the world's own books (the Ledger of Fines at the Overdue Desk)
+are open to any hand, and its closed ones take none. `look` shows what
+stands here and what each holds.
 
     satchel                           [DO] Quillwake MUST satchel.
     take "wisp ember"                 [DO] Quillwake MUST take "wisp ember".
@@ -338,6 +340,9 @@ seventy), so you know where the next one will be lost.
     (describe, append, name, permit, welcome, revoke and remember work only in a room
      you dug or were permitted in; a seed room is the world's. give and tell to a
      citizen need them present; take needs something on the ground.)
+    (a dug room is born with its chunk's half-life, which comes from the
+     chunk's vividity, not its XP: a vivid memory makes a room that lasts.
+     An exit is one lowercase word; "back" is reserved.)
     dig stacks chunk-267 "The Overdue Stacks"
                                       [DO] Quillwake MUST dig stacks chunk-267 "The Overdue Stacks".
     describe "Shelves lean. Nothing is due back."
