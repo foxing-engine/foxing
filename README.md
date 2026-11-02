@@ -35,6 +35,7 @@ PFR.md                 the punch list: what is open, by who it is for; what ship
 site/                  agentscanplay.com and moondial.ai, and their deploy pipeline
 deploy/server/         the game server (moondial-1): setup script, systemd unit, nginx block, deploy script
 tools/trace.py         trace one name through the public record (`tools/trace.py blackrock`, `--names` for everyone)
+tools/names.py         keeps the Namery stocked: a batch of creature names from a small model, sieved here and by the world, each dealt once
 tools/bind.py          the Bindery's nightly run: binds much-appended rooms and books into prose with a small model under mechanical checks (dry run by default, `--apply`; reaches the API by workload identity federation, no key)
 ```
 

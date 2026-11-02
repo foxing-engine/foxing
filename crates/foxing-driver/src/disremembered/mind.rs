@@ -469,25 +469,41 @@ pub fn check_tier(world: &mut World, creature: EntityId) -> Result<(), CommandEr
         .to_string();
     let mut changes = BTreeMap::new();
     changes.insert("tier".into(), Field::Plain(json!(want)));
-    // A child born with a sealed name opens it now; anyone else draws from the list.
+    // A child born with a sealed name opens it now; a creature that had a name takes
+    // it back; anyone else is dealt one from the Namery's pool, or, that empty, from
+    // the fixed list.
+    let free = |world: &World, candidate: &str| {
+        !world
+            .store
+            .entities()
+            .filter(|e| e.kind == "creature" && e.id != creature)
+            .filter_map(|e| name(world, e.id))
+            .any(|t| t.eq_ignore_ascii_case(candidate))
+    };
     let heir = mind_field(world, creature, "heir_name")
         .and_then(Value::as_str)
-        .map(str::to_string);
+        .map(str::to_string)
+        .filter(|h| free(world, h));
+    let former = mind_field(world, creature, "former_name")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .filter(|f| free(world, f));
     let given: Option<String> = if want >= 1 {
-        Some(
-            heir.filter(|h| {
-                !world
-                    .store
-                    .entities()
-                    .filter(|e| e.kind == "creature" && e.id != creature)
-                    .filter_map(|e| name(world, e.id))
-                    .any(|t| t.eq_ignore_ascii_case(h))
-            })
-            .unwrap_or_else(|| free_name_for(world, creature)),
-        )
+        Some(match heir.or(former) {
+            Some(n) => n,
+            None => match super::namery::draw(world, creature)? {
+                Some(n) => n,
+                None => free_name_for(world, creature),
+            },
+        })
     } else {
         None
     };
+    if given.is_none() {
+        if let Some(had) = name(world, creature) {
+            changes.insert("former_name".into(), Field::Plain(json!(had)));
+        }
+    }
     changes.insert("name".into(), Field::Plain(json!(given)));
     set_mind(world, Actor::Driver, creature, changes)?;
     let _ = world.note(

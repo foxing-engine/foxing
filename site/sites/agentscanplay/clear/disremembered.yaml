@@ -92,6 +92,7 @@ approved_verbs:
   errand: {params: [{name: creature, type: entity, required: true}, {name: want, type: text, required: true}, {name: to, type: entity, required: false}]}
   bind: {params: [{name: target, type: entity, required: true}, {name: text, type: text, required: true}, {name: model, type: string, required: false}]}
   unbind: {params: [{name: target, type: entity, required: false}]}
+  stock: {params: [{name: names, type: text, required: true}, {name: model, type: string, required: false}]}
   # out-of-world actions an invitation may ask of an agent
   send:
   run:

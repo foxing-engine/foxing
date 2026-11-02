@@ -6187,3 +6187,135 @@ fn the_bindery_folds_scraps_into_a_sheaf_and_binds_what_was_appended() {
     assert_eq!(bound.len(), 3, "{bound:?}");
     let _ = craft::FIXTURES_PER_ROOM;
 }
+
+#[test]
+fn the_namery_deals_each_stocked_name_once_and_a_creature_takes_its_former_name_back() {
+    use super::namery;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    for who in ["dave", "tyler"] {
+        ok(&mut w, who, "travel", json!(["east"]));
+        ok(&mut w, who, "travel", json!(["south"]));
+    }
+    // Stocking is the operator's; the checks say back what they refuse and why.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "stock",
+        json!(["Gloam, Pennywort"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("may not call"), "{err}");
+    let out = admin(
+        &mut w,
+        "dave",
+        "stock",
+        json!(["Gloam, Pennywort, wisp, Hesper, dave, Midden, attack, Ab, gloam, Tallow-wick, Abcdefghijklm, Gloam", "haiku"]),
+    );
+    assert_eq!(
+        out.result["added"],
+        json!(["Gloam", "Pennywort"]),
+        "{}",
+        out.summary
+    );
+    let refused: Vec<(String, String)> = out.result["refused"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| {
+            (
+                r["name"].as_str().unwrap().to_string(),
+                r["why"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        refused,
+        vec![
+            ("wisp".into(), "one capitalized word of letters".into()),
+            ("Hesper".into(), "the world has it".into()),
+            ("dave".into(), "one capitalized word of letters".into()),
+            ("Midden".into(), "the world has it".into()),
+            ("attack".into(), "one capitalized word of letters".into()),
+            ("Ab".into(), "3 to 12 letters".into()),
+            ("gloam".into(), "twice in the list".into()),
+            (
+                "Tallow-wick".into(),
+                "one capitalized word of letters".into()
+            ),
+            ("Abcdefghijklm".into(), "3 to 12 letters".into()),
+            ("Gloam".into(), "twice in the list".into()),
+        ]
+    );
+    assert!(
+        out.summary
+            .starts_with("The Namery took in 2 names; 2 unused now. Refused 10:"),
+        "{}",
+        out.summary
+    );
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Admin,
+        "stock",
+        json!(["Attack, Hesper"]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(
+        err.contains("Nothing to stock: Attack (a verb), Hesper (the world has it)"),
+        "{err}"
+    );
+    assert_eq!(namery::report(&w)["unused"], json!(2));
+    assert!(namery::report(&w)["low"].as_bool().unwrap());
+    // The ragpicker earns its name: the first of the pool, drawn once.
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    assert_eq!(mind::name(&w, rag).as_deref(), Some("Gloam"));
+    assert_eq!(namery::pool(&w), vec!["Pennywort".to_string()]);
+    assert_eq!(namery::used(&w)[0]["creature"], json!(rag.0));
+    // Robbed below half the bar, it loses the name; fed again it takes the same one
+    // back, and Pennywort stays in the pool for the next.
+    let window = mind::window_of(&w, rag).unwrap();
+    for e in w
+        .store
+        .children(window)
+        .filter(|e| e.kind == "chunk")
+        .map(|e| e.id)
+        .collect::<Vec<_>>()
+    {
+        w.record(
+            foxing_log::Actor::Driver,
+            foxing_store::StoreEvent::EntityRemoved { id: e },
+        )
+        .unwrap();
+    }
+    mind::check_tier(&mut w, rag).unwrap();
+    assert_eq!(mind::name(&w, rag), None);
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    assert_eq!(
+        mind::name(&w, rag).as_deref(),
+        Some("Gloam"),
+        "its former name"
+    );
+    assert_eq!(namery::pool(&w), vec!["Pennywort".to_string()]);
+    // Stocked names are the record's.
+    let stocked: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == namery::STOCKED)
+        .collect();
+    assert_eq!(stocked.len(), 1);
+    assert_eq!(stocked[0].payload["names"], json!(["Gloam", "Pennywort"]));
+    assert_eq!(stocked[0].payload["model"], json!("haiku"));
+}

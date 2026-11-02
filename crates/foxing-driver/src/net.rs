@@ -602,6 +602,19 @@ async fn conclave(State(s): State<Shared>) -> Reply {
 }
 
 /// The Bindery's candidates, for the operator's tool: admin only.
+/// `GET /v0/namery` (admin): the pool of names, what was drawn, what the world
+/// already uses; for the tool that stocks it.
+async fn namery(State(s): State<Shared>, headers: HeaderMap) -> Reply {
+    if !s.is_admin(admin_header(&headers)) {
+        return Err(err_json(
+            StatusCode::FORBIDDEN,
+            "the Namery's book is the operator's",
+        ));
+    }
+    let w = lock(&s)?;
+    Ok(Json(crate::disremembered::namery::report(&w)))
+}
+
 async fn bindery(State(s): State<Shared>, headers: HeaderMap) -> Reply {
     if !s.is_admin(admin_header(&headers)) {
         return Err(err_json(
@@ -1124,6 +1137,7 @@ pub fn router(shared: Shared) -> Router {
         .route("/v0/economy", get(economy))
         .route("/v0/conclave", get(conclave))
         .route("/v0/bindery", get(bindery))
+        .route("/v0/namery", get(namery))
         .route("/v0/citizens", get(citizens))
         .route("/v0/openapi.json", get(openapi))
         .route(

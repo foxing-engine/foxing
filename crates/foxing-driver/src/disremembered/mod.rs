@@ -23,6 +23,7 @@ mod identity;
 pub mod kindle;
 pub mod memory;
 pub mod mind;
+pub mod namery;
 pub mod presence;
 pub mod preview;
 pub mod rooms;
@@ -282,7 +283,14 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("kept", FieldKind::Plain, Visibility::Public)
             .field("shaken_until", FieldKind::Plain, Visibility::Public)
             // A child's sealed name, opened when it earns a name.
-            .field("heir_name", FieldKind::Plain, Visibility::Public),
+            .field("heir_name", FieldKind::Plain, Visibility::Public)
+            // The name it had before it lost its tier: taken back when earned again.
+            .field("former_name", FieldKind::Plain, Visibility::Public),
+        // The Namery: the pool of names not yet dealt, what was drawn, the stockings.
+        ComponentSchema::new(namery::NAMERY, 1)
+            .field("pool", FieldKind::Plain, Visibility::Admin)
+            .field("used", FieldKind::Plain, Visibility::Public)
+            .field("stockings", FieldKind::Plain, Visibility::Public),
         // Whether a citizen is here, and how well the room remembers them once gone.
         ComponentSchema::new(presence::PRESENCE, 1)
             .field("here", FieldKind::Plain, Visibility::Public)
@@ -589,6 +597,7 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     building::reframe_all(world)?;
     economy::ensure(world)?;
     conclave::ensure(world)?;
+    namery::ensure(world)?;
     board::ensure(world)?;
     mind::ensure_wander(world)
 }
@@ -1073,6 +1082,7 @@ pub fn register(world: &mut World, curves: Curves) {
     cloak::register(world);
     building::register(world, curves.clone());
     bindery::register(world, curves.clone());
+    namery::register(world);
     system::register(world);
 }
 

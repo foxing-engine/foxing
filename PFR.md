@@ -105,6 +105,22 @@ figures on the canvas that answer to a click.
   more fixture recipes as the crafting round comes (a lamp that lights a room's
   text, a bell, a basin), a `read <object>` for long texts, fixtures in the tiles mod,
   and the Parlor's and Footnote Room's owners told they can make their books real.
+- The Namery (shipped 2026-11-02, the owner's ask: distinct creature names from Haiku,
+  listed and cached locally). The world began with thirty-two names dealt by hash and
+  would have handed out `Hesper-412` once they ran short. Now a pool, durable in the
+  log: `tools/names.py` runs after the Bindery nightly, reads `GET /v0/namery` (the
+  pool, everything ever drawn, everything the world already uses: creature names and
+  kinds, citizens, rooms, the fixed list, verbs), and when the pool is under thirty
+  asks the model for sixty in the world's register (old words, bookbinding, candle
+  and map words, small hours; nothing cute, grand, famous or everyday), sieves them
+  (one capitalized word of 3 to 12 ASCII letters, not in use, not offered before, not
+  an everyday noun) and `stock`s the rest; the world sieves again and says back what
+  it refused. Each name is dealt once, to the next creature earning its first tier,
+  and goes to the used list with the creature and the time; a creature that loses its
+  name takes its former one back when it earns a name again; the pool empty, the
+  fixed list serves. Public record `disremembered.stocked`. Next: hybrid names
+  (kindle's syllables) from the pool too; a name's provenance shown on `look` ("named
+  by the Namery, the fourth of its stocking"); the Namery's room.
 - The Bindery (shipped 2026-11-02, the owner's ask: semantic consolidation for rooms,
   creatures and fixtures with many appends, run unattended on a Haiku-class model).
   Two halves. In the engine, deterministic: a creature's story chunks faded below a
