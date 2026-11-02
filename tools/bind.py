@@ -235,7 +235,12 @@ def ask_model(creds, system, user, max_tokens=700):
     except urllib.error.HTTPError as e:
         # The API says why in the body; without it a 400 is a riddle.
         raise RuntimeError(f"HTTP {e.code} from the Messages API: {e.read()[:400].decode(errors='replace')}") from None
-    return "".join(c.get("text", "") for c in d.get("content", []) if c.get("type") == "text").strip()
+    text = "".join(c.get("text", "") for c in d.get("content", []) if c.get("type") == "text").strip()
+    if len(text) < 20:
+        # An empty answer is news: say how the model stopped and what blocks it sent.
+        kinds = [c.get("type") for c in d.get("content", [])]
+        log(f"    the model sent {text!r}; stop_reason={d.get('stop_reason')!r}, blocks={kinds}, usage={d.get('usage')}")
+    return text
 
 
 def words(text):
@@ -383,6 +388,7 @@ def main():
                 result = binding
                 break
             log(f"{cand['target']} ({name}) attempt {attempt}: " + "; ".join(fails))
+            log("    it proposed: " + binding[:400].replace("\n", " / "))
         record = {"target": cand["target"], "kind": kind, "name": name, "before": cand["text"], "after": result, "applied": False}
         if result is None:
             skipped.append(name)
