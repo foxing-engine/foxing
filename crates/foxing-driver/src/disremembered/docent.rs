@@ -419,9 +419,10 @@ pub fn ask(
             .iter()
             .any(|a| a["at"].as_i64().is_some_and(|t| now - t < 10 * 60_000));
         if tried_lately {
-            return Err(CommandError::precondition(
-                "The Docent shakes its head: \"The catalog is closed tonight; no one is at the desk to find your page. `help` has what I keep by heart; the room knows the rest. Ask me tomorrow.\"",
-            ));
+            // Said as the Docent's own words, kept in `messages` like its answers.
+            let line = "The Docent shakes its head: \"The catalog is closed tonight; no one is at the desk to find your page. `help` has what I keep by heart; the room knows the rest. Ask me again in an hour, or tomorrow.\"";
+            super::combat::narrate(world, actor, line);
+            return Ok((line.to_string(), 0));
         }
     }
     let (all, mine) = taken_this_hour(world, actor);

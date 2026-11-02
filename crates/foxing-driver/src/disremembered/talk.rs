@@ -88,6 +88,12 @@ pub fn register(world: &mut World) {
                     ));
                 }
                 let (line, id) = super::docent::ask(w, &ctx.actor, room, &text)?;
+                if id == 0 {
+                    return Ok(Outcome::new(
+                        format!("You ask the Docent, \"{text}\" {line}"),
+                        json!({"to": "the Docent", "text": text, "asked": Value::Null, "closed": true}),
+                    ));
+                }
                 for other in others_here(w, room, &ctx.actor) {
                     narrate(w, &other, format!("{} asks the Docent something; it nods.", ctx.actor));
                 }

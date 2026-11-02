@@ -161,7 +161,19 @@ async fn run(socket: WebSocket, s: Shared) {
                         let logged_in: Result<(bool, u64), String> = {
                             let Ok(mut w) = s.world.lock() else { continue };
                             let before = w.log.head(&w.id).ok().flatten().map(|x| x.0).unwrap_or(0);
-                            crate::net::login_for_session(&mut w, &name, &passphrase).map(|fresh| (fresh, before))
+                            crate::net::login_for_session(&mut w, &name, &passphrase).map(|fresh| {
+                                // The page logs in over HTTP first, and the arrival (with the
+                                // Docent's greeting) was spoken then: start from just before
+                                // the name's latest arrival if it was within the minute.
+                                let now = w.now();
+                                let arrived = w
+                                    .recent_events(400)
+                                    .iter()
+                                    .rev()
+                                    .find(|e| e.kind == crate::world::ARRIVED && e.payload["actor"] == name.as_str() && now.since(e.at).0 < 60_000)
+                                    .map(|e| e.seq.0.saturating_sub(1));
+                                (fresh, arrived.map_or(before, |a| a.min(before)))
+                            })
                         };
                         let (fresh, head) = match logged_in {
                             Ok(v) => v,

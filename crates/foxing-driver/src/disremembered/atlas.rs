@@ -538,10 +538,33 @@ pub fn way(
     to: EntityId,
     half_life_ms: f64,
 ) -> Option<Vec<String>> {
+    let known = known_rooms(world, citizen, half_life_ms);
+    way_over(world, from, to, Some(&known))
+}
+
+/// The way over the world's own rooms (the seed rooms), remembered or not: what a
+/// sign at the door would say. Dug rooms are not on it; they are found by walking.
+pub fn way_seeded(world: &World, from: EntityId, to: EntityId) -> Option<Vec<String>> {
+    let seeded: std::collections::HashSet<EntityId> = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "room" && e.owner.is_none())
+        .map(|e| e.id)
+        .collect();
+    way_over(world, from, to, Some(&seeded))
+}
+
+fn way_over(
+    world: &World,
+    from: EntityId,
+    to: EntityId,
+    known: Option<&std::collections::HashSet<EntityId>>,
+) -> Option<Vec<String>> {
     if from == to {
         return Some(vec![]);
     }
-    let known = known_rooms(world, citizen, half_life_ms);
+    let empty = std::collections::HashSet::new();
+    let known = known.unwrap_or(&empty);
     let mut prev: std::collections::HashMap<EntityId, (EntityId, String)> =
         std::collections::HashMap::new();
     let mut queue = std::collections::VecDeque::from([from]);
@@ -639,15 +662,21 @@ pub fn register(world: &mut World, curves: Curves) {
             let path = way(w, f.citizen, here, room, hl);
             // A room asked for by name is not "in" itself.
             let is_room = what == name;
-            let said = match &path {
-                Some(p) if p.is_empty() && is_room => format!("{name} is where you stand."),
-                Some(p) if p.is_empty() => format!("{what} is here, in {name}."),
-                Some(p) if is_room => format!("{name}: the way from here, as you remember it, is {}.", said_way(p)),
-                Some(p) => format!("{what} is in {name}; the way from here, as you remember it: {}.", said_way(p)),
-                None if is_room => format!("{name}: you remember no way there from here. Walk, and `map` fills in."),
-                None => format!("{what} is in {name}, but you remember no way there from here. Walk, and `map` fills in."),
+            // A seed room you have not walked to: the world's own rooms are signed, so
+            // the way over them is said (the way as you remember it, when you have one).
+            let signed = if path.is_none() && w.store.entity(room).is_some_and(|e| e.owner.is_none()) { way_seeded(w, here, room) } else { None };
+            let said = match (&path, &signed) {
+                (Some(p), _) if p.is_empty() && is_room => format!("{name} is where you stand."),
+                (Some(p), _) if p.is_empty() => format!("{what} is here, in {name}."),
+                (Some(p), _) if is_room => format!("{name}: the way from here, as you remember it, is {}.", said_way(p)),
+                (Some(p), _) => format!("{what} is in {name}; the way from here, as you remember it: {}.", said_way(p)),
+                (None, Some(p)) if is_room => format!("{name}: you have not walked it, but the signs say {}.", said_way(p)),
+                (None, Some(p)) => format!("{what} is in {name}; you have not walked it, but the signs say {}.", said_way(p)),
+                (None, None) if is_room => format!("{name}: you remember no way there from here. Walk, and `map` fills in."),
+                (None, None) => format!("{what} is in {name}, but you remember no way there from here. Walk, and `map` fills in."),
             };
-            Ok(Outcome::new(said, json!({"who": what, "room": room.0, "room_name": name, "way": path})))
+            let way_said = path.clone().or(signed);
+            Ok(Outcome::new(said, json!({"who": what, "room": room.0, "room_name": name, "way": way_said, "signed": path.is_none() && way_said.is_some()})))
         }),
     );
 

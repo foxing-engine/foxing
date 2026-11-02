@@ -578,11 +578,23 @@ pub fn register(world: &mut World, curves: super::Curves) {
                 let before = super::mind::display(w, creature);
                 let (source, level) = super::mind::give(w, ctx.actor.as_str(), chunk, creature)?;
                 let after = super::mind::display(w, creature);
-                let next = super::mind::TIERS
-                    .iter()
-                    .find(|(_, bar, _)| level < *bar)
-                    .map(|(_, bar, what)| format!(" At {bar:.0} it would be {what}."))
-                    .unwrap_or_default();
+                // What the level means next: a name at sixty for the unnamed; for a
+                // named one, whether its name is failing (a named Vellic at 58 was told
+                // "at 60 it would be named").
+                let named = super::mind::name(w, creature).is_some();
+                let next = if named {
+                    if level < super::mind::FAILING_BELOW {
+                        format!(" Its name is failing under {:.0}; what it holds halves like any memory, so keep feeding it.", super::mind::FAILING_BELOW)
+                    } else {
+                        String::new()
+                    }
+                } else {
+                    super::mind::TIERS
+                        .iter()
+                        .find(|(_, bar, _)| level < *bar)
+                        .map(|(_, bar, what)| format!(" At {bar:.0} it would be {what}."))
+                        .unwrap_or_default()
+                };
                 w.notice(format!(
                     "**{}** gave the memory of {source} to **{after}**, which holds {level:.0}.",
                     ctx.actor

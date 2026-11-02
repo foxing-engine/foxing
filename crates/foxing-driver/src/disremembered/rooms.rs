@@ -863,7 +863,11 @@ pub fn describe(
                 };
                 // What it keeps of you, and what it learned from a kill.
                 let cid = EntityId(c["id"].as_u64().unwrap_or(0));
-                let yours = if super::death::holds_fall_of(world, cid, actor) {
+                // "one of them yours" only while it holds anything: a revenant at
+                // "holding 0, one of them yours" was a contradiction.
+                let yours = if super::death::holds_fall_of(world, cid, actor)
+                    && c["mind"]["level"].as_f64().unwrap_or(0.0) >= 0.5
+                {
                     ", one of them yours"
                 } else {
                     ""

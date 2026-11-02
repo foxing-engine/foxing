@@ -472,6 +472,16 @@
     form { gap: 6px; }
     #in { font-size: 16px; } /* iOS zooms into inputs under 16px */
     #b-pass, #b-save { display: none; }
+    /* Menus open under their button, not off the left edge; the lane is one row you
+       scroll; the strip is the step alone; the small controls are thumb-sized. */
+    #panels-menu, #settings-menu { left: 0; right: auto; max-width: calc(100vw - 28px); }
+    #lane { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 5px 14px 4px; }
+    #lane::-webkit-scrollbar { display: none; }
+    #first li.now .why { display: none; }
+    #first .fh-head button, #split button, #b-help { min-height: 32px; min-width: 32px; padding: 4px 10px; }
+    #split { height: 26px; }
+    #atlas-zoom button { width: 32px; height: 32px; font-size: 16px; }
+    #verbbar { position: relative; mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
   }
 </style>
 </head>
@@ -939,6 +949,7 @@
     for (const id of ["b-pass", "b-save", "b-leave"]) $(id).hidden = true;
     $("greet").replaceChildren(); $("quiet").textContent = ""; $("owner").replaceChildren();
     $("inbox").replaceChildren(); unread = 0; $("unread").textContent = "";
+    lane.reset();
     emit("logout");
   }
 
@@ -1093,8 +1104,9 @@
       state[id] = Object.assign({}, state[id] || {}, patch);
       for (const k of Object.keys(state[id])) if (state[id][k] == null) delete state[id][k];
       save(); apply();
-      // Hidden by the layout wins; shown by the layout lets the page decide.
-      const sec = byId(id); if (sec && !state[id].hidden && sec.classList.contains("user-hidden") === false && sec.dataset.pageHidden !== "1") sec.hidden = false;
+      // Hidden by the layout wins; shown by the layout wins too, over a mod that hid
+      // the panel (on a phone the picture hid the exits and nothing could show them).
+      const sec = byId(id); if (sec && !state[id].hidden && sec.classList.contains("user-hidden") === false) { sec.dataset.pageHidden = "0"; sec.hidden = false; }
     }
     function reset() { state = { _v: VERSION }; save(); for (const sec of sections()) { sec.classList.remove("user-hidden"); if (sec.dataset.pageHidden !== "1") sec.hidden = false; } apply(); }
     function panels() { return sections().map(sec => ({ id: sec.dataset.panel, title: sec.querySelector("h2") ? sec.querySelector("h2").firstChild.textContent.trim() : (TITLES[sec.dataset.panel] || sec.dataset.panel), hidden: !!(state[sec.dataset.panel] || {}).hidden, width: Math.round(sec.getBoundingClientRect().width), order: (state[sec.dataset.panel] || {}).order })); }
@@ -1230,7 +1242,7 @@
       n.textContent = r.name + " the " + r.kind + " · " + (r.room_name || "?");
       n.append(waySpan(r.way));
       const wants = [];
-      if (r.story) wants.push("a story about " + r.story + " (×2)");
+      if (r.story) wants.push("a story about " + r.story + (r.told_this_hour ? " (you told it one this hour)" : " (×2)"));
       if (r.word) wants.push("word to " + r.word_to + ": “" + r.word + "”");
       const sub = document.createElement("span"); sub.className = "sub want"; sub.textContent = wants.join("; ") + (r.knows_you ? " · knows you" : "");
       n.append(sub); row.append(n);
@@ -1587,7 +1599,12 @@
     const add = (label, fill, plain) => {
       if (labels.has(label)) return; labels.add(label);
       const b = document.createElement("button"); b.type = "button"; b.textContent = label; if (plain) b.className = "plain";
-      b.title = fill; b.addEventListener("click", () => prefill(fill)); bar.append(b);
+      // A whole line runs on the tap; one that wants words (a trailing quote, a
+      // placeholder) goes to the prompt for them.
+      const whole = !/["<]/.test(fill) && !/\s$/.test(fill) && !/^remember /.test(fill);
+      b.title = whole ? fill + " (runs)" : fill;
+      b.addEventListener("click", () => { if (whole) { print(fill, "you"); chain = chain.then(() => run(fill.split(/\s+/)[0], fill.split(/\s+/).slice(1))); } else prefill(fill); });
+      bar.append(b);
     };
     const me = subs.me && subs.me.root && subs.me.root.components["disremembered.body"];
     const hp = me && timed(me.hp), max = me && me.max_hp;
@@ -1615,6 +1632,10 @@
       } else if (n.kind === "docent") {
         add("ask the Docent", 'tell docent "');
       }
+    }
+    // On a phone the exits are buttons too: the picture's doors are small to tap.
+    if (window.matchMedia && window.matchMedia("(max-width: 680px)").matches) {
+      for (const ex of (room.relations && room.relations.exits) || []) add("\u2192 " + ex.via, "travel " + ex.via, true);
     }
     const rc = room.components["disremembered.room"] || {};
     if (best && rc.memory != null) add("remember here", "remember chunk-" + best.id);
@@ -1653,7 +1674,12 @@
         const target = pick ? ((pick.components["disremembered.mind"] && pick.components["disremembered.mind"].name) || pick.components["disremembered.creature"].name) : "wisp";
         return "remember " + id + " " + target;
       }
-      if (step.id === "dig") return "dig nook " + id + ' "';
+      if (step.id === "dig") {
+        // An exit name this room does not have yet (the Threshold has a nook already).
+        const exits = ((subs.room && subs.room.root && subs.room.root.relations && subs.room.root.relations.exits) || []).map(ex => ex.via.toLowerCase());
+        const name = ["nook", "alcove", "cranny", "niche", "cubby", "shelf", "closet"].find(n => !exits.includes(n)) || "nook";
+        return "dig " + name + " " + id + ' "';
+      }
       if (step.id === "story") return "story " + (named || "<named creature>") + ' "';
       return step.line;
     }
@@ -1970,7 +1996,8 @@
       }
       el.replaceChildren(frag); el.hidden = false;
     }
-    return { render };
+    function reset() { for (const k of Object.keys(last)) delete last[k]; for (const k of Object.keys(moved)) delete moved[k]; el.hidden = true; }
+    return { render, reset };
   })();
   // Timed values move between pushes; redraw a few times a second while the scene shows.
   setInterval(() => { if (actor && (subs.me || subs.window)) { draw(); firstHours.render(); lane.render(); } }, 250);
@@ -2028,7 +2055,13 @@
       return;
     }
     if (verb === "help" && !rest.length) { await help(); return; }
+    // A query is one argument, spaces and all (the words were split at the first space).
+    if (verb === "observe" && actor && rest.length) { await run("observe", [rest.join(" ")]); return; }
     if (t === "?") { showHelp(); firstHours.unhide(); return; }
+    // The object first, as a typist puts it (`append ledger "a line"`): the world
+    // wants the text first and the thing after.
+    const swapped = /^(append|describe|name)\s+([^"]+?)\s+"(.*)"\.?$/.exec(t);
+    if (swapped && actor) { print("(" + swapped[1] + ' "' + swapped[3] + '" ' + swapped[2] + ")", "sys"); await run(swapped[1], ['"' + swapped[3] + '"', swapped[2]]); return; }
     // What a MUD player types, in the world's words.
     const alias = ALIASES[verb.toLowerCase()];
     if (alias) {
@@ -2548,7 +2581,13 @@
     // The threshold first: an empty scene is nothing to look at. The scene opens on
     // arrival unless you folded it yourself last time.
     main.classList.add("collapsed"); fold.textContent = "scene ▸";
-    on_("login", () => { let folded = false; try { folded = localStorage.getItem("disremembered.sceneFolded") === "1"; } catch (e) {} setFolded(folded); });
+    on_("login", () => {
+      // On a phone the transcript is the game: the scene starts folded unless you
+      // unfolded it last time.
+      const phone = window.matchMedia && window.matchMedia("(max-width: 680px)").matches;
+      let folded = phone; try { const v = localStorage.getItem("disremembered.sceneFolded"); if (v !== null) folded = v === "1"; } catch (e) {}
+      setFolded(folded);
+    });
     on_("logout", () => { main.classList.add("collapsed"); fold.textContent = "scene ▸"; });
     fold.addEventListener("click", (e) => { e.stopPropagation(); setFolded(!main.classList.contains("collapsed")); });
     let drag = null;

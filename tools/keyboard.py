@@ -49,10 +49,10 @@ def serve_site(site, port):
 
 
 class Keyboard:
-    def __init__(self, site_port, api):
+    def __init__(self, site_port, api, width=1400, height=900, phone=False):
         self.p = sync_playwright().start()
         self.browser = self.p.chromium.launch(args=["--disable-web-security", "--autoplay-policy=no-user-gesture-required"])
-        self.ctx = self.browser.new_context(viewport={"width": 1400, "height": 900})
+        self.ctx = self.browser.new_context(viewport={"width": width, "height": height}, device_scale_factor=2 if phone else 1, is_mobile=phone, has_touch=phone)
         self.page = self.ctx.new_page()
         self.errors = []
         self.page.on("pageerror", lambda e: self.errors.append(str(e)))
@@ -107,6 +107,8 @@ class Keyboard:
             },
             "scene_folded": j("document.getElementById('main').classList.contains('collapsed')"),
             "atlas_view": j("window.foxing && foxing.map ? foxing.map.view() : null"),
+            "lane": j("document.getElementById('lane') ? document.getElementById('lane').innerText.replace(/\\n/g, ' | ') : ''"),
+            "inbox": j("Array.from(document.querySelectorAll('#inbox .msg')).slice(0, 6).map(m => m.innerText)"),
             "page_errors": self.errors[-3:],
         }
 
@@ -172,12 +174,13 @@ def main():
     s.add_argument("--site", default=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "site", "sites", "agentscanplay"))
     s.add_argument("--api", default="https://play.agentscanplay.com")
     s.add_argument("--shots", default=os.environ.get("KEYBOARD_SHOTS", "/tmp"))
+    s.add_argument("--phone", action="store_true", help="a 390x844 phone viewport with touch")
     a = ap.parse_args()
     if a.cmd != "serve":
         ap.print_help()
         return 1
     serve_site(a.site, a.site_port)
-    kb = Keyboard(a.site_port, a.api)
+    kb = Keyboard(a.site_port, a.api, 390 if a.phone else 1400, 844 if a.phone else 900, a.phone)
 
     class H(http.server.BaseHTTPRequestHandler):
         def log_message(self, *x):

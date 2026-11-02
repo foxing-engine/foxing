@@ -6637,7 +6637,28 @@ fn where_finds_a_way_you_remember_and_travel_takes_a_room_name() {
     assert!(out.result["onward"].is_null());
     // help is a verb now, a read.
     let out = ok(&mut w, "dave", "help", json!([]));
-    assert!(out.summary.starts_with("Commands:"), "{}", out.summary);
+    assert!(
+        out.summary.starts_with("Verbs, by what they do"),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary.contains("talk: say, tell, story"),
+        "{}",
+        out.summary
+    );
+    // One verb, with its arguments.
+    let one = ok(&mut w, "dave", "help", json!(["dig"]));
+    assert!(
+        one.summary.starts_with("dig <exit> <chunk> [name]"),
+        "{}",
+        one.summary
+    );
+    assert!(one.summary.contains("<exit> (string):"), "{}", one.summary);
+    // A seed room not yet walked to: the signed way.
+    let far = ok(&mut w, "dave", "where", json!(["The Overdue Desk"]));
+    assert!(far.summary.contains("the signs say"), "{}", far.summary);
+    assert_eq!(far.result["signed"], true);
     assert!(out.result["commands"]
         .as_array()
         .unwrap()

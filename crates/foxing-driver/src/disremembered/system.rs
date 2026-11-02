@@ -622,8 +622,33 @@ pub fn register(world: &mut World) {
                     );
                     return Ok(Outcome::new(text, json!({"verb": spec.verb(), "params": spec.params.iter().map(|p| json!({"name": p.name, "required": p.required, "description": p.description})).collect::<Vec<_>>()})));
                 }
-                let text = crate::net::help_text(w, ctx.kind);
-                Ok(Outcome::new(text, json!({"commands": w.commands_for(ctx.kind).iter().map(|c| c.verb().to_string()).collect::<Vec<_>>()})))
+                // Short, so a gate reply carries it whole (the long form ran past the
+                // statement limit and lost story, tell, travel and wants to "omitted").
+                let verbs: Vec<String> = w.commands_for(ctx.kind).iter().map(|c| c.verb().to_string()).collect();
+                const GROUPS: &[(&str, &[&str])] = &[
+                    ("read", &["look", "map", "where", "wants", "mine", "chunks", "satchel", "recipes", "board", "time", "statutes", "palace", "session", "messages", "log", "help", "commands", "check"]),
+                    ("move", &["travel", "retreat", "rest"]),
+                    ("fight", &["attack"]),
+                    ("remember", &["remember", "shelve", "reminisce", "give", "take", "drop", "craft"]),
+                    ("talk", &["say", "tell", "story", "greet", "feedback"]),
+                    ("build", &["dig", "describe", "append", "name", "permit", "welcome", "revoke", "read", "unbind"]),
+                    ("the name", &["keep", "leave", "pto", "resume"]),
+                ];
+                let mut lines: Vec<String> = Vec::new();
+                let mut placed: Vec<String> = Vec::new();
+                for (group, list) in GROUPS {
+                    let have: Vec<&str> = list.iter().copied().filter(|v| verbs.iter().any(|x| x == v)).collect();
+                    if !have.is_empty() {
+                        lines.push(format!("{group}: {}", have.join(", ")));
+                        placed.extend(have.iter().map(|v| v.to_string()));
+                    }
+                }
+                let rest: Vec<&str> = verbs.iter().map(String::as_str).filter(|v| !placed.iter().any(|p| p == v)).collect();
+                if !rest.is_empty() {
+                    lines.push(format!("other: {}", rest.join(", ")));
+                }
+                let text = format!("Verbs, by what they do (`help <verb>` for one, with its arguments; `?` on the play page for a worked line each):\n{}", lines.join("\n"));
+                Ok(Outcome::new(text, json!({"commands": verbs})))
             }),
         );
     }
@@ -693,9 +718,22 @@ pub fn register(world: &mut World) {
             let mine_paused = w.store.clock(&account_scope(&ctx.actor)).is_some_and(|c| c.is_paused_at(now));
             let up = now.since(w.started).0 / 1000;
             let rates = super::economy::rates(w);
+            // The hour, as a clock says it (UTC), and the next strike, on the hour.
+            let secs = now.0.div_euclid(1000);
+            let (h, m) = ((secs.rem_euclid(86_400)) / 3600, (secs.rem_euclid(3600)) / 60);
+            let next = w
+                .jobs
+                .pending()
+                .filter(|j| j.kind == super::economy::JOB_CLOCKTOWER)
+                .map(|j| j.due.0)
+                .min()
+                .map(|d| format!(" The Clocktower strikes in {}.", super::combat::human((d - now.0).max(0))))
+                .unwrap_or_default();
             Ok(Outcome::new(
                 format!(
-                    "t={} world {} · your clock {} · driver up {}s · the Clocktower's rates: {} · {}",
+                    "{:02}:{:02} UTC (t={}).{next} World {} · your clock {} · driver up {}s · the Clocktower's rates: {} · {}",
+                    h,
+                    m,
                     now.0,
                     if world_paused { "frozen" } else { "running" },
                     if mine_paused { "paused (PTO)" } else { "running" },

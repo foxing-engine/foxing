@@ -19,15 +19,14 @@ figures on the canvas that answer to a click.
 - The marks (shipped 2026-10-31: room names, blows, gains, wants, births, the
   Clocktower, speech, labels, your own name): a mark for a named creature's name and
   for other citizens' names; a legend in `?`; the same marks on the record page.
-- Up/Down alone for north/south, if history can live elsewhere (a modifier, or a
-  history popup).
 - Admin on the play page: `admin <token>` in the terminal (the session's login frame
   takes a token already), and `help` then lists the admin verbs (`/v0/commands?kind=admin`
   has them; the page asks without it). The text port shows them after `admin` today.
 - The mini-map (shipped 2026-10-31; named cells, floors with yours first, named doors
-  labeled, click to walk there by the doors you remember, shipped the same night): a
-  `remember` that keeps a room on your map; the ground floor can outgrow the panel as
-  rooms are dug (scroll, or a zoom); a second line of the name on wider cells.
+  labeled, click to walk there by the doors you remember, shipped the same night;
+  2026-11-02: wheel and pinch zoom to 4×, drag to pan, −/+/fit, the window following
+  you on every move, whole names on big cells, `foxing.map` for mods): a `remember`
+  that keeps a room on your map.
 - The record page (`/record/?ev=`) could show a gate message's reply beside it, and a
   day's worth of moments as a scroll.
 
@@ -177,9 +176,9 @@ figures on the canvas that answer to a click.
   learned: chatter (your name back, wrong) or shove (through a random door, the fight
   over); numb (your strikes halved for 45 s) or leech (it mends by its bite); venom,
   the ray, or maw (a second bite in the same breath, stopping at 1). The worst learned
-  plays; `look` says them all, worst first. Next: the minimap's zoom (owner's ask) and
-  pan; a keyboard-mock visitor (an agent driving the real page) as a standing cohort
-  member; a sound for a trick landing; a creature's `felled` list in `tell`.
+  plays; `look` says them all, worst first. Shipped since: the minimap's zoom and pan;
+  a keyboard warrior in every cohort (`tools/keyboard.py`, desktop and `--phone`).
+  Next: a sound for a trick landing; a creature's `felled` list in `tell`.
 - From Marigold (2026-11-02, the first keyboard playtest: `tools/keyboard.py` drives the
   real page headless against the live world, one typed line at a time; the owner's ask,
   "an agent to mock the human on keyboard experience"). The big one: a deploy closed the
@@ -191,13 +190,13 @@ figures on the canvas that answer to a click.
   go, i/inventory, kill/hit, get, l, flee, quit) with the mapping shown; a refused verb
   in a person's voice with the fix first (the rule number stays behind "show the
   CLEAR"); `?` typed opens the quickstart; a pending mark after 700 ms; the strip's
-  story step ticks only on "I will keep that" and names what it needs; the grave keeps
+  story step ticks (now on the reply's shape) and names what it needs; the grave keeps
   a line typed over it; creature hit points rounded; a dash before the way. Open: a
-  named creature on the newcomer's path (the Threshold wispling at 27 is the natural
-  one: a nudge to feed it, or the strip's spend step pointed at it); "Type help" in the
-  welcome should point at the strip; `tell` to a gate visitor says "they will read it";
-  a named creature greets "You again" on `leave` when the arrival hook fires on the
-  leaving line (rare); `board` is slow (~4 s).
+  named creature on the newcomer's path (the Docent's first words now point at one
+  with a want; the strip's spend step could too); "Type help" in the welcome should
+  point at the strip; `tell` to a gate visitor says "they will read it"; a named
+  creature greets "You again" on `leave` when the arrival hook fires on the leaving
+  line (rare); `board` is slow (~4 s).
 - Mending (2026-11-02, the owner: "regeneration is far too generous, and we can have a
   special ability that nerfs it"). Six a minute paid back most of a wisp's bites as
   they landed. Now 0.04 a second (whole from nothing in about twelve minutes), nothing
@@ -227,14 +226,65 @@ figures on the canvas that answer to a click.
   room count anyone will store: the world is sparse by design (rooms exist when dug),
   so the honest path to "unbounded" is rooms materialized on demand from a seed, and
   sharded worlds behind the gate.
+- The night of 2026-11-02 (the owner approved the review's items 1, 2, 3, 5–8 and 12,
+  and asked for a night's watch with a keyboard warrior in every batch; six batches,
+  two cohorts). Shipped: the atlas zoom and pan with the window following you; the
+  layout's version (2); a favicon and a 1200×630 share card with OG and Twitter tags
+  (`site/tools/share-card.html` is its source); `read <object>` (a book line by line
+  with its hands, the maker's description labeled, "not yet bound" or the binding's
+  record; `read here`; `read` alone lists); book lines signed and kept apart (the
+  "signed lines" of the fixtures build had never been written, so the Bindery could
+  never see a book's lines or hands); the venom counting its ticks; the Docent (its
+  own entry below); the phone pass; the tiles mod on the new night with a halo for
+  the named and a bound mark; the arrows walking on an empty line (history on Alt);
+  the lane of numbers (level and its move since you came, hp with fighting/mending/
+  bleeding/numb, chunks, falls tonight, here since, the hour's next strike), `session`
+  (what has happened since you arrived; said on `leave`) and `messages` (what was said
+  to you, latest last); then the cohort's fixes (feedback.txt, Thimbleweed and
+  Bramblewick). Open from the cohort: a creature's answer in the gate still prints
+  twice in some frames (fixed by quote, watch); the Wants board shows a story want
+  "(×2)" from a creature whose teller is on its hour's cooldown (say "you told it one
+  this hour"); `append "text" ledger` reads backwards to a typist (`append ledger
+  "text"`: let the object come first when it is a known thing); the Overdue Desk is
+  not where "Overdue Stacks" sends a newcomer (a `where` hint from the Archive, or a
+  door); `satchel` shows a percentage on one thing and none on another (say "whole");
+  the inbox's timestamps; the strip's `dig` step reads as a description (the why says
+  it is a name now); a `help` typed on the page prints the page's own list, `help
+  <verb>` the world's line.
+- The Docent (shipped 2026-11-02, the owner's ask: "a docent (next level NPC) that has
+  some agency and tidies up the place and welcomes visitors. we can use a bit of
+  haiku"). The first minded figure: one entity at the Threshold (`docent.rs`), with a
+  frame in the pixel atlas and a row in Here. It greets whoever arrives at the door
+  once a night (first words for a name in its first hour, pointing at the strip,
+  `help` and a named creature with a want; a welcome for one it has met, with the
+  newest dug room); on the wander clock it carries what was left lying in empty rooms
+  to the Threshold on the second sighting and sets it down, said aloud; `tell docent
+  "…"` while standing with it queues the question with the asker's room, exits, level,
+  the named wants and the newest room, answers with a word at once, and the operator
+  verb `answer <id> "…"` (from `tools/docent.py`, a daemon on the Bindery's way in
+  with the quickstart as its catalog, refusing answers mechanically) says the answer
+  to the asker wherever they are, naming the question; six an hour from one name,
+  forty world-wide; ninety seconds without an answer and the world says the page is
+  missing, naming the question; with no one at the desk (nothing answered in two
+  hours and questions going unanswered) it says the catalog is closed at once and
+  carries one question in ten minutes anyway, to find out otherwise. `GET /v0/docent`
+  (admin) is the record; `disremembered.asked/answered/tidied/greeted` are public.
+  `docent.service` is installed by `setup-bindery.sh` (DOCENT_MODE=off keeps it
+  silent) and a release restarts it; the owner has not run the setup yet, so tonight
+  every question got the honest no-page line. Next: the Docent's greeting book stocked
+  by Haiku like the epitaphs (slots {name}, {creature}, {room}); a second figure for
+  the Lower Stacks (the Cataloguer's clerk); the Docent's round said in the rooms it
+  passes through when someone is there; tidying test debris and faded guest lines;
+  `tell docent "what have you found?"` listing the Lost and Found; a `thanks` that
+  costs nothing; the Docent in the tiles mod walking its round.
 - A prettier page (2026-11-02, the owner: "I'm starting to share the link to gamer
   friends"). The night is ink-blue, not black; the world speaks in the serif and you
   type in the mono (the voice and the ledger); an ember for harm, moss for what you
   earned, the one lantern kept; the header is a title and two menus (settings, panels)
   instead of nine controls; the threshold is the first thing a newcomer reads, by the
-  prompt, with the scene folded until they arrive. Next: a death screen (plan item 9),
-  the "what changed" lane (6), a phone pass (13), a favicon and a share card for the
-  link (title, one line, the tiles), and the tiles mod's palette tuned to the new night.
+  prompt, with the scene folded until they arrive. Shipped the night of 2026-11-02:
+  the death screen (9), the lane (6), the phone pass (13), the favicon and share card,
+  the tiles mod on the new night. Next: the favicon in the apex site's other pages.
 - Human play, batch 2 (shipped 2026-11-02, the owner's plan, items 4 and 5): `wants`
   and `mine` as reads, and on the play page two boards: what the named want (each
   with where it is and the way over your remembered map; click walks there,
@@ -244,9 +294,9 @@ figures on the canvas that answer to a click.
   last here": who came into your room, who wrote in it or your book, who told your
   creature a story, what was named or taken; appends are public now,
   `disremembered.appended`). Refreshed with the map on room change and after your
-  own verbs that change them. Next in the plan: 6 (what changed, as a lane of
-  numbers), 9 (a death screen that teaches), 7 and 8 (the atlas and the tiles),
-  10 and 11 (the hour, a session summary), 13 (a phone pass), 14 (`messages`).
+  own verbs that change them. The rest of the plan shipped the night of 2026-11-02
+  (6, 9, 10, 11, 13, 14, the atlas zoom and the tiles' night); see "The night of
+  2026-11-02" below.
 - The Bindery (shipped 2026-11-02, the owner's ask: semantic consolidation for rooms,
   creatures and fixtures with many appends, run unattended on a Haiku-class model).
   Two halves. In the engine, deterministic: a creature's story chunks faded below a

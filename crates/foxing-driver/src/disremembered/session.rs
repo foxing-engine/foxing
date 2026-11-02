@@ -200,6 +200,7 @@ pub fn messages(world: &World, actor: &str, count: usize) -> Outcome {
                     t.starts_with("The Docent: ")
                         || t.starts_with("The Docent finds you")
                         || t.starts_with("The Docent comes back")
+                        || t.starts_with("The Docent shakes its head")
                 }) =>
             {
                 json!({"at": e.at.0, "from": "the Docent", "text": p["text"], "kind": "docent"})

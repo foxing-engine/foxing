@@ -13,6 +13,7 @@ use super::{internal, me, mind, presence, rooms, Curves};
 use crate::world::World;
 use foxing_log::Actor;
 use foxing_registry::{Args, CommandError, CommandSpec, Outcome, ParamType};
+use foxing_store::EntityId;
 use serde_json::json;
 
 /// A chunk changed hands: `{from, to, chunk, with, room}`.
@@ -27,7 +28,18 @@ const MAX_WORDS_PAID: usize = 60;
 const XP_PER_WORD: f64 = 0.3;
 const MAX_STORY_CHARS: usize = 1200;
 /// One story per teller per creature in this long.
-const STORY_COOLDOWN_MS: i64 = 60 * 60 * 1000;
+pub const STORY_COOLDOWN_MS: i64 = 60 * 60 * 1000;
+
+/// Whether `actor` told `creature` a story within the hour: the cooldown.
+pub fn told_this_hour(world: &World, actor: &str, creature: EntityId) -> bool {
+    let now = world.now();
+    world.recent_events(2000).iter().any(|e| {
+        e.kind == STORY
+            && e.payload["from"] == actor
+            && e.payload["creature"] == creature.0
+            && now.since(e.at).0 < STORY_COOLDOWN_MS
+    })
+}
 
 pub fn register(world: &mut World, curves: Curves) {
     world.register(
@@ -169,12 +181,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     "That is more than {MAX_STORY_CHARS} characters; tell it in parts."
                 )));
             }
-            let now = w.now();
-            let recently = w
-                .recent_events(2000)
-                .iter()
-                .any(|e| e.kind == STORY && e.payload["from"] == ctx.actor && e.payload["creature"] == creature.0 && now.since(e.at).0 < STORY_COOLDOWN_MS);
-            if recently {
+            if told_this_hour(w, &ctx.actor, creature) {
                 return Err(CommandError::precondition(format!(
                     "{name} is still turning your last story over. One an hour."
                 )));

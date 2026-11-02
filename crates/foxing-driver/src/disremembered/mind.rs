@@ -607,9 +607,17 @@ pub fn find_here(world: &World, room: EntityId, what: &str) -> Option<EntityId> 
     } else {
         unnamed
     };
+    // The one that can be struck first: not shaken, not newly born (a typed "attack
+    // wisp" once picked the newborn beside the ripe one and was refused).
+    let strikable = |c: EntityId| {
+        !shaken(world, c)
+            && !super::kindle::born_at(world, c)
+                .is_some_and(|b| world.now().0 - b < super::kindle::GRACE_MS)
+    };
     same.iter()
         .copied()
-        .find(|&c| !shaken(world, c))
+        .find(|&c| strikable(c))
+        .or_else(|| same.iter().copied().find(|&c| !shaken(world, c)))
         .or_else(|| same.first().copied())
 }
 

@@ -77,15 +77,20 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
         let knows_you =
             mind::regard(world, e.id, actor).is_some_and(|r| !r.contains("does not know you"));
         let mut want_said: Vec<String> = Vec::new();
+        let told = story.is_some() && super::exchange::told_this_hour(world, actor, e.id);
         if let Some(s) = &story {
-            want_said.push(format!(
-                "a story about {s} (pays double{})",
-                if scarcity > 1.0 {
-                    format!(", and {scarcity:.1}× while names are few")
-                } else {
-                    String::new()
-                }
-            ));
+            want_said.push(if told {
+                format!("a story about {s} (you told it one this hour; another from you pays after the hour)")
+            } else {
+                format!(
+                    "a story about {s} (pays double{})",
+                    if scarcity > 1.0 {
+                        format!(", and {scarcity:.1}× while names are few")
+                    } else {
+                        String::new()
+                    }
+                )
+            });
         }
         if let (Some(w), Some(to)) = (&word, &word_to) {
             want_said.push(format!("the word \u{201c}{w}\u{201d} carried to {to}"));
@@ -100,7 +105,7 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
         ));
         rows.push(json!({
             "creature": e.id.0, "name": name, "kind": kind, "room": room.map(|r| r.0), "room_name": where_,
-            "way": way, "story": story, "word": word, "word_to": word_to, "knows_you": knows_you,
+            "way": way, "story": story, "word": word, "word_to": word_to, "knows_you": knows_you, "told_this_hour": told,
             "level": mind::level(world, e.id),
         }));
     }
@@ -257,13 +262,23 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
     // Since you were last here: the public record touching any of it, after your
     // previous arrival (the one before this visit's).
     let recent = world.recent_events(4000);
-    let since = recent
+    let arrivals: Vec<u64> = recent
         .iter()
         .filter(|e| e.kind == crate::world::ARRIVED && e.payload["actor"] == actor)
         .map(|e| e.seq.0)
-        .rev()
-        .nth(1)
-        .unwrap_or(0);
+        .collect();
+    // A first visit has no "last here": the digest is since this arrival, said so.
+    let first_visit = arrivals.len() < 2;
+    let since = if first_visit {
+        arrivals.first().copied().unwrap_or(0)
+    } else {
+        arrivals[arrivals.len() - 2]
+    };
+    let since_said = if first_visit {
+        "Since you arrived"
+    } else {
+        "Since you were last here"
+    };
     let mine_room = |v: &Value| {
         v.as_u64()
             .is_some_and(|id| room_ids.iter().any(|r| r.0 == id))
@@ -395,13 +410,13 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
             lines.join("\n"),
             if shown.is_empty() {
                 if since > 0 {
-                    "\nSince you were last here: nothing touched any of it.".to_string()
+                    format!("\n{since_said}: nothing touched any of it.")
                 } else {
                     String::new()
                 }
             } else {
                 format!(
-                    "\nSince you were last here: {}{}.",
+                    "\n{since_said}: {}{}.",
                     shown.join("; "),
                     if more > 0 {
                         format!("; and {more} more")
