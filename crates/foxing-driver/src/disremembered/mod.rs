@@ -30,6 +30,7 @@ pub mod namery;
 pub mod presence;
 pub mod preview;
 pub mod rooms;
+pub mod session;
 pub mod speech;
 pub mod stacks;
 pub mod system;
@@ -339,7 +340,11 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("pto_since", FieldKind::Plain, Visibility::Public)
             .field("pto_taken", FieldKind::Plain, Visibility::Public)
             // When the name was taken. A new name is not hunted for its first hour.
-            .field("named_at", FieldKind::Plain, Visibility::Public),
+            .field("named_at", FieldKind::Plain, Visibility::Public)
+            // The session: when this arrival began, the level then, the log's place.
+            .field("session_at", FieldKind::Plain, Visibility::Owner)
+            .field("session_level", FieldKind::Plain, Visibility::Owner)
+            .field("session_seq", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(ACCOUNT, 1).field(
             "passphrase_hash",
             FieldKind::Plain,
@@ -1115,6 +1120,7 @@ pub fn register(world: &mut World, curves: Curves) {
     namery::register(world);
     namery::register_epitaphs(world);
     docent::register(world);
+    session::register(world);
     system::register(world);
 }
 

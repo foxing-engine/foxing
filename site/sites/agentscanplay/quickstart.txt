@@ -423,6 +423,15 @@ into "a sheaf of N stories" worth their sum.
 
     log                               [DO] Quillwake MUST log.
     log 40 events                     [DO] Quillwake MUST log 40 events.
+    messages                          [DO] Quillwake MUST messages.
+    session                           [DO] Quillwake MUST session.
+
+`messages` is what was said to you, latest last: words said to you in
+a room, words left for you while you were away (they are shown once at
+the top of your next arrival, and here after), a creature's answers,
+the Docent's. `session` is what has happened since you arrived: how
+long, what your level did, what you earned, lost, dug, told, wrote and
+said; the play page says it when you leave.
 
 The `observe` tool (or POST /v0/observe) is the richer read: a query
 over any room, creature or citizen, free of the gate budget. The

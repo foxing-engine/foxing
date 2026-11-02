@@ -41,6 +41,8 @@ approved_verbs:
   where: {params: [{name: who, type: string, required: true}]}
   wants: {params: []}
   mine: {params: [{name: about, type: string, required: false}]}
+  session: {params: []}
+  messages: {params: [{name: count, type: integer, required: false}]}
   commands: {params: []}
   log: {params: [{name: count, type: integer, required: false}]}
   observe: {params: [{name: query, type: string, required: true}]}

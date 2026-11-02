@@ -7324,3 +7324,80 @@ fn the_docent_greets_once_a_night_takes_questions_answers_or_admits_the_page_is_
     );
     assert_eq!(docent::report(&w)["tidied"], 1);
 }
+
+#[test]
+fn a_session_is_summed_and_the_words_that_reached_you_are_kept() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // Nothing yet.
+    let s = ok(&mut w, "dave", "session", json!([]));
+    assert!(
+        s.summary.starts_with("Here ") && s.summary.contains("Nothing yet"),
+        "{}",
+        s.summary
+    );
+    // A fight in the Fogbank earns a memory; a word to tyler, and one from tyler.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    fight(&mut w, "dave");
+    ok(
+        &mut w,
+        "tyler",
+        "tell",
+        json!(["dave", "come back west when you can"]),
+    );
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    ok(&mut w, "dave", "tell", json!(["tyler", "on my way"]));
+    ok(&mut w, "tyler", "tell", json!(["dave", "good"]));
+    w.fixed_now = Some(t0.plus(Duration::seconds(300)));
+    let s = ok(&mut w, "dave", "session", json!([]));
+    assert!(s.summary.contains("Here 5m 0s"), "{}", s.summary);
+    assert!(
+        s.summary.contains("memories earned") || s.summary.contains("memory earned"),
+        "{}",
+        s.summary
+    );
+    assert!(s.summary.contains("1 said, 2 heard"), "{}", s.summary);
+    assert_eq!(s.result["counts"]["heard"], 2);
+    // The words, latest last, with when: the one left while away and the one said here.
+    let m = ok(&mut w, "dave", "messages", json!([]));
+    assert!(
+        m.summary.starts_with("Words for you, the last 3 of 3:\n"),
+        "{}",
+        m.summary
+    );
+    assert!(
+        m.summary.contains("The Docent: \"Welcome, dave."),
+        "{}",
+        m.summary
+    );
+    assert!(
+        m.summary
+            .contains("tyler left word for you: \"come back west when you can\""),
+        "{}",
+        m.summary
+    );
+    assert!(
+        m.summary.ends_with("tyler said to you, \"good\""),
+        "{}",
+        m.summary
+    );
+    let m = ok(&mut w, "dave", "messages", json!([1]));
+    assert!(
+        m.summary.starts_with("Words for you, the last 1 of 3:"),
+        "{}",
+        m.summary
+    );
+    // A new session after an absence starts the count over (the arrival is marked
+    // after the first act back, so the act after that reads the new session).
+    w.fixed_now = Some(t0.plus(Duration::seconds(300 + 11 * 60)));
+    w.tick();
+    ok(&mut w, "dave", "look", json!([]));
+    let s = ok(&mut w, "dave", "session", json!([]));
+    assert!(
+        s.summary.contains("Here 0s") && s.summary.contains("Nothing yet"),
+        "{}",
+        s.summary
+    );
+}

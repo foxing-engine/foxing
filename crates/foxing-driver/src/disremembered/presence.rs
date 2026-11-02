@@ -298,11 +298,17 @@ pub fn returned(world: &mut World, actor: &str) -> Result<(), String> {
         return Ok(());
     };
     if is_here(world, f.citizen) {
+        // A name that never had a session (new, or from before sessions): this is it.
+        if super::plain_num(world, f.citizen, super::CITIZEN, "session_at").is_none() {
+            super::session::begin(world, actor)?;
+        }
         return Ok(());
     }
     let nearly =
         !super::is_passing(world, f.citizen) && faint(world, f.citizen).is_some_and(|v| v < NEARLY);
     set(world, actor, f.citizen, true)?;
+    // A session begins: `session` reads what happens from here.
+    super::session::begin(world, actor)?;
     if nearly {
         super::combat::narrate(
             world,

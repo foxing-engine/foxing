@@ -222,6 +222,19 @@
   #tabs button { font: 13px/1 var(--serif); color: var(--dim); background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 9px 12px 8px; cursor: pointer; }
   #tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--dust); }
   #tabs .note { margin-left: auto; color: var(--dim); font-size: 12px; align-self: center; }
+  /* The lane: what changed, as numbers, between the tabs and the words. A number that
+     just moved shows its move for a few seconds, moss up and ember down. */
+  #lane { flex: none; display: flex; flex-wrap: wrap; gap: 2px 16px; padding: 4px 20px 3px; background: var(--panel); border-bottom: 1px solid var(--line); font-size: 12px; color: var(--dim); white-space: nowrap; }
+  #lane[hidden] { display: none; }
+  #lane span.k { color: var(--dim); }
+  #lane span.v { color: var(--ink); }
+  #lane span.d { margin-left: 4px; font-size: 11px; }
+  #lane span.d.up { color: var(--moss); }
+  #lane span.d.down { color: var(--ember); }
+  #lane span.state { color: var(--dust); }
+  #lane span.state.bad { color: var(--ember); }
+  #lane .click { cursor: pointer; border-bottom: 1px dotted var(--line); }
+  #lane .click:hover { color: var(--dust); }
   #compose { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0; overflow: hidden; }
   #compose[hidden], #log[hidden], form[hidden] { display: none; }
   #compose > div { overflow-y: auto; padding: 14px 20px; min-width: 0; }
@@ -540,6 +553,7 @@
       <button role="tab" aria-selected="false" data-tab="observe">Observe</button>
       <span class="note" id="tabnote"></span>
     </nav>
+    <div id="lane" hidden aria-label="What changed: your numbers"></div>
     <section id="compose" hidden aria-label="Compose a CLEAR message">
       <div>
         <h3>Message</h3>
@@ -733,6 +747,7 @@
   let ws = null, wsReady = false, nextId = 1;
   const waiting = new Map();           // id -> resolve
   const subs = {};                     // id -> last observation
+  let meFallback = false;              // the "me" subscription asked for less, once
   let skew = 0;                        // Date.now() - server as_of, from the last observation
   let cursor = 0, polling = null;
 
@@ -748,7 +763,7 @@
           subscribe("room", { root: "here", select: { "disremembered.room": ["name", "description", "permits", "welcomes", "half_life_ms", "memory"], "disremembered.sprite": "*" }, relations: {
             contents: { kinds: ["citizen", "creature", "item", "docent"], select: { "disremembered.docent": ["name", "line"], "disremembered.citizen": ["name", "passing", "greeting"], "disremembered.creature": ["name", "hp", "max_hp"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace", "door"], "disremembered.mind": ["name", "tier"], "disremembered.errand": ["story", "word", "word_to"], "disremembered.item": ["name", "given_name", "fixed", "kind", "made_by"] } },
             exits: { select: { "disremembered.room": ["name"], "disremembered.sprite": "*" } } }, timed: "curve", commands: false });
-          subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting"] }, timed: "curve", commands: false });
+          subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp", "engaged", "bleed_until", "numb_until"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting", "falls", "session_at", "session_level"] }, timed: "curve", commands: false });
           subscribe("window", { root: "window", select: {}, relations: { contents: { kinds: ["chunk"], select: { "disremembered.chunk": "*" } } }, timed: "curve", commands: false });
           for (const [id, q] of modSubs) subscribe(id, q);
           return;
@@ -759,7 +774,11 @@
         }
         if (f.type === "observation" && waiting.has(String(f.id))) { const r = waiting.get(String(f.id)); waiting.delete(String(f.id)); r(f); return; }
         if (f.type === "observation") { subs[f.id] = f; skew = Date.now() - f.as_of; draw(); emit("observation", f.id, f); return; }
-        if (f.type === "error" && f.id !== undefined) { print("Subscription " + f.id + ": " + f.error, "err"); emit("observation", f.id, f); return; }
+        if (f.type === "error" && f.id !== undefined) {
+          // A world from before a field this page asks for: ask again for less.
+          if (f.id === "me" && !meFallback) { meFallback = true; subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting", "falls"] }, timed: "curve", commands: false }); return; }
+          print("Subscription " + f.id + ": " + f.error, "err"); emit("observation", f.id, f); return;
+        }
         if (f.type === "event") {
           const e = f.event;
           if (e.kind === "disremembered.narrative" && e.payload && e.payload.to === actor) { heard(e.payload.text); }
@@ -904,11 +923,12 @@
   }
   function logout() {
     stopPolling();
-    $("first").hidden = true; $("verbbar").replaceChildren(); delete $("verbbar").dataset.key;
+    $("first").hidden = true; $("verbbar").replaceChildren(); delete $("verbbar").dataset.key; $("lane").hidden = true;
     for (const id of ["wants-sec", "mine-sec"]) { $(id).hidden = true; $(id).dataset.pageHidden = "1"; }
     if (ws) { const w = ws; ws = null; wsReady = false; try { w.onclose = null; w.close(); } catch (e) {} }
     actor = null; passphrase = null;
     for (const k in subs) delete subs[k];
+    meFallback = false;
     atlas = null; atlasRoom = null; drawAtlas();
     draw();
     $("c-send").disabled = true;
@@ -1876,7 +1896,7 @@
     const text = [...log.children].map(l => (l.classList.contains("you") ? "> " : "") + l.textContent).join("\n");
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" })); a.download = "disremembered-" + (actor || "visit") + "-" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") + ".txt"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
-  $("b-leave").addEventListener("click", () => { chain = chain.then(async () => { await run("leave", []); logout(); print("Left. Type login to come back.", "sys"); }); });
+  $("b-leave").addEventListener("click", () => { chain = chain.then(async () => { await run("session", []); await run("leave", []); logout(); print("Left. Type login to come back.", "sys"); }); });
   // The story and tell counter under the input.
   input.addEventListener("input", () => {
     const v = input.value, hint = $("hint");
@@ -1887,8 +1907,67 @@
     else if (verb === "describe" || verb === "append") hint.innerHTML = "<b>" + verb + "</b>: " + text.length + "/800 characters.";
     else hint.innerHTML = "<b>" + verb + "</b>: " + words + " word" + (words === 1 ? "" : "s") + "; quotes and the period after them are added for you.";
   });
+  // ---- the lane: what changed, as numbers ----
+  const lane = (() => {
+    const el = $("lane");
+    const last = {}, moved = {};
+    let strikeAt = null, strikeAsked = 0;
+    function cell(key, label, value, opts = {}) {
+      const c = document.createElement("span"); c.dataset.key = key;
+      const k = document.createElement("span"); k.className = "k"; k.textContent = label + " ";
+      const v = document.createElement("span"); v.className = "v"; v.textContent = value;
+      c.append(k, v);
+      if (opts.num != null) {
+        if (last[key] != null && Math.abs(opts.num - last[key]) >= (opts.step || 0.5)) moved[key] = { d: opts.num - last[key], at: Date.now() };
+        last[key] = opts.num;
+        const m = moved[key];
+        if (m && Date.now() - m.at < 6000) { const d = document.createElement("span"); d.className = "d " + (m.d > 0 ? "up" : "down"); d.textContent = (m.d > 0 ? "\u25b2" : "\u25bc") + Math.abs(m.d).toFixed(opts.fix == null ? 1 : opts.fix); c.append(d); }
+      }
+      if (opts.state) { const st = document.createElement("span"); st.className = "state" + (opts.bad ? " bad" : ""); st.textContent = " " + opts.state; c.append(st); }
+      if (opts.run) { c.classList.add("click"); c.title = opts.title || opts.run; c.addEventListener("click", () => { chain = chain.then(() => run(opts.run, [])); }); }
+      return c;
+    }
+    async function askStrike() {
+      strikeAsked = Date.now();
+      try { const r = await fetch(API + "/v0/economy"); const j = await r.json(); const at = Math.max(0, ...((j.strikes || []).map(s => s.at || 0))); if (at) strikeAt = at; } catch (e) {}
+    }
+    function render() {
+      if (!actor) { el.hidden = true; return; }
+      const me = subs.me && subs.me.root; if (!me) return;
+      const b = me.components["disremembered.body"] || {}, cz = me.components["disremembered.citizen"] || {};
+      const now = Date.now() - skew;
+      const chunks = (subs.window && subs.window.root.relations && subs.window.root.relations.contents) || [];
+      const level = chunks.reduce((a, n) => a + Math.max(0, timed(n.components["disremembered.chunk"].value)), 0);
+      const frag = document.createDocumentFragment();
+      const since = cz.session_level != null ? level - cz.session_level : null;
+      const lv = cell("level", "level", level.toFixed(1), { num: level, step: 0.5 });
+      if (since != null && Math.abs(since) >= 0.05) { const d = document.createElement("span"); d.className = "d " + (since >= 0 ? "up" : "down"); d.textContent = "(" + (since >= 0 ? "+" : "") + since.toFixed(1) + " since you came)"; lv.append(d); }
+      frag.append(lv);
+      if (b.hp) {
+        const hp = timed(b.hp), max = b.max_hp || 30;
+        let state = "", bad = false;
+        if (b.engaged) { state = "fighting"; bad = true; }
+        else if (b.bleed_until && b.bleed_until > now) { state = "bleeding, " + span(b.bleed_until - now); bad = true; }
+        else if (hp < max - 0.05) state = "mending";
+        if (b.numb_until && b.numb_until > now) { state = (state ? state + ", " : "") + "numb " + span(b.numb_until - now); bad = true; }
+        frag.append(cell("hp", "hp", hp.toFixed(0) + "/" + max, { num: hp, step: 1, fix: 0, state, bad }));
+      }
+      frag.append(cell("chunks", "chunks", String(chunks.length), { num: chunks.length, step: 1, fix: 0, run: "chunks" }));
+      const falls = Array.isArray(cz.falls) ? cz.falls.filter(t => now - t < 12 * 3600 * 1000).length : 0;
+      frag.append(cell("falls", "falls tonight", String(falls), { num: falls, step: 1, fix: 0 }));
+      if (cz.session_at) frag.append(cell("here", "here", span(Math.max(0, now - cz.session_at)), { run: "session", title: "session: what has happened since you arrived" }));
+      if (!strikeAt && Date.now() - strikeAsked > 60000) askStrike();
+      if (strikeAt) {
+        const next = strikeAt + 3600 * 1000 - now;
+        frag.append(cell("strike", "the hour", next > 0 ? "strikes in " + span(next) : "about to strike", { run: "time", title: "time: the Clocktower's figures" }));
+        if (next < -60000 && Date.now() - strikeAsked > 60000) askStrike();
+      }
+      el.replaceChildren(frag); el.hidden = false;
+    }
+    return { render };
+  })();
   // Timed values move between pushes; redraw a few times a second while the scene shows.
-  setInterval(() => { if (actor && (subs.me || subs.window)) { draw(); firstHours.render(); } }, 250);
+  setInterval(() => { if (actor && (subs.me || subs.window)) { draw(); firstHours.render(); lane.render(); } }, 250);
 
   // ---- input ----
   function askName() { asking = "name"; input.type = "text"; prompt.textContent = "name:"; input.focus(); }
