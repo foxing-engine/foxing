@@ -6809,3 +6809,86 @@ fn a_creature_learns_from_its_kills_from_irritating_to_painful() {
         "three is all"
     );
 }
+
+#[test]
+fn nothing_mends_in_a_fight_or_while_bleeding() {
+    use super::stacks::{self, Trick};
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let dave = find_citizen(&w, "dave").unwrap().citizen;
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    // Hurt, out of a fight: mends at the world's rate.
+    combat::commit_hp(&mut w, dave, 10.0).unwrap();
+    combat::recurve_mending(&mut w, dave).unwrap();
+    w.fixed_now = Some(t0.plus(Duration::seconds(60)));
+    let after_minute = combat::hp(&w, dave);
+    assert!(
+        (after_minute - (10.0 + 60.0 * HP_PER_SECOND)).abs() < 0.2,
+        "{after_minute}"
+    );
+    // In a fight: nothing.
+    ok(&mut w, "dave", "attack", json!(["wisp"]));
+    let at = combat::hp(&w, dave);
+    w.fixed_now = Some(t0.plus(Duration::seconds(120)));
+    assert!(
+        (combat::hp(&w, dave) - at).abs() < 0.01,
+        "no mending while engaged: {at} -> {}",
+        combat::hp(&w, dave)
+    );
+    let out = ok(&mut w, "dave", "rest", json!([]));
+    assert!(
+        out.summary.contains("Nothing mends in a fight"),
+        "{}",
+        out.summary
+    );
+    // Retreat: it starts again.
+    ok(&mut w, "dave", "retreat", json!([]));
+    let at = combat::hp(&w, dave);
+    w.fixed_now = Some(t0.plus(Duration::seconds(180)));
+    assert!(combat::hp(&w, dave) > at + 1.0, "mending after retreat");
+    // A bleeding bite: nothing for eight minutes, then it staunches and says so.
+    let mut c = std::collections::BTreeMap::new();
+    c.insert("learned".to_string(), Field::Plain(json!(["bleed"])));
+    super::bindery::set_fields(&mut w, foxing_log::Actor::Driver, wisp, CREATURE, c).unwrap();
+    assert_eq!(stacks::trick_of(&w, wisp), Some(Trick::Bleed));
+    let mut line = None;
+    for _ in 0..40 {
+        let (l, _) = stacks::trick(&mut w, &curves(), wisp, dave, "dave").unwrap();
+        if l.is_some() {
+            line = l;
+            break;
+        }
+    }
+    assert!(
+        line.as_deref()
+            .is_some_and(|l| l.contains("will not close: nothing mends for 8m")),
+        "{line:?}"
+    );
+    let at = combat::hp(&w, dave);
+    w.fixed_now = Some(t0.plus(Duration::seconds(180 + 300)));
+    assert!(
+        (combat::hp(&w, dave) - at).abs() < 0.01,
+        "no mending while bleeding"
+    );
+    let out = ok(&mut w, "dave", "rest", json!([]));
+    assert!(
+        out.summary.contains("You are bleeding: nothing mends for"),
+        "{}",
+        out.summary
+    );
+    w.fixed_now = Some(t0.plus(Duration::seconds(180 + 8 * 60 + 5)));
+    w.tick();
+    let staunched = w.recent_events(50).iter().any(|e| {
+        e.kind == NARRATIVE && e.payload["text"] == "The bleeding stops; you begin to mend."
+    });
+    assert!(staunched, "the staunch job spoke");
+    let at = combat::hp(&w, dave);
+    w.fixed_now = Some(t0.plus(Duration::seconds(180 + 8 * 60 + 65)));
+    assert!(
+        combat::hp(&w, dave) > at + 1.0,
+        "mending again after the bleed"
+    );
+}

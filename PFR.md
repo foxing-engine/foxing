@@ -180,6 +180,14 @@ figures on the canvas that answer to a click.
   plays; `look` says them all, worst first. Next: the minimap's zoom (owner's ask) and
   pan; a keyboard-mock visitor (an agent driving the real page) as a standing cohort
   member; a sound for a trick landing; a creature's `felled` list in `tell`.
+- Mending (2026-11-02, the owner: "regeneration is far too generous, and we can have a
+  special ability that nerfs it"). Six a minute paid back most of a wisp's bites as
+  they landed. Now 0.04 a second (whole from nothing in about twelve minutes), nothing
+  at all in a fight (the body recurves on engage and disengage), nothing while a
+  bleeding bite is open: `bleed`, in the middle tier of what creatures learn, stops
+  mending for eight minutes (a staunch job says when it stops; death clears it);
+  `rest` says why nothing mends. Next: a bandage recipe (a strip of rag thread) that
+  closes a bleed; the page's HP bar showing the mending state (fighting, bleeding).
 - A prettier page (2026-11-02, the owner: "I'm starting to share the link to gamer
   friends"). The night is ink-blue, not black; the world speaks in the serif and you
   type in the mono (the voice and the ledger); an ember for harm, moss for what you

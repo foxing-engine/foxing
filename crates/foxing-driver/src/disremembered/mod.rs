@@ -105,7 +105,10 @@ pub const SPRITE: &str = "disremembered.sprite";
 /// A citizen's hit points at full health. Fixed in the slice; the level moves the attack.
 pub const MAX_HP: f64 = 30.0;
 /// Hit points regained per second of the citizen's active time.
-pub const HP_PER_SECOND: f64 = 0.1;
+/// Mending, when nothing is biting you: whole again from nothing in about twelve
+/// minutes. It was six a minute, which paid back most of a wisp's bites as they
+/// landed; and it stops altogether while you are in a fight, or bleeding.
+pub const HP_PER_SECOND: f64 = 0.04;
 
 /// The relations a client may follow. Declared beside the schemas so the registry
 /// describes shapes, relations and commands from one place.
@@ -336,7 +339,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("max_hp", FieldKind::Plain, Visibility::Public)
             .field("engaged", FieldKind::Plain, Visibility::Owner)
             // A numbing bite: strikes do half until this (ms since the epoch).
-            .field("numb_until", FieldKind::Plain, Visibility::Owner),
+            .field("numb_until", FieldKind::Plain, Visibility::Owner)
+            // A bleeding bite: nothing mends until this (ms since the epoch).
+            .field("bleed_until", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(SPRITE, 2)
             .field("glyph", FieldKind::Plain, Visibility::Public)
             .field("tint", FieldKind::Plain, Visibility::Public)

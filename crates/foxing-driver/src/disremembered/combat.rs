@@ -636,6 +636,41 @@ pub fn engaged_with(world: &World, citizen: EntityId) -> Option<EntityId> {
     world.store.entity(EntityId(id)).map(|e| e.id)
 }
 
+/// How fast this body mends now: nothing in a fight, nothing while bleeding, else
+/// the world's rate.
+pub fn mending_rate(world: &World, citizen: EntityId) -> f64 {
+    if engaged_with(world, citizen).is_some() {
+        return 0.0;
+    }
+    let now = world.now().0 as f64;
+    if plain_num(world, citizen, BODY, "bleed_until").is_some_and(|u| u > now) {
+        return 0.0;
+    }
+    super::HP_PER_SECOND
+}
+
+/// Set the body's mending to what it should be now (`mending_rate`): after a fight
+/// begins or ends, after a bleeding bite, when it staunches, on waking.
+pub fn recurve_mending(world: &mut World, citizen: EntityId) -> Result<(), StoreError> {
+    let rate = mending_rate(world, citizen);
+    world.record(
+        Actor::Driver,
+        StoreEvent::FieldRecurved {
+            id: citizen,
+            component: BODY.into(),
+            field: "hp".into(),
+            curve: foxing_time::Curve::Linear {
+                rate_per_ms: rate / 1000.0,
+            },
+        },
+    )?;
+    Ok(())
+}
+
+/// A bleeding bite: nothing mends for this long.
+pub const BLEED_MS: i64 = 8 * 60 * 1000;
+pub const JOB_STAUNCH: &str = "disremembered.staunch";
+
 pub(crate) fn set_engaged(
     world: &mut World,
     actor: &str,
@@ -652,6 +687,7 @@ pub(crate) fn set_engaged(
             value,
         },
     )?;
+    recurve_mending(world, citizen)?;
     Ok(())
 }
 
@@ -889,6 +925,18 @@ pub(crate) fn die(
     // the Threshold, where nothing hunts, after the wake.
     let me_id = f.citizen.0;
     let _ = world.cancel(super::stacks::JOB_VENOM, |p| p["citizen"] == me_id);
+    let _ = world.cancel(JOB_STAUNCH, |p| p["citizen"] == me_id);
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::FieldSet {
+                id: f.citizen,
+                component: BODY.into(),
+                field: "bleed_until".into(),
+                value: json!(0),
+            },
+        )
+        .map_err(internal)?;
     set_engaged(world, actor, f.citizen, None).map_err(internal)?;
     end_fight(world, f.citizen).map_err(internal)?;
     world
@@ -912,6 +960,22 @@ pub(crate) fn die(
 }
 
 pub fn register(world: &mut World, curves: Curves) {
+    world.on_job(
+        JOB_STAUNCH,
+        Box::new(|w: &mut World, job| {
+            let citizen = EntityId(job.payload["citizen"].as_u64().unwrap_or(0));
+            if w.store.entity(citizen).is_none() {
+                return Ok(());
+            }
+            recurve_mending(w, citizen).map_err(|e| e.to_string())?;
+            if let Some(actor) = job.payload["actor"].as_str() {
+                if mending_rate(w, citizen) > 0.0 {
+                    narrate(w, actor, "The bleeding stops; you begin to mend.");
+                }
+            }
+            Ok(())
+        }),
+    );
     world.on_job(
         JOB_RESPAWN,
         Box::new(|w: &mut World, job| {
@@ -1270,7 +1334,10 @@ pub fn register(world: &mut World, curves: Curves) {
                 .timed_field(f.citizen, BODY, "hp")
                 .ok()
                 .and_then(|t| t.active_time_to_reach(super::MAX_HP, now, &w.store.scopes_for(f.citizen).unwrap_or_default()));
+            let bleeding = plain_num(w, f.citizen, BODY, "bleed_until").filter(|&u| u > now.0 as f64);
             let text = match eta {
+                _ if current < super::MAX_HP - 0.5 && engaged_with(w, f.citizen).is_some() => format!("You have {current:.0}/{:.0}. Nothing mends in a fight; retreat, and it starts.", super::MAX_HP),
+                _ if current < super::MAX_HP - 0.5 && bleeding.is_some() => format!("You have {current:.0}/{:.0}. You are bleeding: nothing mends for {} more.", super::MAX_HP, human((bleeding.unwrap() as i64) - now.0)),
                 Some(d) if d.0 > 0 => format!("You have {current:.0}/{:.0}. Full in {}.", super::MAX_HP, human(d.0)),
                 _ => format!("You have {current:.0}/{:.0}. You are whole.", super::MAX_HP),
             };

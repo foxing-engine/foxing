@@ -206,6 +206,7 @@ pub fn learned_said(learned: &str) -> &'static str {
         "numb" => "it has learned a numbing bite",
         "leech" => "it has learned to mend by what it bites",
         "maw" => "it has learned to bite twice",
+        "bleed" => "it has learned a bite that will not close",
         _ => "it has learned something",
     }
 }

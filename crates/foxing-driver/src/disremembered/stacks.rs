@@ -64,6 +64,8 @@ pub enum Trick {
     Leech,
     /// It bites a second time in the same breath, and stops short of the kill.
     Maw,
+    /// A bleeding bite: nothing mends for a while.
+    Bleed,
 }
 
 /// What a learned trick is called in the record and on the creature.
@@ -76,6 +78,7 @@ pub fn learned_key(t: Trick) -> &'static str {
         Trick::Numb => "numb",
         Trick::Leech => "leech",
         Trick::Maw => "maw",
+        Trick::Bleed => "bleed",
         Trick::Usher => "usher",
         Trick::Enter => "enter",
         Trick::Below => "below",
@@ -91,6 +94,7 @@ pub fn learned_trick(key: &str) -> Option<Trick> {
         "numb" => Trick::Numb,
         "leech" => Trick::Leech,
         "maw" => Trick::Maw,
+        "bleed" => Trick::Bleed,
         _ => return None,
     })
 }
@@ -99,7 +103,7 @@ pub fn learned_trick(key: &str) -> Option<Trick> {
 /// irritating, the second something worse, the third something painful.
 pub const LEARN_TIERS: &[&[Trick]] = &[
     &[Trick::Chatter, Trick::Shove],
-    &[Trick::Numb, Trick::Leech],
+    &[Trick::Numb, Trick::Leech, Trick::Bleed],
     &[Trick::Venom, Trick::Forget, Trick::Maw],
 ];
 
@@ -572,6 +576,44 @@ fn play(
                 json!({"trick": "leech", "creature": creature.0, "kind": kind, "citizen": actor, "mended": mended - hp}),
             );
             Ok((Some(format!("The {kind} is the better for the bite: it mends by what it took ({mended:.0} of {max:.0}).")), false))
+        }
+        Trick::Bleed => {
+            if world.roll(ONE_IN) != 0 {
+                return Ok((None, false));
+            }
+            let until = world.now().0 + super::combat::BLEED_MS;
+            world
+                .record(
+                    Actor::Driver,
+                    StoreEvent::FieldSet {
+                        id: citizen,
+                        component: super::BODY.into(),
+                        field: "bleed_until".into(),
+                        value: json!(until),
+                    },
+                )
+                .map_err(|e| e.to_string())?;
+            super::combat::recurve_mending(world, citizen).map_err(|e| e.to_string())?;
+            let citizen_id = citizen.0;
+            let _ = world.cancel(super::combat::JOB_STAUNCH, |p| p["citizen"] == citizen_id);
+            world.schedule_once(
+                super::combat::JOB_STAUNCH,
+                foxing_time::Timestamp(until),
+                json!({"citizen": citizen.0, "actor": actor}),
+                |p| p["citizen"] == citizen_id,
+            )?;
+            let _ = world.note(
+                Actor::Driver,
+                TRICK,
+                json!({"trick": "bleed", "creature": creature.0, "kind": kind, "citizen": actor, "until": until}),
+            );
+            Ok((
+                Some(format!(
+                    "The {kind}'s bite will not close: nothing mends for {}.",
+                    super::combat::human(super::combat::BLEED_MS)
+                )),
+                false,
+            ))
         }
         Trick::Maw => {
             if world.roll(ONE_IN) != 0 {
