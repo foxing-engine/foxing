@@ -116,7 +116,24 @@ fn write(world: &mut World, changes: BTreeMap<String, Value>) -> Result<EntityId
 
 /// At boot: the Docent stands at the Threshold.
 pub fn ensure(world: &mut World) -> Result<(), String> {
-    if entity(world).is_some() {
+    if let Some(id) = entity(world) {
+        // One from before it had a sprite gets one.
+        if world
+            .store
+            .entity(id)
+            .is_some_and(|e| !e.components.contains_key(super::SPRITE))
+        {
+            world
+                .record(
+                    Actor::Driver,
+                    StoreEvent::ComponentSet {
+                        id,
+                        component: super::SPRITE.into(),
+                        fields: super::sprite_fields("D", "#d9b57a", "docent"),
+                    },
+                )
+                .map_err(|e| e.to_string())?;
+        }
         return Ok(());
     }
     let Some(threshold) = super::rooms::arrival(world) else {
@@ -156,6 +173,16 @@ pub fn ensure(world: &mut World) -> Result<(), String> {
                 id,
                 component: DOCENT.into(),
                 fields,
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::ComponentSet {
+                id,
+                component: super::SPRITE.into(),
+                fields: super::sprite_fields("D", "#d9b57a", "docent"),
             },
         )
         .map_err(|e| e.to_string())?;

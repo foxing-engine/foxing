@@ -132,6 +132,9 @@ export default function install(m) {
           if (trace >= 0.15) things.push({ id: n.id, kind: "ghost", name, sprite: s, trace, tile: SLOTS[(hash(n.id) + slot++) % SLOTS.length] });
         } else if (name === m.actor) things.push({ id: n.id, kind: "you", name, sprite: s, tile: [6, 4] });
         else things.push({ id: n.id, kind: "citizen", name, sprite: s, tile: SLOTS[(hash(n.id) + slot++) % SLOTS.length] });
+      } else if (n.kind === "docent") {
+        // The Docent keeps the door: by the north wall, still, a question on click.
+        things.push({ id: n.id, kind: "docent", name: "the Docent", sprite: s, tile: [9, 2] });
       }
     }
     // Two things on one tile: nudge the later one.
@@ -201,6 +204,9 @@ export default function install(m) {
         else hot.set(x + "," + y, { label: "attack " + who + " (" + t.hp.toFixed(0) + "/" + t.max + ")", action: () => m.command("attack", [t.name]) });
       } else if (t.kind === "you") {
         hot.set(x + "," + y, { label: "you, " + t.name + " — look around", action: () => m.command("look", []) });
+      } else if (t.kind === "docent") {
+        label("Docent", x, y, -1);
+        hot.set(x + "," + y, { label: "the Docent — ask it anything (click)", action: () => m.prefill('tell docent "') });
       } else {
         hot.set(x + "," + y, { label: t.name + " is here — tell (click)", action: () => m.prefill('tell ' + t.name + ' "') });
       }
@@ -249,7 +255,7 @@ export default function install(m) {
     root: "here",
     select: { "disremembered.room": ["name", "memory", "description"], "disremembered.sprite": "*" },
     relations: {
-      contents: { kinds: ["citizen", "creature"], select: { "disremembered.citizen": ["name"], "disremembered.creature": ["name", "hp", "max_hp"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace"], "disremembered.mind": ["name", "tier"] } },
+      contents: { kinds: ["citizen", "creature", "docent"], select: { "disremembered.docent": ["name"], "disremembered.citizen": ["name"], "disremembered.creature": ["name", "hp", "max_hp"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace"], "disremembered.mind": ["name", "tier"] } },
       exits: { select: { "disremembered.room": ["name"], "disremembered.sprite": "*" } },
     },
     timed: "curve", commands: false,
