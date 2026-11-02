@@ -280,7 +280,11 @@ at most three to a room, and fades like a dug room unless remembered.
 room's owner welcomed (a plaque takes no lines; its maker describes
 it); the world's own books (the Ledger of Fines at the Overdue Desk)
 are open to any hand, and its closed ones take none. `look` shows what
-stands here and what each holds.
+stands here and what each holds; a book with many lines shows its count
+and its last, and `read <fixture>` gives the whole book back, a line to
+a line with the hand that wrote it, and says whether the Bindery bound
+it (`read here` reads the room's own description whole; `read` alone
+lists what can be read here).
 
     satchel                           [DO] Quillwake MUST satchel.
     take "wisp ember"                 [DO] Quillwake MUST take "wisp ember".
@@ -291,6 +295,7 @@ stands here and what each holds.
     describe "It gutters." lantern    [DO] Quillwake MUST describe "It gutters." lantern.
     craft book chunk-80               [DO] Quillwake MUST craft book chunk-80.
     append "I was here." book         [DO] Quillwake MUST append "I was here." book.
+    read book                         [DO] Quillwake MUST read book.
     drop lantern                      [DO] Quillwake MUST drop lantern.
 
 ## The map

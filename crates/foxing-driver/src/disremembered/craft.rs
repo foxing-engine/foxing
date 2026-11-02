@@ -410,14 +410,29 @@ pub fn fixtures_line(world: &World, room: EntityId) -> Option<String> {
             } else {
                 String::new()
             };
-            let text = v["text"]
-                .as_str()
-                .map(|t| format!(": \"{t}\""))
-                .unwrap_or_default();
+            let text = v["text"].as_str().map(text_said).unwrap_or_default();
             format!("{who} (item-{}{by}{open}{held}){text}", v["id"])
         })
         .collect();
     Some(format!("Standing here: {}.", parts.join("; ")))
+}
+
+/// A thing's text as `look` says it: whole when it is one line, else how many lines
+/// a book holds and the last of them, with `read` for the rest.
+fn text_said(t: &str) -> String {
+    if t.is_empty() {
+        return String::new();
+    }
+    let lines: Vec<&str> = t.split(" | ").collect();
+    if lines.len() == 1 {
+        format!(": \"{t}\"")
+    } else {
+        format!(
+            ": {} lines, the last \"{}\"; read it for the rest",
+            lines.len(),
+            lines[lines.len() - 1]
+        )
+    }
 }
 
 /// One line for a list: "a lantern (item-12, made by Lute, 80%)".
@@ -437,10 +452,7 @@ pub fn item_line(v: &Value) -> String {
     } else {
         String::new()
     };
-    let text = v["text"]
-        .as_str()
-        .map(|t| format!(": \"{t}\""))
-        .unwrap_or_default();
+    let text = v["text"].as_str().map(text_said).unwrap_or_default();
     format!(
         "{} (item-{}{by}{held}{}){text}",
         called,
@@ -830,15 +842,13 @@ pub fn append_object(
     let current = plain_str(world, item, ITEM, "text")
         .unwrap_or("")
         .to_string();
+    // A line in a book is signed, and the lines are kept apart (" | "): `read` gives
+    // them back one per line, and the Bindery counts lines and credits hands.
+    let line = format!("{more} \u{2014} {}", ctx.actor);
     let joined = if current.is_empty() {
-        more.clone()
+        line
     } else {
-        let sep = if current.ends_with(['.', '!', '?', '"', '”']) {
-            " "
-        } else {
-            ". "
-        };
-        format!("{current}{sep}{more}")
+        format!("{current} | {line}")
     };
     if joined.chars().count() > MAX_TEXT_CHARS {
         return Err(CommandError::precondition(format!(
@@ -1256,6 +1266,132 @@ pub fn register(world: &mut World, curves: Curves) {
                     if r.fixed { format!(" It stands here, holding {spent_worth:.0}; name it (name \"…\" item-{}) once it holds {NAME_AT:.0}, describe it, remember chunks into it so it lasts.", item.0) } else { format!(" The chunk is spent, not kept: it holds nothing yet. Remember chunks into it (remember chunk-N item-{}) and at {NAME_AT:.0} it takes a name.", item.0) }
                 ),
                 json!({"item": item.0, "name": r.name, "recipe": r.key, "of": used_names, "spent": spent.map(|c| c.0)}),
+            ))
+        }),
+    );
+
+    world.register(
+        CommandSpec::new(
+            "disremembered.read",
+            "Read a thing whole: a book or plaque standing here, something lying here, or a thing you carry; its text line by line, who wrote in it, and whether the Bindery bound it. `read here` reads the room's own description the same way. With nothing named, what can be read here.",
+        )
+        .param("object", ParamType::Entity, false, "item-12, its name, or `here` for the room"),
+        Box::new(|w: &mut World, ctx, args: &Args| {
+            let f = me(w, ctx)?;
+            let here = rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
+            let arg = args.str("object").unwrap_or("").trim().to_string();
+            let when = |at: i64| -> String {
+                let ago = (w.now().0 - at).max(0) as f64 / 3_600_000.0;
+                if ago < 1.0 {
+                    "within the hour".to_string()
+                } else if ago < 48.0 {
+                    format!("{ago:.0} hours ago")
+                } else {
+                    format!("{:.0} days ago", ago / 24.0)
+                }
+            };
+            let bound_said = |b: Option<Value>| -> String {
+                match b.filter(|b| b.is_object()) {
+                    Some(b) => {
+                        let hands = b["hands"].as_array().map(|h| h.len()).unwrap_or(0);
+                        let before = b["before"].as_str().map(|t| t.chars().count()).unwrap_or(0);
+                        format!(
+                            " Bound by {} {}{}: {} characters became what you read; `unbind` by its owner has the old text back.",
+                            b["by"].as_str().unwrap_or("the Bindery"),
+                            when(b["at"].as_i64().unwrap_or(0)),
+                            if hands > 0 { format!(", from {hands} hand{}", if hands == 1 { "" } else { "s" }) } else { String::new() },
+                            before
+                        )
+                    }
+                    None => String::new(),
+                }
+            };
+            if arg.is_empty() {
+                let mut names: Vec<String> = fixtures_in(w, here)
+                    .iter()
+                    .chain(things_in(w, here).iter())
+                    .filter(|v| v["text"].as_str().is_some_and(|t| !t.is_empty()))
+                    .map(|v| format!("{} (item-{})", v["given_name"].as_str().unwrap_or(v["name"].as_str().unwrap_or("something")), v["id"]))
+                    .collect();
+                if let Some(s) = w.store.children(f.citizen).find(|e| e.kind == "satchel").map(|e| e.id) {
+                    names.extend(
+                        things_in(w, s)
+                            .iter()
+                            .filter(|v| v["text"].as_str().is_some_and(|t| !t.is_empty()))
+                            .map(|v| format!("{} (item-{}, carried)", v["given_name"].as_str().unwrap_or(v["name"].as_str().unwrap_or("something")), v["id"])),
+                    );
+                }
+                let text = if names.is_empty() {
+                    "Nothing here has writing on it; `read here` reads the room.".to_string()
+                } else {
+                    format!("To read here: {}; and `read here` for the room.", names.join("; "))
+                };
+                return Ok(Outcome::new(text, json!({"readable": names})));
+            }
+            if arg.eq_ignore_ascii_case("here") || arg.eq_ignore_ascii_case("room") {
+                let name = plain_str(w, here, super::ROOM, "name").unwrap_or("this room").to_string();
+                let text = plain_str(w, here, super::ROOM, "description").unwrap_or("").to_string();
+                let hands = match w.store.entity(here).and_then(|e| e.components.get(super::ROOM)).and_then(|c| c.fields.get("hands")) {
+                    Some(Field::Plain(Value::Array(a))) => a.iter().filter_map(Value::as_str).map(str::to_string).collect::<Vec<_>>(),
+                    _ => Vec::new(),
+                };
+                let bound = match w.store.entity(here).and_then(|e| e.components.get(super::ROOM)).and_then(|c| c.fields.get("bound")) {
+                    Some(Field::Plain(v)) => Some(v.clone()),
+                    _ => None,
+                };
+                let who = if hands.is_empty() { String::new() } else { format!(" Hands in it: {}.", hands.join(", ")) };
+                return Ok(Outcome::new(
+                    format!("{name}, whole: {text}{who}{}", bound_said(bound)),
+                    json!({"room": here.0, "name": name, "text": text, "hands": hands}),
+                ));
+            }
+            // Carried, then standing or lying here.
+            let item = w
+                .store
+                .children(f.citizen)
+                .find(|e| e.kind == "satchel")
+                .map(|e| e.id)
+                .and_then(|s| resolve_item(w, &arg, s).ok())
+                .map(Ok)
+                .unwrap_or_else(|| resolve_item(w, &arg, here))?;
+            let called = display(w, item);
+            let text = plain_str(w, item, ITEM, "text").unwrap_or("").to_string();
+            let maker = plain_str(w, item, ITEM, "made_by").map(str::to_string);
+            let bound = match w.store.entity(item).and_then(|e| e.components.get(ITEM)).and_then(|c| c.fields.get("bound")) {
+                Some(Field::Plain(v)) => Some(v.clone()),
+                _ => None,
+            };
+            if text.is_empty() {
+                return Ok(Outcome::new(
+                    format!("{called} (item-{}) has nothing written on it{}.", item.0, maker.as_deref().map(|m| format!("; {m} made it and said nothing")).unwrap_or_default()),
+                    json!({"item": item.0, "name": called, "text": ""}),
+                ));
+            }
+            // A book's lines were joined with " | " and signed " — hand": one per line.
+            let lines: Vec<String> = text.split(" | ").map(str::to_string).collect();
+            let hands: Vec<String> = {
+                let mut h: Vec<String> = Vec::new();
+                for l in &lines {
+                    if let Some((_, hand)) = l.rsplit_once(" \u{2014} ") {
+                        let hand = hand.trim().to_string();
+                        if !h.contains(&hand) {
+                            h.push(hand);
+                        }
+                    }
+                }
+                h
+            };
+            let body = if lines.len() > 1 { format!("\n{}\n", lines.join("\n")) } else { format!(" {text}") };
+            let who = match (&maker, hands.is_empty()) {
+                (Some(m), true) => format!("Written by {m}."),
+                (Some(m), false) => format!("Made by {m}; hands in it: {}.", hands.join(", ")),
+                (None, false) => format!("Hands in it: {}.", hands.join(", ")),
+                (None, true) => String::new(),
+            };
+            let who = if who.is_empty() || lines.len() > 1 { who } else { format!(" {who}") };
+            Ok(Outcome::new(
+                format!("{called} (item-{}), whole ({} line{}):{body}{who}{}", item.0, lines.len(), if lines.len() == 1 { "" } else { "s" }, bound_said(bound)),
+                json!({"item": item.0, "name": called, "text": text, "lines": lines, "maker": maker, "hands": hands}),
             ))
         }),
     );

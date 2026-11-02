@@ -462,7 +462,7 @@ fn died_since_last_message(world: &World, actor: &str) -> bool {
 /// ones that only read.
 const AFTER_DEATH: &[&str] = &[
     "look", "chunks", "map", "time", "rest", "board", "statutes", "palace", "satchel", "log",
-    "recipes", "help", "commands",
+    "recipes", "help", "commands", "read", "wants", "mine", "where", "check",
 ];
 
 /// Compile a terminal line (`attack the wisp`) into a REQUEST from `actor` to `world`:

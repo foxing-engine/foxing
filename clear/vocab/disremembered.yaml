@@ -49,6 +49,7 @@ approved_verbs:
   map: {params: []}
   board: {params: []}
   satchel: {params: []}
+  read: {params: [{name: object, type: entity, required: false}]}
   take: {params: [{name: item, type: entity, required: true}]}
   drop: {params: [{name: item, type: entity, required: true}]}
   recipes: {params: []}

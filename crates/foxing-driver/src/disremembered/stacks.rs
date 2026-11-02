@@ -667,7 +667,11 @@ pub fn register(world: &mut World) {
                     (after + VENOM_DAMAGE).ceil(),
                     after.ceil(),
                     super::MAX_HP,
-                    if left == 1 { " It is out of you now." } else { "" }
+                    if left == 1 {
+                        " It is out of you now.".to_string()
+                    } else {
+                        format!(" {} more tick{} to come, {VENOM_EVERY_S} s apart.", left - 1, if left == 2 { "" } else { "s" })
+                    }
                 ),
             );
             if left > 1 {

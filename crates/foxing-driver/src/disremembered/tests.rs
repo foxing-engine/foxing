@@ -5845,10 +5845,64 @@ fn a_made_thing_can_be_named_once_it_holds_sixty_and_a_fixture_stands_in_a_room_
         json!(["dave owes a thimble.", "ledger"]),
     );
     assert!(
-        out.summary.ends_with("dave owes a thimble."),
+        out.summary.ends_with("dave owes a thimble. \u{2014} dave"),
         "{}",
         out.summary
     );
+    // A second hand's line is kept apart and signed; `read` gives the book back one
+    // line at a time, with the hands in it; `look` says how many lines and the last.
+    admin(&mut w, "dave", "bring", json!(["tyler", "overdue-desk"]));
+    let t = find_citizen(&w, "tyler").unwrap();
+    w.record(
+        foxing_log::Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: t.citizen,
+            parent: Some(desk),
+        },
+    )
+    .unwrap();
+    ok(
+        &mut w,
+        "tyler",
+        "append",
+        json!(["tyler owes nothing, and says so.", "ledger"]),
+    );
+    let read = ok(&mut w, "tyler", "read", json!(["ledger"]));
+    assert!(
+        read.summary.starts_with("the Ledger of Fines (item-")
+            && read.summary.contains("whole (3 lines):\nA column of fines")
+            && read.summary.contains("\ndave owes a thimble. \u{2014} dave\ntyler owes nothing, and says so. \u{2014} tyler\nHands in it: dave, tyler."),
+        "{}",
+        read.summary
+    );
+    assert_eq!(read.result["lines"].as_array().unwrap().len(), 3);
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    assert!(
+        look.summary.contains("3 lines, the last \"tyler owes nothing, and says so. \u{2014} tyler\"; read it for the rest"),
+        "{}",
+        look.summary
+    );
+    let list = ok(&mut w, "tyler", "read", json!([]));
+    assert!(
+        list.summary.contains("the Ledger of Fines (item-"),
+        "{}",
+        list.summary
+    );
+    let room = ok(&mut w, "tyler", "read", json!(["here"]));
+    assert!(
+        room.summary.starts_with("The Overdue Desk, whole: "),
+        "{}",
+        room.summary
+    );
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "read",
+        json!(["a sonnet"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("no a sonnet here"), "{err}");
     let err = call(
         &mut w,
         "dave",
