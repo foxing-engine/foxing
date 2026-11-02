@@ -218,10 +218,13 @@ pub fn register(world: &mut World, curves: Curves) {
                 STORY,
                 json!({"from": ctx.actor, "creature": creature.0, "kind": kind, "name": name, "words": words, "earned": earned.0, "kept": kept.0, "level": level, "keywords": story_words(&text), "repeats": repeats}),
             );
+            // A line of its own, drawn from what it holds beside the new story: four
+            // creatures once thanked a teller in exactly the same words.
+            let own = super::talk::line_of_its_own(w, creature, kept);
             let answer = if wanted {
-                format!("That is the one I wanted. I will keep that. \"{gist}\" I hold {level:.0} now.")
+                format!("That is the one I wanted. I will keep that. \"{gist}\"{own} I hold {level:.0} now.")
             } else {
-                format!("I will keep that. \"{gist}\" I hold {level:.0} now.")
+                format!("I will keep that. \"{gist}\"{own} I hold {level:.0} now.")
             };
             super::talk::speak(w, creature, &ctx.actor, &answer)?;
             if wanted {

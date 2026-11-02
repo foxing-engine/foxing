@@ -113,9 +113,9 @@ figures on the canvas that answer to a click.
   story of Ossian's story of…"), the craft line, "took my a story", "for good" →
   "until you revoke it", the map's empty cells as dots, replies dropping receipts
   before quotes when over the limit, CL-R2 not reading a one-word DO argument as
-  time. Open: four creatures answer a farewell with the same line ("For the story?
-  I hold it. That is the thanks"); a creature could answer a story with a line of
-  its own drawn from what it holds (Quillfeather's one change); the Margin's text
+  time. Shipped (approved 2026-11-01): a creature answers a story with a line of its
+  own drawn from what it holds, and thanks in its own words rather than in chorus.
+  Open: the Margin's text
   invites a note its owner never welcomed; `look` could show a dug room's half-life
   to its owner; a `read <object>` for long texts. Burrowmoss's ten rooms: two off the
   Escapement Stair (the Mainspring Closet, the Winding Key's Rest), three in the

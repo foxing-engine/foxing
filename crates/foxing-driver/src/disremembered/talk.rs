@@ -567,8 +567,17 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
         });
     }
     if has(&["thank"]) {
+        // Each creature in its own words, so a room of them does not answer a
+        // farewell in chorus.
+        const THANKS: &[&str] = &[
+            "For the story? I hold it. That is the thanks.",
+            "Keep your thanks; I keep the story. We are even.",
+            "The story thanks you. I only hold it.",
+            "No. Thank the story. I am where it lives now.",
+            "You gave; I hold. That is the whole of it.",
+        ];
         return Some(if told_me {
-            "For the story? I hold it. That is the thanks.".into()
+            THANKS[creature.0 as usize % THANKS.len()].to_string()
         } else if knows_you {
             "It is your memory. I only hold it.".into()
         } else {
@@ -740,4 +749,60 @@ fn recent(world: &World, creature: EntityId, room: Option<EntityId>) -> Vec<Stri
     }
     out.reverse();
     out
+}
+
+/// A line of the creature's own, drawn from what it holds beside the memory just
+/// given (`except`): another story it keeps, a creature it remembers, something a
+/// stranger brought. Empty when it holds nothing else. Which memory is by the
+/// creature and how many it holds, so two creatures told the same story answer
+/// differently, and the same creature differently as it fills.
+pub fn line_of_its_own(world: &World, creature: EntityId, except: EntityId) -> String {
+    let Some(window) = mind::window_of(world, creature) else {
+        return String::new();
+    };
+    let now = world.now();
+    let mut others: Vec<(EntityId, String, f64)> = world
+        .store
+        .children(window)
+        .filter(|e| e.kind == "chunk" && e.id != except)
+        .filter_map(|e| {
+            let source = plain_str(world, e.id, CHUNK, "source")?.to_string();
+            let value = world
+                .store
+                .read_field(e.id, CHUNK, "value", now)
+                .ok()?
+                .as_f64()?;
+            Some((e.id, source, value))
+        })
+        .collect();
+    if others.is_empty() {
+        return " It is the first thing I have been given to keep.".to_string();
+    }
+    others.sort_by_key(|(id, _, _)| id.0);
+    let pick = (creature.0 as usize + others.len()) % others.len();
+    let (_, source, value) = &others[pick];
+    let faded = *value < 5.0;
+    if let Some(gist) = source.strip_prefix("a story: \"") {
+        let gist = gist.trim_end_matches('"');
+        return if faded {
+            format!(" It puts me in mind of one I am losing: \"{gist}\"")
+        } else {
+            format!(" It puts me in mind of one I keep: \"{gist}\"")
+        };
+    }
+    if let Some((teller, rest)) = source.split_once("'s story of ") {
+        return format!(" {teller} told me one like it once: {rest}.");
+    }
+    if source.starts_with("the word that made it") {
+        return " I was made of a word; I know what it is to be given one.".to_string();
+    }
+    if source.starts_with("the ") || source.starts_with("a ") || source.starts_with("someone") {
+        return if faded {
+            format!(" I will set it beside {source}, while I still have that.")
+        } else {
+            format!(" I will set it beside {source}; they will get on.")
+        };
+    }
+    // A creature's memory, given by a keeper: "hollow", "wisp".
+    format!(" It goes in with the memory of {source}, which is mostly quiet now.")
 }

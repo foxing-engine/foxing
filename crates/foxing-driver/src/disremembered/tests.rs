@@ -2578,7 +2578,16 @@ fn memory_moves_by_gift_and_by_story() {
     assert!(mind::level(&w, rag) > 70.0);
     // A teller is known: thanks are received as thanks, and a goodbye as one.
     let reply = talk::reply(&w, rag, "dave", "thank you").unwrap();
-    assert!(reply.starts_with("For the story?"), "{reply}");
+    assert!(
+        reply.contains("story") && (reply.contains("hold") || reply.contains("keep")),
+        "{reply}"
+    );
+    // The story's answer carried a line of the creature's own, from what it held
+    // beside it (the hollow it was fed), and the room heard it.
+    assert!(
+        heard.iter().any(|t| t.contains("It goes in with the memory of hollow")),
+        "{heard:?}"
+    );
     let reply = talk::reply(&w, rag, "dave", "goodbye for now").unwrap();
     assert!(reply.starts_with("Go, then, dave."), "{reply}");
     let reply = talk::reply(&w, rag, "nobody", "thanks!").unwrap();
