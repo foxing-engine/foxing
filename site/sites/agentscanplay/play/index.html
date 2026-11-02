@@ -967,7 +967,7 @@
     composeLogin();
     $("q-run").disabled = false;
     print(body.fresh
-      ? "Welcome, " + name + ". Your passphrase is set; you will need it next time. You are at the Threshold. Type help."
+      ? "Welcome, " + name + ". Your passphrase is set; you will need it next time. You are at the Threshold: click anything in the picture to act on it, follow the card below, or type help."
       : "Welcome back, " + name + ".", "sys");
     const live = await connect();
     if (live) { $("link").textContent = "Live session."; } else { try { const h = await api("/health"); if (h.body) cursor = h.body.events || 0; } catch (e) {} startPolling(); }
@@ -1654,7 +1654,11 @@
     const me = subs.me && subs.me.root && subs.me.root.components["disremembered.body"];
     const hp = me && timed(me.hp), max = me && me.max_hp;
     const chunks = (subs.window && subs.window.root.relations && subs.window.root.relations.contents) || [];
-    const best = chunks.map(n => ({ id: n.id, v: timed(n.components["disremembered.chunk"].value) })).sort((a, b) => b.v - a.v)[0];
+    const ranked = chunks.map(n => ({ id: n.id, v: timed(n.components["disremembered.chunk"].value) })).sort((a, b) => b.v - a.v);
+    // What a button spends: the cheapest chunk that is worth something, never the
+    // dearest (a tester's "remember here" offered up their best memory).
+    const best = ranked[0];
+    const cheapest = ranked.filter(c => c.v >= 1).slice(-1)[0] || best;
     add("look", "look", true);
     if (chunks.length) add("chunks", "chunks", true);
     if (hp != null && max && hp < max - 0.5) add("rest", "rest", true);
@@ -1666,7 +1670,7 @@
           add("story " + mind.name, 'story ' + mind.name + ' "');
           add("tell " + mind.name, 'tell ' + mind.name + ' "');
         } else if (!fought) { add("attack " + c.name, "attack " + c.name); fought = true; }
-        if (best) add("remember → " + (named ? mind.name : c.name), "remember chunk-" + best.id + " " + (named ? mind.name : c.name));
+        if (cheapest) add("remember → " + (named ? mind.name : c.name), "remember chunk-" + cheapest.id + " " + (named ? mind.name : c.name));
       } else if (n.kind === "item") {
         const it = n.components["disremembered.item"] || {};
         if (it.fixed) add("append " + (it.given_name || it.name), 'append "');
@@ -1687,7 +1691,7 @@
     const HOUSE = ["The Petitioners' Gallery", "The Robing Room", "The Tally Room", "The Lectern", "The Roll of Hoards", "The Sitting", "The Division Lobby", "The Minute Room", "The Engrossing Room"];
     if (rc.name === "The Petitioners' Gallery") { add("petition", 'petition "'); add("petitions", "petitions", true); }
     if (HOUSE.includes(rc.name)) add("read", "read", true);
-    if (best && rc.memory != null) add("remember here", "remember chunk-" + best.id);
+    if (cheapest && rc.memory != null) add("remember here", "remember chunk-" + cheapest.id);
     // Permits is a map of name to its expiry; the room's owner needs none.
     const permits = rc.permits || {};
     const mayDescribe = room.owner === actor || (Array.isArray(permits) ? permits.includes(actor) : Object.prototype.hasOwnProperty.call(permits, actor));
@@ -1740,11 +1744,14 @@
       sec.hidden = !showing() || $("compose").hidden === false || $("observe").hidden === false;
       if (sec.hidden) return;
       const ol = document.createDocumentFragment();
-      let current = null;
+      // The step that is next: the first not done after the last one done, so a
+      // skipped step does not hold the card forever; the skipped ones come round after.
+      const lastDone = STEPS.reduce((k, st, i) => state.done[st.id] ? i : k, -1);
+      let current = STEPS.find((st, i) => i > lastDone && !state.done[st.id]) || STEPS.find(st => !state.done[st.id]) || null;
       for (const st of STEPS) {
         const li = document.createElement("li");
         const done = !!state.done[st.id];
-        if (done) li.className = "done"; else if (!current) { current = st; li.className = "now"; }
+        if (done) li.className = "done"; else if (st === current) li.className = "now";
         const tick = document.createElement("span"); tick.className = "tick"; tick.textContent = done ? "✓" : (li.className === "now" ? "▸" : "◦");
         const code = document.createElement("code"); code.textContent = fill(st);
         if (!done) code.addEventListener("click", () => prefill(fill(st).replace(/<[^>]*>/g, "").replace(/\?/g, "").replace(/\s+"$/, ' "').replace(/\s{2,}/g, " ")));

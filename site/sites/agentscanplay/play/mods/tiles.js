@@ -490,7 +490,7 @@ export default function install(m) {
       } else if (t.kind === "you") {
         const by = Math.round(Math.sin(now / 300)) - 7;
         px(x * T + 7, y * T + by, 2, 2, DUST); px(x * T + 6, y * T + by - 2, 4, 2, DUST); px(x * T + 5, y * T + by - 4, 6, 2, DUST);
-        hot.set(x + "," + y, { label: "you, " + t.name, primary: () => m.command("look", []), menu: [{ label: "Look around", run: () => m.command("look", []) }, { label: "What I hold", run: () => m.command("chunks", []) }, { label: "What remembers me", run: () => m.command("mine", []) }, { label: "Rest", run: () => m.command("rest", []) }, { label: "Dig a room here", run: () => m.prefill("dig nook " + bestChunk() + ' "') }, { label: "Say something", run: () => m.prefill('say "') }] });
+        hot.set(x + "," + y, { label: "you, " + t.name, primary: () => m.command("look", []), menu: [{ label: "Look around", run: () => m.command("look", []) }, { label: "What I hold", run: () => m.command("chunks", []) }, { label: "What remembers me", run: () => m.command("mine", []) }, { label: "Rest", run: () => m.command("rest", []) }, { label: "Dig a room here", run: () => m.prefill("dig nook " + chunkFor("dig") + ' "') }, { label: "Say something", run: () => m.prefill('say "') }] });
       } else if (t.kind === "docent") {
         labelAt("the Docent", x, y, -1);
         hot.set(x + "," + y, { label: "the Docent, " + t.name + " — ask it anything", primary: () => m.prefill('tell docent "'), menu: [{ label: "Ask the Docent", run: () => m.prefill('tell docent "') }, { label: "Who are you?", run: () => m.command("tell", ["docent", '"who are you?"']) }] });
@@ -567,12 +567,19 @@ export default function install(m) {
     ctx.fillText("level " + Math.round(level), (x0 + 56) * SCALE, y0 * SCALE);
     ctx.fillText(chunks.length + " ✦", (x0 + 100) * SCALE, y0 * SCALE);
   }
-  function bestChunk() {
+  // The chunk a menu spends: the cheapest worth anything for a gift or a room's
+  // keeping, the most vivid for a dig (a vivid memory makes a room that lasts).
+  function chunkFor(use) {
     const win = m.observations && m.observations.window && m.observations.window.root;
     const chunks = (win && win.relations && win.relations.contents) || [];
-    const best = chunks.map(n => ({ id: n.id, v: m.timed(n.components["disremembered.chunk"].value) })).sort((a, b) => b.v - a.v)[0];
-    return best ? "chunk-" + best.id : "chunk-?";
+    const rows = chunks.map(n => { const c = n.components["disremembered.chunk"] || {}; return { id: n.id, v: m.timed(c.value), viv: c.vividity || 0 }; });
+    if (!rows.length) return "chunk-?";
+    if (use === "dig") { rows.sort((a, b) => b.viv - a.viv || b.v - a.v); return "chunk-" + rows[0].id; }
+    rows.sort((a, b) => b.v - a.v);
+    const cheap = rows.filter(c => c.v >= 1).slice(-1)[0] || rows[0];
+    return "chunk-" + cheap.id;
   }
+  function bestChunk() { return chunkFor("give"); }
   function thingNamed(name) {
     if (!scene || !name) return null;
     const n = name.toLowerCase();

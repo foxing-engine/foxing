@@ -371,7 +371,13 @@ pub fn humane(d: Duration) -> String {
     if s >= 172_800 {
         format!("{} days", s / 86_400)
     } else if s >= 7200 {
-        format!("{} hours", s / 3600)
+        // To the half hour: "3 hours" for 3.5 read as a lie beside the panel's 3.5h.
+        let h = (s as f64 / 1800.0).round() / 2.0;
+        if h == h.floor() {
+            format!("{h:.0} hours")
+        } else {
+            format!("{h:.1} hours")
+        }
     } else if s >= 120 {
         format!("{} minutes", s / 60)
     } else {

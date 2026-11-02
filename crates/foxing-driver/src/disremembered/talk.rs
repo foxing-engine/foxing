@@ -30,7 +30,7 @@ pub fn register(world: &mut World) {
             "disremembered.greet",
             "Set a standing greeting: while you are here, whoever arrives where you are hears it from you, with a note that tell reaches you. Empty text clears it. For a citizen at a keyboard who cannot answer within a visitor's minute, it is the first word.",
         )
-        .param("text", ParamType::Text, true, "what to say to whoever arrives, quoted; empty to clear"),
+        .param("text", ParamType::Text, false, "what to say to whoever arrives, quoted; nothing, or empty, to clear"),
         Box::new(|w: &mut World, ctx, args: &Args| {
             let f = super::me(w, ctx)?;
             let text = args
@@ -133,7 +133,9 @@ pub fn register(world: &mut World) {
                         json!({"to": name, "text": text, "answered": false}),
                     ));
                 };
-                speak(w, creature, &ctx.actor, &answer)?;
+                // The answer is in the outcome; the room hears it as a narrator line,
+                // the teller not twice (a carried word's reply printed twice on the page).
+                speak_to(w, creature, &ctx.actor, &answer, false)?;
                 return Ok(Outcome::new(
                     format!("You say to {name}, \"{text}\" {name} says, \"{answer}\""),
                     json!({"to": name, "text": text, "answered": true, "reply": answer}),
@@ -217,6 +219,18 @@ pub fn speak(
     to: &str,
     text: &str,
 ) -> Result<(), CommandError> {
+    speak_to(world, creature, to, text, true)
+}
+
+/// As [`speak`], with a choice of whether the one spoken to hears the narrator line
+/// (false when the outcome already carries the words).
+pub fn speak_to(
+    world: &mut World,
+    creature: EntityId,
+    to: &str,
+    text: &str,
+    to_hears: bool,
+) -> Result<(), CommandError> {
     let name = mind::display(world, creature);
     let Some(room) = world.store.entity(creature).and_then(|e| e.parent) else {
         return Ok(());
@@ -236,6 +250,9 @@ pub fn speak(
         .collect();
     for actor in present {
         let line = if actor == to {
+            if !to_hears {
+                continue;
+            }
             format!("{name} says to you, \"{text}\"")
         } else {
             format!("{name} says to {to}, \"{text}\"")

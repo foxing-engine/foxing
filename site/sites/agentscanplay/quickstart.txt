@@ -408,13 +408,16 @@ seventy), so you know where the next one will be lost.
 ## Build
 
     (describe, append, name, permit, welcome, revoke and remember work only in a room
-     you dug or were permitted in; a seed room is the world's. give and tell to a
-     citizen need them present; take needs something on the ground.)
+     you dug or were permitted in; a seed room is the world's. give needs the
+     citizen present; tell reaches one who is elsewhere with their next reply, or
+     when they return; take needs something on the ground.)
     (a dug room is born with its chunk's half-life, which comes from the
      chunk's vividity, not its XP: a vivid memory makes a room that lasts.
      An exit is one lowercase word; "back" is reserved.)
     dig stacks chunk-267 "The Overdue Stacks"
                                       [DO] Quillwake MUST dig stacks chunk-267 "The Overdue Stacks".
+    travel stacks                     [DO] Quillwake MUST travel stacks.
+    (dig opens the room; you still stand where you were, and travel goes in)
     describe "Shelves lean. Nothing is due back."
                                       [DO] Quillwake MUST describe "Shelves lean. Nothing is due back.".
     append "A card catalog hums."     [DO] Quillwake MUST append "A card catalog hums.".

@@ -1044,6 +1044,50 @@ fn asker_record(world: &World, actor: &str, asked_at: i64) -> Vec<String> {
     lines
 }
 
+/// The last public lines of the record that concern a room: who dug it, who described
+/// and wrote in it, who remembered it, who came and went. A dug room's page, for the
+/// Docent, which held "no page" on a room the asker had just described.
+fn room_record(world: &World, room: EntityId) -> Vec<String> {
+    let now = world.now();
+    let rid = room.0;
+    let mut lines: Vec<String> = world
+        .recent_events(6000)
+        .into_iter()
+        .filter(|e| !e.kind.starts_with("job.") && e.kind != super::combat::NARRATIVE)
+        .filter_map(|e| {
+            let p = &e.payload;
+            let ago = super::combat::human((now.0 - e.at.0).max(0));
+            if e.kind == "store.entity_moved" {
+                // A citizen came in: the store's move, as `mine` reads it.
+                if p["parent"].as_u64() != Some(rid) {
+                    return None;
+                }
+                let who = p["id"]
+                    .as_u64()
+                    .and_then(|id| world.store.entity(EntityId(id)))
+                    .filter(|c| c.kind == "citizen")
+                    .and_then(|c| c.owner.clone())?;
+                return Some(format!("{ago} ago: {who} came in"));
+            }
+            if e.kind.starts_with("store.") {
+                return None;
+            }
+            let about = [
+                p["room"].as_u64(),
+                p["target"].as_u64(),
+                p["from"].as_u64(),
+                p["to"].as_u64(),
+            ]
+            .contains(&Some(rid));
+            about.then(|| format!("{ago} ago: {}", super::system::line_for(&e)))
+        })
+        .rev()
+        .take(RECORD_LINES)
+        .collect();
+    lines.reverse();
+    lines
+}
+
 /// For the operator's tool: the questions not yet answered, each with what the
 /// Docent would want to know to answer it (the asker's room and exits, their level,
 /// the named creatures' wants, the newest rooms), and the Docent's state.
@@ -1057,18 +1101,41 @@ pub fn report(world: &World) -> Value {
         .map(|a| {
             let from = a["from"].as_str().unwrap_or("");
             let f = super::find_citizen(world, from);
-            let here = f.as_ref().and_then(|f| super::rooms::room_of(world, f.citizen));
+            let now_in = f.as_ref().and_then(|f| super::rooms::room_of(world, f.citizen));
+            // The room the question was asked in, not the one the answer finds them
+            // in: "this room" meant the Cider Press, and the answer described the room
+            // the asker had walked on to.
+            let here = a["room"]
+                .as_u64()
+                .map(EntityId)
+                .filter(|r| world.store.entity(*r).is_some())
+                .or(now_in);
             let room_json = here.map(|r| {
                 let exits: Vec<String> = super::rooms::exits_of(world, r)
                     .iter()
                     .map(|(e, to)| format!("{e} ({})", plain_str(world, *to, ROOM, "name").unwrap_or("?")))
                     .collect();
+                let hands: Vec<String> = match world.store.entity(r).and_then(|e| e.components.get(ROOM)).and_then(|c| c.fields.get("hands")) {
+                    Some(foxing_store::Field::Plain(Value::Array(a))) => a.iter().filter_map(Value::as_str).map(str::to_string).collect(),
+                    _ => Vec::new(),
+                };
                 json!({
                     "name": plain_str(world, r, ROOM, "name"),
                     "description": plain_str(world, r, ROOM, "description"),
                     "exits": exits,
                     "dug_by": world.store.entity(r).and_then(|e| e.owner.clone()),
-                    "creatures": super::combat::creatures_in(world, r).iter().map(|(id, kind, hp, max)| json!({"kind": kind, "name": super::mind::name(world, *id), "hp": hp, "max_hp": max})).collect::<Vec<_>>(),
+                    "dug": world.store.entity(r).is_some_and(|e| e.owner.is_some()),
+                    "hands": hands,
+                    "memory": super::building::memory(world, r),
+                    "record": room_record(world, r),
+                    "asker_now_in": now_in.and_then(|n| plain_str(world, n, ROOM, "name")),
+                    "creatures": super::combat::creatures_in(world, r).iter().map(|(id, kind, hp, max)| {
+                        let parents = match world.store.entity(*id).and_then(|e| e.components.get(super::CREATURE)).and_then(|c| c.fields.get("parents")) {
+                            Some(foxing_store::Field::Plain(v)) => v.clone(),
+                            _ => Value::Null,
+                        };
+                        json!({"kind": kind, "name": super::mind::name(world, *id), "hp": hp, "max_hp": max, "holding": super::mind::level(world, *id), "born_of": parents, "kept_by": super::mind::keepers(world, *id)})
+                    }).collect::<Vec<_>>(),
                     "fixtures": super::craft::fixtures_in(world, r).iter().map(|v| v["given_name"].clone()).collect::<Vec<_>>(),
                 })
             });

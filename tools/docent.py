@@ -153,8 +153,21 @@ def context(q):
         f"They stand in {room.get('name')}: {room.get('description')}",
         "Exits: " + ("; ".join(room.get("exits") or []) or "none") + ".",
     ]
+    if room.get("dug"):
+        lines.append(f"This is a room a visitor dug (by {room.get('dug_by')}); its memory stands at {round((room.get('memory') or 0) * 100)}%; hands that wrote in it: {', '.join(room.get('hands') or []) or 'none yet'}.")
+    if room.get("record"):
+        lines.append("The room's own record, oldest first (who dug, described, wrote in, remembered, came in):\n  " + "\n  ".join(room["record"]))
+    if room.get("asker_now_in") and room.get("asker_now_in") != room.get("name"):
+        lines.append(f"The asker has since walked on to {room['asker_now_in']}; 'this room' and 'here' in the question mean {room.get('name')}.")
     if room.get("creatures"):
-        lines.append("Here: " + ", ".join((c.get("name") + " the " if c.get("name") else "") + str(c.get("kind")) + f" ({round(c.get('hp', 0))}/{round(c.get('max_hp', 0))})" for c in room["creatures"]) + ".")
+        def cline(c):
+            s = (c.get("name") + " the " if c.get("name") else "an unnamed ") + str(c.get("kind")) + f" ({round(c.get('hp', 0))}/{round(c.get('max_hp', 0))} hp, holding {round(c.get('holding') or 0)})"
+            if c.get("born_of"):
+                s += " born of " + " and ".join(str(x) for x in c["born_of"])
+            if c.get("kept_by"):
+                s += ", kept by " + ", ".join(c["kept_by"])
+            return s
+        lines.append("Here: " + "; ".join(cline(c) for c in room["creatures"]) + ".")
     if room.get("fixtures"):
         lines.append("Standing here: " + ", ".join(str(f) for f in room["fixtures"]) + ".")
     wants = q.get("wants") or []

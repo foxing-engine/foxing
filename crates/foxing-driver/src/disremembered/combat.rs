@@ -245,6 +245,17 @@ const ATTACK_PER_ROOT_LEVEL: f64 = 1.0;
 /// newcomer may zombie-rush a censor once), one holding three hundred loses a quarter,
 /// a thousand a third, and the share tends to half. It was a coin flip for one chunk
 /// at any level, and death cost a 2,000-XP delver nothing it noticed.
+/// Kinds a bare `attack` never picks: the Conclave's officers and the Stacks' keepers.
+pub const OFFICERS: &[&str] = &[
+    "tipstaff",
+    "engrosser",
+    "cataloguer",
+    "censor",
+    "usher",
+    "keeper",
+    "sitter",
+    "hourhand",
+];
 /// A kill pays what the creature held, at most the delver's level plus this.
 pub const KILL_PAY_OVER_LEVEL: f64 = 60.0;
 pub const DEATH_SHARE_MAX: f64 = 0.5;
@@ -1229,7 +1240,9 @@ pub fn register(world: &mut World, curves: Curves) {
                 // With no target: the one you are fighting, else the first creature here
                 // that nobody has named and nobody bore. A named creature is never struck
                 // by default, nor a child: one was felled at the Threshold by "attack".
-                _ => engaged_with(w, f.citizen).filter(|id| here.iter().any(|c| c.0 == *id) && !super::mind::shaken(w, *id)).or_else(|| here.iter().find(|c| super::mind::name(w, c.0).is_none() && super::kindle::born_at(w, c.0).is_none() && !super::mind::shaken(w, c.0)).map(|c| c.0)),
+                // The Conclave's officers (and the Stacks' keepers) are struck only by
+                // name: a bare `attack` at the Bar picked the 158-hp tipstaff.
+                _ => engaged_with(w, f.citizen).filter(|id| here.iter().any(|c| c.0 == *id) && !super::mind::shaken(w, *id)).or_else(|| here.iter().find(|c| super::mind::name(w, c.0).is_none() && super::kindle::born_at(w, c.0).is_none() && !super::mind::shaken(w, c.0) && !plain_str(w, c.0, CREATURE, "name").is_some_and(|k| OFFICERS.contains(&k))).map(|c| c.0)),
             };
             if let Some(c) = target {
                 if let Some(born) = super::kindle::born_at(w, c) {
@@ -1248,7 +1261,10 @@ pub fn register(world: &mut World, curves: Curves) {
                 // same message leaves you at the Threshold, and "No such creature here"
                 // read as an error.
                 let where_ = format!(" You are in {}.", plain_str(w, room, super::ROOM, "name").unwrap_or("?"));
-                return Err(CommandError::precondition(if here.is_empty() { format!("There is nothing here to fight.{where_}") } else if args.str("creature").map_or(true, str::is_empty) {
+                let officers: Vec<String> = here.iter().filter(|c| super::mind::name(w, c.0).is_none() && plain_str(w, c.0, CREATURE, "name").is_some_and(|k| OFFICERS.contains(&k))).map(|c| super::mind::display(w, c.0)).collect();
+                return Err(CommandError::precondition(if here.is_empty() { format!("There is nothing here to fight.{where_}") } else if args.str("creature").map_or(true, str::is_empty) && !officers.is_empty() {
+                    format!("Nothing here is struck by accident: {} {} an officer of the house, named in `attack` or left alone.", officers.join(" and "), if officers.len() == 1 { "is" } else { "are" })
+                } else if args.str("creature").map_or(true, str::is_empty) {
                     format!("Nothing unnamed is here to fight. {} {} a name, and {} struck only by that name.", here.iter().map(|c| super::mind::display(w, c.0)).collect::<Vec<_>>().join(" and "), if here.len() == 1 { "has" } else { "have" }, if here.len() == 1 { "is" } else { "are" })
                 } else {
                     // Named as look names them, so the retry can be copied from the refusal.
