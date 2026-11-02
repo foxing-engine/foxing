@@ -306,6 +306,15 @@ pub fn on_arrival(world: &mut World, actor: &str) -> Result<(), String> {
     if Some(here) != threshold {
         return Ok(());
     }
+    // The hand at the desk (the operator's answering name) comes and goes with every
+    // answer; it is not a visitor, and is not greeted.
+    if field(world, "desk")
+        .and_then(|v| v.as_str().map(str::to_string))
+        .as_deref()
+        == Some(actor)
+    {
+        return Ok(());
+    }
     let now = world.now().0;
     let mut greeted = field(world, "greeted")
         .and_then(|v| v.as_object().cloned())
@@ -475,6 +484,18 @@ pub fn ask(
     Ok((line.to_string(), id))
 }
 
+/// A question as the Docent names it back: whole when short, else its first words
+/// to a word's end and an ellipsis (a cut mid-word read as a slip).
+pub fn short_question(q: &str) -> String {
+    const MAX: usize = 64;
+    if q.chars().count() <= MAX {
+        return q.to_string();
+    }
+    let head: String = q.chars().take(MAX).collect();
+    let cut = head.rfind(' ').unwrap_or(head.len());
+    format!("{}\u{2026}", head[..cut].trim_end_matches([',', ';', ':']))
+}
+
 /// How many questions `actor` has asked tonight, as an ordinal: "your third".
 pub fn nth_tonight(world: &World, actor: &str) -> String {
     let now = world.now().0;
@@ -520,7 +541,7 @@ fn answer(
         )));
     }
     let to = a["from"].as_str().unwrap_or("").to_string();
-    let question: String = a["text"].as_str().unwrap_or("").chars().take(60).collect();
+    let question = short_question(a["text"].as_str().unwrap_or(""));
     a["answered"] = json!(world.now().0);
     a["answer"] = json!(text);
     let answered = field(world, "answered")
@@ -530,6 +551,7 @@ fn answer(
     let mut changes = BTreeMap::new();
     changes.insert("asked".into(), json!(list));
     changes.insert("answered".into(), json!(answered));
+    changes.insert("desk".into(), json!(by));
     write(world, changes).map_err(CommandError::precondition)?;
     world
         .cancel(JOB_EMPTY, |p| p["id"] == id)
@@ -710,13 +732,12 @@ pub fn register(world: &mut World) {
             let mut changes = BTreeMap::new();
             changes.insert("asked".into(), json!(list));
             write(w, changes)?;
-            let short: String = question.chars().take(60).collect();
+            let short = short_question(&question);
             super::combat::narrate(
                 w,
                 &to,
                 format!(
-                    "The Docent comes back without the page, on \"{short}{}\": \"No one is at the desk tonight to find that one. `help` has what I keep by heart; the room knows the rest.\"",
-                    if question.chars().count() > 60 { "\u{2026}" } else { "" }
+                    "The Docent comes back without the page, on \"{short}\": \"No one is at the desk tonight to find that one. `help` has what I keep by heart; the room knows the rest.\""
                 ),
             );
             Ok(())

@@ -302,7 +302,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("answered", FieldKind::Plain, Visibility::Public)
             .field("tidied", FieldKind::Plain, Visibility::Public)
             .field("seen", FieldKind::Plain, Visibility::Admin)
-            .field("round", FieldKind::Plain, Visibility::Public),
+            .field("round", FieldKind::Plain, Visibility::Public)
+            // The operator's answering name, which is not greeted as a visitor.
+            .field("desk", FieldKind::Plain, Visibility::Admin),
         // The Namery: the pool of names not yet dealt, what was drawn, the stockings.
         ComponentSchema::new(namery::NAMERY, 1)
             .field("pool", FieldKind::Plain, Visibility::Admin)
