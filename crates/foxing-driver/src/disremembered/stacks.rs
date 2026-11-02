@@ -9,11 +9,11 @@
 //! theirs here too: an engrosser enters a chunk of yours into the minutes (shelved,
 //! not halved), the tipstaff shows you below the bar.
 
-use super::{plain_str, CHUNK, CREATURE, ROOM};
+use super::{plain_num, plain_str, CHUNK, CREATURE, ROOM};
 use crate::world::World;
 use foxing_log::Actor;
 use foxing_store::{EntityId, StoreEvent};
-use serde_json::json;
+use serde_json::{json, Value};
 
 /// The rooms of the Stacks, by key.
 pub const KEYS: &[&str] = &[
@@ -53,7 +53,58 @@ pub enum Trick {
     /// Shown below the bar: moved to the Petitioners' Gallery, the fight over (the
     /// Conclave's Sergeant). Never out of the Conclave.
     Below,
+    // Learned from kills, from irritating to painful (`death::maybe_learn`):
+    /// It says your name back wrong. Nothing else; it is the principle of the thing.
+    Chatter,
+    /// Shoved through a random exit of the room, the fight over.
+    Shove,
+    /// Your next strike does half: your arm is asleep for a while.
+    Numb,
+    /// It mends by what it bit.
+    Leech,
+    /// It bites a second time in the same breath, and stops short of the kill.
+    Maw,
 }
+
+/// What a learned trick is called in the record and on the creature.
+pub fn learned_key(t: Trick) -> &'static str {
+    match t {
+        Trick::Venom => "venom",
+        Trick::Forget => "forget",
+        Trick::Chatter => "chatter",
+        Trick::Shove => "shove",
+        Trick::Numb => "numb",
+        Trick::Leech => "leech",
+        Trick::Maw => "maw",
+        Trick::Usher => "usher",
+        Trick::Enter => "enter",
+        Trick::Below => "below",
+    }
+}
+
+pub fn learned_trick(key: &str) -> Option<Trick> {
+    Some(match key {
+        "venom" => Trick::Venom,
+        "forget" => Trick::Forget,
+        "chatter" => Trick::Chatter,
+        "shove" => Trick::Shove,
+        "numb" => Trick::Numb,
+        "leech" => Trick::Leech,
+        "maw" => Trick::Maw,
+        _ => return None,
+    })
+}
+
+/// Tiers a creature learns through, kill by kill: the first kill teaches something
+/// irritating, the second something worse, the third something painful.
+pub const LEARN_TIERS: &[&[Trick]] = &[
+    &[Trick::Chatter, Trick::Shove],
+    &[Trick::Numb, Trick::Leech],
+    &[Trick::Venom, Trick::Forget, Trick::Maw],
+];
+
+/// Your arm is asleep this long after a numbing bite.
+pub const NUMB_MS: i64 = 45_000;
 
 pub const TRICKS: &[(&str, Trick)] = &[
     ("lamprey", Trick::Venom),
@@ -76,12 +127,29 @@ pub const ONE_IN: u32 = 2;
 /// A trick on the record: `{trick, creature, kind, citizen, ...}`. Public.
 pub const TRICK: &str = "disremembered.trick";
 
+/// What a creature has learned from its kills, oldest first.
+pub fn learned_of(world: &World, creature: EntityId) -> Vec<Trick> {
+    match world
+        .store
+        .entity(creature)
+        .and_then(|e| e.components.get(CREATURE))
+        .and_then(|c| c.fields.get("learned"))
+    {
+        Some(foxing_store::Field::Plain(Value::Array(a))) => a
+            .iter()
+            .filter_map(|v| v.as_str().and_then(learned_trick))
+            .collect(),
+        Some(foxing_store::Field::Plain(Value::String(s))) => {
+            learned_trick(s).into_iter().collect()
+        }
+        _ => Vec::new(),
+    }
+}
+
 pub fn trick_of(world: &World, creature: EntityId) -> Option<Trick> {
-    // Learned from a kill, where the kind had none.
-    match plain_str(world, creature, CREATURE, "learned") {
-        Some("venom") => return Some(Trick::Venom),
-        Some("forget") => return Some(Trick::Forget),
-        _ => {}
+    // The worst thing it learned from a kill plays; else what its kind does.
+    if let Some(t) = learned_of(world, creature).last() {
+        return Some(*t);
     }
     let kind = plain_str(world, creature, CREATURE, "name")?;
     TRICKS.iter().find(|(k, _)| *k == kind).map(|(_, t)| *t)
@@ -406,6 +474,124 @@ fn play(
                 true,
             ))
         }
+        Trick::Chatter => {
+            if world.roll(ONE_IN) != 0 {
+                return Ok((None, false));
+            }
+            let wrong: String = actor.chars().rev().collect();
+            let _ = world.note(
+                Actor::Driver,
+                TRICK,
+                json!({"trick": "chatter", "creature": creature.0, "kind": kind, "citizen": actor, "said": wrong}),
+            );
+            Ok((
+                Some(format!(
+                    "The {kind} says your name back, wrong: \"{wrong}.\" It seems pleased."
+                )),
+                false,
+            ))
+        }
+        Trick::Shove => {
+            if world.roll(ONE_IN) != 0 {
+                return Ok((None, false));
+            }
+            let Some(here) = world.store.entity(citizen).and_then(|e| e.parent) else {
+                return Ok((None, false));
+            };
+            let exits: Vec<(String, EntityId)> =
+                super::rooms::exits_of(world, here).into_iter().collect();
+            let Some((via, to)) = exits
+                .get(world.roll(exits.len().max(1) as u32) as usize)
+                .cloned()
+            else {
+                return Ok((None, false));
+            };
+            super::combat::leave_fight(world, actor, citizen)?;
+            world
+                .record(
+                    Actor::Driver,
+                    StoreEvent::EntityMoved {
+                        id: citizen,
+                        parent: Some(to),
+                    },
+                )
+                .map_err(|e| e.to_string())?;
+            super::building::visited(world, to)?;
+            let _ = super::atlas::mark_seen(world, actor, to);
+            super::combat::on_arrival(world, actor, citizen, to)?;
+            let rname = plain_str(world, to, ROOM, "name")
+                .unwrap_or("?")
+                .to_string();
+            let _ = world.note(
+                Actor::Driver,
+                TRICK,
+                json!({"trick": "shoved", "creature": creature.0, "kind": kind, "citizen": actor, "to": to.0, "room_name": rname, "via": via}),
+            );
+            Ok((
+                Some(format!(
+                    "The {kind} shoves you {via}, and the door does the rest. You are in {rname}."
+                )),
+                true,
+            ))
+        }
+        Trick::Numb => {
+            if world.roll(ONE_IN) != 0 {
+                return Ok((None, false));
+            }
+            let until = world.now().0 + NUMB_MS;
+            world
+                .record(
+                    Actor::Driver,
+                    StoreEvent::FieldSet {
+                        id: citizen,
+                        component: super::BODY.into(),
+                        field: "numb_until".into(),
+                        value: json!(until),
+                    },
+                )
+                .map_err(|e| e.to_string())?;
+            let _ = world.note(
+                Actor::Driver,
+                TRICK,
+                json!({"trick": "numb", "creature": creature.0, "kind": kind, "citizen": actor, "until": until}),
+            );
+            Ok((Some(format!("The {kind}'s bite leaves your arm asleep: your strikes do half for a little while.")), false))
+        }
+        Trick::Leech => {
+            if world.roll(ONE_IN) != 0 {
+                return Ok((None, false));
+            }
+            let bite = plain_num(world, creature, CREATURE, "attack").unwrap_or(1.0);
+            let max = plain_num(world, creature, CREATURE, "max_hp").unwrap_or(1.0);
+            let hp = plain_num(world, creature, CREATURE, "hp").unwrap_or(0.0);
+            let mended = (hp + bite).min(max);
+            super::combat::set_creature_hp(world, creature, mended)?;
+            let _ = world.note(
+                Actor::Driver,
+                TRICK,
+                json!({"trick": "leech", "creature": creature.0, "kind": kind, "citizen": actor, "mended": mended - hp}),
+            );
+            Ok((Some(format!("The {kind} is the better for the bite: it mends by what it took ({mended:.0} of {max:.0}).")), false))
+        }
+        Trick::Maw => {
+            if world.roll(ONE_IN) != 0 {
+                return Ok((None, false));
+            }
+            // A second bite in the same breath; it stops short of the kill, so you remember.
+            let bite = plain_num(world, creature, CREATURE, "attack").unwrap_or(1.0);
+            let before = super::combat::hp(world, citizen);
+            let after = (before - bite).max(1.0);
+            if before - after < 0.5 {
+                return Ok((None, false));
+            }
+            super::combat::commit_hp(world, citizen, after).map_err(|e| e.to_string())?;
+            let _ = world.note(
+                Actor::Driver,
+                TRICK,
+                json!({"trick": "maw", "creature": creature.0, "kind": kind, "citizen": actor, "bite": before - after}),
+            );
+            Ok((Some(format!("And again, before you can step back: {:.0} \u{2192} {:.0}. It stops there, on purpose.", before.ceil(), after.ceil())), false))
+        }
     }
 }
 
@@ -435,8 +621,9 @@ pub fn register(world: &mut World) {
                 w,
                 &actor,
                 format!(
-                    "The venom works: {VENOM_DAMAGE:.0}. You have {:.0}/{:.0}.{}",
-                    after,
+                    "The venom works: {VENOM_DAMAGE:.0}, {:.0} \u{2192} {:.0} of {:.0}.{}",
+                    (after + VENOM_DAMAGE).ceil(),
+                    after.ceil(),
                     super::MAX_HP,
                     if left == 1 { " It is out of you now." } else { "" }
                 ),

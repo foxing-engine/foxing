@@ -6704,3 +6704,108 @@ fn wants_lists_the_named_with_the_way_and_mine_says_what_remembers_you() {
         out.summary
     );
 }
+
+#[test]
+fn a_creature_learns_from_its_kills_from_irritating_to_painful() {
+    use super::stacks::{self, Trick};
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    let dave = find_citizen(&w, "dave").unwrap().citizen;
+    assert!(
+        stacks::trick_of(&w, wisp).is_none(),
+        "a wisp has no trick of its own"
+    );
+    // Learned, tier by tier (set by hand: the roll is one in three).
+    let set = |w: &mut World, list: Vec<&str>| {
+        let mut c = std::collections::BTreeMap::new();
+        c.insert("learned".to_string(), Field::Plain(json!(list)));
+        super::bindery::set_fields(w, foxing_log::Actor::Driver, wisp, CREATURE, c).unwrap();
+    };
+    set(&mut w, vec!["chatter"]);
+    assert_eq!(stacks::trick_of(&w, wisp), Some(Trick::Chatter));
+    set(&mut w, vec!["chatter", "numb"]);
+    assert_eq!(
+        stacks::trick_of(&w, wisp),
+        Some(Trick::Numb),
+        "the worst learned plays"
+    );
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains(
+            "it has learned a numbing bite, and before that your name, and says it wrong"
+        ),
+        "{}",
+        look.summary
+    );
+    // Each trick, played by hand until it lands (one in two).
+    let play_until = |w: &mut World, key: &str| -> String {
+        set(w, vec![key]);
+        for _ in 0..40 {
+            let (line, _) = stacks::trick(w, &curves(), wisp, dave, "dave").unwrap();
+            if let Some(l) = line {
+                return l;
+            }
+        }
+        panic!("{key} never landed");
+    };
+    let l = play_until(&mut w, "chatter");
+    assert!(l.contains("says your name back, wrong: \"evad.\""), "{l}");
+    let l = play_until(&mut w, "numb");
+    assert!(l.contains("your strikes do half"), "{l}");
+    let before = plain_num(&w, wisp, CREATURE, "hp").unwrap();
+    let out = ok(&mut w, "dave", "attack", json!(["wisp"]));
+    let after = plain_num(&w, wisp, CREATURE, "hp").unwrap_or(0.0);
+    assert!(
+        before - after <= 3.0,
+        "halved: {before} -> {after}: {}",
+        out.summary
+    );
+    assert!(
+        out.summary.contains("your arm still asleep") || out.summary.contains("hit it for"),
+        "{}",
+        out.summary
+    );
+    ok(&mut w, "dave", "retreat", json!([]));
+    super::combat::set_creature_hp(&mut w, wisp, 2.0).unwrap();
+    let l = play_until(&mut w, "leech");
+    assert!(l.contains("it mends by what it took"), "{l}");
+    assert!(plain_num(&w, wisp, CREATURE, "hp").unwrap() > 2.0);
+    let hp0 = combat::hp(&w, dave);
+    let l = play_until(&mut w, "maw");
+    assert!(l.contains("And again, before you can step back"), "{l}");
+    assert!(
+        combat::hp(&w, dave) < hp0 && combat::hp(&w, dave) >= 1.0,
+        "{}",
+        combat::hp(&w, dave)
+    );
+    let l = play_until(&mut w, "shove");
+    assert!(l.contains("shoves you"), "{l}");
+    assert_ne!(
+        rooms::room_of(&w, dave),
+        Some(fog),
+        "shoved out of the Fogbank"
+    );
+    // Learning climbs the tiers: three kills, each learning something, worse each time.
+    set(&mut w, vec![]);
+    let mut got = Vec::new();
+    for _ in 0..200 {
+        if let Some(k) = super::death::maybe_learn(&mut w, wisp).unwrap() {
+            got.push(k);
+        }
+        if got.len() == 3 {
+            break;
+        }
+    }
+    assert_eq!(got.len(), 3, "{got:?}");
+    assert!(["chatter", "shove"].contains(&got[0]), "{got:?}");
+    assert!(["numb", "leech"].contains(&got[1]), "{got:?}");
+    assert!(["venom", "forget", "maw"].contains(&got[2]), "{got:?}");
+    assert!(
+        super::death::maybe_learn(&mut w, wisp).unwrap().is_none(),
+        "three is all"
+    );
+}

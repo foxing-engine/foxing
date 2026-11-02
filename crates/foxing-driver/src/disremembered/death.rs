@@ -167,24 +167,31 @@ fn plain(world: &World, id: EntityId, field: &str) -> Option<Value> {
         })
 }
 
-/// A trickless creature may learn one from the kill. Returns what it learned.
+/// A creature may learn something from the kill, one time in [`LEARN_ONE_IN`]: from
+/// irritating to painful, a tier per thing already learned, so a creature that has
+/// felled many is a different animal. A kind with a trick of its own learns nothing.
 pub fn maybe_learn(
     world: &mut World,
     killer: EntityId,
 ) -> Result<Option<&'static str>, foxing_registry::CommandError> {
-    if super::stacks::trick_of(world, killer).is_some() {
+    use super::stacks::{learned_key, learned_of, LEARN_TIERS, TRICKS};
+    let kind = plain_str(world, killer, CREATURE, "name").unwrap_or("");
+    if TRICKS.iter().any(|(k, _)| *k == kind) {
+        return Ok(None);
+    }
+    let have = learned_of(world, killer);
+    if have.len() >= LEARN_TIERS.len() {
         return Ok(None);
     }
     if world.roll(LEARN_ONE_IN) != 0 {
         return Ok(None);
     }
-    let learned = if world.roll(2) == 0 {
-        "venom"
-    } else {
-        "forget"
-    };
+    let tier = LEARN_TIERS[have.len()];
+    let learned = learned_key(tier[world.roll(tier.len() as u32) as usize]);
+    let mut list: Vec<Value> = have.iter().map(|t| json!(learned_key(*t))).collect();
+    list.push(json!(learned));
     let mut changes = BTreeMap::new();
-    changes.insert("learned".into(), Field::Plain(json!(learned)));
+    changes.insert("learned".into(), Field::Plain(Value::Array(list)));
     super::bindery::set_fields(world, Actor::Driver, killer, CREATURE, changes)?;
     Ok(Some(learned))
 }
@@ -194,8 +201,39 @@ pub fn learned_said(learned: &str) -> &'static str {
     match learned {
         "venom" => "it has learned to bite with venom",
         "forget" => "it has learned the ray of forgetfulness",
+        "chatter" => "it has learned your name, and says it wrong",
+        "shove" => "it has learned to shove",
+        "numb" => "it has learned a numbing bite",
+        "leech" => "it has learned to mend by what it bites",
+        "maw" => "it has learned to bite twice",
         _ => "it has learned something",
     }
+}
+
+/// Everything a creature learned, as a room says it: the worst first.
+pub fn learned_all_said(world: &World, creature: EntityId) -> Option<String> {
+    let list = super::stacks::learned_of(world, creature);
+    if list.is_empty() {
+        return None;
+    }
+    let mut parts: Vec<&str> = list
+        .iter()
+        .rev()
+        .map(|t| learned_said(super::stacks::learned_key(*t)))
+        .collect();
+    let first = parts.remove(0);
+    Some(if parts.is_empty() {
+        first.to_string()
+    } else {
+        format!(
+            "{first}, and before that {}",
+            parts
+                .iter()
+                .map(|p| p.trim_start_matches("it has learned "))
+                .collect::<Vec<_>>()
+                .join(" and ")
+        )
+    })
 }
 
 /// Whether a creature holds a memory of felling `actor`.

@@ -334,7 +334,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
         ComponentSchema::new(BODY, 1)
             .field("hp", FieldKind::Timed, Visibility::Public)
             .field("max_hp", FieldKind::Plain, Visibility::Public)
-            .field("engaged", FieldKind::Plain, Visibility::Owner),
+            .field("engaged", FieldKind::Plain, Visibility::Owner)
+            // A numbing bite: strikes do half until this (ms since the epoch).
+            .field("numb_until", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(SPRITE, 2)
             .field("glyph", FieldKind::Plain, Visibility::Public)
             .field("tint", FieldKind::Plain, Visibility::Public)

@@ -590,6 +590,26 @@ pub(crate) fn leave_fight(world: &mut World, actor: &str, citizen: EntityId) -> 
 /// newcomer with an attack of three felled a censor in four trips and three deaths,
 /// the censor keeping every wound between them. The ground floor's creatures keep
 /// their wounds, as they always have; the Stacks keep their own.
+/// A creature's hit points, set by a trick (a leech mends by its bite).
+pub(crate) fn set_creature_hp(
+    world: &mut World,
+    creature: EntityId,
+    value: f64,
+) -> Result<(), String> {
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::FieldSet {
+                id: creature,
+                component: CREATURE.into(),
+                field: "hp".into(),
+                value: json!(value),
+            },
+        )
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
 pub(crate) fn mend(world: &mut World, creature: EntityId) -> Result<(), StoreError> {
     if super::stacks::trick_of(world, creature).is_none() {
         return Ok(());
@@ -681,9 +701,27 @@ fn creature_strikes(
 ) -> Result<(f64, bool), StoreError> {
     let attack = plain_num(world, creature, CREATURE, "attack").unwrap_or(1.0);
     let dmg = attack + world.roll(3) as f64;
-    let after = hp(world, citizen) - dmg;
+    let before = hp(world, citizen);
+    let after = before - dmg;
     commit_hp(world, citizen, after)?;
+    LAST_HIT.with(|c| c.set((before.ceil(), after.max(0.0).ceil())));
     Ok((dmg, after <= 0.0))
+}
+
+thread_local! {
+    /// The hit points before and after the last strike, as a line says them: both
+    /// ends, because you mend between strikes and a line that said only the end
+    /// read as arithmetic gone wrong ("hits you for 4" and the number fell by 2).
+    static LAST_HIT: std::cell::Cell<(f64, f64)> = const { std::cell::Cell::new((0.0, 0.0)) };
+}
+
+/// "hits you for 4: 28 → 24 of 30", from the last strike.
+pub(crate) fn hit_said(taken: f64) -> String {
+    let (before, after) = LAST_HIT.with(|c| c.get());
+    format!(
+        "hits you for {taken:.0}: {before:.0} \u{2192} {after:.0} of {:.0}",
+        super::MAX_HP
+    )
 }
 
 /// Death: concussion, then wake at the Threshold at full health, disengaged.
@@ -925,9 +963,8 @@ pub fn register(world: &mut World, curves: Curves) {
                 w,
                 &actor,
                 format!(
-                    "The {cname} hits you for {taken:.0}. You have {:.0}/{:.0}.{}",
-                    hp_said(w, citizen),
-                    super::MAX_HP,
+                    "The {cname} {}.{}",
+                    hit_said(taken),
                     trick.map(|t| format!(" {t}")).unwrap_or_default()
                 ),
             );
@@ -945,14 +982,21 @@ pub fn register(world: &mut World, curves: Curves) {
             let creature = EntityId(job.payload["creature"].as_u64().unwrap_or(0));
             let citizen = EntityId(job.payload["citizen"].as_u64().unwrap_or(0));
             let actor = job.payload["actor"].as_str().unwrap_or("").to_string();
-            let same_room = w.store.entity(creature).and_then(|c| c.parent) == w.store.entity(citizen).and_then(|c| c.parent);
-            if !same_room || w.store.entity(creature).is_none() || engaged_with(w, citizen).is_some() || !super::presence::is_here(w, citizen) {
+            let same_room = w.store.entity(creature).and_then(|c| c.parent)
+                == w.store.entity(citizen).and_then(|c| c.parent);
+            if !same_room
+                || w.store.entity(creature).is_none()
+                || engaged_with(w, citizen).is_some()
+                || !super::presence::is_here(w, citizen)
+            {
                 return Ok(());
             }
             if !is_aggressive(w, creature) {
                 return Ok(());
             }
-            let dname = plain_str(w, creature, CREATURE, "name").unwrap_or("creature").to_string();
+            let dname = plain_str(w, creature, CREATURE, "name")
+                .unwrap_or("creature")
+                .to_string();
             let dambush = ambush_line(w, creature);
             // It does not hunt those it knows: its keepers, whoever told it a story,
             // whoever did what it asked. (A visitor told Sorrel the story it wanted
@@ -963,23 +1007,44 @@ pub fn register(world: &mut World, curves: Curves) {
                 .is_some_and(|t| w.now().0 - (t as i64) < super::kindle::GRACE_MS);
             if new_name
                 || super::mind::shaken(w, creature)
-                || super::mind::keepers(w, creature).iter().any(|k| k == &actor)
+                || super::mind::keepers(w, creature)
+                    .iter()
+                    .any(|k| k == &actor)
                 || super::mind::told_by(w, creature, &actor)
                 || super::errand::did_for(w, creature, &actor)
             {
                 return Ok(());
             }
             set_engaged(w, &actor, citizen, Some(creature)).map_err(|e| e.to_string())?;
-            let (taken, dead) = creature_strikes(w, creature, citizen).map_err(|e| e.to_string())?;
+            let (taken, dead) =
+                creature_strikes(w, creature, citizen).map_err(|e| e.to_string())?;
             if dead {
                 let f = super::find_citizen(w, &actor).ok_or("citizen vanished")?;
                 let d = die(w, &actor, &f, Some(creature)).map_err(|e| e.to_string())?;
-                narrate(w, &actor, format!("The {dname} {dambush} It hits you for {taken:.0}. You go down.{}", d.said()));
+                narrate(
+                    w,
+                    &actor,
+                    format!(
+                        "The {dname} {dambush} It hits you for {taken:.0}. You go down.{}",
+                        d.said()
+                    ),
+                );
                 return Ok(());
             }
             let (trick, over) = super::stacks::trick(w, &c2, creature, citizen, &actor)?;
             let clock = clock_line(w, creature);
-            narrate(w, &actor, format!("The {dname} {dambush} It hits you for {taken:.0}. You have {:.0}/{:.0}.{} {clock}", hp_said(w, citizen), super::MAX_HP, match &trick { Some(t) => format!(" {t}"), None => " Attack it, or retreat.".to_string() }));
+            narrate(
+                w,
+                &actor,
+                format!(
+                    "The {dname} {dambush} It {}.{} {clock}",
+                    hit_said(taken),
+                    match &trick {
+                        Some(t) => format!(" {t}"),
+                        None => " Attack it, or retreat.".to_string(),
+                    }
+                ),
+            );
             if over {
                 return Ok(());
             }
@@ -1068,16 +1133,21 @@ pub fn register(world: &mut World, curves: Curves) {
 
             // You strike.
             let level = super::memory::level(w, f.window);
-            let dmg = attack_for_level(level) + w.roll(3) as f64;
+            let mut dmg = attack_for_level(level) + w.roll(3) as f64;
+            // An arm asleep from a numbing bite strikes for half, for a while.
+            let numb = plain_num(w, f.citizen, BODY, "numb_until").is_some_and(|u| u > w.now().0 as f64);
+            if numb {
+                dmg = (dmg / 2.0).max(1.0).floor();
+            }
             let chp = (plain_num(w, creature, CREATURE, "hp").unwrap_or(0.0) - dmg).max(0.0);
             w.record(Actor::Citizen(ctx.actor.clone()), StoreEvent::FieldSet { id: creature, component: CREATURE.into(), field: "hp".into(), value: json!(chp) }).map_err(internal)?;
             // A fight begun by default is said, not silent: six bare `attack` lines
             // felled an inkling on the fourth and struck its neighbor on the fifth.
             let turned = args.str("creature").map_or(true, str::is_empty) && began.is_some();
             let mut lines = vec![if turned {
-                format!("You turn on the {cname} and hit it for {dmg:.0}.")
+                format!("You turn on the {cname} and hit it for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" })
             } else {
-                format!("You hit the {cname} for {dmg:.0}.")
+                format!("You hit the {cname} for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" })
             }];
             if chp > 0.0 {
                 if let Some(c) = began.take() {
@@ -1145,14 +1215,13 @@ pub fn register(world: &mut World, curves: Curves) {
 
             // It strikes back.
             let (taken, dead) = creature_strikes(w, creature, f.citizen).map_err(internal)?;
-            lines.push(format!("The {cname} ({chp:.0} left) hits you for {taken:.0}."));
+            lines.push(format!("The {cname} ({chp:.0} left) {}.", if dead { format!("hits you for {taken:.0}") } else { hit_said(taken) }));
             if dead {
                 let d = die(w, &ctx.actor, &f, Some(creature))?;
                 lines.push(format!("You go down.{}", d.said()));
                 return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": false, "died": true, "lost": d.lost, "worth": d.worth, "fall": d.fall, "epitaph": d.epitaph, "keeper": d.keeper, "learned": d.learned})));
             }
             let my_hp = hp_said(w, f.citizen);
-            lines.push(format!("You have {my_hp:.0}/{:.0}.", super::MAX_HP));
             let (trick, _) = super::stacks::trick(w, &curves, creature, f.citizen, &ctx.actor).map_err(internal)?;
             if let Some(t) = trick {
                 lines.push(t);

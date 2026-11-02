@@ -868,8 +868,8 @@ pub fn describe(
                 } else {
                     ""
                 };
-                let learned = match super::plain_str(world, cid, super::CREATURE, "learned") {
-                    Some(l) => format!("; {}", super::death::learned_said(l)),
+                let learned = match super::death::learned_all_said(world, cid) {
+                    Some(l) => format!("; {l}"),
                     None => String::new(),
                 };
                 format!(

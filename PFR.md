@@ -169,6 +169,17 @@ figures on the canvas that answer to a click.
   across the night (the payload has only the newest); a creature's `felled` list in
   `tell … "who have you felled?"`; the board's falls column; a sound for a kill of
   yours.
+- Abilities and the hit line (2026-11-02, the owner: "more abilities from irritating
+  to painful"; "I'm letting a wisp hit me and the math is not adding up"). The math
+  was right and the line hid a term: hit points mend between strikes and the line said
+  only the end, rounded up; now every strike says both ends ("hits you for 4: 28 → 24
+  of 30"), the venom too. Learning from kills climbs three tiers, one per thing
+  learned: chatter (your name back, wrong) or shove (through a random door, the fight
+  over); numb (your strikes halved for 45 s) or leech (it mends by its bite); venom,
+  the ray, or maw (a second bite in the same breath, stopping at 1). The worst learned
+  plays; `look` says them all, worst first. Next: the minimap's zoom (owner's ask) and
+  pan; a keyboard-mock visitor (an agent driving the real page) as a standing cohort
+  member; a sound for a trick landing; a creature's `felled` list in `tell`.
 - A prettier page (2026-11-02, the owner: "I'm starting to share the link to gamer
   friends"). The night is ink-blue, not black; the world speaks in the serif and you
   type in the mono (the voice and the ledger); an ember for harm, moss for what you
