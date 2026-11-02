@@ -837,6 +837,9 @@ pub fn describe(
                         format!(", holding {l:.0}, its name failing")
                     }
                     Some(l) if l >= 0.5 => format!(", holding {l:.0}"),
+                    // Said even at nothing: a visitor read the hit points as the
+                    // memory and came to the bar one short.
+                    _ if c["mind"]["name"].is_null() => ", holding 0".to_string(),
                     _ => String::new(),
                 };
                 // A child says whose it is; a mutant that it is a strange one.

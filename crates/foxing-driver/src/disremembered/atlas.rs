@@ -448,7 +448,10 @@ pub fn remembered_map(
                     } else {
                         "·"
                     };
-                    grid[(y1 - y) as usize][(x - x0) as usize] = format!("{code}{mark}");
+                    // North is the smaller y (GET /v0/map: Lantern Row y=-1 of the
+                    // Threshold), so the first row is the smallest y. Two visitors
+                    // read the Scout's Lamp above the Threshold.
+                    grid[(y - y0) as usize][(x - x0) as usize] = format!("{code}{mark}");
                     legend.push(format!("{code} {}", r["name"].as_str().unwrap_or("?")));
                 }
                 let rows: Vec<String> = grid.iter().map(|row| row.join(" ")).collect();

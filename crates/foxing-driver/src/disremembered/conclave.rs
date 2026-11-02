@@ -488,7 +488,11 @@ pub fn text(world: &World, in_house: bool) -> String {
         Some(m) => lines.push(format!(
             "Hoards, as of the last strike: {}.",
             m.iter()
-                .map(|(n, s)| format!("{n} ({:.0}%)", s.as_f64().unwrap_or(0.0) * 100.0))
+                // The name in quotes: a citizen called possibly read as a hedge.
+                .map(|(n, s)| format!(
+                    "\u{201c}{n}\u{201d} ({:.0}%)",
+                    s.as_f64().unwrap_or(0.0) * 100.0
+                ))
                 .collect::<Vec<_>>()
                 .join(", ")
         )),

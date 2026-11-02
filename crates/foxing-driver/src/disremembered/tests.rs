@@ -6319,3 +6319,36 @@ fn the_namery_deals_each_stocked_name_once_and_a_creature_takes_its_former_name_
     assert_eq!(stocked[0].payload["names"], json!(["Gloam", "Pennywort"]));
     assert_eq!(stocked[0].payload["model"], json!("haiku"));
 }
+
+#[test]
+fn the_map_grid_draws_north_above() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // Stand in Lantern Row (north of the Threshold), then back: both are remembered,
+    // and the Fogbank east of the Threshold is in sight from it.
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    ok(&mut w, "dave", "travel", json!(["south"]));
+    let out = ok(&mut w, "dave", "map", json!([]));
+    let grid: Vec<&str> = out
+        .summary
+        .lines()
+        .skip_while(|l| !l.starts_with("This floor"))
+        .skip(1)
+        .take_while(|l| l.contains('·') || l.contains('@') || l.contains('*') || l.contains('.'))
+        .collect();
+    // The legend is one line: "01 The Threshold; 02 The Fogbank; 03 Lantern Row".
+    let legend: Vec<&str> = out
+        .summary
+        .lines()
+        .find(|l| l.starts_with("01 "))
+        .map(|l| l.split("; ").collect())
+        .unwrap_or_default();
+    let code_of = |name: &str| legend.iter().find(|l| l.trim().ends_with(name)).map(|l| l.trim()[..2].to_string()).unwrap_or_else(|| panic!("{name} in {legend:?}"));
+    let row_of = |code: &str| grid.iter().position(|r| r.contains(code)).unwrap_or_else(|| panic!("{code} in {grid:?}"));
+    let lantern = row_of(&code_of("Lantern Row"));
+    let threshold = row_of(&code_of("The Threshold"));
+    assert!(lantern < threshold, "north is drawn above: Lantern Row row {lantern}, Threshold row {threshold}\n{}", out.summary);
+    let fog = row_of(&code_of("The Fogbank"));
+    assert_eq!(fog, threshold, "east is on the same row\n{}", out.summary);
+}

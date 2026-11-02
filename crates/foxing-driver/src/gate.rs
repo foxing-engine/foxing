@@ -703,7 +703,18 @@ pub fn pass(
             .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
             .collect();
         for line in said {
-            report.quote(line, "narrator");
+            // Not a second time: a creature's answer to a story is the statement's
+            // own summary and also narrated to the teller, and a visitor read every
+            // reply twice.
+            let already = report.lines.iter().any(|l| match l {
+                Line::Quote { text, .. } => {
+                    text.contains(line.trim()) || line.contains(text.trim())
+                }
+                _ => false,
+            });
+            if !already {
+                report.quote(line, "narrator");
+            }
         }
     }
     finish(

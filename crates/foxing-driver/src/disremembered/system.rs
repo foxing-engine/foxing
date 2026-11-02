@@ -1,5 +1,6 @@
 //! World-level commands: the freeze, the log, the clocks.
 
+use super::NARRATIVE;
 use super::{account_scope, internal};
 use crate::world::World;
 use foxing_log::Actor;
@@ -185,6 +186,13 @@ pub(crate) fn line_for(e: &foxing_log::Event) -> String {
             }
         }
         "gate.reply" => format!("the world replied to {}", s("to")),
+        // What the world said to one citizen: shown to them as words, not as
+        // `disremembered.narrative {"kind":"driver"}` (a visitor's `log 12 events`
+        // had four of those among the prose).
+        "disremembered.narrative" => match p["text"].as_str() {
+            Some(t) => format!("the world said to {}: {t}", s("to")),
+            None => format!("the world said something to {}", s("to")),
+        },
         k => format!(
             "{k} {}",
             serde_json::to_string(&e.actor).unwrap_or_default()
@@ -613,6 +621,12 @@ pub fn register(world: &mut World) {
                 // What happened, in words: the store's and the scheduler's bookkeeping
                 // was most of a visitor's `log 15 events`.
                 .filter(|e| !e.kind.starts_with("store.") && !e.kind.starts_with("job."))
+                // Another citizen's narration is theirs: not a line in this one's log.
+                .filter(|e| {
+                    e.kind != NARRATIVE
+                        || ctx.kind == ActorKind::Admin
+                        || e.payload["to"].as_str() == Some(ctx.actor.as_str())
+                })
                 .map(|e| crate::observe::redacted(w, &viewer, e))
                 .collect();
             let events: Vec<foxing_log::Event> = events

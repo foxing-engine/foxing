@@ -105,6 +105,23 @@ figures on the canvas that answer to a click.
   more fixture recipes as the crafting round comes (a lamp that lights a room's
   text, a bell, a basin), a `read <object>` for long texts, fixtures in the tiles mod,
   and the Parlor's and Footnote Room's owners told they can make their books real.
+- From Pocketlint and Gallivant (2026-11-02, the tinkerer and the wanderer, the first
+  cohort after the Namery: the wispling they fed together took the pool's first name,
+  Vellic, and Gallivant named Ambrel). Shipped the same hour: the map grid's rows ran
+  south-up; a satisfied want came straight back (the fallback list is indexed by the
+  hour and the creature, and with the want cleared it landed on the one just told);
+  creature answers printed twice; "(twice, 4 times)"; a sheaf's gist list spliced into
+  speech; raw narrative events in `log`; "holding 0"; the craft reply's spent clause;
+  the welcome's "kept"; hoard names quoted. Open: a `tell` left for a citizen never
+  surfaced in a reply on arrival (Gallivant arrived in four rooms; quickstart promises
+  "when they next arrive"; check `heard_through` for gate actors); `help` as a DO
+  fails CL-I5 with the rule undefined (accept `help` as `commands`, or name the rule);
+  bare `attack` rolling to the next creature (already listed); wants as keyword pairs
+  ("baker's and clock"); observe: a `where`/name search, a `limit` hint on
+  too_many_entities, the literal root forms in `schema`; board's "given" counts
+  citizen gifts only (label it); the quickstart's "always something to do" needs two
+  named creatures in different rooms; the Bindery's own citizen stands remembered at
+  the Threshold after every run (harmless; an operator mark on `look` would say why).
 - The Namery (shipped 2026-11-02, the owner's ask: distinct creature names from Haiku,
   listed and cached locally). The world began with thirty-two names dealt by hash and
   would have handed out `Hesper-412` once they ran short. Now a pool, durable in the

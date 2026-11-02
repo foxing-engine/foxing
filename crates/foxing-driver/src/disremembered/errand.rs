@@ -790,13 +790,25 @@ fn next_story(
     epoch: usize,
     current: Option<String>,
 ) -> String {
-    if let Some(w) = faded_story(world, creature, now).filter(|w| Some(w) != current.as_ref()) {
+    // Not the current want, and not one answered within the grace: the list is
+    // indexed by the hour and the creature, so with the want just cleared it landed
+    // on the very story a visitor had told a tick before, "for about 4 hours more".
+    let mut avoid: Vec<String> = recent_prevs(world, creature)
+        .into_iter()
+        .map(|(s, _)| s.to_lowercase())
+        .collect();
+    if let Some(c) = &current {
+        avoid.push(c.to_lowercase());
+    }
+    if let Some(w) =
+        faded_story(world, creature, now).filter(|w| !avoid.contains(&w.to_lowercase()))
+    {
         return w;
     }
     let base = epoch + creature.0 as usize;
     for i in 0..FIRST_WANTS.len() {
         let w = FIRST_WANTS[(base + i) % FIRST_WANTS.len()];
-        if current.as_deref() != Some(w) {
+        if !avoid.contains(&w.to_lowercase()) {
             return w.to_string();
         }
     }

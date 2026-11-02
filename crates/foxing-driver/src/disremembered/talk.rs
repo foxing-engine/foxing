@@ -614,7 +614,8 @@ fn held(world: &World, creature: EntityId) -> Vec<String> {
         .children(window)
         .filter(|e| e.kind == "chunk")
         .filter_map(|e| {
-            plain_str(world, e.id, CHUNK, "source").map(|s| (e.id.0, format!("the memory of {s}")))
+            plain_str(world, e.id, CHUNK, "source")
+                .map(|s| (e.id.0, format!("the memory of {}", short_source(s))))
         })
         .collect();
     v.sort_by_key(|(id, _)| std::cmp::Reverse(*id));
@@ -628,19 +629,10 @@ fn held(world: &World, creature: EntityId) -> Vec<String> {
         }
     }
     out.into_iter()
-        .map(|(s, n)| {
-            if n > 1 {
-                format!(
-                    "{s} (twice{})",
-                    if n > 2 {
-                        format!(", {n} times")
-                    } else {
-                        String::new()
-                    }
-                )
-            } else {
-                s
-            }
+        .map(|(s, n)| match n {
+            1 => s,
+            2 => format!("{s} (twice)"),
+            n => format!("{s} ({n} times)"),
         })
         .collect()
 }
@@ -751,6 +743,17 @@ fn recent(world: &World, creature: EntityId, room: Option<EntityId>) -> Vec<Stri
     out
 }
 
+/// A chunk's source as it is spoken: a sheaf says how many stories it folds, not
+/// every gist (the list spliced itself into the middle of a creature's answer).
+pub(crate) fn short_source(source: &str) -> String {
+    if source.starts_with("a sheaf of ") {
+        if let Some((head, _)) = source.split_once(':') {
+            return head.to_string();
+        }
+    }
+    source.to_string()
+}
+
 /// A line of the creature's own, drawn from what it holds beside the memory just
 /// given (`except`): another story it keeps, a creature it remembers, something a
 /// stranger brought. Empty when it holds nothing else. Which memory is by the
@@ -782,6 +785,14 @@ pub fn line_of_its_own(world: &World, creature: EntityId, except: EntityId) -> S
     let pick = (creature.0 as usize + others.len()) % others.len();
     let (_, source, value) = &others[pick];
     let faded = *value < 5.0;
+    // A sheaf first: its gist list holds "X's story of …", and the branch below
+    // spliced the whole list into the sentence.
+    if source.starts_with("a sheaf of ") {
+        let head = short_source(source);
+        return format!(
+            " It goes in with {head} I have mostly let go of; they will keep each other."
+        );
+    }
     if let Some(gist) = source.strip_prefix("a story: \"") {
         let gist = gist.trim_end_matches('"');
         return if faded {

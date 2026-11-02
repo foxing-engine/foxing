@@ -1248,7 +1248,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     spent.map(|c| format!(", spending chunk-{}", c.0)).unwrap_or_default(),
                     item.0,
                     r.does,
-                    if r.fixed { format!(" It stands here, holding {spent_worth:.0}; name it (name \"…\" item-{}) once it holds {NAME_AT:.0}, describe it, remember chunks into it so it lasts.", item.0) } else { String::new() }
+                    if r.fixed { format!(" It stands here, holding {spent_worth:.0}; name it (name \"…\" item-{}) once it holds {NAME_AT:.0}, describe it, remember chunks into it so it lasts.", item.0) } else { format!(" The chunk is spent, not kept: it holds nothing yet. Remember chunks into it (remember chunk-N item-{}) and at {NAME_AT:.0} it takes a name.", item.0) }
                 ),
                 json!({"item": item.0, "name": r.name, "recipe": r.key, "of": used_names, "spent": spent.map(|c| c.0)}),
             ))
