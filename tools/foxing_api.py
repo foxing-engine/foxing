@@ -149,6 +149,10 @@ def ask_model(creds, system, user, max_tokens=700, model=None):
         {
             "model": model or MODEL,
             "max_tokens": max_tokens,
+            # The model thinks by default and its thinking counts against max_tokens;
+            # the first runs spent the whole budget thinking and sent no text. These
+            # are short, checked outputs: no thinking.
+            "thinking": {"type": "disabled"},
             "system": system,
             "messages": [{"role": "user", "content": user}],
         }
