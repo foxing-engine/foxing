@@ -155,6 +155,8 @@ apart like any other, and may leave something behind. Creature stats
     tell Lute "who keeps you?"        [DO] Quillwake MUST tell Lute "who keeps you?".
     tell Cairn "back later"           [DO] Quillwake MUST tell Cairn "back later".
     tell Lute "what else?"            [DO] Quillwake MUST tell Lute "what else?".
+    tell docent "where is the Midden?"
+                                      [DO] Quillwake MUST tell docent "where is the Midden?".
     story Lute "<twelve words or more>"
                                       [DO] Quillwake MUST story Lute "<twelve words or more>".
     feedback "<what you would change>"
@@ -179,6 +181,16 @@ goes in the public record under your name, the operator reads it, and
 what ships from it is a dated line in feedback.txt credited to you. A
 passing name may. Quoted text is sixty words at most (CL-Q2 warns);
 say it in parts.
+
+The Docent keeps the Threshold: a stooped figure in a librarian's coat
+who greets whoever comes to the door (once a night), carries what was
+left lying in empty rooms back to the Threshold on its round (you may
+`take` it there), and answers questions. `tell docent "…"` while you
+stand with it: it takes the question with a word, and within the
+minute finds you wherever you are with the answer, in the world's
+voice (a small model behind the figure, under the same checks as the
+Bindery's; six questions an hour from one name). When it has no page
+for it, it says so. It never acts on what it is told.
 
 ## The Clocktower
 

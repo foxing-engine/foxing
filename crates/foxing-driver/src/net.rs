@@ -615,6 +615,19 @@ async fn namery(State(s): State<Shared>, headers: HeaderMap) -> Reply {
     Ok(Json(crate::disremembered::namery::report(&w)))
 }
 
+/// `GET /v0/docent` (admin): the questions waiting on the Docent, with what it would
+/// want to know to answer each; for the tool that answers them.
+async fn docent(State(s): State<Shared>, headers: HeaderMap) -> Reply {
+    if !s.is_admin(admin_header(&headers)) {
+        return Err(err_json(
+            StatusCode::FORBIDDEN,
+            "the Docent's record is the operator's",
+        ));
+    }
+    let w = lock(&s)?;
+    Ok(Json(crate::disremembered::docent::report(&w)))
+}
+
 async fn bindery(State(s): State<Shared>, headers: HeaderMap) -> Reply {
     if !s.is_admin(admin_header(&headers)) {
         return Err(err_json(
@@ -1138,6 +1151,7 @@ pub fn router(shared: Shared) -> Router {
         .route("/v0/conclave", get(conclave))
         .route("/v0/bindery", get(bindery))
         .route("/v0/namery", get(namery))
+        .route("/v0/docent", get(docent))
         .route("/v0/citizens", get(citizens))
         .route("/v0/openapi.json", get(openapi))
         .route(

@@ -54,6 +54,12 @@ else
   exit 1
 fi
 
+# The Docent runs the release's tools/docent.py; a new release restarts it when the
+# unit is there and sudo allows (setup-bindery.sh grants it). Not fatal either way.
+if [ -f /etc/systemd/system/docent.service ]; then
+  if sudo -n systemctl restart docent 2>/dev/null; then echo "docent restarted on the new release"; else echo "(docent not restarted: no sudo right yet; rerun deploy/setup-bindery.sh once)"; fi
+fi
+
 log "Pruning old releases (keeping $KEEP_RELEASES)"
 cd "$APP_DIR/releases"
 ls -1dt -- */ 2>/dev/null | tail -n +$((KEEP_RELEASES + 1)) | while read -r old; do

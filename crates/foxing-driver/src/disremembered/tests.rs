@@ -2578,8 +2578,11 @@ fn memory_moves_by_gift_and_by_story() {
     assert!(mind::level(&w, rag) > 70.0);
     // A teller is known: thanks are received as thanks, and a goodbye as one.
     let reply = talk::reply(&w, rag, "dave", "thank you").unwrap();
+    // (Which line is by the creature's id, which moved by one when the Docent took its
+    // place in the store.)
     assert!(
-        reply.contains("story") && (reply.contains("hold") || reply.contains("keep")),
+        reply.contains("story")
+            && (reply.contains("hold") || reply.contains("keep") || reply.contains("lives")),
         "{reply}"
     );
     // The story's answer carried a line of the creature's own, from what it held
@@ -7127,4 +7130,197 @@ fn scale_measurement() {
     );
     let rooms = w2.store.entities().filter(|e| e.kind == "room").count();
     assert!(rooms >= n, "{rooms}");
+}
+
+#[test]
+fn the_docent_greets_once_a_night_takes_questions_answers_or_admits_the_page_is_missing_and_tidies()
+{
+    use super::docent;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    // It stands at the Threshold from the first boot, and `look` says so.
+    let threshold = rooms::arrival(&w).unwrap();
+    assert_eq!(docent::room(&w), Some(threshold));
+    let head = events(&w);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("The Docent is here: A stooped figure"),
+        "{}",
+        look.summary
+    );
+    // A name in its first hour hears the first words, once.
+    let said = narrative(&w, "dave", head);
+    assert_eq!(
+        said.iter()
+            .filter(|l| l.starts_with("The Docent: "))
+            .count(),
+        1,
+        "{said:?}"
+    );
+    assert!(
+        said[0].contains("dave") && said[0].contains("tell docent"),
+        "{}",
+        said[0]
+    );
+    ok(&mut w, "dave", "look", json!([]));
+    assert_eq!(
+        narrative(&w, "dave", head)
+            .iter()
+            .filter(|l| l.starts_with("The Docent: "))
+            .count(),
+        1
+    );
+    // A question: taken with a line, on the operator's list with the asker's room.
+    let out = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!(["docent", "where is the midden?"]),
+    );
+    assert!(
+        out.summary
+            .starts_with("You ask the Docent, \"where is the midden?\" The Docent: \""),
+        "{}",
+        out.summary
+    );
+    assert_eq!(out.result["asked"], 1);
+    let rep = docent::report(&w);
+    assert_eq!(rep["open"].as_array().unwrap().len(), 1, "{rep}");
+    assert_eq!(rep["open"][0]["room"]["name"], "The Threshold");
+    assert_eq!(rep["open"][0]["text"], "where is the midden?");
+    // The operator answers; the asker hears it wherever they are, and the question closes.
+    let head = events(&w);
+    let a = admin(
+        &mut w,
+        "Bindery",
+        "answer",
+        json!([
+            1,
+            "West of here, then south: two doors. Mind the ragpicker.",
+            "test"
+        ]),
+    );
+    assert!(a.summary.contains("answers dave"), "{}", a.summary);
+    let said = narrative(&w, "dave", head);
+    assert!(said.iter().any(|l| l == "The Docent finds you: \"West of here, then south: two doors. Mind the ragpicker.\""), "{said:?}");
+    assert!(docent::report(&w)["open"].as_array().unwrap().is_empty());
+    let err = call(
+        &mut w,
+        "Bindery",
+        ActorKind::Admin,
+        "answer",
+        json!([1, "again"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("answered already"), "{err}");
+    // A question nobody answers is said to be missing after a minute and a half.
+    let head = events(&w);
+    ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!(["docent", "what is the Conclave?"]),
+    );
+    w.fixed_now = Some(t0.plus(Duration::seconds(docent::EMPTY_AFTER_S + 2)));
+    w.tick();
+    let said = narrative(&w, "dave", head);
+    assert!(
+        said.iter()
+            .any(|l| l.starts_with("The Docent comes back without the page")),
+        "{said:?}"
+    );
+    // Six an hour from one name, no more.
+    for i in 0..4 {
+        ok(
+            &mut w,
+            "dave",
+            "tell",
+            json!(["docent", format!("question {i}")]),
+        );
+    }
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "tell",
+        json!(["docent", "one more"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("Six is what I take"), "{err}");
+    // Away from the Threshold it is not there to ask.
+    admin(&mut w, "dave", "bring", json!(["dave", "midden"]));
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "tell",
+        json!(["docent", "hello?"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("not here"), "{err}");
+    // Walking back to the Threshold a night later (Midden, north to the Fogbank, west):
+    // greeted again, as one it has met.
+    w.fixed_now = Some(t0.plus(Duration::seconds(docent::NIGHT_MS / 1000 + 10)));
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    let head = events(&w);
+    let back = ok(&mut w, "dave", "travel", json!(["west"]));
+    assert!(back.summary.contains("The Threshold"), "{}", back.summary);
+    let said = narrative(&w, "dave", head);
+    assert_eq!(
+        said.iter()
+            .filter(|l| l.starts_with("The Docent: "))
+            .count(),
+        1,
+        "{said:?}"
+    );
+    assert!(
+        !said
+            .iter()
+            .any(|l| l.contains("New, then") || l.contains("Welcome, dave")),
+        "{said:?}"
+    );
+    admin(&mut w, "dave", "bring", json!(["dave", "midden"]));
+    // Its round: a thing left lying in an empty room is carried to the Threshold on
+    // the second pass and set down, said aloud there.
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let item = w.store.allocate_id();
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityCreated {
+            id: item,
+            kind: "item".into(),
+            owner: None,
+            parent: Some(midden),
+            scopes: vec![],
+        },
+    )
+    .unwrap();
+    let mut fields = std::collections::BTreeMap::new();
+    fields.insert("name".into(), Field::Plain(json!("a wisp ember")));
+    fields.insert("kind".into(), Field::Plain(json!("material")));
+    w.record(
+        Actor::Driver,
+        StoreEvent::ComponentSet {
+            id: item,
+            component: craft::ITEM.into(),
+            fields,
+        },
+    )
+    .unwrap();
+    // dave stands in the Midden: nothing is taken from under anyone.
+    assert_eq!(docent::tidy(&mut w).unwrap(), 0);
+    admin(&mut w, "dave", "bring", json!(["dave", "threshold"]));
+    assert_eq!(docent::tidy(&mut w).unwrap(), 0, "first sighting");
+    let head = events(&w);
+    assert_eq!(docent::tidy(&mut w).unwrap(), 1, "second sighting");
+    assert_eq!(w.store.entity(item).unwrap().parent, Some(threshold));
+    let said = narrative(&w, "dave", head);
+    assert!(
+        said.iter()
+            .any(|l| l.contains("The Docent sets down a wisp ember, found lying in The Midden")),
+        "{said:?}"
+    );
+    assert_eq!(docent::report(&w)["tidied"], 1);
 }

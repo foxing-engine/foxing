@@ -725,7 +725,7 @@
         if (f.type === "welcome") {
           wsReady = true; cursor = f.cursor; settled = true; resolve(true);
           subscribe("room", { root: "here", select: { "disremembered.room": ["name", "description", "permits", "welcomes", "half_life_ms", "memory"], "disremembered.sprite": "*" }, relations: {
-            contents: { kinds: ["citizen", "creature", "item"], select: { "disremembered.citizen": ["name", "passing", "greeting"], "disremembered.creature": ["name", "hp", "max_hp"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace", "door"], "disremembered.mind": ["name", "tier"], "disremembered.errand": ["story", "word", "word_to"], "disremembered.item": ["name", "given_name", "fixed", "kind", "made_by"] } },
+            contents: { kinds: ["citizen", "creature", "item", "docent"], select: { "disremembered.docent": ["name", "line"], "disremembered.citizen": ["name", "passing", "greeting"], "disremembered.creature": ["name", "hp", "max_hp"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace", "door"], "disremembered.mind": ["name", "tier"], "disremembered.errand": ["story", "word", "word_to"], "disremembered.item": ["name", "given_name", "fixed", "kind", "made_by"] } },
             exits: { select: { "disremembered.room": ["name"], "disremembered.sprite": "*" } } }, timed: "curve", commands: false });
           subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting"] }, timed: "curve", commands: false });
           subscribe("window", { root: "window", select: {}, relations: { contents: { kinds: ["chunk"], select: { "disremembered.chunk": "*" } } }, timed: "curve", commands: false });
@@ -1474,6 +1474,15 @@
         r.title = it.fixed ? 'append "…" ' + (it.name || nm) + " (click)" : "take " + (it.name || nm) + " (click)";
         r.addEventListener("click", () => prefill(it.fixed ? 'append "' : 'take "' + (it.name || nm) + '"'));
         here.append(r);
+      } else if (n.kind === "docent") {
+        // The Docent: ask it anything; it answers within the minute, wherever you are.
+        const d = n.components["disremembered.docent"] || {};
+        const r = row(s, d.name || "the Docent", "", 0, null, "var(--dust)");
+        r.querySelector(".nm").append(Object.assign(document.createElement("span"), { className: "sub", textContent: "keeps the door; tidies; answers questions (click to ask)" }));
+        r.classList.add("click");
+        r.title = 'tell docent "…" (click)';
+        r.addEventListener("click", () => prefill('tell docent "'));
+        here.append(r);
       } else {
         const cz = n.components["disremembered.citizen"] || {};
         const nm = cz.name || "?";
@@ -1557,6 +1566,8 @@
       } else if (n.kind === "citizen") {
         const cz = n.components["disremembered.citizen"] || {}, p = n.components["disremembered.presence"];
         if (cz.name && cz.name !== actor && !(p && p.here === false)) add("tell " + cz.name, 'tell ' + cz.name + ' "');
+      } else if (n.kind === "docent") {
+        add("ask the Docent", 'tell docent "');
       }
     }
     const rc = room.components["disremembered.room"] || {};
@@ -1754,7 +1765,7 @@
     const last = Array.from(log.children).slice(-12).map(l => l.textContent);
     if (last.includes(text) || last.some(l => l.includes(text) && text.length > 20)) return;
     print(text, "tell");
-    const words = /says to you|says, "|tells you|left word|as you arrive/.test(text);
+    const words = /says to you|says, "|tells you|left word|as you arrive|^The Docent/.test(text);
     const strike = /hits you|ambush|strikes|goes down/.test(text);
     if (words) {
       const box = $("inbox");

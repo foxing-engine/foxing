@@ -981,6 +981,8 @@ pub fn register(world: &mut World) {
             wander(w)?;
             // The Bindery folds a creature's scraps into a sheaf on the same clock.
             super::bindery::fold_sheaves(w, &super::Curves::from_env())?;
+            // The Docent's round: what was left lying goes to the Threshold.
+            super::docent::tidy(w)?;
             schedule_wander(w)
         }),
     );

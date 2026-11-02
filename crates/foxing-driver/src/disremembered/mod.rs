@@ -17,6 +17,7 @@ mod combat;
 pub mod conclave;
 pub mod craft;
 pub mod death;
+pub mod docent;
 pub mod economy;
 pub mod errand;
 pub mod exchange;
@@ -291,6 +292,16 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("heir_name", FieldKind::Plain, Visibility::Public)
             // The name it had before it lost its tier: taken back when earned again.
             .field("former_name", FieldKind::Plain, Visibility::Public),
+        // The Docent: who it greeted this night, the questions on its record, its round.
+        ComponentSchema::new(docent::DOCENT, 1)
+            .field("name", FieldKind::Plain, Visibility::Public)
+            .field("line", FieldKind::Plain, Visibility::Public)
+            .field("greeted", FieldKind::Plain, Visibility::Admin)
+            .field("asked", FieldKind::Plain, Visibility::Admin)
+            .field("answered", FieldKind::Plain, Visibility::Public)
+            .field("tidied", FieldKind::Plain, Visibility::Public)
+            .field("seen", FieldKind::Plain, Visibility::Admin)
+            .field("round", FieldKind::Plain, Visibility::Public),
         // The Namery: the pool of names not yet dealt, what was drawn, the stockings.
         ComponentSchema::new(namery::NAMERY, 1)
             .field("pool", FieldKind::Plain, Visibility::Admin)
@@ -615,6 +626,7 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     economy::ensure(world)?;
     conclave::ensure(world)?;
     namery::ensure(world)?;
+    docent::ensure(world)?;
     board::ensure(world)?;
     mind::ensure_wander(world)
 }
@@ -1102,6 +1114,7 @@ pub fn register(world: &mut World, curves: Curves) {
     footprint::register(world, curves.clone());
     namery::register(world);
     namery::register_epitaphs(world);
+    docent::register(world);
     system::register(world);
 }
 

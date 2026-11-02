@@ -896,6 +896,10 @@ pub fn describe(
         text.push(' ');
         text.push_str(&note);
     }
+    if let Some(d) = super::docent::look_line(world, room) {
+        text.push(' ');
+        text.push_str(&d);
+    }
     text.push_str(&if others.is_empty() {
         " You are alone.".to_string()
     } else {
@@ -1019,6 +1023,8 @@ pub fn register(world: &mut World) {
             super::combat::on_arrival(w, &ctx.actor, f.citizen, to).map_err(internal)?;
             super::building::visited(w, to).map_err(internal)?;
             super::talk::greet(w, &ctx.actor, to);
+            // The Docent greets whoever comes to the Threshold, once a night.
+            super::docent::on_arrival(w, &ctx.actor).map_err(internal)?;
             let mut out = describe(w, &ctx.actor, ctx, to)?;
             out.summary = if doorless {
                 format!("There is no door here, so you go the way every room was first reached. {}", out.summary)

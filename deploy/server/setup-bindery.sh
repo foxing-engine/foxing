@@ -17,6 +17,7 @@
 #     kept name and a passphrase minted here, the admin token from driver.env, the
 #     model, and BINDERY_MODE=dry-run,
 #   - installs bindery.service + bindery.timer: tools/bind.py from the current release
+#   - installs docent.service: tools/docent.py, a daemon answering the Docent's questions
 #     at 04:40 UTC, after the 04:17 backup.
 #
 # The first nights are dry runs (proposals in /var/lib/foxing/bindery/, a summary to
@@ -82,6 +83,8 @@ BINDERY_PASSPHRASE=$PASS
 BINDERY_OUT=$STATE/proposals.jsonl
 NAMERY_OUT=$STATE/names.jsonl
 EPITAPHS_OUT=$STATE/epitaphs.jsonl
+DOCENT_OUT=$STATE/docent.jsonl
+DOCENT_MODE=on
 BINDERY_SIGNING_KEY=$KEY
 BINDERY_ISSUER=$ISSUER
 BINDERY_SUBJECT=$SUBJECT
@@ -101,6 +104,7 @@ else
   ok "$ENV_FILE kept"
   grep -q '^NAMERY_OUT=' "$ENV_FILE" || { printf 'NAMERY_OUT=%s\n' "$STATE/names.jsonl" >> "$ENV_FILE"; ok "NAMERY_OUT added to $ENV_FILE"; }
   grep -q '^EPITAPHS_OUT=' "$ENV_FILE" || { printf 'EPITAPHS_OUT=%s\n' "$STATE/epitaphs.jsonl" >> "$ENV_FILE"; ok "EPITAPHS_OUT added to $ENV_FILE"; }
+  grep -q '^DOCENT_OUT=' "$ENV_FILE" || { printf 'DOCENT_OUT=%s\nDOCENT_MODE=on\n' "$STATE/docent.jsonl" >> "$ENV_FILE"; ok "DOCENT_OUT and DOCENT_MODE added to $ENV_FILE"; }
   grep -q '^BINDERY_KID=' "$ENV_FILE" || { printf 'BINDERY_SIGNING_KEY=%s\nBINDERY_ISSUER=%s\nBINDERY_SUBJECT=%s\nBINDERY_KID=%s\nANTHROPIC_FEDERATION_RULE_ID=\nANTHROPIC_ORGANIZATION_ID=\nANTHROPIC_SERVICE_ACCOUNT_ID=\nANTHROPIC_WORKSPACE_ID=\n' "$KEY" "$ISSUER" "$SUBJECT" "$KID" >> "$ENV_FILE"; ok "federation lines added to $ENV_FILE"; }
 fi
 
@@ -139,9 +143,47 @@ Persistent=true
 WantedBy=timers.target
 TIMER
 
+# The Docent: a daemon on the same way in, answering what is asked of the figure at
+# the Threshold within the world's minute and a half. DOCENT_MODE=off in the env file
+# keeps it from starting (the world then answers "not in the catalog tonight").
+cat > /etc/systemd/system/docent.service <<UNIT
+[Unit]
+Description=The Docent: answers questions asked of the figure at the Threshold
+After=network-online.target foxing.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=$USER_NAME
+EnvironmentFile=$ENV_FILE
+WorkingDirectory=$STATE
+ExecStart=/bin/sh -c 'if [ "\$DOCENT_MODE" = off ]; then echo "DOCENT_MODE=off; the Docent keeps silent"; exec sleep infinity; fi; exec /usr/bin/python3 $RELEASE/tools/docent.py'
+Restart=on-failure
+RestartSec=20
+Nice=10
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+# The deploy user may restart the Docent, so a release carries a new docent.py into it.
+DEPLOY_USER=$(grep -h 'systemctl restart foxing' /etc/sudoers.d/* 2>/dev/null | head -1 | awk '{print $1}')
+if [ -n "$DEPLOY_USER" ] && ! grep -qs 'systemctl restart docent' /etc/sudoers.d/docent; then
+  printf '%s ALL=(root) NOPASSWD: /bin/systemctl restart docent, /bin/systemctl is-active docent\n' "$DEPLOY_USER" > /etc/sudoers.d/docent.tmp
+  chmod 440 /etc/sudoers.d/docent.tmp
+  if visudo -cf /etc/sudoers.d/docent.tmp >/dev/null; then mv /etc/sudoers.d/docent.tmp /etc/sudoers.d/docent; ok "sudoers: $DEPLOY_USER may restart docent"; else rm -f /etc/sudoers.d/docent.tmp; echo "  !!  sudoers line for docent did not check out; skipped"; fi
+fi
+
 systemctl daemon-reload
 systemctl enable --now bindery.timer >/dev/null 2>&1
 ok "bindery.timer enabled: $(systemctl list-timers bindery.timer --no-pager | sed -n 2p | awk '{print $1, $2, $3, $4}')"
+if [ -f "$RELEASE/tools/docent.py" ]; then
+  systemctl enable --now docent.service >/dev/null 2>&1 && ok "docent.service running (journalctl -u docent -f to watch it answer)" || echo "  !!  docent.service did not start; journalctl -u docent -n 20"
+else
+  echo "  !!  $RELEASE/tools/docent.py is not there yet; enable docent.service after the next release: sudo systemctl enable --now docent.service"
+fi
 [ -f "$RELEASE/tools/bind.py" ] && ok "tools/bind.py is in the current release" || echo "  !!  $RELEASE/tools/bind.py is not there yet; the next release stages it"
 
 cat <<EOF

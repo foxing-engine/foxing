@@ -37,6 +37,7 @@ deploy/server/         the game server (moondial-1): setup script, systemd unit,
 tools/trace.py         trace one name through the public record (`tools/trace.py blackrock`, `--names` for everyone)
 tools/keyboard.py      the real play page in a headless browser, driven a typed line at a time over a local port: a keyboard playtester for an agent or a person (`serve`, then POST /type)
 tools/epitaphs.py      keeps the book of epitaphs stocked: a batch from a small model, sieved here and by the world
+tools/docent.py        the Docent's answers: a daemon that reads what was asked of the figure at the Threshold and answers in the world's voice, sieved
 tools/names.py         keeps the Namery stocked: a batch of creature names from a small model, sieved here and by the world, each dealt once
 tools/bind.py          the Bindery's nightly run: binds much-appended rooms and books into prose with a small model under mechanical checks (dry run by default, `--apply`; reaches the API by workload identity federation, no key)
 ```

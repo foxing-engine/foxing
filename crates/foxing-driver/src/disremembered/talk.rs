@@ -79,6 +79,23 @@ pub fn register(world: &mut World) {
             }
             let f = me(w, ctx)?;
             let room = rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
+            // The Docent, if it stands here: the question goes on its record and an
+            // answer comes to you within the minute, wherever you are.
+            if super::docent::is_named(&who) {
+                if super::docent::room(w) != Some(room) {
+                    return Err(CommandError::precondition(
+                        "The Docent is not here; it keeps the Threshold, and comes back to it between rounds.",
+                    ));
+                }
+                let (line, id) = super::docent::ask(w, &ctx.actor, room, &text)?;
+                for other in others_here(w, room, &ctx.actor) {
+                    narrate(w, &other, format!("{} asks the Docent something; it nods.", ctx.actor));
+                }
+                return Ok(Outcome::new(
+                    format!("You ask the Docent, \"{text}\" The Docent: \"{line}\" (It answers within the minute, wherever you are; question {id}.)"),
+                    json!({"to": "the Docent", "text": text, "asked": id}),
+                ));
+            }
             // A creature here?
             if let Some(creature) = mind::find_here(w, room, &who) {
                 let name = mind::display(w, creature);
