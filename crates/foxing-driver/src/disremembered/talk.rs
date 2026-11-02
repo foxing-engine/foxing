@@ -82,6 +82,10 @@ pub fn register(world: &mut World) {
             // The Docent, if it stands here: the question goes on its record and an
             // answer comes to you within the minute, wherever you are.
             if super::docent::is_named(&who) {
+                // Asked at the door while it is out on its round, it comes back for it.
+                if Some(room) == rooms::arrival(w) {
+                    super::docent::come_home(w).map_err(internal)?;
+                }
                 if super::docent::room(w) != Some(room) {
                     return Err(CommandError::precondition(
                         "The Docent is not here; it keeps the Threshold, and comes back to it between rounds.",

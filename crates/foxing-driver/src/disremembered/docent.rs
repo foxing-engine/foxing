@@ -297,11 +297,31 @@ fn fill(line: &str, name: &str, creature: &str, room_line: &str) -> String {
     out.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// A citizen arrived: at the Threshold, the Docent greets them once a night.
-pub fn on_arrival(world: &mut World, actor: &str) -> Result<(), String> {
-    let Some(docent) = entity(world) else {
+/// The Docent comes back to the Threshold from wherever its round had it.
+pub fn come_home(world: &mut World) -> Result<(), String> {
+    let (Some(docent), Some(threshold)) = (entity(world), super::rooms::arrival(world)) else {
         return Ok(());
     };
+    if room(world) == Some(threshold) {
+        return Ok(());
+    }
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::EntityMoved {
+                id: docent,
+                parent: Some(threshold),
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// A citizen arrived: at the Threshold, the Docent greets them once a night.
+pub fn on_arrival(world: &mut World, actor: &str) -> Result<(), String> {
+    if entity(world).is_none() {
+        return Ok(());
+    }
     let Some(f) = super::find_citizen(world, actor) else {
         return Ok(());
     };
@@ -321,6 +341,9 @@ pub fn on_arrival(world: &mut World, actor: &str) -> Result<(), String> {
     {
         return Ok(());
     }
+    // It hurries back to the door if it was out on its round, greeted or not: a name
+    // back for the second time tonight found the door empty and could not ask.
+    come_home(world)?;
     let now = world.now().0;
     let mut greeted = field(world, "greeted")
         .and_then(|v| v.as_object().cloned())
@@ -331,18 +354,6 @@ pub fn on_arrival(world: &mut World, actor: &str) -> Result<(), String> {
         .is_some_and(|t| now - t < NIGHT_MS)
     {
         return Ok(());
-    }
-    // It hurries back to the door if it was out on its round.
-    if room(world) != Some(here) {
-        world
-            .record(
-                Actor::Driver,
-                StoreEvent::EntityMoved {
-                    id: docent,
-                    parent: Some(here),
-                },
-            )
-            .map_err(|e| e.to_string())?;
     }
     let newcomer = super::plain_num(world, f.citizen, super::CITIZEN, "named_at")
         .is_some_and(|t| now - (t as i64) < super::kindle::GRACE_MS);
