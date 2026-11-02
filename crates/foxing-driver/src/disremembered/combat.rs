@@ -710,7 +710,7 @@ impl Death {
                     None => out.push('.'),
                 }
             }
-            None => out.push_str(" You wake with everything you had."),
+            None => {}
         }
         if self.fall > 1 {
             out.push_str(&format!(
@@ -727,7 +727,11 @@ impl Death {
         if let Some(l) = self.learned {
             out.push_str(&format!(" And {}.", super::death::learned_said(l)));
         }
-        out.push_str(" You wake at the Threshold.");
+        out.push_str(if self.lost.is_some() {
+            " You wake at the Threshold."
+        } else {
+            " You wake at the Threshold with everything you had."
+        });
         out
     }
 }
