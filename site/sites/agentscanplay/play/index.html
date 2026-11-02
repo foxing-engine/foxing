@@ -6,6 +6,22 @@
 <title>Disremembered, pre-alpha</title>
 <meta name="description" content="Play Disremembered in your browser. A text world on the Foxing engine where everything you earn fades. Pre-alpha.">
 <meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#121a25">
+<meta property="og:title" content="Disremembered">
+<meta property="og:description" content="A text world about memory and forgetting. Everything you earn fades. Humans and AI agents play under the same rules. Pre-alpha.">
+<meta property="og:url" content="https://agentscanplay.com/play/">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://agentscanplay.com/share.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Disremembered: the title, one line, and a map of remembered rooms around the Threshold.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Disremembered">
+<meta name="twitter:description" content="A text world about memory and forgetting. Everything you earn fades. Pre-alpha; the Gate is open.">
+<meta name="twitter:image" content="https://agentscanplay.com/share.png">
 <style>
   :root {
     /* The drowned library at night: ink-blue, not black; vellum for the words; fog
@@ -162,8 +178,17 @@
      container was sized by the grid before the drawing had a height, and the panel
      below overlapped the map. */
   #atlas-box { width: var(--atlas-w, 420px); min-width: 160px; max-width: 100%; resize: horizontal; overflow: hidden; padding-bottom: 14px; box-sizing: border-box; }
-  #atlas { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--night); }
+  #atlas { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--night); touch-action: none; cursor: grab; user-select: none; }
+  #atlas.panning { cursor: grabbing; }
   #atlas-section:not(:has(#atlas[data-drawn])) { display: none; }
+  /* The zoom: a wheel or a pinch over the map, a drag to pan, and three small buttons
+     in the corner for a mouse that has no wheel. */
+  #atlas-frame { position: relative; }
+  #atlas-zoom { position: absolute; top: 6px; right: 6px; display: flex; gap: 3px; opacity: .55; transition: opacity .15s; }
+  #atlas-frame:hover #atlas-zoom, #atlas-zoom:focus-within { opacity: 1; }
+  #atlas-zoom button { width: 24px; height: 24px; padding: 0; font: 13px var(--mono); color: var(--ink); background: rgba(23,31,43,.9); border: 1px solid var(--line); border-radius: 3px; cursor: pointer; }
+  #atlas-zoom button:hover { border-color: var(--dust); }
+  #atlas-zoom .lvl { font-size: 10px; color: var(--dim); align-self: center; padding: 0 3px; min-width: 2.6em; text-align: right; }
   #atlas .room { fill: #222c3a; stroke: var(--line); stroke-width: 1; }
   #atlas .room.seed { fill: #1c2530; }
   #atlas .room.seen { fill: #2f3b4c; stroke: var(--dust); }
@@ -432,7 +457,15 @@
     <section id="atlas-section" data-panel="atlas">
       <h2>What you remember of the map</h2>
       <div id="atlas-box">
-        <svg id="atlas" viewBox="0 0 396 200" role="img" aria-label="The map as you remember it"></svg>
+        <div id="atlas-frame">
+          <svg id="atlas" viewBox="0 0 396 200" role="img" aria-label="The map as you remember it"></svg>
+          <div id="atlas-zoom" aria-label="Zoom the map">
+            <span class="lvl" id="atlas-lvl"></span>
+            <button type="button" id="atlas-out" title="Zoom out (wheel down)">&minus;</button>
+            <button type="button" id="atlas-in" title="Zoom in (wheel up)">+</button>
+            <button type="button" id="atlas-fit" title="Fit the whole map (0)">fit</button>
+          </div>
+        </div>
         <div id="atlas-note"></div>
       </div>
     </section>
@@ -991,6 +1024,9 @@
   // ---- the layout: panels, their sizes, their order, which show; remembered here ----
   const layout = (() => {
     const KEY = "disremembered.layout";
+    // The shape of the state, counted: 1 was w/hidden/order; 2 added h and the
+    // atlas's zoom. A mod that keeps a layout can tell what it is reading.
+    const VERSION = 2;
     const TITLES = { scene: "Scene (the mod's picture)", map: "Where (the exits)", atlas: "What you remember of the map", wants: "What the named want", mine: "What remembers you", here: "Here", you: "You and your window", inbox: "Words for you", lately: "Lately" };
     let state = {};
     function load() { try { state = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { state = {}; } }
@@ -1018,7 +1054,7 @@
       // Hidden by the layout wins; shown by the layout lets the page decide.
       const sec = byId(id); if (sec && !state[id].hidden && sec.classList.contains("user-hidden") === false && sec.dataset.pageHidden !== "1") sec.hidden = false;
     }
-    function reset() { state = {}; save(); for (const sec of sections()) { sec.classList.remove("user-hidden"); if (sec.dataset.pageHidden !== "1") sec.hidden = false; } apply(); }
+    function reset() { state = { _v: VERSION }; save(); for (const sec of sections()) { sec.classList.remove("user-hidden"); if (sec.dataset.pageHidden !== "1") sec.hidden = false; } apply(); }
     function panels() { return sections().map(sec => ({ id: sec.dataset.panel, title: sec.querySelector("h2") ? sec.querySelector("h2").firstChild.textContent.trim() : (TITLES[sec.dataset.panel] || sec.dataset.panel), hidden: !!(state[sec.dataset.panel] || {}).hidden, width: Math.round(sec.getBoundingClientRect().width), order: (state[sec.dataset.panel] || {}).order })); }
     // A drag of a panel's corner: the width is remembered on release.
     document.addEventListener("pointerup", () => {
@@ -1096,7 +1132,8 @@
     document.addEventListener("click", (e) => { for (const id of ["panels-menu", "settings-menu"]) { const m = $(id); if (!m.hidden && !m.contains(e.target)) m.hidden = true; } });
     function prompt_(label, text) { print(label + " " + text, "sys"); }
     load(); apply();
-    return { get, set, reset, panels, apply, share };
+    if ((state._v || 0) < VERSION) { state._v = VERSION; save(); }
+    return { get, set, reset, panels, apply, share, version: VERSION };
   })();
   let CELL = 46; const PAD = 10;
   // A room's name on its cell: whole, on up to two lines, when the cell is wide
@@ -1252,7 +1289,7 @@
     // and a click walks there by the doors you remember.
     const floors = [...new Set(rooms.map(r => r.z))].sort((a, b) => (a === here.z ? -1 : b === here.z ? 1 : b - a));
     const frag = document.createDocumentFragment();
-    let ox = PAD, H = 0;
+    let ox = PAD, H = 0, hereAt = null;
     for (const z of floors) {
       const floor = rooms.filter(r => r.z === z);
       const xs = floor.map(r => r.x), ys = floor.map(r => r.y);
@@ -1275,6 +1312,7 @@
         const half = (CELL - 8) / 2;
         const rect = el("rect", { x: px(r) - half, y: py(r) - half, width: CELL - 8, height: CELL - 8, rx: 3, class: "room" + (r.here ? " here" : "") + (r.visible ? " seen" : "") + (r.dug_by ? "" : " seed") });
         const steps = r.here ? null : routeTo(r.id);
+        if (r.here) hereAt = { id: r.id, x: px(r), y: py(r) };
         const title = el("title", {});
         title.textContent = r.name + (r.visible ? (r.here ? " (you are here)" : " (in sight)") : " (" + Math.round(r.mem * 100) + "% remembered)") + (steps ? "; click to walk there, " + steps.length + " door" + (steps.length === 1 ? "" : "s") : "");
         g.append(title, rect);
@@ -1287,15 +1325,87 @@
       ox += w + PAD * 2; H = Math.max(H, h);
     }
     const W = Math.max(300, ox - PAD), Hv = PAD + H + PAD;
-    svg.setAttribute("viewBox", "0 0 " + W + " " + Hv);
     svg.replaceChildren(frag); svg.setAttribute("data-drawn", "1");
     // An explicit height: the grid sized the row before the drawing had one, and
-    // the section below overlapped the map.
-    const fit = () => { const w = svg.clientWidth || 300; svg.style.height = Math.round(w * Hv / W) + "px"; };
+    // the section below overlapped the map. The height is the whole map's at fit,
+    // whatever the zoom, so the panel does not jump as you zoom.
+    const fit = () => { const w = svg.clientWidth || 300; svg.style.height = Math.min(Math.round(w * Hv / W), Math.round(window.innerHeight * 0.7)) + "px"; };
     fit(); atlasFit = fit;
+    atlasView.drawn(W, Hv, hereAt);
     const half = Math.round(hl / 360000) / 10;
-    $("atlas-note").textContent = rooms.length + " room" + (rooms.length === 1 ? "" : "s") + " remembered; a room halves every " + half + " h since you stood in it. Bright: in sight. Click a room to walk there; a dashed link is a named door.";
+    $("atlas-note").textContent = rooms.length + " room" + (rooms.length === 1 ? "" : "s") + " remembered; a room halves every " + half + " h since you stood in it. Bright: in sight. Click a room to walk there; a dashed link is a named door. Wheel or pinch to zoom, drag to pan.";
   }
+  // ---- the atlas's zoom and pan: a window onto the drawing, kept across redraws ----
+  // The drawing is W×Hv in its own units; the view is a box of W/z × Hv/z at (x, y).
+  // The zoom is remembered in the layout (foxing.layout, panel "atlas"); the pan is
+  // this session's. When you change rooms and your room is out of the window, the
+  // window moves to it.
+  const atlasView = (() => {
+    const svg = $("atlas"), MIN = 0.5, MAX = 6;
+    let W = 396, Hv = 200, z = 1, x = 0, y = 0, panned = false, lastHere = null;
+    const clamp = () => {
+      z = Math.min(MAX, Math.max(MIN, z));
+      const vw = W / z, vh = Hv / z;
+      x = Math.min(Math.max(x, Math.min(0, W - vw)), Math.max(0, W - vw));
+      y = Math.min(Math.max(y, Math.min(0, Hv - vh)), Math.max(0, Hv - vh));
+    };
+    const apply = () => {
+      clamp();
+      svg.setAttribute("viewBox", x.toFixed(1) + " " + y.toFixed(1) + " " + (W / z).toFixed(1) + " " + (Hv / z).toFixed(1));
+      const lvl = $("atlas-lvl"); if (lvl) lvl.textContent = z === 1 ? "" : (Math.round(z * 10) / 10) + "×";
+    };
+    // A client point in the drawing's units.
+    const at = (cx, cy) => { const pt = svg.createSVGPoint(); pt.x = cx; pt.y = cy; const m = svg.getScreenCTM(); return m ? pt.matrixTransform(m.inverse()) : { x: 0, y: 0 }; };
+    let remember = null;
+    const zoomAt = (factor, cx, cy) => {
+      const p = (cx != null) ? at(cx, cy) : { x: x + W / z / 2, y: y + Hv / z / 2 };
+      const z0 = z; z = Math.min(MAX, Math.max(MIN, z * factor));
+      x = p.x - (p.x - x) * (z0 / z); y = p.y - (p.y - y) * (z0 / z);
+      apply();
+      clearTimeout(remember); remember = setTimeout(() => layout.set("atlas", { zoom: z === 1 ? null : Math.round(z * 100) / 100 }), 400);
+    };
+    const fit = () => { z = 1; x = 0; y = 0; apply(); layout.set("atlas", { zoom: null }); };
+    const center = (cx, cy) => { x = cx - W / z / 2; y = cy - Hv / z / 2; apply(); };
+    const inView = (cx, cy) => cx >= x && cx <= x + W / z && cy >= y && cy <= y + Hv / z;
+    function drawn(w, h, here) {
+      const first = (W === 396 && Hv === 200 && z === 1);
+      W = w; Hv = h;
+      if (first) { const st = layout.get("atlas"); if (st.zoom > 0) z = st.zoom; }
+      // Your room moved off the window: bring the window to it.
+      if (here && (!lastHere || lastHere.id !== here.id) && !inView(here.x, here.y)) center(here.x, here.y);
+      lastHere = here || lastHere;
+      apply();
+    }
+    svg.addEventListener("wheel", (e) => { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015)), e.clientX, e.clientY); }, { passive: false });
+    // Drag to pan; a pinch of two pointers zooms. A click that moved is a pan, not a walk.
+    const pointers = new Map(); let pinch = null;
+    svg.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 && e.pointerType === "mouse") return;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY });
+      svg.setPointerCapture(e.pointerId); panned = false;
+      if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) }; }
+    });
+    svg.addEventListener("pointermove", (e) => {
+      const p = pointers.get(e.pointerId); if (!p) return;
+      const m = svg.getScreenCTM(); const k = m ? m.a : 1;
+      if (pointers.size === 2 && pinch) {
+        p.x = e.clientX; p.y = e.clientY;
+        const [a, b] = [...pointers.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (d > 0 && pinch.d > 0) zoomAt(d / pinch.d, (a.x + b.x) / 2, (a.y + b.y) / 2);
+        pinch.d = d; panned = true; return;
+      }
+      const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+      if (Math.hypot(e.clientX - p.sx, e.clientY - p.sy) > 4) { panned = true; svg.classList.add("panning"); }
+      if (panned) { x -= dx / k; y -= dy / k; apply(); }
+    });
+    const up = (e) => { pointers.delete(e.pointerId); if (pointers.size < 2) pinch = null; if (!pointers.size) svg.classList.remove("panning"); };
+    svg.addEventListener("pointerup", up); svg.addEventListener("pointercancel", up);
+    svg.addEventListener("click", (e) => { if (panned) { e.stopPropagation(); e.preventDefault(); panned = false; } }, true);
+    $("atlas-in").addEventListener("click", () => zoomAt(1.25));
+    $("atlas-out").addEventListener("click", () => zoomAt(0.8));
+    $("atlas-fit").addEventListener("click", fit);
+    return { drawn, fit, zoom: (f, cx, cy) => { if (f == null) return z; zoomAt(f / z, cx, cy); return z; }, view: () => ({ x, y, w: W / z, h: Hv / z, zoom: z }), center: (cx, cy) => center(cx, cy) };
+  })();
 
 
   function draw() {
@@ -2384,8 +2494,12 @@
       if (name === "you" || name === "window") { el.hidden = !visible; el.previousElementSibling.hidden = !visible; }
       else if (sec) { sec.dataset.pageHidden = visible ? "0" : "1"; sec.hidden = !visible || sec.classList.contains("user-hidden"); }
     },
-    // The layout: get(id?) / set(id, {w, hidden, order}) / reset() / panels().
+    // The layout: get(id?) / set(id, {w, h, hidden, order}) / reset() / panels();
+    // `layout.version` counts the layout's shape, for a mod that stores one.
     layout,
+    // The atlas's window: map.zoom() reads it, map.zoom(2) sets it (about the center,
+    // or about a client point), map.fit(), map.view() the box, map.center(x, y).
+    map: { zoom: atlasView.zoom, fit: atlasView.fit, view: atlasView.view, center: atlasView.center },
     // The grave, as the page shows a fall of yours: a mod may show one with a
     // `disremembered.died` payload, or listen for the event and draw its own.
     grave(payload) { fell(payload || {}); },

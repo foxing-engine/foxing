@@ -44,6 +44,11 @@ foxing.layout.set("lately", { hidden: true });
 foxing.layout.set("wants", { order: -1 });   // CSS order: lower comes first
 foxing.layout.share();                  // the link to this layout
 foxing.layout.reset();
+foxing.layout.version;                  // 2: the shape of what get() returns (1 had no h, no zoom)
+foxing.map.zoom();                      // the atlas's zoom, 1 = the whole map
+foxing.map.zoom(2.5);                   // zoom about the center (or pass a client x, y)
+foxing.map.fit();                       // the whole map again
+foxing.map.view();                      // {x, y, w, h, zoom} in the drawing's units
 ```
 
 ## Userscripts (Tampermonkey, Violentmonkey, Greasemonkey)
@@ -96,7 +101,8 @@ what you would type.
 | `timed(t)` | Evaluates a timed value (a curve from the observation) at this moment, clock skew corrected |
 | `panel(title, {id, w, wide, at})` | A panel in the scene, prepended (or `at: "end"`); `id` names it to the layout (default `scene`), `w` its width in px, `wide: true` the full row |
 | `builtin(name, visible)` | Show or hide the page's own `map` (the 3×3 of exits), `atlas` (the mini-map of what you remember), `here`, `you`, `window`, `wants`, `mine`, `inbox`, `lately` panels (a panel the player hid in the menu stays hidden) |
-| `layout` | `panels()`, `get(id)`, `set(id, {w, h, hidden, order})`, `share()`, `reset()`: see Panels and the layout |
+| `layout` | `panels()`, `get(id)`, `set(id, {w, h, hidden, order})`, `share()`, `reset()`, `version`: see Panels and the layout |
+| `map` | The atlas's window: `zoom()` / `zoom(z, clientX?, clientY?)`, `fit()`, `view()`, `center(x, y)`; the zoom is kept in the layout under `atlas` as `zoom` |
 | `grave(payload)` / `wake()` | Show the page's death screen with a `disremembered.died` payload (`epitaph`, `worth`, `level`, `fall`, `killer_kind`, `killer_name`, `room_name`, `kept_things`, `learned`), or dismiss it; a mod drawing its own listens for the event instead |
 | `ready` | `true` once the API is built; `foxing:ready` fires on the document at the same moment, with the API as `detail` |
 | `print(text, cls)` | A line in the transcript (`sys`, `err`, `tell`, `clear`) |

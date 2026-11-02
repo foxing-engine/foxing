@@ -5,6 +5,8 @@
     curl -s localhost:8790/type -d '{"line": "look"}'
     curl -s localhost:8790/see
     curl -s localhost:8790/shot          # a screenshot, as PNG bytes
+    curl -s localhost:8790/eval -d '{"js": "foxing.map.view()"}'
+    curl -s localhost:8790/wheel -d '{"dy": -300}'       # over the atlas's center
 
 For a playtest of the page itself (not the API): an agent, or a person, types what a
 person at a keyboard would, and gets back what the page shows: the new transcript
@@ -104,6 +106,7 @@ class Keyboard:
                 "stones": j("document.querySelectorAll('#stones .stone').length"),
             },
             "scene_folded": j("document.getElementById('main').classList.contains('collapsed')"),
+            "atlas_view": j("window.foxing && foxing.map ? foxing.map.view() : null"),
             "page_errors": self.errors[-3:],
         }
 
@@ -117,11 +120,36 @@ class Keyboard:
             self.page.wait_for_timeout(400)
             return self.see()
 
+    def eval(self, js):
+        """Run a line of JavaScript on the page (for a mod or the API under test)."""
+        with self.lock:
+            try:
+                return {"value": self.page.evaluate(js)}
+            except Exception as e:  # noqa: BLE001
+                return {"error": str(e)[:400]}
+
+    def wheel(self, dy, x=None, y=None):
+        """A wheel turn over the atlas (or at a point): the map's zoom."""
+        with self.lock:
+            if x is None:
+                box = self.page.evaluate("(() => { const r = document.getElementById('atlas').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()")
+                x, y = box
+            self.page.mouse.move(x, y)
+            self.page.mouse.wheel(0, dy)
+            self.page.wait_for_timeout(600)
+            return self.see()
+
+    def drag(self, x0, y0, x1, y1):
+        with self.lock:
+            self.page.mouse.move(x0, y0); self.page.mouse.down(); self.page.mouse.move(x1, y1, steps=8); self.page.mouse.up()
+            self.page.wait_for_timeout(400)
+            return self.see()
+
     def click(self, text):
         """Click a verb-bar button, a first-hours step, or a wants/mine row by its text."""
         with self.lock:
             ok = self.page.evaluate(
-                """(t) => { const els = [...document.querySelectorAll('#verbbar button, #first-steps code, #wants .row, #mine .row, .tile.go, .way')];
+                """(t) => { const els = [...document.querySelectorAll('#verbbar button, #first-steps code, #wants .row, #mine .row, .tile.go, .way, #atlas-zoom button')];
                    const el = els.find(e => e.textContent.trim().startsWith(t)); if (!el) return false; el.click(); return true; }""",
                 text,
             )
@@ -177,7 +205,7 @@ def main():
                 self.end_headers()
                 self.wfile.write(data)
                 return
-            self._json({"error": "GET /see, GET /shot, POST /type {line}, POST /key {name}, POST /click {text}"}, 404)
+            self._json({"error": "GET /see, GET /shot, POST /type {line}, POST /key {name}, POST /click {text}, POST /eval {js}, POST /wheel {dy, x?, y?}, POST /drag {x0, y0, x1, y1}"}, 404)
 
         def do_POST(self):
             n = int(self.headers.get("content-length", 0))
@@ -191,6 +219,12 @@ def main():
                 return self._json(kb.key(str(body.get("name", "Enter"))))
             if self.path == "/click":
                 return self._json(kb.click(str(body.get("text", ""))))
+            if self.path == "/eval":
+                return self._json(kb.eval(str(body.get("js", ""))))
+            if self.path == "/wheel":
+                return self._json(kb.wheel(int(body.get("dy", -200)), body.get("x"), body.get("y")))
+            if self.path == "/drag":
+                return self._json(kb.drag(*[int(body[k]) for k in ("x0", "y0", "x1", "y1")]))
             self._json({"error": "unknown"}, 404)
 
     print(f"keyboard on http://127.0.0.1:{a.port} (page from {a.site}, world {a.api})", flush=True)
