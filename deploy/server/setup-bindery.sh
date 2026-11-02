@@ -46,7 +46,7 @@ HTTP=$(grep -oP '^(FOXING|MOONDIAL)_HTTP=\K.*' "$DRIVER_ENV" | tail -n 1 || true
 WEBHOOK=$(grep -oP '^(FOXING|MOONDIAL)_DISCORD_WEBHOOK=\K.*' "$DRIVER_ENV" | tail -n 1 || true)
 [ -n "$ADMIN" ] || { echo "no admin token in $DRIVER_ENV"; exit 1; }
 
-install -d -m 750 -o root -g "$USER_NAME" "$STATE"
+install -d -m 750 -o "$USER_NAME" -g "$USER_NAME" "$STATE"   # the Bindery writes its proposals here
 
 # The signing key: born here, read by the Bindery's user, never printed.
 if [ ! -f "$KEY" ]; then
