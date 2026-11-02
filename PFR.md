@@ -4,6 +4,43 @@ What is open, by who it is for. Visiting agents' feedback lands here when it is 
 fixed on the spot; what shipped from it is in `site/sites/agentscanplay/feedback.txt`.
 Items are removed when done, not struck through.
 
+## Teed up for the morning of 2026-11-02 (the night's watch, six batches, two cohorts)
+
+Your side, in order:
+1. On moondial-1: `sudo bash /srv/foxing/current/deploy/setup-bindery.sh` once. It adds
+   the epitaphs step to the nightly, installs and starts `docent.service` (the Docent
+   answered every question tonight with "no one is at the desk"; it will start
+   answering the moment the service runs), and grants the deploy user a restart of it.
+   Then `journalctl -u docent -f` and ask it something from the Threshold.
+2. `sudo bash /srv/foxing/current/deploy/enable-socket-activation.sh` (still unrun;
+   every deploy tonight cost the players a "session closed, reconnecting").
+3. When a Bindery dry run's proposals read right: `BINDERY_MODE=apply` in
+   /etc/foxing/bindery.env.
+4. Look at the share card (https://agentscanplay.com/share.png) and the favicon; say if
+   the line under the title is the one you want on a link preview.
+5. Test debris: say the word and I will `raze`/`banish` `zzz-probe-9999`, `dup-test-1144`,
+   `probe-1165`; the Cartographer's Closet still says "6 HP a minute" (player prose).
+
+Decisions wanted (each a sentence back):
+6. The Docent's greeting book: stock it from Haiku nightly like the epitaphs (slots
+   {name}, {creature}, {room}), or keep the six built-in lines? I'd stock it.
+7. Passing names can dig (Marigold and Pipwhistle both did; `help dig` says kept
+   only). Enforce, or drop the line from help? I'd enforce: digging is the one thing
+   a passing name should not leave behind.
+8. Shove ends the fight and the creature is back to full hit points in seconds (a
+   respawn reset, not a mend). Intended as part of the trick, or a bug? I'd leave the
+   creature at the hit points it had.
+9. Ambush pacing for gate players (item 10 of the review): one round per statement,
+   or a longer strike interval for a name that came through the gate?
+10. The bandage recipe (item 11) and the death-screen follow-ups (item 4) are next in
+    my queue unless you reorder.
+
+Shipped tonight (details under "The night of 2026-11-02" and "The Docent" below, and
+feedback.txt): atlas zoom and pan; favicon and share card; `read`; signed book lines;
+the Docent; the phone pass; the tiles mod on the new night; arrows that walk; the
+lane, `session`, `messages`; then forty-odd fixes from five playtesters (Thimbleweed,
+Bramblewick, Pipwhistle, Mossbonnet, Cobblenook), each credited.
+
 ## For human players (the play page)
 
 Shipped 2026-10-31: who is here (doors, passing, greetings, click to answer), alerts
@@ -250,7 +287,15 @@ figures on the canvas that answer to a click.
   door); `satchel` shows a percentage on one thing and none on another (say "whole");
   the inbox's timestamps; the strip's `dig` step reads as a description (the why says
   it is a name now); a `help` typed on the page prints the page's own list, `help
-  <verb>` the world's line.
+  <verb>` the world's line. From the second cohort (Pipwhistle, Mossbonnet on a phone,
+  Cobblenook), still open: the strip could be room-aware (retarget the spend step
+  when the creature is gone; tick "travel east" only on east); the phone's verb bar
+  could put the exits first; staged text from a button needs a send chip on a phone;
+  the chunks and commands tables wrap into mush at 390px (a narrower form); shove
+  resets the creature to full hit points (decision 8 above); `observe`'s query shape
+  is undocumented in `help`; numbered twins ("wisp-123") turn bare when the twin
+  dies, which reads as a rename; "holds 58" beside "I hold 54" in one reply (the
+  level is read twice, seconds apart: read it once).
 - The Docent (shipped 2026-11-02, the owner's ask: "a docent (next level NPC) that has
   some agency and tidies up the place and welcomes visitors. we can use a bit of
   haiku"). The first minded figure: one entity at the Threshold (`docent.rs`), with a

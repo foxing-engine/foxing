@@ -667,6 +667,10 @@ fn first_moves(world: &World) -> String {
         .collect();
     let exits = home.map(|h| rooms::exits_of(world, h)).unwrap_or_default();
     let ask = |n: &str, want: &Option<String>| match want {
+        // A faded story's want is its opening in quotes: not nested in the example.
+        Some(w) if w.contains('"') || w.contains('\u{201c}') => {
+            format!("story {n} \"<a dozen words like the story it is forgetting>\"")
+        }
         Some(w) => format!("story {n} \"<a dozen words about {w}>\""),
         None => format!("story {n} \"<a dozen words>\""),
     };
