@@ -77,15 +77,28 @@ pub fn summary(world: &World, actor: &str) -> Result<Outcome, CommandError> {
                 bump("earned")
             }
             k if k == super::combat::DIED && p["citizen"] == actor => bump("falls"),
-            k if k == super::building::DUG && p["by"] == actor => bump("dug"),
+            k if k == super::building::DUG && p["by"] == actor => {
+                bump("dug");
+                bump("spent")
+            }
+            k if (k == super::building::REMEMBERED || k == super::craft::KEPT)
+                && p["by"] == actor =>
+            {
+                bump("given");
+                bump("spent")
+            }
+            k if k == super::craft::MADE && p["by"] == actor => {
+                bump("made");
+                if !p["spent"].is_null() {
+                    bump("spent")
+                }
+            }
             k if k == super::exchange::STORY && p["from"] == actor => bump("stories"),
-            k if k == super::building::REMEMBERED && p["by"] == actor => bump("given"),
             k if k == super::building::APPENDED && p["by"] == actor => bump("written"),
             k if k == super::speech::SAY && p["from"] == actor => bump("said"),
             k if k == super::speech::SAY && p["to"] == actor => bump("heard"),
             k if k == super::talk::TELL && p["to"] == actor => bump("heard"),
             k if k == super::docent::ASKED && p["from"] == actor => bump("asked"),
-            k if k == super::craft::MADE && p["by"] == actor => bump("made"),
             _ => {}
         }
     }
@@ -138,6 +151,13 @@ pub fn summary(world: &World, actor: &str) -> Result<Outcome, CommandError> {
             "{} {} made",
             c("made"),
             plural(c("made"), "thing", "things")
+        ));
+    }
+    if c("spent") > 0 {
+        parts.push(format!(
+            "{} {} spent",
+            c("spent"),
+            plural(c("spent"), "memory", "memories")
         ));
     }
     if c("written") > 0 {

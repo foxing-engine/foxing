@@ -38,6 +38,8 @@ pub const FORGOTTEN_NAME: &str = "disremembered.forgotten";
 pub const NAME_FORGOTTEN: f64 = 0.125;
 /// Below this, a returning citizen is told the world had nearly forgotten them.
 const NEARLY: f64 = 0.5;
+/// A return within this of going quiet continues the session rather than starting one.
+pub const RESUME: Duration = Duration(30 * 60 * 1000);
 
 fn name_half_life() -> Duration {
     *NAME_HALF_LIFE.get_or_init(|| {
@@ -306,9 +308,16 @@ pub fn returned(world: &mut World, actor: &str) -> Result<(), String> {
     }
     let nearly =
         !super::is_passing(world, f.citizen) && faint(world, f.citizen).is_some_and(|v| v < NEARLY);
+    // A short silence is a pause, not a leaving: a visitor who waited five minutes for
+    // the strike came back to "Here 19s" and a session summary that had forgotten the
+    // half hour before it. The session goes on across a gap of up to [`RESUME`].
+    let paused = last_seen(world, f.citizen).is_some_and(|t| world.now().0 - t < RESUME.0)
+        && super::plain_num(world, f.citizen, super::CITIZEN, "session_at").is_some();
     set(world, actor, f.citizen, true)?;
     // A session begins: `session` reads what happens from here.
-    super::session::begin(world, actor)?;
+    if !paused {
+        super::session::begin(world, actor)?;
+    }
     if nearly {
         super::combat::narrate(
             world,

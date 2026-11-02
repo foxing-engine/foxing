@@ -75,6 +75,29 @@ SYSTEM = (
     "outside the world; never give a URL. Reply with the answer only."
 )
 
+# The rules the Docent answers from, not from guesswork: each line is how the world
+# behaves, checked against the verbs. A visitor was told a dug room's memory is not
+# restored by a visit (it is), and that a carried word "was a story" (it was not).
+RULES = (
+    "The rules, as the world keeps them. Rooms: `dig <exit> <chunk>` opens a room off "
+    "the one the digger stands in; the digger stays where they were, and `travel <exit>` "
+    "goes in. A dug room's memory halves at its own rate unless someone visits; any "
+    "visit remembers it whole, and `remember <chunk>` inside it lengthens that half-life "
+    "for good. Stories: `story <creature> \"…\"` earns a chunk; the story a named "
+    "creature wanted is worth double; a story it has heard lately pays by halves each "
+    "repeat, and one told this hour comes back later in `wants`. Words: when a named "
+    "creature asks for a word carried, `travel` to the other and `tell` it the phrase; "
+    "the first carrier earns a chunk on delivery, once; anyone bringing the same word "
+    "after that hears it was brought already and earns nothing; the receiver hands the "
+    "first carrier a word for the way home, and a word carried home may give birth to a "
+    "creature between the two. Names: a creature fed to sixty by `remember <chunk> "
+    "<creature>` takes a name and knows who keeps it; below seventy its name is failing. "
+    "Falls: a visitor who goes down wakes at the Threshold with what they had; a censor's "
+    "ray of forgetfulness halves one carried chunk where it stands. The Docent: asked only at the "
+    "Threshold, it finds the asker anywhere within minutes; between visitors it walks "
+    "its round through the rooms, tidying what lies about."
+)
+
 
 def catalog():
     try:
@@ -157,6 +180,9 @@ def context(q):
     if homes:
         lines.append("Where each kind lives (and comes back when felled): " + "; ".join(
             f"{h.get('kind')}: {', '.join(h.get('rooms') or [])}" for h in homes))
+    record = q.get("record") or []
+    if record:
+        lines.append("The asker's record up to the moment they asked, oldest first (answer from this, not from the room as it stands now):\n  " + "\n  ".join(record))
     return "\n".join(lines)
 
 
@@ -299,12 +325,12 @@ def stock_greetings(creds, token, actor, passphrase, dry, out=None, fill=False):
 
 def answer_one(creds, token, actor, passphrase, q, cat, verbs, dry):
     user = f"The catalog (the quickstart):\n\n{cat}\n\n---\nWhat the world knows:\n{context(q)}\n\nThe question, from {q.get('from')}: {q.get('text')}\n\nThe Docent answers:"
-    text = ask_model(creds, SYSTEM, user, max_tokens=300)
+    text = ask_model(creds, SYSTEM + " " + RULES, user, max_tokens=300)
     t, why = sieve(text, verbs)
     if t is None:
         log(f"question {q['id']} ({q.get('from')}): the model's answer refused ({why}): {text[:120]!r}")
         # One more try, told why.
-        text = ask_model(creds, SYSTEM + " The last answer was refused: " + why + ". Answer again within the rules.", user, max_tokens=300)
+        text = ask_model(creds, SYSTEM + " " + RULES + " The last answer was refused: " + why + ". Answer again within the rules.", user, max_tokens=300)
         t, why = sieve(text, verbs)
         if t is None:
             log(f"question {q['id']}: refused again ({why}); left to the world")

@@ -931,6 +931,44 @@ pub fn round_step(world: &mut World) -> Result<Vec<String>, String> {
     Ok(did)
 }
 
+/// How many lines of the asker's record go with a question.
+const RECORD_LINES: usize = 24;
+
+/// The last public lines of the world's record that concern the asker, up to the
+/// moment they asked, newest last: what they did, what was said to them, what was
+/// born or named by their hand.
+fn asker_record(world: &World, actor: &str, asked_at: i64) -> Vec<String> {
+    let viewer = foxing_store::Viewer::actor(actor);
+    let now = world.now();
+    let mut lines: Vec<String> = world
+        .recent_events(4000)
+        .into_iter()
+        .filter(|e| e.at.0 <= asked_at + 1000)
+        .filter(|e| crate::observe::visible(world, &viewer, now, e))
+        .filter(|e| !e.kind.starts_with("store.") && !e.kind.starts_with("job."))
+        .filter(|e| {
+            let p = &e.payload;
+            let mine = |k: &str| p[k].as_str() == Some(actor);
+            if e.kind == super::combat::NARRATIVE {
+                return mine("to");
+            }
+            mine("from") || mine("by") || mine("to") || mine("actor") || mine("citizen")
+        })
+        .rev()
+        .take(RECORD_LINES)
+        .map(|e| {
+            let ago = (now.0 - e.at.0).max(0);
+            format!(
+                "{} ago: {}",
+                super::combat::human(ago),
+                super::system::line_for(&e)
+            )
+        })
+        .collect();
+    lines.reverse();
+    lines
+}
+
 /// For the operator's tool: the questions not yet answered, each with what the
 /// Docent would want to know to answer it (the asker's room and exits, their level,
 /// the named creatures' wants, the newest rooms), and the Docent's state.
@@ -967,6 +1005,10 @@ pub fn report(world: &World) -> Value {
             // route it held, with the Midden one door from the asker).
             let routes = here.map(|r| super::atlas::routes_from(world, r)).unwrap_or_default();
             let remembered = f.as_ref().map(|f| super::atlas::known_room_names(world, f.citizen, hl)).unwrap_or_default();
+            // The asker's record, as `log` would show it to them: a question about a
+            // key just taken, or a name just dealt, is answered from what happened,
+            // not from the room as it stands at answer time.
+            let record = asker_record(world, from, a["at"].as_i64().unwrap_or(now));
             json!({
                 "id": a["id"],
                 "from": from,
@@ -980,6 +1022,7 @@ pub fn report(world: &World) -> Value {
                 "routes": routes,
                 "remembered": remembered,
                 "homes": super::rooms::homes(),
+                "record": record,
             })
         })
         .collect();

@@ -47,7 +47,25 @@ fn way_said(
             );
             (Some(p), said)
         }
-        None => (None, " (no way you remember)".to_string()),
+        // The world's own rooms are signed: a want in one you have not walked still
+        // gets a way, as `where` gives one (the first errand a newcomer sees was the
+        // one without a route).
+        None => match if world.store.entity(to).is_some_and(|e| e.owner.is_none()) {
+            super::atlas::way_seeded(world, here, to)
+        } else {
+            None
+        } {
+            Some(p) if !p.is_empty() => {
+                let said = format!(
+                    " ({} step{}, by the signs: {})",
+                    p.len(),
+                    if p.len() == 1 { "" } else { "s" },
+                    p.join(", ")
+                );
+                (Some(p), said)
+            }
+            _ => (None, " (no way you remember)".to_string()),
+        },
     }
 }
 

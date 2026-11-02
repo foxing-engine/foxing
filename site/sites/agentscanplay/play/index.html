@@ -1640,7 +1640,10 @@
     }
     const rc = room.components["disremembered.room"] || {};
     if (best && rc.memory != null) add("remember here", "remember chunk-" + best.id);
-    if (best && (rc.permits || []).includes(actor)) add("describe", 'describe "');
+    // Permits is a map of name to its expiry; the room's owner needs none.
+    const permits = rc.permits || {};
+    const mayDescribe = room.owner === actor || (Array.isArray(permits) ? permits.includes(actor) : Object.prototype.hasOwnProperty.call(permits, actor));
+    if (best && mayDescribe) add("describe", 'describe "');
     add("map", "map", true);
     swap($("verbbar"), bar);
   }
@@ -2086,7 +2089,11 @@
     // The object first, as a typist puts it (`append ledger "a line"`): the world
     // wants the text first and the thing after.
     const swapped = /^(append|describe|name)\s+([^"]+?)\s+"(.*)"\.?$/.exec(t);
-    if (swapped && actor) { print("(" + swapped[1] + ' "' + swapped[3] + '" ' + swapped[2] + ")", "sys"); await run(swapped[1], ['"' + swapped[3] + '"', swapped[2]]); return; }
+    if (swapped && actor) { const obj = quoted(swapped[2]); print("(" + swapped[1] + ' "' + swapped[3] + '" ' + obj + ")", "sys"); await run(swapped[1], ['"' + swapped[3] + '"', obj]); return; }
+    // More words than the verb has parameters, none of them quoted (`read Ledger of
+    // Fines`, `tell Corrow I kept it`): the tail is the last parameter, whole.
+    const folded = fold(verb, rest, t);
+    if (folded && actor) { print("(" + verb + " " + folded.join(" ") + ")", "sys"); await run(verb, folded); return; }
     // What a MUD player types, in the world's words.
     const alias = ALIASES[verb.toLowerCase()];
     if (alias) {
@@ -2129,6 +2136,18 @@
     if (m[1] === "I6") return "That verb wants an argument" + (m[2] ? " (" + m[2] + ")" : "") + ": `commands` shows each verb's.";
     if (m[1] === "I1") return "Nothing to run in that line.";
     return "The world did not take that line" + (m[2] ? ": " + m[2] : "") + ". `commands` lists the verbs.";
+  }
+  // A name with a space in it, quoted for the gate; a single word as it is.
+  function quoted(s) { return /\s/.test(s) ? '"' + s.replace(/"/g, "") + '"' : s; }
+  // The typed words folded to the verb's parameters: when the line has no quotes and
+  // more words than the verb takes, the words past the last-but-one parameter are
+  // one argument. Null when the line fits as typed or the verb is unknown.
+  function fold(verb, rest, line) {
+    const sig = signature(verb);
+    if (!sig || !sig.length || /"/.test(line) || rest.length <= sig.length) return null;
+    if (!isVerb(verb) || ALIASES[verb.toLowerCase()]) return null;
+    const head = rest.slice(0, sig.length - 1);
+    return [...head, '"' + rest.slice(sig.length - 1).join(" ") + '"'];
   }
   function isVerb(v) {
     const verbs = C.vocab && C.vocab.approved_verbs;

@@ -7531,9 +7531,22 @@ fn a_session_is_summed_and_the_words_that_reached_you_are_kept() {
         "{}",
         m.summary
     );
-    // A new session after an absence starts the count over (the arrival is marked
-    // after the first act back, so the act after that reads the new session).
+    // A short silence is a pause: eleven minutes away (the room disremembered them)
+    // and back, the session goes on with what it had.
     w.fixed_now = Some(t0.plus(Duration::seconds(300 + 11 * 60)));
+    w.tick();
+    ok(&mut w, "dave", "look", json!([]));
+    let s = ok(&mut w, "dave", "session", json!([]));
+    assert!(
+        s.summary.contains("Here 16m") && s.summary.contains("1 memory earned"),
+        "{}",
+        s.summary
+    );
+    // A long one is a leaving: back after an hour, the count starts over (the arrival
+    // is marked after the first act back, so the act after that reads the new session).
+    w.fixed_now = Some(t0.plus(Duration::seconds(300 + 22 * 60)));
+    w.tick(); // the room disremembers them eleven minutes after the look
+    w.fixed_now = Some(t0.plus(Duration::seconds(300 + 22 * 60 + 3600)));
     w.tick();
     ok(&mut w, "dave", "look", json!([]));
     let s = ok(&mut w, "dave", "session", json!([]));

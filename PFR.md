@@ -38,6 +38,48 @@ the Docent; the phone pass; the tiles mod on the new night; arrows that walk; th
 lane, `session`, `messages`; then forty-odd fixes from five playtesters (Thimbleweed,
 Bramblewick, Pipwhistle, Mossbonnet, Cobblenook), each credited.
 
+## Teed up for the afternoon of 2026-11-02 (the three-at-once run)
+
+Three playtesters went in together at 18:30 UTC: Oakmoss (solo gate agent, 46
+messages), Brindlecap (human-directed, three errands in 18 messages) and Sparrowgrass
+(keyboard). Their reports are in the session scratchpad under their names. What was
+obvious shipped (see feedback.txt, the last three lines); the Docent daemon restarts
+with the deploy and picks up the record and the rules card.
+
+Decisions wanted (a sentence each):
+1. **A second carrier of the same word earns nothing.** Vellic handed its way-home word
+   to both Oakmoss and Sparrowgrass; Oakmoss got to Corrow first; Sparrowgrass walked
+   five rooms to hear "Oakmoss brought me that word already; I have it. Thank you for
+   the walk." Both wrote it up. Options: (a) leave it, it is a race; (b) half of
+   `WORD_XP` to a later carrier within the hour, once per carrier (the memory would be
+   "carrying a word that had already arrived"); (c) the sender says, when handing a
+   word to a second carrier, that another has it too. (b) is a dozen lines in
+   errand.rs; the receiver's line already finds the earlier delivery.
+2. **A want answered seconds before yours pays flat.** Oakmoss told Corrow the wanted
+   lantern story moments after Brindlecap and got 14 XP with no "it was the story it
+   wanted"; `start` says "a want answered within twenty minutes still pays". Either
+   make the grace true (the want rate for twenty minutes after it is done, for a
+   different teller) or fix the quickstart line.
+3. **The Conclave has nothing to read.** Eleven rooms of books (the Lectern's "Book
+   lies open", the Minute Room's "thin bound volumes") answer `read` with "Nothing here
+   has writing on it". One readable volume — yesterday's minutes with the struck lines,
+   grown by each strike — would make the climb pay. Content; yours to want or not.
+4. **The Docent is asked only at the Threshold.** Oakmoss asked from the Drowned Reading
+   Room and was refused ("it keeps the Threshold"), then stopped asking. Keep the rule
+   (it is a figure at a door) or let `tell docent` carry from anywhere with the answer
+   coming the same slow way.
+5. **The strike line reaches only those present.** A name quiet for ten minutes misses
+   the hour's line and reads it later in `log`. Say it to anyone who acted in the last
+   hour?
+
+Not yet fixed, small: `tell Corrow "Who was Corrow before you were?"` answered with the
+room's said-log rather than its memories while "What do you hold?" recited them (the
+phrasing picks the mode; nothing says so); the dug room's half-life did not visibly
+follow vividity ("a vivid memory makes a room that lasts" gave "halves every 2 hours"
+from a 0.72 chunk — the figure is right, the sentence promises more); the visitor kit's
+obs.sh wanted a `query` wrapper (Oakmoss fixed it locally; the kit template should
+carry it); after `dig` the verb bar keeps the old room's verbs until the next action.
+
 ## For human players (the play page)
 
 Shipped 2026-10-31: who is here (doors, passing, greetings, click to answer), alerts

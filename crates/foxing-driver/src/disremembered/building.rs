@@ -525,9 +525,10 @@ pub fn register(world: &mut World, curves: super::Curves) {
             );
             Ok(Outcome::new(
                 format!(
-                    "You dig {exit} with the memory of {source}. {name} opens: undescribed, yours, remembered for now. Its memory halves every {} unless someone visits; a visit remembers it whole, and `remember <chunk>` inside it lengthens that half-life for good. The way back is {}.",
+                    "You dig {exit} with the memory of {source}. {name} opens: undescribed, yours, remembered for now. You still stand in {here_name}; `travel {exit}` goes in, and the way back is {}. Its memory halves every {} unless someone visits; a visit remembers it whole, and `remember <chunk>` inside it lengthens that half-life for good.",
+                    opposite(&exit),
                     humane(hl),
-                    opposite(&exit)
+                    here_name = plain_str(w, here, ROOM, "name").unwrap_or("this room"),
                 ),
                 json!({"room": id.0, "key": key, "name": name, "exit": exit, "back": opposite(&exit), "half_life_ms": hl.0, "spent": chunk.0}),
             ))
