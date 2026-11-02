@@ -9,6 +9,8 @@ const COLS = 13, ROWS = 8, T = 16, SCALE = 3;
 const W = COLS * T, H = ROWS * T;
 const DOORS = { north: [6, 0], south: [6, ROWS - 1], west: [0, 4], east: [COLS - 1, 4] };
 // Where things stand: the player in the middle, others around, deterministic by id.
+// The page's palette: the night behind doors and banners is its ink-blue, the words its vellum, the one lantern its dust.
+const NIGHT = "#121a25", INK = "#ece5d3", DUST = "#d9b57a";
 const SLOTS = [[4, 3], [8, 3], [3, 5], [9, 5], [5, 2], [7, 6], [2, 3], [10, 3], [4, 6], [8, 2], [6, 6], [6, 2]];
 
 export default function install(m) {
@@ -33,6 +35,10 @@ export default function install(m) {
   verbs.style.cssText = "display:flex;flex-direction:column;gap:4px;min-width:96px;max-width:140px";
   verbs.setAttribute("aria-label", "Verbs you have used lately");
   row.append(canvas, verbs);
+  // On a phone the verbs sit under the picture in a row that wraps, not beside it in a column.
+  const narrow = window.matchMedia ? window.matchMedia("(max-width: 680px)") : null;
+  const placeVerbs = () => { verbs.style.cssText = narrow && narrow.matches ? "display:flex;flex-direction:row;flex-wrap:wrap;gap:4px;width:100%" : "display:flex;flex-direction:column;gap:4px;min-width:96px;max-width:140px"; };
+  if (narrow) { placeVerbs(); narrow.addEventListener("change", placeVerbs); }
   panel.append(row, hud);
   const VERB_HALF_LIFE = 15 * 60 * 1000, VERB_GONE = 1 / 12;
   const STARTERS = ["look", "map", "chunks"];
@@ -145,7 +151,7 @@ export default function install(m) {
       while (taken.has(t.tile.join(",")) && i < SLOTS.length) t.tile = SLOTS[(hash(t.id) + ++i) % SLOTS.length];
       taken.add(t.tile.join(","));
     }
-    return { id: root.id, name: room.name || "?", memory: room.memory, description: room.description, tint: sprite.tint || "#6b6b7a", sprite, exits, things };
+    return { id: root.id, name: room.name || "?", memory: room.memory, description: room.description, bound: !!(room.bound && typeof room.bound === "object"), tint: sprite.tint || "#6b6b7a", sprite, exits, things };
   }
 
   function draw() {
@@ -167,10 +173,10 @@ export default function install(m) {
     for (const ex of scene.exits) {
       const [x, y] = ex.tile;
       if (ex.kind === "door") {
-        ctx.fillStyle = "#0b0d12"; ctx.fillRect((x * T + 3) * SCALE, (y * T + 2) * SCALE, 10 * SCALE, 12 * SCALE);
+        ctx.fillStyle = NIGHT; ctx.fillRect((x * T + 3) * SCALE, (y * T + 2) * SCALE, 10 * SCALE, 12 * SCALE);
         ctx.fillStyle = shade(base, 1.3); ctx.fillRect((x * T + 3) * SCALE, (y * T + 2) * SCALE, 10 * SCALE, SCALE);
       } else {
-        ctx.fillStyle = "#0b0d12"; ctx.fillRect((x * T + 2) * SCALE, (y * T + 4) * SCALE, 12 * SCALE, 8 * SCALE);
+        ctx.fillStyle = NIGHT; ctx.fillRect((x * T + 2) * SCALE, (y * T + 4) * SCALE, 12 * SCALE, 8 * SCALE);
         ctx.fillStyle = shade(base, 1.2);
         for (let i = 0; i < 4; i++) ctx.fillRect((x * T + 3 + i * 3) * SCALE, (y * T + 5 + i) * SCALE, 2 * SCALE, SCALE);
       }
@@ -189,11 +195,16 @@ export default function install(m) {
         hot.set(x + "," + y, { label: "the room remembers " + t.name + " (" + Math.round(t.trace * 100) + "%)", action: null });
         continue;
       }
+      // A named creature stands in a faint ring of lantern light: the ones that talk.
+      if (t.kind === "creature" && t.given) {
+        ctx.fillStyle = "rgba(217,181,122,.16)"; ctx.beginPath(); ctx.ellipse((x * T + 8) * SCALE, (y * T + 14.5) * SCALE, 9 * SCALE, 3.2 * SCALE, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(217,181,122,.45)"; ctx.lineWidth = SCALE * 0.6; ctx.stroke();
+      }
       ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillRect((x * T + 3) * SCALE, (y * T + 14) * SCALE, 10 * SCALE, 2 * SCALE);
       drawSprite(t.sprite, x * T, y * T + bob, t.kind === "creature" ? t.name[0].toUpperCase() : "@");
       if (t.kind === "creature" && t.max) {
         const frac = Math.max(0, Math.min(1, t.hp / t.max));
-        ctx.fillStyle = "#0b0d12"; ctx.fillRect((x * T + 2) * SCALE, (y * T - 3 + bob) * SCALE, 12 * SCALE, 2 * SCALE);
+        ctx.fillStyle = NIGHT; ctx.fillRect((x * T + 2) * SCALE, (y * T - 3 + bob) * SCALE, 12 * SCALE, 2 * SCALE);
         ctx.fillStyle = frac > 0.5 ? "#7fb37f" : frac > 0.25 ? "#d1a04a" : "#c96a6a";
         ctx.fillRect((x * T + 2) * SCALE, (y * T - 3 + bob) * SCALE, Math.round(12 * frac) * SCALE, 2 * SCALE);
         if (t.given) label(t.given, x, y, -1);
@@ -212,28 +223,28 @@ export default function install(m) {
       }
     }
     // Memory: a dug room that is fading goes dark.
-    if (mem < 0.999) { ctx.fillStyle = "rgba(11,13,18," + ((1 - mem) * 0.7).toFixed(2) + ")"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    if (mem < 0.999) { ctx.fillStyle = "rgba(18,26,37," + ((1 - mem) * 0.7).toFixed(2) + ")"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
     // Banner, top left, no wider than its words so the north door stays in view.
-    const title = scene.name + (scene.memory != null ? "  \u00b7 remembered " + Math.round(mem * 100) + "%" : "");
+    const title = scene.name + (scene.memory != null ? "  \u00b7 remembered " + Math.round(mem * 100) + "%" : "") + (scene.bound ? "  \u00b7 bound" : "");
     ctx.font = (7 * SCALE) + "px serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
     const icon = scene.sprite && scene.sprite.atlas === m.atlasName ? frameCanvas(scene.sprite.frame) : null;
     const pad = icon ? 13 * SCALE : 4 * SCALE;
     const tw = ctx.measureText(title).width + pad + 4 * SCALE;
-    ctx.fillStyle = "rgba(11,13,18,.72)"; ctx.fillRect(0, 0, tw, 11 * SCALE);
+    ctx.fillStyle = "rgba(18,26,37,.78)"; ctx.fillRect(0, 0, tw, 11 * SCALE);
     if (icon) ctx.drawImage(icon, 0, 0, T, T, 2 * SCALE, 1.5 * SCALE, 8 * SCALE, 8 * SCALE);
-    ctx.fillStyle = "#e8e4da"; ctx.fillText(title, pad, 5.5 * SCALE);
+    ctx.fillStyle = INK; ctx.fillText(title, pad, 5.5 * SCALE);
     // Arrival fade.
     const since = now - fadeAt;
-    if (since < 500) { ctx.fillStyle = "rgba(11,13,18," + (1 - since / 500).toFixed(2) + ")"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    if (since < 500) { ctx.fillStyle = "rgba(18,26,37," + (1 - since / 500).toFixed(2) + ")"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
   }
   function label(text, x, y, dir) {
-    ctx.fillStyle = "rgba(11,13,18,.7)";
+    ctx.fillStyle = "rgba(18,26,37,.74)";
     ctx.font = (5 * SCALE) + "px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     const w = ctx.measureText(text).width + 4 * SCALE;
     const cy = (y * T + (dir > 0 ? 18 : -2)) * SCALE;
     const cx = Math.min(Math.max((x * T + 8) * SCALE, w / 2), canvas.width - w / 2);
     ctx.fillRect(cx - w / 2, cy - 3 * SCALE, w, 6 * SCALE);
-    ctx.fillStyle = "#d9d4c7"; ctx.fillText(text, cx, cy);
+    ctx.fillStyle = INK; ctx.fillText(text, cx, cy);
   }
 
   // ---- input ----
@@ -253,7 +264,7 @@ export default function install(m) {
   // ---- the subscription ----
   const QUERY = {
     root: "here",
-    select: { "disremembered.room": ["name", "memory", "description"], "disremembered.sprite": "*" },
+    select: { "disremembered.room": ["name", "memory", "description", "bound"], "disremembered.sprite": "*" },
     relations: {
       contents: { kinds: ["citizen", "creature", "docent"], select: { "disremembered.docent": ["name"], "disremembered.citizen": ["name"], "disremembered.creature": ["name", "hp", "max_hp"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace"], "disremembered.mind": ["name", "tier"] } },
       exits: { select: { "disremembered.room": ["name"], "disremembered.sprite": "*" } },
