@@ -139,6 +139,18 @@ figures on the canvas that answer to a click.
   fixed list serves. Public record `disremembered.stocked`. Next: hybrid names
   (kindle's syllables) from the pool too; a name's provenance shown on `look` ("named
   by the Namery, the fourth of its stocking"); the Namery's room.
+- Human play, batch 2 (shipped 2026-11-02, the owner's plan, items 4 and 5): `wants`
+  and `mine` as reads, and on the play page two boards: what the named want (each
+  with where it is and the way over your remembered map; click walks there,
+  shift-click starts the story) and what remembers you (your rooms with their
+  memory bars and half-lives, creatures you keep with their level toward a name or
+  away from losing it, things you made and books you wrote in, and "since you were
+  last here": who came into your room, who wrote in it or your book, who told your
+  creature a story, what was named or taken; appends are public now,
+  `disremembered.appended`). Refreshed with the map on room change and after your
+  own verbs that change them. Next in the plan: 6 (what changed, as a lane of
+  numbers), 9 (a death screen that teaches), 7 and 8 (the atlas and the tiles),
+  10 and 11 (the hour, a session summary), 13 (a phone pass), 14 (`messages`).
 - The Bindery (shipped 2026-11-02, the owner's ask: semantic consolidation for rooms,
   creatures and fixtures with many appends, run unattended on a Haiku-class model).
   Two halves. In the engine, deterministic: a creature's story chunks faded below a

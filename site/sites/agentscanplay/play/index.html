@@ -288,6 +288,12 @@
   .row .sub { color: var(--dim); font-size: 11px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tile.go { cursor: pointer; }
   .sub.want { color: var(--dust); }
+  #scene h2 .note { font-size: 11px; color: var(--dim); margin-left: 8px; }
+  #wants .row, #mine .row { cursor: pointer; }
+  #wants .row:hover .nm, #mine .row:hover .nm { color: var(--ink); }
+  #wants .way, #mine .way { color: var(--dim); font-size: 11px; margin-left: 6px; }
+  #mine-since { color: var(--dim); font-size: 12px; margin-top: 6px; line-height: 1.5; }
+  #mine-since b { color: var(--ink); font-weight: 400; }
   .ev .pl { border: 0; color: var(--dim); font-size: 11px; opacity: .5; } .ev:hover .pl { opacity: 1; }
   .tile.go:hover { border-color: var(--dust); }
   #inbox .msg { color: var(--ink); font-size: 12px; margin: 0 0 6px; padding-left: 8px; border-left: 2px solid var(--dust); white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -388,6 +394,15 @@
     <section id="inbox-sec" hidden>
       <h2>Words for you<span class="badge" id="unread"></span></h2>
       <div id="inbox"></div>
+    </section>
+    <section id="wants-sec" hidden>
+      <h2>What the named want <span class="note" id="wants-note"></span></h2>
+      <div id="wants"></div>
+    </section>
+    <section id="mine-sec" hidden>
+      <h2>What remembers you <span class="note" id="mine-note"></span></h2>
+      <div id="mine"></div>
+      <div id="mine-since"></div>
     </section>
     <section id="lately-sec" hidden>
       <h2>Lately <a href="/board/" target="_blank" style="font-size:12px;color:var(--dim);margin-left:8px" title="Who holds the most unfaded memory now, and what each name earned, kept and gave">the board →</a></h2>
@@ -716,6 +731,7 @@
     }
     emit("result", command, args, body);
     firstHours.onResult(command, args, body);
+    if (body.ok && /^(dig|remember|story|tell|append|craft|name|describe|take|drop|attack|give|permit|welcome|revoke|unbind)$/.test(command)) refreshBoards(true);
     return body;
   }
 
@@ -727,7 +743,7 @@
     try { localStorage.setItem("disremembered.name", name); sessionStorage.setItem("disremembered.pass", pass); } catch (e) {}
     setState("Playing as <b>" + name + "</b>. Pre-alpha: the world may be reset without notice.");
     for (const id of ["b-pass", "b-save", "b-leave"]) $(id).hidden = false;
-    $("inbox-sec").hidden = false; $("lately-sec").hidden = false;
+    $("inbox-sec").hidden = false; $("lately-sec").hidden = false; $("wants-sec").hidden = false; $("mine-sec").hidden = false;
     lastAct = Date.now();
     composeLogin();
     $("q-run").disabled = false;
@@ -744,6 +760,7 @@
   function logout() {
     stopPolling();
     $("first").hidden = true; $("verbbar").replaceChildren(); delete $("verbbar").dataset.key;
+    $("wants-sec").hidden = true; $("mine-sec").hidden = true;
     if (ws) { const w = ws; ws = null; wsReady = false; try { w.onclose = null; w.close(); } catch (e) {} }
     actor = null; passphrase = null;
     for (const k in subs) delete subs[k];
@@ -891,6 +908,77 @@
     if (!r || !r.ok || !r.result) return;
     atlas = r.result; drawAtlas();
     if (!atlasTimer) atlasTimer = setInterval(drawAtlas, 60000);
+    refreshBoards();
+  }
+  // ---- the two boards: what the named want, and what remembers you ----
+  let boardsAt = 0;
+  async function refreshBoards(force) {
+    if (!wsReady || !actor) return;
+    if (!force && Date.now() - boardsAt < 15000) return;
+    boardsAt = Date.now();
+    const [wr, mr] = await Promise.all([wsCommand("wants", []), wsCommand("mine", [])]);
+    if (wr && wr.ok && wr.result) drawWants(wr.result);
+    if (mr && mr.ok && mr.result) drawMine(mr.result);
+  }
+  const waySpan = (way) => {
+    const el = document.createElement("span"); el.className = "way";
+    el.textContent = !way ? "no way you remember" : way.length === 0 ? "here" : way.length + " step" + (way.length === 1 ? "" : "s") + ": " + way.join(", ");
+    return el;
+  };
+  function drawWants(res) {
+    const frag = document.createDocumentFragment();
+    const rows = res.wants || [];
+    $("wants-note").textContent = rows.length ? (res.scarcity > 1 ? "pay ×" + Number(res.scarcity).toFixed(1) + " while names are few" : "") : "";
+    if (!rows.length) frag.append(Object.assign(document.createElement("div"), { className: "empty", textContent: "No named creature wants anything just now. Feed an unnamed one to sixty and it will." }));
+    for (const r of rows) {
+      const row = document.createElement("div"); row.className = "row click";
+      const n = document.createElement("div"); n.className = "nm";
+      n.textContent = r.name + " the " + r.kind + " · " + (r.room_name || "?");
+      n.append(waySpan(r.way));
+      const wants = [];
+      if (r.story) wants.push("a story about " + r.story + " (×2)");
+      if (r.word) wants.push("word to " + r.word_to + ": “" + r.word + "”");
+      const sub = document.createElement("span"); sub.className = "sub want"; sub.textContent = wants.join("; ") + (r.knows_you ? " · knows you" : "");
+      n.append(sub); row.append(n);
+      row.title = (r.way && r.way.length ? "click: walk there; " : "") + (r.story ? "shift-click: story " + r.name : "");
+      row.addEventListener("click", (ev) => {
+        if (ev.shiftKey && r.story) { prefill('story ' + r.name + ' "'); return; }
+        if (r.way && r.way.length) walkTo(r.room); else if (r.way && !r.way.length && r.story) prefill('story ' + r.name + ' "');
+      });
+      frag.append(row);
+    }
+    swap($("wants"), frag);
+  }
+  function drawMine(res) {
+    const frag = document.createDocumentFragment();
+    const rooms = res.rooms || [], creatures = res.creatures || [], things = res.things || [];
+    const total = rooms.length + creatures.length + things.length;
+    $("mine-note").textContent = total ? total + " thing" + (total === 1 ? "" : "s") : "";
+    if (!total) frag.append(Object.assign(document.createElement("div"), { className: "empty", textContent: "Nothing yet. Dig a room, feed a creature to sixty, make a thing, write in a book: each stays after you go." }));
+    const add = (label, sub, room, way, bar) => {
+      const row = document.createElement("div"); row.className = "row" + (room ? " click" : "");
+      const n = document.createElement("div"); n.className = "nm"; n.textContent = label; n.append(waySpan(way));
+      const sb = document.createElement("span"); sb.className = "sub"; sb.textContent = sub; n.append(sb); row.append(n);
+      if (bar != null) { const b = document.createElement("div"); b.className = "bar"; const i = document.createElement("i"); i.style.width = (Math.max(0, Math.min(1, bar)) * 100).toFixed(1) + "%"; b.append(i); row.append(b); }
+      if (room && way && way.length) { row.title = "click: walk there"; row.addEventListener("click", () => walkTo(room)); }
+      frag.append(row);
+    };
+    for (const r of rooms) {
+      const hl = r.half_life_ms ? "halves every " + span(r.half_life_ms) : "";
+      add(r.name, (r.dug ? "yours" : "kept by you") + (hl ? " · " + hl : "") + (r.fixtures ? " · " + r.fixtures + " standing" : ""), r.room, r.way, r.memory == null ? null : r.memory);
+    }
+    for (const c of creatures) {
+      add((c.name ? c.name + " the " : "an unnamed ") + c.kind, "holding " + Number(c.level).toFixed(0) + (c.name ? (c.level < 70 ? " · name failing" : "") : " · a name at 60") + " · " + (c.room_name || "?"), c.room, c.way, Math.min(1, c.level / 60));
+    }
+    for (const t of things) {
+      add(t.name, (t.made ? (t.fixed ? "made by you, standing" : "made by you") : "a book") + (t.lines ? " · " + t.lines + " line" + (t.lines === 1 ? "" : "s") + " of yours" : "") + " · " + t.where, t.room, t.room ? routeTo(t.room) : null, null);
+    }
+    swap($("mine"), frag);
+    const since = $("mine-since");
+    const d = res.digest || [];
+    if (!total) since.textContent = "";
+    else if (!d.length) since.textContent = res.since ? "Since you were last here: nothing touched any of it." : "";
+    else { since.replaceChildren(); const b = document.createElement("b"); b.textContent = "Since you were last here: "; since.append(b, document.createTextNode(d.slice(-8).join("; ") + (d.length > 8 ? "; and " + (d.length - 8) + " more" : "") + ".")); }
   }
   // The short of a room's name, for a label that fits a cell: "Lantern Row" ->
   // "Lantern", "The Parlor Behind the Fourth Door" -> "Parlor".

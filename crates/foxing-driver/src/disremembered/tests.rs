@@ -6485,3 +6485,120 @@ fn where_finds_a_way_you_remember_and_travel_takes_a_room_name() {
         .iter()
         .any(|v| v == "where"));
 }
+
+#[test]
+fn wants_lists_the_named_with_the_way_and_mine_says_what_remembers_you() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // Nothing yet.
+    let out = ok(&mut w, "dave", "mine", json!([]));
+    assert!(
+        out.summary.starts_with("Nothing in the world is yours yet"),
+        "{}",
+        out.summary
+    );
+    let out = ok(&mut w, "dave", "wants", json!([]));
+    assert!(
+        out.summary
+            .starts_with("No named creature wants anything just now"),
+        "{}",
+        out.summary
+    );
+    // Dave digs a room off the Fogbank, feeds the Midden's ragpicker to a name, writes
+    // in the Ledger.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let c = admin(&mut w, "dave", "earn", json!(["dig", 100, 1.0]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "dig", json!(["nook", &c, "Dave's Nook"]));
+    ok(&mut w, "dave", "travel", json!(["nook"]));
+    ok(&mut w, "dave", "permit", json!(["tyler"]));
+    ok(&mut w, "dave", "travel", json!(["back"]));
+    ok(&mut w, "dave", "travel", json!(["south"]));
+    let c = admin(&mut w, "dave", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "remember", json!([c, "ragpicker"]));
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let given = mind::name(&w, rag).unwrap();
+    // A want, set by the operator so the test does not wait on the rotation.
+    admin(
+        &mut w,
+        "dave",
+        "errand",
+        json!([&given, "a lantern left burning"]),
+    );
+    let out = ok(&mut w, "dave", "wants", json!([]));
+    assert!(
+        out.summary.contains(&format!("{given} the ragpicker, in The Midden (here), wants a story about a lantern left burning (pays double")),
+        "{}",
+        out.summary
+    );
+    assert_eq!(out.result["wants"][0]["way"], json!([]));
+    // From the Fogbank the way is one step.
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    let out = ok(&mut w, "dave", "wants", json!([]));
+    assert!(
+        out.summary.contains("in The Midden (1 step: south), wants"),
+        "{}",
+        out.summary
+    );
+    let out = ok(&mut w, "dave", "mine", json!([]));
+    assert!(
+        out.summary.starts_with("What remembers you:\n"),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary
+            .contains("Dave's Nook (1 step: nook): yours, remembered, halving every"),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary.contains(&format!(
+            "{given} the ragpicker in The Midden (1 step: south), holding 70."
+        )),
+        "{}",
+        out.summary
+    );
+    assert_eq!(out.result["rooms"][0]["dug"], json!(true));
+    assert_eq!(out.result["creatures"][0]["name"], json!(given));
+    // Dave goes away; tyler visits the nook and writes in it, and tells the ragpicker a
+    // story. Dave comes back after an hour: the digest says so.
+    w.fixed_now = Some(t0.plus(Duration::seconds(20)));
+    ok(&mut w, "dave", "leave", json!([]));
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    ok(&mut w, "tyler", "travel", json!(["nook"]));
+    ok(&mut w, "tyler", "append", json!(["A bench, says tyler."]));
+    ok(&mut w, "tyler", "travel", json!(["back"]));
+    ok(&mut w, "tyler", "travel", json!(["south"]));
+    ok(
+        &mut w,
+        "tyler",
+        "story",
+        json!([
+            &given,
+            "a lantern left burning in a window for a boat that was not coming back tonight"
+        ]),
+    );
+    w.fixed_now = Some(t0.plus(Duration::seconds(3700)));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let out = ok(&mut w, "dave", "mine", json!([]));
+    assert!(
+        out.summary.contains("Since you were last here: "),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary.contains("tyler came into Dave's Nook"),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary.contains(&format!("tyler told {given} a story")),
+        "{}",
+        out.summary
+    );
+}

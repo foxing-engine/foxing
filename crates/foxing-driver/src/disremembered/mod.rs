@@ -19,6 +19,7 @@ pub mod craft;
 pub mod economy;
 pub mod errand;
 pub mod exchange;
+pub mod footprint;
 mod identity;
 pub mod kindle;
 pub mod memory;
@@ -1082,6 +1083,7 @@ pub fn register(world: &mut World, curves: Curves) {
     cloak::register(world);
     building::register(world, curves.clone());
     bindery::register(world, curves.clone());
+    footprint::register(world, curves.clone());
     namery::register(world);
     system::register(world);
 }

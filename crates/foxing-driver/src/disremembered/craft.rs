@@ -848,6 +848,11 @@ pub fn append_object(
     let mut changes = BTreeMap::new();
     changes.insert("text".into(), Field::Plain(json!(joined)));
     set_item_fields(world, Actor::Citizen(ctx.actor.clone()), item, changes)?;
+    let _ = world.note(
+        Actor::Citizen(ctx.actor.clone()),
+        super::building::APPENDED,
+        json!({"by": ctx.actor, "kind": "book", "target": item.0, "name": display(world, item), "maker": plain_str(world, item, ITEM, "made_by"), "room": world.store.entity(item).and_then(|e| e.parent).map(|r| r.0), "chars": more.chars().count()}),
+    );
     Ok(joined)
 }
 

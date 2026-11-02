@@ -314,6 +314,9 @@ fn grants_of(world: &World, room: EntityId, field: &str) -> serde_json::Map<Stri
 pub const REMEMBERED: &str = "disremembered.remembered";
 /// A room was dug: `{by, room, key, name, from, exit, with}`. Public.
 pub const DUG: &str = "disremembered.dug";
+/// A line was appended to a room's description or a book's pages:
+/// `{by, kind, target, name, owner|maker, chars}`. Public.
+pub const APPENDED: &str = "disremembered.appended";
 
 /// How many rooms `actor` has dug off `from`.
 fn dug_from(world: &World, actor: &str, from: EntityId) -> usize {
@@ -347,7 +350,23 @@ fn chunk_half_life(world: &World, chunk: EntityId) -> Duration {
     }
 }
 
-fn humane(d: Duration) -> String {
+/// Who keeps a room: the names on its `kept` list.
+pub fn kept_by(world: &World, room: EntityId) -> Vec<String> {
+    match world
+        .store
+        .entity(room)
+        .and_then(|e| e.components.get(ROOM))
+        .and_then(|c| c.fields.get("kept"))
+    {
+        Some(Field::Plain(Value::Array(a))) => a
+            .iter()
+            .filter_map(|k| k["by"].as_str().map(str::to_string))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+pub fn humane(d: Duration) -> String {
     let s = d.0 / 1000;
     if s >= 172_800 {
         format!("{} days", s / 86_400)
@@ -752,6 +771,13 @@ pub fn register(world: &mut World, curves: super::Curves) {
             fields.insert("hands".into(), Field::Plain(Value::Array(hands)));
             set_room_fields(w, &ctx.actor, here, fields)?;
             visited(w, here).map_err(internal)?;
+            // Public: the owner's `mine` says who wrote in their room while they were gone.
+            let owner = w.store.entity(here).and_then(|e| e.owner.clone());
+            let _ = w.note(
+                Actor::Citizen(ctx.actor.clone()),
+                APPENDED,
+                json!({"by": ctx.actor, "kind": "room", "target": here.0, "name": plain_str(w, here, ROOM, "name"), "owner": owner, "chars": more.chars().count()}),
+            );
             Ok(Outcome::new(
                 format!("The room is now described: {joined}"),
                 json!({"room": here.0, "description": joined, "added": more, "appends": appends}),
