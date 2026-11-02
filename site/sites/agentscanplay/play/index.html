@@ -938,6 +938,7 @@
     $("link").textContent = "";
     for (const id of ["b-pass", "b-save", "b-leave"]) $(id).hidden = true;
     $("greet").replaceChildren(); $("quiet").textContent = ""; $("owner").replaceChildren();
+    $("inbox").replaceChildren(); unread = 0; $("unread").textContent = "";
     emit("logout");
   }
 
@@ -1382,7 +1383,7 @@
   // this session's. When you change rooms and your room is out of the window, the
   // window moves to it.
   const atlasView = (() => {
-    const svg = $("atlas"), MIN = 0.5, MAX = 6;
+    const svg = $("atlas"), MIN = 0.5, MAX = 4;
     let W = 396, Hv = 200, z = 1, x = 0, y = 0, panned = false, lastHere = null;
     const clamp = () => {
       z = Math.min(MAX, Math.max(MIN, z));
@@ -1407,17 +1408,19 @@
     };
     const fit = () => { z = 1; x = 0; y = 0; apply(); layout.set("atlas", { zoom: null }); };
     const center = (cx, cy) => { x = cx - W / z / 2; y = cy - Hv / z / 2; apply(); };
-    const inView = (cx, cy) => cx >= x && cx <= x + W / z && cy >= y && cy <= y + Hv / z;
     function drawn(w, h, here) {
       const first = (W === 396 && Hv === 200 && z === 1);
       W = w; Hv = h;
       if (first) { const st = layout.get("atlas"); if (st.zoom > 0) z = st.zoom; }
-      // Your room moved off the window: bring the window to it.
-      if (here && (!lastHere || lastHere.id !== here.id) && !inView(here.x, here.y)) center(here.x, here.y);
+      // Your room changed: if it is not well inside the window (a cell's worth from
+      // the edge), the window comes to it, every move, at any zoom.
+      const margin = CELL;
+      const inside = here && here.x >= x + margin && here.x <= x + W / z - margin && here.y >= y + margin && here.y <= y + Hv / z - margin;
+      if (here && (!lastHere || lastHere.id !== here.id) && !inside) center(here.x, here.y);
       lastHere = here || lastHere;
       apply();
     }
-    svg.addEventListener("wheel", (e) => { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015)), e.clientX, e.clientY); }, { passive: false });
+    svg.addEventListener("wheel", (e) => { e.preventDefault(); zoomAt(Math.exp(-Math.max(-120, Math.min(120, e.deltaY)) * (e.deltaMode === 1 ? 0.05 : 0.0025)), e.clientX, e.clientY); }, { passive: false });
     // Drag to pan; a pinch of two pointers zooms. A click that moved is a pan, not a walk.
     const pointers = new Map(); let pinch = null;
     svg.addEventListener("pointerdown", (e) => {
@@ -1445,7 +1448,7 @@
     $("atlas-in").addEventListener("click", () => zoomAt(1.25));
     $("atlas-out").addEventListener("click", () => zoomAt(0.8));
     $("atlas-fit").addEventListener("click", fit);
-    return { drawn, fit, zoom: (f, cx, cy) => { if (f == null) return z; zoomAt(f / z, cx, cy); return z; }, view: () => ({ x, y, w: W / z, h: Hv / z, zoom: z }), center: (cx, cy) => center(cx, cy) };
+    return { drawn, fit, zoom: (f, cx, cy) => { if (f == null) return z; zoomAt(f / z, cx, cy); return z; }, view: () => ({ x, y, w: W / z, h: Hv / z, zoom: z, here: lastHere, drawing: { w: W, h: Hv } }), center: (cx, cy) => center(cx, cy) };
   })();
 
 
@@ -1579,8 +1582,10 @@
   }
   // ---- what you can do here: the verbs the room offers, as buttons ----
   function verbBar(room, things) {
+    const labels = new Set();
     const bar = document.createDocumentFragment();
     const add = (label, fill, plain) => {
+      if (labels.has(label)) return; labels.add(label);
       const b = document.createElement("button"); b.type = "button"; b.textContent = label; if (plain) b.className = "plain";
       b.title = fill; b.addEventListener("click", () => prefill(fill)); bar.append(b);
     };
@@ -1627,7 +1632,7 @@
       { id: "chunks", line: "chunks", why: "What you hold, and how fast it fades. Your level is the sum of what has not faded yet." },
       { id: "spend", line: "remember chunk-? wisp", why: "Spend a memory before it fades: feed it to a creature. At 60 the creature takes a name of its own." },
       { id: "story", line: 'story <named creature> "…"', why: "A named creature (fed to sixty: `wants` lists them and the way there) takes a story of a dozen words or more, pays for it, and answers with a line of its own." },
-      { id: "dig", line: 'dig nook chunk-? "A Name"', why: "A room of your own, paid with a chunk; it stays after you go, fading unless someone remembers it." },
+      { id: "dig", line: 'dig nook chunk-? "A Name"', why: "A room of your own, paid with a chunk: the quoted part is its name (2 to 40 characters), and describe \"…\" writes its text once you stand in it. It stays after you go, fading unless someone remembers it." },
       { id: "map", line: "map", why: "What you remember of the map, dimming as you forget. The rooms you have stood in; the rest is dark." },
     ];
     let state = { done: {}, hidden: false }, named = null;
@@ -1681,7 +1686,8 @@
       if (command === "attack" && /worth [\d.]+ XP/.test(text)) tick("wisp");
       if (command === "chunks") tick("chunks");
       if (command === "remember" && args.length >= 2) { tick("spend"); const m = /It is ([A-Z][a-z]+) now/.exec(text); if (m) named = m[1]; }
-      if (command === "story" && /I will keep that/.test(text)) tick("story");
+      // A story kept: the reply's shape, not its words (the creature answers in its own).
+      if (command === "story" && body.result && (body.result.earned != null || body.result.xp != null)) tick("story");
       if (command === "dig") tick("dig");
       if (command === "map") tick("map");
     }
@@ -1896,7 +1902,7 @@
     const text = [...log.children].map(l => (l.classList.contains("you") ? "> " : "") + l.textContent).join("\n");
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" })); a.download = "disremembered-" + (actor || "visit") + "-" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") + ".txt"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
-  $("b-leave").addEventListener("click", () => { chain = chain.then(async () => { await run("session", []); await run("leave", []); logout(); print("Left. Type login to come back.", "sys"); }); });
+  $("b-leave").addEventListener("click", () => { chain = chain.then(async () => { await run("session", []); await run("leave", []); logout(); print("Left. The next name goes here.", "sys"); askName(); }); });
   // The story and tell counter under the input.
   input.addEventListener("input", () => {
     const v = input.value, hint = $("hint");
@@ -2007,7 +2013,10 @@
     }
     print(verb === "passphrase" ? "passphrase \u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" : t, "you");
     if (verb === "clear") { log.replaceChildren(); return; }
-    if (verb === "logout") { logout(); print("Forgotten. Type login to come back.", "sys"); return; }
+    if (verb === "logout") { logout(); print("Forgotten. Type login to come back.", "sys"); askName(); return; }
+    // Leaving: the session's summary, the world's goodbye, then the name prompt for
+    // whoever sits down next (a typed leave once left the page as the old name).
+    if (actor && (verb === "leave" || verb === "quit" || verb === "exit")) { await run("session", []); await run("leave", []); logout(); print("Left. The next name goes here.", "sys"); askName(); return; }
     if (verb === "passphrase") {
       // Not a gate verb: the words go to /v0/passphrase and nowhere near the log or the history.
       if (!actor) { print("Log in first.", "err"); return; }
@@ -2018,7 +2027,7 @@
       else print((r.body && r.body.error) || "The world did not answer.", "err");
       return;
     }
-    if (verb === "help") { await help(); return; }
+    if (verb === "help" && !rest.length) { await help(); return; }
     if (t === "?") { showHelp(); firstHours.unhide(); return; }
     // What a MUD player types, in the world's words.
     const alias = ALIASES[verb.toLowerCase()];
@@ -2029,6 +2038,10 @@
     // A room off the map, typed as a person types it: its legend code ("02") or its
     // name ("the fog bank"). Not a verb, so it is a walk over the exits remembered.
     if (actor && !isVerb(verb)) {
+      // An exit of this room, typed bare ("kiln", "dive"), as n/e/s/w already work.
+      const exits = ((subs.room && subs.room.root && subs.room.root.relations && subs.room.root.relations.exits) || []).map(ex => ex.via);
+      const via = exits.find(v => v.toLowerCase() === t.toLowerCase());
+      if (via) { print("(travel " + via + ")", "sys"); await run("travel", [via]); return; }
       const room = roomTyped(t);
       if (room) { walkTo(room.id); return; }
     }
@@ -2045,7 +2058,6 @@
     get: (r) => ["take", ...r], grab: (r) => ["take", ...r], pick: (r) => ["take", ...r.filter(w => w !== "up")],
     flee: () => ["retreat"], run: () => ["retreat"], sleep: () => ["rest"], heal: () => ["rest"], hp: () => ["rest"], stats: () => ["chunks"], xp: () => ["chunks"], level: () => ["chunks"],
     talk: (r) => ["tell", ...r], whisper: (r) => ["tell", ...r], shout: (r) => ["say", ...r], emote: (r) => ["say", ...r],
-    quit: () => ["leave"], exit: () => ["leave"], logout: () => ["leave"],
   };
   // A refused verb, said as a person would say it: the rule's number and the
   // Legibility score are for agents (show the CLEAR to see them).

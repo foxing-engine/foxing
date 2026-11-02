@@ -872,9 +872,18 @@ pub fn describe(
                     Some(l) => format!("; {l}"),
                     None => String::new(),
                 };
+                // Hit points to one decimal (a timed value is a long float), trimmed.
+                let hp_said = |v: &Value| -> String {
+                    match v.as_f64() {
+                        Some(x) if (x - x.round()).abs() < 0.05 => format!("{:.0}", x.round()),
+                        Some(x) => format!("{x:.1}"),
+                        None => v.to_string(),
+                    }
+                };
                 format!(
                     "{who} ({}/{}{holds}{yours}{shaken}{born}{learned})",
-                    c["hp"], c["max_hp"]
+                    hp_said(&c["hp"]),
+                    hp_said(&c["max_hp"])
                 )
             })
             .collect();

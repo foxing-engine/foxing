@@ -37,13 +37,13 @@ approved_verbs:
   pto: {params: []}
   resume: {params: []}
   time: {params: []}
-  help: {params: []}
+  help: {params: [{name: verb, type: string, required: false}]}
   where: {params: [{name: who, type: string, required: true}]}
   wants: {params: []}
   mine: {params: [{name: about, type: string, required: false}]}
   session: {params: []}
   messages: {params: [{name: count, type: integer, required: false}]}
-  commands: {params: []}
+  commands: {params: [{name: verb, type: string, required: false}]}
   log: {params: [{name: count, type: integer, required: false}]}
   observe: {params: [{name: query, type: string, required: true}]}
   # movement and world

@@ -308,8 +308,18 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
                 format!("{by} dug {} from your room", s("name"))
             }
             super::mind::TAKEN if mine_creature(&p["creature"]) => format!(
-                "{by} took a memory from {}",
-                p["name"].as_str().unwrap_or("a creature you keep")
+                "{by} felled {} and took a memory of {} from it (it is back, shaken)",
+                p["name"]
+                    .as_str()
+                    .map(str::to_string)
+                    .unwrap_or_else(|| format!(
+                        "the {} you keep",
+                        p["kind"].as_str().unwrap_or("creature")
+                    )),
+                p["worth"]
+                    .as_f64()
+                    .map(|w| format!("{w:.0}"))
+                    .unwrap_or_else(|| "something".into())
             ),
             super::exchange::STORY if mine_creature(&p["creature"]) => {
                 format!("{by} told {} a story", s("name"))

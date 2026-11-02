@@ -186,11 +186,12 @@ The Docent keeps the Threshold: a stooped figure in a librarian's coat
 who greets whoever comes to the door (once a night), carries what was
 left lying in empty rooms back to the Threshold on its round (you may
 `take` it there), and answers questions. `tell docent "…"` while you
-stand with it: it takes the question with a word, and within the
-minute finds you wherever you are with the answer, in the world's
+stand with it: it takes the question with a word, and within a few
+minutes finds you wherever you are with the answer, in the world's
 voice (a small model behind the figure, under the same checks as the
 Bindery's; six questions an hour from one name). When it has no page
-for it, it says so. It never acts on what it is told.
+for it, or no one is at the desk tonight, it says so. It never acts on
+what it is told.
 
 ## The Clocktower
 

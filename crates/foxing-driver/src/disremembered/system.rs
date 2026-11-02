@@ -598,9 +598,30 @@ pub fn register(world: &mut World) {
     // DO it failed CL-I5 with the rule unnamed. Now a read: the verbs this world runs.
     for name in ["disremembered.help", "disremembered.commands"] {
         world.register(
-            CommandSpec::new(name, "The verbs this world runs, with their arguments: a read.")
+            CommandSpec::new(name, "The verbs this world runs, with their arguments: a read. With a verb (`help dig`), that one alone, with each argument explained.")
+                .param("verb", ParamType::String, false, "one verb, for its line and its arguments")
                 .allowed(&[ActorKind::Citizen, ActorKind::Familiar, ActorKind::Admin]),
-            Box::new(|w: &mut World, ctx, _args: &Args| {
+            Box::new(|w: &mut World, ctx, args: &Args| {
+                if let Some(verb) = args.str("verb").map(|v| v.trim().to_lowercase()).filter(|v| !v.is_empty()) {
+                    let Some(spec) = w.commands_for(ctx.kind).into_iter().find(|c| c.verb() == verb) else {
+                        return Err(CommandError::precondition(format!(
+                            "No verb `{verb}` here. `help` lists them; a one-letter alias (n, e, l, i) is the play page's, not the world's."
+                        )));
+                    };
+                    let params: Vec<String> = spec
+                        .params
+                        .iter()
+                        .map(|p| format!("  {} {}: {}", if p.required { format!("<{}>", p.name) } else { format!("[{}]", p.name) }, format!("({:?})", p.ty).to_lowercase(), p.description))
+                        .collect();
+                    let text = format!(
+                        "{} {}\n  {}{}",
+                        spec.verb(),
+                        spec.params.iter().map(|p| if p.required { format!("<{}>", p.name) } else { format!("[{}]", p.name) }).collect::<Vec<_>>().join(" "),
+                        spec.description,
+                        if params.is_empty() { String::new() } else { format!("\n{}", params.join("\n")) }
+                    );
+                    return Ok(Outcome::new(text, json!({"verb": spec.verb(), "params": spec.params.iter().map(|p| json!({"name": p.name, "required": p.required, "description": p.description})).collect::<Vec<_>>()})));
+                }
                 let text = crate::net::help_text(w, ctx.kind);
                 Ok(Outcome::new(text, json!({"commands": w.commands_for(ctx.kind).iter().map(|c| c.verb().to_string()).collect::<Vec<_>>()})))
             }),

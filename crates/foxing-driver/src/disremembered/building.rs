@@ -720,7 +720,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
                 let more = args.str("text").unwrap_or("").to_string();
                 let joined = super::craft::append_object(w, ctx, item, &more)?;
                 let called = super::craft::display(w, item);
-                super::combat::narrate_room(w, f.citizen, &format!("{} writes a line in {called}.", ctx.actor));
+                super::combat::narrate_others(w, f.citizen, &format!("{} writes a line in {called}.", ctx.actor), &ctx.actor);
                 return Ok(Outcome::new(
                     format!("{called} now reads: {joined}"),
                     json!({"item": item.0, "name": called, "text": joined, "added": more}),
@@ -800,7 +800,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
                 let kind = super::plain_str(w, item, super::craft::ITEM, "name").unwrap_or("something").to_string();
                 let name = super::craft::name_object(w, &ctx.actor, item, args.str("name").unwrap_or(""))?;
                 if super::craft::is_fixed(w, item) {
-                    super::combat::narrate_room(w, f.citizen, &format!("{} names {kind} here: it is {name} now.", ctx.actor));
+                    super::combat::narrate_others(w, f.citizen, &format!("{} names {kind} here: it is {name} now.", ctx.actor), &ctx.actor);
                 }
                 w.notice(format!("**{}** named {kind}: **{name}**.", ctx.actor));
                 return Ok(Outcome::new(

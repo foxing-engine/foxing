@@ -282,6 +282,16 @@ pub fn narrate(world: &mut World, actor: &str, text: impl Into<String>) {
 
 /// Something happened near `entity` that everyone present in its room should hear.
 pub fn narrate_room(world: &mut World, entity: EntityId, text: &str) {
+    narrate_room_but(world, entity, text, None);
+}
+
+/// As [`narrate_room`], but not to `except`: one's own act is in the reply already,
+/// and "Thimbleweed picks up grave dust" told to Thimbleweed read as someone else.
+pub fn narrate_others(world: &mut World, entity: EntityId, text: &str, except: &str) {
+    narrate_room_but(world, entity, text, Some(except));
+}
+
+fn narrate_room_but(world: &mut World, entity: EntityId, text: &str, except: Option<&str>) {
     let Some(room) = world.store.entity(entity).and_then(|e| e.parent) else {
         return;
     };
@@ -290,6 +300,7 @@ pub fn narrate_room(world: &mut World, entity: EntityId, text: &str) {
         .children(room)
         .filter(|e| e.kind == "citizen" && super::presence::is_here(world, e.id))
         .filter_map(|e| e.owner.clone())
+        .filter(|o| except != Some(o.as_str()))
         .collect();
     for actor in present {
         narrate(world, &actor, text.to_string());
@@ -516,6 +527,16 @@ fn clock_line(world: &World, creature: EntityId) -> String {
         .map(|d| d.strike_seconds)
         .unwrap_or(10);
     format!("It strikes on its own every {secs} seconds or so while you stand here, typing or not; retreat ends that.")
+}
+
+/// A creature's hit points as "left": whole, except under one, where "0 left" and
+/// still standing read as a lie; then a decimal.
+pub fn left_said(hp: f64) -> String {
+    if hp > 0.0 && hp < 1.0 {
+        format!("{hp:.1}")
+    } else {
+        format!("{hp:.0}")
+    }
 }
 
 /// A citizen has arrived in a room: anything aggressive there will notice them soon.
@@ -775,7 +796,11 @@ pub(crate) struct Death {
 impl Death {
     /// The sentences after "You go down.", for every door a fall comes through.
     pub fn said(&self) -> String {
-        let mut out = format!(" {}", self.epitaph);
+        // Named as an epitaph: a visitor read it as prose and reported none was said.
+        let mut out = format!(
+            " Over you, the world says: \u{201c}{}\u{201d}",
+            self.epitaph
+        );
         if let Some(c) = &self.lost {
             out.push_str(&format!(" Concussion: you have lost {c}"));
             match &self.keeper {
@@ -1123,9 +1148,21 @@ pub fn register(world: &mut World, curves: Curves) {
             let f = me(w, ctx)?;
             let room = super::rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
             let here = creatures_in(w, room);
+            if args.str("creature").is_some_and(super::docent::is_named) {
+                return Err(CommandError::precondition(
+                    "The Docent is not for fighting; it keeps the door, and has seen worse than you. Ask it something: tell docent \"\u{2026}\".",
+                ));
+            }
             let target = match args.str("creature") {
                 Some(name) if !name.is_empty() => {
-                    let found = super::mind::find_here(w, room, name);
+                    // The kind you are already fighting is the one you mean, before any
+                    // other of its kind standing by (a typed "kill wisp" once turned on
+                    // a shaken wisp beside the one that was biting).
+                    let asked = name.trim().trim_start_matches("the ").to_lowercase();
+                    let fighting = engaged_with(w, f.citizen)
+                        .filter(|id| here.iter().any(|c| c.0 == *id))
+                        .filter(|id| plain_str(w, *id, CREATURE, "name").is_some_and(|k| k == asked));
+                    let found = fighting.or_else(|| super::mind::find_here(w, room, name));
                     // A kind never strikes a named creature, even one alone of its kind:
                     // two visitors in one night felled Lute by typing "attack wisp".
                     if let Some(c) = found {
@@ -1279,7 +1316,7 @@ pub fn register(world: &mut World, curves: Curves) {
 
             // It strikes back.
             let (taken, dead) = creature_strikes(w, creature, f.citizen).map_err(internal)?;
-            lines.push(format!("The {cname} ({chp:.0} left) {}.", if dead { format!("hits you for {taken:.0}") } else { hit_said(taken) }));
+            lines.push(format!("The {cname} ({} left) {}.", left_said(chp), if dead { format!("hits you for {taken:.0}") } else { hit_said(taken) }));
             if dead {
                 let d = die(w, &ctx.actor, &f, Some(creature))?;
                 lines.push(format!("You go down.{}", d.said()));

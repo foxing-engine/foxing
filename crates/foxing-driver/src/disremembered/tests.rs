@@ -5573,7 +5573,7 @@ fn the_named_confide_in_the_unnamed_when_names_are_few() {
     // seventy and still named.
     let look = ok(&mut w, "tyler", "look", json!([]));
     assert!(
-        look.summary.contains("wisp (9.0/9.0, holding "),
+        look.summary.contains("wisp (9/9, holding "),
         "{}",
         look.summary
     );
@@ -7204,7 +7204,7 @@ fn the_docent_greets_once_a_night_takes_questions_answers_or_admits_the_page_is_
     );
     assert!(a.summary.contains("answers dave"), "{}", a.summary);
     let said = narrative(&w, "dave", head);
-    assert!(said.iter().any(|l| l == "The Docent finds you: \"West of here, then south: two doors. Mind the ragpicker.\""), "{said:?}");
+    assert!(said.iter().any(|l| l == "The Docent finds you, on \"where is the midden?\": \"West of here, then south: two doors. Mind the ragpicker.\""), "{said:?}");
     assert!(docent::report(&w)["open"].as_array().unwrap().is_empty());
     let err = call(
         &mut w,

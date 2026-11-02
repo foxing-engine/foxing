@@ -707,11 +707,20 @@ pub fn pass(
             // Not a second time: a creature's answer to a story is the statement's
             // own summary and also narrated to the teller, and a visitor read every
             // reply twice.
+            // The same words in a different frame count too: the statement's own
+            // line says `Vellic says, "…"` and the narrator `Vellic says to you, "…"`.
+            let quoted: Option<&str> = line.find('"').and_then(|a| {
+                line.rfind('"')
+                    .filter(|b| *b > a + 12)
+                    .map(|b| &line[a + 1..b])
+            });
             let already = report.lines.iter().any(|l| match l {
                 Line::Quote { text, .. } => {
-                    text.contains(line.trim()) || line.contains(text.trim())
+                    text.contains(line.trim())
+                        || line.contains(text.trim())
+                        || quoted.is_some_and(|q| text.contains(q))
                 }
-                _ => false,
+                Line::Fact { text, .. } => quoted.is_some_and(|q| text.contains(q)),
             });
             if !already {
                 report.quote(line, "narrator");
@@ -849,12 +858,17 @@ fn run_request(
     // were written for the room the sender was in (an `attack` written for the
     // Stacks once hit a Threshold wisp, where nothing hunts).
     let mut woke = died_since_last_message(world, actor);
+    // Which statement of this message the fall was at, when it was in this one.
+    let mut fell_at: Option<usize> = None;
     for st in dos {
         if woke {
             let verb = st.verb.clone().unwrap_or_default();
             if !AFTER_DEATH.contains(&verb.as_str()) {
                 report.fact(
-                    format!("Statement {} did not run: {actor} went down since their last message and woke at the Threshold; read the room, then write again", st.index),
+                    match fell_at {
+                        Some(k) => format!("Statement {} did not run: {actor} went down at statement {k} of this message and woke at the Threshold; it was written for another room. Read the room, then write again", st.index),
+                        None => format!("Statement {} did not run: {actor} went down since their last message and woke at the Threshold; read the room, then write again", st.index),
+                    },
                     "gate",
                 );
                 continue;
@@ -894,6 +908,7 @@ fn run_request(
             Ok(out) => {
                 if out.result["died"] == Value::Bool(true) {
                     woke = true;
+                    fell_at = Some(n);
                 }
                 outcomes.push(StatementOutcome {
                     statement: n,

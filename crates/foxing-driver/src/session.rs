@@ -155,11 +155,13 @@ async fn run(socket: WebSocket, s: Shared) {
                 };
                 match frame {
                     Frame::Login { actor: name, passphrase, admin: token } => {
+                        // The cursor is the log's head from before the login, so what the
+                        // login itself said to the name (the Docent's greeting, words left
+                        // for them) is pushed rather than lost behind the cursor.
                         let logged_in: Result<(bool, u64), String> = {
                             let Ok(mut w) = s.world.lock() else { continue };
-                            crate::net::login_for_session(&mut w, &name, &passphrase).map(|fresh| {
-                                (fresh, w.log.head(&w.id).ok().flatten().map(|x| x.0).unwrap_or(0))
-                            })
+                            let before = w.log.head(&w.id).ok().flatten().map(|x| x.0).unwrap_or(0);
+                            crate::net::login_for_session(&mut w, &name, &passphrase).map(|fresh| (fresh, before))
                         };
                         let (fresh, head) = match logged_in {
                             Ok(v) => v,

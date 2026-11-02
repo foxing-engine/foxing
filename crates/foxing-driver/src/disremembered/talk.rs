@@ -91,8 +91,9 @@ pub fn register(world: &mut World) {
                 for other in others_here(w, room, &ctx.actor) {
                     narrate(w, &other, format!("{} asks the Docent something; it nods.", ctx.actor));
                 }
+                let nth = super::docent::nth_tonight(w, &ctx.actor);
                 return Ok(Outcome::new(
-                    format!("You ask the Docent, \"{text}\" The Docent: \"{line}\" (It answers within the minute, wherever you are; question {id}.)"),
+                    format!("You ask the Docent, \"{text}\" The Docent: \"{line}\" (It finds you within a few minutes, wherever you are, and names the question; {nth}.)"),
                     json!({"to": "the Docent", "text": text, "asked": id}),
                 ));
             }
@@ -822,12 +823,20 @@ pub fn line_of_its_own(world: &World, creature: EntityId, except: EntityId) -> S
         return String::new();
     };
     let now = world.now();
+    // Nor one that is the same story told before (a creature once answered a story
+    // with "one I am losing" and quoted the opening it had just been given).
+    let same = plain_str(world, except, CHUNK, "source")
+        .unwrap_or("")
+        .to_string();
     let mut others: Vec<(EntityId, String, f64)> = world
         .store
         .children(window)
         .filter(|e| e.kind == "chunk" && e.id != except)
         .filter_map(|e| {
             let source = plain_str(world, e.id, CHUNK, "source")?.to_string();
+            if !same.is_empty() && source == same {
+                return None;
+            }
             let value = world
                 .store
                 .read_field(e.id, CHUNK, "value", now)

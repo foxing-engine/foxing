@@ -57,6 +57,10 @@ pub const NAMED: &str = "disremembered.item_named";
 pub const KEPT: &str = "disremembered.item_kept";
 /// The most a thing's text runs to.
 pub const MAX_TEXT_CHARS: usize = 600;
+/// A book takes lines from many hands, and its maker's description is in the same
+/// text: the page is longer (a visitor's first real line once met "the page is
+/// full" on a book two lines in). The Bindery binds a long one down.
+pub const MAX_BOOK_CHARS: usize = 2400;
 
 /// The world's own fixtures, placed when the rooms are: `(room key, recipe, name,
 /// text, open)`; `open` means any hand may append (the world welcomes everyone to
@@ -850,9 +854,9 @@ pub fn append_object(
     } else {
         format!("{current} | {line}")
     };
-    if joined.chars().count() > MAX_TEXT_CHARS {
+    if joined.chars().count() > MAX_BOOK_CHARS {
         return Err(CommandError::precondition(format!(
-            "That would run past {MAX_TEXT_CHARS} characters; the page is full."
+            "That would run past {MAX_BOOK_CHARS} characters; the book is full until the Bindery binds it down."
         )));
     }
     let mut changes = BTreeMap::new();
@@ -1051,7 +1055,12 @@ pub fn register(world: &mut World, curves: Curves) {
                 TOOK,
                 json!({"by": ctx.actor, "item": item.0, "name": name, "room": room.0}),
             );
-            super::combat::narrate_room(w, f.citizen, &format!("{} picks up {name}.", ctx.actor));
+            super::combat::narrate_others(
+                w,
+                f.citizen,
+                &format!("{} picks up {name}.", ctx.actor),
+                &ctx.actor,
+            );
             Ok(Outcome::new(
                 format!("You take {name}. It is in your satchel."),
                 json!({"item": item.0, "name": name}),
@@ -1092,7 +1101,12 @@ pub fn register(world: &mut World, curves: Curves) {
                 DROPPED,
                 json!({"by": ctx.actor, "item": item.0, "name": name, "room": room.0}),
             );
-            super::combat::narrate_room(w, f.citizen, &format!("{} sets down {name}.", ctx.actor));
+            super::combat::narrate_others(
+                w,
+                f.citizen,
+                &format!("{} sets down {name}.", ctx.actor),
+                &ctx.actor,
+            );
             Ok(Outcome::new(
                 format!("You set {name} down here."),
                 json!({"item": item.0, "name": name, "room": room.0}),
@@ -1254,7 +1268,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 MADE,
                 json!({"by": ctx.actor, "item": item.0, "name": r.name, "recipe": r.key, "of": used_names, "spent": spent.map(|c| c.0)}),
             );
-            super::combat::narrate_room(w, f.citizen, &format!("{} makes {}{}.", ctx.actor, r.name, if r.fixed { ", and it stands here" } else { "" }));
+            super::combat::narrate_others(w, f.citizen, &format!("{} makes {}{}.", ctx.actor, r.name, if r.fixed { ", and it stands here" } else { "" }), &ctx.actor);
             Ok(Outcome::new(
                 format!(
                     "You make {} of {}{}: item-{}. It {}.{}",
@@ -1381,7 +1395,13 @@ pub fn register(world: &mut World, curves: Curves) {
                 }
                 h
             };
-            let body = if lines.len() > 1 { format!("\n{}\n", lines.join("\n")) } else { format!(" {text}") };
+            // A line without a hand is the maker's (or the world's) description of the
+            // thing, not an entry; said so, so a reader can tell the two apart.
+            let shown: Vec<String> = lines
+                .iter()
+                .map(|l| if l.contains(" \u{2014} ") { l.clone() } else { format!("{l} \u{2014} the description") })
+                .collect();
+            let body = if lines.len() > 1 { format!("\n{}\n", shown.join("\n")) } else { format!(" {text}") };
             let who = match (&maker, hands.is_empty()) {
                 (Some(m), true) => format!("Written by {m}."),
                 (Some(m), false) => format!("Made by {m}; hands in it: {}.", hands.join(", ")),
@@ -1389,8 +1409,9 @@ pub fn register(world: &mut World, curves: Curves) {
                 (None, true) => String::new(),
             };
             let who = if who.is_empty() || lines.len() > 1 { who } else { format!(" {who}") };
+            let binding = if bound.is_some() { bound_said(bound) } else if lines.len() > 1 { " Not yet bound.".to_string() } else { String::new() };
             Ok(Outcome::new(
-                format!("{called} (item-{}), whole ({} line{}):{body}{who}{}", item.0, lines.len(), if lines.len() == 1 { "" } else { "s" }, bound_said(bound)),
+                format!("{called} (item-{}), whole ({} line{}):{body}{who}{binding}", item.0, lines.len(), if lines.len() == 1 { "" } else { "s" }),
                 json!({"item": item.0, "name": called, "text": text, "lines": lines, "maker": maker, "hands": hands}),
             ))
         }),

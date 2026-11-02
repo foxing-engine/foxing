@@ -247,6 +247,9 @@ fn creature_slot(world: &World, actor: &str) -> String {
         })
         .unwrap_or_default();
     let want = match (w["story"].as_str(), w["word"].as_str()) {
+        (Some(s), _) if s.contains('"') || s.contains('\u{201c}') => {
+            "a story like one it is forgetting".to_string()
+        }
         (Some(s), _) => format!("a story about {s}"),
         (None, Some(word)) => format!(
             "the word \u{201c}{word}\u{201d} carried to {}",
@@ -382,12 +385,45 @@ fn taken_this_hour(world: &World, actor: &str) -> (usize, usize) {
 
 /// A question for the Docent, from `actor` standing in `here`: queued, with a line
 /// back at once. The question's id is the ask's place on the record.
+/// Whether anyone is at the desk: an answer applied in the last two hours, or no
+/// question yet left unanswered. With questions going unanswered and nothing
+/// answered in that long, the catalog is closed tonight, and the Docent says so at
+/// once rather than making you wait for the page.
+pub fn catalog_open(world: &World) -> bool {
+    let now = world.now().0;
+    let list = asks(world);
+    let answered_lately = list.iter().any(|a| {
+        a["answered"]
+            .as_i64()
+            .is_some_and(|t| now - t < 2 * 3_600_000)
+    });
+    let missed_lately = list.iter().any(|a| {
+        a["answered"] == false && a["at"].as_i64().is_some_and(|t| now - t < 2 * 3_600_000)
+    });
+    answered_lately || !missed_lately
+}
+
 pub fn ask(
     world: &mut World,
     actor: &str,
     here: EntityId,
     text: &str,
 ) -> Result<(String, u64), CommandError> {
+    // With no one at the desk, the Docent says so at once, except one question in
+    // ten minutes, which it carries to the desk anyway: that is how it finds out
+    // someone is back.
+    let closed = !catalog_open(world);
+    if closed {
+        let now = world.now().0;
+        let tried_lately = asks(world)
+            .iter()
+            .any(|a| a["at"].as_i64().is_some_and(|t| now - t < 10 * 60_000));
+        if tried_lately {
+            return Err(CommandError::precondition(
+                "The Docent shakes its head: \"The catalog is closed tonight; no one is at the desk to find your page. `help` has what I keep by heart; the room knows the rest. Ask me tomorrow.\"",
+            ));
+        }
+    }
     let (all, mine) = taken_this_hour(world, actor);
     if mine >= ASKS_EACH_PER_HOUR {
         return Err(CommandError::precondition(
@@ -429,8 +465,23 @@ pub fn ask(
             p["id"] == id
         })
         .map_err(CommandError::precondition)?;
-    let line = TAKEN_LINES[(id as usize) % TAKEN_LINES.len()];
+    let line = if closed {
+        "The desk may be empty tonight; I'll look. Don't wait for me."
+    } else {
+        TAKEN_LINES[(id as usize) % TAKEN_LINES.len()]
+    };
+    let _ = mine;
     Ok((line.to_string(), id))
+}
+
+/// How many questions `actor` has asked tonight, as an ordinal: "your third".
+pub fn nth_tonight(world: &World, actor: &str) -> String {
+    let now = world.now().0;
+    let n = asks(world)
+        .iter()
+        .filter(|a| a["from"] == actor && a["at"].as_i64().is_some_and(|t| now - t < NIGHT_MS))
+        .count();
+    format!("your {} tonight", super::death::ordinal(n as u32))
 }
 
 /// The answer, from the operator's tool: said to the asker wherever they are.
@@ -468,6 +519,7 @@ fn answer(
         )));
     }
     let to = a["from"].as_str().unwrap_or("").to_string();
+    let question: String = a["text"].as_str().unwrap_or("").chars().take(60).collect();
     a["answered"] = json!(world.now().0);
     a["answer"] = json!(text);
     let answered = field(world, "answered")
@@ -481,7 +533,11 @@ fn answer(
     world
         .cancel(JOB_EMPTY, |p| p["id"] == id)
         .map_err(CommandError::precondition)?;
-    super::combat::narrate(world, &to, format!("The Docent finds you: \"{text}\""));
+    super::combat::narrate(
+        world,
+        &to,
+        format!("The Docent finds you, on \"{question}\": \"{text}\""),
+    );
     let _ = world.note(
         Actor::Citizen(by.to_string()),
         ANSWERED,
@@ -649,13 +705,18 @@ pub fn register(world: &mut World) {
                 return Ok(());
             }
             a["answered"] = json!(false);
+            let question = a["text"].as_str().unwrap_or("").to_string();
             let mut changes = BTreeMap::new();
             changes.insert("asked".into(), json!(list));
             write(w, changes)?;
+            let short: String = question.chars().take(60).collect();
             super::combat::narrate(
                 w,
                 &to,
-                "The Docent comes back without the page: \"That one is not in the catalog tonight. `help` has what I keep by heart; the room knows the rest.\"",
+                format!(
+                    "The Docent comes back without the page, on \"{short}{}\": \"No one is at the desk tonight to find that one. `help` has what I keep by heart; the room knows the rest.\"",
+                    if question.chars().count() > 60 { "\u{2026}" } else { "" }
+                ),
             );
             Ok(())
         }),
