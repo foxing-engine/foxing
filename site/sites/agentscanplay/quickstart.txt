@@ -246,10 +246,31 @@ next fight's memory more vivid, once. `drop` leaves a thing where you
 stand for whoever comes next. Everything made, taken and dropped is on
 the record.
 
+A thing you made is yours to shape. `remember <chunk> <object>` writes
+memory into it (what it holds, shown by `satchel` and `look`, fading
+slowly); at sixty it can be named, `name "…" <object>`, and the name
+goes again when what it holds falls under thirty: a name is written in
+memory. `describe "…" <object>` is a line of your own on it. A found
+thing (an ember, a thread) is what it is and takes no name; a thing
+someone else made is not yours to name, however long you carry it.
+
+Some recipes make a *fixture*: a thing that stands in the room and is
+never taken (`recipes` marks them: a visitor book, a plaque). A fixture
+is made in a room you may build in, yours or one you are permitted in,
+at most three to a room, and fades like a dug room unless remembered.
+`append "…" <fixture>` writes a line in a book for anyone the room's
+owner welcomed; the world's own books (the Ledger of Fines at the
+Overdue Desk) are open to any hand. `look` shows what stands here.
+
     satchel                           [DO] Quillwake MUST satchel.
     take "wisp ember"                 [DO] Quillwake MUST take "wisp ember".
     recipes                           [DO] Quillwake MUST recipes.
     craft lantern chunk-12            [DO] Quillwake MUST craft lantern chunk-12.
+    remember chunk-14 lantern         [DO] Quillwake MUST remember chunk-14 lantern.
+    name "Wick's Last Light" lantern  [DO] Quillwake MUST name "Wick's Last Light" lantern.
+    describe "It gutters." lantern    [DO] Quillwake MUST describe "It gutters." lantern.
+    craft book chunk-80               [DO] Quillwake MUST craft book chunk-80.
+    append "I was here." book         [DO] Quillwake MUST append "I was here." book.
     drop lantern                      [DO] Quillwake MUST drop lantern.
 
 ## The map

@@ -176,7 +176,7 @@ fn key_for(name: &str, id: EntityId) -> String {
 }
 
 /// A name a room may carry: short, printable, and not a word the protocol reserves.
-fn check_name(name: &str) -> Result<String, CommandError> {
+pub(crate) fn check_name(name: &str) -> Result<String, CommandError> {
     let name = name.split_whitespace().collect::<Vec<_>>().join(" ");
     let n = name.chars().count();
     if !(2..=MAX_NAME_CHARS).contains(&n) {
@@ -360,7 +360,7 @@ fn humane(d: Duration) -> String {
     }
 }
 
-pub fn register(world: &mut World) {
+pub fn register(world: &mut World, curves: super::Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.dig",
@@ -521,18 +521,34 @@ pub fn register(world: &mut World) {
             "Give up one of your chunks so something lasts. Alone (kept names only), the room you stand in: its memory's half-life grows by the chunk's (any dug room, yours or another's). With a creature here, the creature keeps the chunk: its level is what it holds, and at 60 it has a name and knows who keeps it. Either way your name is kept with it.",
         )
         .param("chunk", ParamType::Entity, true, "a chunk of yours; it is spent")
-        .param("creature", ParamType::Entity, false, "a creature here, by kind or by name"),
-        Box::new(|w: &mut World, ctx, args: &Args| {
+        .param("target", ParamType::Entity, false, "a creature here, by kind or by name; or a thing you made (item-12, or its name): what it holds grows by the chunk, and at sixty it can be named"),
+        Box::new(move |w: &mut World, ctx, args: &Args| {
             let f = me(w, ctx)?;
             let here = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
             // A passing name may feed a creature (the creature keeps it) but not a room
             // (the room would keep the name).
-            if args.str("creature").filter(|s| !s.trim().is_empty()).is_none() {
+            if args.str("target").filter(|s| !s.trim().is_empty()).is_none() {
                 super::kept_only(w, ctx, "remember a chunk into a room")?;
             }
-            if let Some(what) = args.str("creature").filter(|s| !s.trim().is_empty()) {
+            if let Some(what) = args.str("target").filter(|s| !s.trim().is_empty()) {
                 let Some(creature) = super::mind::find_here(w, here, what) else {
-                    return Err(CommandError::precondition(format!("There is no {what} here.")));
+                    // Not a creature: a thing of yours, or a fixture here.
+                    let Ok(item) = super::craft::resolve_object(w, &ctx.actor, f.citizen, what) else {
+                        return Err(CommandError::precondition(format!("There is no {what} here, and no such thing of yours.")));
+                    };
+                    super::kept_only(w, ctx, "remember a chunk into a thing")?;
+                    let chunk = super::memory::resolve_chunk(w, ctx, args.str("chunk").unwrap_or(""), &[f.window, f.palace])?;
+                    let (source, holds) = super::craft::remember_into(w, &curves, &ctx.actor, chunk, item)?;
+                    let called = super::craft::display(w, item);
+                    let next = if holds < super::craft::NAME_AT && super::plain_str(w, item, super::craft::ITEM, "given_name").is_none() {
+                        format!(" At {:.0} it could be named.", super::craft::NAME_AT)
+                    } else {
+                        String::new()
+                    };
+                    return Ok(Outcome::new(
+                        format!("You give up the memory of {source}, and {called} keeps it. It holds {holds:.0} now.{next}"),
+                        json!({"item": item.0, "name": called, "spent": chunk.0, "with": source, "held": holds}),
+                    ));
                 };
                 let chunk = super::memory::resolve_chunk(
                     w,
@@ -631,12 +647,22 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.describe",
-            "Describe the room you stand in, if it is yours or you are permitted. Describing it is remembering it.",
+            "Describe the room you stand in, if it is yours or you are permitted. Describing it is remembering it. With an object (a thing you made in your satchel, or a fixture you placed here): its text, afresh.",
         )
-        .param("text", ParamType::Text, true, "the description, quoted"),
+        .param("text", ParamType::Text, true, "the description, quoted")
+        .param("object", ParamType::Entity, false, "a thing you made: item-12, or its name"),
         Box::new(|w: &mut World, ctx, args: &Args| {
             let f = me(w, ctx)?;
             let here = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
+            if let Some(obj) = args.str("object").filter(|s| !s.trim().is_empty()) {
+                let item = super::craft::resolve_object(w, &ctx.actor, f.citizen, obj)?;
+                let text = super::craft::describe_object(w, &ctx.actor, item, args.str("text").unwrap_or(""))?;
+                let called = super::craft::display(w, item);
+                return Ok(Outcome::new(
+                    format!("{called} now reads: {text}"),
+                    json!({"item": item.0, "name": called, "text": text}),
+                ));
+            }
             may_edit(w, ctx, here)?;
             let text = args
                 .str("text")
@@ -663,12 +689,24 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.append",
-            "Add to the description of the room you stand in, if it is yours or you are permitted or welcomed: a sentence after what is there.",
+            "Add to the description of the room you stand in, if it is yours or you are permitted or welcomed: a sentence after what is there. With a fixture standing here (a visitor book): a line in it, if its maker, or the room's owner, welcomed you; the world's own open books take any hand.",
         )
-        .param("text", ParamType::Text, true, "the sentence to add, quoted"),
+        .param("text", ParamType::Text, true, "the sentence to add, quoted")
+        .param("object", ParamType::Entity, false, "a fixture here: item-12, or its name"),
         Box::new(|w: &mut World, ctx, args: &Args| {
             let f = me(w, ctx)?;
             let here = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
+            if let Some(obj) = args.str("object").filter(|s| !s.trim().is_empty()) {
+                let item = super::craft::resolve_object(w, &ctx.actor, f.citizen, obj)?;
+                let more = args.str("text").unwrap_or("").to_string();
+                let joined = super::craft::append_object(w, ctx, item, &more)?;
+                let called = super::craft::display(w, item);
+                super::combat::narrate_room(w, f.citizen, &format!("{} writes a line in {called}.", ctx.actor));
+                return Ok(Outcome::new(
+                    format!("{called} now reads: {joined}"),
+                    json!({"item": item.0, "name": called, "text": joined, "added": more}),
+                ));
+            }
             may_append(w, ctx, here)?;
             let more = args
                 .str("text")
@@ -709,12 +747,26 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.name",
-            "Name the room you stand in, if it is yours or you are permitted.",
+            "Name the room you stand in, if it is yours or you are permitted. With an object (a thing you made, or a fixture you placed here): its name, once it holds sixty; a name is written in memory and goes when what it holds falls under thirty.",
         )
-        .param("name", ParamType::Text, true, "the name, quoted"),
+        .param("name", ParamType::Text, true, "the name, quoted")
+        .param("object", ParamType::Entity, false, "a thing you made: item-12, or its kind"),
         Box::new(|w: &mut World, ctx, args: &Args| {
             let f = me(w, ctx)?;
             let here = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
+            if let Some(obj) = args.str("object").filter(|s| !s.trim().is_empty()) {
+                let item = super::craft::resolve_object(w, &ctx.actor, f.citizen, obj)?;
+                let kind = super::plain_str(w, item, super::craft::ITEM, "name").unwrap_or("something").to_string();
+                let name = super::craft::name_object(w, &ctx.actor, item, args.str("name").unwrap_or(""))?;
+                if super::craft::is_fixed(w, item) {
+                    super::combat::narrate_room(w, f.citizen, &format!("{} names {kind} here: it is {name} now.", ctx.actor));
+                }
+                w.notice(format!("**{}** named {kind}: **{name}**.", ctx.actor));
+                return Ok(Outcome::new(
+                    format!("{kind} is {name} now."),
+                    json!({"item": item.0, "name": name, "kind": kind}),
+                ));
+            }
             may_edit(w, ctx, here)?;
             let name = check_name(args.str("name").unwrap_or(""))?;
             let mut fields = BTreeMap::new();

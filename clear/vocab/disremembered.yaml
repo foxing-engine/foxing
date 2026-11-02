@@ -65,10 +65,10 @@ approved_verbs:
   coat:
   # building: players extend the world
   dig: {params: [{name: exit, type: string, required: true}, {name: chunk, type: entity, required: true}, {name: name, type: text, required: false}]}
-  remember: {params: [{name: chunk, type: entity, required: true}, {name: creature, type: entity, required: false}]}
-  describe: {params: [{name: text, type: text, required: true}]}
-  append: {params: [{name: text, type: text, required: true}]}
-  name: {params: [{name: name, type: text, required: true}]}
+  remember: {params: [{name: chunk, type: entity, required: true}, {name: target, type: entity, required: false}]}
+  describe: {params: [{name: text, type: text, required: true}, {name: object, type: entity, required: false}]}
+  append: {params: [{name: text, type: text, required: true}, {name: object, type: entity, required: false}]}
+  name: {params: [{name: name, type: text, required: true}, {name: object, type: entity, required: false}]}
   permit: {params: [{name: citizen, type: entity, required: true}, {name: hours, type: number, required: false}]}
   welcome: {params: [{name: citizen, type: entity, required: true}, {name: hours, type: number, required: false}]}
   revoke: {params: [{name: citizen, type: entity, required: true}]}

@@ -795,6 +795,10 @@ pub fn describe(
             .collect();
         text.push_str(&format!(" Exits: {}.", shown.join(", ")));
     }
+    if let Some(standing) = super::craft::fixtures_line(world, room) {
+        text.push(' ');
+        text.push_str(&standing);
+    }
     if let Some(ground) = super::craft::ground_line(world, room) {
         text.push(' ');
         text.push_str(&ground);
@@ -878,7 +882,7 @@ pub fn describe(
         .collect();
     Ok(Outcome::new(
         text,
-        json!({"room": name, "description": desc, "memory": memory, "dug_by": dug_by, "exits": exits, "creatures": creatures, "citizens": others, "remembered": remembered, "things": super::craft::things_in(world, room), "observation": obs}),
+        json!({"room": name, "description": desc, "memory": memory, "dug_by": dug_by, "exits": exits, "creatures": creatures, "citizens": others, "remembered": remembered, "things": super::craft::things_in(world, room), "fixtures": super::craft::fixtures_in(world, room), "observation": obs}),
     ))
 }
 

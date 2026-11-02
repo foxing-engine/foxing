@@ -239,7 +239,16 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("made_by", FieldKind::Plain, Visibility::Public)
             .field("made_of", FieldKind::Plain, Visibility::Public)
             .field("uses", FieldKind::Plain, Visibility::Public)
-            .field("memory", FieldKind::Timed, Visibility::Public),
+            .field("memory", FieldKind::Timed, Visibility::Public)
+            // A fixture stands in its room; a shaped thing has a given name, a text,
+            // what it holds (memory remembered into it), and who kept it; the
+            // world's own open books take any hand.
+            .field("fixed", FieldKind::Plain, Visibility::Public)
+            .field("given_name", FieldKind::Plain, Visibility::Public)
+            .field("text", FieldKind::Plain, Visibility::Public)
+            .field("held", FieldKind::Timed, Visibility::Public)
+            .field("kept", FieldKind::Plain, Visibility::Public)
+            .field("open", FieldKind::Plain, Visibility::Public),
         // The world's rates, which the Clocktower moves a step at a time: scales
         // around 1.0 on what a creature is worth, what a story pays, how fast new
         // memory fades, how long a room takes to refill, how often a creature leaves
@@ -568,6 +577,7 @@ pub(crate) fn find_citizen(world: &World, actor: &str) -> Option<Found> {
 /// Build the rooms on first boot; add any room the log does not have yet.
 pub fn ensure_world(world: &mut World) -> Result<(), String> {
     rooms::ensure_rooms(world)?;
+    craft::ensure_fixtures(world, &Curves::from_env())?;
     combat::ensure_spawns(world)?;
     building::reframe_all(world)?;
     economy::ensure(world)?;
@@ -1054,7 +1064,7 @@ pub fn register(world: &mut World, curves: Curves) {
     exchange::register(world, curves.clone());
     errand::register(world);
     cloak::register(world);
-    building::register(world);
+    building::register(world, curves.clone());
     system::register(world);
 }
 

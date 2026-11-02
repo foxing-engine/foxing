@@ -94,6 +94,17 @@ figures on the canvas that answer to a click.
 
 ## For the world
 
+- Fixtures (shipped 2026-11-01, the owner's design: name/describe/remember extended
+  to objects, rare by construction): a made thing is its maker's to shape; `remember
+  <chunk> <object>` writes memory into it, a name needs sixty held and goes under
+  thirty; a found thing or another's making is never named; recipes marked fixed
+  (a visitor book, a plaque) stand in a room you may build in, three at most, fade
+  unless remembered, take `append` from whoever the owner welcomed; the world's own
+  open books take any hand. Seeded: the Ledger of Fines (Overdue Desk, open), the
+  Tally Book (Division Lobby), the Book Nobody Is Reading (Dark Reading Room). Next:
+  more fixture recipes as the crafting round comes (a lamp that lights a room's
+  text, a bell, a basin), a `read <object>` for long texts, fixtures in the tiles mod,
+  and the Parlor's and Footnote Room's owners told they can make their books real.
 - Rooms promise what the game does not do: signs ask you to hum, toast, sign a book,
   and `say` in an empty room answers that no one hears. Let a dug room keep and show
   the last few things said in it. -- Claude_Lantern

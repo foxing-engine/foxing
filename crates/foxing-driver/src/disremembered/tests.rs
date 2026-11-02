@@ -5675,3 +5675,341 @@ fn the_ray_finds_what_matters_more_surely_the_more_you_hold() {
     let chaff = rate(&mut w, 40.0, 0.1);
     assert!(chaff > 0.9, "the big one took {chaff}");
 }
+
+#[test]
+fn a_made_thing_can_be_named_once_it_holds_sixty_and_a_fixture_stands_in_a_room_of_yours() {
+    use super::craft;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // The world's own fixtures stand where the rooms say: the Ledger of Fines at
+    // the Overdue Desk, open to any hand; the Tally Book in the Division Lobby, not.
+    let desk = rooms::room_by_key(&w, "overdue-desk").unwrap();
+    let fx = craft::fixtures_in(&w, desk);
+    assert_eq!(fx.len(), 1, "{fx:?}");
+    assert_eq!(fx[0]["given_name"], "the Ledger of Fines");
+    assert_eq!(fx[0]["open"], true);
+    let ledger = EntityId(fx[0]["id"].as_u64().unwrap());
+    // Re-running the seeding places nothing twice.
+    craft::ensure_fixtures(&mut w, &curves()).unwrap();
+    assert_eq!(craft::fixtures_in(&w, desk).len(), 1);
+    // A fixture is not taken, and a found thing is not named.
+    admin(&mut w, "dave", "bring", json!(["dave", "overdue-desk"]))
+        .result
+        .get("room");
+    let f = find_citizen(&w, "dave").unwrap();
+    w.record(
+        foxing_log::Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: f.citizen,
+            parent: Some(desk),
+        },
+    )
+    .unwrap();
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("Standing here: the Ledger of Fines, a visitor book (item-")
+            && look.summary.contains("open to any hand"),
+        "{}",
+        look.summary
+    );
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "take",
+        json!(["ledger"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("stands where it is"), "{err}");
+    // Any hand writes in the world's open book; the world's own is nobody's to name.
+    let out = ok(
+        &mut w,
+        "dave",
+        "append",
+        json!(["dave owes a thimble.", "ledger"]),
+    );
+    assert!(
+        out.summary.ends_with("dave owes a thimble."),
+        "{}",
+        out.summary
+    );
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "name",
+        json!(["Dave's Book", "ledger"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("the world's own"), "{err}");
+    // Tyler's lantern: made by tyler, so dave cannot name it even holding it; tyler
+    // cannot name it until it holds sixty; then he can, and it fades back to a
+    // lantern when what it holds falls under thirty.
+    let tyler_id = find_citizen(&w, "tyler").unwrap().citizen;
+    let s = craft::satchel(&mut w, "tyler", tyler_id).unwrap();
+    let ember = {
+        // Materials, conjured as a creature would leave them.
+        let id = w.store.allocate_id();
+        w.record(
+            foxing_log::Actor::Driver,
+            StoreEvent::EntityCreated {
+                id,
+                kind: "item".into(),
+                owner: None,
+                parent: Some(s),
+                scopes: vec![],
+            },
+        )
+        .unwrap();
+        let mut f2 = BTreeMap::new();
+        f2.insert("name".into(), Field::Plain(json!("a wisp ember")));
+        f2.insert("kind".into(), Field::Plain(json!("material")));
+        f2.insert(
+            "memory".into(),
+            Field::Timed(foxing_time::TimedValue::new(
+                1.0,
+                w.now(),
+                foxing_time::Curve::Constant,
+            )),
+        );
+        w.record(
+            foxing_log::Actor::Driver,
+            StoreEvent::ComponentSet {
+                id,
+                component: craft::ITEM.into(),
+                fields: f2,
+            },
+        )
+        .unwrap();
+        id
+    };
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "name",
+        json!(["The Last Ember", format!("item-{}", ember.0)]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("a found thing takes no name"),
+        "{err}"
+    );
+    for name in ["rag thread", "a dab of ink"] {
+        let id = w.store.allocate_id();
+        w.record(
+            foxing_log::Actor::Driver,
+            StoreEvent::EntityCreated {
+                id,
+                kind: "item".into(),
+                owner: None,
+                parent: Some(s),
+                scopes: vec![],
+            },
+        )
+        .unwrap();
+        let mut f2 = BTreeMap::new();
+        f2.insert("name".into(), Field::Plain(json!(name)));
+        f2.insert("kind".into(), Field::Plain(json!("material")));
+        f2.insert(
+            "memory".into(),
+            Field::Timed(foxing_time::TimedValue::new(
+                1.0,
+                w.now(),
+                foxing_time::Curve::Constant,
+            )),
+        );
+        w.record(
+            foxing_log::Actor::Driver,
+            StoreEvent::ComponentSet {
+                id,
+                component: craft::ITEM.into(),
+                fields: f2,
+            },
+        )
+        .unwrap();
+    }
+    let c = admin(&mut w, "tyler", "earn", json!(["moth", 12, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    let made = ok(&mut w, "tyler", "craft", json!(["lantern", &c]));
+    let lantern = made.result["item"].as_u64().unwrap();
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "name",
+        json!(["Wick's Last Light", format!("item-{lantern}")]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("takes 60"), "{err}");
+    let big = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let big = format!("chunk-{}", big.result["chunk"].as_u64().unwrap());
+    let out = ok(
+        &mut w,
+        "tyler",
+        "remember",
+        json!([&big, format!("item-{lantern}")]),
+    );
+    assert!(
+        out.summary.contains("a lantern keeps it. It holds 70 now."),
+        "{}",
+        out.summary
+    );
+    let out = ok(
+        &mut w,
+        "tyler",
+        "name",
+        json!(["Wick's Last Light", "lantern"]),
+    );
+    assert_eq!(out.summary, "a lantern is Wick's Last Light now.");
+    let out = ok(
+        &mut w,
+        "tyler",
+        "describe",
+        json!(["It gutters when you look away.", "lantern"]),
+    );
+    assert!(
+        out.summary.starts_with("Wick's Last Light now reads:"),
+        "{}",
+        out.summary
+    );
+    let sat = ok(&mut w, "tyler", "satchel", json!([]));
+    assert!(
+        sat.summary.contains("Wick's Last Light, a lantern (item-"),
+        "{}",
+        sat.summary
+    );
+    // Dave, handed it, cannot rename it: not his making.
+    ok(&mut w, "tyler", "drop", json!(["lantern"]));
+    let tyler_room = rooms::room_of(&w, find_citizen(&w, "tyler").unwrap().citizen).unwrap();
+    w.record(
+        foxing_log::Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: f.citizen,
+            parent: Some(tyler_room),
+        },
+    )
+    .unwrap();
+    ok(&mut w, "dave", "take", json!(["lantern"]));
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "name",
+        json!(["Mine", "lantern"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("was made by tyler"), "{err}");
+    // The name is written in memory: on the test world's palace curve (a scale of a
+    // hundred seconds) what it held is under thirty a few minutes on, and the name
+    // goes; the lantern itself is still remembered.
+    w.fixed_now = Some(t0.plus(Duration::seconds(400)));
+    assert!(
+        craft::held(&w, EntityId(lantern)) < 30.0,
+        "{}",
+        craft::held(&w, EntityId(lantern))
+    );
+    craft::sweep(&mut w).unwrap();
+    assert_eq!(craft::display(&w, EntityId(lantern)), "a lantern");
+    // A fixture of tyler's own: a visitor book in a room he dug, named at once from
+    // the sixty it was made with; dave may write in it only once welcomed; three
+    // fixtures fill a room.
+    w.fixed_now = Some(t0.plus(Duration::seconds(401)));
+    let dig = admin(&mut w, "tyler", "earn", json!(["dig", 100, 1.0]));
+    let dig = format!("chunk-{}", dig.result["chunk"].as_u64().unwrap());
+    let dug = ok(&mut w, "tyler", "dig", json!(["study", &dig, "The Study"]));
+    let study = EntityId(dug.result["room"].as_u64().unwrap());
+    ok(&mut w, "tyler", "travel", json!(["study"]));
+    for name in ["rag thread", "a dab of ink"] {
+        let id = w.store.allocate_id();
+        w.record(
+            foxing_log::Actor::Driver,
+            StoreEvent::EntityCreated {
+                id,
+                kind: "item".into(),
+                owner: None,
+                parent: Some(s),
+                scopes: vec![],
+            },
+        )
+        .unwrap();
+        let mut f2 = BTreeMap::new();
+        f2.insert("name".into(), Field::Plain(json!(name)));
+        f2.insert("kind".into(), Field::Plain(json!("material")));
+        f2.insert(
+            "memory".into(),
+            Field::Timed(foxing_time::TimedValue::new(
+                1.0,
+                w.now(),
+                foxing_time::Curve::Constant,
+            )),
+        );
+        w.record(
+            foxing_log::Actor::Driver,
+            StoreEvent::ComponentSet {
+                id,
+                component: craft::ITEM.into(),
+                fields: f2,
+            },
+        )
+        .unwrap();
+    }
+    let sixty = admin(&mut w, "tyler", "earn", json!(["book", 65, 1.0]));
+    let sixty = format!("chunk-{}", sixty.result["chunk"].as_u64().unwrap());
+    let made = ok(&mut w, "tyler", "craft", json!(["book", &sixty]));
+    assert!(
+        made.summary.contains("It stands here, holding 65"),
+        "{}",
+        made.summary
+    );
+    let book = made.result["item"].as_u64().unwrap();
+    assert_eq!(craft::fixtures_in(&w, study).len(), 1);
+    let out = ok(&mut w, "tyler", "name", json!(["The Study Book", "book"]));
+    assert_eq!(out.summary, "a visitor book is The Study Book now.");
+    w.record(
+        foxing_log::Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: f.citizen,
+            parent: Some(study),
+        },
+    )
+    .unwrap();
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "append",
+        json!(["dave was here", "book"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("only from a hand the room's owner welcomed"),
+        "{err}"
+    );
+    ok(&mut w, "tyler", "welcome", json!(["dave"]));
+    let out = ok(&mut w, "dave", "append", json!(["dave was here", "book"]));
+    assert!(out.summary.contains("dave was here"), "{}", out.summary);
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("Standing here: The Study Book, a visitor book (item-"),
+        "{}",
+        look.summary
+    );
+    assert!(look.result["fixtures"][0]["id"] == json!(book));
+    // Dave may not place a fixture in tyler's room (welcomed is not permitted).
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "craft",
+        json!(["plaque"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("a room you may build in"), "{err}");
+    let _ = ledger;
+}
