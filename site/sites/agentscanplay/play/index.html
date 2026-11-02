@@ -139,7 +139,6 @@
   #scene > section[data-panel="wants"], #scene > section[data-panel="mine"] { width: var(--w, 340px); }
   #scene > section.mod { width: var(--w, 640px); }
   #scene > section.mod canvas { width: 100% !important; height: auto; }
-  #atlas-box { width: 100% !important; resize: none; }
   #panels-wrap { position: relative; display: inline-block; }
   #panels-menu { position: absolute; right: 0; top: 100%; z-index: 30; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; min-width: 14em; text-align: left; font-size: 12px; }
   #panels-menu[hidden] { display: none; }
@@ -177,7 +176,10 @@
   /* The grip is on a box inside the section: a section that is itself a scroll
      container was sized by the grid before the drawing had a height, and the panel
      below overlapped the map. */
-  #atlas-box { width: var(--atlas-w, 420px); min-width: 160px; max-width: 100%; resize: horizontal; overflow: hidden; padding-bottom: 14px; box-sizing: border-box; }
+  /* The box fills its panel; the panel's own corner sizes it. (A horizontal resize of
+     the box from before panels sat on the same corner and won the cascade: a sideways
+     cursor and no diagonal.) */
+  #atlas-box { width: 100%; min-width: 160px; max-width: 100%; resize: none; overflow: hidden; padding-bottom: 14px; box-sizing: border-box; }
   /* No taller than the scene area: a two-floor map once grew the panel past it, and
      its corner handle (and the wheel, which zooms) were out of reach. */
   #atlas { display: block; width: 100%; height: auto; max-height: calc(var(--scene-h, 47vh) - 120px); border: 1px solid var(--line); border-radius: 4px; background: var(--night); touch-action: none; cursor: grab; user-select: none; }
