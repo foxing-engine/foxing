@@ -146,9 +146,17 @@ figures on the canvas that answer to a click.
   shown are remembered in the browser. The same is `foxing.layout` in the mod API (now
   `mod/1`, with `foxing.ready` and a `foxing:ready` event), so a userscript is a mod that
   loads itself; `mods/README.md` has a working one. A mod's own panel takes an `id` and
-  a width. Next: drag to reorder; a height handle per panel (the scene's bar does the
-  whole row now); a share link for a layout; the atlas drawn at its new size with
-  room names in full when there is room.
+  a width. Same night, all four approved: drag a heading to reorder, a height per panel,
+  a link to a layout (`?layout=`), and the atlas drawn with whole room names on bigger
+  cells once its panel passes 520px.
+- A prettier page (2026-11-02, the owner: "I'm starting to share the link to gamer
+  friends"). The night is ink-blue, not black; the world speaks in the serif and you
+  type in the mono (the voice and the ledger); an ember for harm, moss for what you
+  earned, the one lantern kept; the header is a title and two menus (settings, panels)
+  instead of nine controls; the threshold is the first thing a newcomer reads, by the
+  prompt, with the scene folded until they arrive. Next: a death screen (plan item 9),
+  the "what changed" lane (6), a phone pass (13), a favicon and a share card for the
+  link (title, one line, the tiles), and the tiles mod's palette tuned to the new night.
 - Human play, batch 2 (shipped 2026-11-02, the owner's plan, items 4 and 5): `wants`
   and `mine` as reads, and on the play page two boards: what the named want (each
   with where it is and the way over your remembered map; click walks there,

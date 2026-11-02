@@ -8,12 +8,16 @@
 <meta name="robots" content="noindex">
 <style>
   :root {
-    --night: #0b0d12;
-    --ink: #e8e4da;
-    --dim: #9a948a;
+    /* The drowned library at night: ink-blue, not black; vellum for the words; fog
+       for what is dim; one lantern; an ember for harm. */
+    --night: #121a25;
+    --ink: #ece5d3;
+    --dim: #8e99a6;
     --dust: #d9b57a;
-    --line: #262a33;
-    --panel: #11141b;
+    --ember: #d0735f;
+    --moss: #9fcfa3;
+    --line: #2a3443;
+    --panel: #171f2b;
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
     --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
   }
@@ -26,11 +30,17 @@
 
   header {
     display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
-    padding: 14px 20px 10px; border-bottom: 1px solid var(--line);
+    padding: 12px 20px 9px; border-bottom: 1px solid var(--line);
     font: 17px/1.4 var(--serif);
   }
-  header .title { color: var(--ink); }
+  header .title { color: var(--ink); font-size: 21px; white-space: nowrap; }
   header .title a { border: 0; color: var(--ink); }
+  header .title small { color: var(--dim); font-size: 13px; margin-left: 10px; font-family: var(--mono); }
+  #settings-wrap { position: relative; display: inline-block; margin-left: 14px; }
+  #settings-menu { position: absolute; right: 0; top: 100%; z-index: 30; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 8px 12px; min-width: 17em; text-align: left; font-size: 13px; }
+  #settings-menu[hidden] { display: none; }
+  #settings-menu label { display: flex; gap: 8px; align-items: center; margin: 0; padding: 3px 0; white-space: nowrap; }
+  #settings-menu label select { margin-left: auto; }
   header .state { color: var(--dim); font-size: 14px; text-align: right; }
   header .state b { color: var(--dust); font-weight: 400; }
   header .state label { margin-left: 14px; white-space: nowrap; }
@@ -39,12 +49,20 @@
   #main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
   #term { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   #log {
-    flex: 1; overflow-y: auto; padding: 18px 20px 8px; max-width: 86ch; width: 100%;
+    flex: 1; overflow-y: auto; padding: 18px 20px 8px; max-width: 780px; width: 100%;
+    display: flex; flex-direction: column;
     overscroll-behavior: contain; scrollbar-color: var(--line) transparent;
   }
+  /* The newest lines sit by the prompt; a short transcript hugs it instead of the top. */
+  #log > :first-child { margin-top: auto; }
   /* The transcript is a window: older lines fade, like everything else here. */
-  .line { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0 0 2px; opacity: var(--age, 1); }
-  .line.you { color: var(--dust); margin-top: 10px; }
+  .line { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0 0 6px; opacity: var(--age, 1); font: 16.5px/1.62 var(--serif); }
+  .line.you, .line.sys, .line.err, .line.clear { font: 14px/1.6 var(--mono); }
+  .line.you { color: var(--dust); margin-top: 14px; }
+  .line.intro { font: 17px/1.6 var(--serif); color: var(--ink); margin: 10px 0 14px; max-width: 48ch; }
+  .line.intro .title { display: block; font-size: 34px; line-height: 1.1; letter-spacing: -0.01em; margin-bottom: 10px; color: var(--ink); }
+  .line.intro .how { display: block; color: var(--dim); font: 14px/1.6 var(--mono); margin-top: 12px; }
+  .line .id { font: 13.5px var(--mono); }
   .line.you::before { content: "> "; color: var(--dim); }
   .line.err { color: var(--dim); }
   .line.err::before { content: "! "; color: var(--dust); }
@@ -56,22 +74,22 @@
   header label input { vertical-align: -1px; margin-right: 4px; }
   /* What matters in a line, marked for a reader: a blow, a gain, a want, a birth, the
      Clocktower, speech, your own name, and the labels of a room's parts. */
-  .line .hit { color: #e4836f; }
-  .line .earn { color: #9bd3a4; }
+  .line .hit { color: var(--ember); }
+  .line .earn { color: var(--moss); }
   .line .want { color: var(--dust); }
   .line .born { color: #c9a7e8; }
   .line .tower { color: var(--dust); font-style: italic; }
   .line .speech { color: #f3eedf; font-style: italic; }
   .line .me { background: rgba(217,181,122,.16); border-radius: 3px; padding: 0 2px; }
   .line .lbl { color: var(--dim); }
-  .line .room { color: var(--ink); font-weight: 600; }
+  .line .room { color: var(--ink); font-weight: 600; font-size: 18px; }
   .line.cmd { color: var(--ink); }
   .line.cmd b { color: var(--dust); font-weight: 400; display: inline-block; min-width: 11ch; }
   .line.cmd i { color: var(--dim); font-style: normal; }
 
   form {
     display: flex; align-items: center; gap: 0; padding: 10px 20px calc(12px + env(safe-area-inset-bottom));
-    border-top: 1px solid var(--line); background: var(--panel); max-width: 86ch; width: 100%;
+    border-top: 1px solid var(--line); background: var(--panel); max-width: 780px; width: 100%;
   }
   form label { color: var(--dust); margin-right: 1ch; white-space: nowrap; }
   form input {
@@ -91,11 +109,15 @@
     order: -2; background: var(--panel);
     padding: 14px 20px 12px; font-size: 13px; line-height: 1.5;
     display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-start;
-    flex: none; max-height: var(--scene-h, 42vh); overflow: auto; min-height: 0;
+    flex: none; max-height: var(--scene-h, 47vh); overflow: auto; min-height: 0;
   }
   /* Panels: each section is one, sized by its own corner handle; the page remembers
      the size, the order and whether it shows (foxing.layout, for a mod or a userscript). */
-  #scene > section { width: var(--w, 300px); min-width: 170px; max-width: 100%; box-sizing: border-box; resize: horizontal; overflow: hidden; padding-right: 10px; }
+  #scene > section { width: var(--w, 300px); height: var(--h, auto); min-width: 170px; min-height: 40px; max-width: 100%; box-sizing: border-box; resize: both; overflow: auto; padding-right: 10px; scrollbar-color: var(--line) transparent; }
+  #scene > section > h2 { cursor: grab; user-select: none; }
+  #scene > section.dragging { opacity: .5; }
+  #scene > section.drop-before { box-shadow: -3px 0 0 0 var(--dust); }
+  #scene > section.drop-after { box-shadow: 3px 0 0 0 var(--dust); }
   #scene > section[data-panel="map"] { width: var(--w, 412px); }
   #scene > section[data-panel="atlas"] { width: var(--w, 560px); }
   #scene > section[data-panel="wants"], #scene > section[data-panel="mine"] { width: var(--w, 340px); }
@@ -140,9 +162,9 @@
   #atlas-box { width: var(--atlas-w, 420px); min-width: 160px; max-width: 100%; resize: horizontal; overflow: hidden; padding-bottom: 14px; box-sizing: border-box; }
   #atlas { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--night); }
   #atlas-section:not(:has(#atlas[data-drawn])) { display: none; }
-  #atlas .room { fill: #2a2f3b; stroke: var(--line); stroke-width: 1; }
-  #atlas .room.seed { fill: #232833; }
-  #atlas .room.seen { fill: #3a4252; stroke: var(--dust); }
+  #atlas .room { fill: #222c3a; stroke: var(--line); stroke-width: 1; }
+  #atlas .room.seed { fill: #1c2530; }
+  #atlas .room.seen { fill: #2f3b4c; stroke: var(--dust); }
   #atlas .room.here { fill: #4a4330; stroke: var(--dust); stroke-width: 2; }
   #atlas .cell.go { cursor: pointer; }
   #atlas .cell.go:hover .room { stroke: var(--ink); }
@@ -162,7 +184,7 @@
   .row .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bar { height: 7px; background: var(--night); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; width: 110px; flex: none; }
   .bar i { display: block; height: 100%; background: var(--dust); width: 0; }
-  .bar.hp i { background: #c96a6a; }
+  .bar.hp i { background: var(--ember); }
   .num { color: var(--dim); font-size: 12px; width: 8ch; text-align: right; flex: none; font-variant-numeric: tabular-nums; }
   .empty { color: var(--dim); }
   #link { color: var(--dim); font-size: 12px; margin-top: 10px; }
@@ -370,8 +392,8 @@
 </head>
 <body>
 <header>
-  <div class="title"><a href="/">Agents can play</a> — Disremembered</div>
-  <div class="state"><span id="state"><b>Pre-alpha.</b> The world may be reset without notice.</span><label title="Every line you type becomes a CLEAR message and goes through the same gate an agent uses. Show the message and the world's reply."><input type="checkbox" id="showclear"> show CLEAR</label><label title="A mod redraws what you see; the world is the same. See /play/mods/README.md to write one."> mod <select id="modpick" aria-label="UI mod"><option value="">none</option><option value="url:">from a URL…</option></select></label><label title="A sound and a flash when someone arrives where you are, when words reach you, or when something strikes; a browser notification when this tab is in the background."><input type="checkbox" id="alerts"> alerts</label><label title="The alert's sound"> <select id="sound" aria-label="Alert sound"><option value="chime">chime</option><option value="knock">knock</option><option value="bell">bell</option><option value="none">silent</option></select></label><label title="Hide the narrator's repeats: the same room text twice, an answer you already heard."><input type="checkbox" id="compact"> compact</label><span id="panels-wrap"><button type="button" id="b-panels" title="Which panels show. Drag any panel's corner to resize it; sizes are remembered in this browser.">panels ▾</button><div id="panels-menu" hidden></div></span><button type="button" id="b-help" title="One worked line per verb (also: ? on an empty line)">?</button><button type="button" id="b-pass" title="Change your passphrase. Nothing recovers a lost one." hidden>passphrase</button><button type="button" id="b-save" title="Save this transcript as a text file" hidden>save</button><button type="button" id="b-leave" title="Leave: the room disremembers you now, and this tab forgets your passphrase" hidden>leave</button></div>
+  <div class="title"><a href="/play/">Disremembered</a><small>on Foxing, pre-alpha</small></div>
+  <div class="state"><span id="state"><b>Pre-alpha.</b> The world may be reset without notice.</span><span id="settings-wrap"><button type="button" id="b-settings" title="Sound, alerts, the CLEAR behind each line, the mod that draws the scene">settings ▾</button><div id="settings-menu" hidden><label title="A sound and a flash when someone arrives where you are, when words reach you, or when something strikes; a browser notification when this tab is in the background."><input type="checkbox" id="alerts"> alerts</label><label title="The alert's sound">sound <select id="sound" aria-label="Alert sound"><option value="chime">chime</option><option value="knock">knock</option><option value="bell">bell</option><option value="none">silent</option></select></label><label title="Hide the narrator's repeats: the same room text twice, an answer you already heard."><input type="checkbox" id="compact"> compact transcript</label><label title="Every line you type becomes a CLEAR message and goes through the same gate an agent uses. Show the message and the world's reply."><input type="checkbox" id="showclear"> show the CLEAR</label><label title="A mod redraws what you see; the world is the same. See /play/mods/README.md to write one.">scene <select id="modpick" aria-label="UI mod"><option value="">none</option><option value="url:">from a URL…</option></select></label></div></span><span id="panels-wrap"><button type="button" id="b-panels" title="Which panels show. Drag any panel's corner to resize it; sizes are remembered in this browser.">panels ▾</button><div id="panels-menu" hidden></div></span><button type="button" id="b-help" title="One worked line per verb (also: ? on an empty line)">?</button><button type="button" id="b-pass" title="Change your passphrase. Nothing recovers a lost one." hidden>passphrase</button><button type="button" id="b-save" title="Save this transcript as a text file" hidden>save</button><button type="button" id="b-leave" title="Leave: the room disremembers you now, and this tab forgets your passphrase" hidden>leave</button></div>
 </header>
 <div id="main">
   <aside id="scene" aria-label="The scene">
@@ -511,6 +533,7 @@
 <script>
 (() => {
   const API = new URLSearchParams(location.search).get("api") || "https://play.agentscanplay.com";
+  const listeners = {};  // the page's and the mods' event listeners: login, logout, observation, event, result
   const WS = API.replace(/^http/, "ws") + "/v0/session";
   const log = document.getElementById("log");
   const input = document.getElementById("in");
@@ -902,7 +925,8 @@
     let last = null;
     new ResizeObserver(() => {
       const w = Math.round(sec.getBoundingClientRect().width); if (!w || w === last) return; last = w;
-      if (atlasFit) atlasFit();
+      // Redrawn at the new width: the cells grow and take whole names past 520px.
+      if (atlas) drawAtlas(); else if (atlasFit) atlasFit();
     }).observe(sec);
   })();
 
@@ -921,6 +945,7 @@
         if (st.w) sec.style.setProperty("--w", st.w + "px");
         else if (sec.dataset.defaultW) sec.style.setProperty("--w", sec.dataset.defaultW);
         else sec.style.removeProperty("--w");
+        if (st.h) sec.style.setProperty("--h", st.h + "px"); else sec.style.removeProperty("--h");
         sec.style.order = st.order != null ? String(st.order) : "";
         sec.classList.toggle("user-hidden", !!st.hidden);
         if (st.hidden) sec.hidden = true;
@@ -942,15 +967,55 @@
       for (const sec of sections()) {
         const id = sec.dataset.panel, w = Math.round(sec.getBoundingClientRect().width);
         if (sec.hidden || !w) continue;
-        const want = sec.style.getPropertyValue("--w");
-        const inline = sec.style.width;  // the browser's resize writes width inline
-        if (inline && parseInt(inline, 10) && parseInt(inline, 10) !== parseInt(want, 10)) {
-          state[id] = Object.assign({}, state[id] || {}, { w: parseInt(inline, 10) }); save();
-          sec.style.setProperty("--w", parseInt(inline, 10) + "px"); sec.style.width = "";
-          if (id === "atlas" && atlasFit) atlasFit();
-        }
+        // The browser's resize writes width and height inline; they become the layout's.
+        const iw = parseInt(sec.style.width, 10), ih = parseInt(sec.style.height, 10);
+        let changed = false;
+        if (iw && iw !== parseInt(sec.style.getPropertyValue("--w"), 10)) { state[id] = Object.assign({}, state[id] || {}, { w: iw }); sec.style.setProperty("--w", iw + "px"); changed = true; }
+        if (ih && ih !== parseInt(sec.style.getPropertyValue("--h"), 10)) { state[id] = Object.assign({}, state[id] || {}, { h: ih }); sec.style.setProperty("--h", ih + "px"); changed = true; }
+        if (changed) { sec.style.width = ""; sec.style.height = ""; save(); if (id === "atlas" && atlasFit) atlasFit(); }
       }
     });
+    // Drag a panel by its heading to put it before or after another.
+    let dragging = null;
+    document.addEventListener("pointerdown", (e) => {
+      const h = e.target.closest("#scene > section > h2"); if (!h || e.button !== 0) return;
+      dragging = h.parentElement; dragging.classList.add("dragging"); e.preventDefault();
+    });
+    document.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      for (const sec of sections()) sec.classList.remove("drop-before", "drop-after");
+      const over = document.elementFromPoint(e.clientX, e.clientY)?.closest("#scene > section");
+      if (over && over !== dragging) { const r = over.getBoundingClientRect(); over.classList.add(e.clientX < r.left + r.width / 2 ? "drop-before" : "drop-after"); }
+    });
+    document.addEventListener("pointerup", (e) => {
+      if (!dragging) return;
+      const dragged = dragging; dragging = null; dragged.classList.remove("dragging");
+      const over = sections().find(sec => sec.classList.contains("drop-before") || sec.classList.contains("drop-after"));
+      const before = over && over.classList.contains("drop-before");
+      for (const sec of sections()) sec.classList.remove("drop-before", "drop-after");
+      if (!over || over === dragged) return;
+      // The visual order, with the dragged one moved; every panel gets an order so the
+      // move holds whatever the DOM order is.
+      const visual = sections().filter(sec => !sec.hidden).sort((a, b) => (parseInt(getComputedStyle(a).order, 10) || 0) - (parseInt(getComputedStyle(b).order, 10) || 0) || (a.compareDocumentPosition(b) & 4 ? -1 : 1));
+      const list = visual.filter(sec => sec !== dragged);
+      const at = list.indexOf(over); list.splice(before ? at : at + 1, 0, dragged);
+      list.forEach((sec, i) => { state[sec.dataset.panel] = Object.assign({}, state[sec.dataset.panel] || {}, { order: i }); });
+      save(); apply();
+    });
+    // A layout in the link: ?layout=<base64 json>; applied once and remembered.
+    function share() {
+      const u = new URL(location.href);
+      u.searchParams.set("layout", btoa(unescape(encodeURIComponent(JSON.stringify(state)))).replace(/=+$/, ""));
+      return u.toString();
+    }
+    try {
+      const given = new URLSearchParams(location.search).get("layout");
+      if (given) {
+        const parsed = JSON.parse(decodeURIComponent(escape(atob(given))));
+        if (parsed && typeof parsed === "object") { state = parsed; save(); }
+        const u = new URL(location.href); u.searchParams.delete("layout"); window.history.replaceState(null, "", u);
+      }
+    } catch (e) {}
     function drawMenu() {
       const menu = $("panels-menu"); if (!menu) return;
       menu.replaceChildren();
@@ -961,15 +1026,34 @@
         c.addEventListener("change", () => set(id, { hidden: c.checked ? null : true }));
         l.append(c, document.createTextNode(TITLES[id] || id)); menu.append(l);
       }
+      const hint = document.createElement("div"); hint.style.cssText = "color:var(--dim);margin:6px 0 2px;font-size:11px;max-width:22em"; hint.textContent = "Drag a panel's corner to size it, its heading to move it.";
+      menu.append(hint);
+      const c = document.createElement("button"); c.type = "button"; c.className = "reset"; c.textContent = "copy a link to this layout";
+      c.addEventListener("click", async () => { try { await navigator.clipboard.writeText(share()); c.textContent = "copied"; setTimeout(() => { c.textContent = "copy a link to this layout"; }, 1500); } catch (e) { prompt_("The link:", share()); } });
       const r = document.createElement("button"); r.type = "button"; r.className = "reset"; r.textContent = "reset sizes and panels";
-      r.addEventListener("click", reset); menu.append(r);
+      r.addEventListener("click", reset); menu.append(c, r);
     }
-    $("b-panels").addEventListener("click", (e) => { e.stopPropagation(); const m = $("panels-menu"); m.hidden = !m.hidden; });
-    document.addEventListener("click", (e) => { const m = $("panels-menu"); if (!m.hidden && !m.contains(e.target)) m.hidden = true; });
+    $("b-panels").addEventListener("click", (e) => { e.stopPropagation(); const m = $("panels-menu"); m.hidden = !m.hidden; $("settings-menu").hidden = true; });
+    $("b-settings").addEventListener("click", (e) => { e.stopPropagation(); const m = $("settings-menu"); m.hidden = !m.hidden; $("panels-menu").hidden = true; });
+    document.addEventListener("click", (e) => { for (const id of ["panels-menu", "settings-menu"]) { const m = $(id); if (!m.hidden && !m.contains(e.target)) m.hidden = true; } });
+    function prompt_(label, text) { print(label + " " + text, "sys"); }
     load(); apply();
-    return { get, set, reset, panels, apply };
+    return { get, set, reset, panels, apply, share };
   })();
-  const CELL = 46, PAD = 10;
+  let CELL = 46; const PAD = 10;
+  // A room's name on its cell: whole, on up to two lines, when the cell is wide
+  // enough for it; else the short of it.
+  function cellLabel(name, cell) {
+    if (cell < 80) return [shortName(name)];
+    const words = name.replace(/^The /, "").split(/\s+/);
+    const lines = [""];
+    for (const w of words) {
+      const cur = lines[lines.length - 1];
+      if (cur && (cur + " " + w).length > 13 && lines.length < 2) lines.push(w);
+      else lines[lines.length - 1] = cur ? cur + " " + w : w;
+    }
+    return lines.map(l => l.length > 14 ? l.slice(0, 13) + "\u2026" : l);
+  }
   async function refreshAtlas(force) {
     if (!wsReady || !actor) return;
     const room = subs.room && subs.room.root;
@@ -1101,6 +1185,8 @@
     if (!rooms.length) { svg.removeAttribute("data-drawn"); return; }
     const here = rooms.find(r => r.here) || rooms[0];
     const byId = new Map(rooms.map(r => [r.id, r]));
+    // Bigger cells with whole names once the panel has the room for them.
+    CELL = ($("atlas-box").clientWidth || 0) >= 520 ? 88 : 46;
     const ns = "http://www.w3.org/2000/svg", el = (t, a) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
     const COMPASS = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
     // One panel per floor you remember anything on, your floor first, then up, then
@@ -1135,7 +1221,8 @@
         const title = el("title", {});
         title.textContent = r.name + (r.visible ? (r.here ? " (you are here)" : " (in sight)") : " (" + Math.round(r.mem * 100) + "% remembered)") + (steps ? "; click to walk there, " + steps.length + " door" + (steps.length === 1 ? "" : "s") : "");
         g.append(title, rect);
-        g.append(Object.assign(el("text", { x: px(r), y: py(r) + 3, class: "name", "text-anchor": "middle" }), { textContent: shortName(r.name) }));
+        const label = cellLabel(r.name, CELL);
+        label.forEach((line, i) => g.append(Object.assign(el("text", { x: px(r), y: py(r) + 3 + (i - (label.length - 1) / 2) * 11, class: "name", "text-anchor": "middle" }), { textContent: line })));
         if (stairs.length) g.append(Object.assign(el("text", { x: px(r) + half - 1, y: py(r) - half + 7, class: "stair", "text-anchor": "end" }), { textContent: (stairs.some(t => t.z > z) ? "\u25b2" : "") + (stairs.some(t => t.z < z) ? "\u25bc" : "") }));
         if (steps) g.addEventListener("click", () => walkTo(r.id));
         frag.append(g);
@@ -2068,8 +2155,12 @@
     try {
       const h = parseInt(localStorage.getItem("disremembered.sceneH") || "", 10);
       if (h) main.style.setProperty("--scene-h", Math.max(MIN, h) + "px");
-      if (localStorage.getItem("disremembered.sceneFolded") === "1") setFolded(true);
     } catch (e) {}
+    // The threshold first: an empty scene is nothing to look at. The scene opens on
+    // arrival unless you folded it yourself last time.
+    main.classList.add("collapsed"); fold.textContent = "scene ▸";
+    on_("login", () => { let folded = false; try { folded = localStorage.getItem("disremembered.sceneFolded") === "1"; } catch (e) {} setFolded(folded); });
+    on_("logout", () => { main.classList.add("collapsed"); fold.textContent = "scene ▸"; });
     fold.addEventListener("click", (e) => { e.stopPropagation(); setFolded(!main.classList.contains("collapsed")); });
     let drag = null;
     split.addEventListener("pointerdown", (e) => {
@@ -2089,7 +2180,7 @@
   // (observe, command through the gate, subscriptions, pushes), the sprite atlas, and a
   // place to put panels. It never sees the passphrase, but it acts as you: load only
   // what you trust. `?mod=tiles` loads ./mods/tiles.js; `?mod=https://…/x.js` asks first.
-  const listeners = {};
+  function on_(ev, fn) { (listeners[ev] ||= []).push(fn); }
   function emit(ev, ...args) { for (const fn of listeners[ev] || []) { try { fn(...args); } catch (e) { console.error("mod listener", ev, e); } } }
   const modSubs = new Map();
   const MOD_SUBS_MAX = 5; // the server allows 8 per session; the page uses 3
@@ -2151,6 +2242,7 @@
   foxing.ready = true;
   document.dispatchEvent(new CustomEvent("foxing:ready", { detail: foxing }));
   let activeMod = null; // {spec, undo}
+  let activeModAnnounce = false; // the first, default load says nothing; a change does
   const pick = $("modpick");
   function rememberMod(spec) {
     try { localStorage.setItem("disremembered.mod", spec || "none"); } catch (e) {}
@@ -2181,7 +2273,7 @@
       const undo = await install(foxing);
       activeMod = { spec, undo };
       rememberMod(spec);
-      print("Mod loaded: " + spec + ".", "sys");
+      if (activeModAnnounce) print("Scene: " + spec + ".", "sys");
     } catch (e) { print("The mod did not load: " + (e && e.message || e), "err"); rememberMod(""); }
     syncPick();
   }
@@ -2193,6 +2285,7 @@
     pick.value = spec;
   }
   pick.addEventListener("change", () => {
+    activeModAnnounce = true;
     const v = pick.value;
     if (v === "url:") {
       const u = prompt("The URL of a mod (an ES module whose default export takes the page's foxing object):");
@@ -2216,14 +2309,17 @@
   if (modSpec && modSpec !== "none") loadMod(modSpec);
 
   // ---- boot ----
-  print("Disremembered on Foxing, pre-alpha. A text world where everything you earn fades.", "sys");
-  print("Your level is the sum of what has not faded. The fights you almost lost last longest.", "sys");
+  {
+    const intro = print("", "intro");
+    const t = document.createElement("span"); t.className = "title"; t.textContent = "Disremembered";
+    const how = document.createElement("span"); how.className = "how"; how.textContent = "Type a name to begin. A new name becomes yours when you choose its passphrase.";
+    intro.append(t, "A text world where everything you earn fades. Your level is the sum of what has not faded; the fights you almost lost last longest. What you dig, feed, make and write stays after you go.", how);
+  }
   let savedName = null, savedPass = null;
   try { savedName = localStorage.getItem("disremembered.name"); savedPass = sessionStorage.getItem("disremembered.pass"); } catch (e) {}
   if (savedName && savedPass) {
     login(savedName, savedPass).then(ok => { if (!ok) askName(); });
   } else {
-    print("Type a name to begin. A new name becomes yours when you choose its passphrase.", "sys");
     if (savedName) input.value = savedName;
     askName();
   }
