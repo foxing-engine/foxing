@@ -6344,11 +6344,25 @@ fn the_map_grid_draws_north_above() {
         .find(|l| l.starts_with("01 "))
         .map(|l| l.split("; ").collect())
         .unwrap_or_default();
-    let code_of = |name: &str| legend.iter().find(|l| l.trim().ends_with(name)).map(|l| l.trim()[..2].to_string()).unwrap_or_else(|| panic!("{name} in {legend:?}"));
-    let row_of = |code: &str| grid.iter().position(|r| r.contains(code)).unwrap_or_else(|| panic!("{code} in {grid:?}"));
+    let code_of = |name: &str| {
+        legend
+            .iter()
+            .find(|l| l.trim().ends_with(name))
+            .map(|l| l.trim()[..2].to_string())
+            .unwrap_or_else(|| panic!("{name} in {legend:?}"))
+    };
+    let row_of = |code: &str| {
+        grid.iter()
+            .position(|r| r.contains(code))
+            .unwrap_or_else(|| panic!("{code} in {grid:?}"))
+    };
     let lantern = row_of(&code_of("Lantern Row"));
     let threshold = row_of(&code_of("The Threshold"));
-    assert!(lantern < threshold, "north is drawn above: Lantern Row row {lantern}, Threshold row {threshold}\n{}", out.summary);
+    assert!(
+        lantern < threshold,
+        "north is drawn above: Lantern Row row {lantern}, Threshold row {threshold}\n{}",
+        out.summary
+    );
     let fog = row_of(&code_of("The Fogbank"));
     assert_eq!(fog, threshold, "east is on the same row\n{}", out.summary);
 }
