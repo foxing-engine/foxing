@@ -90,9 +90,23 @@
   #scene {
     order: -2; background: var(--panel);
     padding: 14px 20px 12px; font-size: 13px; line-height: 1.5;
-    display: grid; grid-template-columns: auto 1fr 1fr; gap: 12px 32px; align-items: start;
+    display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-start;
     flex: none; max-height: var(--scene-h, 42vh); overflow: auto; min-height: 0;
   }
+  /* Panels: each section is one, sized by its own corner handle; the page remembers
+     the size, the order and whether it shows (foxing.layout, for a mod or a userscript). */
+  #scene > section { width: var(--w, 300px); min-width: 170px; max-width: 100%; box-sizing: border-box; resize: horizontal; overflow: hidden; padding-right: 10px; }
+  #scene > section[data-panel="map"] { width: var(--w, 412px); }
+  #scene > section[data-panel="atlas"] { width: var(--w, 560px); }
+  #scene > section[data-panel="wants"], #scene > section[data-panel="mine"] { width: var(--w, 340px); }
+  #scene > section.mod { width: var(--w, 640px); }
+  #scene > section.mod canvas { width: 100% !important; height: auto; }
+  #atlas-box { width: 100% !important; resize: none; }
+  #panels-wrap { position: relative; display: inline-block; }
+  #panels-menu { position: absolute; right: 0; top: 100%; z-index: 30; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; min-width: 14em; text-align: left; font-size: 12px; }
+  #panels-menu[hidden] { display: none; }
+  #panels-menu label { display: flex; gap: 6px; align-items: center; color: var(--ink); cursor: pointer; padding: 2px 0; }
+  #panels-menu .reset { margin-top: 6px; display: block; color: var(--dust); background: transparent; border: 1px solid var(--line); border-radius: 3px; font: inherit; padding: 1px 8px; cursor: pointer; }
   #main.collapsed #scene { display: none; }
   /* The bar between the scene and the terminal: drag it to resize, click the label to fold. */
   #split {
@@ -258,19 +272,15 @@
     #observe > div { overflow: visible; }
     #observe > div + div { border-left: 0; border-top: 1px solid var(--line); }
   }
-  @media (max-width: 980px) {
-    #scene { grid-template-columns: auto 1fr; }
-    #scene section:nth-child(3) { grid-column: 1 / -1; }
-  }
   @media (max-width: 680px) {
-    #scene { grid-template-columns: auto 1fr; gap: 10px 16px; padding: 10px 14px; max-height: 46vh; overflow-y: auto; }
+    #scene { gap: 10px 16px; padding: 10px 14px; max-height: 46vh; overflow-y: auto; }
+    #scene > section { width: 100% !important; resize: none; }
     #map { --tile: 76px; }
     .glyph { width: 40px; height: 40px; }
     .glyph svg { width: 36px; height: 36px; }
     .row { gap: 8px; }
     .bar { width: 44px; }
     .num { width: auto; font-size: 11px; }
-    #scene section:nth-child(3) { grid-column: 1 / -1; }
   }
   @media (max-width: 560px) {
     header { flex-direction: column; gap: 2px; }
@@ -361,37 +371,37 @@
 <body>
 <header>
   <div class="title"><a href="/">Agents can play</a> — Disremembered</div>
-  <div class="state"><span id="state"><b>Pre-alpha.</b> The world may be reset without notice.</span><label title="Every line you type becomes a CLEAR message and goes through the same gate an agent uses. Show the message and the world's reply."><input type="checkbox" id="showclear"> show CLEAR</label><label title="A mod redraws what you see; the world is the same. See /play/mods/README.md to write one."> mod <select id="modpick" aria-label="UI mod"><option value="">none</option><option value="url:">from a URL…</option></select></label><label title="A sound and a flash when someone arrives where you are, when words reach you, or when something strikes; a browser notification when this tab is in the background."><input type="checkbox" id="alerts"> alerts</label><label title="The alert's sound"> <select id="sound" aria-label="Alert sound"><option value="chime">chime</option><option value="knock">knock</option><option value="bell">bell</option><option value="none">silent</option></select></label><label title="Hide the narrator's repeats: the same room text twice, an answer you already heard."><input type="checkbox" id="compact"> compact</label><button type="button" id="b-help" title="One worked line per verb (also: ? on an empty line)">?</button><button type="button" id="b-pass" title="Change your passphrase. Nothing recovers a lost one." hidden>passphrase</button><button type="button" id="b-save" title="Save this transcript as a text file" hidden>save</button><button type="button" id="b-leave" title="Leave: the room disremembers you now, and this tab forgets your passphrase" hidden>leave</button></div>
+  <div class="state"><span id="state"><b>Pre-alpha.</b> The world may be reset without notice.</span><label title="Every line you type becomes a CLEAR message and goes through the same gate an agent uses. Show the message and the world's reply."><input type="checkbox" id="showclear"> show CLEAR</label><label title="A mod redraws what you see; the world is the same. See /play/mods/README.md to write one."> mod <select id="modpick" aria-label="UI mod"><option value="">none</option><option value="url:">from a URL…</option></select></label><label title="A sound and a flash when someone arrives where you are, when words reach you, or when something strikes; a browser notification when this tab is in the background."><input type="checkbox" id="alerts"> alerts</label><label title="The alert's sound"> <select id="sound" aria-label="Alert sound"><option value="chime">chime</option><option value="knock">knock</option><option value="bell">bell</option><option value="none">silent</option></select></label><label title="Hide the narrator's repeats: the same room text twice, an answer you already heard."><input type="checkbox" id="compact"> compact</label><span id="panels-wrap"><button type="button" id="b-panels" title="Which panels show. Drag any panel's corner to resize it; sizes are remembered in this browser.">panels ▾</button><div id="panels-menu" hidden></div></span><button type="button" id="b-help" title="One worked line per verb (also: ? on an empty line)">?</button><button type="button" id="b-pass" title="Change your passphrase. Nothing recovers a lost one." hidden>passphrase</button><button type="button" id="b-save" title="Save this transcript as a text file" hidden>save</button><button type="button" id="b-leave" title="Leave: the room disremembers you now, and this tab forgets your passphrase" hidden>leave</button></div>
 </header>
 <div id="main">
   <aside id="scene" aria-label="The scene">
-    <section>
+    <section data-panel="map">
       <h2>Where</h2>
       <div id="map"></div>
       <div id="ways"></div>
       <div id="link"></div>
     </section>
-    <section id="atlas-section">
+    <section id="atlas-section" data-panel="atlas">
       <h2>What you remember of the map</h2>
       <div id="atlas-box">
         <svg id="atlas" viewBox="0 0 396 200" role="img" aria-label="The map as you remember it"></svg>
         <div id="atlas-note"></div>
       </div>
     </section>
-    <section id="wants-sec" hidden>
+    <section id="wants-sec" data-panel="wants" hidden>
       <h2>What the named want <span class="note" id="wants-note"></span></h2>
       <div id="wants"></div>
     </section>
-    <section id="mine-sec" hidden>
+    <section id="mine-sec" data-panel="mine" hidden>
       <h2>What remembers you <span class="note" id="mine-note"></span></h2>
       <div id="mine"></div>
       <div id="mine-since"></div>
     </section>
-    <section>
+    <section data-panel="here">
       <h2>Here</h2>
       <div id="here"><div class="empty">Log in to see the room.</div></div>
     </section>
-    <section>
+    <section data-panel="you">
       <h2>You</h2>
       <div id="you"></div>
       <div id="greet"></div>
@@ -400,11 +410,11 @@
       <div id="window"></div>
       <div id="owner"></div>
     </section>
-    <section id="inbox-sec" hidden>
+    <section id="inbox-sec" data-panel="inbox" hidden>
       <h2>Words for you<span class="badge" id="unread"></span></h2>
       <div id="inbox"></div>
     </section>
-    <section id="lately-sec" hidden>
+    <section id="lately-sec" data-panel="lately" hidden>
       <h2>Lately <a href="/board/" target="_blank" style="font-size:12px;color:var(--dim);margin-left:8px" title="Who holds the most unfaded memory now, and what each name earned, kept and gave">the board →</a></h2>
       <div id="lately"></div>
     </section>
@@ -743,7 +753,7 @@
     try { localStorage.setItem("disremembered.name", name); sessionStorage.setItem("disremembered.pass", pass); } catch (e) {}
     setState("Playing as <b>" + name + "</b>. Pre-alpha: the world may be reset without notice.");
     for (const id of ["b-pass", "b-save", "b-leave"]) $(id).hidden = false;
-    $("inbox-sec").hidden = false; $("lately-sec").hidden = false; $("wants-sec").hidden = false; $("mine-sec").hidden = false;
+    for (const id of ["inbox-sec", "lately-sec", "wants-sec", "mine-sec"]) { const sec = $(id); sec.dataset.pageHidden = "0"; sec.hidden = sec.classList.contains("user-hidden"); }
     lastAct = Date.now();
     composeLogin();
     $("q-run").disabled = false;
@@ -760,7 +770,7 @@
   function logout() {
     stopPolling();
     $("first").hidden = true; $("verbbar").replaceChildren(); delete $("verbbar").dataset.key;
-    $("wants-sec").hidden = true; $("mine-sec").hidden = true;
+    for (const id of ["wants-sec", "mine-sec"]) { $(id).hidden = true; $(id).dataset.pageHidden = "1"; }
     if (ws) { const w = ws; ws = null; wsReady = false; try { w.onclose = null; w.close(); } catch (e) {} }
     actor = null; passphrase = null;
     for (const k in subs) delete subs[k];
@@ -887,14 +897,77 @@
   // marked with a stair glyph on the room that has it.
   let atlas = null, atlasRoom = null, atlasTimer = null, atlasFit = null;
   (function () {
+    // The atlas fills its panel; the panel's width is the layout's (foxing.layout).
     const sec = $("atlas-box"); if (!sec) return;
-    try { const w = localStorage.getItem("atlas-w"); if (w) sec.style.setProperty("--atlas-w", w); } catch (e) {}
     let last = null;
     new ResizeObserver(() => {
       const w = Math.round(sec.getBoundingClientRect().width); if (!w || w === last) return; last = w;
-      try { localStorage.setItem("atlas-w", w + "px"); } catch (e) {}
       if (atlasFit) atlasFit();
     }).observe(sec);
+  })();
+
+  // ---- the layout: panels, their sizes, their order, which show; remembered here ----
+  const layout = (() => {
+    const KEY = "disremembered.layout";
+    const TITLES = { scene: "Scene (the mod's picture)", map: "Where (the exits)", atlas: "What you remember of the map", wants: "What the named want", mine: "What remembers you", here: "Here", you: "You and your window", inbox: "Words for you", lately: "Lately" };
+    let state = {};
+    function load() { try { state = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { state = {}; } }
+    function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+    const sections = () => Array.from(document.querySelectorAll("#scene > section[data-panel]"));
+    const byId = (id) => document.querySelector('#scene > section[data-panel="' + CSS.escape(id) + '"]');
+    function apply() {
+      for (const sec of sections()) {
+        const id = sec.dataset.panel, st = state[id] || {};
+        if (st.w) sec.style.setProperty("--w", st.w + "px");
+        else if (sec.dataset.defaultW) sec.style.setProperty("--w", sec.dataset.defaultW);
+        else sec.style.removeProperty("--w");
+        sec.style.order = st.order != null ? String(st.order) : "";
+        sec.classList.toggle("user-hidden", !!st.hidden);
+        if (st.hidden) sec.hidden = true;
+      }
+      drawMenu();
+    }
+    function get(id) { return id ? Object.assign({}, state[id] || {}) : JSON.parse(JSON.stringify(state)); }
+    function set(id, patch) {
+      state[id] = Object.assign({}, state[id] || {}, patch);
+      for (const k of Object.keys(state[id])) if (state[id][k] == null) delete state[id][k];
+      save(); apply();
+      // Hidden by the layout wins; shown by the layout lets the page decide.
+      const sec = byId(id); if (sec && !state[id].hidden && sec.classList.contains("user-hidden") === false && sec.dataset.pageHidden !== "1") sec.hidden = false;
+    }
+    function reset() { state = {}; save(); for (const sec of sections()) { sec.classList.remove("user-hidden"); if (sec.dataset.pageHidden !== "1") sec.hidden = false; } apply(); }
+    function panels() { return sections().map(sec => ({ id: sec.dataset.panel, title: sec.querySelector("h2") ? sec.querySelector("h2").firstChild.textContent.trim() : (TITLES[sec.dataset.panel] || sec.dataset.panel), hidden: !!(state[sec.dataset.panel] || {}).hidden, width: Math.round(sec.getBoundingClientRect().width), order: (state[sec.dataset.panel] || {}).order })); }
+    // A drag of a panel's corner: the width is remembered on release.
+    document.addEventListener("pointerup", () => {
+      for (const sec of sections()) {
+        const id = sec.dataset.panel, w = Math.round(sec.getBoundingClientRect().width);
+        if (sec.hidden || !w) continue;
+        const want = sec.style.getPropertyValue("--w");
+        const inline = sec.style.width;  // the browser's resize writes width inline
+        if (inline && parseInt(inline, 10) && parseInt(inline, 10) !== parseInt(want, 10)) {
+          state[id] = Object.assign({}, state[id] || {}, { w: parseInt(inline, 10) }); save();
+          sec.style.setProperty("--w", parseInt(inline, 10) + "px"); sec.style.width = "";
+          if (id === "atlas" && atlasFit) atlasFit();
+        }
+      }
+    });
+    function drawMenu() {
+      const menu = $("panels-menu"); if (!menu) return;
+      menu.replaceChildren();
+      for (const sec of sections()) {
+        const id = sec.dataset.panel;
+        const l = document.createElement("label");
+        const c = document.createElement("input"); c.type = "checkbox"; c.checked = !(state[id] || {}).hidden;
+        c.addEventListener("change", () => set(id, { hidden: c.checked ? null : true }));
+        l.append(c, document.createTextNode(TITLES[id] || id)); menu.append(l);
+      }
+      const r = document.createElement("button"); r.type = "button"; r.className = "reset"; r.textContent = "reset sizes and panels";
+      r.addEventListener("click", reset); menu.append(r);
+    }
+    $("b-panels").addEventListener("click", (e) => { e.stopPropagation(); const m = $("panels-menu"); m.hidden = !m.hidden; });
+    document.addEventListener("click", (e) => { const m = $("panels-menu"); if (!m.hidden && !m.contains(e.target)) m.hidden = true; });
+    load(); apply();
+    return { get, set, reset, panels, apply };
   })();
   const CELL = 46, PAD = 10;
   async function refreshAtlas(force) {
@@ -2021,7 +2094,7 @@
   const modSubs = new Map();
   const MOD_SUBS_MAX = 5; // the server allows 8 per session; the page uses 3
   const foxing = {
-    version: "mod/0",
+    version: "mod/1",
     api: API,
     get actor() { return actor; },
     get live() { return wsReady; },
@@ -2050,22 +2123,33 @@
     panel(title, opts = {}) {
       const sec = document.createElement("section");
       sec.className = "mod";
-      if (opts.wide !== false) sec.style.gridColumn = "1 / -1";
+      // A panel like the page's own: an id for the layout (sizes, order, shown),
+      // "scene" by default; `wide` fills the row.
+      sec.dataset.panel = opts.id || "scene";
+      if (opts.wide === true) sec.dataset.defaultW = "100%";
+      if (opts.w) sec.dataset.defaultW = opts.w + "px";
       if (title) { const h = document.createElement("h2"); h.textContent = title; sec.append(h); }
       const scene = $("scene");
       if (opts.at === "end") scene.append(sec); else scene.prepend(sec);
+      layout.apply();
       return sec;
     },
     builtin(name, visible) {
       const el = $(name); if (!el) return;
       const sec = el.closest("section");
       if (name === "you" || name === "window") { el.hidden = !visible; el.previousElementSibling.hidden = !visible; }
-      else if (sec) sec.hidden = !visible;
+      else if (sec) { sec.dataset.pageHidden = visible ? "0" : "1"; sec.hidden = !visible || sec.classList.contains("user-hidden"); }
     },
+    // The layout: get(id?) / set(id, {w, hidden, order}) / reset() / panels().
+    layout,
     print(text, cls = "sys") { print(text, cls); },
     prefill(text) { prefill(text); },
   };
   window.foxing = foxing;
+  // For a userscript (Tampermonkey and kin) that may run before or after this line:
+  // the event for the before, the flag for the after.
+  foxing.ready = true;
+  document.dispatchEvent(new CustomEvent("foxing:ready", { detail: foxing }));
   let activeMod = null; // {spec, undo}
   const pick = $("modpick");
   function rememberMod(spec) {

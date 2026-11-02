@@ -139,6 +139,16 @@ figures on the canvas that answer to a click.
   fixed list serves. Public record `disremembered.stocked`. Next: hybrid names
   (kindle's syllables) from the pool too; a name's provenance shown on `look` ("named
   by the Namery, the fourth of its stocking"); the Namery's room.
+- Panels (shipped 2026-11-02, the owner's ask: a bigger minimap, a resizable room view,
+  and a way for a browser player to shape the page with a Tampermonkey script). The scene
+  is a wrap of panels, each with a stable id (scene, map, atlas, wants, mine, here, you,
+  inbox, lately), a corner to drag, and a place in a **panels ▾** menu; size, order and
+  shown are remembered in the browser. The same is `foxing.layout` in the mod API (now
+  `mod/1`, with `foxing.ready` and a `foxing:ready` event), so a userscript is a mod that
+  loads itself; `mods/README.md` has a working one. A mod's own panel takes an `id` and
+  a width. Next: drag to reorder; a height handle per panel (the scene's bar does the
+  whole row now); a share link for a layout; the atlas drawn at its new size with
+  room names in full when there is room.
 - Human play, batch 2 (shipped 2026-11-02, the owner's plan, items 4 and 5): `wants`
   and `mine` as reads, and on the play page two boards: what the named want (each
   with where it is and the way over your remembered map; click walks there,

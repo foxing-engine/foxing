@@ -14,7 +14,7 @@ const HOURS = 6;              // how far ahead the chart looks
 const W = 720, H = 220, L = 44, B = 22;
 
 export default function install(m) {
-  const panel = m.panel("What you hold, and when it will be gone");
+  const panel = m.panel("What you hold, and when it will be gone", { id: "scene", wide: true });
   const canvas = document.createElement("canvas");
   canvas.width = W; canvas.height = H;
   canvas.style.cssText = "display:block;width:100%;max-width:" + W + "px;height:auto;border:1px solid var(--line);border-radius:4px;background:var(--night)";

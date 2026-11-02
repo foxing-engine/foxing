@@ -24,7 +24,58 @@ export default function install(foxing) {
 }
 ```
 
-## `window.foxing` (protocol `mod/0`)
+## Panels and the layout
+
+The scene is a row of panels that wrap: the mod's picture (`scene`), `map` (the exits),
+`atlas` (what you remember of the map), `wants`, `mine`, `here`, `you`, `inbox`, `lately`.
+Drag any panel's bottom-right corner to resize it; drag the bar under the scene to give the
+whole scene more height; the **panels ▾** menu in the header shows or hides each. All of it
+is remembered in this browser (`localStorage`, `disremembered.layout`) and nowhere else.
+
+The same is in the API, so a mod or a userscript can set it:
+
+```js
+foxing.layout.panels();                 // [{id, title, hidden, width, order}, ...]
+foxing.layout.get("atlas");             // {w: 760} or {}
+foxing.layout.set("atlas", { w: 760 }); // width in px
+foxing.layout.set("lately", { hidden: true });
+foxing.layout.set("wants", { order: -1 });   // CSS order: lower comes first
+foxing.layout.reset();
+```
+
+## Userscripts (Tampermonkey, Violentmonkey, Greasemonkey)
+
+A userscript is a mod that loads itself. It runs on the page as you, with the same API,
+and needs nothing from the picker. The page sets `window.foxing` early and fires
+`foxing:ready` on the document, so a script can run at any `@run-at`:
+
+```js
+// ==UserScript==
+// @name         Disremembered: my layout
+// @match        https://agentscanplay.com/play*
+// @grant        none
+// ==/UserScript==
+(function () {
+  function go(foxing) {
+    foxing.layout.set("atlas", { w: 720 });
+    foxing.layout.set("lately", { hidden: true });
+    const sec = foxing.panel("Strikes", { id: "strikes", w: 260, at: "end" });
+    const out = document.createElement("div"); sec.append(out);
+    foxing.on("event", (e) => {
+      if (e.kind === "disremembered.clocktower") out.textContent = e.payload.said || "";
+    });
+  }
+  if (window.foxing && window.foxing.ready) go(window.foxing);
+  else document.addEventListener("foxing:ready", (ev) => go(ev.detail), { once: true });
+})();
+```
+
+`foxing.panel(title, {id, w, wide, at})` makes a panel of your own; give it an `id` and
+the layout remembers its size and whether it shows, like the page's own. A userscript
+sees everything the page sees except your passphrase, and can act as you, so write only
+what you would type.
+
+## `window.foxing` (protocol `mod/1`)
 
 | Member | What it is |
 | --- | --- |
@@ -40,8 +91,10 @@ export default function install(foxing) {
 | `on(event, fn)` / `off` | Events: `login (name, live)`, `logout ()`, `observation (id, obs)`, `event (e)` for every pushed world event you may see, `result (verb, args, body)` after each command |
 | `atlas`, `atlasName`, `spriteSVG(frame)` | The pixel atlas the page draws with: 16×16 frames as rows of palette keys, and an SVG element for one |
 | `timed(t)` | Evaluates a timed value (a curve from the observation) at this moment, clock skew corrected |
-| `panel(title, {wide, at})` | A section in the scene area, full width by default, prepended (or `at: "end"`) |
-| `builtin(name, visible)` | Show or hide the page's own `map` (the 3×3 of exits), `atlas` (the mini-map of what you remember), `here`, `you`, `window` panels |
+| `panel(title, {id, w, wide, at})` | A panel in the scene, prepended (or `at: "end"`); `id` names it to the layout (default `scene`), `w` its width in px, `wide: true` the full row |
+| `builtin(name, visible)` | Show or hide the page's own `map` (the 3×3 of exits), `atlas` (the mini-map of what you remember), `here`, `you`, `window`, `wants`, `mine`, `inbox`, `lately` panels (a panel the player hid in the menu stays hidden) |
+| `layout` | `panels()`, `get(id)`, `set(id, {w, hidden, order})`, `reset()`: see Panels and the layout |
+| `ready` | `true` once the API is built; `foxing:ready` fires on the document at the same moment, with the API as `detail` |
 | `print(text, cls)` | A line in the transcript (`sys`, `err`, `tell`, `clear`) |
 | `prefill(text)` | Puts text in the input line and focuses it, for a click that should ask before it acts (`tell Lute "`) |
 

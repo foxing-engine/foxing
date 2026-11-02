@@ -13,7 +13,7 @@
 const W = 720, H = 120;
 
 export default function install(m) {
-  const panel = m.panel("The sky");
+  const panel = m.panel("The sky", { id: "scene", wide: true });
   const canvas = document.createElement("canvas");
   canvas.width = W; canvas.height = H;
   canvas.style.cssText = "display:block;width:100%;max-width:" + W + "px;height:auto;border:1px solid var(--line);border-radius:4px;background:#07090f";
