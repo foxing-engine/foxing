@@ -861,7 +861,21 @@ pub fn describe(
                 } else {
                     ""
                 };
-                format!("{who} ({}/{}{holds}{shaken}{born})", c["hp"], c["max_hp"])
+                // What it keeps of you, and what it learned from a kill.
+                let cid = EntityId(c["id"].as_u64().unwrap_or(0));
+                let yours = if super::death::holds_fall_of(world, cid, actor) {
+                    ", one of them yours"
+                } else {
+                    ""
+                };
+                let learned = match super::plain_str(world, cid, super::CREATURE, "learned") {
+                    Some(l) => format!("; {}", super::death::learned_said(l)),
+                    None => String::new(),
+                };
+                format!(
+                    "{who} ({}/{}{holds}{yours}{shaken}{born}{learned})",
+                    c["hp"], c["max_hp"]
+                )
             })
             .collect();
         text.push_str(&format!(" Here: {}.", list.join(", ")));

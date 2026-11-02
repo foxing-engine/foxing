@@ -16,6 +16,7 @@ pub mod cloak;
 mod combat;
 pub mod conclave;
 pub mod craft;
+pub mod death;
 pub mod economy;
 pub mod errand;
 pub mod exchange;
@@ -291,7 +292,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
         ComponentSchema::new(namery::NAMERY, 1)
             .field("pool", FieldKind::Plain, Visibility::Admin)
             .field("used", FieldKind::Plain, Visibility::Public)
-            .field("stockings", FieldKind::Plain, Visibility::Public),
+            .field("stockings", FieldKind::Plain, Visibility::Public)
+            .field("epitaphs", FieldKind::Plain, Visibility::Public),
         // Whether a citizen is here, and how well the room remembers them once gone.
         ComponentSchema::new(presence::PRESENCE, 1)
             .field("here", FieldKind::Plain, Visibility::Public)
@@ -317,6 +319,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // PTO: asked for (true until it begins or is cancelled), when the clock
             // stopped, and when each window was taken (the quota is on these).
             .field("pto", FieldKind::Plain, Visibility::Public)
+            // When this name went down, lately: the night's falls halve the next one's cost.
+            .field("falls", FieldKind::Plain, Visibility::Public)
+            .field("falls_ever", FieldKind::Plain, Visibility::Public)
             .field("pto_since", FieldKind::Plain, Visibility::Public)
             .field("pto_taken", FieldKind::Plain, Visibility::Public)
             // When the name was taken. A new name is not hunted for its first hour.
@@ -348,6 +353,10 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("parents", FieldKind::Plain, Visibility::Public)
             .field("born_of", FieldKind::Plain, Visibility::Public)
             .field("mutation", FieldKind::Plain, Visibility::Public)
+            // A trick learned from felling someone: venom or the ray, where its kind had none.
+            .field("learned", FieldKind::Plain, Visibility::Public)
+            // The names it has felled.
+            .field("felled", FieldKind::Plain, Visibility::Public)
             // When it was born; a newborn is not struck in its first hour.
             .field("born_at", FieldKind::Plain, Visibility::Public),
     ]
@@ -1085,6 +1094,7 @@ pub fn register(world: &mut World, curves: Curves) {
     bindery::register(world, curves.clone());
     footprint::register(world, curves.clone());
     namery::register(world);
+    namery::register_epitaphs(world);
     system::register(world);
 }
 

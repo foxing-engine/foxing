@@ -372,6 +372,30 @@
   #owner .grant b { color: var(--ink); font-weight: 400; }
   #owner button, #owner .cnt { font: inherit; font-size: 11px; color: var(--dust); background: transparent; border: 1px solid var(--line); border-radius: 3px; padding: 1px 7px; cursor: pointer; }
   #owner .cnt { border: 0; color: var(--dim); cursor: default; }
+  /* The grave: a fall of yours, over the page, until you wake. One motion, the stones rising. */
+  #grave { position: fixed; inset: 0; z-index: 25; background: rgba(9,13,20,.93); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; color: var(--ink); }
+  #grave[hidden] { display: none; }
+  #grave .yard { width: min(600px, 92vw); }
+  #grave .yard svg { width: 100%; height: auto; display: block; }
+  #grave .stone { fill: #2a3443; stroke: #46536a; stroke-width: 1.5; }
+  #grave .stone.new { fill: #3a4559; stroke: var(--dust); }
+  #grave .stone-text { fill: var(--dim); font: 10px var(--mono); }
+  #grave .stone-text.new { fill: var(--ink); }
+  #grave .ground { stroke: #46536a; stroke-width: 1; }
+  #grave .rise { transform-origin: 50% 100%; animation: rise .9s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes rise { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { #grave .rise { animation: none; } }
+  #grave .epitaph { font: 24px/1.35 var(--serif); max-width: 32ch; margin: 18px 0 14px; }
+  #grave .ledger { font: 14px/1.6 var(--mono); color: var(--dim); max-width: 60ch; }
+  #grave .ledger b { color: var(--ember); font-weight: 400; }
+  #grave .kept { font: 15px/1.6 var(--serif); color: var(--dim); max-width: 60ch; margin-top: 8px; }
+  #grave .kept b { color: var(--ink); font-weight: 400; }
+  #grave .where { font: 14px/1.6 var(--mono); color: var(--dim); margin-top: 8px; }
+  #grave .where a { cursor: pointer; }
+  #grave .go { margin-top: 22px; display: flex; gap: 12px; align-items: center; }
+  #grave .go button { font: 15px var(--serif); color: var(--ink); background: transparent; border: 1px solid var(--dust); border-radius: 4px; padding: 7px 16px; cursor: pointer; }
+  #grave .go button:hover, #grave .go button:focus-visible { background: rgba(217,181,122,.12); outline: 0; }
+  #grave .go span { font: 12px var(--mono); color: var(--dim); }
   #help { position: fixed; inset: 0; background: rgba(11,13,18,.92); z-index: 20; overflow: auto; padding: 24px; }
   #help[hidden] { display: none; }
   #help pre { max-width: 90ch; margin: 0 auto; white-space: pre-wrap; font-size: 13px; line-height: 1.5; color: var(--ink); }
@@ -441,6 +465,14 @@
       <div id="lately"></div>
     </section>
   </aside>
+  <div id="grave" hidden role="dialog" aria-label="You went down">
+    <div class="yard"><svg id="stones" viewBox="0 0 600 150" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Your falls tonight"></svg></div>
+    <div class="epitaph" id="grave-epitaph"></div>
+    <div class="ledger" id="grave-ledger"></div>
+    <div class="kept" id="grave-kept"></div>
+    <div class="where" id="grave-where"></div>
+    <div class="go"><button type="button" id="grave-go">Wake at the Threshold</button><span>Enter</span></div>
+  </div>
   <div id="help" hidden role="dialog" aria-label="Quickstart"><button type="button" class="close">close (Esc)</button><pre>Loading the quickstart…</pre></div>
   <div id="split" role="separator" aria-orientation="horizontal" aria-label="Resize the scene" title="Drag to resize the scene">
     <button type="button" id="fold" aria-expanded="true">scene ▾</button>
@@ -675,6 +707,7 @@
         if (f.type === "event") {
           const e = f.event;
           if (e.kind === "disremembered.narrative" && e.payload && e.payload.to === actor) { heard(e.payload.text); }
+          if (e.kind === "disremembered.died" && e.payload && e.payload.citizen === actor) fell(e.payload);
           lately(e);
           emit("event", e);
           return;
@@ -717,6 +750,7 @@
       if (!body || !body.ok) return;
       for (const e of body.observation.events || []) {
         if (e.kind === "disremembered.narrative" && e.payload && e.payload.to === actor) heard(e.payload.text);
+        if (e.kind === "disremembered.died" && e.payload && e.payload.citizen === actor) fell(e.payload);
         lately(e);
       }
       cursor = body.observation.cursor;
@@ -1487,6 +1521,66 @@
   let audio = null;
   // The alert sound: a chime (sine), a knock (two short low taps), a bell (a sine with
   // its fifth, ringing longer), or none; the flash and the notification stay.
+  // ---- the grave: a fall of yours, with its stones, its ledger, and a dirge ----
+  function fell(p) {
+    const g = $("grave"); if (!g) return;
+    const fall = Math.max(1, p.fall || 1), ever = p.falls_ever || fall;
+    // One stone per fall of the night, up to ten, the newest lit; a crowd past that.
+    const svg = $("stones"); svg.replaceChildren();
+    const ns = "http://www.w3.org/2000/svg", el = (t, a) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+    const n = Math.min(fall, 10), gap = Math.min(70, 560 / n), x0 = 300 - (gap * (n - 1)) / 2;
+    const ground = el("line", { x1: 20, y1: 140, x2: 580, y2: 140, class: "ground" }); svg.append(ground);
+    for (let i = 0; i < n; i++) {
+      const newest = i === n - 1, x = x0 + i * gap, w = newest ? 44 : 30, h = newest ? 70 : 44, y = 140 - h;
+      const grp = el("g", { class: "rise", style: "animation-delay:" + (i * 70) + "ms" });
+      grp.append(el("path", { d: "M" + (x - w / 2) + " 140 V " + (y + w / 2) + " A " + (w / 2) + " " + (w / 2) + " 0 0 1 " + (x + w / 2) + " " + (y + w / 2) + " V 140 Z", class: "stone" + (newest ? " new" : "") }));
+      const t = el("text", { x, y: y + (newest ? 42 : 30), "text-anchor": "middle", class: "stone-text" + (newest ? " new" : "") });
+      t.textContent = newest ? (p.killer_name || p.killer_kind || "?") : (i + 1);
+      grp.append(t); svg.append(grp);
+    }
+    $("grave-epitaph").textContent = p.epitaph || "You went down.";
+    const lost = Number(p.worth || 0), level = Number(p.level || 0);
+    const ledger = $("grave-ledger"); ledger.replaceChildren();
+    if (lost >= 0.5) { const b = document.createElement("b"); b.textContent = "−" + lost.toFixed(0); ledger.append(b, document.createTextNode(" of " + level.toFixed(0) + " you were carrying" + (fall > 1 ? " · the " + ["", "first", "second", "third", "fourth", "fifth", "sixth"][Math.min(fall, 6)] + " fall of the night, at " + (fall === 2 ? "half" : fall === 3 ? "a quarter" : "a sliver of") + " the cost" : ""))); }
+    else ledger.textContent = "Nothing lost: you were carrying too little to thin.";
+    const kept = $("grave-kept"); kept.replaceChildren();
+    const things = Array.isArray(p.kept_things) ? p.kept_things : [];
+    if (things.length) { kept.append(document.createTextNode("Still yours: ")); const b = document.createElement("b"); b.textContent = things.join(", "); kept.append(b, document.createTextNode(".")); }
+    else if (ever === 1) kept.textContent = "Nothing kept is lost. Rooms, names, lines in books stay; only what you carried thins.";
+    else kept.textContent = "";
+    const where = $("grave-where"); where.replaceChildren();
+    if (p.kept && (p.killer_kind || p.killer_name)) {
+      const who = p.killer_name ? p.killer_name + " the " + p.killer_kind : "the " + p.killer_kind;
+      where.append(document.createTextNode(who + " keeps it" + (p.room_name ? ", in " + p.room_name : "") + ". "));
+      const a = document.createElement("a"); a.textContent = "Fell it to take it back."; a.title = p.killer_name ? "where " + p.killer_name : "where " + (p.room_name || "");
+      a.addEventListener("click", () => { wake(); prefill("where " + (p.killer_name || p.room_name || "")); });
+      where.append(a);
+    }
+    if (p.learned) where.append(document.createTextNode(" It learned something from you: " + (p.learned === "venom" ? "venom." : "the ray of forgetfulness.")));
+    g.hidden = false; $("grave-go").focus();
+    dirge(fall);
+  }
+  function wake() { const g = $("grave"); if (g && !g.hidden) { g.hidden = true; input.focus(); } }
+  $("grave-go").addEventListener("click", wake);
+  document.addEventListener("keydown", (e) => { if (!$("grave").hidden && (e.key === "Enter" || e.key === "Escape")) { wake(); e.preventDefault(); } });
+  // A short dirge: a low drone and four falling notes in a minor key, quieter each
+  // fall of the night, nothing at all when the sound is off.
+  function dirge(fall) {
+    if ($("sound").value === "none") return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      const t = audio.currentTime, vol = Math.max(0.02, 0.09 / Math.sqrt(fall));
+      const note = (freq, at, dur, v, type) => {
+        const o = audio.createOscillator(), g = audio.createGain();
+        o.type = type || "sine"; o.frequency.value = freq; g.gain.value = 0.0001; o.connect(g); g.connect(audio.destination);
+        g.gain.exponentialRampToValueAtTime(v, at + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+        o.start(at); o.stop(at + dur + 0.1);
+      };
+      note(55, t, 5.0, vol * 0.8, "triangle");                 // the drone, A1
+      [[220, 0.0], [196, 1.1], [174.6, 2.2], [146.8, 3.3]].forEach(([f, d]) => note(f, t + d, 1.6, vol));  // A3 G3 F3 D3
+      note(130.8, t + 4.4, 2.2, vol * 0.9);                     // C3, left hanging
+    } catch (e) {}
+  }
   function beep(kind) {
     const choice = $("sound").value;
     if (choice === "none") return;
@@ -2233,6 +2327,10 @@
     },
     // The layout: get(id?) / set(id, {w, hidden, order}) / reset() / panels().
     layout,
+    // The grave, as the page shows a fall of yours: a mod may show one with a
+    // `disremembered.died` payload, or listen for the event and draw its own.
+    grave(payload) { fell(payload || {}); },
+    wake,
     print(text, cls = "sys") { print(text, cls); },
     prefill(text) { prefill(text); },
   };

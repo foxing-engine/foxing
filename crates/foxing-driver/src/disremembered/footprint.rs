@@ -359,6 +359,24 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
         .collect();
     let more = digest.len().saturating_sub(DIGEST_LINES);
 
+    // The night's falls: what the next one costs.
+    let falls = super::death::recent_falls(world, f.citizen);
+    if falls > 0 {
+        lines.push(format!(
+            "You have fallen {} tonight; the next fall costs {} of the first.",
+            match falls {
+                1 => "once".to_string(),
+                2 => "twice".to_string(),
+                n => format!("{n} times"),
+            },
+            match falls {
+                1 => "half",
+                2 => "a quarter",
+                3 => "an eighth",
+                _ => "almost nothing",
+            }
+        ));
+    }
     let summary = if lines.is_empty() {
         "Nothing in the world is yours yet: dig a room, feed a creature to sixty, make a thing, write in a book. Each stays after you go.".to_string()
     } else {
@@ -385,7 +403,7 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
         )
     };
     Ok(
-        json!({"summary": summary, "rooms": rooms_out, "creatures": creatures_out, "things": things_out, "since": since, "digest": digest}),
+        json!({"summary": summary, "rooms": rooms_out, "creatures": creatures_out, "things": things_out, "since": since, "digest": digest, "falls_tonight": falls}),
     )
 }
 

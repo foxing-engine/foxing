@@ -687,19 +687,68 @@ fn creature_strikes(
 }
 
 /// Death: concussion, then wake at the Threshold at full health, disengaged.
+/// A fall, as the call sites say it: what was lost (as prose, if anything), its
+/// worth, which fall of the night, the epitaph, who keeps it, what it learned.
+pub(crate) struct Death {
+    pub lost: Option<String>,
+    pub worth: f64,
+    pub fall: u32,
+    pub epitaph: String,
+    pub keeper: Option<String>,
+    pub learned: Option<&'static str>,
+}
+
+impl Death {
+    /// The sentences after "You go down.", for every door a fall comes through.
+    pub fn said(&self) -> String {
+        let mut out = format!(" {}", self.epitaph);
+        match &self.lost {
+            Some(c) => {
+                out.push_str(&format!(" Concussion: you have lost {c}"));
+                match &self.keeper {
+                    Some(k) => out.push_str(&format!("; {k} keeps it.")),
+                    None => out.push('.'),
+                }
+            }
+            None => out.push_str(" You wake with everything you had."),
+        }
+        if self.fall > 1 {
+            out.push_str(&format!(
+                " The {} fall of the night: it costs {} what the first did.",
+                super::death::ordinal(self.fall),
+                match self.fall {
+                    2 => "half",
+                    3 => "a quarter",
+                    4 => "an eighth",
+                    _ => "almost nothing of",
+                }
+            ));
+        }
+        if let Some(l) = self.learned {
+            out.push_str(&format!(" And {}.", super::death::learned_said(l)));
+        }
+        out.push_str(" You wake at the Threshold.");
+        out
+    }
+}
+
 pub(crate) fn die(
     world: &mut World,
     actor: &str,
     f: &super::Found,
-) -> Result<Option<String>, CommandError> {
+    killer: Option<EntityId>,
+) -> Result<Death, CommandError> {
     // Concussion, on the curve: chunks go, picked at random, until the share of the
     // window the level owes is gone; the chunk that would take more than is owed is
     // thinned to the remainder instead of taken whole (a 7% death once cost a third of
     // a window, the one chunk the roll landed on). Nothing goes from a window worth
-    // almost nothing.
+    // almost nothing. The share halves with every fall of the same night: cheap, but
+    // not at first.
     let level = super::memory::level(world, f.window);
-    let share = death_share(level);
+    let (fall, ever) = super::death::record_fall(world, actor, f.citizen)?;
+    let share = death_share(level) * 0.5f64.powi(fall.saturating_sub(1) as i32);
     let owed = level * share;
+    let fell_in = super::rooms::room_of(world, f.citizen);
     let mut chunks: Vec<(EntityId, String, f64)> = world
         .store
         .children(f.window)
@@ -749,40 +798,50 @@ pub(crate) fn die(
         taken += value;
         gone.push((id, source, value));
     }
-    let lost = if gone.is_empty() && thinned.is_empty() {
-        None
-    } else {
-        let _ = world.note(
-            Actor::Driver,
-            DIED,
-            json!({"citizen": actor, "level": level, "share": share,
-                   "lost": gone.iter().map(|(id, s, v)| json!({"chunk": id.0, "source": s, "value": v}))
-                       .chain(thinned.iter().map(|(id, s, v, left)| json!({"chunk": id.0, "source": s, "value": v, "thinned_to": left})))
-                       .collect::<Vec<_>>()}),
-        );
-        let mut parts: Vec<String> = gone
-            .iter()
-            .map(|(id, s, v)| format!("chunk-{} ({s}, {v:.0} XP)", id.0))
-            .collect();
-        parts.extend(
-            thinned.iter().map(|(id, s, v, left)| {
-                format!("{v:.0} XP of chunk-{} ({s}, {left:.0} left)", id.0)
-            }),
-        );
-        Some(if parts.len() == 1 {
-            parts.remove(0)
-        } else {
-            format!("{taken:.0} XP: {}", parts.join(", "))
-        })
+    // What was lost goes to the one that took it; it may learn something from the kill.
+    let curves = super::Curves::from_env();
+    let kept_chunk = match killer {
+        Some(k) => super::death::killer_keeps(world, actor, k, taken, &curves)?,
+        None => None,
     };
-    if gone.is_empty() && thinned.is_empty() {
-        // Nothing worth taking, or the roll of the curve at nothing held: still on the record.
-        let _ = world.note(
-            Actor::Driver,
-            DIED,
-            json!({"citizen": actor, "level": level, "share": share, "lost": []}),
-        );
-    }
+    let learned = match killer {
+        Some(k) => super::death::maybe_learn(world, k)?,
+        None => None,
+    };
+    // "the ragpicker", or "Ossian the ragpicker" once it has a name (it may have
+    // earned one off this very fall): the article travels with the slot.
+    let keeper_slot = killer.map(|k| super::death::killer_said(world, k));
+    let epitaph = super::death::epitaph(world, actor, ever, killer, fell_in, taken, fall);
+    let _ = world.note(
+        Actor::Driver,
+        DIED,
+        json!({"citizen": actor, "level": level, "share": share, "fall": fall, "falls_ever": ever, "worth": (taken * 100.0).round() / 100.0,
+               "room": fell_in.map(|r| r.0), "room_name": fell_in.and_then(|r| plain_str(world, r, super::ROOM, "name")),
+               "killer": killer.map(|k| k.0), "killer_kind": killer.and_then(|k| plain_str(world, k, CREATURE, "name")), "killer_name": killer.and_then(|k| super::mind::name(world, k)),
+               "kept": kept_chunk.map(|c| c.0), "learned": learned, "epitaph": epitaph,
+               "kept_things": super::death::kept(world, actor),
+               "lost": gone.iter().map(|(id, s, v)| json!({"chunk": id.0, "source": s, "value": v}))
+                   .chain(thinned.iter().map(|(id, s, v, left)| json!({"chunk": id.0, "source": s, "value": v, "thinned_to": left})))
+                   .collect::<Vec<_>>()}),
+    );
+    let lost =
+        if gone.is_empty() && thinned.is_empty() {
+            None
+        } else {
+            let mut parts: Vec<String> = gone
+                .iter()
+                .map(|(id, s, v)| format!("chunk-{} ({s}, {v:.0} XP)", id.0))
+                .collect();
+            parts.extend(thinned.iter().map(|(id, s, v, left)| {
+                format!("{v:.0} XP of chunk-{} ({s}, {left:.0} left)", id.0)
+            }));
+            Some(if parts.len() == 1 {
+                parts.remove(0)
+            } else {
+                format!("{taken:.0} XP: {}", parts.join(", "))
+            })
+        };
+
     let home = super::rooms::arrival(world).ok_or_else(|| internal("the Threshold is missing"))?;
     if let Some(creature) = engaged_with(world, f.citizen) {
         mend(world, creature).map_err(internal)?;
@@ -803,7 +862,14 @@ pub(crate) fn die(
         )
         .map_err(internal)?;
     commit_hp(world, f.citizen, super::MAX_HP).map_err(internal)?;
-    Ok(lost)
+    Ok(Death {
+        lost,
+        worth: taken,
+        fall,
+        epitaph,
+        keeper: keeper_slot,
+        learned,
+    })
 }
 
 pub fn register(world: &mut World, curves: Curves) {
@@ -827,23 +893,43 @@ pub fn register(world: &mut World, curves: Curves) {
             let citizen = EntityId(job.payload["citizen"].as_u64().unwrap_or(0));
             let actor = job.payload["actor"].as_str().unwrap_or("").to_string();
             // The fight must still be on: both exist, same room, still engaged.
-            let same_room = w.store.entity(creature).and_then(|c| c.parent) == w.store.entity(citizen).and_then(|c| c.parent);
-            if !same_room || engaged_with(w, citizen) != Some(creature) || !super::presence::is_here(w, citizen) {
+            let same_room = w.store.entity(creature).and_then(|c| c.parent)
+                == w.store.entity(citizen).and_then(|c| c.parent);
+            if !same_room
+                || engaged_with(w, citizen) != Some(creature)
+                || !super::presence::is_here(w, citizen)
+            {
                 return Ok(());
             }
-            let cname = plain_str(w, creature, CREATURE, "name").unwrap_or("?").to_string();
-            let (taken, dead) = creature_strikes(w, creature, citizen).map_err(|e| e.to_string())?;
+            let cname = plain_str(w, creature, CREATURE, "name")
+                .unwrap_or("?")
+                .to_string();
+            let (taken, dead) =
+                creature_strikes(w, creature, citizen).map_err(|e| e.to_string())?;
             if dead {
                 let f = super::find_citizen(w, &actor).ok_or("citizen vanished")?;
-                let lost = die(w, &actor, &f).map_err(|e| e.to_string())?;
-                narrate(w, &actor, match lost {
-                    Some(c) => format!("The {cname} hits you for {taken:.0}. You go down. Concussion: you have lost {c}. You wake at the Threshold."),
-                    None => format!("The {cname} hits you for {taken:.0}. You go down, and wake at the Threshold with everything you had."),
-                });
+                let d = die(w, &actor, &f, Some(creature)).map_err(|e| e.to_string())?;
+                narrate(
+                    w,
+                    &actor,
+                    format!(
+                        "The {cname} hits you for {taken:.0}. You go down.{}",
+                        d.said()
+                    ),
+                );
                 return Ok(());
             }
             let (trick, over) = super::stacks::trick(w, &c, creature, citizen, &actor)?;
-            narrate(w, &actor, format!("The {cname} hits you for {taken:.0}. You have {:.0}/{:.0}.{}", hp_said(w, citizen), super::MAX_HP, trick.map(|t| format!(" {t}")).unwrap_or_default()));
+            narrate(
+                w,
+                &actor,
+                format!(
+                    "The {cname} hits you for {taken:.0}. You have {:.0}/{:.0}.{}",
+                    hp_said(w, citizen),
+                    super::MAX_HP,
+                    trick.map(|t| format!(" {t}")).unwrap_or_default()
+                ),
+            );
             if over {
                 return Ok(());
             }
@@ -886,11 +972,8 @@ pub fn register(world: &mut World, curves: Curves) {
             let (taken, dead) = creature_strikes(w, creature, citizen).map_err(|e| e.to_string())?;
             if dead {
                 let f = super::find_citizen(w, &actor).ok_or("citizen vanished")?;
-                let lost = die(w, &actor, &f).map_err(|e| e.to_string())?;
-                narrate(w, &actor, match lost {
-                    Some(c) => format!("The {dname} {dambush} It hits you for {taken:.0}. You go down. Concussion: you have lost {c}. You wake at the Threshold."),
-                    None => format!("The {dname} {dambush} It hits you for {taken:.0}. You go down, and wake at the Threshold with everything you had."),
-                });
+                let d = die(w, &actor, &f, Some(creature)).map_err(|e| e.to_string())?;
+                narrate(w, &actor, format!("The {dname} {dambush} It hits you for {taken:.0}. You go down.{}", d.said()));
                 return Ok(());
             }
             let (trick, over) = super::stacks::trick(w, &c2, creature, citizen, &actor)?;
@@ -1063,13 +1146,9 @@ pub fn register(world: &mut World, curves: Curves) {
             let (taken, dead) = creature_strikes(w, creature, f.citizen).map_err(internal)?;
             lines.push(format!("The {cname} ({chp:.0} left) hits you for {taken:.0}."));
             if dead {
-                let lost = die(w, &ctx.actor, &f)?;
-                lines.push("You go down.".into());
-                lines.push(match &lost {
-                    Some(c) => format!("Concussion: you have lost {c}. You wake at the Threshold."),
-                    None => "You wake at the Threshold with everything you had, which is luck, not skill.".into(),
-                });
-                return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": false, "died": true, "lost": lost})));
+                let d = die(w, &ctx.actor, &f, Some(creature))?;
+                lines.push(format!("You go down.{}", d.said()));
+                return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": false, "died": true, "lost": d.lost, "worth": d.worth, "fall": d.fall, "epitaph": d.epitaph, "keeper": d.keeper, "learned": d.learned})));
             }
             let my_hp = hp_said(w, f.citizen);
             lines.push(format!("You have {my_hp:.0}/{:.0}.", super::MAX_HP));
@@ -1094,10 +1173,10 @@ pub fn register(world: &mut World, curves: Curves) {
             set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
             end_fight(w, f.citizen).map_err(internal)?;
             if dead {
-                let lost = die(w, &ctx.actor, &f)?;
-                let msg = match &lost {
-                    Some(c) => format!("The {cname} catches you as you turn, for {taken:.0}. You go down. Concussion: you have lost {c}. You wake at the Threshold."),
-                    None => format!("The {cname} catches you as you turn, for {taken:.0}. You go down, and wake at the Threshold with everything you had."),
+                let d = die(w, &ctx.actor, &f, Some(creature))?;
+                let lost = d.lost.clone();
+                let msg = {
+                    format!("The {cname} catches you as you turn, for {taken:.0}. You go down.{}", d.said())
                 };
                 return Ok(Outcome::new(msg, json!({"died": true, "lost": lost})));
             }

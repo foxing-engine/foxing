@@ -162,7 +162,7 @@ fn resolve_target(world: &World, arg: &str) -> Result<(EntityId, &'static str), 
         })
 }
 
-fn set_fields(
+pub(crate) fn set_fields(
     world: &mut World,
     actor: Actor,
     id: EntityId,

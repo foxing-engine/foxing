@@ -97,6 +97,7 @@ what you would type.
 | `panel(title, {id, w, wide, at})` | A panel in the scene, prepended (or `at: "end"`); `id` names it to the layout (default `scene`), `w` its width in px, `wide: true` the full row |
 | `builtin(name, visible)` | Show or hide the page's own `map` (the 3×3 of exits), `atlas` (the mini-map of what you remember), `here`, `you`, `window`, `wants`, `mine`, `inbox`, `lately` panels (a panel the player hid in the menu stays hidden) |
 | `layout` | `panels()`, `get(id)`, `set(id, {w, h, hidden, order})`, `share()`, `reset()`: see Panels and the layout |
+| `grave(payload)` / `wake()` | Show the page's death screen with a `disremembered.died` payload (`epitaph`, `worth`, `level`, `fall`, `killer_kind`, `killer_name`, `room_name`, `kept_things`, `learned`), or dismiss it; a mod drawing its own listens for the event instead |
 | `ready` | `true` once the API is built; `foxing:ready` fires on the document at the same moment, with the API as `detail` |
 | `print(text, cls)` | A line in the transcript (`sys`, `err`, `tell`, `clear`) |
 | `prefill(text)` | Puts text in the input line and focuses it, for a click that should ask before it acts (`tell Lute "`) |

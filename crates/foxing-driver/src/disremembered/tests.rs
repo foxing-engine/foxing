@@ -5259,20 +5259,44 @@ fn death_costs_a_share_of_the_window_on_a_curve_of_level() {
     let f = find_citizen(&w, "dave").unwrap();
     // Ten XP: a death takes nothing (less than one XP is owed).
     admin(&mut w, "dave", "earn", json!(["small", 10, 0.5]));
-    assert!(combat::die(&mut w, "dave", &f).unwrap().is_none());
+    let d = combat::die(&mut w, "dave", &f, None).unwrap();
+    assert!(d.lost.is_none());
+    assert_eq!(d.fall, 1);
     assert!((level(&mut w, "dave") - 10.0).abs() < 0.5);
-    // A thousand: about a third goes, in chunks picked at random, and the record says.
+    // A thousand, a night later so the fall is the first of its night: about a third
+    // goes, in chunks picked at random, and the record says.
+    w.fixed_now = Some(t0.plus(Duration::seconds(13 * 3600)));
     for _ in 0..10 {
         admin(&mut w, "dave", "earn", json!(["big", 100, 0.5]));
     }
     let before = level(&mut w, "dave");
-    let lost = combat::die(&mut w, "dave", &f).unwrap();
-    assert!(lost.is_some(), "{lost:?}");
+    let d = combat::die(&mut w, "dave", &f, None).unwrap();
+    assert!(d.lost.is_some(), "{:?}", d.lost);
+    assert_eq!(d.fall, 1, "a night later, the first fall again");
     let after = level(&mut w, "dave");
     let share = 1.0 - after / before;
     assert!(
         (0.35..=0.5).contains(&share),
-        "lost {share:.2} of {before:.0}: {lost:?}"
+        "lost {share:.2} of {before:.0}: {:?}",
+        d.lost
+    );
+    // The second fall of the night costs half the share; the third a quarter.
+    for _ in 0..10 {
+        admin(&mut w, "dave", "earn", json!(["big", 100, 0.5]));
+    }
+    let before = level(&mut w, "dave");
+    let d = combat::die(&mut w, "dave", &f, None).unwrap();
+    assert_eq!(d.fall, 2);
+    let share2 = 1.0 - level(&mut w, "dave") / before;
+    assert!(
+        share2 > 0.12 && share2 < 0.25,
+        "half the first: {share2:.2}"
+    );
+    assert!(
+        d.said()
+            .contains("The second fall of the night: it costs half what the first did."),
+        "{}",
+        d.said()
     );
     let died: Vec<_> = w
         .log
@@ -5281,8 +5305,86 @@ fn death_costs_a_share_of_the_window_on_a_curve_of_level() {
         .into_iter()
         .filter(|e| e.kind == combat::DIED)
         .collect();
-    assert_eq!(died.len(), 2);
+    assert_eq!(died.len(), 3);
     assert!(died[1].payload["lost"].as_array().unwrap().len() >= 3);
+    assert_eq!(died[2].payload["fall"], json!(2));
+    assert!(died[2].payload["epitaph"].as_str().unwrap().len() > 20);
+}
+
+#[test]
+fn the_killer_keeps_what_you_lost_and_may_learn_from_it() {
+    use super::death;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // Dave, worth 600, falls to the Midden's ragpicker by the operator's hand.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "travel", json!(["south"]));
+    for _ in 0..6 {
+        admin(&mut w, "dave", "earn", json!(["big", 100, 0.5]));
+    }
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let f = find_citizen(&w, "dave").unwrap();
+    let before = level(&mut w, "dave");
+    let d = combat::die(&mut w, "dave", &f, Some(rag)).unwrap();
+    let lost = before - level(&mut w, "dave");
+    assert!(lost > 50.0, "{lost}");
+    assert!((d.worth - lost).abs() < 1.0, "{} vs {lost}", d.worth);
+    // Named off this very fall, or not: the keeper is said as the room would say it.
+    let keeper = d.keeper.clone().unwrap();
+    assert!(
+        keeper == "the ragpicker" || keeper.ends_with(" the ragpicker"),
+        "{keeper}"
+    );
+    assert!(
+        d.said().contains(&format!("{keeper} keeps it.")),
+        "{}",
+        d.said()
+    );
+    // The ragpicker holds it, vivid, as its own; it may have earned a name off it.
+    assert!(death::holds_fall_of(&w, rag, "dave"));
+    assert!(
+        (mind::level(&w, rag) - lost).abs() < 1.0,
+        "{} holds {}",
+        mind::display(&w, rag),
+        mind::level(&w, rag)
+    );
+    if lost >= 60.0 {
+        assert!(mind::name(&w, rag).is_some(), "named off a death");
+    }
+    // Back at the Threshold; the room says what the ragpicker keeps and learned.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let look = ok(&mut w, "dave", "travel", json!(["south"]));
+    assert!(
+        look.summary.contains("one of them yours"),
+        "{}",
+        look.summary
+    );
+    let learned = plain_str(&w, rag, CREATURE, "learned");
+    assert_eq!(
+        look.summary.contains("it has learned"),
+        learned.is_some(),
+        "{}",
+        look.summary
+    );
+    // Felling it takes the memory back, re-minted at its worth now.
+    let died: Vec<_> = w
+        .recent_events(200)
+        .into_iter()
+        .filter(|e| e.kind == combat::DIED)
+        .collect();
+    assert_eq!(died[0].payload["killer_kind"], json!("ragpicker"));
+    assert_eq!(died[0].payload["learned"], json!(learned));
+    assert!(died[0].payload["kept"].is_number());
+    // mine says the night's falls.
+    let out = ok(&mut w, "dave", "mine", json!([]));
+    assert!(
+        out.summary
+            .contains("You have fallen once tonight; the next fall costs half of the first."),
+        "{}",
+        out.summary
+    );
 }
 
 #[test]

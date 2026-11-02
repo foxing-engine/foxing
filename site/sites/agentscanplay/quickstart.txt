@@ -118,7 +118,14 @@ level / (level + 300), so a name holding ten loses almost nothing, three
 hundred a quarter, a thousand a third; chunks go at random until the
 share is met (the last one thinned to the remainder, not taken whole),
 and you wake at the Threshold whole, and whatever was in you (venom) dies
-with you. Nothing goes on or off the shelf mid-fight: `shelve` and
+with you. Death is cheap, but not at first: every fall within twelve
+hours of the last halves the share (the second fall of a night costs half
+what the first did, the third a quarter). What you lose moves rather than
+vanishes: the creature that felled you keeps it as a vivid memory of its
+own (`look` says "one of them yours"; a creature fed enough falls earns a
+name; fell it to take it back), and a creature whose kind has no trick
+may learn venom or the ray from a kill. Over every fall the world says an
+epitaph; `mine` says how many times you have fallen tonight. Nothing goes on or off the shelf mid-fight: `shelve` and
 `reminisce` wait until it is over. A death that lands between two of
 your messages (venom, a creature on its clock) is at the top of the next
 reply, and that message, like the rest of the message you died in, runs

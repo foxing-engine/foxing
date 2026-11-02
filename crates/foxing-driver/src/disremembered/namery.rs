@@ -69,6 +69,44 @@ pub fn pool(world: &World) -> Vec<String> {
     strings(field(world, "pool"))
 }
 
+/// The epitaphs stocked, in order; said over falls in rotation.
+pub fn epitaphs(world: &World) -> Vec<String> {
+    strings(field(world, "epitaphs"))
+}
+
+/// An epitaph is this long at most, and may use these slots only.
+pub const EPITAPH_MAX: usize = 180;
+pub const EPITAPH_SLOTS: &[&str] = &["{killer}", "{room}", "{lost}", "{fall}", "{name}"];
+/// The pool is low under this many.
+pub const EPITAPHS_LOW: usize = 24;
+
+/// Why an epitaph may not be stocked, or nothing.
+pub fn epitaph_refusal(line: &str, have: &[String]) -> Option<String> {
+    let t = line.trim();
+    if t.chars().count() < 24 {
+        return Some("too short".into());
+    }
+    if t.chars().count() > EPITAPH_MAX {
+        return Some(format!("over {EPITAPH_MAX} characters"));
+    }
+    // Only the known slots between braces.
+    let mut rest = t;
+    while let Some(i) = rest.find('{') {
+        let Some(j) = rest[i..].find('}') else {
+            return Some("an unclosed brace".into());
+        };
+        let slot = &rest[i..i + j + 1];
+        if !EPITAPH_SLOTS.contains(&slot) {
+            return Some(format!("an unknown slot {slot}"));
+        }
+        rest = &rest[i + j + 1..];
+    }
+    if have.iter().any(|h| h.eq_ignore_ascii_case(t)) {
+        return Some("already stocked".into());
+    }
+    None
+}
+
 /// Every name ever drawn from the pool: `{name, creature, at}`.
 pub fn used(world: &World) -> Vec<Value> {
     field(world, "used")
@@ -110,6 +148,9 @@ fn write(world: &mut World, changes: BTreeMap<String, Value>) -> Result<EntityId
         .or_insert(Field::Plain(json!([])));
     fields
         .entry("stockings".into())
+        .or_insert(Field::Plain(json!([])));
+    fields
+        .entry("epitaphs".into())
         .or_insert(Field::Plain(json!([])));
     for (k, v) in changes {
         fields.insert(k, Field::Plain(v));
@@ -235,6 +276,10 @@ pub fn report(world: &World) -> Value {
         "used": used(world),
         "taken": taken(world),
         "stockings": field(world, "stockings").unwrap_or(json!([])),
+        "epitaphs": epitaphs(world),
+        "epitaphs_low": epitaphs(world).len() < EPITAPHS_LOW,
+        "epitaphs_low_at": EPITAPHS_LOW,
+        "epitaph_rules": {"max_chars": EPITAPH_MAX, "slots": EPITAPH_SLOTS},
         "rules": {"letters": [NAME_MIN, NAME_MAX], "shape": "one capitalized word of ASCII letters, not a name, kind, citizen, room or verb the world has"},
         "note": "stock \"Name, Name, ...\" [model] (operator) adds what passes; each name is dealt once, to the next creature that earns its first tier.",
     })
@@ -312,6 +357,39 @@ pub fn register(world: &mut World) {
                     }
                 ),
                 json!({"added": added, "refused": refused, "unused": unused}),
+            ))
+        }),
+    );
+}
+
+pub fn register_epitaphs(world: &mut World) {
+    world.register(
+        CommandSpec::new(
+            "disremembered.epitaph",
+            "Operator. Stock one epitaph, quoted: said over a fall, with the slots {killer}, {room}, {lost}, {fall} and {name} filled in. Said back with why if refused.",
+        )
+        .param("text", ParamType::Text, true, "the epitaph, quoted")
+        .allowed(&[ActorKind::Admin]),
+        Box::new(|w: &mut World, ctx, args: &Args| {
+            let text = args.str("text").unwrap_or("").trim().trim_matches('"').to_string();
+            let have = epitaphs(w);
+            if let Some(why) = epitaph_refusal(&text, &have) {
+                return Err(CommandError::precondition(format!("Not stocked: {why}.")));
+            }
+            let mut list = have;
+            list.push(text.clone());
+            let mut changes = BTreeMap::new();
+            changes.insert("epitaphs".into(), json!(list));
+            write(w, changes).map_err(CommandError::precondition)?;
+            let _ = w.note(
+                Actor::Citizen(ctx.actor.clone()),
+                STOCKED,
+                json!({"count": 1, "by": ctx.actor, "kind": "epitaph", "text": text}),
+            );
+            let n = epitaphs(w).len();
+            Ok(Outcome::new(
+                format!("The epitaph is stocked; {n} in the book."),
+                json!({"epitaphs": n}),
             ))
         }),
     );

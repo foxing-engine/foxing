@@ -77,6 +77,12 @@ pub const ONE_IN: u32 = 2;
 pub const TRICK: &str = "disremembered.trick";
 
 pub fn trick_of(world: &World, creature: EntityId) -> Option<Trick> {
+    // Learned from a kill, where the kind had none.
+    match plain_str(world, creature, CREATURE, "learned") {
+        Some("venom") => return Some(Trick::Venom),
+        Some("forget") => return Some(Trick::Forget),
+        _ => {}
+    }
     let kind = plain_str(world, creature, CREATURE, "name")?;
     TRICKS.iter().find(|(k, _)| *k == kind).map(|(_, t)| *t)
 }
@@ -145,7 +151,7 @@ fn play(
             world.schedule_once(
                 JOB_VENOM,
                 due,
-                json!({"citizen": citizen.0, "actor": actor, "left": VENOM_TICKS}),
+                json!({"citizen": citizen.0, "actor": actor, "left": VENOM_TICKS, "creature": creature.0}),
                 |p| p["citizen"] == citizen.0,
             )?;
             let _ = world.note(
@@ -419,11 +425,10 @@ pub fn register(world: &mut World) {
             let after = super::combat::hp(w, citizen) - VENOM_DAMAGE;
             super::combat::commit_hp(w, citizen, after).map_err(|e| e.to_string())?;
             if after <= 0.0 {
-                let lost = super::combat::die(w, &actor, &f).map_err(|e| e.to_string())?;
-                super::combat::narrate(w, &actor, match lost {
-                    Some(c) => format!("The venom finishes what the lamprey started. You go down. Concussion: you have lost {c}. You wake at the Threshold."),
-                    None => "The venom finishes what the lamprey started. You go down, and wake at the Threshold with everything you had.".to_string(),
-                });
+                // The one whose venom it was keeps what you lost, if it still stands.
+                let biter = job.payload["creature"].as_u64().map(EntityId).filter(|c| w.store.entity(*c).is_some());
+                let d = super::combat::die(w, &actor, &f, biter).map_err(|e| e.to_string())?;
+                super::combat::narrate(w, &actor, format!("The venom finishes what the lamprey started. You go down.{}", d.said()));
                 return Ok(());
             }
             super::combat::narrate(
@@ -441,7 +446,7 @@ pub fn register(world: &mut World) {
                 w.schedule_once(
                     JOB_VENOM,
                     due,
-                    json!({"citizen": citizen.0, "actor": actor, "left": left - 1}),
+                    json!({"citizen": citizen.0, "actor": actor, "left": left - 1, "creature": job.payload["creature"]}),
                     |p| p["citizen"] == citizen.0,
                 )?;
             }

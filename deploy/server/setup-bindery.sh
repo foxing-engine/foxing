@@ -81,6 +81,7 @@ BINDERY_ACTOR=Bindery
 BINDERY_PASSPHRASE=$PASS
 BINDERY_OUT=$STATE/proposals.jsonl
 NAMERY_OUT=$STATE/names.jsonl
+EPITAPHS_OUT=$STATE/epitaphs.jsonl
 BINDERY_SIGNING_KEY=$KEY
 BINDERY_ISSUER=$ISSUER
 BINDERY_SUBJECT=$SUBJECT
@@ -99,6 +100,7 @@ ENV
 else
   ok "$ENV_FILE kept"
   grep -q '^NAMERY_OUT=' "$ENV_FILE" || { printf 'NAMERY_OUT=%s\n' "$STATE/names.jsonl" >> "$ENV_FILE"; ok "NAMERY_OUT added to $ENV_FILE"; }
+  grep -q '^EPITAPHS_OUT=' "$ENV_FILE" || { printf 'EPITAPHS_OUT=%s\n' "$STATE/epitaphs.jsonl" >> "$ENV_FILE"; ok "EPITAPHS_OUT added to $ENV_FILE"; }
   grep -q '^BINDERY_KID=' "$ENV_FILE" || { printf 'BINDERY_SIGNING_KEY=%s\nBINDERY_ISSUER=%s\nBINDERY_SUBJECT=%s\nBINDERY_KID=%s\nANTHROPIC_FEDERATION_RULE_ID=\nANTHROPIC_ORGANIZATION_ID=\nANTHROPIC_SERVICE_ACCOUNT_ID=\nANTHROPIC_WORKSPACE_ID=\n' "$KEY" "$ISSUER" "$SUBJECT" "$KID" >> "$ENV_FILE"; ok "federation lines added to $ENV_FILE"; }
 fi
 
@@ -117,6 +119,8 @@ WorkingDirectory=$STATE
 ExecStart=/bin/sh -c 'if [ "\$BINDERY_MODE" = apply ]; then exec /usr/bin/python3 $RELEASE/tools/bind.py --apply; else exec /usr/bin/python3 $RELEASE/tools/bind.py; fi'
 # Then the Namery: stocked when its pool is low, whatever BINDERY_MODE says (the checks are exact).
 ExecStart=/usr/bin/python3 $RELEASE/tools/names.py
+# And the book of epitaphs, stocked when it runs low.
+ExecStart=/usr/bin/python3 $RELEASE/tools/epitaphs.py
 Nice=10
 PrivateTmp=true
 NoNewPrivileges=true

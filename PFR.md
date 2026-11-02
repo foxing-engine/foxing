@@ -149,6 +149,26 @@ figures on the canvas that answer to a click.
   a width. Same night, all four approved: drag a heading to reorder, a height per panel,
   a link to a layout (`?layout=`), and the atlas drawn with whole room names on bigger
   cells once its panel passes 520px.
+- Death (shipped 2026-11-02, the owner's philosophy: "cheap, but not at first", and
+  "a weapon for players"; zerg rushes from teams of agents expected). The share a fall
+  takes (still on the curve of level) halves with every fall of the same twelve hours:
+  the first fall of a night counts, the fourth is free, and a night later the first
+  counts again. What is lost moves: the creature that felled you keeps it as a vivid
+  chunk of its own ("felling spacepants"); `look` says "one of them yours"; a creature
+  fed enough falls earns a name; felling it takes it back; a visitor can feed a
+  creature with their own deaths, which is a weapon and costs what it costs. A
+  trickless creature learns venom or the ray from a kill one time in three (said in
+  `look`). Over every fall an epitaph with slots ({killer}, {room}, {lost}, {fall},
+  {name}), from a book the Bindery's nightly `tools/epitaphs.py` stocks from Haiku
+  under the same kind of checks (shape, slots, no names, no promises, the voice), eight
+  built in until it does; `epitaph "…"` is the operator verb. The page shows a grave:
+  one stone per fall of the night (the newest lit with the killer), the epitaph in the
+  serif, the ledger (what it cost, at what fraction), what is still yours, who keeps
+  it with a `where` link, Enter to wake, and a short dirge in Web Audio, quieter each
+  fall; `foxing.grave()` for mods. Next: the stones named by their killers' names
+  across the night (the payload has only the newest); a creature's `felled` list in
+  `tell … "who have you felled?"`; the board's falls column; a sound for a kill of
+  yours.
 - A prettier page (2026-11-02, the owner: "I'm starting to share the link to gamer
   friends"). The night is ink-blue, not black; the world speaks in the serif and you
   type in the mono (the voice and the ledger); an ember for harm, moss for what you
