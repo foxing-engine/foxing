@@ -110,8 +110,11 @@ figures on the canvas that answer to a click.
   Two halves. In the engine, deterministic: a creature's story chunks faded below a
   tenth, five or more, fold on the wander pass into one chunk "a sheaf of N stories"
   worth their sum (`disremembered.sheaf`); rooms count `appends` and `hands`; `GET
-  /v0/bindery` (operator) lists what is worth binding (owned rooms past 700
-  characters or six appends, books past eight lines or 450 characters); the operator
+  /v0/bindery` (operator) lists what is worth binding (owned rooms with six appends,
+  or two and past 700 characters; books past eight lines, or three and 450
+  characters; the owner's own prose alone never qualifies: the first dry run put the
+  Cartographer's Closet, a 718-character field guide nobody had appended to, in front
+  of the model, which rightly had nothing to fold); the operator
   verb `bind <target> "text" [model]` sets the text and keeps the old one under
   `bound` (`disremembered.bound`, public, with the before and after); the owner
   standing in the room, or a book's maker, may `unbind`. Outside, `tools/bind.py`

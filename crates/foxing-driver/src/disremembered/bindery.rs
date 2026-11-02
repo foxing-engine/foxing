@@ -34,11 +34,16 @@ pub const UNBOUND: &str = "disremembered.unbound";
 /// A creature's faded stories were folded into a sheaf: `{creature, name, folded, worth, chunk}`. Public.
 pub const SHEAF: &str = "disremembered.sheaf";
 
-/// A room worth binding: this long, or this many sentences appended since it was last bound.
+/// A room worth binding: this many sentences appended since it was last bound, or a
+/// few appends that have carried it past this length. Length alone never qualifies: a
+/// long description with no appends is the owner's own prose, and the Bindery folds
+/// many hands, not one.
 pub const ROOM_CHARS: usize = 700;
 pub const ROOM_APPENDS: u64 = 6;
-/// A book worth binding: this many lines, or this long.
+pub const ROOM_APPENDS_MIN: u64 = 2;
+/// A book worth binding: this many lines, or a few lines that run this long.
 pub const BOOK_LINES: usize = 8;
+pub const BOOK_LINES_MIN: usize = 3;
 pub const BOOK_CHARS: usize = 450;
 /// A story chunk faded to this fraction of what it was is a scrap; this many scraps make a sheaf.
 pub const SCRAP_BELOW: f64 = 0.1;
@@ -68,7 +73,9 @@ pub fn candidates(world: &World) -> Value {
                 let appends = plain(world, e.id, ROOM, "appends")
                     .and_then(|v| v.as_u64())
                     .unwrap_or(0);
-                if desc.chars().count() >= ROOM_CHARS || appends >= ROOM_APPENDS {
+                if appends >= ROOM_APPENDS
+                    || (appends >= ROOM_APPENDS_MIN && desc.chars().count() >= ROOM_CHARS)
+                {
                     out.push(json!({
                         "kind": "room",
                         "target": format!("room-{}", e.id.0),
@@ -87,7 +94,9 @@ pub fn candidates(world: &World) -> Value {
             "item" if craft::is_fixed(world, e.id) => {
                 let text = plain_str(world, e.id, ITEM, "text").unwrap_or("");
                 let lines = text.split(" | ").filter(|l| !l.trim().is_empty()).count();
-                if lines >= BOOK_LINES || text.chars().count() >= BOOK_CHARS {
+                if lines >= BOOK_LINES
+                    || (lines >= BOOK_LINES_MIN && text.chars().count() >= BOOK_CHARS)
+                {
                     let hands: Vec<String> = text
                         .split(" | ")
                         .filter_map(|l| {
@@ -116,8 +125,8 @@ pub fn candidates(world: &World) -> Value {
     }
     json!({
         "candidates": out,
-        "thresholds": {"room_chars": ROOM_CHARS, "room_appends": ROOM_APPENDS, "book_lines": BOOK_LINES, "book_chars": BOOK_CHARS},
-        "note": "Rooms long or much appended, and books with many lines, as the Bindery would bind them. bind <target> \"text\" [model] applies a binding (operator); the owner may unbind once.",
+        "thresholds": {"room_chars": ROOM_CHARS, "room_appends": ROOM_APPENDS, "room_appends_min": ROOM_APPENDS_MIN, "book_lines": BOOK_LINES, "book_lines_min": BOOK_LINES_MIN, "book_chars": BOOK_CHARS},
+        "note": "Rooms much appended (or appended a little and long), and books with many lines, as the Bindery would bind them; the owner's own prose alone is never a candidate. bind <target> \"text\" [model] applies a binding (operator); the owner may unbind once.",
     })
 }
 
