@@ -18,8 +18,12 @@ const DOORS = { north: [Math.floor(COLS / 2), 1], south: [Math.floor(COLS / 2), 
 const NIGHT = "#121a25", INK = "#ece5d3", DUST = "#d9b57a", EMBER = "#d1734f", MOSS = "#7fb37f";
 // Where things stand: you in the middle, the rest on a ring of slots, by id.
 const SLOTS = [[7, 5], [12, 5], [6, 8], [13, 8], [9, 4], [10, 8], [4, 6], [15, 6], [7, 7], [12, 4], [9, 9], [10, 3], [5, 4], [14, 4], [4, 8], [15, 8], [8, 3], [11, 9]];
-// Named doors: along the south wall either side of the door, then up the side walls.
-const ARCHES = [[8, ROWS - 1], [12, ROWS - 1], [6, ROWS - 1], [14, ROWS - 1], [4, ROWS - 1], [16, ROWS - 1], [2, ROWS - 1], [18, ROWS - 1], [0, 3], [COLS - 1, 3], [0, 9], [COLS - 1, 9], [0, 4], [COLS - 1, 4], [0, 8], [COLS - 1, 8]];
+// Named doors: along the south wall either side of the door; past ARCHES_SHOWN they
+// go behind the signpost by the west wall.
+const ARCHES = [[8, ROWS - 1], [12, ROWS - 1], [6, ROWS - 1], [14, ROWS - 1], [4, ROWS - 1], [16, ROWS - 1], [2, ROWS - 1], [18, ROWS - 1]];
+const ARCHES_SHOWN = 6;
+const SIGNPOST = [2, 4];
+function isStairs(via) { return via === "up" || via === "down" || /stair|ladder|climb|dive|surface|chute|well/.test(via); }
 const ITEM_SLOTS = [[8, 7], [11, 6], [6, 6], [13, 7], [9, 8], [10, 5], [5, 7], [14, 5], [7, 9], [12, 9]];
 const VERB_HALF_LIFE = 15 * 60 * 1000, VERB_GONE = 1 / 12;
 const STARTERS = ["look", "map", "chunks"];
@@ -229,21 +233,30 @@ export default function install(m) {
     const root = obs && obs.root; if (!root) return null;
     const room = root.components["disremembered.room"] || {};
     const sprite = root.components["disremembered.sprite"] || {};
-    const exits = [];
-    let hatchX = 2, side = 0;
-    for (const ex of (root.relations && root.relations.exits) || []) {
-      const name = (ex.components["disremembered.room"] || {}).name || ex.via;
-      const dug = !!(ex.components && ex.components["disremembered.room"] && ex.owner);
-      if (DOORS[ex.via]) exits.push({ via: ex.via, name, tile: DOORS[ex.via], kind: "door", dug });
-      else if (ex.via === "up" || ex.via === "down" || /stair|ladder|climb|dive|surface|chute|well/.test(ex.via)) {
+    const exits = [], more = [];
+    let hatchX = 0, side = 0;
+    // Named doors beyond the first few go behind a signpost: the Threshold has
+    // fifteen exits, and fifteen arches read as a wall of labels. The ones drawn are
+    // the world's own rooms first, then yours, then the rest as the room lists them.
+    const all = ((root.relations && root.relations.exits) || []).map(ex => {
+      const rc = ex.components["disremembered.room"] || {};
+      return { via: ex.via, name: rc.name || ex.via, dug: !!ex.owner, mine: ex.owner === m.actor };
+    });
+    const named = all.filter(ex => !DOORS[ex.via] && !isStairs(ex.via));
+    const rank = (ex) => (ex.dug ? (ex.mine ? 1 : 2) : 0);
+    const drawn = new Set(named.slice().sort((a, b) => rank(a) - rank(b)).slice(0, ARCHES_SHOWN).map(ex => ex.via));
+    for (const ex of all) {
+      if (DOORS[ex.via]) exits.push({ via: ex.via, name: ex.name, tile: DOORS[ex.via], kind: "door", dug: ex.dug });
+      else if (isStairs(ex.via)) {
         // Stairs up along the north wall's foot, down along the south.
         const upish = ex.via === "up" || /ladder|climb|surface/.test(ex.via);
-        exits.push({ via: ex.via, name, tile: [upish ? 2 + (side++ % 2) * (COLS - 5) : COLS - 3 - (side++ % 2) * (COLS - 5), upish ? 2 : ROWS - 2], kind: upish ? "stairs-up" : "stairs-down", dug });
-      } else {
-        exits.push({ via: ex.via, name, tile: ARCHES[hatchX % ARCHES.length], kind: "arch", dug });
+        exits.push({ via: ex.via, name: ex.name, tile: [upish ? 2 + (side++ % 2) * (COLS - 5) : COLS - 3 - (side++ % 2) * (COLS - 5), upish ? 2 : ROWS - 2], kind: upish ? "stairs-up" : "stairs-down", dug: ex.dug });
+      } else if (drawn.has(ex.via)) {
+        exits.push({ via: ex.via, name: ex.name, tile: ARCHES[hatchX % ARCHES.length], kind: "arch", dug: ex.dug });
         hatchX++;
-      }
+      } else more.push(ex);
     }
+    if (more.length) exits.push({ via: "", name: more.length + " more doors", tile: SIGNPOST, kind: "signpost", more });
     const things = [], items = [];
     let slot = 0, islot = 0;
     for (const n of (root.relations && root.relations.contents) || []) {
@@ -397,6 +410,15 @@ export default function install(m) {
   function drawExit(ex, base) {
     const [x, y] = ex.tile;
     const dark = ex.dug ? "#1a1a2a" : NIGHT;
+    if (ex.kind === "signpost") {
+      // A post with boards pointing every way; the menu lists the doors it stands for.
+      px(x * T + 7, y * T + 2, 2, 14, "#5a4634");
+      px(x * T + 2, y * T + 3, 10, 3, "#d9b57a"); px(x * T + 4, y * T + 7, 10, 3, "#d9b57a"); px(x * T + 1, y * T + 11, 9, 3, "#d9b57a");
+      px(x * T + 3, y * T + 4, 1, 1, NIGHT); px(x * T + 12, y * T + 8, 1, 1, NIGHT); px(x * T + 2, y * T + 12, 1, 1, NIGHT);
+      labelAt("+" + ex.more.length + " doors", x, y, -1, DUST);
+      hot.set(x + "," + y, { label: ex.more.length + " more doors: " + ex.more.map(e => e.via).join(", "), menu: ex.more.map(e => ({ label: "Walk " + e.via + " to " + e.name, run: () => m.command("travel", [e.via]) })) });
+      return;
+    }
     if (ex.kind === "door") {
       if (ex.via === "north") { px(x * T + 2, 4, 12, 28, dark); px(x * T + 2, 4, 12, 1, shade(base, 1.3)); px(x * T + 2, 4, 1, 28, shade(base, 0.9)); px(x * T + 13, 4, 1, 28, shade(base, 0.9)); px(x * T + 4, 8, 8, 2, "rgba(236,229,211,.12)"); }
       else if (ex.via === "south") { px(x * T + 2, y * T + 8, 12, 8, dark); px(x * T + 2, y * T + 8, 12, 1, shade(base, 1.2)); }
