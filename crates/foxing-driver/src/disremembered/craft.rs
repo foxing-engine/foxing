@@ -77,7 +77,7 @@ pub const SEED_FIXTURES: &[(&str, &str, &str, &str, bool)] = &[
         "division-lobby",
         "book",
         "the Tally Book",
-        "Ruled in a single column. Nothing has been entered. The clerk's pen lies across it, capped.",
+        "Ruled in a single column, in the Clerk's hand: every division's Ayes and Noes, the latest last. The pen lies across it, capped, between sittings.",
         false,
     ),
     (
@@ -824,9 +824,14 @@ pub fn append_check(
     if !open {
         let maker = plain_str(world, item, ITEM, "made_by").map(str::to_string);
         if maker.is_none() {
+            let name = display(world, item);
+            let whose = if name.contains("Tally") {
+                " The Clerk of the Conclave keeps it: every division enters its Ayes and Noes. Your own line goes in the Ledger of Fines at the Overdue Desk, or a book you make."
+            } else {
+                " The world's open book is the Ledger of Fines at the Overdue Desk; a book of your own takes any hand you welcome."
+            };
             return Err(CommandError::precondition(format!(
-                "{} is the world's own, and closed; it takes no hand.",
-                display(world, item)
+                "{name} is the world's own, and closed; it takes no hand.{whose}"
             )));
         }
         if maker.as_deref() != Some(ctx.actor.as_str()) {
@@ -878,6 +883,56 @@ pub fn append_object(
         json!({"by": ctx.actor, "kind": "book", "target": item.0, "name": display(world, item), "maker": plain_str(world, item, ITEM, "made_by"), "room": world.store.entity(item).and_then(|e| e.parent).map(|r| r.0), "chars": more.chars().count()}),
     );
     Ok(joined)
+}
+
+/// The world's own hand in one of its closed books: a line signed by an office (the
+/// Clerk of the Conclave in the Tally Book). The book is found by name in a room.
+pub fn world_writes(
+    world: &mut World,
+    room_key: &str,
+    book: &str,
+    hand: &str,
+    more: &str,
+) -> Result<(), String> {
+    let Some(room) = rooms::room_by_key(world, room_key) else {
+        return Ok(());
+    };
+    let Some(item) = fixtures_in(world, room)
+        .iter()
+        .find(|v| v["given_name"].as_str() == Some(book))
+        .and_then(|v| v["id"].as_u64())
+        .map(EntityId)
+    else {
+        return Ok(());
+    };
+    let current = plain_str(world, item, ITEM, "text")
+        .unwrap_or("")
+        .to_string();
+    let line = format!("{more} \u{2014} {hand}");
+    let mut joined = if current.is_empty() {
+        line
+    } else {
+        format!("{current} | {line}")
+    };
+    // A full book drops its oldest lines after the description: the Clerk's column
+    // does not end, but the page does.
+    while joined.chars().count() > MAX_BOOK_CHARS {
+        let mut parts: Vec<&str> = joined.split(" | ").collect();
+        if parts.len() < 3 {
+            break;
+        }
+        parts.remove(1);
+        joined = parts.join(" | ");
+    }
+    let mut changes = BTreeMap::new();
+    changes.insert("text".into(), Field::Plain(json!(joined)));
+    set_item_fields(world, Actor::Driver, item, changes).map_err(|e| e.to_string())?;
+    let _ = world.note(
+        Actor::Driver,
+        super::building::APPENDED,
+        json!({"by": hand, "kind": "book", "target": item.0, "name": display(world, item), "maker": Value::Null, "room": room.0, "chars": more.chars().count()}),
+    );
+    Ok(())
 }
 
 /// The world's own fixtures, placed once; re-running places only what is missing.

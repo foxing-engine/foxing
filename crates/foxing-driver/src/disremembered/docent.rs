@@ -1165,6 +1165,7 @@ pub fn report(world: &World) -> Value {
                 "remembered": remembered,
                 "homes": super::rooms::homes(),
                 "record": record,
+                "conclave": super::conclave::for_docent(world),
             })
         })
         .collect();

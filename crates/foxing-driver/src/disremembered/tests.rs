@@ -7906,9 +7906,21 @@ fn the_conclave_takes_petitions_and_always_decides_eventually() {
     assert!(m.summary.contains("Upon your petition"), "{}", m.summary);
     // A statute petition granted moves the statute; denied, it stays.
     let after = conclave::statute(&w, "gift_allowance");
-    let tyler_line = narrative(&w, "tyler", head)
+    // Every stage is told to the petitioner; the decision is the line with the division.
+    let tyler_lines: Vec<String> = narrative(&w, "tyler", head)
         .into_iter()
-        .find(|l| l.starts_with("Upon your petition"))
+        .filter(|l| l.starts_with("Upon your petition"))
+        .collect();
+    assert!(tyler_lines.len() >= 4, "{tyler_lines:?}");
+    assert!(
+        tyler_lines[0].contains("read into the minutes"),
+        "{}",
+        tyler_lines[0]
+    );
+    let tyler_line = tyler_lines
+        .iter()
+        .find(|l| l.contains(" have it"))
+        .cloned()
         .unwrap();
     if tyler_line.contains("the Ayes have it") {
         assert!((after - before * 1.25).abs() < 1e-6, "{before} -> {after}");
@@ -7936,12 +7948,27 @@ fn the_conclave_takes_petitions_and_always_decides_eventually() {
         r.summary
     );
     admin(&mut w, "dave", "bring", json!(["dave", "division-lobby"]));
-    let r = ok(&mut w, "dave", "read", json!([]));
+    // The Clerk entered both decisions in the Tally Book, which reads as a book.
+    let r = ok(&mut w, "dave", "read", json!(["Tally Book"]));
     assert!(
-        r.summary.contains("The tally book")
-            && (r.summary.contains(": Aye") || r.summary.contains(": No")),
+        r.summary.contains("the Clerk")
+            && r.summary.contains("ticket ")
+            && (r.summary.contains("Ayes have it") || r.summary.contains("Noes have it")),
         "{}",
         r.summary
+    );
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "append",
+        json!(["a line of mine", "Tally Book"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("The Clerk of the Conclave keeps it"),
+        "{err}"
     );
     admin(&mut w, "dave", "bring", json!(["dave", "book-lectern"]));
     let r = ok(&mut w, "dave", "read", json!([]));

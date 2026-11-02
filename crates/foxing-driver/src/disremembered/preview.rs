@@ -453,6 +453,12 @@ pub fn run_checked(
                             ),
                             Err(why) => (false, format!("refused: {why}")),
                         },
+                        // The Docent takes a question from anywhere (the dry run once
+                        // refused what the gate ran).
+                        ("tell", None) if super::docent::is_named(&who) => (
+                            true,
+                            "asks the Docent; it comes to you with the answer within a few minutes".to_string(),
+                        ),
                         ("tell", None) => match super::canonical_name(world, &who) {
                             Some(cz) => {
                                 let here = super::find_citizen(world, &cz).is_some_and(|f| {

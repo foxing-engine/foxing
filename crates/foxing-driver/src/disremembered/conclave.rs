@@ -958,6 +958,19 @@ pub fn divide(world: &mut World) -> Result<(), String> {
             PETITION_MOVED,
             json!({"ticket": ticket, "by": by, "stage": next, "tabled": now_tabled, "said": said}),
         );
+        // The petitioner hears every stage, wherever they are (one waited through two
+        // divisions and heard nothing); the decision's own line follows below.
+        if next < 4 {
+            super::combat::narrate(
+                world,
+                &by,
+                format!(
+                    "Upon your petition {ticket}: {}",
+                    said.trim_start_matches(&format!("Petition {ticket}, of {by}, "))
+                        .trim_start_matches(&format!("Petition {ticket} "))
+                ),
+            );
+        }
         lines.push(if now_tabled {
             format!("— struck through — {said}")
         } else {
@@ -984,6 +997,19 @@ pub fn divide(world: &mut World) -> Result<(), String> {
             .unwrap_or("")
             .to_string();
         decided.push(json!({"ticket": ticket, "by": by, "text": text, "granted": granted, "ruling": ruling, "effect": effect, "at": world.now().0}));
+        // The Clerk enters it in the Tally Book, in the Division Lobby.
+        super::craft::world_writes(
+            world,
+            "division-lobby",
+            "the Tally Book",
+            "the Clerk",
+            &format!(
+                "{}: ticket {ticket}, the petition of {by}, {}; the {} have it",
+                super::system::clock(world.now().0),
+                short_text(&text),
+                if *granted { "Ayes" } else { "Noes" }
+            ),
+        )?;
         let _ = world.note(
             Actor::Driver,
             DECIDED,
@@ -1039,6 +1065,21 @@ pub fn divide(world: &mut World) -> Result<(), String> {
         }
     }
     wind_division(world)
+}
+
+/// The Conclave as the Docent should know it: the table, the last decisions, the last
+/// page of the minutes.
+pub fn for_docent(world: &World) -> Value {
+    let minutes = book(world, "minutes")
+        .and_then(|v| v.as_array().cloned())
+        .unwrap_or_default();
+    json!({
+        "petitions": petitions(world).iter().map(|p| format!("ticket {} of {}, {}: \"{}\"", p["ticket"], p["by"].as_str().unwrap_or("?"), stage_name(p["stage"].as_u64().unwrap_or(0)), p["text"].as_str().unwrap_or(""))).collect::<Vec<_>>(),
+        "decided": book(world, "decided").and_then(|v| v.as_array().cloned()).unwrap_or_default().iter().rev().take(5).map(|d| format!("ticket {} of {}: {} — {}", d["ticket"], d["by"].as_str().unwrap_or("?"), if d["granted"] == true { "granted" } else { "not granted" }, d["ruling"].as_str().unwrap_or(""))).collect::<Vec<_>>(),
+        "last_page": minutes.last().map(|p| p["lines"].clone()).unwrap_or(json!([])),
+        "next_division_in_s": (next_division(world) - world.now().0) / 1000,
+        "statutes": statutes(world),
+    })
 }
 
 /// `read` in a room of the house: the thing there is to read, or None where there is
@@ -1114,28 +1155,8 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
                 super::economy::rates_line(&super::economy::rates(world))
             )
         }
-        "division-lobby" if named(&["tally", "book", "column"]) => {
-            let decided = book(world, "decided")
-                .and_then(|v| v.as_array().cloned())
-                .unwrap_or_default();
-            if decided.is_empty() {
-                "The tally book is ruled in a single column, and the column is empty. No question has been put.".to_string()
-            } else {
-                let rows: Vec<String> = decided
-                    .iter()
-                    .rev()
-                    .take(8)
-                    .map(|d| {
-                        format!(
-                            "{}: {}",
-                            d["ticket"],
-                            if d["granted"] == true { "Aye" } else { "No" }
-                        )
-                    })
-                    .collect();
-                format!("The tally book, ruled in a single column, the latest at the top: {}. Behind the paint the doors are one door.", rows.join("; "))
-            }
-        }
+        // The Division Lobby's Tally Book is a book: `read` falls through to it.
+        "division-lobby" => return None,
         "petition-gallery" if named(&["ticket", "machine", "number", "bench"]) => {
             let last = book(world, "last_ticket")
                 .and_then(|v| v.as_u64())
@@ -1270,6 +1291,17 @@ pub const SAYINGS: &[&str] = &[
     "PETITIONS ARE WELCOME. THEY LIE UPON THE TABLE.",
     "THE CONCLAVE DOES NOT HURRY. THE CONCLAVE ARRIVES.",
 ];
+
+/// A petition's text cut to a clause, for the Clerk's column.
+fn short_text(text: &str) -> String {
+    let t: String = text.chars().take(60).collect();
+    if text.chars().count() > 60 {
+        let cut = t.rfind(' ').unwrap_or(t.len());
+        format!("\"{}\u{2026}\"", &t[..cut])
+    } else {
+        format!("\"{t}\"")
+    }
+}
 
 fn trim(v: f64) -> String {
     if (v - v.round()).abs() < 1e-9 {
