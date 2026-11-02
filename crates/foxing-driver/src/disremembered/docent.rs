@@ -134,6 +134,21 @@ pub fn ensure(world: &mut World) -> Result<(), String> {
                 )
                 .map_err(|e| e.to_string())?;
         }
+        // One from before it had a name takes it, and the line that goes with it.
+        if field(world, "name")
+            .and_then(|v| v.as_str().map(str::to_string))
+            .as_deref()
+            != Some(NAME)
+            || field(world, "line")
+                .and_then(|v| v.as_str().map(str::to_string))
+                .as_deref()
+                != Some(LINE)
+        {
+            let mut changes = BTreeMap::new();
+            changes.insert("name".into(), json!(NAME));
+            changes.insert("line".into(), json!(LINE));
+            write(world, changes)?;
+        }
         return Ok(());
     }
     let Some(threshold) = super::rooms::arrival(world) else {
