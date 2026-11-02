@@ -62,7 +62,8 @@ MODULUS=$(openssl rsa -in "$KEY" -noout -modulus)
 MODULUS=${MODULUS#Modulus=}
 KID=$(printf '%s' "$MODULUS" | sha256sum | cut -c1-16)
 N=$(printf '%s' "$MODULUS" | python3 -c 'import sys,base64; print(base64.urlsafe_b64encode(bytes.fromhex(sys.stdin.read().strip())).rstrip(b"=").decode())')
-JWK="{\"kty\":\"RSA\",\"kid\":\"$KID\",\"n\":\"$N\",\"e\":\"AQAB\",\"alg\":\"RS256\",\"use\":\"sig\"}"
+# The Console takes the JWKS `keys` array (one key here), not the bare key.
+JWK="[{\"kty\":\"RSA\",\"kid\":\"$KID\",\"n\":\"$N\",\"e\":\"AQAB\",\"alg\":\"RS256\",\"use\":\"sig\"}]"
 
 if [ ! -f "$ENV_FILE" ]; then
   # head closing the pipe would make tr exit 141 under pipefail: read a fixed slice instead.
@@ -139,7 +140,7 @@ cat <<EOF
 
 In the Claude Console, Settings > Workload identity > Connect workload > Custom OIDC:
   Issuer URL      $ISSUER
-  JWKS            inline, this one key:
+  JWKS            inline; paste this array (one key):
 $JWK
   Rule match      subject_prefix: $SUBJECT      audience: https://api.anthropic.com
   Scope / lifetime  workspace:developer, 600 s (the wizard's defaults)
