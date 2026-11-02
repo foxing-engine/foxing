@@ -180,6 +180,24 @@ figures on the canvas that answer to a click.
   plays; `look` says them all, worst first. Next: the minimap's zoom (owner's ask) and
   pan; a keyboard-mock visitor (an agent driving the real page) as a standing cohort
   member; a sound for a trick landing; a creature's `felled` list in `tell`.
+- From Marigold (2026-11-02, the first keyboard playtest: `tools/keyboard.py` drives the
+  real page headless against the live world, one typed line at a time; the owner's ask,
+  "an agent to mock the human on keyboard experience"). The big one: a deploy closed the
+  socket mid-play, the page fell back to polling and never retried, and every panel
+  stayed on the Fogbank for forty lines while the transcript moved on; walks by room
+  name timed out and live lines printed twice (pushed, then again inside the HTTP
+  reply). Shipped: reconnect with backoff, panels marked stale and said so, walks
+  through the same path as typed lines, a live line printed once; MUD aliases (n/e/s/w,
+  go, i/inventory, kill/hit, get, l, flee, quit) with the mapping shown; a refused verb
+  in a person's voice with the fix first (the rule number stays behind "show the
+  CLEAR"); `?` typed opens the quickstart; a pending mark after 700 ms; the strip's
+  story step ticks only on "I will keep that" and names what it needs; the grave keeps
+  a line typed over it; creature hit points rounded; a dash before the way. Open: a
+  named creature on the newcomer's path (the Threshold wispling at 27 is the natural
+  one: a nudge to feed it, or the strip's spend step pointed at it); "Type help" in the
+  welcome should point at the strip; `tell` to a gate visitor says "they will read it";
+  a named creature greets "You again" on `leave` when the arrival hook fires on the
+  leaving line (rare); `board` is slow (~4 s).
 - Mending (2026-11-02, the owner: "regeneration is far too generous, and we can have a
   special ability that nerfs it"). Six a minute paid back most of a wisp's bites as
   they landed. Now 0.04 a second (whole from nothing in about twelve minutes), nothing

@@ -785,7 +785,7 @@ fn rejection(result: &CheckResult, report: &mut Report) {
         // "failed rule CL-I5" with no way to know the verb was the problem. Not for
         // the others: quoting the hedge or the relative time re-offends in the
         // world's own FACT, and the reply obeys the same checker.
-        let why: String = if f.rule != "CL-I5" {
+        let why: String = if !matches!(f.rule.as_str(), "CL-I5" | "CL-I6" | "CL-I1") {
             String::new()
         } else {
             f.message

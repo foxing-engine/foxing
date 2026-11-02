@@ -130,6 +130,8 @@
   #panels-menu label { display: flex; gap: 6px; align-items: center; color: var(--ink); cursor: pointer; padding: 2px 0; }
   #panels-menu .reset { margin-top: 6px; display: block; color: var(--dust); background: transparent; border: 1px solid var(--line); border-radius: 3px; font: inherit; padding: 1px 8px; cursor: pointer; }
   #main.collapsed #scene { display: none; }
+  #scene.stale > section { opacity: .45; }
+  #scene.stale::before { content: "stale: the session closed; these panels are from before. Reconnecting."; display: block; width: 100%; color: var(--ember); font: 12px var(--mono); }
   /* The bar between the scene and the terminal: drag it to resize, click the label to fold. */
   #split {
     order: -1; flex: none; height: 14px; display: flex; align-items: center; gap: 10px;
@@ -715,12 +717,30 @@
       };
       ws.onclose = () => {
         if (wsReady) print("The session closed. Reconnecting.", "sys");
-        wsReady = false;
+        wsReady = false; stale(true);
         if (!settled) { settled = true; resolve(false); }
-        else if (actor) setTimeout(() => { connect().then(ok => { if (!ok) startPolling(); }); }, 3000);
+        else if (actor) retryConnect(3000);
       };
       ws.onerror = () => {};
     });
+  }
+  // The socket comes back when it can (a deploy restarts the driver for ten seconds);
+  // until then the page polls, and every panel is marked stale rather than left
+  // wrong. A playtester once spent forty lines with the Fogbank in every panel.
+  let retryTimer = null;
+  function retryConnect(delay) {
+    if (retryTimer || !actor) return;
+    retryTimer = setTimeout(async () => {
+      retryTimer = null;
+      if (!actor || wsReady) return;
+      const ok = await connect();
+      if (ok) { stopPolling(); stale(false); $("link").textContent = "Live session."; print("The session is back.", "sys"); await run("look", []); }
+      else { startPolling(); retryConnect(Math.min(delay * 2, 30000)); }
+    }, delay);
+  }
+  function stale(on) {
+    document.getElementById("scene").classList.toggle("stale", on);
+    const l = $("link"); if (on) l.textContent = "No live session: the panels are from before it closed; polling for the transcript until it is back.";
   }
   function subscribe(id, query) { if (wsReady) ws.send(JSON.stringify({ type: "subscribe", id, query })); }
   setInterval(() => { if (wsReady) { try { ws.send(JSON.stringify({ type: "ping" })); } catch (e) {} } }, 30000);
@@ -763,15 +783,19 @@
   async function run(command, args) {
     if (!actor) { print("Log in first: login <name> <passphrase>, or just press Enter.", "err"); return; }
     lastAct = Date.now();
+    // A slow reply shows it is coming (the board takes a few seconds): a newcomer retypes.
+    const pending = setTimeout(() => { $("hint").textContent = "… the world is thinking"; }, 700);
+    const clearPending = () => { clearTimeout(pending); if ($("hint").textContent === "… the world is thinking") $("hint").textContent = ""; };
     let body;
     if (wsReady) {
       body = await wsCommand(command, args);
     } else {
       const r = await api("/v0/command", { actor, passphrase, command, args });
-      if (r.status === 401) { print(r.body.error, "err"); logout(); return; }
+      if (r.status === 401) { clearPending(); print(r.body.error, "err"); logout(); return; }
       body = r.body || { ok: false, error: "The world did not answer. Try again in a moment." };
       await poll();
     }
+    clearPending();
     if (body.ok) {
       print(body.summary);
       if (command === "quit") { print("The world goes on without you.", "sys"); logout(); }
@@ -789,7 +813,7 @@
         });
       }
     } else {
-      print(body.error || "Refused.", "err");
+      print(humanError(body.error) || "Refused.", "err");
     }
     // The glass: what crossed the gate, word for word, when asked for.
     if (body.reply && $("showclear").checked) {
@@ -1113,7 +1137,7 @@
   }
   const waySpan = (way) => {
     const el = document.createElement("span"); el.className = "way";
-    el.textContent = !way ? "no way you remember" : way.length === 0 ? "here" : way.length + " step" + (way.length === 1 ? "" : "s") + ": " + way.join(", ");
+    el.textContent = " \u2014 " + (!way ? "no way you remember" : way.length === 0 ? "here" : way.length + " step" + (way.length === 1 ? "" : "s") + ": " + way.join(", "));
     return el;
   };
   function drawWants(res) {
@@ -1203,9 +1227,8 @@
     print("Walking to " + name + ": " + steps.join(", ") + ".", "sys");
     chain = chain.then(async () => {
       for (const via of steps) {
-        const r = await wsCommand("travel", [via]);
+        const r = await run("travel", [via]);
         if (!r || !r.ok) { print("The walk stopped" + (r && r.error ? ": " + r.error : "."), "err"); return; }
-        print(r.summary || "", "");
         await new Promise(res => setTimeout(res, 250));
       }
     });
@@ -1316,7 +1339,7 @@
         const named = mind && mind.name;
         if (named) firstHours.onNamed(mind.name);
         const who = named ? mind.name + " the " + c.name : c.name;
-        const r = row(s, who, "hp", c.hp / c.max_hp, c.hp + "/" + c.max_hp);
+        const r = row(s, who, "hp", c.hp / c.max_hp, Number(c.hp).toFixed(1).replace(/\.0$/, "") + "/" + Number(c.max_hp).toFixed(0));
         r.classList.add("click");
         r.title = named ? "story " + mind.name + " … (click), tell (shift-click)" : "attack " + c.name + " (click)";
         r.querySelector(".nm").append(Object.assign(document.createElement("span"), { className: "sub", textContent: named ? "named; answers to tell, takes a story" : "unnamed" }));
@@ -1441,7 +1464,7 @@
       { id: "wisp", line: "attack wisp", why: "A wisp has 8 hit points and bites for 2 to 4. Pop one and you remember it: a chunk worth about 15." },
       { id: "chunks", line: "chunks", why: "What you hold, and how fast it fades. Your level is the sum of what has not faded yet." },
       { id: "spend", line: "remember chunk-? wisp", why: "Spend a memory before it fades: feed it to a creature. At 60 the creature takes a name of its own." },
-      { id: "story", line: 'story ? "…"', why: "A named creature takes a story (a dozen words or more), pays for it, and answers with a line of its own." },
+      { id: "story", line: 'story <named creature> "…"', why: "A named creature (fed to sixty: `wants` lists them and the way there) takes a story of a dozen words or more, pays for it, and answers with a line of its own." },
       { id: "dig", line: 'dig nook chunk-? "A Name"', why: "A room of your own, paid with a chunk; it stays after you go, fading unless someone remembers it." },
       { id: "map", line: "map", why: "What you remember of the map, dimming as you forget. The rooms you have stood in; the rest is dark." },
     ];
@@ -1454,7 +1477,7 @@
     function fill(step) {
       const chunks = (subs.window && subs.window.root.relations && subs.window.root.relations.contents) || [];
       const best = chunks.map(n => ({ id: n.id, v: timed(n.components["disremembered.chunk"].value) })).sort((a, b) => b.v - a.v)[0];
-      const id = best ? "chunk-" + best.id : "chunk-?";
+      const id = best ? "chunk-" + best.id : "<chunk>";
       if (step.id === "spend") {
         // Whatever stands here, the unnamed first; a wisp if nothing does.
         const things = (subs.room && subs.room.root && subs.room.root.relations && subs.room.root.relations.contents) || [];
@@ -1464,7 +1487,7 @@
         return "remember " + id + " " + target;
       }
       if (step.id === "dig") return "dig nook " + id + ' "';
-      if (step.id === "story") return "story " + (named || "?") + ' "';
+      if (step.id === "story") return "story " + (named || "<named creature>") + ' "';
       return step.line;
     }
     function render() {
@@ -1479,7 +1502,7 @@
         if (done) li.className = "done"; else if (!current) { current = st; li.className = "now"; }
         const tick = document.createElement("span"); tick.className = "tick"; tick.textContent = done ? "✓" : (li.className === "now" ? "▸" : "◦");
         const code = document.createElement("code"); code.textContent = fill(st);
-        if (!done) code.addEventListener("click", () => prefill(fill(st).replace(/\?/g, "").replace(/\s+"$/, ' "')));
+        if (!done) code.addEventListener("click", () => prefill(fill(st).replace(/<[^>]*>/g, "").replace(/\?/g, "").replace(/\s+"$/, ' "').replace(/\s{2,}/g, " ")));
         const why = document.createElement("span"); why.className = "why"; why.textContent = " — " + st.why;
         li.append(tick, code, why); ol.append(li);
       }
@@ -1496,7 +1519,7 @@
       if (command === "attack" && /worth [\d.]+ XP/.test(text)) tick("wisp");
       if (command === "chunks") tick("chunks");
       if (command === "remember" && args.length >= 2) { tick("spend"); const m = /It is ([A-Z][a-z]+) now/.exec(text); if (m) named = m[1]; }
-      if (command === "story") tick("story");
+      if (command === "story" && /I will keep that/.test(text)) tick("story");
       if (command === "dig") tick("dig");
       if (command === "map") tick("map");
     }
@@ -1562,7 +1585,7 @@
   }
   function wake() { const g = $("grave"); if (g && !g.hidden) { g.hidden = true; input.focus(); } }
   $("grave-go").addEventListener("click", wake);
-  document.addEventListener("keydown", (e) => { if (!$("grave").hidden && (e.key === "Enter" || e.key === "Escape")) { wake(); e.preventDefault(); } });
+  document.addEventListener("keydown", (e) => { if (!$("grave").hidden && (e.key === "Enter" || e.key === "Escape")) { wake(); if (!input.value.trim()) e.preventDefault(); } });
   // A short dirge: a low drone and four falling notes in a minor key, quieter each
   // fall of the night, nothing at all when the sound is off.
   function dirge(fall) {
@@ -1617,6 +1640,9 @@
   // Words for you: tells, greetings and strikes, kept in a panel with an unread count.
   let unread = 0;
   function heard(text) {
+    // Once: the same sentence can arrive pushed and again inside the next reply.
+    const last = Array.from(log.children).slice(-12).map(l => l.textContent);
+    if (last.includes(text) || last.some(l => l.includes(text) && text.length > 20)) return;
     print(text, "tell");
     const words = /says to you|says, "|tells you|left word|as you arrive/.test(text);
     const strike = /hits you|ambush|strikes|goes down/.test(text);
@@ -1772,6 +1798,13 @@
       return;
     }
     if (verb === "help") { await help(); return; }
+    if (t === "?") { showHelp(); firstHours.unhide(); return; }
+    // What a MUD player types, in the world's words.
+    const alias = ALIASES[verb.toLowerCase()];
+    if (alias) {
+      const mapped = alias(rest);
+      if (mapped) { print("(" + mapped.join(" ") + ")", "sys"); await run(mapped[0], mapped.slice(1)); return; }
+    }
     // A room off the map, typed as a person types it: its legend code ("02") or its
     // name ("the fog bank"). Not a verb, so it is a walk over the exits remembered.
     if (actor && !isVerb(verb)) {
@@ -1779,6 +1812,32 @@
       if (room) { walkTo(room.id); return; }
     }
     await run(verb, rest);
+  }
+  const DIRS_ALIAS = { n: "north", s: "south", e: "east", w: "west", u: "up", d: "down", north: "north", south: "south", east: "east", west: "west", up: "up", down: "down" };
+  const ALIASES = {
+    n: () => ["travel", "north"], s: () => ["travel", "south"], e: () => ["travel", "east"], w: () => ["travel", "west"], u: () => ["travel", "up"], d: () => ["travel", "down"],
+    north: () => ["travel", "north"], south: () => ["travel", "south"], east: () => ["travel", "east"], west: () => ["travel", "west"], up: () => ["travel", "up"], down: () => ["travel", "down"],
+    go: (r) => r.length ? ["travel", DIRS_ALIAS[r[0].toLowerCase()] || r.join(" ")] : null, walk: (r) => r.length ? ["travel", DIRS_ALIAS[r[0].toLowerCase()] || r.join(" ")] : null, move: (r) => r.length ? ["travel", r.join(" ")] : null,
+    l: () => ["look"], x: () => ["look"], examine: () => ["look"],
+    i: () => ["satchel"], inv: () => ["satchel"], inventory: () => ["satchel"], bag: () => ["satchel"],
+    kill: (r) => ["attack", ...r], hit: (r) => ["attack", ...r], fight: (r) => ["attack", ...r], k: (r) => ["attack", ...r],
+    get: (r) => ["take", ...r], grab: (r) => ["take", ...r], pick: (r) => ["take", ...r.filter(w => w !== "up")],
+    flee: () => ["retreat"], run: () => ["retreat"], sleep: () => ["rest"], heal: () => ["rest"], hp: () => ["rest"], stats: () => ["chunks"], xp: () => ["chunks"], level: () => ["chunks"],
+    talk: (r) => ["tell", ...r], whisper: (r) => ["tell", ...r], shout: (r) => ["say", ...r], emote: (r) => ["say", ...r],
+    quit: () => ["leave"], exit: () => ["leave"], logout: () => ["leave"],
+  };
+  // A refused verb, said as a person would say it: the rule's number and the
+  // Legibility score are for agents (show the CLEAR to see them).
+  function humanError(text) {
+    const m = /failed rule CL-(\w+)(?: \(([^)]*)\))?/.exec(text || "");
+    if (!m) return text;
+    if (m[1] === "I5") {
+      const v = /Verb '([^']+)'/.exec(m[2] || "");
+      return "The world does not run " + (v ? "`" + v[1] + "`" : "that") + ". Exits are `travel <exit>` (look lists them); `commands` lists every verb, and the buttons under the transcript are what you can do here.";
+    }
+    if (m[1] === "I6") return "That verb wants an argument" + (m[2] ? " (" + m[2] + ")" : "") + ": `commands` shows each verb's.";
+    if (m[1] === "I1") return "Nothing to run in that line.";
+    return "The world did not take that line" + (m[2] ? ": " + m[2] : "") + ". `commands` lists the verbs.";
   }
   function isVerb(v) {
     const verbs = C.vocab && C.vocab.approved_verbs;
