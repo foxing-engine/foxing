@@ -299,9 +299,9 @@ figures on the canvas that answer to a click.
   a 150 and a 358 (−262) against a 252 payout, a net loss; "rays scale with what you
   hold; pay doesn't", so the right play is one visit at mid level carrying chaff. If
   the Stacks should pay the strong, let the ray pick by value weight (it halves 0.1-XP
-  chaff as readily as a 358) or let the pay scale; and whether the death share and
-  the rays should reach the palace (the shelf is still a safe before a fight, just
-  not during one). Also: no word to carry when all the named creatures sit in one
+  chaff as readily as a 358) or let the pay scale. Decided (owner, 2026-11-01): the
+  palace is unreachable by creature magic (rays, the death share) for now; a new
+  mechanism may reach it later. The shelf is a safe before a fight, not during one. Also: no word to carry when all the named creatures sit in one
   room (the word needs two rooms); a bare `attack` after a kill engages the next
   unnamed creature silently (say "a new fight" in the reply); `attack ragpicker` vs a
   named Pell; wants read as keyword pairs ("a story about door and left"); engrossers
