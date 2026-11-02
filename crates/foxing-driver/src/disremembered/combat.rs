@@ -245,6 +245,8 @@ const ATTACK_PER_ROOT_LEVEL: f64 = 1.0;
 /// newcomer may zombie-rush a censor once), one holding three hundred loses a quarter,
 /// a thousand a third, and the share tends to half. It was a coin flip for one chunk
 /// at any level, and death cost a 2,000-XP delver nothing it noticed.
+/// A kill pays what the creature held, at most the delver's level plus this.
+pub const KILL_PAY_OVER_LEVEL: f64 = 60.0;
 pub const DEATH_SHARE_MAX: f64 = 0.5;
 pub const DEATH_SCALE: f64 = 300.0;
 /// Something was lost to a death: `{citizen, lost: [{chunk, source, value}], share}`.
@@ -1334,7 +1336,17 @@ pub fn register(world: &mut World, curves: Curves) {
                     let name = super::craft::spend(w, &ctx.actor, charm)?;
                     charm_line = format!(" The {} you carried is spent, and the memory is the more vivid for it.", name.trim_start_matches("a "));
                 }
-                let xp = plain_num(w, creature, CREATURE, "xp").unwrap_or(0.0);
+                // A kill pays what the creature held, at most the delver's level plus
+                // sixty (the owner's call, 2026-11-02): a 169-XP name's first lamprey
+                // doubled it and the climb to 2,200 was seven fights.
+                let held = plain_num(w, creature, CREATURE, "xp").unwrap_or(0.0);
+                let cap = super::memory::level(w, f.window) + KILL_PAY_OVER_LEVEL;
+                let xp = held.min(cap).max(0.0);
+                let capped_line = if held > cap + 0.5 {
+                    format!(" (it held {held:.0}; a kill pays at most your level plus {KILL_PAY_OVER_LEVEL:.0})")
+                } else {
+                    String::new()
+                };
                 // What it leaves behind, one time in three.
                 let left = super::craft::leave_behind(w, &curves, room, creature, &cname)?;
                 // The dying throes of a creature of the Stacks: its trick, once more.
@@ -1345,7 +1357,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 end_fight(w, f.citizen).map_err(internal)?;
                 let chunk = super::memory::earn_chunk(w, &ctx.actor, f.window, &cname, xp, vividity, &curves)?;
                 lines.push(format!(
-                    "The {cname} comes apart. You remember it: chunk-{} worth {xp:.0} XP, vividity {:.2}{}.{charm_line}{}{}",
+                    "The {cname} comes apart. You remember it: chunk-{} worth {xp:.0} XP{capped_line}, vividity {:.2}{}.{charm_line}{}{}",
                     chunk.0,
                     vividity,
                     if vividity > 0.6 { " (you were near death for it; this one will last)" } else { "" },

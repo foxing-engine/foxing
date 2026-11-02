@@ -40,6 +40,24 @@ pub const KEYS: &[&str] = &[
 ];
 
 /// What each kind does when its strike lands.
+/// How long a chunk entered into the minutes stays there before `reminisce` has it back.
+pub const MINUTED_MS: i64 = 5 * 60 * 1000;
+
+/// How much longer `chunk` is held in the minutes, if an engrosser entered it within
+/// [`MINUTED_MS`]; None when it is free to reminisce.
+pub fn minuted_for(world: &World, chunk: EntityId) -> Option<i64> {
+    let now = world.now();
+    world
+        .recent_events(3000)
+        .iter()
+        .rev()
+        .find(|e| {
+            e.kind == TRICK && e.payload["trick"] == "entered" && e.payload["chunk"] == chunk.0
+        })
+        .map(|e| MINUTED_MS - now.since(e.at).0)
+        .filter(|left| *left > 0)
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Trick {
     /// Venom: damage on a clock after the bite.

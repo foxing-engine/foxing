@@ -17,35 +17,29 @@ done, not struck through. Cleaned 2026-11-02 (the file had become a diary).
 
 ## Decisions wanted (a sentence each)
 
-- **Pay in the Stacks.** Each Stacks kill pays its full worth, as much as everything the
-  delver holds, so the climb from 169 XP to 2,200 was seven fights in twenty-five
-  minutes (Wimblethrush). Options: a kill pays at most the delver's level plus sixty; pay
-  scaled by level/worth clamped to a quarter; creature hp scaled to the delver; max hp
-  that grows with level (30 + √level). Standing calls already made: the ray finds the
-  largest memory on the death curve, pay unchanged; the palace is unreachable by
-  creature magic for now; the shelf is a safe before a fight, not during one.
-- **A floor under a name.** With nobody feeding them the ground floor fell to one named
-  creature in five hours (Muddlecrumb). The named confide now and a founder comes when
-  none is left; still open whether a name, once given, should hold at a lower level
-  (twenty?) and only come apart in a fight, or fade slower than chunks.
-- **What "regular" should cost.** Standing before the Clocktower and the Conclave is
-  twenty lines a day, which a script has for free (Marmalade): stories or errands done,
-  or an age, instead; and a decay-compensation term if the flow band hunts.
-- **The ring.** A ring of fresh passing names is held to pay-by-halves and the
-  `(passing)` tax; a creature-side cap (three stories an hour from anyone) stays in
-  reserve if that is not enough.
-- **The engrosser's shelving** is undone by a free `reminisce` (mild by design; a fee or
-  a minute's delay would give it teeth).
-- **A death between gate messages** lands at the top of the next reply and the rest of
-  the message runs from the Threshold into the wrong rooms: refuse the rest with "You
-  woke at the Threshold; read the room first"?
+Decided 2026-11-02 13:54 PT: a kill pays at most the delver's level plus sixty
+(shipped); the floor under a name is deferred ("less of an issue when the map is
+bigger"); the creature-side story cap, three an hour from anyone, is approved
+(shipped); a chunk an engrosser enters into the minutes stays there five minutes
+before `reminisce` has it back (shipped); the death-between-messages refusal is
+deferred; the Conclave's refusals stand (no petition aimed at a name is now refused
+in words; the other two hold by construction). Still open:
+
+- **What "regular" should cost.** "Regular" is the standing a name has before the
+  Clocktower and the Conclave (its lines count toward the hour's median wage, and the
+  Architect's petition design gave regulars' petitions the table). Today it is twenty
+  gate lines in a day, which a polling script has for free: three of them once set the
+  median wage to zero. The question is whether standing should cost something a script
+  will not do (a story told, an errand done, an age in days) instead of a line count.
 - **The framing** ("the time the world remembers you", "everything you earn here will
   fade") reads as persuasion to one cautious reader (Night F). The lines are the game;
   your call whether a plain line on what a name costs and does sits beside the ASK.
-- **The Conclave's refusals**, from the Architect's design, to keep as petitions grow:
-  no petition aimed at a name, no statute that takes back held memory, no standing for
-  sale or seat to win. The rest of that design (regulars' standing, `attend`, a hoard's
-  petition to ease its own tax never counting) is still on the table.
+- **A floor under a name** (deferred until the map is bigger): a name once given holds
+  at a lower level and only comes apart in a fight, or fades slower than chunks.
+- **A death between gate messages** (deferred): refuse the rest of the message with
+  "You woke at the Threshold; read the room first".
+- The rest of the Architect's petition design, still on the table: regulars' standing,
+  `attend`, a hoard's petition to ease its own tax never counting.
 
 ## The play page
 

@@ -449,6 +449,15 @@ pub fn register(world: &mut World, curves: Curves) {
                 ));
             }
             let id = resolve_chunk(w, ctx, args.str("chunk").unwrap_or(""), &[f.palace])?;
+            // A chunk an engrosser entered into the minutes stays there a while: the
+            // shelving was undone by a free reminisce (the owner's call: a short delay).
+            if let Some(left) = super::stacks::minuted_for(w, id) {
+                return Err(CommandError::precondition(format!(
+                    "chunk-{} is in the Conclave's minutes; the engrosser's hand is still on the page for {}. Reminisce it after.",
+                    id.0,
+                    super::combat::human(left)
+                )));
+            }
             let vividity = plain_num(w, id, CHUNK, "vividity").unwrap_or(0.0);
             let actor = Actor::Citizen(ctx.actor.clone());
             w.record(

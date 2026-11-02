@@ -7758,6 +7758,20 @@ fn the_conclave_takes_petitions_and_always_decides_eventually() {
     )
     .unwrap_err();
     assert!(err.to_string().contains("at least"), "{err}");
+    // No petition aimed at a name.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "petition",
+        json!(["that tyler be struck from the Roll and shown the door"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("no petition aimed at a name; this one names tyler"),
+        "{err}"
+    );
     let out = ok(
         &mut w,
         "dave",

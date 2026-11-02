@@ -30,6 +30,24 @@ const MAX_STORY_CHARS: usize = 1200;
 /// One story per teller per creature in this long.
 pub const STORY_COOLDOWN_MS: i64 = 60 * 60 * 1000;
 
+/// How many stories a creature turns over in an hour, from anyone: the creature-side
+/// cap on a ring of fresh names, each on its own cooldown (approved 2026-11-02).
+pub const STORIES_AN_HOUR: usize = 3;
+
+/// How many stories `creature` has heard in the hour, from anyone.
+pub fn heard_this_hour(world: &World, creature: EntityId) -> usize {
+    let now = world.now();
+    world
+        .recent_events(2000)
+        .iter()
+        .filter(|e| {
+            e.kind == STORY
+                && e.payload["creature"] == creature.0
+                && now.since(e.at).0 < STORY_COOLDOWN_MS
+        })
+        .count()
+}
+
 /// Whether `actor` told `creature` a story within the hour: the cooldown.
 pub fn told_this_hour(world: &World, actor: &str, creature: EntityId) -> bool {
     let now = world.now();
@@ -184,6 +202,11 @@ pub fn register(world: &mut World, curves: Curves) {
             if told_this_hour(w, &ctx.actor, creature) {
                 return Err(CommandError::precondition(format!(
                     "{name} is still turning your last story over. One an hour."
+                )));
+            }
+            if heard_this_hour(w, creature) >= STORIES_AN_HOUR {
+                return Err(CommandError::precondition(format!(
+                    "{name} has heard {STORIES_AN_HOUR} stories this hour and is turning them over; it takes no more until the hour turns. `wants` names another."
                 )));
             }
             // The story is said, as itself.

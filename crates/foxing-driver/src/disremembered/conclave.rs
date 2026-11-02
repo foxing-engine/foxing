@@ -584,6 +584,22 @@ fn statute_asked(text: &str) -> Option<(&'static str, bool)> {
     }
 }
 
+/// A citizen's name the text carries as a word, other than the petitioner's own.
+fn names_a_citizen(world: &World, text: &str, me: &str) -> Option<String> {
+    let words: std::collections::HashSet<String> = text
+        .split(|c: char| !c.is_alphanumeric() && c != '_' && c != '-')
+        .map(|w| w.to_lowercase())
+        .filter(|w| w.len() >= 3)
+        .collect();
+    world
+        .store
+        .entities()
+        .filter(|e| e.kind == "citizen")
+        .filter_map(|e| super::plain_str(world, e.id, super::CITIZEN, "name").map(str::to_string))
+        .filter(|n| !n.eq_ignore_ascii_case(me))
+        .find(|n| words.contains(&n.to_lowercase()))
+}
+
 /// The room the machine stands in.
 fn gallery(world: &World) -> Option<EntityId> {
     world
@@ -632,6 +648,15 @@ fn file(
     if n > PETITION_MAX {
         return Err(CommandError::precondition(format!(
             "A petition is at most {PETITION_MAX} characters; this one is {n}. The clerk's hand tires."
+        )));
+    }
+    // The refusals the Architect wrote and the owner kept (2026-11-02): no petition
+    // aimed at a name. (No statute takes back held memory and no standing is for sale
+    // by construction: a petition moves a statute within its bounds or enters a
+    // Resolution, nothing else.)
+    if let Some(named) = names_a_citizen(world, text, &ctx.actor) {
+        return Err(CommandError::precondition(format!(
+            "The Conclave takes no petition aimed at a name; this one names {named}. Ask for a rule, not a ruling on someone."
         )));
     }
     let mut list = petitions(world);
