@@ -12,7 +12,11 @@ const DOORS = { north: [6, 0], south: [6, ROWS - 1], west: [0, 4], east: [COLS -
 const SLOTS = [[4, 3], [8, 3], [3, 5], [9, 5], [5, 2], [7, 6], [2, 3], [10, 3], [4, 6], [8, 2], [6, 6], [6, 2]];
 
 export default function install(m) {
-  const panel = m.panel("Scene");
+  // One column, several rows: the map you remember, the wants board, what remembers
+  // you and the rest sit beside the picture instead of below the fold.
+  const panel = m.panel("Scene", { wide: false });
+  panel.style.gridRow = "span 4";
+  panel.style.maxWidth = (W * SCALE) + "px";
   const row = document.createElement("div");
   row.style.cssText = "display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap";
   const canvas = document.createElement("canvas");
