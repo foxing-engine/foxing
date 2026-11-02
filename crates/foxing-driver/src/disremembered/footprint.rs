@@ -74,7 +74,8 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
         let story = errand.as_ref().and_then(|x| x.story.clone());
         let word = errand.as_ref().and_then(|x| x.word.clone());
         let word_to = errand.as_ref().and_then(|x| x.word_to.clone());
-        let knows_you = mind::regard(world, e.id, actor).is_some();
+        let knows_you =
+            mind::regard(world, e.id, actor).is_some_and(|r| !r.contains("does not know you"));
         let mut want_said: Vec<String> = Vec::new();
         if let Some(s) = &story {
             want_said.push(format!(
