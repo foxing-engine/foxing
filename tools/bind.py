@@ -230,8 +230,12 @@ def ask_model(creds, system, user, temperature=0.4, max_tokens=700):
         data=body,
         headers={"content-type": "application/json", "anthropic-version": "2023-06-01", **creds.headers()},
     )
-    with urllib.request.urlopen(req, timeout=120) as r:
-        d = json.load(r)
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            d = json.load(r)
+    except urllib.error.HTTPError as e:
+        # The API says why in the body; without it a 400 is a riddle.
+        raise RuntimeError(f"HTTP {e.code} from the Messages API: {e.read()[:400].decode(errors='replace')}") from None
     return "".join(c.get("text", "") for c in d.get("content", []) if c.get("type") == "text").strip()
 
 
