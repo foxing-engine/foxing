@@ -386,6 +386,7 @@
   #first button { font: inherit; font-size: 11px; color: var(--dust); background: transparent; border: 1px solid var(--line); border-radius: 3px; padding: 0 6px; cursor: pointer; margin-left: auto; }
   #first button:hover { border-color: var(--dust); }
   #first ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+  #first ol[hidden] { display: none; }
   #first li { color: var(--dim); display: flex; gap: 6px; align-items: baseline; max-width: 100%; }
   #first li .tick { width: 1.2em; flex: none; }
   #first li.done { color: var(--dim); opacity: .55; }
@@ -397,6 +398,12 @@
   #first li code:hover { border-bottom-color: var(--dust); }
   #first li .why { display: none; }
   #first li.now .why { display: inline; }
+  /* The quest card: the one step that is next, large, with a button that does it. */
+  #first .fh-now { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 10px; margin: 2px 0 4px; background: rgba(217,181,122,.06); border: 1px solid var(--line); border-left: 3px solid var(--dust); border-radius: 4px; }
+  #first .fh-now .fh-next { font: 11px/1 var(--mono); color: var(--dust); letter-spacing: .08em; text-transform: uppercase; }
+  #first .fh-now code { font: 14px/1.3 var(--mono); color: var(--ink); cursor: pointer; }
+  #first .fh-now .why { color: var(--dim); flex: 1 1 240px; }
+  #first .fh-now #first-do { margin-left: auto; font-size: 12px; padding: 3px 12px; }
   /* What you can do here: the verbs the room offers, as buttons that fill the prompt. */
   #verbbar { flex: none; display: flex; flex-wrap: wrap; gap: 4px; padding: 0 20px 6px; background: var(--panel); }
   #verbbar:empty { display: none; }
@@ -413,6 +420,20 @@
   #owner button, #owner .cnt { font: inherit; font-size: 11px; color: var(--dust); background: transparent; border: 1px solid var(--line); border-radius: 3px; padding: 1px 7px; cursor: pointer; }
   #owner .cnt { border: 0; color: var(--dim); cursor: default; }
   /* The grave: a fall of yours, over the page, until you wake. One motion, the stones rising. */
+  /* The three cards a newcomer reads once. */
+  #intro-cards { position: fixed; inset: 0; z-index: 26; background: rgba(9,13,20,.94); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; color: var(--ink); }
+  #intro-cards[hidden] { display: none; }
+  #intro-cards .card { max-width: 520px; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 26px 30px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  #intro-cards .card[hidden] { display: none; }
+  #intro-cards .kicker { font: 11px/1 var(--mono); color: var(--dust); letter-spacing: .14em; text-transform: uppercase; margin-bottom: 12px; }
+  #intro-cards h2 { font: 26px/1.2 var(--serif); margin: 0 0 12px; color: var(--ink); }
+  #intro-cards p { font: 15px/1.5 var(--serif); color: var(--dim); margin: 0; }
+  #intro-cards .dots { display: flex; gap: 8px; margin: 18px 0 12px; }
+  #intro-cards .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); display: block; }
+  #intro-cards .dots i.on { background: var(--dust); }
+  #intro-cards .row { display: flex; gap: 10px; }
+  #intro-cards button { font: 14px var(--mono); color: var(--dim); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 8px 18px; cursor: pointer; }
+  #intro-cards button.primary { color: var(--night, #121a25); background: var(--dust); border-color: var(--dust); }
   #grave { position: fixed; inset: 0; z-index: 25; background: rgba(9,13,20,.93); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; color: var(--ink); }
   #grave[hidden] { display: none; }
   #grave .yard { width: min(600px, 92vw); }
@@ -478,6 +499,7 @@
     #lane { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 5px 14px 4px; }
     #lane::-webkit-scrollbar { display: none; }
     #first li.now .why { display: none; }
+    #first .fh-now .why { display: none; }
     #first .fh-head button, #split button, #b-help { min-height: 32px; min-width: 32px; padding: 4px 10px; }
     #split { height: 26px; }
     #atlas-zoom button { width: 32px; height: 32px; font-size: 16px; }
@@ -488,7 +510,7 @@
 <body>
 <header>
   <div class="title"><a href="/play/">Disremembered</a><small>on Foxing, pre-alpha</small></div>
-  <div class="state"><span id="state"><b>Pre-alpha.</b> The world may be reset without notice.</span><span id="settings-wrap"><button type="button" id="b-settings" title="Sound, alerts, the CLEAR behind each line, the mod that draws the scene">settings ▾</button><div id="settings-menu" hidden><label title="A sound and a flash when someone arrives where you are, when words reach you, or when something strikes; a browser notification when this tab is in the background."><input type="checkbox" id="alerts"> alerts</label><label title="The alert's sound">sound <select id="sound" aria-label="Alert sound"><option value="chime">chime</option><option value="knock">knock</option><option value="bell">bell</option><option value="none">silent</option></select></label><label title="Hide the narrator's repeats: the same room text twice, an answer you already heard."><input type="checkbox" id="compact"> compact transcript</label><label title="Every line you type becomes a CLEAR message and goes through the same gate an agent uses. Show the message and the world's reply."><input type="checkbox" id="showclear"> show the CLEAR</label><label title="A mod redraws what you see; the world is the same. See /play/mods/README.md to write one.">scene <select id="modpick" aria-label="UI mod"><option value="">none</option><option value="url:">from a URL…</option></select></label></div></span><span id="panels-wrap"><button type="button" id="b-panels" title="Which panels show. Drag any panel's corner to resize it; sizes are remembered in this browser.">panels ▾</button><div id="panels-menu" hidden></div></span><button type="button" id="b-help" title="One worked line per verb (also: ? on an empty line)">?</button><button type="button" id="b-pass" title="Change your passphrase. Nothing recovers a lost one." hidden>passphrase</button><button type="button" id="b-save" title="Save this transcript as a text file" hidden>save</button><button type="button" id="b-leave" title="Leave: the room disremembers you now, and this tab forgets your passphrase" hidden>leave</button></div>
+  <div class="state"><span id="state"><b>Pre-alpha.</b> The world may be reset without notice.</span><span id="settings-wrap"><button type="button" id="b-settings" title="Sound, alerts, the CLEAR behind each line, the mod that draws the scene">settings ▾</button><div id="settings-menu" hidden><label title="A sound and a flash when someone arrives where you are, when words reach you, or when something strikes; a browser notification when this tab is in the background."><input type="checkbox" id="alerts"> alerts</label><label title="The alert's sound">sound <select id="sound" aria-label="Alert sound"><option value="chime">chime</option><option value="knock">knock</option><option value="bell">bell</option><option value="none">silent</option></select></label><label title="Hide the narrator's repeats: the same room text twice, an answer you already heard."><input type="checkbox" id="compact"> compact transcript</label><label title="Every line you type becomes a CLEAR message and goes through the same gate an agent uses. Show the message and the world's reply."><input type="checkbox" id="showclear"> show the CLEAR</label><label title="A mod redraws what you see; the world is the same. See /play/mods/README.md to write one.">scene <select id="modpick" aria-label="UI mod"><option value="">plain terminal (no picture)</option><option value="url:">from a URL…</option></select></label></div></span><span id="panels-wrap"><button type="button" id="b-panels" title="Which panels show. Drag any panel's corner to resize it; sizes are remembered in this browser.">panels ▾</button><div id="panels-menu" hidden></div></span><button type="button" id="b-help" title="One worked line per verb (also: ? on an empty line)">?</button><button type="button" id="b-pass" title="Change your passphrase. Nothing recovers a lost one." hidden>passphrase</button><button type="button" id="b-save" title="Save this transcript as a text file" hidden>save</button><button type="button" id="b-leave" title="Leave: the room disremembers you now, and this tab forgets your passphrase" hidden>leave</button></div>
 </header>
 <div id="main">
   <aside id="scene" aria-label="The scene">
@@ -544,6 +566,25 @@
       <div id="lately"></div>
     </section>
   </aside>
+  <div id="intro-cards" hidden role="dialog" aria-label="Welcome">
+    <div class="card" data-card="0">
+      <div class="kicker">Disremembered</div>
+      <h2>A world where everything you earn fades.</h2>
+      <p>Memories are your level. Fights you nearly lost are remembered longest. What you dig, feed, make and write stays after you go.</p>
+    </div>
+    <div class="card" data-card="1" hidden>
+      <div class="kicker">How to play</div>
+      <h2>Click things in the picture.</h2>
+      <p>A door walks you through it. A creature can be fought, fed a memory, told a story. The Docent answers questions. If you would rather type, every verb works at the prompt below.</p>
+    </div>
+    <div class="card" data-card="2" hidden>
+      <div class="kicker">Your name</div>
+      <h2>Pick a name; it is yours for as long as you use it.</h2>
+      <p>A new name asks for a passphrase and keeps it in this browser. Thirty days of silence and the world forgets the name. Nothing else about you is kept.</p>
+    </div>
+    <div class="dots"><i class="on"></i><i></i><i></i></div>
+    <div class="row"><button type="button" id="intro-skip">skip</button><button type="button" id="intro-next" class="primary">next</button></div>
+  </div>
   <div id="grave" hidden role="dialog" aria-label="You went down">
     <div class="yard"><svg id="stones" viewBox="0 0 600 150" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Your falls tonight"></svg></div>
     <div class="epitaph" id="grave-epitaph"></div>
@@ -614,8 +655,9 @@
       </div>
     </section>
     <section id="first" hidden aria-label="Your first hours">
-      <div class="fh-head"><span class="fh-title">Your first hours</span><span class="fh-count" id="first-count"></span><button type="button" id="first-hide" title="Hide this. It comes back with ? on an empty line.">hide</button></div>
-      <ol id="first-steps"></ol>
+      <div class="fh-head"><span class="fh-title">Your first hours</span><span class="fh-count" id="first-count"></span><button type="button" id="first-all" title="Every step of the first hours" aria-expanded="false">all steps</button><button type="button" id="first-hide" title="Hide this. It comes back with ? on an empty line.">hide</button></div>
+      <div class="fh-now" id="first-now"><span class="fh-next">Next</span><code id="first-code"></code><span class="why" id="first-why"></span><button type="button" id="first-do" class="way">do it</button></div>
+      <ol id="first-steps" hidden></ol>
     </section>
     <div id="log" role="log" aria-live="polite" aria-relevant="additions"></div>
     <div id="hint"></div>
@@ -730,6 +772,8 @@
     // The world's prose and the narrator's lines are marked; the rest is plain.
     if (cls === "" || cls === "tell") el.append(mark(text)); else el.textContent = text;
     log.appendChild(el);
+    // A mod may listen for what is printed (the scene puts speech in bubbles).
+    if (typeof emit === "function") emit("line", text, cls);
     age();
     log.scrollTop = log.scrollHeight;
     return el;
@@ -1710,7 +1754,26 @@
       const n = STEPS.filter(s => state.done[s.id]).length;
       $("first-count").textContent = n + " of " + STEPS.length;
       swap($("first-steps"), ol);
+      // The card: the step that is next, and a button that does it (a whole line runs;
+      // a line that wants words goes to the prompt).
+      if (current) {
+        const line = fill(current);
+        $("first-code").textContent = line;
+        $("first-why").textContent = current.why;
+        const whole = !/[<?"]/.test(line);
+        $("first-do").textContent = whole ? "do it" : "start it";
+        $("first-now").dataset.line = line;
+        $("first-now").dataset.whole = whole ? "1" : "0";
+      }
     }
+    function doNow() {
+      const box = $("first-now"); const line = box.dataset.line || ""; if (!line) return;
+      if (box.dataset.whole === "1") { const [v, ...rest] = line.split(/\s+/); print(line, "you"); run(v, rest); }
+      else prefill(line.replace(/<[^>]*>/g, "").replace(/\?/g, "").replace(/\s+"$/, ' "').replace(/\s{2,}/g, " "));
+    }
+    $("first-do").addEventListener("click", doNow);
+    $("first-code").addEventListener("click", doNow);
+    $("first-all").addEventListener("click", () => { const ol = $("first-steps"); ol.hidden = !ol.hidden; $("first-all").setAttribute("aria-expanded", ol.hidden ? "false" : "true"); $("first-all").textContent = ol.hidden ? "all steps" : "fewer"; });
     function tick(id) { if (!state.done[id]) { state.done[id] = Date.now(); save(); render(); if (allDone()) print("That is the loop: fight, remember, spend, and what you spent stays when you go. The rest of the quickstart is ? on an empty line.", "sys"); } }
     function onResult(command, args, body) {
       if (!body || !body.ok) return;
@@ -2758,7 +2821,7 @@
       activeMod = { spec, undo };
       rememberMod(spec);
       if (activeModAnnounce) print("Scene: " + spec + ".", "sys");
-    } catch (e) { print("The mod did not load: " + (e && e.message || e), "err"); rememberMod(""); }
+    } catch (e) { print("The mod did not load: " + (e && e.message || e), "err"); console.error("mod", e); }
     syncPick();
   }
   function syncPick() {
@@ -2799,6 +2862,20 @@
     const how = document.createElement("span"); how.className = "how"; how.textContent = "Type a name to begin. A new name becomes yours when you choose its passphrase.";
     intro.append(t, "A text world where everything you earn fades. Your level is the sum of what has not faded; the fights you almost lost last longest. What you dig, feed, make and write stays after you go.", how);
   }
+  // The three cards, once: a newcomer with no saved name reads them before the prompt.
+  (function introCards() {
+    const box = $("intro-cards"); if (!box) return;
+    let seen = false; try { seen = !!localStorage.getItem("disremembered.intro") || !!localStorage.getItem("disremembered.name"); } catch (e) {}
+    if (seen) return;
+    let at = 0;
+    const cards = box.querySelectorAll(".card"), dots = box.querySelectorAll(".dots i");
+    const show = () => { cards.forEach((c, i) => { c.hidden = i !== at; }); dots.forEach((d, i) => d.classList.toggle("on", i === at)); $("intro-next").textContent = at === cards.length - 1 ? "begin" : "next"; };
+    const done = () => { box.hidden = true; try { localStorage.setItem("disremembered.intro", "1"); } catch (e) {} input.focus(); };
+    $("intro-next").addEventListener("click", () => { if (at < cards.length - 1) { at++; show(); } else done(); });
+    $("intro-skip").addEventListener("click", done);
+    box.addEventListener("keydown", (e) => { if (e.key === "Escape") done(); });
+    show(); box.hidden = false; $("intro-next").focus();
+  })();
   let savedName = null, savedPass = null;
   try { savedName = localStorage.getItem("disremembered.name"); savedPass = sessionStorage.getItem("disremembered.pass"); } catch (e) {}
   if (savedName && savedPass) {
