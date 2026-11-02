@@ -10,6 +10,8 @@ on:
       # The game server's analytics and deploy scripts ride along in the release.
       - "site/analytics/**"
       - "site/deploy/**"
+      # So do the operator's tools (tools/trace.py, tools/bind.py).
+      - "tools/**"
       - "Cargo.toml"
       - "Cargo.lock"
       - "rust-toolchain.toml"
