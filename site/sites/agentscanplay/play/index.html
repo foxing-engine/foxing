@@ -1160,7 +1160,14 @@
       const chunks = (subs.window && subs.window.root.relations && subs.window.root.relations.contents) || [];
       const best = chunks.map(n => ({ id: n.id, v: timed(n.components["disremembered.chunk"].value) })).sort((a, b) => b.v - a.v)[0];
       const id = best ? "chunk-" + best.id : "chunk-?";
-      if (step.id === "spend") return "remember " + id + " wisp";
+      if (step.id === "spend") {
+        // Whatever stands here, the unnamed first; a wisp if nothing does.
+        const things = (subs.room && subs.room.root && subs.room.root.relations && subs.room.root.relations.contents) || [];
+        const cs = things.filter(n => n.kind === "creature");
+        const pick = cs.find(n => !(n.components["disremembered.mind"] && n.components["disremembered.mind"].name)) || cs[0];
+        const target = pick ? ((pick.components["disremembered.mind"] && pick.components["disremembered.mind"].name) || pick.components["disremembered.creature"].name) : "wisp";
+        return "remember " + id + " " + target;
+      }
       if (step.id === "dig") return "dig nook " + id + ' "';
       if (step.id === "story") return "story " + (named || "?") + ' "';
       return step.line;
@@ -1358,7 +1365,7 @@
     else hint.innerHTML = "<b>" + verb + "</b>: " + words + " word" + (words === 1 ? "" : "s") + "; quotes and the period after them are added for you.";
   });
   // Timed values move between pushes; redraw a few times a second while the scene shows.
-  setInterval(() => { if (actor && (subs.me || subs.window)) draw(); }, 250);
+  setInterval(() => { if (actor && (subs.me || subs.window)) { draw(); firstHours.render(); } }, 250);
 
   // ---- input ----
   function askName() { asking = "name"; input.type = "text"; prompt.textContent = "name:"; input.focus(); }
