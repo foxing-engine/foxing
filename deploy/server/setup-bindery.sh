@@ -25,6 +25,9 @@
 # file and passphrase are kept; the JWK is printed again.
 set -euo pipefail
 ok() { printf '  ok  %s\n' "$*"; }
+# Nothing here fails quietly: a failing line says which it was.
+trap 'echo "  !!  setup-bindery.sh failed at line $LINENO: $BASH_COMMAND" >&2' ERR
+echo "Setting up the Bindery's nightly run."
 
 ENV_DIR=/etc/foxing
 DRIVER_ENV=$ENV_DIR/driver.env
@@ -47,7 +50,7 @@ install -d -m 750 -o root -g "$USER_NAME" "$STATE"
 
 # The signing key: born here, read by the Bindery's user, never printed.
 if [ ! -f "$KEY" ]; then
-  (umask 027; openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$KEY" 2>/dev/null)
+  (umask 027; openssl genpkey -quiet -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$KEY")
   chown root:"$USER_NAME" "$KEY"; chmod 640 "$KEY"
   ok "$KEY minted"
 else
@@ -55,13 +58,15 @@ else
 fi
 # The public half as a JWK: the modulus from openssl, the exponent 65537 (AQAB), and a
 # key id from the modulus's fingerprint, which is what the JWT header carries.
-MODULUS=$(openssl rsa -in "$KEY" -noout -modulus 2>/dev/null | cut -d= -f2)
+MODULUS=$(openssl rsa -in "$KEY" -noout -modulus)
+MODULUS=${MODULUS#Modulus=}
 KID=$(printf '%s' "$MODULUS" | sha256sum | cut -c1-16)
 N=$(printf '%s' "$MODULUS" | python3 -c 'import sys,base64; print(base64.urlsafe_b64encode(bytes.fromhex(sys.stdin.read().strip())).rstrip(b"=").decode())')
 JWK="{\"kty\":\"RSA\",\"kid\":\"$KID\",\"n\":\"$N\",\"e\":\"AQAB\",\"alg\":\"RS256\",\"use\":\"sig\"}"
 
 if [ ! -f "$ENV_FILE" ]; then
-  PASS=$(tr -dc 'a-z0-9' </dev/urandom | head -c 24)
+  # head closing the pipe would make tr exit 141 under pipefail: read a fixed slice instead.
+  PASS=$(head -c 64 /dev/urandom | base64 | tr -dc 'a-z0-9' | cut -c1-24)
   (umask 027; cat > "$ENV_FILE" <<ENV
 # The Bindery's nightly run (tools/bind.py). Written by deploy/server/setup-bindery.sh.
 # No API key lives here: the Bindery signs a JWT with $KEY and trades it for a
