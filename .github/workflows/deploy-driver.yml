@@ -111,6 +111,8 @@ jobs:
           cp -r site/deploy/nginx-snippets stage/deploy/
           cp site/deploy/setup-analytics.sh stage/deploy/
           cp site/analytics/*.py stage/analytics/
+          # The operator's tools ride along (tools/trace.py reads the public record).
+          mkdir -p stage/tools && cp tools/*.py stage/tools/
           # /srv/foxing once migrate-to-foxing.sh has run on the host; /srv/moondial before.
           APP_DIR=$(ssh game 'test -d /srv/foxing && echo /srv/foxing || echo /srv/moondial')
           echo "APP_DIR=$APP_DIR" >> "$GITHUB_ENV"

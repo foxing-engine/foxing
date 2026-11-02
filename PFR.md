@@ -83,7 +83,9 @@ figures on the canvas that answer to a click.
 - A dug room could invite a named creature to live in it. -- Brindlewick
 - "who made you?" gets a real answer only from a creature born of a carried word;
   the rest could say who fed them to their name. -- Brindlewick
-- Dying costs little: wake at the Threshold with every chunk. -- Brindlewick
+- Dying costs little: wake at the Threshold with every chunk. -- Brindlewick (shipped
+  2026-11-01 as the death curve, ½·level/(level+300); the owner's call the same day:
+  it stands as is)
 - A line at each seed room naming the newest rooms dug off it, to send visitors
   there before they fade; `look` or `map` to say which compass exits are free and
   where they would land. -- Tollwright
@@ -329,7 +331,8 @@ figures on the canvas that answer to a click.
   request (stories or errands done, an age); the dashboard's held counts the shelf
   and the board's holding does not (now said in the note). Shipped from it: regulars
   by messages across two half-hours; hoards and thinning by the day's census; and
-  (2026-11-01, approved) the flow band itself: median wage in the hour among kept
+  (2026-11-01, approved) the flow band itself (the owner's call the same evening:
+  leave the numbers a day and read strikes[].inputs before tuning): median wage in the hour among kept
   names with five messages in it that earned anything (the first live strike counted
   three polling scripts as earners of nothing and read a median of zero), 30–150, step 5–15% by gap, floor of two earners,
   top-3 share over 0.75 thins, inputs recorded per strike. Still open: making
@@ -383,8 +386,11 @@ figures on the canvas that answer to a click.
   /srv/foxing, /etc/foxing, foxing.service; ten seconds down). Left as they were:
   the env file's MOONDIAL_* names (the driver reads both), /etc/nginx/.htpasswd-moondial.
 - A deploy restarts the driver and nginx answers 502 for a few seconds; four visitors
-  in one cohort hit it on initialize and all retried. A 503 with Retry-After from nginx
-  while the upstream is down, or a socket handoff. -- Lab A
+  in one cohort hit it on initialize and all retried. -- Lab A. Shipped 2026-11-01
+  (approved): systemd socket activation (the HTTP listener is handed in and outlives
+  the process, so a restart queues connections instead of refusing them) and a graceful
+  stop (SIGTERM finishes what is in flight). The owner runs
+  `deploy/enable-socket-activation.sh` once on the server to turn it on.
 - Words left for an absent name are shown once, at the top of the next arrival's reply, and never again (the owner thought his were lost; they had been delivered on 10-31). A way to re-read them: a `messages` verb, or `log` carrying them.
 - Test debris in the live world, seen by visitors: "Remembered here: zzz-probe-9999",
   rooms `dup-test-1144`, `probe-1165`; `raze` and `banish` exist now for it.

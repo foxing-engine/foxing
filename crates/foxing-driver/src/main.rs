@@ -207,10 +207,11 @@ fn main() {
                 }
             }
         });
+        // The HTTP server ends on its own after SIGTERM or Ctrl-C, once what is in
+        // flight is answered; the text port stops with the process.
         tokio::select! {
-            _ = tokio::signal::ctrl_c() => eprintln!("shutting down"),
             _ = a => eprintln!("tcp listener stopped"),
-            _ = b => eprintln!("http listener stopped"),
+            _ = b => eprintln!("http listener stopped; shutting down"),
         }
     });
 }

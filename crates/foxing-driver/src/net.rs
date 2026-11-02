@@ -1128,16 +1128,68 @@ pub fn router(shared: Shared) -> Router {
         .with_state(shared)
 }
 
+/// Serve HTTP on the socket systemd hands in (socket activation: the listening socket
+/// outlives the process, so a restart queues connections in the kernel instead of
+/// refusing them, and a deploy drops no request), else on `addr`. Stops accepting on
+/// SIGTERM or Ctrl-C and finishes what is in flight: a restart used to cut a gate
+/// message off mid-reply, and three visitors reported the empty body as a gate bug.
 pub async fn serve_http(shared: Shared, addr: String) {
-    let listener = match TcpListener::bind(&addr).await {
-        Ok(l) => l,
-        Err(e) => {
-            eprintln!("http: cannot bind {addr}: {e}");
-            return;
+    let inherited = listenfd::ListenFd::from_env()
+        .take_tcp_listener(0)
+        .ok()
+        .flatten()
+        .and_then(|l| {
+            l.set_nonblocking(true).ok()?;
+            TcpListener::from_std(l).ok()
+        });
+    let listener = match inherited {
+        Some(l) => {
+            eprintln!(
+                "http: listening on the socket systemd handed in ({})",
+                l.local_addr().map(|a| a.to_string()).unwrap_or_default()
+            );
+            l
         }
+        None => match TcpListener::bind(&addr).await {
+            Ok(l) => {
+                eprintln!("http: listening on {addr}");
+                l
+            }
+            Err(e) => {
+                eprintln!("http: cannot bind {addr}: {e}");
+                return;
+            }
+        },
     };
-    eprintln!("http: listening on {addr}");
-    if let Err(e) = axum::serve(listener, router(shared)).await {
+    if let Err(e) = axum::serve(listener, router(shared))
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+    {
         eprintln!("http: {e}");
     }
+}
+
+/// SIGTERM (systemd's stop) or Ctrl-C.
+pub async fn shutdown_signal() {
+    let ctrl_c = tokio::signal::ctrl_c();
+    #[cfg(unix)]
+    {
+        let mut term =
+            match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+                Ok(t) => t,
+                Err(_) => {
+                    let _ = ctrl_c.await;
+                    return;
+                }
+            };
+        tokio::select! {
+            _ = ctrl_c => {},
+            _ = term.recv() => {},
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = ctrl_c.await;
+    }
+    eprintln!("http: stopping; finishing what is in flight");
 }
