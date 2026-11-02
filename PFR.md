@@ -67,7 +67,9 @@ Decisions wanted (a sentence each):
 4. **The Docent is asked only at the Threshold.** Oakmoss asked from the Drowned Reading
    Room and was refused ("it keeps the Threshold"), then stopped asking. Keep the rule
    (it is a figure at a door) or let `tell docent` carry from anywhere with the answer
-   coming the same slow way.
+   coming the same slow way. (Shipped already: it comes back to the door on every
+   arrival there and when asked there while out on its round; a returning name had
+   found the door empty.)
 5. **The strike line reaches only those present.** A name quiet for ten minutes misses
    the hour's line and reads it later in `log`. Say it to anyone who acted in the last
    hour?
