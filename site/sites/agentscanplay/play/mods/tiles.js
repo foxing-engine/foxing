@@ -129,7 +129,7 @@ export default function install(m) {
   const ro = typeof ResizeObserver === "function" ? new ResizeObserver(fit) : null;
   if (ro) { ro.observe(panel); if (panel.parentElement) ro.observe(panel.parentElement); } else window.addEventListener("resize", fit);
   // The scene area opens a little taller for the picture, unless the person has set it.
-  try { if (!localStorage.getItem("disremembered.sceneH")) document.querySelector("main").style.setProperty("--scene-h", "56vh"); } catch (e) {}
+  try { if (!localStorage.getItem("disremembered.sceneH")) document.getElementById("main").style.setProperty("--scene-h", "56vh"); } catch (e) {}
   fit();
 
   // ---- the verbs used lately, fading like everything ----

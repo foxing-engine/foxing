@@ -129,7 +129,7 @@
   }
   /* Panels: each section is one, sized by its own corner handle; the page remembers
      the size, the order and whether it shows (foxing.layout, for a mod or a userscript). */
-  #scene > section { width: var(--w, 300px); height: var(--h, auto); min-width: 170px; min-height: 40px; max-width: 100%; box-sizing: border-box; resize: both; overflow: auto; padding-right: 10px; scrollbar-color: var(--line) transparent; }
+  #scene > section { width: var(--w, 300px); height: var(--h, auto); min-width: 170px; min-height: 40px; max-width: 100%; max-height: calc(var(--scene-h, 47vh) - 26px); box-sizing: border-box; resize: both; overflow: auto; padding-right: 10px; scrollbar-color: var(--line) transparent; }
   #scene > section > h2 { cursor: grab; user-select: none; }
   #scene > section.dragging { opacity: .5; }
   #scene > section.drop-before { box-shadow: -3px 0 0 0 var(--dust); }
@@ -178,7 +178,9 @@
      container was sized by the grid before the drawing had a height, and the panel
      below overlapped the map. */
   #atlas-box { width: var(--atlas-w, 420px); min-width: 160px; max-width: 100%; resize: horizontal; overflow: hidden; padding-bottom: 14px; box-sizing: border-box; }
-  #atlas { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--night); touch-action: none; cursor: grab; user-select: none; }
+  /* No taller than the scene area: a two-floor map once grew the panel past it, and
+     its corner handle (and the wheel, which zooms) were out of reach. */
+  #atlas { display: block; width: 100%; height: auto; max-height: calc(var(--scene-h, 47vh) - 120px); border: 1px solid var(--line); border-radius: 4px; background: var(--night); touch-action: none; cursor: grab; user-select: none; }
   #atlas.panning { cursor: grabbing; }
   #atlas-section:not(:has(#atlas[data-drawn])) { display: none; }
   /* The zoom: a wheel or a pinch over the map, a drag to pan, and three small buttons
