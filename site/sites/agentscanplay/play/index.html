@@ -1639,6 +1639,10 @@
       for (const ex of (room.relations && room.relations.exits) || []) add("\u2192 " + ex.via, "travel " + ex.via, true);
     }
     const rc = room.components["disremembered.room"] || {};
+    // The Conclave's house: the machine at the Gallery, and a page to read in most rooms.
+    const HOUSE = ["The Petitioners' Gallery", "The Robing Room", "The Tally Room", "The Lectern", "The Roll of Hoards", "The Sitting", "The Division Lobby", "The Minute Room", "The Engrossing Room"];
+    if (rc.name === "The Petitioners' Gallery") { add("petition", 'petition "'); add("petitions", "petitions", true); }
+    if (HOUSE.includes(rc.name)) add("read", "read", true);
     if (best && rc.memory != null) add("remember here", "remember chunk-" + best.id);
     // Permits is a map of name to its expiry; the room's owner needs none.
     const permits = rc.permits || {};

@@ -82,15 +82,11 @@ pub fn register(world: &mut World) {
             // The Docent, if it stands here: the question goes on its record and an
             // answer comes to you within the minute, wherever you are.
             if super::docent::is_named(&who) {
-                // Asked at the door while it is out on its round, it comes back for it.
-                if Some(room) == rooms::arrival(w) {
-                    super::docent::come_home(w).map_err(internal)?;
-                }
-                if super::docent::room(w) != Some(room) {
-                    return Err(CommandError::precondition(
-                        "The Docent is not here; it keeps the Threshold, and comes back to it between rounds.",
-                    ));
-                }
+                // Asked from anywhere: at the door it is the figure in front of you;
+                // elsewhere the question goes to the desk and it comes to you with the
+                // page. (It was asked only at the Threshold once, and a visitor three
+                // rooms in stopped asking.)
+                let here_with_it = super::docent::room(w) == Some(room);
                 let (line, id) = super::docent::ask(w, &ctx.actor, room, &text)?;
                 if id == 0 {
                     return Ok(Outcome::new(
@@ -98,13 +94,20 @@ pub fn register(world: &mut World) {
                         json!({"to": "the Docent", "text": text, "asked": Value::Null, "closed": true}),
                     ));
                 }
-                for other in others_here(w, room, &ctx.actor) {
-                    narrate(w, &other, format!("{} asks the Docent something; it nods.", ctx.actor));
+                if here_with_it {
+                    for other in others_here(w, room, &ctx.actor) {
+                        narrate(w, &other, format!("{} asks the Docent something; it nods.", ctx.actor));
+                    }
                 }
                 let nth = super::docent::nth_tonight(w, &ctx.actor);
+                let said = if here_with_it {
+                    format!("You ask the Docent, \"{text}\" The Docent: \"{line}\" (It finds you within a few minutes, wherever you are, and names the question; {nth}.)")
+                } else {
+                    format!("You ask after the Docent, \"{text}\" The question goes to the desk at the Threshold; the Docent comes to you with the page within a few minutes, wherever you are, and names the question ({nth}).")
+                };
                 return Ok(Outcome::new(
-                    format!("You ask the Docent, \"{text}\" The Docent: \"{line}\" (It finds you within a few minutes, wherever you are, and names the question; {nth}.)"),
-                    json!({"to": "the Docent", "text": text, "asked": id}),
+                    said,
+                    json!({"to": "the Docent", "text": text, "asked": id, "here": here_with_it}),
                 ));
             }
             // A creature here?
@@ -194,7 +197,7 @@ pub fn register(world: &mut World) {
     world.on_arrival(Box::new(|w: &mut World, actor: &str| deliver(w, actor)));
 }
 
-fn others_here(world: &World, room: EntityId, me: &str) -> Vec<String> {
+pub(crate) fn others_here(world: &World, room: EntityId, me: &str) -> Vec<String> {
     world
         .store
         .children(room)

@@ -1330,6 +1330,12 @@ pub fn register(world: &mut World, curves: Curves) {
                     None => String::new(),
                 }
             };
+            // In the Conclave's house, the Book, the Minutes, the slate, the tally: the
+            // house's own pages come first (eleven rooms of books once read "Nothing
+            // here has writing on it").
+            if let Some(out) = super::conclave::read(w, here, &arg) {
+                return Ok(out);
+            }
             if arg.is_empty() {
                 let mut names: Vec<String> = fixtures_in(w, here)
                     .iter()

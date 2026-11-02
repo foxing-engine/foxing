@@ -153,13 +153,8 @@ pub fn ensure(world: &mut World) -> Result<(), String> {
         )
         .map_err(|e| e.to_string())?;
     let mut fields = BTreeMap::new();
-    fields.insert("name".into(), Field::Plain(json!("the Docent")));
-    fields.insert(
-        "line".into(),
-        Field::Plain(json!(
-            "A stooped figure in a librarian's coat, keys at the belt, who tidies what is left lying and answers what is asked (tell docent \"…\")."
-        )),
-    );
+    fields.insert("name".into(), Field::Plain(json!(NAME)));
+    fields.insert("line".into(), Field::Plain(json!(LINE)));
     fields.insert("greeted".into(), Field::Plain(json!({})));
     fields.insert("asked".into(), Field::Plain(json!([])));
     fields.insert("answered".into(), Field::Plain(json!(0)));
@@ -194,6 +189,15 @@ pub fn ensure(world: &mut World) -> Result<(), String> {
     Ok(())
 }
 
+/// The Docent's own name. It was the library's night reader before the water came,
+/// and it stayed to finish the page.
+pub const NAME: &str = "Hollis Quire";
+/// What `look` says of it.
+pub const LINE: &str = "a stooped figure in a librarian's coat, keys at the belt, the library's night reader who stayed when the water came; it tidies what is left lying and answers what is asked, from anywhere (tell docent \"…\").";
+/// Its story, as the world tells it in one breath: `look` says the first sentence,
+/// the operator's tool and the greeting book are told all of it.
+pub const STORY: &str = "Hollis Quire was the library's night reader, the one who read aloud to the stacks after closing so the books would not forget their own words. When the water came the readers left by the kiln door; Quire stayed to finish the page, and the page is not finished. It keeps the door because the last thing anyone asked of it was to keep the door, tidies because the night reader always did, and answers because a question is the one thing the water never took. Its own name nearly went with the rest: it is kept on a card at the desk, in its own hand, and it reads the card each night before it greets anyone.";
+
 /// Where the Docent stands.
 pub fn room(world: &World) -> Option<EntityId> {
     entity(world).and_then(|d| world.store.entity(d).and_then(|e| e.parent))
@@ -201,8 +205,13 @@ pub fn room(world: &World) -> Option<EntityId> {
 
 /// Whether `arg` names the Docent.
 pub fn is_named(arg: &str) -> bool {
-    let a = arg.trim().to_lowercase();
-    a == "docent" || a == "the docent" || a.starts_with("docent-")
+    let a = arg.trim().trim_matches('"').to_lowercase();
+    a == "docent"
+        || a == "the docent"
+        || a.starts_with("docent-")
+        || a == "hollis"
+        || a == "quire"
+        || a == "hollis quire"
 }
 
 /// One line for `look`, when it stands here.
@@ -214,10 +223,10 @@ pub fn look_line(world: &World, room_id: EntityId) -> Option<String> {
         .and_then(|v| v.as_str().map(str::to_string))
         .unwrap_or_default();
     if super::rooms::arrival(world) == Some(room_id) {
-        Some(format!("The Docent is here: {line}"))
+        Some(format!("The Docent, {NAME}, is here: {line}"))
     } else {
         Some(format!(
-            "The Docent is here, on its round, straightening what it can: {line}"
+            "The Docent, {NAME}, is here, on its round, straightening what it can: {line}"
         ))
     }
 }
@@ -314,6 +323,43 @@ pub fn come_home(world: &mut World) -> Result<(), String> {
             },
         )
         .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// The Docent goes to where `actor` stands, if they are in the world; those in the
+/// room see it arrive.
+pub fn come_to(world: &mut World, actor: &str) -> Result<(), String> {
+    let Some(docent) = entity(world) else {
+        return Ok(());
+    };
+    let Some(f) = super::find_citizen(world, actor) else {
+        return Ok(());
+    };
+    if !super::presence::is_here(world, f.citizen) {
+        return Ok(());
+    }
+    let Some(there) = super::rooms::room_of(world, f.citizen) else {
+        return Ok(());
+    };
+    if room(world) == Some(there) {
+        return Ok(());
+    }
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::EntityMoved {
+                id: docent,
+                parent: Some(there),
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    for other in super::talk::others_here(world, there, actor) {
+        super::combat::narrate(
+            world,
+            &other,
+            format!("The Docent comes in, a page in hand, and finds {actor}."),
+        );
+    }
     Ok(())
 }
 
@@ -661,6 +707,9 @@ fn answer(
     world
         .cancel(JOB_EMPTY, |p| p["id"] == id)
         .map_err(CommandError::precondition)?;
+    // It comes to the asker, wherever they are, and says it there; its round takes it
+    // back to the door in its own time.
+    come_to(world, &to).map_err(CommandError::precondition)?;
     super::combat::narrate(
         world,
         &to,
@@ -1039,6 +1088,7 @@ pub fn report(world: &World) -> Value {
         .collect();
     json!({
         "open": open,
+        "docent": {"name": NAME, "story": STORY},
         "answered": field(world, "answered").unwrap_or(json!(0)),
         "tidied": field(world, "tidied").unwrap_or(json!(0)),
         "round": field(world, "round").unwrap_or(json!(0)),

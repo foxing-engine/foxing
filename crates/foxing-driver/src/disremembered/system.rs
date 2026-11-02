@@ -10,6 +10,16 @@ use serde_json::json;
 
 /// One event as a line a reader can follow: who said what, who came and went, what was
 /// kept and taken; the rest by kind.
+/// A moment as a clock says it, UTC: "18:30".
+pub(crate) fn clock(at: i64) -> String {
+    let secs = at.div_euclid(1000);
+    format!(
+        "{:02}:{:02}",
+        secs.rem_euclid(86_400) / 3600,
+        secs.rem_euclid(3600) / 60
+    )
+}
+
 pub(crate) fn line_for(e: &foxing_log::Event) -> String {
     let p = &e.payload;
     let s = |k: &str| p[k].as_str().unwrap_or("?").to_string();

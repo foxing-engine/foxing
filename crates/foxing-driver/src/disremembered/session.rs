@@ -225,6 +225,14 @@ pub fn messages(world: &World, actor: &str, count: usize) -> Outcome {
             {
                 json!({"at": e.at.0, "from": "the Docent", "text": p["text"], "kind": "docent"})
             }
+            k if k == super::combat::NARRATIVE
+                && p["to"] == actor
+                && p["text"]
+                    .as_str()
+                    .is_some_and(|t| t.starts_with("Upon your petition")) =>
+            {
+                json!({"at": e.at.0, "from": "the Conclave", "text": p["text"], "kind": "conclave"})
+            }
             _ => continue,
         };
         rows.push(row);
@@ -246,7 +254,9 @@ pub fn messages(world: &World, actor: &str, count: usize) -> Outcome {
                         r["from"].as_str().unwrap_or("?"),
                         r["text"].as_str().unwrap_or("")
                     ),
-                    Some("docent") => format!("{when}: {}", r["text"].as_str().unwrap_or("")),
+                    Some("docent") | Some("conclave") => {
+                        format!("{when}: {}", r["text"].as_str().unwrap_or(""))
+                    }
                     _ => format!(
                         "{when}: {} said to you, \"{}\"",
                         r["from"].as_str().unwrap_or("?"),

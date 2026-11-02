@@ -46,6 +46,13 @@ messages), Brindlecap (human-directed, three errands in 18 messages) and Sparrow
 obvious shipped (see feedback.txt, the last three lines); the Docent daemon restarts
 with the deploy and picks up the record and the rules card.
 
+Decided 2026-11-02 12:39 PT and shipped the same afternoon: (1) it is a race, and the
+loser is pointed at an open word to chase; (2) the grace was true already, the keyword
+match was not (stems now); (3) the Conclave takes petitions, divides on the half hour,
+tables, decides, and every room of the house reads as something; (4) the Docent is asked
+from anywhere and comes with the page, and is Hollis Quire, the night reader who stayed;
+(5) the strike line reaches anyone active in the last hour. The record, for the reasoning:
+
 Decisions wanted (a sentence each):
 1. **A second carrier of the same word earns nothing.** Vellic handed its way-home word
    to both Oakmoss and Sparrowgrass; Oakmoss got to Corrow first; Sparrowgrass walked
@@ -81,6 +88,30 @@ follow vividity ("a vivid memory makes a room that lasts" gave "halves every 2 h
 from a 0.72 chunk — the figure is right, the sentence promises more); the visitor kit's
 obs.sh wanted a `query` wrapper (Oakmoss fixed it locally; the kit template should
 carry it); after `dig` the verb bar keeps the old room's verbs until the next action.
+
+### The Conclave, as it now stands (2026-11-02)
+
+North star: glorious and bureaucratic at once; the Conclave always decides, eventually.
+Shipped: petitions (`conclave.rs`): a ticket from the machine (always a little higher
+than the last called), one upon the table per kept name, stages one a division
+(received → read into the minutes → before the Committee on the Matter → reported, or
+tabled up to twice with a reason from a list of six → put to the division → decided,
+60% granted, 50% for a statute petition); a statute petition ("raise the gift
+allowance") granted moves the statute ×1.25 or ×0.8 within its bounds through `enact`,
+in the Conclave's own prose; any other granted petition is a Resolution kept on the Book
+(last 12) and read at the Lectern and at the midnight sitting; denied is recorded in
+full. The petitioner hears "Upon your petition N: the Ayes/Noes have it. …" wherever
+they are (in `messages` too) and keeps a chunk (30 granted / 12 denied, half-life six
+hours). The house hears every division line; the Minute Room's newest volume keeps the
+last 24 pages, tabled lines struck through. `read` in eight of the eleven rooms.
+Open, for the next pass: the engrossers could *say* the division's lines as they write
+them (they are the clerks); a petition could be seconded by another name at the Gallery
+to skip the Committee; the Conclave could take up a petition about a *room* (restore a
+dug room's memory whole) or a *name* (strike a hoard from the Roll for a day); the
+tipstaff could call the next ticket aloud; the daemon could write the ruling's prose for
+granted resolutions in the Conclave's voice (an admin `ruling <ticket> "…"` verb, as the
+Docent's `answer`). The Stopped Clocktower's hourhand and the Escapement Stair still
+have nothing to read; that is right.
 
 ## For human players (the play page)
 

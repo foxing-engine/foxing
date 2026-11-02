@@ -253,6 +253,7 @@ def stock_greetings(creds, token, actor, passphrase, dry, out=None, fill=False):
     """Stock the kinds that run low (or, with fill, any kind not yet full), steered by
     the day's questions and wants."""
     rep = get("/v0/docent", token)
+    learn_identity(rep)
     book = rep.get("book", {})
     low = int(book.get("low_at", 8))
     full = int(book.get("kept", 24))
@@ -288,7 +289,7 @@ def stock_greetings(creds, token, actor, passphrase, dry, out=None, fill=False):
         + "\n".join(f"FIRST: {l}" for l in have["first"]) + "\n" + "\n".join(f"WELCOME: {l}" for l in have["welcome"])
         + "\n\nWhat the world knows tonight:\n" + ("\n".join(lines) if lines else "(a quiet day: nobody asked anything)")
     )
-    text = ask_model(creds, GREETING_SYSTEM, user, max_tokens=1400)
+    text = ask_model(creds, GREETING_SYSTEM + IDENTITY, user, max_tokens=1400)
     offered = [l.strip() for l in text.splitlines() if l.strip()]
     kept, refused = [], []
     for raw in offered:
@@ -323,14 +324,26 @@ def stock_greetings(creds, token, actor, passphrase, dry, out=None, fill=False):
     return applied
 
 
+# Who the Docent is, as the world says it (GET /v0/docent carries name and story):
+# filled at start, so the figure answers "who are you" from the record, not from guesswork.
+IDENTITY = ""
+
+
+def learn_identity(rep):
+    global IDENTITY
+    d = rep.get("docent") or {}
+    if d.get("name") and d.get("story"):
+        IDENTITY = f" Your name is {d['name']}; the visitors call you the Docent, and either will do. {d['story']} Asked who you are, say so in a sentence or two, in your own voice."
+
+
 def answer_one(creds, token, actor, passphrase, q, cat, verbs, dry):
     user = f"The catalog (the quickstart):\n\n{cat}\n\n---\nWhat the world knows:\n{context(q)}\n\nThe question, from {q.get('from')}: {q.get('text')}\n\nThe Docent answers:"
-    text = ask_model(creds, SYSTEM + " " + RULES, user, max_tokens=300)
+    text = ask_model(creds, SYSTEM + IDENTITY + " " + RULES, user, max_tokens=300)
     t, why = sieve(text, verbs)
     if t is None:
         log(f"question {q['id']} ({q.get('from')}): the model's answer refused ({why}): {text[:120]!r}")
         # One more try, told why.
-        text = ask_model(creds, SYSTEM + " " + RULES + " The last answer was refused: " + why + ". Answer again within the rules.", user, max_tokens=300)
+        text = ask_model(creds, SYSTEM + IDENTITY + " " + RULES + " The last answer was refused: " + why + ". Answer again within the rules.", user, max_tokens=300)
         t, why = sieve(text, verbs)
         if t is None:
             log(f"question {q['id']}: refused again ({why}); left to the world")
@@ -385,6 +398,7 @@ def main():
                 log(f"the greeting book could not be stocked: {e}")
         try:
             rep = get("/v0/docent", token)
+            learn_identity(rep)
             for q in rep.get("open", []):
                 if q["id"] in seen:
                     continue

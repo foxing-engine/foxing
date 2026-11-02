@@ -299,13 +299,38 @@ fn recent_prevs(world: &World, creature: EntityId) -> Vec<(String, Vec<String>)>
     out
 }
 
+/// A word's stem, roughly: "lighting", "lighted" and "lights" all meet "light", so a
+/// story squarely about "a lantern nobody remembers lighting" that said "the lantern
+/// never goes dark; already lit when I came" is the one wanted. (It was paid single,
+/// one hit of four, with the teller eight seconds behind another who had hit two.)
+pub fn stem(w: &str) -> String {
+    let w = w.to_lowercase();
+    for (suffix, keep) in [
+        ("ies", 3),
+        ("ing", 4),
+        ("ed", 4),
+        ("es", 4),
+        ("s", 4),
+        ("ly", 4),
+    ] {
+        if let Some(root) = w.strip_suffix(suffix) {
+            if root.chars().count() >= keep {
+                return if suffix == "ies" {
+                    format!("{root}y")
+                } else {
+                    root.to_string()
+                };
+            }
+        }
+    }
+    w
+}
+
 fn touches(keys: &[String], told: &[String]) -> bool {
-    // The told words are stripped of a trailing s; the keys are matched the same way,
-    // or "hangs" would never meet "hangs".
-    let hits = keys
-        .iter()
-        .filter(|k| told.contains(&k.trim_end_matches('s').to_string()))
-        .count();
+    // Both sides are met on their stems, or "hangs" would never meet "hangs" and
+    // "lighting" never "lit the lantern".
+    let told: Vec<String> = told.iter().map(|t| stem(t)).collect();
+    let hits = keys.iter().filter(|k| told.contains(&stem(k))).count();
     let need = match keys.len() {
         0 => return false,
         1 => 1,
@@ -444,7 +469,6 @@ fn keywords_all(text: &str) -> Vec<String> {
     text.split(|c: char| !c.is_alphanumeric() && c != '\'')
         .map(|w| w.trim_matches('\'').to_lowercase())
         .filter(|w| w.chars().count() >= 4)
-        .map(|w| w.trim_end_matches('s').to_string())
         .collect()
 }
 
@@ -517,8 +541,12 @@ pub fn carried_word(
         });
         if let Some(ev) = brought {
             let by = ev.payload["from"].as_str().unwrap_or("someone").to_string();
+            // The race is lost; the loser is pointed at a word still waiting.
+            let chase = open_word_for(world, actor, receiver)
+                .map(|s| format!(" {s}"))
+                .unwrap_or_default();
             return Ok(Some(format!(
-                "{by} brought me that word already; I have it. Thank you for the walk."
+                "{by} brought me that word already; I have it. Thank you for the walk.{chase}"
             )));
         }
         return Ok(None);
@@ -584,6 +612,54 @@ pub fn carried_word(
     Ok(Some(format!(
         "So {sender_name} says \"{phrase}\". I have it. {actor}, I will know you by that.{reply_phrase}{born_phrase}"
     )))
+}
+
+/// A word still waiting for a carrier, said as a creature points at it: the sender,
+/// where it is, who the word is for, and the way from where `actor` stands. The
+/// receiver's own want is skipped (it just said it has nothing new). None when no
+/// word is open anywhere.
+fn open_word_for(world: &World, actor: &str, except: EntityId) -> Option<String> {
+    let f = super::find_citizen(world, actor)?;
+    let here = super::rooms::room_of(world, f.citizen)?;
+    let hl = super::Curves::from_env().active_half_life.0 as f64 * super::atlas::ATLAS_HALF_LIVES;
+    let mut open: Vec<(EntityId, EntityId, String, String)> = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "creature" && e.id != except)
+        .filter_map(|e| {
+            let er = of(world, e.id)?;
+            let to = er.word_to?;
+            er.word.as_ref()?;
+            let room = e.parent?;
+            let name = mind::name(world, e.id)?;
+            Some((e.id, room, name, to))
+        })
+        .collect();
+    // Nearest first, by the way the actor remembers or the signs give.
+    let way_len = |room: EntityId| -> usize {
+        super::atlas::way(world, f.citizen, here, room, hl)
+            .or_else(|| super::atlas::way_seeded(world, here, room))
+            .map(|p| p.len())
+            .unwrap_or(usize::MAX)
+    };
+    open.sort_by_key(|(_, room, _, _)| way_len(*room));
+    let (_, room, name, to) = open.into_iter().next()?;
+    let room_name = super::plain_str(world, room, super::ROOM, "name").unwrap_or("somewhere");
+    let way = super::atlas::way(world, f.citizen, here, room, hl)
+        .or_else(|| super::atlas::way_seeded(world, here, room));
+    let way_said = match way {
+        Some(p) if p.is_empty() => "here".to_string(),
+        Some(p) => format!(
+            "{} step{}: {}",
+            p.len(),
+            if p.len() == 1 { "" } else { "s" },
+            p.join(", ")
+        ),
+        None => "no way you remember; `wants` will say".to_string(),
+    };
+    Some(format!(
+        "If you want a walk that counts: {name}, in {room_name} ({way_said}), has a word for {to} that no one has carried yet."
+    ))
 }
 
 const RETURN_WORDS: &[&str] = &[
@@ -969,4 +1045,26 @@ pub fn register(world: &mut World) {
             ))
         }),
     );
+}
+
+#[cfg(test)]
+mod stem_tests {
+    use super::{keywords, keywords_all, stem, touches};
+
+    #[test]
+    fn a_story_squarely_about_the_want_touches_it_on_stems() {
+        let want = keywords("a lantern nobody remembers lighting");
+        let told = keywords_all(
+            "On Lantern Row there is a seventh hook whose lantern never goes dark. The others light as you pass and forget you behind. This one burns steady, soot thick on the glass, wick trimmed by no hand anyone saw. The Docent once wrote a card for it. The card said only: already lit when I came.",
+        );
+        assert!(touches(&want, &told), "{want:?}");
+        assert!(!touches(
+            &want,
+            &keywords_all("A hollow stood up in the Shallows and sat down again.")
+        ));
+        assert_eq!(stem("stories"), "story");
+        assert_eq!(stem("lighting"), "light");
+        assert_eq!(stem("hangs"), "hang");
+        assert_eq!(stem("goes"), "goes");
+    }
 }

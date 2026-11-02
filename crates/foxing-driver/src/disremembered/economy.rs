@@ -664,11 +664,17 @@ pub fn strike(world: &mut World) -> Result<(), String> {
         CLOCKTOWER,
         json!({"said": line, "changes": record, "rates": after, "inputs": inputs(&dash), "dashboard": dash}),
     );
-    // Everyone in the world hears it.
+    // Everyone in the world hears it, and so does anyone who acted in the last hour: a
+    // name that waited quietly for the strike missed the line and read it in `log`.
+    let hour_ago = world.now().0 - 3_600_000;
     let present: Vec<String> = world
         .store
         .entities()
-        .filter(|e| e.kind == "citizen" && super::presence::is_here(world, e.id))
+        .filter(|e| e.kind == "citizen")
+        .filter(|e| {
+            super::presence::is_here(world, e.id)
+                || super::presence::last_seen(world, e.id).is_some_and(|t| t >= hour_ago)
+        })
         .filter_map(|e| e.owner.clone())
         .collect();
     for actor in &present {
