@@ -464,6 +464,30 @@ pub fn went(exit: &str) -> String {
 }
 
 /// The room entity with this key.
+/// Where a kind lives: the seed rooms whose spawn is that kind, by name. Hybrids and
+/// wanderers live nowhere in particular.
+pub fn homes_of(kind: &str) -> Vec<&'static str> {
+    ROOMS
+        .iter()
+        .filter(|r| r.spawn.is_some_and(|(k, _, _)| k == kind))
+        .map(|r| r.name)
+        .collect()
+}
+
+/// Every kind that has a home, with its rooms: `{kind, rooms}`.
+pub fn homes() -> Vec<serde_json::Value> {
+    let mut kinds: Vec<&str> = ROOMS
+        .iter()
+        .filter_map(|r| r.spawn.map(|(k, _, _)| k))
+        .collect();
+    kinds.sort();
+    kinds.dedup();
+    kinds
+        .into_iter()
+        .map(|k| serde_json::json!({"kind": k, "rooms": homes_of(k)}))
+        .collect()
+}
+
 pub fn room_by_key(world: &World, key: &str) -> Option<EntityId> {
     world
         .store
@@ -913,6 +937,21 @@ pub fn describe(
         text.push(' ');
         text.push_str(&d);
     }
+    // A fight on: said, with the rule you are under (a gate visitor read "You are
+    // alone" with a hollow at its throat).
+    if let Some(f) = super::find_citizen(world, actor) {
+        if let Some(foe) = super::combat::engaged_with(world, f.citizen) {
+            text.push_str(&format!(
+                " You are fighting {}; it strikes {}; retreat ends that.",
+                super::mind::display(world, foe),
+                if super::combat::through_the_gate(world, actor) {
+                    "once for every statement you write while you stand here"
+                } else {
+                    "on its own every few seconds while you stand here"
+                }
+            ));
+        }
+    }
     text.push_str(&if others.is_empty() {
         " You are alone.".to_string()
     } else {
@@ -992,7 +1031,11 @@ pub fn register(world: &mut World) {
             if !exits.contains_key(&exit) {
                 if let Some(target) = super::atlas::room_named(w, &exit).filter(|&t| t != room) {
                     let hl = super::Curves::from_env().active_half_life.0 as f64 * super::atlas::ATLAS_HALF_LIVES;
-                    match super::atlas::way(w, f.citizen, room, target, hl) {
+                    // The way as you remember it; for one of the world's own rooms you
+                    // have not walked, the way the signs say (as `where` gives it).
+                    let remembered = super::atlas::way(w, f.citizen, room, target, hl);
+                    let signed = if remembered.is_none() && w.store.entity(target).is_some_and(|e| e.owner.is_none()) { super::atlas::way_seeded(w, room, target) } else { None };
+                    match remembered.or(signed) {
                         Some(path) if !path.is_empty() => {
                             if path.len() > 1 {
                                 onward = Some(format!(

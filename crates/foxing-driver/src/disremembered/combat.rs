@@ -626,10 +626,7 @@ pub fn round(
     if dead {
         let f = super::find_citizen(world, actor).ok_or("citizen vanished")?;
         let d = die(world, actor, &f, Some(creature)).map_err(|e| e.to_string())?;
-        let said = format!(
-            "The {cname} hits you for {taken:.0}. You go down.{}",
-            d.said()
-        );
+        let said = format!("The {cname} {}. You go down.{}", hit_said(taken), d.said());
         narrate(world, actor, said.clone());
         return Ok(Some((true, said)));
     }
@@ -1163,7 +1160,8 @@ pub fn register(world: &mut World, curves: Curves) {
                     w,
                     &actor,
                     format!(
-                        "The {dname} {dambush} It hits you for {taken:.0}. You go down.{}",
+                        "The {dname} {dambush} It {}. You go down.{}",
+                        hit_said(taken),
                         d.said()
                     ),
                 );
@@ -1191,7 +1189,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the closer you came to dying, the longer the memory lasts.")
+        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the closer you came to dying, the longer the memory lasts. While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour.")
             .param("creature", ParamType::Entity, false, "a creature name from look; defaults to the one you are fighting, else an unnamed one here. A named creature is never struck by default."),
         Box::new(move |w: &mut World, ctx, args| {
             let f = me(w, ctx)?;
@@ -1229,7 +1227,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 // With no target: the one you are fighting, else the first creature here
                 // that nobody has named and nobody bore. A named creature is never struck
                 // by default, nor a child: one was felled at the Threshold by "attack".
-                _ => engaged_with(w, f.citizen).filter(|id| here.iter().any(|c| c.0 == *id)).or_else(|| here.iter().find(|c| super::mind::name(w, c.0).is_none() && super::kindle::born_at(w, c.0).is_none()).map(|c| c.0)),
+                _ => engaged_with(w, f.citizen).filter(|id| here.iter().any(|c| c.0 == *id) && !super::mind::shaken(w, *id)).or_else(|| here.iter().find(|c| super::mind::name(w, c.0).is_none() && super::kindle::born_at(w, c.0).is_none() && !super::mind::shaken(w, c.0)).map(|c| c.0)),
             };
             if let Some(c) = target {
                 if let Some(born) = super::kindle::born_at(w, c) {
@@ -1365,7 +1363,7 @@ pub fn register(world: &mut World, curves: Curves) {
 
             // It strikes back.
             let (taken, dead) = creature_strikes(w, creature, f.citizen).map_err(internal)?;
-            lines.push(format!("The {cname} ({} left) {}.", left_said(chp), if dead { format!("hits you for {taken:.0}") } else { hit_said(taken) }));
+            lines.push(format!("The {cname} ({} left) {}.", left_said(chp), hit_said(taken)));
             if dead {
                 let d = die(w, &ctx.actor, &f, Some(creature))?;
                 lines.push(format!("You go down.{}", d.said()));

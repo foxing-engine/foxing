@@ -776,6 +776,12 @@ pub fn report(world: &World) -> Value {
             });
             let level = f.as_ref().map(|f| super::memory::level(world, f.window));
             let wants = super::footprint::wants(world, from, hl).unwrap_or(json!({}));
+            // What a figure giving directions needs: the signed way to every one of
+            // the world's rooms from where the asker stands, the rooms they remember,
+            // and where each kind lives (an answer once said the Midden was on no
+            // route it held, with the Midden one door from the asker).
+            let routes = here.map(|r| super::atlas::routes_from(world, r)).unwrap_or_default();
+            let remembered = f.as_ref().map(|f| super::atlas::known_room_names(world, f.citizen, hl)).unwrap_or_default();
             json!({
                 "id": a["id"],
                 "from": from,
@@ -786,6 +792,9 @@ pub fn report(world: &World) -> Value {
                 "level": level,
                 "wants": wants["wants"],
                 "newest_room": room_slot(world),
+                "routes": routes,
+                "remembered": remembered,
+                "homes": super::rooms::homes(),
             })
         })
         .collect();
@@ -854,6 +863,15 @@ pub fn register(world: &mut World) {
                 return Err(CommandError::precondition("The kind is first or welcome."));
             }
             let have = book(w, &kind);
+            // `greeting "clear" first` empties a kind, for a book written badly.
+            if text.eq_ignore_ascii_case("clear") {
+                let mut all = field(w, "book").filter(|v| v.is_object()).unwrap_or_else(|| json!({}));
+                all[&kind] = json!([]);
+                let mut changes = BTreeMap::new();
+                changes.insert("book".into(), all);
+                write(w, changes).map_err(CommandError::precondition)?;
+                return Ok(Outcome::new(format!("The book's {kind} lines are cleared; the built-in few serve until it is stocked."), json!({"kind": kind, "count": 0})));
+            }
             if let Some(why) = greeting_refusal(&text, &have) {
                 return Err(CommandError::precondition(format!("Not in the book: {why}.")));
             }

@@ -64,9 +64,15 @@ SYSTEM = (
     "want and where, the newest room. Give directions as the exits are named. Name verbs in "
     "backticks exactly as the catalog spells them (`travel`, `look`, `tell`, `story`, `dig`, "
     "`remember`, `where`, `wants`, `mine`, `read`, `help`); promise nothing the catalog "
-    "lacks. If you do not know, say what the room or `help` knows instead, in one sentence. "
-    "Never mention being a model, a program, or anything outside the world; never give a URL. "
-    "Reply with the answer only."
+    "lacks. The world gives you the signed routes from where the asker stands to every one "
+    "of its own rooms, and where each kind of creature lives: when asked where something is, "
+    "give that route as the exits are named (\"east, then south\"), never say no route is "
+    "held, and when asked where a kind lives name its home room, not a named creature of "
+    "that kind (the named are story partners, not prey). `rest` says how you mend; waking "
+    "whole is what a fall does. `observe` is a tool outside the world, not a verb: `look` "
+    "says what a creature has learned. If you do not know, say what the room or `help` "
+    "knows instead, in one sentence. Never mention being a model, a program, or anything "
+    "outside the world; never give a URL. Reply with the answer only."
 )
 
 
@@ -141,6 +147,16 @@ def context(q):
         ))
     if q.get("newest_room"):
         lines.append(q["newest_room"])
+    routes = q.get("routes") or []
+    if routes:
+        lines.append("Signed routes from where the asker stands (the world's own rooms, nearest first): " + "; ".join(
+            f"{r.get('room')}: {', '.join(r.get('way') or [])}" for r in routes[:40]))
+    if q.get("remembered"):
+        lines.append("Rooms the asker remembers walking: " + ", ".join(q["remembered"][:30]) + ".")
+    homes = q.get("homes") or []
+    if homes:
+        lines.append("Where each kind lives (and comes back when felled): " + "; ".join(
+            f"{h.get('kind')}: {', '.join(h.get('rooms') or [])}" for h in homes))
     return "\n".join(lines)
 
 
@@ -148,9 +164,12 @@ GREETING_SYSTEM = (
     "You write the Docent's greetings for Disremembered: a stooped figure in a librarian's "
     "coat who keeps the Threshold of a drowned library where everything a visitor earns "
     "fades. Two kinds. FIRST: said to a name in its first hour, newly arrived; it should "
-    "orient them in one or two sentences (the strip above the prompt walks the first hour; "
-    "`help` is what the Docent keeps by heart; questions go `tell docent \"...\"`) and may "
-    "point at what newcomers ask about most. WELCOME: said to a name the Docent has met, "
+    "orient them in one or two sentences with ONE concrete first move in backticks (`look`, "
+    "`travel east`, `attack wisp`, `chunks`; the strip above the prompt walks the first "
+    "hour; `help` is what the Docent keeps by heart; questions go `tell docent \"...\"`), "
+    "and point at what newcomers ask about most; at least half the FIRST lines carry "
+    "{creature} so the world can name a creature with a want. Never generic comfort "
+    "('take it slowly'): a page number, not a pat. WELCOME: said to a name the Docent has met, "
     "coming back to the door; shorter, dry, warm under the dryness, never gushing. Use the "
     "slots exactly as written: {name} (always, once), {creature} (optional: the world fills "
     "it with a named creature's want and the way, a whole sentence, so put it where a "
@@ -158,8 +177,13 @@ GREETING_SYSTEM = (
     "room, a whole sentence). The voice: dry, exact, a little wry, never cute, never cruel, no "
     "exclamation marks, no emoji, no puns, no real-world references, no capitalized words "
     "except at a sentence start, the slots, and these: The Threshold, Ask, Everything, "
-    "Nothing. 40 to 240 characters each. Reply with the lines only, one per line, each "
-    "line beginning FIRST: or WELCOME: and nothing else."
+    "Nothing. 40 to 240 characters each. Say only what is true of this world: everything "
+    "earned fades; rooms give their exits freely and want nothing; it is the NAMED "
+    "CREATURES that want stories (and pay for them); wisps drift in the Fogbank east of the "
+    "Threshold and are the first fight; `chunks` is what you hold; a chunk fed to a "
+    "creature at sixty gives it a name; `dig` opens a room of your own; the Docent answers "
+    "`tell docent \"...\"`. Nothing else is promised. Reply with the lines only, one per "
+    "line, each line beginning FIRST: or WELCOME: and nothing else."
 )
 ALLOWED_CAPS = set("The Threshold Ask Everything Nothing Stacks Fogbank Midden Shallows Archive Clocktower Conclave Bindery Docent I".split())
 
@@ -199,12 +223,14 @@ def greeting_sieve(t, have, extra_caps=()):
     return t, None
 
 
-def stock_greetings(creds, token, actor, passphrase, dry, out=None):
-    """Stock the kinds that run low, steered by the day's questions and wants."""
+def stock_greetings(creds, token, actor, passphrase, dry, out=None, fill=False):
+    """Stock the kinds that run low (or, with fill, any kind not yet full), steered by
+    the day's questions and wants."""
     rep = get("/v0/docent", token)
     book = rep.get("book", {})
     low = int(book.get("low_at", 8))
-    need = [k for k in ("first", "welcome") if len(book.get(k, [])) < low]
+    full = int(book.get("kept", 24))
+    need = [k for k in ("first", "welcome") if len(book.get(k, [])) < (full if fill else low)]
     if not need:
         log(f"the greeting book is stocked (first {len(book.get('first', []))}, welcome {len(book.get('welcome', []))}); nothing asked")
         return 0
@@ -312,7 +338,7 @@ def main():
     if not a.dry_run and not passphrase:
         sys.exit("BINDERY_PASSPHRASE is not set")
     if a.greetings:
-        stock_greetings(creds, token, actor, passphrase, a.dry_run, a.out)
+        stock_greetings(creds, token, actor, passphrase, a.dry_run, a.out, fill=True)
         return 0
     cat = catalog()
     verbs = verbs_known(token)
@@ -323,9 +349,12 @@ def main():
     last_book = 0.0
     while True:
         if time.time() - last_book > 86_400 and not a.dry_run:
+            first = last_book == 0.0
             last_book = time.time()
             try:
-                stock_greetings(creds, token, actor, passphrase, False, a.out)
+                # At start the book is filled toward full (a release brings a better
+                # pen); after that, topped up when a kind runs low.
+                stock_greetings(creds, token, actor, passphrase, False, a.out, fill=first)
             except Exception as e:  # noqa: BLE001
                 log(f"the greeting book could not be stocked: {e}")
         try:

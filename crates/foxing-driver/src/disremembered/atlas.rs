@@ -542,6 +542,33 @@ pub fn way(
     way_over(world, from, to, Some(&known))
 }
 
+/// The signed way from `here` to every one of the world's own rooms, for a figure
+/// that gives directions: `{room, way}`, nearest first.
+pub fn routes_from(world: &World, here: EntityId) -> Vec<serde_json::Value> {
+    let mut out: Vec<(usize, String, Vec<String>)> = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "room" && e.owner.is_none() && e.id != here)
+        .filter_map(|e| {
+            let name = plain_str(world, e.id, ROOM, "name")?.to_string();
+            let way = way_seeded(world, here, e.id)?;
+            Some((way.len(), name, way))
+        })
+        .collect();
+    out.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+    out.into_iter()
+        .map(|(_, room, way)| json!({"room": room, "way": way}))
+        .collect()
+}
+
+/// The rooms a citizen remembers, by name.
+pub fn known_room_names(world: &World, citizen: EntityId, half_life_ms: f64) -> Vec<String> {
+    known_rooms(world, citizen, half_life_ms)
+        .into_iter()
+        .filter_map(|r| plain_str(world, r, ROOM, "name").map(str::to_string))
+        .collect()
+}
+
 /// The way over the world's own rooms (the seed rooms), remembered or not: what a
 /// sign at the door would say. Dug rooms are not on it; they are found by walking.
 pub fn way_seeded(world: &World, from: EntityId, to: EntityId) -> Option<Vec<String>> {
@@ -650,9 +677,34 @@ pub fn register(world: &mut World, curves: Curves) {
                 (spelled, rooms::room_of(w, cz.citizen))
             } else if let Some(r) = room_named(w, &who) {
                 (plain_str(w, r, ROOM, "name").unwrap_or("?").to_string(), Some(r))
+            } else if !rooms::homes_of(who.trim().trim_start_matches("the ").trim_end_matches('s')).is_empty() || !rooms::homes_of(who.trim().trim_start_matches("the ")).is_empty() {
+                // A kind: where it lives, and the way to the nearest of its rooms.
+                let kind = who.trim().trim_start_matches("the ").to_string();
+                let kind = if rooms::homes_of(&kind).is_empty() { kind.trim_end_matches('s').to_string() } else { kind };
+                let homes = rooms::homes_of(&kind);
+                let mut best: Option<(EntityId, Vec<String>, bool)> = None;
+                for h in &homes {
+                    let Some(r) = room_named(w, h) else { continue };
+                    let remembered = way(w, f.citizen, here, r, hl);
+                    let (p, signed) = match remembered {
+                        Some(p) => (Some(p), false),
+                        None => (way_seeded(w, here, r), true),
+                    };
+                    if let Some(p) = p {
+                        if !best.as_ref().is_some_and(|b| p.len() >= b.1.len()) {
+                            best = Some((r, p, signed));
+                        }
+                    }
+                }
+                let said = match &best {
+                    Some((r, p, signed)) if p.is_empty() => format!("{kind}s live in {}, and come back when felled: here.", plain_str(w, *r, ROOM, "name").unwrap_or("?")),
+                    Some((r, p, signed)) => format!("{kind}s live in {}, and come back when felled; {} {}.", plain_str(w, *r, ROOM, "name").unwrap_or("?"), if *signed { "you have not walked it, but the signs say" } else { "the way from here, as you remember it, is" }, said_way(p)),
+                    None => format!("{kind}s live in {}, and come back when felled.", homes.join(" and ")),
+                };
+                return Ok(Outcome::new(said, json!({"who": kind, "homes": homes, "room": best.as_ref().map(|b| b.0 .0), "way": best.as_ref().map(|b| b.1.clone()), "signed": best.as_ref().is_some_and(|b| b.2)})));
             } else {
                 return Err(CommandError::precondition(format!(
-                    "Nothing called {who} that you could go to: a creature's given name, a citizen here now, or a room's name."
+                    "Nothing called {who} that you could go to: a creature's given name, a citizen here now, a room's name, or a kind of creature (where ragpicker)."
                 )));
             };
             let Some(room) = room else {
