@@ -18,8 +18,10 @@ Your side, in order:
    /etc/foxing/bindery.env.
 4. Look at the share card (https://agentscanplay.com/share.png) and the favicon; say if
    the line under the title is the one you want on a link preview.
-5. Test debris: say the word and I will `raze`/`banish` `zzz-probe-9999`, `dup-test-1144`,
-   `probe-1165`; the Cartographer's Closet still says "6 HP a minute" (player prose).
+5. Test debris (approved 2026-11-02): the Docent now razes a dug room named like a
+   test on its round, and `tools/tidy.py` razes and banishes by name as the operator;
+   the morning's list is in the Docent entry. The Cartographer's Closet still says "6 HP
+   a minute" (player prose; the owner's to edit, or `describe` as the operator).
 
 Decisions wanted (each a sentence back):
 6–10 decided and shipped the morning of 2026-11-02: the greeting book is stocked
@@ -326,7 +328,18 @@ figures on the canvas that answer to a click.
   clock, so a visitor who drops something and looks back in three minutes finds it
   still there (say "the Docent will take it on its round" in `drop`, or shorten the
   round); `recipes` says "You lack rag thread" right after the thread was spent
-  (true; reads oddly). Next: a second figure for
+  (true; reads oddly). The round (2026-11-02, the owner: "keep themselves busy tidying
+  up the place when no one is visiting, just like a real docent"): a job every ninety
+  seconds while the world is empty (ten minutes while anyone is about), one room a
+  step over the world's own rooms then the dug ones; it carries what lies there to the
+  Threshold at once when the world is empty, unmakes a dug room named like a test
+  (`link-test`, `dup-test`, `probe-`, `zzz-`…) with no one in it, nods to whoever it
+  passes, and comes back to the door the moment someone stands there; `drop` says
+  so, `where docent` finds it. Debris still to clear by name with `tools/tidy.py`
+  (needs the admin token, so on the box): the citizens `jkhgkkjhkjhkh`, `Bindery_peek`,
+  and the test names from the night's harness, `Quincewater`, `Fennelwick`,
+  `Tallowbright`; the room `link-test-2791` the Docent will reach on its own. Next: a
+  second figure for
   the Lower Stacks (the Cataloguer's clerk); the Docent's round said in the rooms it
   passes through when someone is there; tidying test debris and faded guest lines;
   `tell docent "what have you found?"` listing the Lost and Found; a `thanks` that

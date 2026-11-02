@@ -638,6 +638,7 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     conclave::ensure(world)?;
     namery::ensure(world)?;
     docent::ensure(world)?;
+    docent::ensure_round(world)?;
     board::ensure(world)?;
     mind::ensure_wander(world)
 }

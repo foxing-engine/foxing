@@ -1118,7 +1118,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 &ctx.actor,
             );
             Ok(Outcome::new(
-                format!("You set {name} down here."),
+                format!("You set {name} down here. Left lying, the Docent carries it to the Threshold on its round."),
                 json!({"item": item.0, "name": name, "room": room.0}),
             ))
         }),

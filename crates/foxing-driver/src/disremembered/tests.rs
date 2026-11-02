@@ -679,7 +679,8 @@ fn the_world_moves_on_its_own() {
     w.fixed_now = Some(t0.plus(Duration::seconds(30)));
     assert_eq!(w.tick(), 0, "respawn is about 60 s");
     w.fixed_now = Some(t0.plus(Duration::seconds(97)));
-    assert_eq!(w.tick(), 1);
+    // The respawn, and the Docent's first round (every ninety seconds).
+    assert_eq!(w.tick(), 2);
     assert!(
         combat::creatures_in(&w, fog).len() >= 2,
         "the fog refilled on its own (one refill in six brings an extra)"
@@ -7564,4 +7565,93 @@ fn only_the_stacks_own_kinds_are_whole_again_when_a_fight_ends() {
     combat::mend(&mut w, lamprey).unwrap();
     let max = super::plain_num(&w, lamprey, CREATURE, "max_hp").unwrap();
     assert_eq!(super::plain_num(&w, lamprey, CREATURE, "hp"), Some(max));
+}
+
+#[test]
+fn the_docent_keeps_busy_on_its_round_when_no_one_is_at_the_door() {
+    use super::docent;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    let threshold = rooms::arrival(&w).unwrap();
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // Someone at the door: it keeps the door.
+    assert_eq!(docent::round_step(&mut w).unwrap(), Vec::<String>::new());
+    assert_eq!(docent::room(&w), Some(threshold));
+    // dave goes east and digs a room named like a test, with a thing dropped in the
+    // Fogbank; then the room disremembers him.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    fight(&mut w, "dave");
+    let chunk = ok(&mut w, "dave", "chunks", json!([])).result["chunks"][0]["id"]
+        .as_u64()
+        .unwrap();
+    let dug = ok(
+        &mut w,
+        "dave",
+        "dig",
+        json!(["nook", format!("chunk-{chunk}"), "Link Test"]),
+    );
+    let debris = EntityId(dug.result["room"].as_u64().unwrap());
+    let dave = find_citizen(&w, "dave").unwrap().citizen;
+    let sat = craft::satchel(&mut w, "dave", dave).unwrap();
+    let ember = craft::make(
+        &mut w,
+        &curves(),
+        Actor::Driver,
+        Some("dave".into()),
+        sat,
+        "a wisp ember",
+        "material",
+        "material",
+        None,
+        &[],
+        0,
+        false,
+    )
+    .unwrap();
+    ok(&mut w, "dave", "drop", json!(["wisp ember"]));
+    assert_eq!(w.store.entity(ember).unwrap().parent, Some(fog));
+    // dave is still about: the Docent walks but carries nothing from under him.
+    let did = docent::round_step(&mut w).unwrap();
+    assert!(did.is_empty(), "{did:?}");
+    assert_ne!(docent::room(&w), Some(threshold));
+    w.fixed_now = Some(
+        w.now()
+            .plus(crate::world::ABSENCE)
+            .plus(Duration::seconds(5)),
+    );
+    w.tick();
+    assert!(!presence::is_here(
+        &w,
+        find_citizen(&w, "dave").unwrap().citizen
+    ));
+    // Now the world is empty: round by round it carries the ember to the Threshold
+    // and unmakes the test room when it reaches it.
+    let mut carried = false;
+    let mut razed = false;
+    for _ in 0..200 {
+        let did = docent::round_step(&mut w).unwrap();
+        if did.iter().any(|d| d.starts_with("carried a wisp ember")) {
+            carried = true;
+        }
+        if did.iter().any(|d| d == "razed Link Test") {
+            razed = true;
+        }
+        if carried && razed {
+            break;
+        }
+    }
+    assert!(carried, "the ember was carried");
+    assert!(razed, "the test room was razed");
+    assert_eq!(w.store.entity(ember).unwrap().parent, Some(threshold));
+    assert!(w.store.entity(debris).is_none());
+    // `where docent` finds it on its round; a visitor at the door brings it back.
+    let out = ok(&mut w, "dave", "where", json!(["docent"]));
+    assert!(out.summary.starts_with("The Docent is "), "{}", out.summary);
+    admin(&mut w, "dave", "bring", json!(["dave", "threshold"]));
+    let did = docent::round_step(&mut w).unwrap();
+    assert!(
+        did.iter().any(|d| d == "came back to the door") || docent::room(&w) == Some(threshold),
+        "{did:?}"
+    );
 }

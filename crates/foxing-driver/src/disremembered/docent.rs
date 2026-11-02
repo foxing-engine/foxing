@@ -213,7 +213,13 @@ pub fn look_line(world: &World, room_id: EntityId) -> Option<String> {
     let line = field(world, "line")
         .and_then(|v| v.as_str().map(str::to_string))
         .unwrap_or_default();
-    Some(format!("The Docent is here: {line}"))
+    if super::rooms::arrival(world) == Some(room_id) {
+        Some(format!("The Docent is here: {line}"))
+    } else {
+        Some(format!(
+            "The Docent is here, on its round, straightening what it can: {line}"
+        ))
+    }
 }
 
 fn atlas_hl() -> f64 {
@@ -731,8 +737,135 @@ pub fn tidy(world: &mut World) -> Result<usize, String> {
     changes.insert("tidied".into(), json!(tidied));
     changes.insert("round".into(), json!(round));
     write(world, changes)?;
-    // Back at the door between rounds (it is where arrivals find it).
-    if room(world) != Some(threshold) {
+    let _ = docent;
+    Ok(carried)
+}
+
+/// The Docent's round, when no one is at the door: every [`ROUND_BUSY_S`] it walks
+/// to the next room of the world (the seed rooms in their order, then the dug ones)
+/// and tidies there; with a visitor at the Threshold it stays by the door and looks
+/// in on the rooms every [`ROUND_QUIET_S`] instead. A real docent keeps busy.
+pub const JOB_ROUND: &str = "disremembered.docent_round";
+pub const ROUND_BUSY_S: i64 = 90;
+pub const ROUND_QUIET_S: i64 = 600;
+/// Rooms whose names say they were a test: razed by the Docent on its round when no
+/// one stands in them (dug rooms only; the world's own are never razed).
+pub const DEBRIS: &[&str] = &[
+    "link-test",
+    "dup-test",
+    "probe-",
+    "zzz-",
+    "test-room",
+    "xyz-",
+];
+
+fn is_debris(name: &str, key: &str) -> bool {
+    let n = name.to_lowercase();
+    let k = key.to_lowercase();
+    DEBRIS
+        .iter()
+        .any(|d| n.starts_with(d) || k.starts_with(d) || n == "test" || n == "link test")
+}
+
+fn anyone_here(world: &World, room_id: EntityId) -> bool {
+    world
+        .store
+        .children(room_id)
+        .any(|c| c.kind == "citizen" && super::presence::is_here(world, c.id))
+}
+
+fn anyone_in_the_world(world: &World) -> bool {
+    world
+        .store
+        .entities()
+        .any(|e| e.kind == "citizen" && super::presence::is_here(world, e.id))
+}
+
+/// The rooms of the round, in order: the world's own as they were laid, then the dug.
+fn route(world: &World) -> Vec<EntityId> {
+    let mut seed: Vec<EntityId> = super::rooms::ROOMS
+        .iter()
+        .filter_map(|r| super::rooms::room_by_key(world, r.key))
+        .collect();
+    let mut dug: Vec<EntityId> = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "room" && e.owner.is_some())
+        .map(|e| e.id)
+        .collect();
+    dug.sort();
+    seed.extend(dug);
+    seed
+}
+
+fn schedule_round(world: &mut World, secs: i64) -> Result<(), String> {
+    let due = world.now().plus(foxing_time::Duration::seconds(secs));
+    world
+        .schedule_once(JOB_ROUND, due, json!({}), |_| true)
+        .map(|_| ())
+}
+
+/// Make sure the round is scheduled (boot).
+pub fn ensure_round(world: &mut World) -> Result<(), String> {
+    schedule_round(world, ROUND_BUSY_S)
+}
+
+/// One step of the round: where the Docent goes and what it does there. Returns
+/// what it did, for the test and the record.
+pub fn round_step(world: &mut World) -> Result<Vec<String>, String> {
+    let Some(docent) = entity(world) else {
+        return Ok(vec![]);
+    };
+    let Some(threshold) = super::rooms::arrival(world) else {
+        return Ok(vec![]);
+    };
+    let mut did: Vec<String> = Vec::new();
+    // Someone at the door: the Docent keeps it.
+    if anyone_here(world, threshold) {
+        if room(world) != Some(threshold) {
+            world
+                .record(
+                    Actor::Driver,
+                    StoreEvent::EntityMoved {
+                        id: docent,
+                        parent: Some(threshold),
+                    },
+                )
+                .map_err(|e| e.to_string())?;
+            did.push("came back to the door".into());
+        }
+        return Ok(did);
+    }
+    let route = route(world);
+    if route.is_empty() {
+        return Ok(did);
+    }
+    let at = room(world)
+        .and_then(|r| route.iter().position(|&x| x == r))
+        .unwrap_or(0);
+    let next = route[(at + 1) % route.len()];
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::EntityMoved {
+                id: docent,
+                parent: Some(next),
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    let name = plain_str(world, next, ROOM, "name")
+        .unwrap_or("a room")
+        .to_string();
+    let key = plain_str(world, next, ROOM, "key")
+        .unwrap_or("")
+        .to_string();
+    let empty_world = !anyone_in_the_world(world);
+    // Test debris: a dug room named like one, with no one in it, is unmade.
+    if next != threshold
+        && world.store.entity(next).is_some_and(|e| e.owner.is_some())
+        && is_debris(&name, &key)
+        && !anyone_here(world, next)
+    {
         world
             .record(
                 Actor::Driver,
@@ -742,8 +875,60 @@ pub fn tidy(world: &mut World) -> Result<usize, String> {
                 },
             )
             .map_err(|e| e.to_string())?;
+        let gone = super::system::raze_room(world, next).map_err(|e| e.to_string())?;
+        let _ = world.note(
+            Actor::Driver,
+            TIDIED,
+            json!({"did": "razed", "room": next.0, "name": name, "key": key, "exits_dropped": gone.1, "creatures": gone.2}),
+        );
+        did.push(format!("razed {name}"));
+        return Ok(did);
     }
-    Ok(carried)
+    // Things left lying here: carried to the Threshold at once when the world is
+    // empty (no one to miss them yet), else on a second sighting by the wider tidy.
+    if next != threshold && empty_world {
+        let lying: Vec<EntityId> = world
+            .store
+            .children(next)
+            .filter(|e| e.kind == "item" && !super::craft::is_fixed(world, e.id))
+            .map(|e| e.id)
+            .take(TIDY_PER_PASS)
+            .collect();
+        for item in lying {
+            let what = super::craft::display(world, item);
+            world
+                .record(
+                    Actor::Driver,
+                    StoreEvent::EntityMoved {
+                        id: item,
+                        parent: Some(threshold),
+                    },
+                )
+                .map_err(|e| e.to_string())?;
+            let _ = world.note(
+                Actor::Driver,
+                TIDIED,
+                json!({"item": item.0, "name": what, "from": next.0, "from_name": name, "to": threshold.0}),
+            );
+            did.push(format!("carried {what} from {name}"));
+        }
+    }
+    // Said to whoever stands here, in passing; nothing on the record for an empty room.
+    if anyone_here(world, next) && next != threshold {
+        super::combat::narrate_room(
+            world,
+            docent,
+            &format!("The Docent comes through {name} on its round, straightening what it can, and nods to you."),
+        );
+    }
+    let round_n = field(world, "round").and_then(|v| v.as_u64()).unwrap_or(0) + 1;
+    let tidied = field(world, "tidied").and_then(|v| v.as_u64()).unwrap_or(0)
+        + did.iter().filter(|d| d.starts_with("carried")).count() as u64;
+    let mut changes = BTreeMap::new();
+    changes.insert("round".into(), json!(round_n));
+    changes.insert("tidied".into(), json!(tidied));
+    write(world, changes)?;
+    Ok(did)
 }
 
 /// For the operator's tool: the questions not yet answered, each with what the
@@ -804,6 +989,7 @@ pub fn report(world: &World) -> Value {
         "tidied": field(world, "tidied").unwrap_or(json!(0)),
         "round": field(world, "round").unwrap_or(json!(0)),
         "room": room(world).and_then(|r| plain_str(world, r, ROOM, "name")),
+        "round_every_s": {"busy": ROUND_BUSY_S, "quiet": ROUND_QUIET_S},
         "budget": {"per_hour": ASKS_PER_HOUR, "each_per_hour": ASKS_EACH_PER_HOUR, "empty_after_s": EMPTY_AFTER_S, "answer_max": ANSWER_MAX},
         "recent": asks(world).iter().rev().take(12).cloned().collect::<Vec<_>>(),
         "book": {"first": book(world, "first"), "welcome": book(world, "welcome"), "low_at": GREETINGS_LOW, "kept": GREETINGS_KEPT, "slots": GREETING_SLOTS, "chars": [GREETING_MIN, GREETING_MAX]},
@@ -820,6 +1006,20 @@ pub fn report(world: &World) -> Value {
 
 pub fn register(world: &mut World) {
     world.on_arrival(Box::new(|w: &mut World, actor: &str| on_arrival(w, actor)));
+    world.on_job(
+        JOB_ROUND,
+        Box::new(|w: &mut World, _| {
+            round_step(w)?;
+            // Busy while the world is empty; by the door, looking in now and then,
+            // while anyone is about.
+            let secs = if anyone_in_the_world(w) {
+                ROUND_QUIET_S
+            } else {
+                ROUND_BUSY_S
+            };
+            schedule_round(w, secs)
+        }),
+    );
     world.on_job(
         JOB_EMPTY,
         Box::new(|w: &mut World, job| {

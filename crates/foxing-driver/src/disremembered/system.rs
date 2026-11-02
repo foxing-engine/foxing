@@ -236,6 +236,7 @@ fn move_citizen(
 }
 
 pub fn register(world: &mut World) {
+    register_rest(world);
     world.register(
         CommandSpec::new(
             "disremembered.feedback",
@@ -433,73 +434,7 @@ pub fn register(world: &mut World) {
                     "{key} is a seed room, the world's own; it is not razed."
                 )));
             }
-            let name = super::plain_str(w, room, super::ROOM, "name")
-                .unwrap_or(&key)
-                .to_string();
-            // Whoever stands in it is put out at the Threshold first: a room razed
-            // under someone, or an orphan with someone in it, must not strand them.
-            let inside: Vec<(foxing_store::EntityId, String)> = w
-                .store
-                .children(room)
-                .filter(|e| e.kind == "citizen")
-                .filter_map(|e| {
-                    super::plain_str(w, e.id, super::CITIZEN, "name").map(|n| (e.id, n.to_string()))
-                })
-                .collect();
-            let evicted: Vec<String> = inside.iter().map(|(_, n)| n.clone()).collect();
-            if let Some(start) = super::rooms::arrival(w) {
-                for (id, n) in &inside {
-                    super::combat::narrate(
-                        w,
-                        n,
-                        format!("{name} is unmade around you, and you are at the Threshold."),
-                    );
-                    move_citizen(w, n, *id, start)?;
-                }
-            }
-            // Every exit anywhere that led here goes with it.
-            let leading: Vec<(foxing_store::EntityId, serde_json::Map<String, serde_json::Value>)> = w
-                .store
-                .entities()
-                .filter(|e| e.kind == "room" && e.id != room)
-                .filter_map(|e| {
-                    let m = match e.components.get(super::EXITS)?.fields.get("exits")? {
-                        foxing_store::Field::Plain(serde_json::Value::Object(m)) => m.clone(),
-                        _ => return None,
-                    };
-                    let kept: serde_json::Map<String, serde_json::Value> = m
-                        .iter()
-                        .filter(|(_, to)| to.as_u64() != Some(room.0))
-                        .map(|(k, v)| (k.clone(), v.clone()))
-                        .collect();
-                    (kept.len() != m.len()).then_some((e.id, kept))
-                })
-                .collect();
-            let unlinked = leading.len();
-            for (id, kept) in leading {
-                let mut fields = std::collections::BTreeMap::new();
-                fields.insert(
-                    "exits".into(),
-                    foxing_store::Field::Plain(serde_json::Value::Object(kept)),
-                );
-                w.record(
-                    Actor::Driver,
-                    StoreEvent::ComponentSet {
-                        id,
-                        component: super::EXITS.into(),
-                        fields,
-                    },
-                )
-                .map_err(internal)?;
-            }
-            let creatures = w.store.children(room).filter(|e| e.kind == "creature").count();
-            w.record(Actor::Driver, StoreEvent::EntityRemoved { id: room })
-                .map_err(internal)?;
-            let _ = w.note(
-                Actor::Driver,
-                "disremembered.razed",
-                json!({"room": room.0, "key": key, "name": name, "exits_dropped": unlinked, "creatures": creatures, "evicted": evicted}),
-            );
+            let (name, unlinked, creatures, evicted) = raze_room(w, room)?;
             Ok(Outcome::new(
                 format!(
                     "{name} is gone, with {creatures} creature{} and the {unlinked} exit{} that led to it.{}",
@@ -515,7 +450,98 @@ pub fn register(world: &mut World) {
             ))
         }),
     );
+}
 
+/// Unmake a dug room: whoever stands in it is put out at the Threshold, every exit
+/// that led to it goes, its creatures with it. The operator's `raze`, and the
+/// Docent's, for a room named like a test.
+pub(crate) fn raze_room(
+    w: &mut World,
+    room: foxing_store::EntityId,
+) -> Result<(String, usize, usize, Vec<String>), CommandError> {
+    let key = super::plain_str(w, room, super::ROOM, "key")
+        .unwrap_or("")
+        .to_string();
+    {
+        let name = super::plain_str(w, room, super::ROOM, "name")
+            .unwrap_or(&key)
+            .to_string();
+        // Whoever stands in it is put out at the Threshold first: a room razed
+        // under someone, or an orphan with someone in it, must not strand them.
+        let inside: Vec<(foxing_store::EntityId, String)> = w
+            .store
+            .children(room)
+            .filter(|e| e.kind == "citizen")
+            .filter_map(|e| {
+                super::plain_str(w, e.id, super::CITIZEN, "name").map(|n| (e.id, n.to_string()))
+            })
+            .collect();
+        let evicted: Vec<String> = inside.iter().map(|(_, n)| n.clone()).collect();
+        if let Some(start) = super::rooms::arrival(w) {
+            for (id, n) in &inside {
+                super::combat::narrate(
+                    w,
+                    n,
+                    format!("{name} is unmade around you, and you are at the Threshold."),
+                );
+                move_citizen(w, n, *id, start)?;
+            }
+        }
+        // Every exit anywhere that led here goes with it.
+        let leading: Vec<(
+            foxing_store::EntityId,
+            serde_json::Map<String, serde_json::Value>,
+        )> = w
+            .store
+            .entities()
+            .filter(|e| e.kind == "room" && e.id != room)
+            .filter_map(|e| {
+                let m = match e.components.get(super::EXITS)?.fields.get("exits")? {
+                    foxing_store::Field::Plain(serde_json::Value::Object(m)) => m.clone(),
+                    _ => return None,
+                };
+                let kept: serde_json::Map<String, serde_json::Value> = m
+                    .iter()
+                    .filter(|(_, to)| to.as_u64() != Some(room.0))
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+                (kept.len() != m.len()).then_some((e.id, kept))
+            })
+            .collect();
+        let unlinked = leading.len();
+        for (id, kept) in leading {
+            let mut fields = std::collections::BTreeMap::new();
+            fields.insert(
+                "exits".into(),
+                foxing_store::Field::Plain(serde_json::Value::Object(kept)),
+            );
+            w.record(
+                Actor::Driver,
+                StoreEvent::ComponentSet {
+                    id,
+                    component: super::EXITS.into(),
+                    fields,
+                },
+            )
+            .map_err(internal)?;
+        }
+        let creatures = w
+            .store
+            .children(room)
+            .filter(|e| e.kind == "creature")
+            .count();
+        w.record(Actor::Driver, StoreEvent::EntityRemoved { id: room })
+            .map_err(internal)?;
+        let _ = w.note(
+                Actor::Driver,
+                "disremembered.razed",
+                json!({"room": room.0, "key": key, "name": name, "exits_dropped": unlinked, "creatures": creatures, "evicted": evicted}),
+            );
+        Ok((name, unlinked, creatures, evicted))
+    }
+}
+
+fn register_rest(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.bring",

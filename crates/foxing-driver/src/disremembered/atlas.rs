@@ -664,7 +664,9 @@ pub fn register(world: &mut World, curves: Curves) {
             let f = me(w, ctx)?;
             let here = rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
             let who = args.str("who").unwrap_or("").trim().trim_matches('"').to_string();
-            let (what, room): (String, Option<EntityId>) = if let Some((c, r)) = super::mind::find_named(w, &who) {
+            let (what, room): (String, Option<EntityId>) = if super::docent::is_named(&who) {
+                ("The Docent".to_string(), super::docent::room(w))
+            } else if let Some((c, r)) = super::mind::find_named(w, &who) {
                 (super::mind::display(w, c), r)
             } else if let Some((cz, spelled)) = super::canonical_name(w, &who).and_then(|n| super::find_citizen(w, &n).map(|f| (f, n))) {
                 let present = super::presence::is_here(w, cz.citizen);
