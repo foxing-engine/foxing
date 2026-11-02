@@ -96,7 +96,7 @@ what you would type.
 | `subscribe(id, query)` | A live subscription; the page re-sends it on reconnect. Five per mod. Observations arrive on `on("observation")` with id `"mod:" + id` and sit in `observations["mod:" + id]` |
 | `unsubscribe(id)` | Drops it |
 | `observations` | The page's own last observations too: `room`, `me`, `window` |
-| `on(event, fn)` / `off` | Events: `login (name, live)`, `logout ()`, `observation (id, obs)`, `event (e)` for every pushed world event you may see, `result (verb, args, body)` after each command |
+| `on(event, fn)` / `off` | Events: `login (name, live)`, `logout ()`, `observation (id, obs)`, `event (e)` for every pushed world event you may see, `result (verb, args, body)` after each command, `line (text, cls)` for every line the transcript prints (the scene reads speech out of it for its bubbles) |
 | `atlas`, `atlasName`, `spriteSVG(frame)` | The pixel atlas the page draws with: 16×16 frames as rows of palette keys, and an SVG element for one |
 | `timed(t)` | Evaluates a timed value (a curve from the observation) at this moment, clock skew corrected |
 | `panel(title, {id, w, wide, at})` | A panel in the scene, prepended (or `at: "end"`); `id` names it to the layout (default `scene`), `w` its width in px, `wide: true` the full row |
@@ -116,12 +116,20 @@ are absent, not hidden.
 
 ## `tiles.js`
 
-The reference mod. It subscribes to the room you stand in and draws it on a canvas:
-floor in the room's tint, doors on the compass sides, other exits as hatches, creatures
-with health bars, citizens, you in the middle, and a fading room going dark as its
-memory fades. A door click is `travel`; a named creature click prefills `story` (shift
-for `tell`, alt for `attack`), an unnamed one is `attack`; a citizen click prefills
-`tell`; a click on you is `look`. About 200 lines; copy it to start your own.
+The reference mod and the page's default picture. It subscribes to the room you stand
+in and draws it on a canvas, 20 by 11 tiles: floor and walls in the room's tint with
+the motifs its words call for (water, shelves, benches, lanterns, fog, garden, stone),
+doors on the compass sides, named exits as arches along the south wall and the side
+walls, stairs, what lies on the floor as small icons, creatures with health bars (six
+Stacks kinds drawn here that the page's atlas lacks; a hybrid in its parent's frame,
+tinted), citizens tinted by name, the Docent, you under a marker, and a fading room
+going dark as its memory fades. A click on anything opens a small menu of what you can
+do with it (walk, take, read, talk, tell a story, give a memory, attack, ask); a thing
+with one use runs on the click. Blows and gains float off the sprites, a hit glows the
+edge, speech read out of the transcript sits in bubbles over whoever said it, hp and
+level are bars in the corner, and small sounds mark a hit, a hurt, a gain, a door, a
+take (silent when the page's alert sound is). About 600 lines; copy it to start your
+own, or start from `sky.js` for something smaller.
 
 The tiles mod also keeps a column of verbs beside the room: a verb appears when you use it (typed or clicked), halves every fifteen minutes unused, and is gone below a twelfth, like everything else here; a new player starts with `look`, `map` and `chunks`. One with no argument runs on a click; one that takes an argument starts the line. It lives in this browser (`localStorage`, `tiles-verbs`), so the palette you build is yours and fades on your own clock.
 

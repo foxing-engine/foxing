@@ -158,12 +158,21 @@ export default function install(m) {
 
   // ---- sprites: the atlas rows (and the extra frames) rasterized once per frame ----
   function frameData(frame) { return m.atlas[frame] || EXTRA[frame] || null; }
+  const ROOM_FRAMES = new Set(["threshold", "fogbank", "shallows", "ossuary", "dug", "lantern-row", "archive", "stairwell", "cistern", "undertow", "orchard", "clocktower", "midden", "gallery", "oubliette", "burrow", "parlor", "chapel", "nook", "attic", "office", "chunk"]);
+  function isRoomFrame(frame) { return ROOM_FRAMES.has(frame) || /^dug/.test(frame); }
   function frameCanvas(frame, tint) {
     const f = frameData(frame); if (!f) return null;
     const key = frame + "|" + (tint || "");
     if (cache.has(key)) return cache.get(key);
     const c = document.createElement("canvas"); c.width = T; c.height = T;
     const g = c.getContext("2d");
+    // A one-pixel outline in the night behind every sprite, so it reads against any
+    // floor; then the frame, then the tint for a hybrid.
+    const solid = (x, y) => y >= 0 && y < T && x >= 0 && x < T && f.r[y][x] && f.r[y][x] !== ".";
+    if (!frame.endsWith("-room") && !isRoomFrame(frame)) {
+      g.fillStyle = "rgba(10,14,20,.85)";
+      for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) if (!solid(x, y) && (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1))) g.fillRect(x, y, 1, 1);
+    }
     f.r.forEach((row, y) => { for (let x = 0; x < T; x++) { const ch = row[x]; if (ch && ch !== ".") { g.fillStyle = f.p[ch] || "#f0f"; g.fillRect(x, y, 1, 1); } } });
     if (tint) { g.globalCompositeOperation = "source-atop"; g.fillStyle = tint; g.globalAlpha = 0.38; g.fillRect(0, 0, T, T); g.globalAlpha = 1; g.globalCompositeOperation = "source-over"; }
     cache.set(key, c);
@@ -184,7 +193,8 @@ export default function install(m) {
   function spriteTint(sprite) {
     const f = sprite && frameData(sprite.frame); if (!f || !sprite.tint) return null;
     const own = Object.values(f.p)[0];
-    return own && own.toLowerCase() !== sprite.tint.toLowerCase() && sprite.frame !== "citizen" ? sprite.tint : null;
+    if (sprite.frame === "citizen") return sprite.tint.startsWith("hsl") ? sprite.tint : null;
+    return own && own.toLowerCase() !== sprite.tint.toLowerCase() ? sprite.tint : null;
   }
   function drawSprite(sprite, x, y, fallbackText, alpha) {
     const img = sprite && (sprite.atlas === m.atlasName || EXTRA[sprite.frame]) ? frameCanvas(sprite.frame, spriteTint(sprite)) : null;
@@ -251,7 +261,7 @@ export default function install(m) {
           const trace = m.timed(p.trace);
           if (trace >= 0.15) things.push({ id: n.id, kind: "ghost", name, sprite: s, trace, tile: SLOTS[(hash(n.id) + slot++) % SLOTS.length] });
         } else if (name === m.actor) things.push({ id: n.id, kind: "you", name, sprite: s, tile: [Math.floor(COLS / 2), 6] });
-        else things.push({ id: n.id, kind: "citizen", name, sprite: s, tile: SLOTS[(hash(n.id) + slot++) % SLOTS.length] });
+        else things.push({ id: n.id, kind: "citizen", name, sprite: Object.assign({}, s, { tint: "hsl(" + (hash(name) % 360) + ",45%,60%)", frame: s.frame || "citizen", atlas: s.atlas || m.atlasName }), tile: SLOTS[(hash(n.id) + slot++) % SLOTS.length] });
       } else if (n.kind === "docent") {
         things.push({ id: n.id, kind: "docent", name: (n.components["disremembered.docent"] || {}).name || "the Docent", sprite: s, tile: [COLS - 5, 3] });
       } else if (n.kind === "item") {
