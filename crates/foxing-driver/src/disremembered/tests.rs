@@ -6366,3 +6366,122 @@ fn the_map_grid_draws_north_above() {
     let fog = row_of(&code_of("The Fogbank"));
     assert_eq!(fog, threshold, "east is on the same row\n{}", out.summary);
 }
+
+#[test]
+fn where_finds_a_way_you_remember_and_travel_takes_a_room_name() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // Dave walks to the Midden and back: the way is remembered.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "travel", json!(["south"]));
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    let out = ok(&mut w, "dave", "where", json!(["the midden"]));
+    assert_eq!(
+        out.summary, "The Midden: the way from here, as you remember it, is 2 steps: east, south.",
+        "{}",
+        out.summary
+    );
+    assert_eq!(out.result["way"], json!(["east", "south"]));
+    // A citizen: tyler is at the Threshold with him.
+    let out = ok(&mut w, "dave", "where", json!(["tyler"]));
+    assert!(
+        out.summary.starts_with("tyler is here, in The Threshold."),
+        "{}",
+        out.summary
+    );
+    // A named creature, by its given name: the ragpicker in the Midden, once named.
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    ok(&mut w, "tyler", "travel", json!(["south"]));
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let given = mind::name(&w, rag).unwrap();
+    let out = ok(&mut w, "dave", "where", json!([&given]));
+    assert!(
+        out.summary.contains(&format!(
+            "{given} the ragpicker is in The Midden; the way from here"
+        )),
+        "{}",
+        out.summary
+    );
+    // tyler, elsewhere in the world: a tell reaches him now, and once.
+    let out = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!(["tyler", "meet me at the Midden"]),
+    );
+    assert!(
+        out.summary
+            .starts_with("tyler is elsewhere. The word goes to them:"),
+        "{}",
+        out.summary
+    );
+    let to_tyler: Vec<String> = w
+        .recent_events(200)
+        .iter()
+        .filter(|e| e.kind == NARRATIVE && e.payload["to"] == "tyler")
+        .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
+        .filter(|t| t.contains("left word"))
+        .collect();
+    assert_eq!(
+        to_tyler,
+        vec!["dave left word for you from The Threshold: \"meet me at the Midden\"".to_string()]
+    );
+    // And not again when he next arrives: the word is marked heard.
+    w.fixed_now = Some(t0.plus(Duration::seconds(15 * 60)));
+    ok(&mut w, "tyler", "look", json!([]));
+    let again = w
+        .recent_events(300)
+        .iter()
+        .filter(|e| e.kind == NARRATIVE && e.payload["to"] == "tyler")
+        .filter(|e| {
+            e.payload["text"]
+                .as_str()
+                .is_some_and(|t| t.contains("While you were away"))
+        })
+        .count();
+    assert_eq!(again, 0, "delivered once");
+    // Nothing unknown: a room never seen is not a way.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "where",
+        json!(["nowhere in particular"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("Nothing called nowhere in particular"),
+        "{err}"
+    );
+    // travel by a room's name takes the first step and says the rest.
+    let out = ok(&mut w, "dave", "travel", json!(["The Midden"]));
+    assert!(
+        out.summary.contains("Toward The Midden: then south."),
+        "{}",
+        out.summary
+    );
+    assert!(out.summary.contains("The Fogbank"), "{}", out.summary);
+    assert_eq!(
+        out.result["onward"],
+        json!("Toward The Midden: then south.")
+    );
+    let out = ok(&mut w, "dave", "travel", json!(["midden"]));
+    assert!(out.summary.contains("The Midden."), "{}", out.summary);
+    assert!(out.result["onward"].is_null());
+    // help is a verb now, a read.
+    let out = ok(&mut w, "dave", "help", json!([]));
+    assert!(out.summary.starts_with("Commands:"), "{}", out.summary);
+    assert!(out.result["commands"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|v| v == "where"));
+}

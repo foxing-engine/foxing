@@ -954,6 +954,34 @@ pub fn register(world: &mut World) {
                     }
                 }
             }
+            // Not an exit: a room's name, if you remember the way (a person typed
+            // "the fog bank" straight off the map). The first step is taken now and
+            // the rest said, so each room is still a room passed through.
+            let mut onward: Option<String> = None;
+            if !exits.contains_key(&exit) {
+                if let Some(target) = super::atlas::room_named(w, &exit).filter(|&t| t != room) {
+                    let hl = super::Curves::from_env().active_half_life.0 as f64 * super::atlas::ATLAS_HALF_LIVES;
+                    match super::atlas::way(w, f.citizen, room, target, hl) {
+                        Some(path) if !path.is_empty() => {
+                            if path.len() > 1 {
+                                onward = Some(format!(
+                                    " Toward {}: then {}.",
+                                    plain_str(w, target, ROOM, "name").unwrap_or("?"),
+                                    path[1..].join(", ")
+                                ));
+                            }
+                            exit = path[0].clone();
+                        }
+                        _ => {
+                            return Err(foxing_registry::CommandError::precondition(format!(
+                                "You remember no way to {} from here. Exits: {}.",
+                                plain_str(w, target, ROOM, "name").unwrap_or("?"),
+                                exits.keys().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+                            )));
+                        }
+                    }
+                }
+            }
             let Some(&to) = exits.get(&exit) else {
                 let names: Vec<&String> = exits.keys().collect();
                 return Err(foxing_registry::CommandError::precondition(format!(
@@ -981,8 +1009,11 @@ pub fn register(world: &mut World) {
             out.summary = if doorless {
                 format!("There is no door here, so you go the way every room was first reached. {}", out.summary)
             } else {
-                format!("{} {}", went(&exit), out.summary)
+                format!("{}{} {}", went(&exit), onward.as_deref().unwrap_or(""), out.summary)
             };
+            if let Some(o) = onward {
+                out.result["onward"] = json!(o.trim());
+            }
             Ok(out)
         }),
     );

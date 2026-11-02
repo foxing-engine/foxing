@@ -154,8 +154,14 @@ pub fn register(world: &mut World, curves: Curves) {
                 .collect::<std::collections::BTreeSet<_>>()
                 .len();
             if distinct < MIN_WORDS {
+                // With what it wants, so the next try is the one that pays double: a
+                // person tried "move away" and "run" on a wispling and left.
+                let wants = super::errand::of(w, creature)
+                    .and_then(|e| e.story)
+                    .map(|want| format!(" {} wants a story about {want}; a dozen words on that pays double.", mind::display(w, creature)))
+                    .unwrap_or_default();
                 return Err(CommandError::precondition(format!(
-                    "A story is at least {MIN_WORDS} different words; that was {distinct}."
+                    "A story is at least {MIN_WORDS} different words; that was {distinct}.{wants}"
                 )));
             }
             if text.chars().count() > MAX_STORY_CHARS {

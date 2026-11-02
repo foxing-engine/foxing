@@ -462,7 +462,7 @@ fn died_since_last_message(world: &World, actor: &str) -> bool {
 /// ones that only read.
 const AFTER_DEATH: &[&str] = &[
     "look", "chunks", "map", "time", "rest", "board", "statutes", "palace", "satchel", "log",
-    "recipes",
+    "recipes", "help", "commands",
 ];
 
 /// Compile a terminal line (`attack the wisp`) into a REQUEST from `actor` to `world`:
@@ -779,8 +779,30 @@ fn rejection(result: &CheckResult, report: &mut Report) {
                 format!("Statement {n}")
             }
         };
+        // The rule by number and by what it says: a visitor met "failed rule CL-I5"
+        // and had no way to know the verb was the problem.
+        // The reason for the verb rule only, first clause, since a visitor met
+        // "failed rule CL-I5" with no way to know the verb was the problem. Not for
+        // the others: quoting the hedge or the relative time re-offends in the
+        // world's own FACT, and the reply obeys the same checker.
+        let why: String = if f.rule != "CL-I5" {
+            String::new()
+        } else {
+            f.message
+                .split(['.', ';'])
+                .next()
+                .unwrap_or("")
+                .split_whitespace()
+                .take(12)
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
         report.fact(
-            format!("{place} of message {ref} failed rule {}", f.rule),
+            if why.is_empty() {
+                format!("{place} of message {ref} failed rule {}", f.rule)
+            } else {
+                format!("{place} of message {ref} failed rule {} ({why})", f.rule)
+            },
             "clear_check",
         );
     }
@@ -1346,7 +1368,8 @@ mod tests {
         assert!(p.reply.contains("[FACT] Statement 1 of message lantern-7-test-1 failed rule CL-C2. [src:clear_check]"), "{}", p.reply);
         assert!(p.reply.contains("failed rule CL-R1."), "{}", p.reply);
         assert!(p.reply.contains("failed rule CL-R2."), "{}", p.reply);
-        assert!(p.reply.contains("[FACT] Statement 2 of message lantern-7-test-1 failed rule CL-I5. [src:clear_check]"), "{}", p.reply);
+        // The verb rule says why; a visitor met "failed rule CL-I5" and nothing more.
+        assert!(p.reply.contains("[FACT] Statement 2 of message lantern-7-test-1 failed rule CL-I5 (Verb 'nuke' is not an approved action verb for the sender). [src:clear_check]"), "{}", p.reply);
         assert!(
             p.reply.contains("Legibility and the world ran none of it"),
             "{}",

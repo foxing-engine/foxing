@@ -987,7 +987,14 @@ pub fn register(world: &mut World, curves: Curves) {
             let dmg = attack_for_level(level) + w.roll(3) as f64;
             let chp = (plain_num(w, creature, CREATURE, "hp").unwrap_or(0.0) - dmg).max(0.0);
             w.record(Actor::Citizen(ctx.actor.clone()), StoreEvent::FieldSet { id: creature, component: CREATURE.into(), field: "hp".into(), value: json!(chp) }).map_err(internal)?;
-            let mut lines = vec![format!("You hit the {cname} for {dmg:.0}.")];
+            // A fight begun by default is said, not silent: six bare `attack` lines
+            // felled an inkling on the fourth and struck its neighbor on the fifth.
+            let turned = args.str("creature").map_or(true, str::is_empty) && began.is_some();
+            let mut lines = vec![if turned {
+                format!("You turn on the {cname} and hit it for {dmg:.0}.")
+            } else {
+                format!("You hit the {cname} for {dmg:.0}.")
+            }];
             if chp > 0.0 {
                 if let Some(c) = began.take() {
                     lines.push(c);

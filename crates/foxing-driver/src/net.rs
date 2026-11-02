@@ -94,7 +94,7 @@ fn valid_name(name: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn help_text(world: &World, kind: ActorKind) -> String {
+pub(crate) fn help_text(world: &World, kind: ActorKind) -> String {
     let mut lines = vec!["Commands:".to_string()];
     for s in world.commands_for(kind) {
         let params: Vec<String> = s

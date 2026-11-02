@@ -145,6 +145,18 @@ pub fn register(world: &mut World) {
                 json!({"from": ctx.actor, "to": target, "room": room.0, "text": text}),
             )
             .map_err(internal)?;
+            // In the world, in another room: the word reaches them with their next
+            // reply, not on an "arrival" that never comes while they keep acting (a
+            // visitor crossed four rooms and found the word only in `log`).
+            if presence::is_here(w, them.citizen) {
+                let here_name = plain_str(w, room, ROOM, "name").unwrap_or("somewhere").to_string();
+                narrate(w, &target, format!("{} left word for you from {here_name}: \"{text}\"", ctx.actor));
+                mark_heard(w, them.citizen)?;
+                return Ok(Outcome::new(
+                    format!("{target} is elsewhere. The word goes to them: \"{text}\""),
+                    json!({"to": target, "text": text, "delivered": true, "elsewhere": true}),
+                ));
+            }
             Ok(Outcome::new(
                 format!("{target} is not here. They will hear it when they return: \"{text}\""),
                 json!({"to": target, "text": text, "delivered": false}),
@@ -200,6 +212,35 @@ pub fn speak(
         narrate(world, &actor, line);
     }
     Ok(())
+}
+
+/// Everything left so far is heard: a word narrated to a citizen now is not read to
+/// them again when they next arrive.
+fn mark_heard(world: &mut World, citizen: EntityId) -> Result<(), CommandError> {
+    let head = world
+        .log
+        .head(&world.id)
+        .map_err(internal)?
+        .map(|s| s.0)
+        .unwrap_or(0);
+    let mut fields = world
+        .store
+        .entity(citizen)
+        .and_then(|e| e.components.get(presence::PRESENCE))
+        .map(|c| c.fields.clone())
+        .unwrap_or_default();
+    fields.insert("heard_through".into(), Field::Plain(json!(head)));
+    world
+        .record(
+            Actor::Driver,
+            foxing_store::StoreEvent::ComponentSet {
+                id: citizen,
+                component: presence::PRESENCE.into(),
+                fields,
+            },
+        )
+        .map(|_| ())
+        .map_err(internal)
 }
 
 /// Words waiting for a citizen who just arrived.

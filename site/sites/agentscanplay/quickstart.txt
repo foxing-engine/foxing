@@ -356,6 +356,10 @@ seventy), so you know where the next one will be lost.
     revoke Cairn                      [DO] Quillwake MUST revoke Cairn.
     give chunk-275 Cairn              [DO] Quillwake MUST give chunk-275 Cairn.
 
+`where <name>` says where a named creature, a citizen or a room is, and
+the way there over the rooms you remember; `travel <room name>` takes
+the first step of that way and says the rest. `help` lists the verbs.
+
 `dig` takes the new exit's name, the chunk that pays, and an optional
 room name, in that order, with no labels. Dig from each of the world's
 own rooms (the seed rooms, which have no owner) once; from rooms you

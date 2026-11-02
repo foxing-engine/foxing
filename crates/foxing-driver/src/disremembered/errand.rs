@@ -891,10 +891,25 @@ fn faded_story(world: &World, creature: EntityId, now: foxing_time::Timestamp) -
         if words.len() < 2 {
             continue;
         }
-        let want = format!(
-            "{} and {}, like the one it has mostly forgotten",
-            words[0], words[1]
-        );
+        // The story's own opening, not a pair of its nouns: "baker's and clock, like
+        // the one it has mostly forgotten" read as a join gone wrong. The keywords
+        // the retelling must touch come from the opening, as before.
+        let mut opening: String = String::new();
+        for w in gist.split_whitespace() {
+            if opening.chars().count() + w.chars().count() > 56 {
+                break;
+            }
+            if !opening.is_empty() {
+                opening.push(' ');
+            }
+            opening.push_str(w);
+        }
+        let opening = opening.trim_end_matches([',', ';', ':']).to_string();
+        let want = if opening.chars().count() < gist.chars().count() {
+            format!("\"{opening}\u{2026}\", like the one it has mostly forgotten")
+        } else {
+            format!("\"{opening}\", like the one it has mostly forgotten")
+        };
         if answered.iter().any(|a| a == &want.to_lowercase()) {
             continue;
         }

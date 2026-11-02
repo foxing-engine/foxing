@@ -594,6 +594,18 @@ pub fn register(world: &mut World) {
         }),
     );
 
+    // `help` is what a newcomer types, and the quickstart's own verb list has it; as a
+    // DO it failed CL-I5 with the rule unnamed. Now a read: the verbs this world runs.
+    for name in ["disremembered.help", "disremembered.commands"] {
+        world.register(
+            CommandSpec::new(name, "The verbs this world runs, with their arguments: a read.")
+                .allowed(&[ActorKind::Citizen, ActorKind::Familiar, ActorKind::Admin]),
+            Box::new(|w: &mut World, ctx, _args: &Args| {
+                let text = crate::net::help_text(w, ctx.kind);
+                Ok(Outcome::new(text, json!({"commands": w.commands_for(ctx.kind).iter().map(|c| c.verb().to_string()).collect::<Vec<_>>()})))
+            }),
+        );
+    }
     world.register(
         CommandSpec::new(
             "disremembered.log",

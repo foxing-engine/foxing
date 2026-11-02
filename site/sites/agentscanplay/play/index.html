@@ -693,6 +693,19 @@
     if (body.ok) {
       print(body.summary);
       if (command === "quit") { print("The world goes on without you.", "sys"); logout(); }
+      // `travel <room name>` takes one step and says the rest ("Toward The Midden:
+      // then south."); the page walks the rest, stopping if anything refuses.
+      const onward = command === "travel" && body.result && typeof body.result.onward === "string" && /then (.+)\.$/.exec(body.result.onward);
+      if (onward) {
+        const steps = onward[1].split(",").map(x => x.trim()).filter(Boolean);
+        chain = chain.then(async () => {
+          for (const via of steps) {
+            await new Promise(res => setTimeout(res, 300));
+            const r = await run("travel", [via]);
+            if (!r || !r.ok) return;
+          }
+        });
+      }
     } else {
       print(body.error || "Refused.", "err");
     }
@@ -1417,7 +1430,35 @@
       return;
     }
     if (verb === "help") { await help(); return; }
+    // A room off the map, typed as a person types it: its legend code ("02") or its
+    // name ("the fog bank"). Not a verb, so it is a walk over the exits remembered.
+    if (actor && !isVerb(verb)) {
+      const room = roomTyped(t);
+      if (room) { walkTo(room.id); return; }
+    }
     await run(verb, rest);
+  }
+  function isVerb(v) {
+    const verbs = C.vocab && C.vocab.approved_verbs;
+    const w = (v || "").toLowerCase();
+    if (!verbs) return true;
+    return Array.isArray(verbs) ? verbs.includes(w) : Object.prototype.hasOwnProperty.call(verbs, w);
+  }
+  // The room a typed line means: the map's legend code for this floor (the order the
+  // rooms are listed in, as `map` numbers them), or a name, article and spaces aside.
+  function roomTyped(t) {
+    if (!atlas || !atlas.rooms) return null;
+    const here = atlas.rooms.find(r => r.here);
+    const code = /^(\d{1,2})$/.exec(t.trim());
+    if (code && here) {
+      const floor = atlas.rooms.filter(r => r.z === here.z);
+      const r = floor[parseInt(code[1], 10) - 1];
+      return r && !r.here ? r : null;
+    }
+    const norm = (x) => (x || "").toLowerCase().replace(/^the\s+/, "").replace(/[^a-z0-9]+/g, "");
+    const want = norm(t);
+    if (want.length < 3) return null;
+    return atlas.rooms.find(r => !r.here && norm(r.name) === want) || null;
   }
 
   input.addEventListener("keydown", (e) => {

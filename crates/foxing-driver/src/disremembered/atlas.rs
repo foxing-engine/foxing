@@ -19,7 +19,7 @@
 use super::{internal, me, plain_str, rooms, Curves, ROOM};
 use crate::world::World;
 use foxing_log::Actor;
-use foxing_registry::{ActorKind, CommandError, CommandSpec, Outcome};
+use foxing_registry::{ActorKind, Args, CommandError, CommandSpec, Outcome, ParamType};
 use foxing_store::{EntityId, Field, StoreEvent};
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
@@ -472,7 +472,149 @@ pub fn remembered_map(
     }))
 }
 
+/// The rooms a citizen could find their way through: what they remember (above
+/// FORGOTTEN on the map's half-life) and what they can see from where they stand.
+fn known_rooms(world: &World, citizen: EntityId, half_life_ms: f64) -> HashSet<EntityId> {
+    let half_life_ms = if super::craft::carries(world, citizen, "lantern").is_some() {
+        half_life_ms * 2.0
+    } else {
+        half_life_ms
+    };
+    let now = world.now().0;
+    let mut known: HashSet<EntityId> = seen(world, citizen)
+        .into_iter()
+        .filter(|(_, t)| 0.5f64.powf((now - t).max(0) as f64 / half_life_ms) >= FORGOTTEN)
+        .map(|(id, _)| EntityId(id))
+        .collect();
+    if let Some(h) = rooms::room_of(world, citizen) {
+        known.insert(h);
+        known.extend(rooms::exits_of(world, h).values().copied());
+    }
+    known
+}
+
+/// The way from `from` to `to` over remembered rooms, as exit names; empty when
+/// there is none the citizen knows.
+pub fn way(
+    world: &World,
+    citizen: EntityId,
+    from: EntityId,
+    to: EntityId,
+    half_life_ms: f64,
+) -> Option<Vec<String>> {
+    if from == to {
+        return Some(vec![]);
+    }
+    let known = known_rooms(world, citizen, half_life_ms);
+    let mut prev: std::collections::HashMap<EntityId, (EntityId, String)> =
+        std::collections::HashMap::new();
+    let mut queue = std::collections::VecDeque::from([from]);
+    while let Some(r) = queue.pop_front() {
+        for (via, next) in rooms::exits_of(world, r) {
+            if next == from || prev.contains_key(&next) {
+                continue;
+            }
+            // The last step may lead into a room not yet remembered (the one
+            // asked for, in sight from a known room); the steps before it may not.
+            if !known.contains(&next) && next != to {
+                continue;
+            }
+            prev.insert(next, (r, via));
+            if next == to {
+                let mut path = Vec::new();
+                let mut at = to;
+                while at != from {
+                    let (p, v) = &prev[&at];
+                    path.push(v.clone());
+                    at = *p;
+                }
+                path.reverse();
+                return Some(path);
+            }
+            queue.push_back(next);
+        }
+    }
+    None
+}
+
+/// A room by its name, the article aside, or its key; case does not matter.
+pub fn room_named(world: &World, text: &str) -> Option<EntityId> {
+    let want = text.trim().trim_matches('"').to_ascii_lowercase();
+    let want = want.strip_prefix("the ").unwrap_or(&want).to_string();
+    if want.is_empty() {
+        return None;
+    }
+    world
+        .store
+        .entities()
+        .filter(|e| e.kind == "room")
+        .find(|e| {
+            let name = plain_str(world, e.id, ROOM, "name")
+                .map(|n| n.to_ascii_lowercase())
+                .unwrap_or_default();
+            let name = name.strip_prefix("the ").unwrap_or(&name).to_string();
+            name == want || plain_str(world, e.id, ROOM, "key") == Some(want.as_str())
+        })
+        .map(|e| e.id)
+}
+
+fn said_way(path: &[String]) -> String {
+    match path.len() {
+        0 => "you are there".to_string(),
+        1 => format!("one step: {}", path[0]),
+        n => format!("{n} steps: {}", path.join(", ")),
+    }
+}
+
 pub fn register(world: &mut World, curves: Curves) {
+    let hl = curves.active_half_life.0 as f64 * ATLAS_HALF_LIVES;
+    world.register(
+        CommandSpec::new(
+            "disremembered.where",
+            "Where a named creature, a citizen or a room is, and the way there over the rooms you remember: a read.",
+        )
+        .param("who", ParamType::String, true, "a creature's given name, a citizen, or a room's name"),
+        Box::new(move |w: &mut World, ctx, args: &Args| {
+            let f = me(w, ctx)?;
+            let here = rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
+            let who = args.str("who").unwrap_or("").trim().trim_matches('"').to_string();
+            let (what, room): (String, Option<EntityId>) = if let Some((c, r)) = super::mind::find_named(w, &who) {
+                (super::mind::display(w, c), r)
+            } else if let Some((cz, spelled)) = super::canonical_name(w, &who).and_then(|n| super::find_citizen(w, &n).map(|f| (f, n))) {
+                let present = super::presence::is_here(w, cz.citizen);
+                if !present {
+                    return Ok(Outcome::new(
+                        format!("{spelled} is not in the world now; the rooms remember them a while, and `log` keeps their words."),
+                        json!({"who": spelled, "present": false}),
+                    ));
+                }
+                (spelled, rooms::room_of(w, cz.citizen))
+            } else if let Some(r) = room_named(w, &who) {
+                (plain_str(w, r, ROOM, "name").unwrap_or("?").to_string(), Some(r))
+            } else {
+                return Err(CommandError::precondition(format!(
+                    "Nothing called {who} that you could go to: a creature's given name, a citizen here now, or a room's name."
+                )));
+            };
+            let Some(room) = room else {
+                return Ok(Outcome::new(format!("{what} is nowhere in particular."), json!({"who": what})));
+            };
+            let name = plain_str(w, room, ROOM, "name").unwrap_or("?").to_string();
+            let path = way(w, f.citizen, here, room, hl);
+            // A room asked for by name is not "in" itself.
+            let is_room = what == name;
+            let said = match &path {
+                Some(p) if p.is_empty() && is_room => format!("{name} is where you stand."),
+                Some(p) if p.is_empty() => format!("{what} is here, in {name}."),
+                Some(p) if is_room => format!("{name}: the way from here, as you remember it, is {}.", said_way(p)),
+                Some(p) => format!("{what} is in {name}; the way from here, as you remember it: {}.", said_way(p)),
+                None if is_room => format!("{name}: you remember no way there from here. Walk, and `map` fills in."),
+                None => format!("{what} is in {name}, but you remember no way there from here. Walk, and `map` fills in."),
+            };
+            Ok(Outcome::new(said, json!({"who": what, "room": room.0, "room_name": name, "way": path})))
+        }),
+    );
+
     let half_life_ms = curves.active_half_life.0 as f64 * ATLAS_HALF_LIVES;
     world.register(
         CommandSpec::new(

@@ -37,6 +37,9 @@ approved_verbs:
   pto: {params: []}
   resume: {params: []}
   time: {params: []}
+  help: {params: []}
+  where: {params: [{name: who, type: string, required: true}]}
+  commands: {params: []}
   log: {params: [{name: count, type: integer, required: false}]}
   observe: {params: [{name: query, type: string, required: true}]}
   # movement and world

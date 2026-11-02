@@ -275,7 +275,7 @@ pub enum QueryError {
         limit: usize,
     },
     /// The whole query touched more entities than allowed.
-    #[error("query touches more than {max} entities")]
+    #[error("query touches more than {max} entities; narrow the root or the relations, or page with `limit`")]
     TooManyEntities {
         /// The limit.
         max: usize,
