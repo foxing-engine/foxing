@@ -2693,10 +2693,9 @@
     // arrival unless you folded it yourself last time.
     main.classList.add("collapsed"); fold.textContent = "scene ▸";
     on_("login", () => {
-      // On a phone the transcript is the game: the scene starts folded unless you
-      // unfolded it last time.
-      const phone = window.matchMedia && window.matchMedia("(max-width: 680px)").matches;
-      let folded = phone; try { const v = localStorage.getItem("disremembered.sceneFolded"); if (v !== null) folded = v === "1"; } catch (e) {}
+      // The picture is the game now, on a phone too: the scene opens on arrival
+      // unless you folded it yourself last time.
+      let folded = false; try { const v = localStorage.getItem("disremembered.sceneFolded"); if (v !== null) folded = v === "1"; } catch (e) {}
       setFolded(folded);
     });
     on_("logout", () => { main.classList.add("collapsed"); fold.textContent = "scene ▸"; });

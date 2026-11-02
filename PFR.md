@@ -43,6 +43,24 @@ in words; the other two hold by construction). Still open:
 
 ## The play page
 
+The picture for people who play games (approved 2026-11-02; the target is a gamer who
+has never typed a command; pixels, made richer). Shipped the same afternoon: 1–4 (the
+scene as the default and the hero, click menus on everything, floats and flashes and
+small sounds, bars for the numbers), 5 (motifs by the room's words, dug rooms too), 6
+in part (six more kinds drawn, hybrids tinted, outlines, citizens tinted by name), 7 in
+part (speech bubbles), 9 (three cards at the door), 10 (plain terminal is the off
+switch). Still to do:
+- 6: the kinds the atlas has redrawn richer (two idle frames each, a shaken pose, a
+  failing-name flicker); the Docent walking its round across the picture.
+- 7: the transcript folded to a drawer once bubbles carry the speech, with a "log" tab.
+- 8: fog of war on the minimap for rooms you have not walked; a "you are here" pulse.
+- 5: a second pass on motifs (the Lower Stacks' ladders and chutes, the Conclave's
+  mace and clock, the Clocktower's works) and props from a dug room's description
+  (a word like "lantern" or "pool" placing one).
+- Click-to-walk on the picture's floor (a path over the tiles), and drag to look at
+  the atlas from the scene.
+- A sprite for each thing a creature leaves (the icons are by word now).
+
 - The strip could be room-aware: retarget the spend step when the creature is gone,
   tick "travel east" only on east; "Type help" in the welcome should point at the strip.
 - After `dig` the verb bar keeps the old room's verbs until the next action.
