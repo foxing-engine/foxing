@@ -116,8 +116,12 @@ figures on the canvas that answer to a click.
   `bound` (`disremembered.bound`, public, with the before and after); the owner
   standing in the room, or a book's maker, may `unbind`. Outside, `tools/bind.py`
   nightly on moondial-1 (`setup-bindery.sh`: bindery.service + bindery.timer at
-  04:40 UTC, after the backup; key and the Bindery's own name in
-  /etc/foxing/bindery.env, dry run until BINDERY_MODE=apply): asks the model for a
+  04:40 UTC, after the backup; the Bindery's own name in /etc/foxing/bindery.env,
+  dry run until BINDERY_MODE=apply). It reaches the Claude API by Workload Identity
+  Federation with moondial-1 as its own OIDC issuer: an RSA key minted on the box and
+  never leaving it, its public half an inline JWKS in the Console, a five-minute JWT
+  with a fresh jti per run traded at /v1/oauth/token for a ten-minute token; no API
+  key anywhere (the owner's ask, 2026-11-01). It asks the model for a
   binding, then refuses it mechanically before the world sees it (no content word
   not in the source, every capitalized name and number kept, every hand credited,
   the owner's opening sentence whole, within the cap, no second person, no verb the

@@ -25,8 +25,19 @@ room stays as it was. A summary goes to the Discord webhook, if one is set.
 
 Environment (see deploy/server/setup-bindery.sh): FOXING_BASE (default
 http://127.0.0.1:7777), FOXING_ADMIN_TOKEN, BINDERY_ACTOR and BINDERY_PASSPHRASE
-(the Bindery's own kept name), ANTHROPIC_API_KEY, BINDERY_MODEL (default
-claude-haiku-5-5), FOXING_DISCORD_WEBHOOK (optional).
+(the Bindery's own kept name), BINDERY_MODEL (default claude-haiku-5-5),
+FOXING_DISCORD_WEBHOOK (optional), and one of two ways into the Claude API:
+
+  - Workload Identity Federation (preferred; no API key anywhere): the server is its
+    own OIDC issuer. BINDERY_SIGNING_KEY is an RSA private key (PEM) minted on the box
+    whose public half is registered in the Claude Console as an inline JWKS;
+    BINDERY_ISSUER, BINDERY_SUBJECT and BINDERY_KID are what the Console's issuer and
+    rule expect; ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID,
+    ANTHROPIC_SERVICE_ACCOUNT_ID and (if the rule spans workspaces)
+    ANTHROPIC_WORKSPACE_ID name the rule. Each run signs a five-minute JWT with a fresh
+    jti, trades it at POST /v1/oauth/token for a short-lived access token, and sends
+    that as a Bearer. Signing is `openssl dgst`, so nothing is installed.
+  - ANTHROPIC_API_KEY, if set, wins (the SDKs' precedence, kept here).
 """
 
 import argparse
@@ -106,7 +117,105 @@ def command(token, actor, passphrase, verb, args):
             return {"ok": False, "error": str(e)}
 
 
-def ask_model(key, system, user, temperature=0.4, max_tokens=700):
+class Credentials:
+    """What goes in the request headers: an API key, or a federated token minted from
+    the server's own signing key and refreshed before it expires."""
+
+    def __init__(self, env):
+        self.key = env.get("ANTHROPIC_API_KEY") or None
+        self.rule = env.get("ANTHROPIC_FEDERATION_RULE_ID")
+        self.org = env.get("ANTHROPIC_ORGANIZATION_ID")
+        self.svac = env.get("ANTHROPIC_SERVICE_ACCOUNT_ID")
+        self.workspace = env.get("ANTHROPIC_WORKSPACE_ID") or None
+        self.signing_key = env.get("BINDERY_SIGNING_KEY")
+        self.issuer = env.get("BINDERY_ISSUER")
+        self.subject = env.get("BINDERY_SUBJECT", "bindery")
+        self.kid = env.get("BINDERY_KID")
+        self.audience = env.get("BINDERY_AUDIENCE", "https://api.anthropic.com")
+        self.token = None
+        self.expires = 0.0
+
+    @property
+    def federated(self):
+        return bool(self.rule and self.org and self.svac and self.signing_key and self.issuer and self.kid)
+
+    def check(self):
+        if self.key:
+            return "api key"
+        if self.federated:
+            if not os.path.exists(self.signing_key):
+                sys.exit(f"BINDERY_SIGNING_KEY {self.signing_key} is not there")
+            return f"workload identity federation ({self.rule})"
+        sys.exit(
+            "no way into the Claude API: set ANTHROPIC_API_KEY, or the federation set "
+            "(BINDERY_SIGNING_KEY, BINDERY_ISSUER, BINDERY_KID, ANTHROPIC_FEDERATION_RULE_ID, "
+            "ANTHROPIC_ORGANIZATION_ID, ANTHROPIC_SERVICE_ACCOUNT_ID); setup-bindery.sh writes them"
+        )
+
+    def _jwt(self):
+        """A fresh five-minute RS256 JWT, signed with openssl: a new jti each time, since
+        the Console refuses one it has seen."""
+        import base64
+        import subprocess
+        import time
+        import uuid
+
+        def b64(b):
+            return base64.urlsafe_b64encode(b).rstrip(b"=").decode()
+
+        now = int(time.time())
+        header = b64(json.dumps({"alg": "RS256", "typ": "JWT", "kid": self.kid}, separators=(",", ":")).encode())
+        claims = b64(
+            json.dumps(
+                {"iss": self.issuer, "sub": self.subject, "aud": self.audience, "iat": now, "exp": now + 300, "jti": str(uuid.uuid4())},
+                separators=(",", ":"),
+            ).encode()
+        )
+        signing_input = f"{header}.{claims}".encode()
+        sig = subprocess.run(
+            ["openssl", "dgst", "-sha256", "-sign", self.signing_key],
+            input=signing_input,
+            capture_output=True,
+            check=True,
+        ).stdout
+        return f"{header}.{claims}.{b64(sig)}"
+
+    def _exchange(self):
+        import time
+
+        body = {
+            "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            "assertion": self._jwt(),
+            "federation_rule_id": self.rule,
+            "organization_id": self.org,
+            "service_account_id": self.svac,
+        }
+        if self.workspace:
+            body["workspace_id"] = self.workspace
+        req = urllib.request.Request(
+            "https://api.anthropic.com/v1/oauth/token",
+            data=json.dumps(body).encode(),
+            headers={"content-type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                d = json.load(r)
+        except urllib.error.HTTPError as e:
+            sys.exit(f"token exchange refused ({e.code}); the reason is in the Console's authentication history: {e.read()[:300]!r}")
+        self.token = d["access_token"]
+        self.expires = time.time() + int(d.get("expires_in", 600))
+
+    def headers(self):
+        import time
+
+        if self.key:
+            return {"x-api-key": self.key}
+        if self.token is None or time.time() > self.expires - 60:
+            self._exchange()
+        return {"authorization": f"Bearer {self.token}"}
+
+
+def ask_model(creds, system, user, temperature=0.4, max_tokens=700):
     body = json.dumps(
         {
             "model": MODEL,
@@ -119,11 +228,7 @@ def ask_model(key, system, user, temperature=0.4, max_tokens=700):
     req = urllib.request.Request(
         API,
         data=body,
-        headers={
-            "content-type": "application/json",
-            "x-api-key": key,
-            "anthropic-version": "2023-06-01",
-        },
+        headers={"content-type": "application/json", "anthropic-version": "2023-06-01", **creds.headers()},
     )
     with urllib.request.urlopen(req, timeout=120) as r:
         d = json.load(r)
@@ -191,9 +296,9 @@ def check(kind, source, hands, names, binding):
     return fails
 
 
-def voice_check(key, binding):
+def voice_check(creds, binding):
     verdict = ask_model(
-        key,
+        creds,
         "You judge prose for a text world about memory and forgetting. Its voice is concrete, a little uncanny, plain, third person, never promotional, never 'a visiting agent arrived'. Answer with one word: yes or no.",
         "Does this read in that voice?\n\n" + binding,
         temperature=0.0,
@@ -202,7 +307,7 @@ def voice_check(key, binding):
     return verdict.strip().lower().startswith("yes")
 
 
-def propose(key, cand, temperature):
+def propose(creds, cand, temperature):
     kind = cand["kind"]
     hands = [h for h in cand.get("hands", []) if isinstance(h, str)]
     if kind == "room":
@@ -216,7 +321,7 @@ def propose(key, cand, temperature):
             f"Its lines, oldest first, each signed with a dash and the hand: \n\n{cand['text'].replace(' | ', chr(10))}\n\n"
             f"Cap: {BOOK_CAP} characters. Bind the older lines into a short passage that keeps every hand's name and every concrete thing; keep the newest two lines verbatim at the end, with their signatures, separated by ' | '."
         )
-    return ask_model(key, SYSTEM, user, temperature=temperature)
+    return ask_model(creds, SYSTEM, user, temperature=temperature)
 
 
 def post_discord(webhook, text):
@@ -239,14 +344,13 @@ def main():
     a = ap.parse_args()
 
     token = os.environ.get("FOXING_ADMIN_TOKEN") or os.environ.get("MOONDIAL_ADMIN_TOKEN")
-    key = os.environ.get("ANTHROPIC_API_KEY")
+    creds = Credentials(os.environ)
     actor = os.environ.get("BINDERY_ACTOR", "Bindery")
     passphrase = os.environ.get("BINDERY_PASSPHRASE", "")
     webhook = os.environ.get("FOXING_DISCORD_WEBHOOK") or os.environ.get("MOONDIAL_DISCORD_WEBHOOK")
     if not token:
         sys.exit("FOXING_ADMIN_TOKEN is not set")
-    if not key:
-        sys.exit("ANTHROPIC_API_KEY is not set")
+    way_in = creds.check()
     if a.apply and not passphrase:
         sys.exit("BINDERY_PASSPHRASE is not set (the Bindery's own kept name needs one to act)")
 
@@ -256,7 +360,7 @@ def main():
         sys.exit(f"GET /v0/bindery: {e}")
     if a.target:
         cands = [c for c in cands if c["target"] == a.target or c.get("key") == a.target]
-    log(f"{len(cands)} candidate(s), model {MODEL}, {'APPLY' if a.apply else 'dry run'}")
+    log(f"{len(cands)} candidate(s), model {MODEL}, {'APPLY' if a.apply else 'dry run'}, by {way_in}")
     out = open(a.out, "a", encoding="utf-8") if a.out else None
     bound, skipped = [], []
     for cand in cands[: a.max]:
@@ -266,12 +370,12 @@ def main():
         result = None
         for temperature in (0.4, 0.0):
             try:
-                binding = propose(key, cand, temperature)
+                binding = propose(creds, cand, temperature)
             except Exception as e:  # noqa: BLE001
                 log(f"{cand['target']} model error: {e}")
                 break
             fails = check(kind, cand["text"], hands, names, binding)
-            if not fails and not voice_check(key, binding):
+            if not fails and not voice_check(creds, binding):
                 fails = ["not in the world's voice"]
             if not fails:
                 result = binding
