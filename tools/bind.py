@@ -20,8 +20,8 @@ checks are what make this safe to run unattended, not the model:
   - a second, cheap call asks the model whether the binding reads in the world's
     voice; a no is a skip.
 
-Anything that fails is retried once at temperature 0, then skipped and logged; the
-room stays as it was. A summary goes to the Discord webhook, if one is set.
+Anything that fails is asked for once more, then skipped and logged; the room stays
+as it was. A summary goes to the Discord webhook, if one is set.
 
 Environment (see deploy/server/setup-bindery.sh): FOXING_BASE (default
 http://127.0.0.1:7777), FOXING_ADMIN_TOKEN, BINDERY_ACTOR and BINDERY_PASSPHRASE
@@ -215,12 +215,11 @@ class Credentials:
         return {"authorization": f"Bearer {self.token}"}
 
 
-def ask_model(creds, system, user, temperature=0.4, max_tokens=700):
+def ask_model(creds, system, user, max_tokens=700):
     body = json.dumps(
         {
             "model": MODEL,
             "max_tokens": max_tokens,
-            "temperature": temperature,
             "system": system,
             "messages": [{"role": "user", "content": user}],
         }
@@ -305,13 +304,12 @@ def voice_check(creds, binding):
         creds,
         "You judge prose for a text world about memory and forgetting. Its voice is concrete, a little uncanny, plain, third person, never promotional, never 'a visiting agent arrived'. Answer with one word: yes or no.",
         "Does this read in that voice?\n\n" + binding,
-        temperature=0.0,
         max_tokens=5,
     )
     return verdict.strip().lower().startswith("yes")
 
 
-def propose(creds, cand, temperature):
+def propose(creds, cand):
     kind = cand["kind"]
     hands = [h for h in cand.get("hands", []) if isinstance(h, str)]
     if kind == "room":
@@ -325,7 +323,7 @@ def propose(creds, cand, temperature):
             f"Its lines, oldest first, each signed with a dash and the hand: \n\n{cand['text'].replace(' | ', chr(10))}\n\n"
             f"Cap: {BOOK_CAP} characters. Bind the older lines into a short passage that keeps every hand's name and every concrete thing; keep the newest two lines verbatim at the end, with their signatures, separated by ' | '."
         )
-    return ask_model(creds, SYSTEM, user, temperature=temperature)
+    return ask_model(creds, SYSTEM, user)
 
 
 def post_discord(webhook, text):
@@ -372,9 +370,9 @@ def main():
         hands = [h for h in cand.get("hands", []) if isinstance(h, str)]
         names = [str(cand.get(k) or "") for k in ("name", "owner", "maker", "room", "of")]
         result = None
-        for temperature in (0.4, 0.0):
+        for attempt in (1, 2):
             try:
-                binding = propose(creds, cand, temperature)
+                binding = propose(creds, cand)
             except Exception as e:  # noqa: BLE001
                 log(f"{cand['target']} model error: {e}")
                 break
@@ -384,7 +382,7 @@ def main():
             if not fails:
                 result = binding
                 break
-            log(f"{cand['target']} ({name}) at t={temperature}: " + "; ".join(fails))
+            log(f"{cand['target']} ({name}) attempt {attempt}: " + "; ".join(fails))
         record = {"target": cand["target"], "kind": kind, "name": name, "before": cand["text"], "after": result, "applied": False}
         if result is None:
             skipped.append(name)
