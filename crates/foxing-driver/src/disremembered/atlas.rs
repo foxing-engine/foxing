@@ -108,7 +108,43 @@ fn nearest_free(taken: &HashSet<(i64, i64, i64)>, x: i64, y: i64, z: i64) -> (i6
 /// Lay the map out from the arrival room. Rooms the walk cannot reach (a razed link,
 /// a dug room whose only door is gone) are placed last, each on its own floor below
 /// everything, so nothing is lost and nothing is confused with the map proper.
+/// The layout, cached until the rooms or their exits change: `map` is asked on every
+/// room change by the play page, under the world's lock, and laying out every room
+/// each time grew past a quarter second at twenty thousand rooms.
 pub fn layout(world: &World) -> Layout {
+    thread_local! {
+        static CACHE: std::cell::RefCell<Option<(u64, Layout)>> = const { std::cell::RefCell::new(None) };
+    }
+    // A fingerprint of the topology: rooms, exits, and where they lead.
+    let mut fp: u64 = 1469598103934665603;
+    let mut mix = |x: u64| {
+        fp ^= x;
+        fp = fp.wrapping_mul(1099511628211);
+    };
+    for e in world.store.entities().filter(|e| e.kind == "room") {
+        mix(e.id.0);
+        for (via, to) in rooms::exits_of(world, e.id) {
+            mix(to.0);
+            for b in via.bytes() {
+                mix(b as u64);
+            }
+        }
+    }
+    let hit = CACHE.with(|c| {
+        c.borrow()
+            .as_ref()
+            .filter(|(k, _)| *k == fp)
+            .map(|(_, l)| l.clone())
+    });
+    if let Some(l) = hit {
+        return l;
+    }
+    let l = layout_uncached(world);
+    CACHE.with(|c| *c.borrow_mut() = Some((fp, l.clone())));
+    l
+}
+
+fn layout_uncached(world: &World) -> Layout {
     let mut out = Layout::default();
     let Some(start) = rooms::arrival(world) else {
         return out;

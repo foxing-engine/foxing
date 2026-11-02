@@ -6892,3 +6892,185 @@ fn nothing_mends_in_a_fight_or_while_bleeding() {
         "mending again after the bleed"
     );
 }
+
+/// Not a test: a measurement. `cargo test -p foxing-driver -q scale_ -- --ignored --nocapture`
+/// builds a world of N rooms (ROOMS env, default 10000) in a chain with side branches,
+/// a creature in every tenth, and times what grows with the room count.
+#[test]
+#[ignore]
+fn scale_measurement() {
+    use std::time::Instant;
+    let n: usize = std::env::var("ROOMS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(10_000);
+    let dir = tempfile::tempdir().unwrap();
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(dir.path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let start = rooms::room_by_key(&w, "fogbank").unwrap();
+    let built = Instant::now();
+    let mut prev = start;
+    let mut ids = Vec::with_capacity(n);
+    for i in 0..n {
+        let id = w.store.allocate_id();
+        w.record(
+            foxing_log::Actor::Driver,
+            foxing_store::StoreEvent::EntityCreated {
+                id,
+                kind: "room".into(),
+                owner: Some("digger".into()),
+                parent: None,
+                scopes: vec![],
+            },
+        )
+        .unwrap();
+        let mut fields = std::collections::BTreeMap::new();
+        fields.insert("key".into(), Field::Plain(json!(format!("r{i}"))));
+        fields.insert("name".into(), Field::Plain(json!(format!("Room {i}"))));
+        fields.insert(
+            "description".into(),
+            Field::Plain(json!("A room among many, counted and forgotten.")),
+        );
+        fields.insert(
+            "memory".into(),
+            Field::Timed(foxing_time::TimedValue::new(
+                1.0,
+                t0,
+                foxing_time::Curve::Exponential {
+                    half_life: Duration::seconds(3600),
+                },
+            )),
+        );
+        fields.insert("half_life_ms".into(), Field::Plain(json!(3_600_000)));
+        fields.insert("permits".into(), Field::Plain(json!({})));
+        fields.insert("welcomes".into(), Field::Plain(json!({})));
+        w.record(
+            foxing_log::Actor::Driver,
+            foxing_store::StoreEvent::ComponentSet {
+                id,
+                component: ROOM.into(),
+                fields,
+            },
+        )
+        .unwrap();
+        // Exits: back to the previous, on to the next (set when the next exists).
+        let mut ex = serde_json::Map::new();
+        ex.insert("back".into(), json!(prev.0));
+        let mut ef = std::collections::BTreeMap::new();
+        ef.insert("exits".into(), Field::Plain(Value::Object(ex)));
+        w.record(
+            foxing_log::Actor::Driver,
+            foxing_store::StoreEvent::ComponentSet {
+                id,
+                component: EXITS.into(),
+                fields: ef,
+            },
+        )
+        .unwrap();
+        // The previous room's "on" exit.
+        let mut pex = rooms::exits_of(&w, prev)
+            .into_iter()
+            .map(|(k, v)| (k, json!(v.0)))
+            .collect::<serde_json::Map<_, _>>();
+        pex.insert(
+            if prev == start {
+                format!("deep{i}")
+            } else {
+                "on".into()
+            },
+            json!(id.0),
+        );
+        let mut pf = std::collections::BTreeMap::new();
+        pf.insert("exits".into(), Field::Plain(Value::Object(pex)));
+        w.record(
+            foxing_log::Actor::Driver,
+            foxing_store::StoreEvent::ComponentSet {
+                id: prev,
+                component: EXITS.into(),
+                fields: pf,
+            },
+        )
+        .unwrap();
+        if i % 10 == 0 {
+            combat::fill(&mut w, id).unwrap();
+        }
+        ids.push(id);
+        prev = id;
+    }
+    let events = w.log.head(&w.id).unwrap().map(|s| s.0).unwrap_or(0);
+    eprintln!(
+        "built {n} rooms, {} creatures, {events} events in {:.1?}",
+        ids.len() / 10,
+        built.elapsed()
+    );
+    let time = |label: &str, f: &mut dyn FnMut()| {
+        let t = Instant::now();
+        f();
+        eprintln!("  {label:<28} {:>9.2?}", t.elapsed());
+    };
+    time("tick (sweeps, jobs)", &mut || {
+        w.tick();
+    });
+    time("look (Threshold)", &mut || {
+        ok(&mut w, "dave", "look", json!([]));
+    });
+    time("map (first, lays out)", &mut || {
+        ok(&mut w, "dave", "map", json!([]));
+    });
+    time("map (again, cached)", &mut || {
+        ok(&mut w, "dave", "map", json!([]));
+    });
+    time("wants", &mut || {
+        ok(&mut w, "dave", "wants", json!([]));
+    });
+    time("mine", &mut || {
+        ok(&mut w, "dave", "mine", json!([]));
+    });
+    time("where (last room)", &mut || {
+        ok(&mut w, "dave", "where", json!([format!("Room {}", n - 1)]));
+    });
+    time("travel + look", &mut || {
+        ok(&mut w, "dave", "travel", json!(["east"]));
+    });
+    time("attack", &mut || {
+        let _ = call(
+            &mut w,
+            "dave",
+            ActorKind::Citizen,
+            "attack",
+            json!(["wisp"]),
+        );
+    });
+    time("bindery candidates", &mut || {
+        let _ = super::bindery::candidates(&w);
+    });
+    time("namery taken()", &mut || {
+        let _ = super::namery::taken(&w);
+    });
+    time("atlas layout", &mut || {
+        let _ = super::atlas::layout(&w);
+    });
+    time("observe room", &mut || {
+        let _ = observe_as(
+            &w,
+            &foxing_registry::CallContext {
+                actor: "dave".into(),
+                kind: ActorKind::Citizen,
+            },
+            rooms::look_query(start),
+        );
+    });
+    // The boot: replay every event.
+    drop(w);
+    let t = Instant::now();
+    let w2 = open(dir.path(), t0.plus(Duration::seconds(10)));
+    eprintln!(
+        "  {:<28} {:>9.2?}  ({} events)",
+        "boot replay",
+        t.elapsed(),
+        events
+    );
+    let rooms = w2.store.entities().filter(|e| e.kind == "room").count();
+    assert!(rooms >= n, "{rooms}");
+}

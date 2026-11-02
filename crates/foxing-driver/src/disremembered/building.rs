@@ -1028,14 +1028,50 @@ pub fn reframe(world: &mut World, room: EntityId) -> Result<(), CommandError> {
 
 /// On boot: every dug room drawn as a plain doorway takes the shape its name gives it.
 pub fn reframe_all(world: &mut World) -> Result<(), String> {
-    let dug: Vec<EntityId> = world
+    // One pass over every exit, not one per room: at ten thousand dug rooms the
+    // per-room scan made the boot quadratic (three minutes at twenty thousand).
+    let mut incoming: std::collections::HashMap<EntityId, Vec<String>> =
+        std::collections::HashMap::new();
+    let rooms: Vec<EntityId> = world
         .store
         .entities()
-        .filter(|e| e.kind == "room" && e.owner.is_some())
+        .filter(|e| e.kind == "room")
         .map(|e| e.id)
         .collect();
-    for r in dug {
-        reframe(world, r).map_err(|e| e.to_string())?;
+    for &r in &rooms {
+        for (via, to) in exits_of(world, r) {
+            incoming.entry(to).or_default().push(via);
+        }
     }
+    let dug: Vec<EntityId> = rooms
+        .into_iter()
+        .filter(|&r| world.store.entity(r).is_some_and(|e| e.owner.is_some()))
+        .collect();
+    for r in dug {
+        let via = incoming.get(&r).map(|v| v.join(" ")).unwrap_or_default();
+        reframe_with(world, r, &via).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Reframe one dug room given the exits that lead to it, already found.
+fn reframe_with(world: &mut World, room: EntityId, via: &str) -> Result<(), CommandError> {
+    let name = plain_str(world, room, ROOM, "name")
+        .unwrap_or("")
+        .to_string();
+    let frame = dug_frame(via, &name);
+    if plain_str(world, room, super::SPRITE, "frame") == Some(frame) {
+        return Ok(());
+    }
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::ComponentSet {
+                id: room,
+                component: super::SPRITE.into(),
+                fields: super::sprite_fields("#", "#7a6f5f", frame),
+            },
+        )
+        .map_err(internal)?;
     Ok(())
 }

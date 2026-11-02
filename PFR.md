@@ -206,6 +206,27 @@ figures on the canvas that answer to a click.
   mending for eight minutes (a staunch job says when it stops; death clears it);
   `rest` says why nothing mends. Next: a bandage recipe (a strip of rag thread) that
   closes a bleed; the page's HP bar showing the mending state (fighting, bleeding).
+- Scale (2026-11-02, the owner asked: ten thousand rooms, a million, a trillion). A
+  measurement test (`scale_measurement`, ignored; `ROOMS=20000 cargo test --release
+  scale_measurement -- --ignored --nocapture`) builds a chain of rooms with a creature
+  in every tenth and times what grows with the count. Found and fixed the same hour:
+  the boot's `reframe_all` scanned every room's exits per dug room, quadratic (41 s at
+  ten thousand, three minutes at twenty), and wrote a sprite event per room each boot;
+  now one reverse-index pass, 2.5 s / 5 s, linear at ~65 µs an event. The atlas laid
+  out every room on every `map` (the page asks on each room change, under the lock):
+  now cached until the topology changes (first call 320 ms at twenty thousand, then
+  25 ms, which is the fingerprint pass; a version counter on room/exit events would
+  make that O(1)). What is left, by size: ten thousand rooms is fine today; a hundred
+  thousand wants a snapshot of the store so boot does not replay every event (four
+  hundred thousand events, ~30 s), indexes by kind and owner for `mine`, `candidates`
+  and `taken` (each scans all entities, 25 ms at ten thousand), and the fingerprint
+  replaced by a counter; a million wants respawn jobs scheduled on entry rather than
+  one per room, and the store's children/owner lookups indexed; past that the limit is
+  not rooms but the one lock (commands are serialized, ~1 to 3 ms each, so a thousand
+  commands a second is the ceiling whatever n is) and the one log. A trillion is not a
+  room count anyone will store: the world is sparse by design (rooms exist when dug),
+  so the honest path to "unbounded" is rooms materialized on demand from a seed, and
+  sharded worlds behind the gate.
 - A prettier page (2026-11-02, the owner: "I'm starting to share the link to gamer
   friends"). The night is ink-blue, not black; the world speaks in the serif and you
   type in the mono (the voice and the ledger); an ember for harm, moss for what you
