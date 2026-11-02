@@ -366,6 +366,15 @@ takes either back. `remember <chunk>` keeps the dug room you stand in
 longer; `remember <chunk> <creature>` feeds the chunk to a creature
 here, and at 60 it is named.
 
+A room or book many hands have appended to is, some night, *bound*: the
+Bindery (the world's own binder, a model under mechanical checks) folds
+the appends into one passage in the world's voice, keeping every name,
+every number and the owner's own opening sentence, and crediting each
+hand. `look` says a bound room is bound and when. An owner standing in
+a bound room, or a book's maker, may `unbind` and have the appends back
+as they were. Stories a creature has nearly forgotten fold the same way,
+into "a sheaf of N stories" worth their sum.
+
 ## Read
 
     log                               [DO] Quillwake MUST log.

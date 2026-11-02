@@ -2585,7 +2585,9 @@ fn memory_moves_by_gift_and_by_story() {
     // The story's answer carried a line of the creature's own, from what it held
     // beside it (the hollow it was fed), and the room heard it.
     assert!(
-        heard.iter().any(|t| t.contains("It goes in with the memory of hollow")),
+        heard
+            .iter()
+            .any(|t| t.contains("It goes in with the memory of hollow")),
         "{heard:?}"
     );
     let reply = talk::reply(&w, rag, "dave", "goodbye for now").unwrap();
@@ -6021,4 +6023,167 @@ fn a_made_thing_can_be_named_once_it_holds_sixty_and_a_fixture_stands_in_a_room_
     .unwrap_err();
     assert!(err.to_string().contains("a room you may build in"), "{err}");
     let _ = ledger;
+}
+
+#[test]
+fn the_bindery_folds_scraps_into_a_sheaf_and_binds_what_was_appended() {
+    use super::{bindery, craft};
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // A creature told six stories; six seconds on in the test world (half-life ten
+    // seconds at vividity 0, longer with it) they are scraps, and fold into a sheaf
+    // worth their sum, the gists kept.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "travel", json!(["south"]));
+    let c = admin(&mut w, "dave", "earn", json!(["hollow", 90, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "remember", json!([c, "ragpicker"]));
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let window = mind::window_of(&w, rag).unwrap();
+    for i in 0..6 {
+        super::memory::earn_chunk(
+            &mut w,
+            "nobody",
+            window,
+            &format!("a story: \"Tale number {i} of the lantern\""),
+            10.0,
+            0.0,
+            &curves(),
+        )
+        .unwrap();
+    }
+    assert_eq!(
+        w.store
+            .children(window)
+            .filter(|e| e.kind == "chunk")
+            .count(),
+        7
+    );
+    assert_eq!(
+        bindery::fold_sheaves(&mut w, &curves()).unwrap(),
+        0,
+        "not scraps yet"
+    );
+    w.fixed_now = Some(t0.plus(Duration::seconds(40)));
+    assert_eq!(bindery::fold_sheaves(&mut w, &curves()).unwrap(), 1);
+    let chunks: Vec<String> = w
+        .store
+        .children(window)
+        .filter(|e| e.kind == "chunk")
+        .filter_map(|e| plain_str(&w, e.id, CHUNK, "source").map(str::to_string))
+        .collect();
+    assert!(
+        chunks
+            .iter()
+            .any(|s| s.starts_with("a sheaf of 6 stories: \"Tale number 0 of the lantern\"")),
+        "{chunks:?}"
+    );
+    assert!(
+        !chunks
+            .iter()
+            .any(|s| s == "a story: \"Tale number 3 of the lantern\""),
+        "{chunks:?}"
+    );
+    // The hollow's memory (not a story) was left alone.
+    assert!(chunks.iter().any(|s| s == "hollow"), "{chunks:?}");
+    // A room much appended is a candidate; the operator binds it; the owner unbinds.
+    w.fixed_now = Some(t0.plus(Duration::seconds(41)));
+    let dig = admin(&mut w, "tyler", "earn", json!(["dig", 100, 1.0]));
+    let dig = format!("chunk-{}", dig.result["chunk"].as_u64().unwrap());
+    let dug = ok(&mut w, "tyler", "dig", json!(["nook", &dig, "The Nook"]));
+    let nook = dug.result["room"].as_u64().unwrap();
+    ok(&mut w, "tyler", "travel", json!(["nook"]));
+    ok(&mut w, "tyler", "describe", json!(["A nook with a bench."]));
+    ok(&mut w, "tyler", "welcome", json!(["dave"]));
+    let f = find_citizen(&w, "dave").unwrap();
+    w.record(
+        foxing_log::Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: f.citizen,
+            parent: Some(EntityId(nook)),
+        },
+    )
+    .unwrap();
+    for i in 0..3 {
+        ok(
+            &mut w,
+            "dave",
+            "append",
+            json!([format!("Dave sat on the bench, time {i}.")]),
+        );
+        ok(
+            &mut w,
+            "tyler",
+            "append",
+            json!([format!("Tyler counted the slats, time {i}.")]),
+        );
+    }
+    let cands = bindery::candidates(&w);
+    let room = cands["candidates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["id"] == json!(nook))
+        .expect("the nook is a candidate");
+    assert_eq!(room["appends"], 6);
+    assert_eq!(room["hands"], json!(["dave", "tyler"]));
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "bind",
+        json!([format!("room-{nook}"), "Bound prose that is long enough."]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("may not call"), "{err}");
+    let out = admin(&mut w, "dave", "bind", json!([format!("room-{nook}"), "A nook with a bench, its slats counted three times by Tyler while Dave sat. (Hands: dave, tyler.)", "haiku"]));
+    assert!(
+        out.summary.starts_with("The Nook is bound:"),
+        "{}",
+        out.summary
+    );
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    assert!(
+        look.summary.contains("its slats counted three times"),
+        "{}",
+        look.summary
+    );
+    assert!(
+        look.summary.contains("Bound, the hands of dave"),
+        "{}",
+        look.summary
+    );
+    assert!(
+        !bindery::candidates(&w)["candidates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["id"] == json!(nook)),
+        "bound: no longer a candidate"
+    );
+    let err = call(&mut w, "dave", ActorKind::Citizen, "unbind", json!([])).unwrap_err();
+    assert!(err.to_string().contains("Only the room's owner"), "{err}");
+    let out = ok(&mut w, "tyler", "unbind", json!([]));
+    assert!(
+        out.summary
+            .contains("A nook with a bench. Dave sat on the bench, time 0."),
+        "{}",
+        out.summary
+    );
+    let err = call(&mut w, "tyler", ActorKind::Citizen, "unbind", json!([])).unwrap_err();
+    assert!(err.to_string().contains("Nothing here is bound"), "{err}");
+    let bound: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| {
+            e.kind == bindery::BOUND || e.kind == bindery::UNBOUND || e.kind == bindery::SHEAF
+        })
+        .collect();
+    assert_eq!(bound.len(), 3, "{bound:?}");
+    let _ = craft::FIXTURES_PER_ROOM;
 }

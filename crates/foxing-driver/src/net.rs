@@ -601,6 +601,18 @@ async fn conclave(State(s): State<Shared>) -> Reply {
     Ok(Json(crate::disremembered::conclave::to_json(&w)))
 }
 
+/// The Bindery's candidates, for the operator's tool: admin only.
+async fn bindery(State(s): State<Shared>, headers: HeaderMap) -> Reply {
+    if !s.is_admin(admin_header(&headers)) {
+        return Err(err_json(
+            StatusCode::FORBIDDEN,
+            "the Bindery's list is the operator's",
+        ));
+    }
+    let w = lock(&s)?;
+    Ok(Json(crate::disremembered::bindery::candidates(&w)))
+}
+
 /// The schema, as `GET /v0/schema` serves it.
 pub(crate) fn schema_value(s: &Shared) -> Result<Value, (StatusCode, Json<Value>)> {
     let w = lock(s)?;
@@ -1111,6 +1123,7 @@ pub fn router(shared: Shared) -> Router {
         .route("/v0/board", get(board))
         .route("/v0/economy", get(economy))
         .route("/v0/conclave", get(conclave))
+        .route("/v0/bindery", get(bindery))
         .route("/v0/citizens", get(citizens))
         .route("/v0/openapi.json", get(openapi))
         .route(

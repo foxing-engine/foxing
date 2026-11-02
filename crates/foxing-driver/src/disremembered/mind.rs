@@ -963,6 +963,8 @@ pub fn register(world: &mut World) {
         JOB_WANDER,
         Box::new(|w: &mut World, _| {
             wander(w)?;
+            // The Bindery folds a creature's scraps into a sheaf on the same clock.
+            super::bindery::fold_sheaves(w, &super::Curves::from_env())?;
             schedule_wander(w)
         }),
     );

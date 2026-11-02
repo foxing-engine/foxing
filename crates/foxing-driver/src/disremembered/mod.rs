@@ -9,6 +9,7 @@
 
 pub mod ask;
 pub mod atlas;
+pub mod bindery;
 pub mod board;
 pub mod building;
 pub mod cloak;
@@ -200,7 +201,12 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("origin", FieldKind::Plain, Visibility::Public)
             .field("dug_with", FieldKind::Plain, Visibility::Public)
             // Who gave up a memory so this room would last: `[{by, with, half_life_ms}]`.
-            .field("kept", FieldKind::Plain, Visibility::Public),
+            .field("kept", FieldKind::Plain, Visibility::Public)
+            // Sentences appended since the last binding, the hands that added them, and
+            // the Bindery's last binding (`{at, by, model, before}`).
+            .field("appends", FieldKind::Plain, Visibility::Public)
+            .field("hands", FieldKind::Plain, Visibility::Public)
+            .field("bound", FieldKind::Plain, Visibility::Public),
         ComponentSchema::new(EXITS, 1).field("exits", FieldKind::Plain, Visibility::Public),
         // A creature that is remembered: its tier, its given name, who keeps it, and
         // whether a memory was just taken from it. Its level is its window's.
@@ -248,7 +254,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("text", FieldKind::Plain, Visibility::Public)
             .field("held", FieldKind::Timed, Visibility::Public)
             .field("kept", FieldKind::Plain, Visibility::Public)
-            .field("open", FieldKind::Plain, Visibility::Public),
+            .field("open", FieldKind::Plain, Visibility::Public)
+            .field("bound", FieldKind::Plain, Visibility::Public),
         // The world's rates, which the Clocktower moves a step at a time: scales
         // around 1.0 on what a creature is worth, what a story pays, how fast new
         // memory fades, how long a room takes to refill, how often a creature leaves
@@ -1065,6 +1072,7 @@ pub fn register(world: &mut World, curves: Curves) {
     errand::register(world);
     cloak::register(world);
     building::register(world, curves.clone());
+    bindery::register(world, curves.clone());
     system::register(world);
 }
 

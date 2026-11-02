@@ -23,7 +23,7 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
 /// Most characters a description may carry, appended or not.
-const MAX_DESCRIPTION_CHARS: usize = 800;
+pub const MAX_DESCRIPTION_CHARS: usize = 800;
 /// Most characters a room name may carry.
 const MAX_NAME_CHARS: usize = 40;
 /// Below this memory the description is only its first sentence; below `FADED` it is gone.
@@ -735,11 +735,26 @@ pub fn register(world: &mut World, curves: super::Curves) {
             }
             let mut fields = BTreeMap::new();
             fields.insert("description".into(), Field::Plain(json!(joined)));
+            // For the Bindery: how much has been added since the last binding, and
+            // by whom, so a binding can credit every hand.
+            let appends = match w.store.entity(here).and_then(|e| e.components.get(ROOM)).and_then(|c| c.fields.get("appends")) {
+                Some(Field::Plain(v)) => v.as_u64().unwrap_or(0),
+                _ => 0,
+            } + 1;
+            fields.insert("appends".into(), Field::Plain(json!(appends)));
+            let mut hands: Vec<Value> = match w.store.entity(here).and_then(|e| e.components.get(ROOM)).and_then(|c| c.fields.get("hands")) {
+                Some(Field::Plain(Value::Array(a))) => a.clone(),
+                _ => Vec::new(),
+            };
+            if !hands.iter().any(|h| h == &json!(ctx.actor)) {
+                hands.push(json!(ctx.actor));
+            }
+            fields.insert("hands".into(), Field::Plain(Value::Array(hands)));
             set_room_fields(w, &ctx.actor, here, fields)?;
             visited(w, here).map_err(internal)?;
             Ok(Outcome::new(
                 format!("The room is now described: {joined}"),
-                json!({"room": here.0, "description": joined, "added": more}),
+                json!({"room": here.0, "description": joined, "added": more, "appends": appends}),
             ))
         }),
     );

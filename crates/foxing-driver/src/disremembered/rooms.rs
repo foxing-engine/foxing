@@ -680,7 +680,7 @@ pub fn room_of(world: &World, citizen: EntityId) -> Option<EntityId> {
 pub fn look_query(room: EntityId) -> Value {
     json!({
         "root": {"entity": room.0},
-        "select": {ROOM: ["name", "description", "memory", "dug_with", "kept"], EXITS: "*"},
+        "select": {ROOM: ["name", "description", "memory", "dug_with", "kept", "bound"], EXITS: "*"},
         "relations": {
             "contents": {
                 "kinds": ["citizen", "creature"],
@@ -715,7 +715,7 @@ pub fn describe(
             .unwrap_or(""),
         memory,
     );
-    let desc = if desc.ends_with(['.', '!', '?', '"', '”']) || desc.is_empty() {
+    let desc = if desc.ends_with(['.', '!', '?', '"', '”', ')']) || desc.is_empty() {
         desc
     } else {
         format!("{desc}.")
@@ -775,6 +775,18 @@ pub fn describe(
             if !keepers.is_empty() {
                 text.push_str(&format!(" Kept in memory by {}.", keepers.join(", ")));
             }
+        }
+        // Bound by the Bindery: the appends folded into one passage, the hands credited.
+        if let Some(hands) = root["components"][ROOM]["bound"]["hands"].as_array() {
+            let hands: Vec<&str> = hands.iter().filter_map(Value::as_str).collect();
+            text.push_str(&format!(
+                " Bound, the hands of {}.",
+                if hands.is_empty() {
+                    "no one".to_string()
+                } else {
+                    hands.join(", ")
+                }
+            ));
         }
     }
     if !exits.is_empty() {

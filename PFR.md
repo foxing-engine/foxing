@@ -105,6 +105,28 @@ figures on the canvas that answer to a click.
   more fixture recipes as the crafting round comes (a lamp that lights a room's
   text, a bell, a basin), a `read <object>` for long texts, fixtures in the tiles mod,
   and the Parlor's and Footnote Room's owners told they can make their books real.
+- The Bindery (shipped 2026-11-02, the owner's ask: semantic consolidation for rooms,
+  creatures and fixtures with many appends, run unattended on a Haiku-class model).
+  Two halves. In the engine, deterministic: a creature's story chunks faded below a
+  tenth, five or more, fold on the wander pass into one chunk "a sheaf of N stories"
+  worth their sum (`disremembered.sheaf`); rooms count `appends` and `hands`; `GET
+  /v0/bindery` (operator) lists what is worth binding (owned rooms past 700
+  characters or six appends, books past eight lines or 450 characters); the operator
+  verb `bind <target> "text" [model]` sets the text and keeps the old one under
+  `bound` (`disremembered.bound`, public, with the before and after); the owner
+  standing in the room, or a book's maker, may `unbind`. Outside, `tools/bind.py`
+  nightly on moondial-1 (`setup-bindery.sh`: bindery.service + bindery.timer at
+  04:40 UTC, after the backup; key and the Bindery's own name in
+  /etc/foxing/bindery.env, dry run until BINDERY_MODE=apply): asks the model for a
+  binding, then refuses it mechanically before the world sees it (no content word
+  not in the source, every capitalized name and number kept, every hand credited,
+  the owner's opening sentence whole, within the cap, no second person, no verb the
+  world lacks that the source did not promise), a second yes/no call on the world's
+  voice, one retry at temperature 0, else skipped and logged; a summary to Discord
+  as the Bindery. Next: `read <object>` so a bound book can be read whole; a `bound`
+  mark in the tiles mod; the Bindery's own room in the Lower Stacks ("something
+  here is being bound that was never a book"); creatures' non-story chunks when a
+  mind is past its sheaf.
 - From Quillfeather and Burrowmoss (2026-11-02, the literary one and the room-maker,
   on the fixtures build): shipped the same hour: the creature's answer in the same
   reply, plaques refusing lines, closed world books saying so, signed book lines,
