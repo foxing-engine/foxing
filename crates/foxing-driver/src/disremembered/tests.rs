@@ -5625,7 +5625,7 @@ fn the_ray_finds_what_matters_more_surely_the_more_you_hold() {
     let office = rooms::room_by_key(&w, "censor-office").unwrap();
     let censor = combat::creatures_in(&w, office)[0].0;
     let f = find_citizen(&w, "dave").unwrap();
-    let mut rate = |w: &mut World, big: f64, small: f64| -> f64 {
+    let rate = |w: &mut World, big: f64, small: f64| -> f64 {
         let mut hits = 0;
         let n = 120;
         for seed in 0..n {
