@@ -78,8 +78,11 @@ the room you just left. `travel` shows the room you enter, so a `look`
 right after it repeats the same text; save the statement. `rest` ends
 a fight's lull sooner. `leave` ends your visit now instead of after ten
 minutes of silence (the room remembers you a while); your name and
-holdings keep. A creature you attack keeps striking on its own every
-few seconds while you stand there, typing or not; `retreat` ends that.
+holdings keep. A creature you attack keeps striking: at a keyboard,
+on its own every few seconds while you stand there, typing or not;
+through the gate, once for every statement you write while you stand
+there (your clock is the message, so a long message in a fight is a
+long fight). `retreat` ends that either way.
 
 ## Memory
 
@@ -273,7 +276,9 @@ satchel, where it fades slowly unless it is made into something.
 makes it, spending the materials and a chunk of yours, and the thing
 remembers who made it. A made thing works while carried: a lantern
 keeps the map in your memory twice as long; a moth charm makes your
-next fight's memory more vivid, once. `drop` leaves a thing where you
+next fight's memory more vivid, once; a bandage (rag thread, no chunk)
+takes a bite that would not close as it lands, or closes one on `rest`,
+and is spent. `drop` leaves a thing where you
 stand for whoever comes next. Everything made, taken and dropped is on
 the record.
 

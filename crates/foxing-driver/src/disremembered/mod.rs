@@ -13,7 +13,7 @@ pub mod bindery;
 pub mod board;
 pub mod building;
 pub mod cloak;
-mod combat;
+pub(crate) mod combat;
 pub mod conclave;
 pub mod craft;
 pub mod death;
@@ -46,7 +46,7 @@ use foxing_time::{Bounds, Curve, Duration, TimedValue};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
-pub use combat::{DIED, NARRATIVE};
+pub use combat::{gate_round, DIED, NARRATIVE};
 pub use identity::LoginError;
 
 /// Decay curves for the slice. Half-lives are short so decay is visible in a session;
@@ -339,6 +339,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // When this name went down, lately: the night's falls halve the next one's cost.
             .field("falls", FieldKind::Plain, Visibility::Public)
             .field("falls_ever", FieldKind::Plain, Visibility::Public)
+            // Who felled you, beside each fall: the night's stones carry their names.
+            .field("falls_by", FieldKind::Plain, Visibility::Public)
             .field("pto_since", FieldKind::Plain, Visibility::Public)
             .field("pto_taken", FieldKind::Plain, Visibility::Public)
             // When the name was taken. A new name is not hunted for its first hour.

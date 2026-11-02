@@ -399,7 +399,7 @@ pub fn register(world: &mut World, curves: Curves) {
 
     let c = curves.clone();
     world.register(
-        CommandSpec::new("disremembered.shelve", "Kept names only. Move a chunk from your window into your palace, where it fades slower and counts for nothing.")
+        CommandSpec::new("disremembered.shelve", "Move a chunk from your window into your palace, where it fades slower and counts for nothing. A kept name's verb.")
             .param("chunk", ParamType::Entity, true, "a chunk in your window"),
         Box::new(move |w: &mut World, ctx, args: &Args| {
             super::kept_only(w, ctx, "shelve")?;
@@ -509,7 +509,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.pto", "Kept names only. Ask for leave: your clock stops when the room disremembers you (ten minutes after your last word), so nothing of yours fades or heals while you are gone, and it runs again the moment you act. Two windows in thirty days, each seven days at most."),
+        CommandSpec::new("disremembered.pto", "Ask for leave: your clock stops when the room disremembers you (ten minutes after your last word), so nothing of yours fades or heals while you are gone, and it runs again the moment you act. Two windows in thirty days, each seven days at most. A kept name's verb."),
         Box::new(|w: &mut World, ctx, _| {
             super::kept_only(w, ctx, "pause its clock")?;
             let f = me(w, ctx)?;

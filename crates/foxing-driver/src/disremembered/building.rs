@@ -383,7 +383,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.dig",
-            "Kept names only. Open a new room off this one, through a new exit, paid for with one of your chunks: the room is born with that memory's half-life and fades unless visited. From each of the world's own rooms (the seed rooms) once; from your own, as you like.",
+            "Open a new room off this one, through a new exit, paid for with one of your chunks: the room is born with that memory's half-life and fades unless visited. From each of the world's own rooms (the seed rooms) once; from your own, as you like. A kept name's verb (every name is kept unless it asked to be passing at the gate; the play page's names are kept).",
         )
         .param("exit", ParamType::String, true, "the new exit's name, not one this room has")
         .param("chunk", ParamType::Entity, true, "a chunk of yours; it is spent")
@@ -837,7 +837,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.permit",
-            "Kept names only. Let another citizen describe and name this room of yours, for some hours or for good. To let them only add to it, welcome them instead.",
+            "Let another citizen describe and name this room of yours, for some hours or for good. To let them only add to it, welcome them instead. A kept name's verb.",
         )
         .param("citizen", ParamType::Entity, true, "a citizen's name")
         .param(
@@ -854,7 +854,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.welcome",
-            "Kept names only. Let another citizen add to this room of yours, a sentence at a time, but not rewrite or rename it: a guest book. For some hours or for good.",
+            "Let another citizen add to this room of yours, a sentence at a time, but not rewrite or rename it: a guest book. For some hours or for good. A kept name's verb.",
         )
         .param("citizen", ParamType::Entity, true, "a citizen's name")
         .param(
@@ -871,7 +871,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.revoke",
-            "Kept names only. Take back a citizen's permission or welcome on this room of yours.",
+            "Take back a citizen's permission or welcome on this room of yours. A kept name's verb.",
         )
         .param("citizen", ParamType::Entity, true, "a citizen's name"),
         Box::new(|w: &mut World, ctx, args: &Args| {

@@ -96,11 +96,13 @@ pub fn falls_ever(world: &World, citizen: EntityId) -> usize {
         .unwrap_or(0) as usize
 }
 
-/// Record a fall now: the night's count after it, and the lifetime count.
+/// Record a fall now: the night's count after it, and the lifetime count. Who felled
+/// you goes beside each fall, so the night's stones can carry their names.
 pub fn record_fall(
     world: &mut World,
     actor: &str,
     citizen: EntityId,
+    killer: Option<EntityId>,
 ) -> Result<(u32, usize), foxing_registry::CommandError> {
     let now = world.now().0;
     let mut list = falls(world, citizen);
@@ -108,13 +110,42 @@ pub fn record_fall(
     if list.len() > FALLS_KEPT {
         list.drain(..list.len() - FALLS_KEPT);
     }
+    let mut by = falls_by(world, citizen);
+    by.push(json!({"at": now, "by": killer.map(|k| killer_said(world, k)).unwrap_or_else(|| "the world".to_string())}));
+    if by.len() > FALLS_KEPT {
+        by.drain(..by.len() - FALLS_KEPT);
+    }
     let ever = falls_ever(world, citizen) + 1;
     let recent = list.iter().filter(|&&t| now - t <= NIGHT_MS).count() as u32;
     let mut changes = BTreeMap::new();
     changes.insert("falls".into(), Field::Plain(json!(list)));
+    changes.insert("falls_by".into(), Field::Plain(json!(by)));
     changes.insert("falls_ever".into(), Field::Plain(json!(ever)));
     super::set_citizen_fields(world, actor, citizen, changes)?;
     Ok((recent, ever))
+}
+
+/// Every fall on the record with who felled you: `{at, by}`.
+pub fn falls_by(world: &World, citizen: EntityId) -> Vec<Value> {
+    world
+        .store
+        .entity(citizen)
+        .and_then(|e| e.components.get(CITIZEN))
+        .and_then(|c| c.fields.get("falls_by"))
+        .and_then(|f| match f {
+            Field::Plain(Value::Array(a)) => Some(a.clone()),
+            _ => None,
+        })
+        .unwrap_or_default()
+}
+
+/// The night's falls, oldest first: `{at, by}` for the stones.
+pub fn night(world: &World, citizen: EntityId) -> Vec<Value> {
+    let now = world.now().0;
+    falls_by(world, citizen)
+        .into_iter()
+        .filter(|f| f["at"].as_i64().is_some_and(|t| now - t <= NIGHT_MS))
+        .collect()
 }
 
 /// The creature keeps what you lost: a chunk in its window, vivid, its own.

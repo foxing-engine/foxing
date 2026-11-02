@@ -6969,6 +6969,82 @@ fn nothing_mends_in_a_fight_or_while_bleeding() {
         combat::hp(&w, dave) > at + 1.0,
         "mending again after the bleed"
     );
+    // A bandage carried takes the next bleeding bite and is spent; one carried while
+    // already bleeding is used by `rest`.
+    let sat = craft::satchel(&mut w, "dave", dave).unwrap();
+    let bandage = craft::make(
+        &mut w,
+        &curves(),
+        foxing_log::Actor::Driver,
+        Some("dave".into()),
+        sat,
+        "a bandage",
+        "made",
+        "bandage",
+        Some("dave"),
+        &["rag thread".into()],
+        1,
+        false,
+    )
+    .unwrap();
+    assert_eq!(craft::carries(&w, dave, "bandage"), Some(bandage));
+    let mut line = None;
+    for _ in 0..40 {
+        let (l, _) = stacks::trick(&mut w, &curves(), wisp, dave, "dave").unwrap();
+        if l.is_some() {
+            line = l;
+            break;
+        }
+    }
+    assert!(
+        line.as_deref()
+            .is_some_and(|l| l.contains("your bandage takes it, and is spent")),
+        "{line:?}"
+    );
+    assert!(craft::carries(&w, dave, "bandage").is_none(), "spent");
+    assert!(
+        super::plain_num(&w, dave, BODY, "bleed_until")
+            .filter(|&u| u >= w.now().0 as f64)
+            .is_none(),
+        "no bleed"
+    );
+    // Bleeding first, then a bandage: rest closes it.
+    let mut line = None;
+    for _ in 0..40 {
+        let (l, _) = stacks::trick(&mut w, &curves(), wisp, dave, "dave").unwrap();
+        if l.is_some() {
+            line = l;
+            break;
+        }
+    }
+    assert!(
+        line.as_deref()
+            .is_some_and(|l| l.contains("will not close")),
+        "{line:?}"
+    );
+    craft::make(
+        &mut w,
+        &curves(),
+        foxing_log::Actor::Driver,
+        Some("dave".into()),
+        sat,
+        "a bandage",
+        "made",
+        "bandage",
+        Some("dave"),
+        &["rag thread".into()],
+        1,
+        false,
+    )
+    .unwrap();
+    let out = ok(&mut w, "dave", "rest", json!([]));
+    assert!(
+        out.summary
+            .starts_with("Your bandage closes the bite, and is spent."),
+        "{}",
+        out.summary
+    );
+    assert!(craft::carries(&w, dave, "bandage").is_none());
 }
 
 /// Not a test: a measurement. `cargo test -p foxing-driver -q scale_ -- --ignored --nocapture`
@@ -7421,4 +7497,27 @@ fn a_session_is_summed_and_the_words_that_reached_you_are_kept() {
         "{}",
         s.summary
     );
+}
+
+#[test]
+fn only_the_stacks_own_kinds_are_whole_again_when_a_fight_ends() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    // A wisp that learned to shove keeps its wounds like any ground-floor creature;
+    // a lamprey, the Stacks' own, is whole again.
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    let mut changes = std::collections::BTreeMap::new();
+    changes.insert("learned".into(), Field::Plain(json!(["shove"])));
+    super::bindery::set_fields(&mut w, Actor::Driver, wisp, CREATURE, changes).unwrap();
+    assert!(stacks::trick_of(&w, wisp).is_some(), "it learned something");
+    combat::set_creature_hp(&mut w, wisp, 2.0).unwrap();
+    combat::mend(&mut w, wisp).unwrap();
+    assert_eq!(super::plain_num(&w, wisp, CREATURE, "hp"), Some(2.0));
+    let sump = rooms::room_by_key(&w, "pulp-sump").unwrap();
+    let lamprey = combat::creatures_in(&w, sump)[0].0;
+    combat::set_creature_hp(&mut w, lamprey, 2.0).unwrap();
+    combat::mend(&mut w, lamprey).unwrap();
+    let max = super::plain_num(&w, lamprey, CREATURE, "max_hp").unwrap();
+    assert_eq!(super::plain_num(&w, lamprey, CREATURE, "hp"), Some(max));
 }

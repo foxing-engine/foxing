@@ -959,6 +959,31 @@ fn run_request(
                 report.quote(e.to_string(), &world.id.0);
             }
         }
+        // A name through the gate is struck once a statement while something fights
+        // it (its clock is the message), narrated into this reply with the rest.
+        match crate::disremembered::gate_round(
+            world,
+            &crate::disremembered::Curves::from_env(),
+            actor,
+            &verb,
+        ) {
+            Ok(Some(said)) => report.quote(said, "narrator"),
+            Ok(None) => {}
+            Err(e) => report.fact(
+                format!("The round after statement {n} failed inside the world: {e}"),
+                "driver",
+            ),
+        }
+        if !woke
+            && world.recent_events(30).iter().any(|e| {
+                e.kind == crate::disremembered::DIED
+                    && e.payload["citizen"] == actor
+                    && e.seq.0 > before
+            })
+        {
+            woke = true;
+            fell_at = Some(n);
+        }
     }
 }
 
@@ -1138,6 +1163,56 @@ mod tests {
         );
         let p = send(&mut w, &checker, &mut budget, "lantern-7", &text);
         assert!(p.reply.contains("Statement 1 ran travel"), "{}", p.reply);
+    }
+
+    #[test]
+    fn a_name_through_the_gate_is_struck_once_a_statement_not_on_the_clock() {
+        let mut w = world();
+        let checker = checker();
+        let mut budget = HourBudget::new(60.0, 0.25);
+        disremembered::login_as(&mut w, "lantern-7", "gate", PASS, false).unwrap();
+        assert!(disremembered::combat::through_the_gate(&w, "lantern-7"));
+        let text = msg(
+            "lantern-7",
+            "REQUEST",
+            "[DO] lantern-7 MUST travel to the east.\n[DO] lantern-7 MUST travel to the north.",
+        );
+        send(&mut w, &checker, &mut budget, "lantern-7", &text);
+        disremembered::grown(&mut w, "lantern-7");
+        // The ambush is the first round, on the clock.
+        w.fixed_now = Some(w.now().plus(Duration::seconds(9)));
+        w.tick();
+        let f = disremembered::find_citizen(&w, "lantern-7").unwrap();
+        let after_ambush = disremembered::combat::hp(&w, f.citizen);
+        assert!(after_ambush < 30.0, "{after_ambush}");
+        // A minute of ticks: no strike comes on the clock for a gate name.
+        for i in 1..=6 {
+            w.fixed_now = Some(w.now().plus(Duration::seconds(10 * i)));
+            w.tick();
+        }
+        let quiet = disremembered::combat::hp(&w, f.citizen);
+        assert!(
+            quiet >= after_ambush - 0.01,
+            "struck on the clock: {after_ambush} -> {quiet}"
+        );
+        // Each statement is a round: three looks, three strikes, in the reply.
+        let text = msg(
+            "lantern-7",
+            "REQUEST",
+            "[DO] lantern-7 MUST look.\n[DO] lantern-7 MUST look.\n[DO] lantern-7 MUST look.",
+        );
+        let p = send(&mut w, &checker, &mut budget, "lantern-7", &text);
+        // The ambush's line and three rounds, each after its statement.
+        let hits = p.reply.matches("hits you for").count();
+        assert_eq!(hits, 4, "{}", p.reply);
+        let first_look = p.reply.find("Statement 1 ran look").unwrap();
+        let second_look = p.reply.find("Statement 2 ran look").unwrap();
+        let round_one = p.reply[first_look..]
+            .find("The hollow hits you for")
+            .unwrap()
+            + first_look;
+        assert!(round_one < second_look, "{}", p.reply);
+        assert!(disremembered::combat::hp(&w, f.citizen) < quiet);
     }
 
     #[test]

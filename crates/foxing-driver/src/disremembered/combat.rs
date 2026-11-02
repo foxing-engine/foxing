@@ -522,10 +522,13 @@ pub fn notice_everyone(world: &mut World, room: EntityId) -> Result<(), String> 
 
 /// "It strikes on its own every ten seconds or so while you stand here, typing or
 /// not." Said when a fight begins, so the clock is no surprise.
-fn clock_line(world: &World, creature: EntityId) -> String {
+fn clock_line(world: &World, creature: EntityId, actor: &str) -> String {
     let secs = creature_def(world, creature)
         .map(|d| d.strike_seconds)
         .unwrap_or(10);
+    if through_the_gate(world, actor) {
+        return "It strikes once for every statement you write while you stand here; retreat ends that.".to_string();
+    }
     format!("It strikes on its own every {secs} seconds or so while you stand here, typing or not; retreat ends that.")
 }
 
@@ -591,6 +594,76 @@ fn schedule_strike(
         .map(|_| ())
 }
 
+/// Whether a name's last door was the gate or MCP: an agent writing messages, with
+/// no clock of its own between them.
+pub fn through_the_gate(world: &World, actor: &str) -> bool {
+    matches!(world.door_of(actor), Some("gate") | Some("mcp"))
+}
+
+/// One round of the creature against the citizen, narrated: `None` when the fight is
+/// not on (gone, moved, disengaged), else whether it ended the fight (a death, a
+/// trick that moved someone). The clock's strike and the gate's per-statement
+/// round are both this.
+pub fn round(
+    world: &mut World,
+    curves: &super::Curves,
+    creature: EntityId,
+    citizen: EntityId,
+    actor: &str,
+) -> Result<Option<(bool, String)>, String> {
+    let same_room = world.store.entity(creature).and_then(|c| c.parent)
+        == world.store.entity(citizen).and_then(|c| c.parent);
+    if !same_room
+        || engaged_with(world, citizen) != Some(creature)
+        || !super::presence::is_here(world, citizen)
+    {
+        return Ok(None);
+    }
+    let cname = plain_str(world, creature, CREATURE, "name")
+        .unwrap_or("?")
+        .to_string();
+    let (taken, dead) = creature_strikes(world, creature, citizen).map_err(|e| e.to_string())?;
+    if dead {
+        let f = super::find_citizen(world, actor).ok_or("citizen vanished")?;
+        let d = die(world, actor, &f, Some(creature)).map_err(|e| e.to_string())?;
+        let said = format!(
+            "The {cname} hits you for {taken:.0}. You go down.{}",
+            d.said()
+        );
+        narrate(world, actor, said.clone());
+        return Ok(Some((true, said)));
+    }
+    let (trick, over) = super::stacks::trick(world, curves, creature, citizen, actor)?;
+    let said = format!(
+        "The {cname} {}.{}",
+        hit_said(taken),
+        trick.map(|t| format!(" {t}")).unwrap_or_default()
+    );
+    narrate(world, actor, said.clone());
+    Ok(Some((over, said)))
+}
+
+/// The gate's round: after a statement from a name that came through the gate, the
+/// creature it is fighting strikes once. Not after `attack` (its round has the
+/// strike back in it) or `retreat`.
+pub fn gate_round(
+    world: &mut World,
+    curves: &super::Curves,
+    actor: &str,
+    verb: &str,
+) -> Result<Option<String>, String> {
+    if matches!(verb, "attack" | "retreat") || !through_the_gate(world, actor) {
+        return Ok(None);
+    }
+    let Some(f) = super::find_citizen(world, actor) else {
+        return Ok(None);
+    };
+    let Some(creature) = engaged_with(world, f.citizen) else {
+        return Ok(None);
+    };
+    round(world, curves, creature, f.citizen, actor).map(|r| r.map(|(_, said)| said))
+}
+
 /// The fight is over for this citizen: no more strikes come.
 pub(crate) fn end_fight(world: &mut World, citizen: EntityId) -> Result<(), String> {
     world.cancel(JOB_STRIKE, |p| p["citizen"] == citizen.0)?;
@@ -632,7 +705,11 @@ pub(crate) fn set_creature_hp(
 }
 
 pub(crate) fn mend(world: &mut World, creature: EntityId) -> Result<(), StoreError> {
-    if super::stacks::trick_of(world, creature).is_none() {
+    // The Stacks' own kinds only: a ground-floor creature that learned a trick from a
+    // kill keeps its wounds like its neighbors (a wisp that learned to shove was back
+    // to full hit points seconds after the shove; the owner called it a bug).
+    let kind = super::plain_str(world, creature, CREATURE, "name").unwrap_or("");
+    if !super::stacks::TRICKS.iter().any(|(k, _)| *k == kind) {
         return Ok(());
     }
     let max = plain_num(world, creature, CREATURE, "max_hp").unwrap_or(0.0);
@@ -845,7 +922,7 @@ pub(crate) fn die(
     // almost nothing. The share halves with every fall of the same night: cheap, but
     // not at first.
     let level = super::memory::level(world, f.window);
-    let (fall, ever) = super::death::record_fall(world, actor, f.citizen)?;
+    let (fall, ever) = super::death::record_fall(world, actor, f.citizen, killer)?;
     let share = death_share(level) * 0.5f64.powi(fall.saturating_sub(1) as i32);
     let owed = level * share;
     let fell_in = super::rooms::room_of(world, f.citizen);
@@ -920,6 +997,7 @@ pub(crate) fn die(
                "killer": killer.map(|k| k.0), "killer_kind": killer.and_then(|k| plain_str(world, k, CREATURE, "name")), "killer_name": killer.and_then(|k| super::mind::name(world, k)),
                "kept": kept_chunk.map(|c| c.0), "learned": learned, "epitaph": epitaph,
                "kept_things": super::death::kept(world, actor),
+               "night": super::death::night(world, f.citizen),
                "lost": gone.iter().map(|(id, s, v)| json!({"chunk": id.0, "source": s, "value": v}))
                    .chain(thinned.iter().map(|(id, s, v, left)| json!({"chunk": id.0, "source": s, "value": v, "thinned_to": left})))
                    .collect::<Vec<_>>()}),
@@ -1020,43 +1098,14 @@ pub fn register(world: &mut World, curves: Curves) {
             let creature = EntityId(job.payload["creature"].as_u64().unwrap_or(0));
             let citizen = EntityId(job.payload["citizen"].as_u64().unwrap_or(0));
             let actor = job.payload["actor"].as_str().unwrap_or("").to_string();
-            // The fight must still be on: both exist, same room, still engaged.
-            let same_room = w.store.entity(creature).and_then(|c| c.parent)
-                == w.store.entity(citizen).and_then(|c| c.parent);
-            if !same_room
-                || engaged_with(w, citizen) != Some(creature)
-                || !super::presence::is_here(w, citizen)
-            {
+            // A name that came through the gate is struck once a statement, not on
+            // the clock: a stateless visitor took nine strikes between two lines.
+            if through_the_gate(w, &actor) {
                 return Ok(());
             }
-            let cname = plain_str(w, creature, CREATURE, "name")
-                .unwrap_or("?")
-                .to_string();
-            let (taken, dead) =
-                creature_strikes(w, creature, citizen).map_err(|e| e.to_string())?;
-            if dead {
-                let f = super::find_citizen(w, &actor).ok_or("citizen vanished")?;
-                let d = die(w, &actor, &f, Some(creature)).map_err(|e| e.to_string())?;
-                narrate(
-                    w,
-                    &actor,
-                    format!(
-                        "The {cname} hits you for {taken:.0}. You go down.{}",
-                        d.said()
-                    ),
-                );
+            let Some((over, _)) = round(w, &c, creature, citizen, &actor)? else {
                 return Ok(());
-            }
-            let (trick, over) = super::stacks::trick(w, &c, creature, citizen, &actor)?;
-            narrate(
-                w,
-                &actor,
-                format!(
-                    "The {cname} {}.{}",
-                    hit_said(taken),
-                    trick.map(|t| format!(" {t}")).unwrap_or_default()
-                ),
-            );
+            };
             if over {
                 return Ok(());
             }
@@ -1121,7 +1170,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 return Ok(());
             }
             let (trick, over) = super::stacks::trick(w, &c2, creature, citizen, &actor)?;
-            let clock = clock_line(w, creature);
+            let clock = clock_line(w, creature, &actor);
             narrate(
                 w,
                 &actor,
@@ -1229,7 +1278,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 schedule_strike(w, &ctx.actor, f.citizen, creature).map_err(internal)?;
                 // The clock, said once: a visitor died between two messages and read
                 // it only on the next.
-                began = Some(clock_line(w, creature));
+                began = Some(clock_line(w, creature, &ctx.actor));
             }
 
             // You strike.
@@ -1371,12 +1420,29 @@ pub fn register(world: &mut World, curves: Curves) {
                 .timed_field(f.citizen, BODY, "hp")
                 .ok()
                 .and_then(|t| t.active_time_to_reach(super::MAX_HP, now, &w.store.scopes_for(f.citizen).unwrap_or_default()));
-            let bleeding = plain_num(w, f.citizen, BODY, "bleed_until").filter(|&u| u > now.0 as f64);
+            let mut bleeding = plain_num(w, f.citizen, BODY, "bleed_until").filter(|&u| u > now.0 as f64);
+            // A bandage carried closes the bite now, and is spent.
+            let mut bandaged = String::new();
+            if bleeding.is_some() {
+                if let Some(bandage) = super::craft::carries(w, f.citizen, "bandage") {
+                    super::craft::spend(w, &ctx.actor, bandage)?;
+                    let me_id = f.citizen.0;
+                    let _ = w.cancel(JOB_STAUNCH, |p| p["citizen"] == me_id);
+                    w.record(
+                        Actor::Driver,
+                        StoreEvent::FieldSet { id: f.citizen, component: BODY.into(), field: "bleed_until".into(), value: json!(0) },
+                    )
+                    .map_err(internal)?;
+                    recurve_mending(w, f.citizen).map_err(internal)?;
+                    bleeding = None;
+                    bandaged = "Your bandage closes the bite, and is spent. ".to_string();
+                }
+            }
             let text = match eta {
                 _ if current < super::MAX_HP - 0.5 && engaged_with(w, f.citizen).is_some() => format!("You have {current:.0}/{:.0}. Nothing mends in a fight; retreat, and it starts.", super::MAX_HP),
                 _ if current < super::MAX_HP - 0.5 && bleeding.is_some() => format!("You have {current:.0}/{:.0}. You are bleeding: nothing mends for {} more.", super::MAX_HP, human((bleeding.unwrap() as i64) - now.0)),
-                Some(d) if d.0 > 0 => format!("You have {current:.0}/{:.0}. Full in {}.", super::MAX_HP, human(d.0)),
-                _ => format!("You have {current:.0}/{:.0}. You are whole.", super::MAX_HP),
+                Some(d) if d.0 > 0 => format!("{bandaged}You have {current:.0}/{:.0}. Full in {}.", super::MAX_HP, human(d.0)),
+                _ => format!("{bandaged}You have {current:.0}/{:.0}. You are whole.", super::MAX_HP),
             };
             Ok(Outcome::new(text, json!({"hp": current, "max_hp": super::MAX_HP, "full_in_seconds": eta.map(|d| d.0 / 1000)})))
         }),

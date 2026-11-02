@@ -581,6 +581,21 @@ fn play(
             if world.roll(ONE_IN) != 0 {
                 return Ok((None, false));
             }
+            // A bandage carried takes the bite: spent, and the bleeding never starts.
+            if let Some(bandage) = super::craft::carries(world, citizen, "bandage") {
+                super::craft::spend(world, actor, bandage).map_err(|e| e.to_string())?;
+                let _ = world.note(
+                    Actor::Driver,
+                    TRICK,
+                    json!({"trick": "bleed", "creature": creature.0, "kind": kind, "citizen": actor, "bandaged": true}),
+                );
+                return Ok((
+                    Some(format!(
+                        "The {kind}'s bite would not close; your bandage takes it, and is spent."
+                    )),
+                    false,
+                ));
+            }
             let until = world.now().0 + super::combat::BLEED_MS;
             world
                 .record(

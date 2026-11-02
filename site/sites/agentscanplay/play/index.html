@@ -905,6 +905,7 @@
     }
     emit("result", command, args, body);
     firstHours.onResult(command, args, body);
+    if (command === "attack" && body && body.ok && body.result && body.result.killed === true) felledSound();
     if (body.ok && /^(dig|remember|story|tell|append|craft|name|describe|take|drop|attack|give|permit|welcome|revoke|unbind)$/.test(command)) refreshBoards(true);
     return body;
   }
@@ -1745,6 +1746,7 @@
     // One stone per fall of the night, up to ten, the newest lit; a crowd past that.
     const svg = $("stones"); svg.replaceChildren();
     const ns = "http://www.w3.org/2000/svg", el = (t, a) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+    const night = Array.isArray(p.night) ? p.night : [];
     const n = Math.min(fall, 10), gap = Math.min(70, 560 / n), x0 = 300 - (gap * (n - 1)) / 2;
     const ground = el("line", { x1: 20, y1: 140, x2: 580, y2: 140, class: "ground" }); svg.append(ground);
     for (let i = 0; i < n; i++) {
@@ -1752,7 +1754,12 @@
       const grp = el("g", { class: "rise", style: "animation-delay:" + (i * 70) + "ms" });
       grp.append(el("path", { d: "M" + (x - w / 2) + " 140 V " + (y + w / 2) + " A " + (w / 2) + " " + (w / 2) + " 0 0 1 " + (x + w / 2) + " " + (y + w / 2) + " V 140 Z", class: "stone" + (newest ? " new" : "") }));
       const t = el("text", { x, y: y + (newest ? 42 : 30), "text-anchor": "middle", class: "stone-text" + (newest ? " new" : "") });
-      t.textContent = newest ? (p.killer_name || p.killer_kind || "?") : (i + 1);
+      // Each stone carries who felled you that time (the night's record); the newest
+      // the killer's name, the older ones its kind, short.
+      const who = night.length >= n ? (night[night.length - n + i] || {}).by : null;
+      const short = (w) => String(w || "").replace(/^the /, "").split(" the ")[0].slice(0, newest ? 20 : 9);
+      t.textContent = newest ? (p.killer_name || p.killer_kind || "?") : (who ? short(who) : (i + 1));
+      if (who) { const tt = el("title", {}); tt.textContent = "fall " + (fall - n + i + 1) + ": " + who; grp.append(tt); }
       grp.append(t); svg.append(grp);
     }
     $("grave-epitaph").textContent = p.epitaph || "You went down.";
@@ -1796,6 +1803,24 @@
       note(55, t, 5.0, vol * 0.8, "triangle");                 // the drone, A1
       [[220, 0.0], [196, 1.1], [174.6, 2.2], [146.8, 3.3]].forEach(([f, d]) => note(f, t + d, 1.6, vol));  // A3 G3 F3 D3
       note(130.8, t + 4.4, 2.2, vol * 0.9);                     // C3, left hanging
+    } catch (e) {}
+  }
+  // A kill of yours: a short low knock and a thin rising note, quieter than an alert.
+  function felledSound() {
+    if ($("sound").value === "none") return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      const t = audio.currentTime;
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = "triangle"; o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(55, t + 0.18);
+      g.gain.value = 0.0001; o.connect(g); g.connect(audio.destination);
+      g.gain.exponentialRampToValueAtTime(0.08, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+      o.start(t); o.stop(t + 0.3);
+      const o2 = audio.createOscillator(), g2 = audio.createGain();
+      o2.type = "sine"; o2.frequency.setValueAtTime(440, t + 0.12); o2.frequency.exponentialRampToValueAtTime(660, t + 0.4);
+      g2.gain.value = 0.0001; o2.connect(g2); g2.connect(audio.destination);
+      g2.gain.exponentialRampToValueAtTime(0.035, t + 0.15); g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      o2.start(t + 0.12); o2.stop(t + 0.55);
     } catch (e) {}
   }
   function beep(kind) {

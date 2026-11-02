@@ -141,6 +141,16 @@ pub const RECIPES: &[Recipe] = &[
         takes_lines: false,
     },
     Recipe {
+        key: "bandage",
+        name: "a bandage",
+        of: &["rag thread"],
+        chunk_at_least: 0.0,
+        does: "closes a bite that will not close: carried, it takes the bleeding bite as it lands and is spent; `rest` while bleeding uses one",
+        uses: 1,
+        fixed: false,
+        takes_lines: false,
+    },
+    Recipe {
         key: "jar",
         name: "a jar of fog",
         of: &["hollow water", "river weed"],
@@ -194,7 +204,7 @@ pub fn material_for(kind: &str) -> Option<&'static str> {
 
 /// Make a thing in a container (a room, a satchel).
 #[allow(clippy::too_many_arguments)]
-fn make(
+pub(crate) fn make(
     world: &mut World,
     curves: &Curves,
     actor: Actor,

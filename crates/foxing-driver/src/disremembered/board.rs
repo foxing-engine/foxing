@@ -53,6 +53,10 @@ pub struct Line {
     pub received: f64,
     pub stories: u64,
     pub errands: u64,
+    /// Falls: every time the name went down.
+    pub falls: u64,
+    /// Creatures felled, counted by the memories taken at a kill.
+    pub felled: u64,
     /// Births carried.
     pub carried: u64,
     /// Named creatures that know the name.
@@ -134,6 +138,16 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
             k if k == errand::DONE => {
                 if let Some(from) = p["from"].as_str() {
                     lines.entry(from.to_string()).or_default().errands += 1;
+                }
+            }
+            k if k == super::combat::DIED => {
+                if let Some(c) = p["citizen"].as_str() {
+                    lines.entry(c.to_string()).or_default().falls += 1;
+                }
+            }
+            k if k == super::mind::TAKEN => {
+                if let Some(by) = p["by"].as_str() {
+                    lines.entry(by.to_string()).or_default().felled += 1;
                 }
             }
             k if k == kindle::BORN => {
@@ -283,7 +297,7 @@ pub fn to_json(world: &World) -> Value {
             "held_24h": (l.held_24h * 100.0).round() / 100.0,
             "holding": (l.holding * 100.0).round() / 100.0,
             "earned": (l.earned * 100.0).round() / 100.0,
-            "kept": l.kept, "dug": l.dug, "given": l.given, "received": (l.received * 100.0).round() / 100.0, "stories": l.stories,
+            "kept": l.kept, "dug": l.dug, "given": l.given, "received": (l.received * 100.0).round() / 100.0, "stories": l.stories, "falls": l.falls, "felled": l.felled,
             "errands": l.errands, "carried": l.carried, "known_by": l.known_by, "faded": l.faded,
             "actions": l.actions,
             "retention": (l.retention * 1000.0).round() / 1000.0,
@@ -303,7 +317,7 @@ pub fn text(world: &World, asker: Option<&str>) -> String {
     let mut out = String::from("Held through the day (averaged), highest first:");
     for (i, l) in lines.iter().take(10).enumerate() {
         out.push_str(&format!(
-            "\n  {:>2}. {:<20} {:>9.2}  now {:>9.2}  earned {:>9.2}  kept {:>3.0}%  per action {:>6.2}  given {:>3}  stories {:>3}  errands {:>3}{}{}{}",
+            "\n  {:>2}. {:<20} {:>9.2}  now {:>9.2}  earned {:>9.2}  kept {:>3.0}%  per action {:>6.2}  given {:>3}  stories {:>3}  errands {:>3}  falls {:>3}{}{}{}",
             i + 1,
             l.name,
             l.held_24h,
@@ -314,6 +328,7 @@ pub fn text(world: &World, asker: Option<&str>) -> String {
             l.given,
             l.stories,
             l.errands,
+            l.falls,
             if l.received > 0.0 { format!("  received {:.0}", l.received) } else { String::new() },
             if l.known_by > 0 { format!("  known by {}", l.known_by) } else { String::new() },
             if l.passing { "  (passing)" } else { "" }
@@ -324,8 +339,8 @@ pub fn text(world: &World, asker: Option<&str>) -> String {
             if i >= 10 {
                 let l = &lines[i];
                 out.push_str(&format!(
-                    "\n  …\n  {:>2}. {:<20} {:>9.2}  now {:>9.2}  earned {:>9.2}  kept {:>3.0}%  per action {:>6.2}  given {:>3}  stories {:>3}  errands {:>3}",
-                    i + 1, l.name, l.held_24h, l.holding, l.earned, l.retention * 100.0, l.per_action, l.given, l.stories, l.errands
+                    "\n  …\n  {:>2}. {:<20} {:>9.2}  now {:>9.2}  earned {:>9.2}  kept {:>3.0}%  per action {:>6.2}  given {:>3}  stories {:>3}  errands {:>3}  falls {:>3}",
+                    i + 1, l.name, l.held_24h, l.holding, l.earned, l.retention * 100.0, l.per_action, l.given, l.stories, l.errands, l.falls
                 ));
             }
         }
