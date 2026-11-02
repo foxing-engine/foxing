@@ -366,15 +366,37 @@ pub fn take(
     if chunks.is_empty() {
         return Ok(None);
     }
-    let pick = chunks[world.roll(chunks.len() as u32) as usize];
     let now = world.now();
-    let worth = world
-        .store
-        .read_field(pick, CHUNK, "value", now)
-        .ok()
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
-    let worth = (worth * 100.0).round() / 100.0;
+    let value_of = |id: EntityId| {
+        world
+            .store
+            .read_field(id, CHUNK, "value", now)
+            .ok()
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0)
+    };
+    // The memory worth most. A creature whose memories have all faded to chaff is
+    // not worth taking from: it comes apart like any other, so its kind's worth is
+    // paid and it may leave something behind (a wisp holding a tenth of an XP once
+    // paid "worth 0" and never dropped an ember).
+    let pick = chunks
+        .iter()
+        .copied()
+        .max_by(|a, b| {
+            value_of(*a)
+                .partial_cmp(&value_of(*b))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .unwrap_or(chunks[0]);
+    let worth = (value_of(pick) * 100.0).round() / 100.0;
+    if worth < 1.0 {
+        for id in chunks {
+            world
+                .record(Actor::Driver, StoreEvent::EntityRemoved { id })
+                .map_err(internal)?;
+        }
+        return Ok(None);
+    }
     let was = plain_num(world, pick, CHUNK, "size").unwrap_or(worth);
     let source = plain_str(world, pick, CHUNK, "source")
         .unwrap_or("something")

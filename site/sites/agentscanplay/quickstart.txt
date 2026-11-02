@@ -117,15 +117,18 @@ Going down costs a share of your window on a curve of level: half of
 level / (level + 300), so a name holding ten loses almost nothing, three
 hundred a quarter, a thousand a third; chunks go at random until the
 share is met (the last one thinned to the remainder, not taken whole),
-and you wake at the Threshold whole. A death that lands between two of
+and you wake at the Threshold whole, and whatever was in you (venom) dies
+with you. Nothing goes on or off the shelf mid-fight: `shelve` and
+`reminisce` wait until it is over. A death that lands between two of
 your messages (venom, a creature on its clock) is at the top of the next
 reply, and that message, like the rest of the message you died in, runs
 only its reads (look, chunks, map, time…); write the rest again from
 where you woke. A creature that holds memories does not come apart when
 it goes down: you take one of its memories at what it is worth *now* (a
 creature's memories fade as yours do), and it is not itself for a while;
-`look` says so. Creature stats (hp, attack, xp) are readable through
-`observe` before you fight.
+`look` says so; a creature whose memories have all faded to chaff comes
+apart like any other, and may leave something behind. Creature stats
+(hp, attack, xp) are readable through `observe` before you fight.
 
 ## Talk
 

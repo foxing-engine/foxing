@@ -787,6 +787,10 @@ pub(crate) fn die(
     if let Some(creature) = engaged_with(world, f.citizen) {
         mend(world, creature).map_err(internal)?;
     }
+    // Whatever was in you dies with you: a lamprey's venom once went on working at
+    // the Threshold, where nothing hunts, after the wake.
+    let me_id = f.citizen.0;
+    let _ = world.cancel(super::stacks::JOB_VENOM, |p| p["citizen"] == me_id);
     set_engaged(world, actor, f.citizen, None).map_err(internal)?;
     end_fight(world, f.citizen).map_err(internal)?;
     world

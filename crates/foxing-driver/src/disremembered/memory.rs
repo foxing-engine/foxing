@@ -404,6 +404,13 @@ pub fn register(world: &mut World, curves: Curves) {
         Box::new(move |w: &mut World, ctx, args: &Args| {
             super::kept_only(w, ctx, "shelve")?;
             let f = me(w, ctx)?;
+            // Not mid-fight: a delver shelved the big chunks, retreated into a death
+            // that cost nothing, and took them down again for a twentieth of an XP.
+            if super::combat::engaged_with(w, f.citizen).is_some() {
+                return Err(CommandError::precondition(
+                    "You are in a fight; nothing goes on the shelf until it is over.",
+                ));
+            }
             let id = resolve_chunk(w, ctx, args.str("chunk").unwrap_or(""), &[f.window])?;
             let vividity = plain_num(w, id, CHUNK, "vividity").unwrap_or(0.0);
             // The Conclave's shelf limit: a shelf at the limit takes nothing more.
@@ -436,6 +443,11 @@ pub fn register(world: &mut World, curves: Curves) {
         .param("chunk", ParamType::Entity, true, "a chunk in your palace"),
         Box::new(move |w: &mut World, ctx, args: &Args| {
             let f = me(w, ctx)?;
+            if super::combat::engaged_with(w, f.citizen).is_some() {
+                return Err(CommandError::precondition(
+                    "You are in a fight; the shelf waits until it is over.",
+                ));
+            }
             let id = resolve_chunk(w, ctx, args.str("chunk").unwrap_or(""), &[f.palace])?;
             let vividity = plain_num(w, id, CHUNK, "vividity").unwrap_or(0.0);
             let actor = Actor::Citizen(ctx.actor.clone());

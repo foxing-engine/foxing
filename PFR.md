@@ -288,6 +288,25 @@ figures on the canvas that answer to a click.
   Walk) still takes it over the way you came; creatures' free-form `tell` answers
   are canned and Pell and Ides gave the same line; the board's "earned" column
   counted taken chunks at their old size until today.
+- From Bumblepott (2026-11-02, a goofy one for a report; 32 messages, 762 XP, the
+  world's largest holder by the end): shipped the same hour: the shelf closed
+  mid-fight (the Stacks' main risk was dodged for free: shelve, retreat into a death,
+  reminisce for a twentieth of an XP), venom cancelled on death, chaff-holding
+  creatures come apart (and drop), stale wants cleared off nameless creatures, the
+  map grid as one QUOTE a row through the gate, `start`'s example walking to the
+  creature it names. **Owner's call:** the Stacks' economics as measured: a lamprey
+  paid 160 at ~170 XP and a censor 358 at ~420, but at 780 the censor's rays halved
+  a 150 and a 358 (−262) against a 252 payout, a net loss; "rays scale with what you
+  hold; pay doesn't", so the right play is one visit at mid level carrying chaff. If
+  the Stacks should pay the strong, let the ray pick by value weight (it halves 0.1-XP
+  chaff as readily as a 358) or let the pay scale; and whether the death share and
+  the rays should reach the palace (the shelf is still a safe before a fight, just
+  not during one). Also: no word to carry when all the named creatures sit in one
+  room (the word needs two rooms); a bare `attack` after a kill engages the next
+  unnamed creature silently (say "a new fight" in the reply); `attack ragpicker` vs a
+  named Pell; wants read as keyword pairs ("a story about door and left"); engrossers
+  write a `say` word for word but a `tell` only as "that you spoke"; the board's
+  "earned" counts story wants as errands.
 - `check` and the gate disagree (Puddlewink, 2026-11-01, a full run of the quickstart's
   examples): the dry run says "ok, runs" for verbs the verdict then fails (speak,
   feed); it does not know ownership (describe on a seed room), chunk existence,

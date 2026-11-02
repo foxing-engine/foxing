@@ -180,11 +180,22 @@ impl Report {
         self.fact(text, src);
     }
 
+    /// A summary with line breaks (the map's grid) becomes one QUOTE per line: a
+    /// statement is one line in CLEAR, and the grid flattened to one was unreadable.
     pub fn quote(&mut self, text: impl Into<String>, src: impl Into<String>) {
-        self.lines.push(Line::Quote {
-            text: text.into(),
-            src: src.into(),
-        });
+        let text: String = text.into();
+        let src: String = src.into();
+        let mut parts = text.split('\n').filter(|l| !l.trim().is_empty()).peekable();
+        if parts.peek().is_none() {
+            self.lines.push(Line::Quote { text, src });
+            return;
+        }
+        for part in parts {
+            self.lines.push(Line::Quote {
+                text: part.to_string(),
+                src: src.clone(),
+            });
+        }
     }
 
     /// The reply as CLEAR text.
@@ -1142,8 +1153,9 @@ mod tests {
             ),
             "{reply}"
         );
+        // (Mid-fight, the shelf is refused before the chunk is looked for.)
         assert!(
-            reply.contains("[QUOTE] There is no chunk 999. [src:disremembered]"),
+            reply.contains("[QUOTE] You are in a fight; nothing goes on the shelf until it is over. [src:disremembered]"),
             "{reply}"
         );
         assert!((p.budget_remaining - 59.0).abs() < 1e-9);

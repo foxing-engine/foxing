@@ -665,6 +665,20 @@ pub fn sweep(world: &mut World) -> Result<(), String> {
         .map(|e| e.id)
         .collect();
     let now = world.now();
+    // A want outlives a name only in the record: a creature that lost its name still
+    // showed a story want in `observe`, and a story to it was refused ("no name to
+    // listen with"). Cleared here, so what is wanted is wanted by someone who can hear.
+    let nameless_wanting: Vec<EntityId> = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "creature")
+        .filter(|e| mind::name(world, e.id).is_none())
+        .filter(|e| of(world, e.id).is_some_and(|er| er.story.is_some() || er.word.is_some()))
+        .map(|e| e.id)
+        .collect();
+    for c in nameless_wanting {
+        clear(world, c).map_err(|e| e.to_string())?;
+    }
     // Stories.
     for &c in &named {
         let current = of(world, c);
