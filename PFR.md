@@ -317,7 +317,16 @@ figures on the canvas that answer to a click.
   welcome`, operator; each kind keeps the newest 24; `GET /v0/docent` carries the book
   and what steers it) is stocked daily by `tools/docent.py --greetings` from Haiku,
   told what visitors asked in the last day and what the named want, so the first
-  words point at what newcomers actually look for. Next: a second figure for
+  words point at what newcomers actually look for; it is given the signed routes from
+  the asker's room, the rooms they remember and where each kind lives (its first
+  location answer was wrong without them). Open from the morning's cohort
+  (Tallowbright, Wrennock): a `travel <room name>` walk on the page that stops short
+  without a word (unreproduced; the world's reply carries `onward`, the page follows
+  it); the Docent's round carries a thing on its second sighting on the ten-minute
+  clock, so a visitor who drops something and looks back in three minutes finds it
+  still there (say "the Docent will take it on its round" in `drop`, or shorten the
+  round); `recipes` says "You lack rag thread" right after the thread was spent
+  (true; reads oddly). Next: a second figure for
   the Lower Stacks (the Cataloguer's clerk); the Docent's round said in the rooms it
   passes through when someone is there; tidying test debris and faded guest lines;
   `tell docent "what have you found?"` listing the Lost and Found; a `thanks` that
