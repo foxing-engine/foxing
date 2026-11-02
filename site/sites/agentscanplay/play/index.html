@@ -299,6 +299,32 @@
   #lately .ev b { color: var(--ink); font-weight: 400; }
   #quiet { color: var(--dim); font-size: 12px; margin-top: 6px; }
   #quiet.warn { color: var(--dust); }
+  /* The first hours: one path through the loop for a person who has never been here. */
+  #first { flex: none; background: var(--panel); border-bottom: 1px solid var(--line); padding: 8px 20px 6px; font-size: 12px; }
+  #first[hidden] { display: none; }
+  #first .fh-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  #first .fh-title { font: 14px/1.3 var(--serif); color: var(--dim); }
+  #first .fh-count { color: var(--dim); }
+  #first button { font: inherit; font-size: 11px; color: var(--dust); background: transparent; border: 1px solid var(--line); border-radius: 3px; padding: 0 6px; cursor: pointer; margin-left: auto; }
+  #first button:hover { border-color: var(--dust); }
+  #first ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+  #first li { color: var(--dim); display: flex; gap: 6px; align-items: baseline; max-width: 100%; }
+  #first li .tick { width: 1.2em; flex: none; }
+  #first li.done { color: var(--dim); opacity: .55; }
+  #first li.done .tick { color: var(--dust); }
+  #first li.now { color: var(--ink); }
+  #first li.now .tick { color: var(--dust); }
+  #first li code { font: inherit; color: var(--dust); cursor: pointer; border-bottom: 1px dotted var(--line); white-space: nowrap; }
+  #first li.done code { color: var(--dim); cursor: default; border-bottom: 0; }
+  #first li code:hover { border-bottom-color: var(--dust); }
+  #first li .why { display: none; }
+  #first li.now .why { display: inline; }
+  /* What you can do here: the verbs the room offers, as buttons that fill the prompt. */
+  #verbbar { flex: none; display: flex; flex-wrap: wrap; gap: 4px; padding: 0 20px 6px; background: var(--panel); }
+  #verbbar:empty { display: none; }
+  #verbbar button { font: inherit; font-size: 12px; color: var(--dust); background: transparent; border: 1px solid var(--line); border-radius: 3px; padding: 1px 8px; cursor: pointer; white-space: nowrap; max-width: 28ch; overflow: hidden; text-overflow: ellipsis; }
+  #verbbar button:hover { border-color: var(--dust); color: var(--ink); }
+  #verbbar button.plain { color: var(--dim); }
   #hint { color: var(--dim); font-size: 12px; padding: 0 20px 6px; background: var(--panel); max-width: 86ch; width: 100%; min-height: 0; }
   #hint:empty { display: none; }
   #hint b { color: var(--dust); font-weight: 400; }
@@ -428,8 +454,13 @@
         <div id="tree"><div class="empty">Nothing observed yet. You see exactly the fields you asked for, after visibility: a stranger's owner-only fields are simply absent.</div></div>
       </div>
     </section>
+    <section id="first" hidden aria-label="Your first hours">
+      <div class="fh-head"><span class="fh-title">Your first hours</span><span class="fh-count" id="first-count"></span><button type="button" id="first-hide" title="Hide this. It comes back with ? on an empty line.">hide</button></div>
+      <ol id="first-steps"></ol>
+    </section>
     <div id="log" role="log" aria-live="polite" aria-relevant="additions"></div>
     <div id="hint"></div>
+    <div id="verbbar" aria-label="What you can do here"></div>
     <form id="f" autocomplete="off">
       <label for="in" id="prompt">&gt;</label>
       <input id="in" type="text" autocapitalize="none" autocorrect="off" spellcheck="false" aria-label="Command" autofocus>
@@ -579,7 +610,7 @@
         if (f.type === "welcome") {
           wsReady = true; cursor = f.cursor; settled = true; resolve(true);
           subscribe("room", { root: "here", select: { "disremembered.room": ["name", "description", "permits", "welcomes", "half_life_ms", "memory"], "disremembered.sprite": "*" }, relations: {
-            contents: { kinds: ["citizen", "creature"], select: { "disremembered.citizen": ["name", "passing", "greeting"], "disremembered.creature": ["name", "hp", "max_hp"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace", "door"], "disremembered.mind": ["name", "tier"], "disremembered.errand": ["story", "word", "word_to"] } },
+            contents: { kinds: ["citizen", "creature", "item"], select: { "disremembered.citizen": ["name", "passing", "greeting"], "disremembered.creature": ["name", "hp", "max_hp"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace", "door"], "disremembered.mind": ["name", "tier"], "disremembered.errand": ["story", "word", "word_to"], "disremembered.item": ["name", "given_name", "fixed", "kind", "made_by"] } },
             exits: { select: { "disremembered.room": ["name"], "disremembered.sprite": "*" } } }, timed: "curve", commands: false });
           subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting"] }, timed: "curve", commands: false });
           subscribe("window", { root: "window", select: {}, relations: { contents: { kinds: ["chunk"], select: { "disremembered.chunk": "*" } } }, timed: "curve", commands: false });
@@ -671,6 +702,7 @@
       print(body.reply.trim(), "clear");
     }
     emit("result", command, args, body);
+    firstHours.onResult(command, args, body);
     return body;
   }
 
@@ -692,11 +724,13 @@
     const live = await connect();
     if (live) { $("link").textContent = "Live session."; } else { try { const h = await api("/health"); if (h.body) cursor = h.body.events || 0; } catch (e) {} startPolling(); }
     emit("login", name, live);
+    firstHours.begin();
     await run("look", []);
     return true;
   }
   function logout() {
     stopPolling();
+    $("first").hidden = true; $("verbbar").replaceChildren(); delete $("verbbar").dataset.key;
     if (ws) { const w = ws; ws = null; wsReady = false; try { w.onclose = null; w.close(); } catch (e) {} }
     actor = null; passphrase = null;
     for (const k in subs) delete subs[k];
@@ -985,6 +1019,7 @@
         const c = n.components["disremembered.creature"];
         const mind = n.components["disremembered.mind"];
         const named = mind && mind.name;
+        if (named) firstHours.onNamed(mind.name);
         const who = named ? mind.name + " the " + c.name : c.name;
         const r = row(s, who, "hp", c.hp / c.max_hp, c.hp + "/" + c.max_hp);
         r.classList.add("click");
@@ -1000,6 +1035,16 @@
           r.title = (er.story ? "story " + mind.name + " \u201c<a dozen words about " + er.story + ">\u201d (click)" : "") + (er.word ? (er.story ? "; " : "") + "travel to " + er.word_to + ", then tell " + er.word_to + " \u201c" + er.word + "\u201d" : "");
         }
         r.addEventListener("click", (ev) => prefill(named ? (ev.shiftKey ? 'tell ' + mind.name + ' "' : 'story ' + mind.name + ' "') : "attack " + c.name));
+        here.append(r);
+      } else if (n.kind === "item") {
+        // On the ground, or standing here (a fixture): take it, or write in it.
+        const it = n.components["disremembered.item"] || {};
+        const nm = it.given_name || it.name || "something";
+        const r = row(s, nm, "", 0, null, "var(--dim)");
+        r.querySelector(".nm").append(Object.assign(document.createElement("span"), { className: "sub", textContent: it.fixed ? "stands here" + (it.made_by ? ", made by " + it.made_by : "") : "on the ground" }));
+        r.classList.add("click");
+        r.title = it.fixed ? 'append "…" ' + (it.name || nm) + " (click)" : "take " + (it.name || nm) + " (click)";
+        r.addEventListener("click", () => prefill(it.fixed ? 'append "' : 'take "' + (it.name || nm) + '"'));
         here.append(r);
       } else {
         const cz = n.components["disremembered.citizen"] || {};
@@ -1027,6 +1072,7 @@
       }
     }
     swap($("here"), here);
+    verbBar(room, things);
     arrivals(present);
     const me = subs.me && subs.me.root;
     if (me && me.components["disremembered.body"]) {
@@ -1053,6 +1099,113 @@
     }
     ownerPanel(room);
   }
+  // ---- what you can do here: the verbs the room offers, as buttons ----
+  function verbBar(room, things) {
+    const bar = document.createDocumentFragment();
+    const add = (label, fill, plain) => {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = label; if (plain) b.className = "plain";
+      b.title = fill; b.addEventListener("click", () => prefill(fill)); bar.append(b);
+    };
+    const me = subs.me && subs.me.root && subs.me.root.components["disremembered.body"];
+    const hp = me && timed(me.hp), max = me && me.max_hp;
+    const chunks = (subs.window && subs.window.root.relations && subs.window.root.relations.contents) || [];
+    const best = chunks.map(n => ({ id: n.id, v: timed(n.components["disremembered.chunk"].value) })).sort((a, b) => b.v - a.v)[0];
+    add("look", "look", true);
+    if (chunks.length) add("chunks", "chunks", true);
+    if (hp != null && max && hp < max - 0.5) add("rest", "rest", true);
+    let fought = false;
+    for (const n of things || []) {
+      if (n.kind === "creature") {
+        const c = n.components["disremembered.creature"], mind = n.components["disremembered.mind"], named = mind && mind.name;
+        if (named) {
+          add("story " + mind.name, 'story ' + mind.name + ' "');
+          add("tell " + mind.name, 'tell ' + mind.name + ' "');
+        } else if (!fought) { add("attack " + c.name, "attack " + c.name); fought = true; }
+        if (best) add("remember → " + (named ? mind.name : c.name), "remember chunk-" + best.id + " " + (named ? mind.name : c.name));
+      } else if (n.kind === "item") {
+        const it = n.components["disremembered.item"] || {};
+        if (it.fixed) add("append " + (it.given_name || it.name), 'append "');
+        else add("take " + (it.given_name || it.name), 'take "' + (it.name || "") + '"');
+      } else if (n.kind === "citizen") {
+        const cz = n.components["disremembered.citizen"] || {}, p = n.components["disremembered.presence"];
+        if (cz.name && cz.name !== actor && !(p && p.here === false)) add("tell " + cz.name, 'tell ' + cz.name + ' "');
+      }
+    }
+    const rc = room.components["disremembered.room"] || {};
+    if (best && rc.memory != null) add("remember here", "remember chunk-" + best.id);
+    if (best && (rc.permits || []).includes(actor)) add("describe", 'describe "');
+    add("map", "map", true);
+    swap($("verbbar"), bar);
+  }
+
+  // ---- the first hours: one path through the loop, ticked off as the world says so ----
+  const firstHours = (() => {
+    const STEPS = [
+      { id: "look", line: "look", why: "See where you are, and what is here." },
+      { id: "east", line: "travel east", why: "The Fogbank, where the wisps drift. Each room is a step; the tiles are the exits." },
+      { id: "wisp", line: "attack wisp", why: "A wisp has 8 hit points and bites for 2 to 4. Pop one and you remember it: a chunk worth about 15." },
+      { id: "chunks", line: "chunks", why: "What you hold, and how fast it fades. Your level is the sum of what has not faded yet." },
+      { id: "spend", line: "remember chunk-? wisp", why: "Spend a memory before it fades: feed it to a creature. At 60 the creature takes a name of its own." },
+      { id: "story", line: 'story ? "…"', why: "A named creature takes a story (a dozen words or more), pays for it, and answers with a line of its own." },
+      { id: "dig", line: 'dig nook chunk-? "A Name"', why: "A room of your own, paid with a chunk; it stays after you go, fading unless someone remembers it." },
+      { id: "map", line: "map", why: "What you remember of the map, dimming as you forget. The rooms you have stood in; the rest is dark." },
+    ];
+    let state = { done: {}, hidden: false }, named = null;
+    const key = () => "disremembered.first." + (actor || "");
+    function load() { try { state = Object.assign({ done: {}, hidden: false }, JSON.parse(localStorage.getItem(key()) || "{}")); } catch (e) { state = { done: {}, hidden: false }; } }
+    function save() { try { localStorage.setItem(key(), JSON.stringify(state)); } catch (e) {} }
+    const allDone = () => STEPS.every(s => state.done[s.id]);
+    function showing() { return !!actor && !state.hidden && !allDone(); }
+    function fill(step) {
+      const chunks = (subs.window && subs.window.root.relations && subs.window.root.relations.contents) || [];
+      const best = chunks.map(n => ({ id: n.id, v: timed(n.components["disremembered.chunk"].value) })).sort((a, b) => b.v - a.v)[0];
+      const id = best ? "chunk-" + best.id : "chunk-?";
+      if (step.id === "spend") return "remember " + id + " wisp";
+      if (step.id === "dig") return "dig nook " + id + ' "';
+      if (step.id === "story") return "story " + (named || "?") + ' "';
+      return step.line;
+    }
+    function render() {
+      const sec = $("first"); if (!sec) return;
+      sec.hidden = !showing() || $("compose").hidden === false || $("observe").hidden === false;
+      if (sec.hidden) return;
+      const ol = document.createDocumentFragment();
+      let current = null;
+      for (const st of STEPS) {
+        const li = document.createElement("li");
+        const done = !!state.done[st.id];
+        if (done) li.className = "done"; else if (!current) { current = st; li.className = "now"; }
+        const tick = document.createElement("span"); tick.className = "tick"; tick.textContent = done ? "✓" : (li.className === "now" ? "▸" : "◦");
+        const code = document.createElement("code"); code.textContent = fill(st);
+        if (!done) code.addEventListener("click", () => prefill(fill(st).replace(/\?/g, "").replace(/\s+"$/, ' "')));
+        const why = document.createElement("span"); why.className = "why"; why.textContent = " — " + st.why;
+        li.append(tick, code, why); ol.append(li);
+      }
+      const n = STEPS.filter(s => state.done[s.id]).length;
+      $("first-count").textContent = n + " of " + STEPS.length;
+      swap($("first-steps"), ol);
+    }
+    function tick(id) { if (!state.done[id]) { state.done[id] = Date.now(); save(); render(); if (allDone()) print("That is the loop: fight, remember, spend, and what you spent stays when you go. The rest of the quickstart is ? on an empty line.", "sys"); } }
+    function onResult(command, args, body) {
+      if (!body || !body.ok) return;
+      const text = String(body.summary || "");
+      if (command === "look") tick("look");
+      if (command === "travel") tick("east");
+      if (command === "attack" && /worth [\d.]+ XP/.test(text)) tick("wisp");
+      if (command === "chunks") tick("chunks");
+      if (command === "remember" && args.length >= 2) { tick("spend"); const m = /It is ([A-Z][a-z]+) now/.exec(text); if (m) named = m[1]; }
+      if (command === "story") tick("story");
+      if (command === "dig") tick("dig");
+      if (command === "map") tick("map");
+    }
+    function onNamed(name) { if (!named) { named = name; render(); } }
+    function begin() { load(); render(); }
+    function hide() { state.hidden = true; save(); render(); }
+    function unhide() { state.hidden = false; save(); render(); }
+    $("first-hide").addEventListener("click", hide);
+    return { begin, onResult, onNamed, render, showing, unhide };
+  })();
+
   // ---- quality of life: the room tells a person at the keyboard what happened ----
   let lastAct = Date.now();
   const seen = new Set(); let seenReady = false;
@@ -1262,7 +1415,7 @@
 
   input.addEventListener("keydown", (e) => {
     if (asking) return;
-    if (e.key === "?" && !input.value) { showHelp(); e.preventDefault(); return; }
+    if (e.key === "?" && !input.value) { showHelp(); firstHours.unhide(); e.preventDefault(); return; }
     if (e.ctrlKey && /^Arrow(Up|Down|Left|Right)$/.test(e.key) && actor) { const dir = { ArrowUp: "north", ArrowDown: "south", ArrowLeft: "west", ArrowRight: "east" }[e.key]; chain = chain.then(() => run("travel", [dir])); e.preventDefault(); return; }
     // On an empty line, Left and Right travel without Ctrl; Up and Down stay history.
     if (!e.ctrlKey && !e.metaKey && !e.altKey && input.value === "" && actor && (e.key === "ArrowLeft" || e.key === "ArrowRight")) { chain = chain.then(() => run("travel", [e.key === "ArrowLeft" ? "west" : "east"])); e.preventDefault(); return; }
@@ -1476,6 +1629,7 @@
     const which = b.dataset.tab;
     document.querySelectorAll("#tabs [data-tab]").forEach(x => x.setAttribute("aria-selected", x === b ? "true" : "false"));
     $("compose").hidden = which !== "compose"; $("observe").hidden = which !== "observe"; log.hidden = which !== "terminal"; form.hidden = which !== "terminal";
+    $("verbbar").hidden = which !== "terminal"; $("first").hidden = which !== "terminal" || !firstHours.showing();
     if (which === "compose") { if (!C.rows.length) { C.rows.push(rowDefaults("DO")); drawRows(); } refreshRef(); composeChanged(); }
     else if (which === "observe") queryChanged();
     else input.focus();
