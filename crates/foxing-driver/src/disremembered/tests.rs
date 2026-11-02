@@ -5614,3 +5614,64 @@ fn a_memory_taken_from_a_creature_is_minted_at_what_it_is_worth_now() {
         vec!["lantern", "lighting", "night", "nobody", "remember"]
     );
 }
+
+#[test]
+fn the_ray_finds_what_matters_more_surely_the_more_you_hold() {
+    // Many rays at a fixed instant (no fading): how often the largest chunk is the
+    // one halved, at level ~60 (aim 1 in 6) and at level ~2,700 (aim 9 in 10).
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let office = rooms::room_by_key(&w, "censor-office").unwrap();
+    let censor = combat::creatures_in(&w, office)[0].0;
+    let f = find_citizen(&w, "dave").unwrap();
+    let mut rate = |w: &mut World, big: f64, small: f64| -> f64 {
+        let mut hits = 0;
+        let n = 120;
+        for seed in 0..n {
+            w.seed(seed);
+            // Fresh chunks each round, so the halving does not compound.
+            let b = admin(w, "dave", "earn", json!(["big", big, 0.5])).result["chunk"]
+                .as_u64()
+                .unwrap();
+            let smalls: Vec<u64> = (0..5)
+                .map(|_| {
+                    admin(w, "dave", "earn", json!(["small", small, 0.5])).result["chunk"]
+                        .as_u64()
+                        .unwrap()
+                })
+                .collect();
+            let mut landed = false;
+            for _ in 0..40 {
+                let (line, _) = stacks::trick(w, &curves(), censor, f.citizen, "dave").unwrap();
+                if let Some(l) = line {
+                    if l.contains(&format!("chunk-{b} ")) {
+                        hits += 1;
+                    }
+                    landed = true;
+                    break;
+                }
+            }
+            assert!(landed);
+            for id in std::iter::once(b).chain(smalls) {
+                w.record(
+                    foxing_log::Actor::Driver,
+                    StoreEvent::EntityRemoved { id: EntityId(id) },
+                )
+                .unwrap();
+            }
+        }
+        hits as f64 / n as f64
+    };
+    // Level ~60: one big chunk of 50 among five of 2. Aim 60/360 = 1 in 6; by weight
+    // the big one is 50/60 of the rest. Between a third and all.
+    let low = rate(&mut w, 50.0, 2.0);
+    // Level ~2,700: 2,500 among five of 40. Aim 0.9; nearly always.
+    let high = rate(&mut w, 2500.0, 40.0);
+    assert!(high > 0.9, "high {high}");
+    assert!(low < high, "low {low} high {high}");
+    // And a tenth of an XP among a forty is seldom what the ray takes, at any
+    // level: by weight, the chaff is one part in four hundred.
+    let chaff = rate(&mut w, 40.0, 0.1);
+    assert!(chaff > 0.9, "the big one took {chaff}");
+}

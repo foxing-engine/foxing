@@ -69,6 +69,8 @@ pub const VENOM_TICKS: i64 = 4;
 pub const VENOM_EVERY_S: i64 = 15;
 pub const VENOM_DAMAGE: f64 = 2.0;
 pub const JOB_VENOM: &str = "disremembered.venom";
+/// The ray's aim: the chance it finds your largest memory is level/(level+AIM_SCALE).
+pub const AIM_SCALE: f64 = 300.0;
 /// The ushering and the ray each land one hit in this many.
 pub const ONE_IN: u32 = 2;
 /// A trick on the record: `{trick, creature, kind, citizen, ...}`. Public.
@@ -216,14 +218,51 @@ fn play(
                     false,
                 ));
             }
-            let id = chunks[world.roll(chunks.len() as u32) as usize];
+            // The ray reaches for what matters, more surely the more you hold: with
+            // a chance on the death curve (level/(level+300): one in two at three
+            // hundred, three in four at nine hundred) it finds your largest memory;
+            // otherwise it lands by weight of value, so a tenth of an XP is seldom
+            // what it takes. (A delver at 780 watched two rays halve chaff while a
+            // 358 sat untouched, then found the Stacks a net loss when they did not.)
             let now = world.now();
-            let was = world
-                .store
-                .read_field(id, CHUNK, "value", now)
-                .ok()
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0);
+            let value_of = |w: &World, id: EntityId| {
+                w.store
+                    .read_field(id, CHUNK, "value", now)
+                    .ok()
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0)
+            };
+            let level = super::memory::level(world, f.window);
+            let aim = level.max(0.0) / (level.max(0.0) + AIM_SCALE);
+            let aimed = (world.roll(1000) as f64) < aim * 1000.0;
+            let id = if aimed {
+                chunks
+                    .iter()
+                    .copied()
+                    .max_by(|a, b| {
+                        value_of(world, *a)
+                            .partial_cmp(&value_of(world, *b))
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    })
+                    .unwrap_or(chunks[0])
+            } else {
+                let weights: Vec<f64> = chunks
+                    .iter()
+                    .map(|&c| value_of(world, c).max(0.01))
+                    .collect();
+                let total: f64 = weights.iter().sum();
+                let mut at = (world.roll(1_000_000) as f64 / 1_000_000.0) * total;
+                let mut pick = chunks[chunks.len() - 1];
+                for (c, w) in chunks.iter().zip(&weights) {
+                    if at < *w {
+                        pick = *c;
+                        break;
+                    }
+                    at -= w;
+                }
+                pick
+            };
+            let was = value_of(world, id);
             // The cataloguer takes two thirds; a censor, half.
             let keep = if kind == "cataloguer" { 1.0 / 3.0 } else { 0.5 };
             world
@@ -243,11 +282,16 @@ fn play(
             let _ = world.note(
                 Actor::Driver,
                 TRICK,
-                json!({"trick": "forget", "creature": creature.0, "kind": kind, "citizen": actor, "chunk": id.0, "source": source, "was": was, "now": was * keep}),
+                json!({"trick": "forget", "creature": creature.0, "kind": kind, "citizen": actor, "chunk": id.0, "source": source, "was": was, "now": was * keep, "aimed": aimed, "aim": (aim * 1000.0).round() / 1000.0}),
             );
             Ok((
                 Some(format!(
-                    "A ray of forgetfulness: chunk-{} ({source}) is {} what it was, {:.1} now.",
+                    "A ray of forgetfulness{}: chunk-{} ({source}) is {} what it was, {:.1} now.",
+                    if aimed && chunks.len() > 1 {
+                        ", and it finds what matters"
+                    } else {
+                        ""
+                    },
                     id.0,
                     if keep < 0.5 { "a third of" } else { "half" },
                     was * keep

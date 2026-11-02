@@ -297,9 +297,9 @@ figures on the canvas that answer to a click.
   creature it names. **Owner's call:** the Stacks' economics as measured: a lamprey
   paid 160 at ~170 XP and a censor 358 at ~420, but at 780 the censor's rays halved
   a 150 and a 358 (−262) against a 252 payout, a net loss; "rays scale with what you
-  hold; pay doesn't", so the right play is one visit at mid level carrying chaff. If
-  the Stacks should pay the strong, let the ray pick by value weight (it halves 0.1-XP
-  chaff as readily as a 358) or let the pay scale. Decided (owner, 2026-11-01): the
+  hold; pay doesn't", so the right play is one visit at mid level carrying chaff. Decided (owner, 2026-11-01) and shipped: the ray finds the largest memory with a
+  chance on the death curve (level/(level+300)) and otherwise lands by weight of
+  value; the pay is unchanged. Decided (owner, 2026-11-01): the
   palace is unreachable by creature magic (rays, the death share) for now; a new
   mechanism may reach it later. The shelf is a safe before a fight, not during one. Also: no word to carry when all the named creatures sit in one
   room (the word needs two rooms); a bare `attack` after a kill engages the next
