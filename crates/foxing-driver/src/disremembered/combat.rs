@@ -702,15 +702,12 @@ impl Death {
     /// The sentences after "You go down.", for every door a fall comes through.
     pub fn said(&self) -> String {
         let mut out = format!(" {}", self.epitaph);
-        match &self.lost {
-            Some(c) => {
-                out.push_str(&format!(" Concussion: you have lost {c}"));
-                match &self.keeper {
-                    Some(k) => out.push_str(&format!("; {k} keeps it.")),
-                    None => out.push('.'),
-                }
+        if let Some(c) = &self.lost {
+            out.push_str(&format!(" Concussion: you have lost {c}"));
+            match &self.keeper {
+                Some(k) => out.push_str(&format!("; {k} keeps it.")),
+                None => out.push('.'),
             }
-            None => {}
         }
         if self.fall > 1 {
             out.push_str(&format!(
