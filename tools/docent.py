@@ -4,6 +4,17 @@
     tools/docent.py                 # run as a daemon: poll the record, answer what waits
     tools/docent.py --once          # one pass
     tools/docent.py --dry-run       # write answers, apply none
+    tools/docent.py --greetings [--dry-run]   # stock the greeting book once and exit
+
+The daemon also keeps the Docent's greeting book: at start and once a day, when a
+kind of greeting (first words for a newcomer, a welcome for a name it has met) runs
+under the world's low mark, it asks the model for a handful in the Docent's voice,
+steered by what visitors asked it in the last day and what the named creatures want
+(the owner's ask: player conversations steer the model), sieves them (40 to 260
+characters, only the slots {name} {creature} {room}, {name} present, no exclamations,
+no real names), and stocks them through the operator verb `greeting`, which checks
+the shape again; each kind keeps the newest two dozen, so the book follows the
+visitors.
 
 The world queues what is asked of the Docent (`tell docent "…"`) with where the asker
 stands, their level, what the named creatures want and the newest room; this reads
@@ -133,6 +144,133 @@ def context(q):
     return "\n".join(lines)
 
 
+GREETING_SYSTEM = (
+    "You write the Docent's greetings for Disremembered: a stooped figure in a librarian's "
+    "coat who keeps the Threshold of a drowned library where everything a visitor earns "
+    "fades. Two kinds. FIRST: said to a name in its first hour, newly arrived; it should "
+    "orient them in one or two sentences (the strip above the prompt walks the first hour; "
+    "`help` is what the Docent keeps by heart; questions go `tell docent \"...\"`) and may "
+    "point at what newcomers ask about most. WELCOME: said to a name the Docent has met, "
+    "coming back to the door; shorter, dry, warm under the dryness, never gushing. Use the "
+    "slots exactly as written: {name} (always, once), {creature} (optional: the world fills "
+    "it with a named creature's want and the way, a whole sentence, so put it where a "
+    "sentence can stand alone), {room} (optional: the world fills it with the newest dug "
+    "room, a whole sentence). The voice: dry, exact, a little wry, never cute, never cruel, no "
+    "exclamation marks, no emoji, no puns, no real-world references, no capitalized words "
+    "except at a sentence start, the slots, and these: The Threshold, Ask, Everything, "
+    "Nothing. 40 to 240 characters each. Reply with the lines only, one per line, each "
+    "line beginning FIRST: or WELCOME: and nothing else."
+)
+ALLOWED_CAPS = set("The Threshold Ask Everything Nothing Stacks Fogbank Midden Shallows Archive Clocktower Conclave Bindery Docent I".split())
+
+
+def greeting_sieve(t, have, extra_caps=()):
+    t = " ".join(t.strip().strip('"').split())
+    n = len(t)
+    if n < 40:
+        return None, "too short"
+    if n > 240:
+        return None, "too long"
+    if "!" in t:
+        return None, "an exclamation"
+    if "{name}" not in t:
+        return None, "no {name}"
+    rest = t
+    while "{" in rest:
+        i = rest.index("{")
+        j = rest.find("}", i)
+        if j < 0:
+            return None, "an unclosed brace"
+        if rest[i:j + 1] not in ("{name}", "{creature}", "{room}"):
+            return None, "an unknown slot " + rest[i:j + 1]
+        rest = rest[j + 1:]
+    plain = re.sub(r"\{[a-z]+\}", "x", t)
+    for sentence in re.split(r"(?<=[.?])\s+", plain):
+        toks = re.findall(r"[A-Za-z][A-Za-z'’]*", sentence)
+        for k, tok in enumerate(toks):
+            if k > 0 and tok[0].isupper() and tok not in ALLOWED_CAPS and tok not in extra_caps:
+                return None, "a name: " + tok
+    low = t.lower()
+    for f in FORBIDDEN:
+        if re.search(f, low):
+            return None, "forbidden: " + f
+    if any(h.lower() == low for h in have):
+        return None, "already in the book"
+    return t, None
+
+
+def stock_greetings(creds, token, actor, passphrase, dry, out=None):
+    """Stock the kinds that run low, steered by the day's questions and wants."""
+    rep = get("/v0/docent", token)
+    book = rep.get("book", {})
+    low = int(book.get("low_at", 8))
+    need = [k for k in ("first", "welcome") if len(book.get(k, [])) < low]
+    if not need:
+        log(f"the greeting book is stocked (first {len(book.get('first', []))}, welcome {len(book.get('welcome', []))}); nothing asked")
+        return 0
+    steer = rep.get("steer", {})
+    asked = [a for a in steer.get("asked", []) if a.get("q")]
+    wants = steer.get("wants", [])
+    lines = []
+    if asked:
+        lines.append("What visitors asked the Docent in the last day (and what it answered):")
+        for a in asked[:24]:
+            lines.append(f"- Q: {a.get('q')}" + (f" / A: {a.get('a')}" if a.get("a") else " / (no answer found)"))
+    if wants:
+        lines.append("What the named creatures want right now: " + "; ".join(
+            f"{w.get('name')} the {w.get('kind')} in {w.get('room')} wants " + (f"a story about {w.get('story')}" if w.get("story") else f"the word {w.get('word')!r} carried to {w.get('word_to')}")
+            for w in wants[:8]))
+    if steer.get("newest_room"):
+        lines.append(steer["newest_room"])
+    have = {k: book.get(k, []) for k in ("first", "welcome")}
+    # The world's own proper nouns the lines may use: rooms and named creatures it told us about.
+    extra = set()
+    for w in wants:
+        for v in (w.get("room"), w.get("name"), w.get("word_to")):
+            extra.update(re.findall(r"[A-Z][A-Za-z'’]*", str(v or "")))
+    extra.update(re.findall(r"[A-Z][A-Za-z'’]*", str(steer.get("newest_room") or "")))
+    user = (
+        f"Write {6 if 'first' in need else 0} FIRST lines and {6 if 'welcome' in need else 0} WELCOME lines. "
+        "Let what visitors asked steer what the first words point at (if many asked where something is, say how to find things; if "
+        "they asked about fading, say what keeps). Not these, already in the book:\n"
+        + "\n".join(f"FIRST: {l}" for l in have["first"]) + "\n" + "\n".join(f"WELCOME: {l}" for l in have["welcome"])
+        + "\n\nWhat the world knows tonight:\n" + ("\n".join(lines) if lines else "(a quiet day: nobody asked anything)")
+    )
+    text = ask_model(creds, GREETING_SYSTEM, user, max_tokens=1400)
+    offered = [l.strip() for l in text.splitlines() if l.strip()]
+    kept, refused = [], []
+    for raw in offered:
+        m = re.match(r"^(FIRST|WELCOME):\s*(.+)$", raw, re.I)
+        if not m:
+            refused.append((raw[:50], "no kind"))
+            continue
+        kind, line = m.group(1).lower(), m.group(2)
+        if kind not in need:
+            continue
+        t, why = greeting_sieve(line, have[kind] + [k for kk, k in kept if kk == kind], extra)
+        if t is None:
+            refused.append((line[:50], why))
+            continue
+        kept.append((kind, t))
+    log(f"the model offered {len(offered)} greeting(s); {len(kept)} pass" + ("; refused: " + "; ".join(f"{l} ({w})" for l, w in refused[:8]) if refused else ""))
+    applied = 0
+    if dry:
+        for kind, t in kept:
+            print(f"{kind}: {t}")
+    else:
+        for kind, t in kept:
+            r = command(token, actor, passphrase, "greeting", ['"' + t.replace('"', "'") + '"', kind])
+            if r.get("ok"):
+                applied += 1
+            else:
+                log("the world refused one: " + str(r.get("error"))[:160])
+        log(f"stocked {applied} greeting(s)")
+    if out:
+        with open(out, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"greetings": True, "model": MODEL, "offered": offered, "kept": kept, "refused": refused, "applied": applied}, ensure_ascii=False) + "\n")
+    return applied
+
+
 def answer_one(creds, token, actor, passphrase, q, cat, verbs, dry):
     user = f"The catalog (the quickstart):\n\n{cat}\n\n---\nWhat the world knows:\n{context(q)}\n\nThe question, from {q.get('from')}: {q.get('text')}\n\nThe Docent answers:"
     text = ask_model(creds, SYSTEM, user, max_tokens=300)
@@ -162,6 +300,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--every", type=float, default=float(os.environ.get("DOCENT_EVERY", "4")))
     ap.add_argument("--out", default=os.environ.get("DOCENT_OUT", ""))
+    ap.add_argument("--greetings", action="store_true", help="stock the greeting book once and exit")
     a = ap.parse_args()
     token = os.environ.get("FOXING_ADMIN_TOKEN") or os.environ.get("MOONDIAL_ADMIN_TOKEN")
     actor = os.environ.get("BINDERY_ACTOR", "Bindery")
@@ -172,12 +311,23 @@ def main():
     way_in = creds.check()
     if not a.dry_run and not passphrase:
         sys.exit("BINDERY_PASSPHRASE is not set")
+    if a.greetings:
+        stock_greetings(creds, token, actor, passphrase, a.dry_run, a.out)
+        return 0
     cat = catalog()
     verbs = verbs_known(token)
     log(f"the Docent listens by {way_in}; catalog {len(cat)} characters; {len(verbs)} verbs known; every {a.every:g} s")
     seen = set()
     last_catalog = time.time()
+    # The greeting book: at start, then once a day.
+    last_book = 0.0
     while True:
+        if time.time() - last_book > 86_400 and not a.dry_run:
+            last_book = time.time()
+            try:
+                stock_greetings(creds, token, actor, passphrase, False, a.out)
+            except Exception as e:  # noqa: BLE001
+                log(f"the greeting book could not be stocked: {e}")
         try:
             rep = get("/v0/docent", token)
             for q in rep.get("open", []):

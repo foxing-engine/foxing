@@ -340,10 +340,17 @@ pub fn on_arrival(world: &mut World, actor: &str) -> Result<(), String> {
     }
     let newcomer = super::plain_num(world, f.citizen, super::CITIZEN, "named_at")
         .is_some_and(|t| now - (t as i64) < super::kindle::GRACE_MS);
-    let book = if newcomer { FIRST_WORDS } else { WELCOMES };
-    let pick = (greeted.len() + actor.len()) % book.len();
+    // From the book the nightly stocks (steered by what visitors ask), else the few
+    // built in.
+    let stocked = book(world, if newcomer { "first" } else { "welcome" });
+    let built: Vec<String> = (if newcomer { FIRST_WORDS } else { WELCOMES })
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let lines = if stocked.is_empty() { &built } else { &stocked };
+    let pick = (greeted.len() + actor.len()) % lines.len();
     let creature = creature_slot(world, actor);
-    let line = fill(book[pick], actor, &creature, &room_slot(world));
+    let line = fill(&lines[pick], actor, &creature, &room_slot(world));
     greeted.insert(actor.to_string(), json!(now));
     // Names not seen in a night fall off the record.
     greeted.retain(|_, t| t.as_i64().is_some_and(|t| now - t < NIGHT_MS));
@@ -494,6 +501,87 @@ pub fn short_question(q: &str) -> String {
     let head: String = q.chars().take(MAX).collect();
     let cut = head.rfind(' ').unwrap_or(head.len());
     format!("{}\u{2026}", head[..cut].trim_end_matches([',', ';', ':']))
+}
+
+/// The named creatures' wants, plainly, with no way (for the tool that writes the
+/// book): `{name, kind, room, story, word, word_to}`.
+fn wants_plain(world: &World) -> Vec<Value> {
+    world
+        .store
+        .entities()
+        .filter(|e| e.kind == "creature")
+        .filter_map(|e| {
+            let name = super::mind::name(world, e.id)?;
+            let er = super::errand::of(world, e.id)?;
+            if er.story.is_none() && er.word.is_none() {
+                return None;
+            }
+            Some(json!({
+                "name": name,
+                "kind": plain_str(world, e.id, super::CREATURE, "name"),
+                "room": e.parent.and_then(|r| plain_str(world, r, ROOM, "name")),
+                "story": er.story,
+                "word": er.word,
+                "word_to": er.word_to,
+            }))
+        })
+        .collect()
+}
+
+/// The greeting book: `first` (a name in its first hour) and `welcome` (one it has
+/// met), stocked by the operator's tool from what visitors ask and want.
+pub const GREETING_KINDS: &[&str] = &["first", "welcome"];
+pub const GREETING_SLOTS: &[&str] = &["{name}", "{creature}", "{room}"];
+pub const GREETING_MIN: usize = 40;
+pub const GREETING_MAX: usize = 260;
+/// Each kind keeps this many; a new line past that retires the oldest, so the book
+/// follows the visitors.
+pub const GREETINGS_KEPT: usize = 24;
+/// The nightly stocks a kind under this many.
+pub const GREETINGS_LOW: usize = 8;
+
+pub fn book(world: &World, kind: &str) -> Vec<String> {
+    field(world, "book")
+        .and_then(|v| v[kind].as_array().cloned())
+        .map(|a| {
+            a.iter()
+                .filter_map(|l| l.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Why a greeting line is refused, if it is: length, slots, no shouting, no twice.
+pub fn greeting_refusal(line: &str, have: &[String]) -> Option<String> {
+    let t = line.trim();
+    let n = t.chars().count();
+    if n < GREETING_MIN {
+        return Some("too short".into());
+    }
+    if n > GREETING_MAX {
+        return Some(format!("over {GREETING_MAX} characters"));
+    }
+    if t.contains('!') {
+        return Some("an exclamation".into());
+    }
+    let mut rest = t;
+    while let Some(i) = rest.find('{') {
+        let Some(j) = rest[i..].find('}') else {
+            return Some("an unclosed brace".into());
+        };
+        let slot = &rest[i..i + j + 1];
+        if !GREETING_SLOTS.contains(&slot) {
+            return Some(format!("an unknown slot {slot}"));
+        }
+        rest = &rest[i + j + 1..];
+    }
+    if !t.contains("{name}") {
+        return Some("no {name} in it".into());
+    }
+    if have.iter().any(|h| h.eq_ignore_ascii_case(t)) {
+        return Some("already in the book".into());
+    }
+    None
 }
 
 /// How many questions `actor` has asked tonight, as an ordinal: "your third".
@@ -709,6 +797,14 @@ pub fn report(world: &World) -> Value {
         "room": room(world).and_then(|r| plain_str(world, r, ROOM, "name")),
         "budget": {"per_hour": ASKS_PER_HOUR, "each_per_hour": ASKS_EACH_PER_HOUR, "empty_after_s": EMPTY_AFTER_S, "answer_max": ANSWER_MAX},
         "recent": asks(world).iter().rev().take(12).cloned().collect::<Vec<_>>(),
+        "book": {"first": book(world, "first"), "welcome": book(world, "welcome"), "low_at": GREETINGS_LOW, "kept": GREETINGS_KEPT, "slots": GREETING_SLOTS, "chars": [GREETING_MIN, GREETING_MAX]},
+        // What steers the book: the last day's questions with their answers, and the
+        // named creatures' wants.
+        "steer": {
+            "asked": asks(world).iter().rev().take(40).filter(|a| a["at"].as_i64().is_some_and(|t| now - t < 86_400_000)).map(|a| json!({"q": a["text"], "a": a["answer"]})).collect::<Vec<_>>(),
+            "wants": wants_plain(world),
+            "newest_room": room_slot(world),
+        },
         "note": "answer <id> \"text\" [model] (operator) says the text to the asker wherever they are; a question older than empty_after_s is answered by the world as missing.",
     })
 }
@@ -741,6 +837,40 @@ pub fn register(world: &mut World) {
                 ),
             );
             Ok(())
+        }),
+    );
+    world.register(
+        CommandSpec::new(
+            "disremembered.greeting",
+            "Operator. A line for the Docent's greeting book, quoted, with its kind: `first` for a name in its first hour, `welcome` for one it has met. Slots {name}, {creature}, {room}; 40 to 260 characters; no exclamations. Each kind keeps 24, the newest replacing the oldest.",
+        )
+        .param("text", ParamType::Text, true, "the line, quoted")
+        .param("kind", ParamType::String, false, "first or welcome (welcome by default)")
+        .allowed(&[ActorKind::Admin]),
+        Box::new(|w: &mut World, _ctx, args: &Args| {
+            let text = args.str("text").unwrap_or("").split_whitespace().collect::<Vec<_>>().join(" ");
+            let kind = args.str("kind").map(|k| k.trim().to_lowercase()).filter(|k| !k.is_empty()).unwrap_or_else(|| "welcome".into());
+            if !GREETING_KINDS.contains(&kind.as_str()) {
+                return Err(CommandError::precondition("The kind is first or welcome."));
+            }
+            let have = book(w, &kind);
+            if let Some(why) = greeting_refusal(&text, &have) {
+                return Err(CommandError::precondition(format!("Not in the book: {why}.")));
+            }
+            let mut all = field(w, "book").filter(|v| v.is_object()).unwrap_or_else(|| json!({}));
+            let mut list: Vec<Value> = have.iter().map(|l| json!(l)).collect();
+            list.push(json!(text));
+            if list.len() > GREETINGS_KEPT {
+                list.drain(..list.len() - GREETINGS_KEPT);
+            }
+            all[&kind] = json!(list);
+            let mut changes = BTreeMap::new();
+            changes.insert("book".into(), all);
+            write(w, changes).map_err(CommandError::precondition)?;
+            Ok(Outcome::new(
+                format!("In the book ({kind}, {} of {GREETINGS_KEPT}).", list.len()),
+                json!({"kind": kind, "count": list.len()}),
+            ))
         }),
     );
     world.register(

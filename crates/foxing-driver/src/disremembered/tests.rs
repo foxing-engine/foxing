@@ -7420,6 +7420,50 @@ fn the_docent_greets_once_a_night_takes_questions_answers_or_admits_the_page_is_
         "{said:?}"
     );
     assert_eq!(docent::report(&w)["tidied"], 1);
+    // The greeting book: the operator stocks it, the shape is checked, and a
+    // newcomer hears a stocked line (filled) rather than a built-in one.
+    let err = call(
+        &mut w,
+        "Bindery",
+        ActorKind::Admin,
+        "greeting",
+        json!([
+            "Hello there, you lot, come in, come in, the desk is open and the catalog is mine",
+            "first"
+        ]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("no {name}"), "{err}");
+    let err = call(
+        &mut w,
+        "Bindery",
+        ActorKind::Admin,
+        "greeting",
+        json!([
+            "{name}, welcome! The desk is open and the catalog is mine to keep tonight.",
+            "first"
+        ]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("an exclamation"), "{err}");
+    let out = admin(&mut w, "Bindery", "greeting", json!(["{name}. New, then: the strip above the prompt is your first hour, and the catalog is mine to keep. {creature}", "first"]));
+    assert!(out.summary.contains("(first, 1 of"), "{}", out.summary);
+    assert_eq!(
+        docent::report(&w)["book"]["first"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    let head = events(&w);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    ok(&mut w, "tyler", "look", json!([]));
+    let said = narrative(&w, "tyler", head);
+    assert!(
+        said.iter()
+            .any(|l| l.starts_with("The Docent: \"tyler. New, then: the strip above the prompt")),
+        "{said:?}"
+    );
 }
 
 #[test]

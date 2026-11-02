@@ -22,18 +22,13 @@ Your side, in order:
    `probe-1165`; the Cartographer's Closet still says "6 HP a minute" (player prose).
 
 Decisions wanted (each a sentence back):
-6. The Docent's greeting book: stock it from Haiku nightly like the epitaphs (slots
-   {name}, {creature}, {room}), or keep the six built-in lines? I'd stock it.
-7. Passing names can dig (Marigold and Pipwhistle both did; `help dig` says kept
-   only). Enforce, or drop the line from help? I'd enforce: digging is the one thing
-   a passing name should not leave behind.
-8. Shove ends the fight and the creature is back to full hit points in seconds (a
-   respawn reset, not a mend). Intended as part of the trick, or a bug? I'd leave the
-   creature at the hit points it had.
-9. Ambush pacing for gate players (item 10 of the review): one round per statement,
-   or a longer strike interval for a name that came through the gate?
-10. The bandage recipe (item 11) and the death-screen follow-ups (item 4) are next in
-    my queue unless you reorder.
+6–10 decided and shipped the morning of 2026-11-02: the greeting book is stocked
+daily by `tools/docent.py` from Haiku, steered by the day's questions (6); the
+kept-only verbs say so in checkable words (7: the two "passing" diggers were kept
+names from the page, misreading themselves); a learned trick no longer mends the
+creature when the fight ends (8); a name through the gate is struck once a statement
+(9); the bandage, the night's stones named, a felled sound, the board's falls column
+(10).
 
 Shipped tonight (details under "The night of 2026-11-02" and "The Docent" below, and
 feedback.txt): atlas zoom and pan; favicon and share card; `read`; signed book lines;
@@ -316,8 +311,13 @@ figures on the canvas that answer to a click.
   (admin) is the record; `disremembered.asked/answered/tidied/greeted` are public.
   `docent.service` is installed by `setup-bindery.sh` (DOCENT_MODE=off keeps it
   silent) and a release restarts it; the owner has not run the setup yet, so tonight
-  every question got the honest no-page line. Next: the Docent's greeting book stocked
-  by Haiku like the epitaphs (slots {name}, {creature}, {room}); a second figure for
+  every question got the honest no-page line; the morning after, the owner ran the
+  setup and it answered within the minute, in voice and by the rules ("Shelve the ones
+  you want to keep: `shelve chunk-267`…"). The greeting book (`greeting "…" first|
+  welcome`, operator; each kind keeps the newest 24; `GET /v0/docent` carries the book
+  and what steers it) is stocked daily by `tools/docent.py --greetings` from Haiku,
+  told what visitors asked in the last day and what the named want, so the first
+  words point at what newcomers actually look for. Next: a second figure for
   the Lower Stacks (the Cataloguer's clerk); the Docent's round said in the rooms it
   passes through when someone is there; tidying test debris and faded guest lines;
   `tell docent "what have you found?"` listing the Lost and Found; a `thanks` that
