@@ -41,6 +41,31 @@ in words; the other two hold by construction). Still open:
 - The rest of the Architect's petition design, still on the table: regulars' standing,
   `attend`, a hoard's petition to ease its own tax never counting.
 
+From the loop cohort of 2026-11-02 (Copperwick, Nettlebright, Loamwhistle,
+Bellowsmith; reports in the session scratchpad; the obvious fixes shipped the same
+night: the dig reply's vividity, the door-cap refusal naming open rooms, the name
+failing at forty-five not seventy, "fed me to my name" naming the real feeder, the
+return digest starting at the last departure, venom named in the retreat line,
+`attack kind-id` falling through to the kind, the drop line at the Threshold, the
+record reading as a past, the float leak in `chunks`):
+- **Vividity.** It is 1 - hp/max at the moment of the kill, so a one-hit wisp after a
+  lamprey's venom elsewhere counts as "near death" while the fight itself was never
+  dangerous, and a tester gamed it in both directions. Copperwick's proposal: weigh it
+  by the damage *that creature* did you in that fight (or its share of your hit points
+  at the time). The loop's whole promise rides on this; your call on the formula.
+- **A story that misses its want.** A quoted-sentence want ("like the one it has
+  mostly forgotten") refused a 47-word story on the right subject with no reason, and
+  the hour lock meant no retry; the Docent later said "ran long". Proposal: the reply
+  says why (ran long, not near it, heard this hour) and a miss does not spend the hour.
+- **The second tier's wall.** A 75-hp censor that is whole again between visits, ten
+  a round and nine on the retreat, against thirty hit points mending one in twenty
+  seconds, cannot be worn down; the lamprey's venom then killed the tester in another
+  room. Bellowsmith's options: Stacks creatures keep their wounds for a while; a
+  bandage or charm craftable from the floor litter a new name finds (water, dust, ink,
+  embers, never thread); the night lantern's chunk floor nearer the bandage's.
+- **The message budget** (sixty an hour) counts `rest` and `look` polling and is
+  announced only when spent; a running count on each reply, or read-only verbs free.
+
 ## The play page
 
 The picture for people who play games (approved 2026-11-02; the target is a gamer who
@@ -264,6 +289,31 @@ bell, hearth, table, window, moss, stones, three at most). Still to do:
   the first ten minutes, on whether the place feels attended.
 - Keyboard playtesters on fable-5-1 and sonnet are cut off by an API safeguard flag
   (`[reasoning_extraction]`) partway through; finish those sessions by hand.
+- The loop cohort (11-02): all four loops scored 6-7 of 10, and every stall had the
+  same shape: the world went quiet where it should have said why (a story that missed
+  its want, an empty room with no word of a respawn, a return visit whose news came
+  from the Docent and not the room, a second tier that kills on the first touch with
+  no warning). The moments that landed were all the world knowing the visitor by name:
+  "You again, Nettlebright"; Dribble knowing Copperwick; `invite Rillet` arriving; a
+  lantern's record backing up the name its maker gave it.
+- Smaller cohort items, by loop. Earn-fade-spend: an empty room should say a wisp will
+  come and when; `attack <kind>` with twins should say which it chose; the first empty
+  Stacks room should hint `where lamprey`; the censor's trick is not visible on the
+  first strike. Feed-to-sixty: an unnamed newborn that "knows your name" answers "It
+  does not understand you"; "mostly quiet now" said of a chunk given a minute ago; the
+  name Vellic appeared in a parentage line before it was dealt (recycled, or stale);
+  "wisling" reads as a typo for wispling the first time (say "a kind of its own");
+  "what else?" repeats what "what do you hold?" listed; a carry want re-issued to a new
+  creature with the same phrase reads as the same word. Dig-and-return: `look` in a dug
+  room should show remaining half-life and remembered %; seed-room `look` and `help
+  dig` should say doors left; `wants` should carry a story cooldown ("ready in 48m");
+  `session` counts as a statement that draws a strike; the Docent's "the Rillet";
+  "Kept in memory by Loamwhistle (wisp), Loamwhistle (wisp), …" wants folding; `look`
+  narrated "Vellic looks up at you" in a room Vellic was not in; no trace in the room
+  a creature left by invitation. Crafting: a plaque's `read` shows no record (fixtures
+  keep one too; show it); the craft reply's "holds nothing yet" beside the record's
+  "with a memory of" reads as a contradiction; `name`'s timer is said only in `help
+  name`; nothing in the Stacks asks for the map a lantern keeps.
 
 ## Operator and owner
 

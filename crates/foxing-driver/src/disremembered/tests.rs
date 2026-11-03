@@ -8373,7 +8373,7 @@ fn a_thing_keeps_its_past_and_the_tiers_climb() {
     ok(&mut w, "dave", "take", json!([format!("item-{lantern}")]));
     let out = ok(&mut w, "dave", "read", json!([format!("item-{lantern}")]));
     assert!(
-        out.summary.contains("Carried by tyler into The Fogbank."),
+        out.summary.contains("In tyler's hands it saw The Fogbank."),
         "{}",
         out.summary
     );

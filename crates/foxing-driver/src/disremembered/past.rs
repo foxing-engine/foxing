@@ -111,8 +111,10 @@ pub fn push(
     set(world, actor, item, changes)
 }
 
-/// The record as prose, one sentence an entry, consecutive carryings by one hand run
-/// together ("Carried by Wren into the Fogbank, the Shallows and the Orchard").
+/// The record as prose: what happened to the thing, not a courier's log. Runs of
+/// carrying fold into one sentence of rooms; a setting-down and a taking-up in the
+/// same room by the same hand fold into "set down and taken up again"; feeds say
+/// what the memory was and how vivid.
 pub fn recital(world: &World, item: EntityId) -> String {
     let past = past_of(world, item);
     let folded = plain_num(world, item, ITEM, "past_folded").unwrap_or(0.0) as u64;
@@ -124,6 +126,11 @@ pub fn recital(world: &World, item: EntityId) -> String {
         ));
     }
     let s = |v: &Value, k: &str| v[k].as_str().unwrap_or("").to_string();
+    let list = |items: &[String]| match items.len() {
+        0 => String::new(),
+        1 => items[0].clone(),
+        n => format!("{} and {}", items[..n - 1].join(", "), items[n - 1]),
+    };
     let mut i = 0;
     while i < past.len() {
         let e = &past[i];
@@ -136,8 +143,8 @@ pub fn recital(world: &World, item: EntityId) -> String {
                     .map(|a| {
                         a.iter()
                             .filter_map(Value::as_str)
+                            .map(str::to_string)
                             .collect::<Vec<_>>()
-                            .join(" and ")
                     })
                     .unwrap_or_default();
                 let with = s(e, "with");
@@ -147,7 +154,7 @@ pub fn recital(world: &World, item: EntityId) -> String {
                     if of.is_empty() {
                         String::new()
                     } else {
-                        format!(" of {of}")
+                        format!(" of {}", list(&of))
                     },
                     if with.is_empty() {
                         String::new()
@@ -174,8 +181,20 @@ pub fn recital(world: &World, item: EntityId) -> String {
                 ),
                 _ => "Something in the making took, and it came out with a past.".to_string(),
             }),
+            "dropped" => {
+                // Set down and taken up again by the same hand in the same room.
+                if i + 1 < past.len()
+                    && past[i + 1]["what"] == "took"
+                    && s(&past[i + 1], "by") == by
+                    && s(&past[i + 1], "room") == room
+                {
+                    i += 1;
+                    out.push(format!("Set down and taken up again by {by} in {room}."));
+                } else {
+                    out.push(format!("Set down by {by} in {room}."));
+                }
+            }
             "took" => out.push(format!("Taken up by {by} in {room}.")),
-            "dropped" => out.push(format!("Set down by {by} in {room}.")),
             "carried" => {
                 let mut rooms = vec![room.clone()];
                 while i + 1 < past.len()
@@ -185,13 +204,17 @@ pub fn recital(world: &World, item: EntityId) -> String {
                     i += 1;
                     rooms.push(s(&past[i], "room"));
                 }
-                let list = match rooms.len() {
-                    1 => rooms[0].clone(),
-                    n => format!("{} and {}", rooms[..n - 1].join(", "), rooms[n - 1]),
-                };
-                out.push(format!("Carried by {by} into {list}."));
+                out.push(format!("In {by}'s hands it saw {}.", list(&rooms)));
             }
-            "kept" => out.push(format!("{by} remembered {} into it.", s(e, "with"))),
+            "kept" => {
+                let with = s(e, "with");
+                let vivid = s(e, "vivid");
+                let worth = e["worth"].as_f64();
+                out.push(match (vivid.is_empty(), worth) {
+                    (false, Some(w)) => format!("It took from {by} {} ({vivid}, {w:.0}).", with),
+                    _ => format!("It took from {by} {with}."),
+                });
+            }
             "did" => out.push(format!("{} for {by} in {room}.", s(e, "deed"))),
             "named" => out.push(format!("{by} named it {}.", s(e, "name"))),
             "described" => out.push(format!("{by} wrote on it.")),

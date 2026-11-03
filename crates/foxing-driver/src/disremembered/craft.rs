@@ -837,6 +837,7 @@ pub fn remember_into(
     let source = plain_str(world, chunk, super::CHUNK, "source")
         .unwrap_or("something")
         .to_string();
+    let viv = super::plain_num(world, chunk, super::CHUNK, "vividity").unwrap_or(0.0);
     let me_ = Actor::Citizen(actor.to_string());
     world
         .record(me_.clone(), StoreEvent::EntityRemoved { id: chunk })
@@ -857,7 +858,7 @@ pub fn remember_into(
         world,
         actor,
         item,
-        json!({"what": "kept", "by": actor, "with": format!("the memory of {source}")}),
+        json!({"what": "kept", "by": actor, "with": format!("the memory of {source}"), "worth": (worth * 10.0).round() / 10.0, "vivid": if viv >= 0.6 { "vivid" } else if viv >= 0.3 { "plain" } else { "faint" }}),
     )?;
     let c: Curve = curves.palace(0.5);
     let mut changes = BTreeMap::new();
@@ -1353,8 +1354,13 @@ pub fn register(world: &mut World, curves: Curves) {
                 &format!("{} sets down {name}.", ctx.actor),
                 &ctx.actor,
             );
+            let at_threshold = plain_str(w, room, super::ROOM, "key") == Some("threshold");
             Ok(Outcome::new(
-                format!("You set {name} down here. Left lying, the Docent carries it to the Threshold on its round."),
+                if at_threshold {
+                    format!("You set {name} down here, at the Threshold, where the Docent leaves what it finds; it stays for whoever comes.")
+                } else {
+                    format!("You set {name} down here. Left lying, the Docent carries it to the Threshold on its round.")
+                },
                 json!({"item": item.0, "name": name, "room": room.0}),
             ))
         }),

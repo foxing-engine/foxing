@@ -185,11 +185,11 @@ fn rows_text(rows: &[Value]) -> Vec<String> {
         .take(ROWS_SHOWN)
         .map(|r| {
             format!(
-                "  chunk-{} {:<10} {:>9.2} of {:<6} vividity {:.2}{}{}{}",
+                "  chunk-{} {:<10} {:>9.2} of {:<6.1} vividity {:.2}{}{}{}",
                 r["id"],
                 r["source"].as_str().unwrap_or("?"),
                 r["value"].as_f64().unwrap_or(0.0),
-                r["size"],
+                r["size"].as_f64().unwrap_or(0.0),
                 r["vividity"].as_f64().unwrap_or(0.0),
                 r["halves_ms"]
                     .as_i64()

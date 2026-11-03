@@ -1232,7 +1232,16 @@ pub fn register(world: &mut World, curves: Curves) {
                     let fighting = engaged_with(w, f.citizen)
                         .filter(|id| here.iter().any(|c| c.0 == *id))
                         .filter(|id| plain_str(w, *id, CREATURE, "name").is_some_and(|k| k == asked));
-                    let found = fighting.or_else(|| super::mind::find_here(w, room, name));
+                    // "ragpicker-5161" after 5161 came apart, with 5162 still here: the
+                    // kind it names is what is meant, so the strike is not wasted.
+                    let kind_only = name
+                        .trim()
+                        .rsplit_once('-')
+                        .filter(|(_, d)| d.chars().all(|c| c.is_ascii_digit()))
+                        .map(|(k, _)| k.to_string());
+                    let found = fighting
+                        .or_else(|| super::mind::find_here(w, room, name))
+                        .or_else(|| kind_only.as_deref().and_then(|k| super::mind::find_here(w, room, k)).filter(|c| super::mind::name(w, *c).is_none()));
                     // A kind never strikes a named creature, even one alone of its kind:
                     // two visitors in one night felled Lute by typing "attack wisp".
                     if let Some(c) = found {
@@ -1447,7 +1456,28 @@ pub fn register(world: &mut World, curves: Curves) {
                 Some(_) => " It will be whole again by the time you come back; the Stacks keep their own.",
                 None => "",
             };
-            Ok(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}. You have {:.0}/{:.0}.{mended}", hp_said(w, f.citizen), super::MAX_HP), json!({"died": false, "hp": hp(w, f.citizen)})))
+            // Venom follows you out of the room: said, with what it will cost, since
+            // five hit points and four ticks of two is a death the text once left unsaid.
+            let me_id = f.citizen.0;
+            let venom_left = w
+                .jobs
+                .pending()
+                .find(|j| j.kind == super::stacks::JOB_VENOM && j.payload["citizen"] == me_id)
+                .and_then(|j| j.payload["left"].as_i64())
+                .unwrap_or(0);
+            let venom = if venom_left > 0 {
+                let cost = venom_left as f64 * super::stacks::VENOM_DAMAGE;
+                let now_hp = hp(w, f.citizen);
+                format!(
+                    " The venom goes with you: {venom_left} more bite{} of {:.0}, {cost:.0} in all{}; a bandage closes nothing against it, and rest does not outrun it.",
+                    if venom_left == 1 { "" } else { "s" },
+                    super::stacks::VENOM_DAMAGE,
+                    if cost >= now_hp { ", which is more than you have" } else { "" }
+                )
+            } else {
+                String::new()
+            };
+            Ok(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}. You have {:.0}/{:.0}.{mended}{venom}", hp_said(w, f.citizen), super::MAX_HP), json!({"died": false, "hp": hp(w, f.citizen), "venom_left": venom_left})))
         }),
     );
 
