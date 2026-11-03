@@ -460,6 +460,31 @@ fn died_since_last_message(world: &World, actor: &str) -> bool {
 
 /// The verbs a message may still run after a death the sender has not read yet: the
 /// ones that only read.
+/// Verbs that change nothing: a message of these alone costs no budget.
+const READ_VERBS: &[&str] = &[
+    "look",
+    "chunks",
+    "map",
+    "time",
+    "rest",
+    "board",
+    "statutes",
+    "palace",
+    "satchel",
+    "log",
+    "recipes",
+    "help",
+    "commands",
+    "read",
+    "wants",
+    "mine",
+    "where",
+    "check",
+    "session",
+    "messages",
+    "petitions",
+];
+
 const AFTER_DEATH: &[&str] = &[
     "look", "chunks", "map", "time", "rest", "board", "statutes", "palace", "satchel", "log",
     "recipes", "help", "commands", "read", "wants", "mine", "where", "check", "session",
@@ -579,7 +604,23 @@ pub fn pass(
     // is typing, and typing is cheaper, but it is not free on a port an agent can
     // drive: a player ran several hundred `/v0/command` lines an hour against a
     // budget that never moved (#2). The text port is local and the operator's.
+    // A message of reads alone (look, chunks, rest, wants…) is free: a tester polling
+    // their hit points spent the hour on it and was cut off before `leave`.
+    let reads_only = {
+        let dos: Vec<&Statement> = msg
+            .statements
+            .iter()
+            .filter(|s| s.r#type.as_deref() == Some("DO"))
+            .collect();
+        !dos.is_empty()
+            && dos.iter().all(|s| {
+                s.verb
+                    .as_deref()
+                    .is_some_and(|v| READ_VERBS.contains(&v.to_lowercase().as_str()))
+            })
+    };
     let cost = match (compiled, via) {
+        (false, _) if reads_only => 0.0,
         (false, _) => 1.0,
         (true, Via::Http) => COMPILED_HTTP_COST,
         (true, Via::Session) => COMPILED_SESSION_COST,
@@ -604,7 +645,7 @@ pub fn pass(
     }
 
     let passed = result.verdict == "PASS";
-    if !compiled {
+    if !compiled && !(reads_only && passed) {
         budget.charge(actor, now, passed);
     } else if cost > 0.0 {
         budget.charge_cost(actor, now, cost);
@@ -695,6 +736,21 @@ pub fn pass(
         }
     }
     let acted = matches!(intent, "REQUEST" | "QUERY");
+    if matches!(via, Via::Gate | Via::Http) && !compiled {
+        let left = budget.remaining(actor, now);
+        report.fact(
+            format!(
+                "Budget: {left:.0} of {:.0} messages left this hour{}",
+                budget.per_hour,
+                if reads_only {
+                    "; a message of reads alone is free, as this one was"
+                } else {
+                    "; a message of reads alone (look, chunks, rest, wants) is free"
+                }
+            ),
+            "budget",
+        );
+    }
     if matches!(via, Via::Gate | Via::Http) {
         let said: Vec<String> = world
             .recent_events(500)
@@ -866,8 +922,8 @@ fn run_request(
             if !AFTER_DEATH.contains(&verb.as_str()) {
                 report.fact(
                     match fell_at {
-                        Some(k) => format!("Statement {} did not run: {actor} went down at statement {k} of this message and woke at the Threshold; it was written for another room. Read the room, then write again", st.index),
-                        None => format!("Statement {} did not run: {actor} went down since their last message and woke at the Threshold; read the room, then write again", st.index),
+                        Some(k) => format!("Statement {} did not run: you woke at the Threshold; read the room first. {actor} went down at statement {k}, in another room", st.index),
+                        None => format!("Statement {} did not run: you woke at the Threshold; read the room first. {actor} went down since the last message, in another room", st.index),
                     },
                     "gate",
                 );
@@ -1150,7 +1206,7 @@ mod tests {
         let p = send(&mut w, &checker, &mut budget, "lantern-7", &text);
         assert!(
             p.reply
-                .contains("Statement 1 did not run: lantern-7 went down since their last message"),
+                .contains("Statement 1 did not run: you woke at the Threshold; read the room first. lantern-7 went down since the last message"),
             "{}",
             p.reply
         );

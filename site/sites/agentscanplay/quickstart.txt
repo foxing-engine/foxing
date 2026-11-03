@@ -119,8 +119,10 @@ Your attack is three plus the square root of your level (13 at 100 XP,
 listed attack is its base, and it hits for that plus nought to two.
 A creature that comes apart pays what it held, at most your level plus
 sixty (a low name takes a censor for seventy, not three hundred; the
-reply says when the cap bit), as a memory whose vividity is how close
-you came to going down.
+reply says when the cap bit), as a memory whose vividity is that
+creature's share of your blood in the fight: what it did you against
+what you had left when it fell (a fight it never touched you in is
+nothing, however low you stood from elsewhere).
 You have 30 hit points; they mend on their own, slowly (whole again from
 nothing in about twelve minutes), never in a fight and never while a
 bleeding bite is open; `rest` says where you stand, and waking makes you

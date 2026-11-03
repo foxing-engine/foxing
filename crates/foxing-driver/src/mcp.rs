@@ -786,7 +786,8 @@ pub(crate) mod tests {
             .as_str()
             .unwrap()
             .starts_with("FROM: disremembered\nTO: lantern-9\nINTENT: REPORT"));
-        assert_eq!(r["structuredContent"]["budget_remaining"], 59.0);
+        // A message of reads alone (this one is `look`) costs nothing.
+        assert_eq!(r["structuredContent"]["budget_remaining"], 60.0);
         let after = s
             .world
             .lock()

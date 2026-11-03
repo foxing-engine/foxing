@@ -859,7 +859,48 @@ fn creature_strikes(
     let after = before - dmg;
     commit_hp(world, citizen, after)?;
     LAST_HIT.with(|c| c.set((before.ceil(), after.max(0.0).ceil())));
+    // What this creature has done you, this fight: the vividity of the memory of
+    // felling it is its share of your blood, not where the meter stood at the end
+    // (a one-hit wisp after a lamprey's venom elsewhere once counted as near death).
+    let taken = fight_taken(world, citizen, creature) + dmg;
+    world.record(
+        Actor::Driver,
+        StoreEvent::FieldSet {
+            id: citizen,
+            component: BODY.into(),
+            field: "fight".into(),
+            value: json!({"creature": creature.0, "taken": taken}),
+        },
+    )?;
     Ok((dmg, after <= 0.0))
+}
+
+/// What `creature` has done `citizen` in the fight they are in; nothing if the
+/// last blood was another's.
+pub fn fight_taken(world: &World, citizen: EntityId, creature: EntityId) -> f64 {
+    world
+        .store
+        .entity(citizen)
+        .and_then(|e| e.components.get(BODY))
+        .and_then(|c| c.fields.get("fight"))
+        .and_then(|f| match f {
+            Field::Plain(v) if v["creature"] == creature.0 => v["taken"].as_f64(),
+            _ => None,
+        })
+        .unwrap_or(0.0)
+}
+
+/// How vivid the memory of felling `creature` is: what it did you in this fight
+/// against what you had left, so a fight that cost you most of your blood is near
+/// one and a fight it never touched you in is nothing.
+pub fn fight_vividity(world: &World, citizen: EntityId, creature: EntityId) -> f64 {
+    let taken = fight_taken(world, citizen, creature);
+    let left = hp(world, citizen).max(0.0);
+    if taken <= 0.0 {
+        0.0
+    } else {
+        (taken / (taken + left)).clamp(0.0, 1.0)
+    }
 }
 
 thread_local! {
@@ -1344,7 +1385,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 // A creature that holds memories does not die: you take one, it is shaken.
                 // The memory is yours at what it is worth now, as vivid as the fight.
                 let who = super::mind::display(w, creature);
-                let taken_vividity = (1.0 - hp(w, f.citizen) / super::MAX_HP).clamp(0.0, 1.0);
+                let taken_vividity = fight_vividity(w, f.citizen, creature);
                 if let Some((chunk, source, worth, was)) = super::mind::take(w, &ctx.actor, f.window, creature, taken_vividity, &curves)? {
                     set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
                     end_fight(w, f.citizen).map_err(internal)?;
@@ -1364,7 +1405,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 // Win: the chunk's vividity is how close you came to dying; a moth
                 // charm carried makes it more vivid and is spent.
                 let my_hp = hp(w, f.citizen);
-                let mut vividity = (1.0 - my_hp / super::MAX_HP).clamp(0.0, 1.0);
+                let mut vividity = fight_vividity(w, f.citizen, creature);
                 let mut charm_line = String::new();
                 if let Some(charm) = super::craft::carries(w, f.citizen, "charm") {
                     // A second-tier charm (a warden's) gives half again.
@@ -1401,7 +1442,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     "The {cname} comes apart. You remember it: chunk-{} worth {xp:.0} XP{capped_line}, vividity {:.2}{}.{charm_line}{}{}",
                     chunk.0,
                     vividity,
-                    if vividity > 0.6 { " (you were near death for it; this one will last)" } else { "" },
+                    if vividity > 0.6 { " (it had most of your blood for it; this one will last)" } else { "" },
                     match &left {
                         Some((id, n)) => format!(" It leaves {n} behind (item-{}); take it.", id.0),
                         // Say when the roll missed, so a visitor can tell a missed

@@ -382,7 +382,10 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // A numbing bite: strikes do half until this (ms since the epoch).
             .field("numb_until", FieldKind::Plain, Visibility::Owner)
             // A bleeding bite: nothing mends until this (ms since the epoch).
-            .field("bleed_until", FieldKind::Plain, Visibility::Owner),
+            .field("bleed_until", FieldKind::Plain, Visibility::Owner)
+            // What the creature you are fighting has done you in this fight:
+            // `{creature, taken}`; the memory's vividity is its share of your blood.
+            .field("fight", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(SPRITE, 2)
             .field("glyph", FieldKind::Plain, Visibility::Public)
             .field("tint", FieldKind::Plain, Visibility::Public)
