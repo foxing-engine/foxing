@@ -504,7 +504,7 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
         "who fed you",
     ]) {
         let first = keepers.first().cloned().unwrap_or_else(|| "someone".into());
-        let last = keepers.last().cloned().unwrap_or_else(|| first.clone());
+        let last = mind::last_feeder(world, creature).unwrap_or_else(|| first.clone());
         let with = first_gift(world, creature).unwrap_or_else(|| "a memory".into());
         return Some(if keepers.len() > 1 && first != last {
             format!("No one made me; I was a {kind} before anyone looked. {first} fed me first, {with}, and {last} fed me to my name. That is the nearest I have to parents.")
@@ -516,7 +516,7 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
         if let Some((a, b)) = parents {
             return Some(format!(
                 "I am {name}. I was born a {kind}, of {a} and {b}, and I have been a {kind} with a name since {} fed me to it.",
-                keepers.last().cloned().unwrap_or_else(|| "someone".into())
+                mind::last_feeder(world, creature).unwrap_or_else(|| "someone".into())
             ));
         }
         let first = keepers.first().cloned().unwrap_or_else(|| "someone".into());

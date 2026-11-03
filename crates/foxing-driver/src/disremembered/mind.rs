@@ -204,6 +204,26 @@ pub fn keepers(world: &World, creature: EntityId) -> Vec<String> {
     out
 }
 
+/// Who fed it last: the hand on the latest feed, counted again even if it fed before
+/// (`keepers` lists each name once, first appearance, so its last was the wrong
+/// one: "since Pindle fed me to it", of a parent). Births and confidings are not feeds.
+pub fn last_feeder(world: &World, creature: EntityId) -> Option<String> {
+    mind_field(world, creature, "kept")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .rev()
+        .filter(|k| k.get("creature").is_none())
+        .filter(|k| {
+            !k["with"].as_str().is_some_and(|w| {
+                w == "the word that made it"
+                    || w == "being its parent"
+                    || w.starts_with("its story of")
+            })
+        })
+        .find_map(|k| k["by"].as_str().map(str::to_string))
+}
+
 /// Still reeling from a memory taken.
 pub fn shaken(world: &World, creature: EntityId) -> bool {
     shaken_for(world, creature).is_some()
@@ -819,8 +839,10 @@ pub const JOB_CONFIDE: &str = "disremembered.confide";
 /// listener, listener_kind, listener_name, room, story, paid, named, chance}`. Public.
 pub const CONFIDED: &str = "disremembered.confided";
 const CONFIDE_EVERY_SECONDS: i64 = 600;
-/// Below this level a name is failing: `look` says so.
-pub const FAILING_BELOW: f64 = 70.0;
+/// Below this level a name is failing: `look` says so. Between the bar a name is
+/// earned at (sixty) and the half of it where it goes: at seventy a creature named
+/// a minute ago at sixty-one already read as failing, which undercut the moment.
+pub const FAILING_BELOW: f64 = 45.0;
 
 /// The urgency the named feel, by how many of them are left: certain at two or
 /// fewer, nothing at six or more. A dying population starts feeding the unnamed

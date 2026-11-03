@@ -5570,15 +5570,15 @@ fn the_named_confide_in_the_unnamed_when_names_are_few() {
     // The ragpicker's own story is still its own: a story told is not lost.
     assert!(mind::level(&w, rag) > 0.0);
     // The wisp shows what it holds now. A name failing is said in the room: the test
-    // world's chunks halve in ten seconds, so a few seconds on the ragpicker is under
-    // seventy and still named.
+    // world's chunks halve in ten seconds, so some seconds on the ragpicker is under
+    // forty-five and still named (above thirty).
     let look = ok(&mut w, "tyler", "look", json!([]));
     assert!(
         look.summary.contains("wisp (9/9, holding "),
         "{}",
         look.summary
     );
-    w.fixed_now = Some(t0.plus(Duration::seconds(607)));
+    w.fixed_now = Some(t0.plus(Duration::seconds(622)));
     let look = ok(&mut w, "tyler", "look", json!([]));
     assert!(
         look.summary.contains(&format!("{name} the ragpicker ("))
@@ -8031,7 +8031,11 @@ fn a_room_takes_eight_doors_and_a_forgotten_one_is_unmade_on_the_round() {
         json!(["bay", format!("chunk-{c}"), "One Too Many"]),
     )
     .unwrap_err();
-    assert!(err.to_string().contains("8 doors already, the 8 a room takes"), "{err}");
+    assert!(
+        err.to_string()
+            .contains("8 doors already, the 8 a room takes"),
+        "{err}"
+    );
     // The side rooms are left to fade: in a day and more they are forgotten, and the
     // Docent's round unmakes them one by one; the Hall, with dave in it, stands.
     ok(&mut w, "dave", "leave", json!([]));

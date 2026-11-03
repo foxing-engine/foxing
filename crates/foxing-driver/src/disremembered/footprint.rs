@@ -277,20 +277,33 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
         things_out.push(json!({"item": e.id.0, "name": name, "made": made, "fixed": fixed, "lines": my_lines, "where": where_, "room": holder.filter(|h| h.kind == "room").map(|h| h.id.0)}));
     }
 
-    // Since you were last here: the public record touching any of it, after your
-    // previous arrival (the one before this visit's).
+    // Since you were last here: the public record touching any of it, after you
+    // last went quiet (the departure before this arrival). It was the previous
+    // arrival once, and a return read "Rillet is named" of a naming before the
+    // visitor left.
     let recent = world.recent_events(4000);
     let arrivals: Vec<u64> = recent
         .iter()
         .filter(|e| e.kind == crate::world::ARRIVED && e.payload["actor"] == actor)
         .map(|e| e.seq.0)
         .collect();
+    let departures: Vec<u64> = recent
+        .iter()
+        .filter(|e| e.kind == super::presence::DEPARTED && e.payload["actor"] == actor)
+        .map(|e| e.seq.0)
+        .collect();
     // A first visit has no "last here": the digest is since this arrival, said so.
     let first_visit = arrivals.len() < 2;
+    let this_arrival = arrivals.last().copied().unwrap_or(0);
     let since = if first_visit {
         arrivals.first().copied().unwrap_or(0)
     } else {
-        arrivals[arrivals.len() - 2]
+        departures
+            .iter()
+            .rev()
+            .find(|&&d| d < this_arrival)
+            .copied()
+            .unwrap_or(arrivals[arrivals.len() - 2])
     };
     let since_said = if first_visit {
         "Since you arrived"
