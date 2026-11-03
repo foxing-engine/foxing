@@ -413,7 +413,12 @@ seventy), so you know where the next one will be lost.
      when they return; take needs something on the ground.)
     (a dug room is born with its chunk's half-life, which comes from the
      chunk's vividity, not its XP: a vivid memory makes a room that lasts.
-     An exit is one lowercase word; "back" is reserved.)
+     An exit is one lowercase word; "back" is reserved. A room takes eight
+     doors at most, its own and the dug ones together: dig from a room with
+     fewer, or from one of your own. A dug room forgotten a day, under a
+     hundredth remembered with nothing kept in it (no fixture, no named
+     creature, no one there), is unmade by the Docent on its round; a visit
+     remembers it whole.)
     dig stacks chunk-267 "The Overdue Stacks"
                                       [DO] Quillwake MUST dig stacks chunk-267 "The Overdue Stacks".
     travel stacks                     [DO] Quillwake MUST travel stacks.

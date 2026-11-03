@@ -842,6 +842,40 @@ fn is_debris(name: &str, key: &str) -> bool {
         .any(|d| n.starts_with(d) || k.starts_with(d) || n == "test" || n == "link test")
 }
 
+/// Below this share of memory, for a day, a dug room is forgotten: nothing of it
+/// stands, and the Docent's round unmakes it (a hundred faded rooms once hung off the
+/// seed rooms as doors no one would take).
+pub const FORGOTTEN_UNDER: f64 = 0.01;
+pub const FORGOTTEN_FOR_MS: f64 = 86_400_000.0;
+
+/// Whether a dug room has been under [`FORGOTTEN_UNDER`] for a day: its memory
+/// halves on its own half-life, so the mark it would have to be under now is the
+/// threshold halved over the day. A room with a fixture, a named creature, or anyone
+/// in it is never forgotten this way.
+fn is_forgotten(world: &World, room_id: EntityId) -> bool {
+    let Some(mem) = super::building::memory(world, room_id) else {
+        return false;
+    };
+    let hl = super::building::half_life_of(world, room_id)
+        .map(|d| d.0 as f64)
+        .unwrap_or(3_600_000.0)
+        .max(60_000.0);
+    // Floored: on a short half-life the mark underflows to nothing, and a room at
+    // nothing must still be under it.
+    let mark = (FORGOTTEN_UNDER * 0.5f64.powf(FORGOTTEN_FOR_MS / hl)).max(1e-12);
+    if mem >= mark {
+        return false;
+    }
+    if anyone_here(world, room_id) {
+        return false;
+    }
+    let kept = world.store.children(room_id).any(|e| {
+        (e.kind == "item" && super::craft::is_fixed(world, e.id))
+            || (e.kind == "creature" && super::mind::name(world, e.id).is_some())
+    });
+    !kept
+}
+
 fn anyone_here(world: &World, room_id: EntityId) -> bool {
     world
         .store
@@ -935,11 +969,16 @@ pub fn round_step(world: &mut World) -> Result<Vec<String>, String> {
         .unwrap_or("")
         .to_string();
     let empty_world = !anyone_in_the_world(world);
-    // Test debris: a dug room named like one, with no one in it, is unmade.
+    // Test debris: a dug room named like one, with no one in it, is unmade; so is a
+    // dug room forgotten a day (under a hundredth remembered, nothing kept in it).
+    let debris = is_debris(&name, &key) && !anyone_here(world, next);
+    let forgotten = !debris
+        && next != threshold
+        && world.store.entity(next).is_some_and(|e| e.owner.is_some())
+        && is_forgotten(world, next);
     if next != threshold
         && world.store.entity(next).is_some_and(|e| e.owner.is_some())
-        && is_debris(&name, &key)
-        && !anyone_here(world, next)
+        && (debris || forgotten)
     {
         world
             .record(
@@ -954,9 +993,16 @@ pub fn round_step(world: &mut World) -> Result<Vec<String>, String> {
         let _ = world.note(
             Actor::Driver,
             TIDIED,
-            json!({"did": "razed", "room": next.0, "name": name, "key": key, "exits_dropped": gone.1, "creatures": gone.2}),
+            json!({"did": "razed", "room": next.0, "name": name, "key": key, "why": if forgotten { "forgotten" } else { "debris" }, "exits_dropped": gone.1, "creatures": gone.2}),
         );
-        did.push(format!("razed {name}"));
+        did.push(format!(
+            "{} {name}",
+            if forgotten {
+                "unmade the forgotten"
+            } else {
+                "razed"
+            }
+        ));
         return Ok(did);
     }
     // Things left lying here: carried to the Threshold at once when the world is

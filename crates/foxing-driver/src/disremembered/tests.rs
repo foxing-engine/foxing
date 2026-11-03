@@ -7986,3 +7986,68 @@ fn the_conclave_takes_petitions_and_always_decides_eventually() {
     assert!(w.jobs.has(conclave::JOB_DIVISION, |_| true), "wound again");
     assert!(conclave::to_json(&w)["decided"].as_array().unwrap().len() == 2);
 }
+
+#[test]
+fn a_room_takes_eight_doors_and_a_forgotten_one_is_unmade_on_the_round() {
+    use super::{building, docent};
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let chunk = |w: &mut World| {
+        admin(w, "dave", "earn", json!(["a room's worth", 100, 0.2])).result["chunk"]
+            .as_u64()
+            .unwrap()
+    };
+    let c = chunk(&mut w);
+    ok(
+        &mut w,
+        "dave",
+        "dig",
+        json!(["hall", format!("chunk-{c}"), "The Hall"]),
+    );
+    ok(&mut w, "dave", "travel", json!(["hall"]));
+    let hall = rooms::room_of(&w, find_citizen(&w, "dave").unwrap().citizen).unwrap();
+    // Seven more doors fill it (back is the eighth).
+    for (i, door) in ["ash", "elm", "fir", "oak", "yew", "ivy", "box"]
+        .iter()
+        .enumerate()
+    {
+        let c = chunk(&mut w);
+        let door = door.to_string();
+        ok(
+            &mut w,
+            "dave",
+            "dig",
+            json!([door, format!("chunk-{c}"), format!("Room {i}")]),
+        );
+    }
+    assert_eq!(rooms::exits_of(&w, hall).len(), building::MAX_EXITS);
+    let c = chunk(&mut w);
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "dig",
+        json!(["bay", format!("chunk-{c}"), "One Too Many"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("full count of doors (8)"), "{err}");
+    // The side rooms are left to fade: in a day and more they are forgotten, and the
+    // Docent's round unmakes them one by one; the Hall, with dave in it, stands.
+    ok(&mut w, "dave", "leave", json!([]));
+    w.fixed_now = Some(t0.plus(Duration::seconds(10 * 86_400)));
+    w.tick();
+    let mut unmade = 0;
+    for _ in 0..600 {
+        let did = docent::round_step(&mut w).unwrap();
+        unmade += did
+            .iter()
+            .filter(|d| d.starts_with("unmade the forgotten"))
+            .count();
+    }
+    assert!(unmade >= 7, "{unmade}");
+    assert!(
+        w.store.entity(hall).is_none(),
+        "the Hall itself, empty and faded, went too"
+    );
+}

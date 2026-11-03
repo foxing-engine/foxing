@@ -55,6 +55,11 @@ pub fn memory(world: &World, room: EntityId) -> Option<f64> {
         .and_then(|v| v.as_f64())
 }
 
+/// The half-life a built room's memory fades on, for the Docent's reckoning.
+pub fn half_life_of(world: &World, room: EntityId) -> Option<Duration> {
+    half_life(world, room)
+}
+
 /// The half-life a built room's memory fades on.
 fn half_life(world: &World, room: EntityId) -> Option<Duration> {
     match world
@@ -311,6 +316,8 @@ fn grants_of(world: &World, room: EntityId, field: &str) -> serde_json::Map<Stri
 
 /// The public record of a memory given up for a room:
 /// `{room, name, owner, by, with, spent, added_ms, half_life_ms}`.
+/// How many doors a room takes, its own and the dug ones together.
+pub const MAX_EXITS: usize = 8;
 pub const REMEMBERED: &str = "disremembered.remembered";
 /// A room was dug: `{by, room, key, name, from, exit, with}`. Public.
 pub const DUG: &str = "disremembered.dug";
@@ -436,6 +443,15 @@ pub fn register(world: &mut World, curves: super::Curves) {
                         "Only a room's owner digs from it. Dig from the world's rooms, or your own.",
                     ));
                 }
+            }
+            // A room takes so many doors: the Threshold once had fifteen, and the
+            // picture is a wall of labels past eight. Dig from a room with fewer, or
+            // from your own.
+            if exits_of(w, here).len() >= MAX_EXITS {
+                return Err(CommandError::precondition(format!(
+                    "{} has its full count of doors ({MAX_EXITS}); dig from a room with fewer, or from one of your own.",
+                    plain_str(w, here, ROOM, "name").unwrap_or("This room")
+                )));
             }
             let chunk = super::memory::resolve_chunk(
                 w,
