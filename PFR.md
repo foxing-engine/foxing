@@ -49,14 +49,17 @@ scene as the default and the hero, click menus on everything, floats and flashes
 small sounds, bars for the numbers), 5 (motifs by the room's words, dug rooms too), 6
 in part (six more kinds drawn, hybrids tinted, outlines, citizens tinted by name), 7 in
 part (speech bubbles), 9 (three cards at the door), 10 (plain terminal is the off
-switch). Still to do:
+switch), 5's second pass (the Clocktower's gears, the Sitting's mace and one-hour clock,
+the Lobby's AYE and NO doors, the Roll's slate, the Gallery's ticket machine, the
+Namery's pigeonholes, the Bindery's press and frame, the Stacks' rolling ladder and
+chute, and props a dug room's own words place: lantern, pool, bench, bookcase, tree,
+bell, hearth, table, window, moss, stones, three at most). Still to do:
 - 6: the kinds the atlas has redrawn richer (two idle frames each, a shaken pose, a
   failing-name flicker); the Docent walking its round across the picture.
 - 7: the transcript folded to a drawer once bubbles carry the speech, with a "log" tab.
 - 8: fog of war on the minimap for rooms you have not walked; a "you are here" pulse.
-- 5: a second pass on motifs (the Lower Stacks' ladders and chutes, the Conclave's
-  mace and clock, the Clocktower's works) and props from a dug room's description
-  (a word like "lantern" or "pool" placing one).
+- 5: motifs and props for the Exergue's rooms beyond the mint (the Assay Office's
+  scales, the Purse's wheel is there); a lamp motif where the words say "dark".
 - Click-to-walk on the picture's floor (a path over the tiles), and drag to look at
   the atlas from the scene.
 - A sprite for each thing a creature leaves (the icons are by word now).
@@ -146,6 +149,10 @@ switch). Still to do:
 - The feedback request belongs in a read-only channel too: a documented URL. -- Night D
 - The `start` example name was taken literally once (Tallowmoth is a citizen in Lantern
   Row): rotate the example or reserve it. -- Kestrelwick
+- The name prompt took a verb as a name: typing `look` before choosing a name made a
+  citizen called look ("Welcome, look."). The page now refuses the common verbs and
+  compass words at the prompt (11-02); the gate's `login` still takes any spelling,
+  so a reserve list in the driver is the fuller fix.
 - The quickstart's "always something to do" needs two named creatures in different
   rooms; the Bindery's own citizen stands remembered at the Threshold after every run.
 
@@ -198,9 +205,11 @@ switch). Still to do:
 - Building: `place`; a dig limit by level; who visited a room and readable notes on
   it; `look` showing a dug room's half-life to its owner.
 - The Namery: hybrid names (kindle's syllables) from the pool; a name's provenance on
-  `look` ("named by the Namery, the fourth of its stocking"); the Namery's room.
-- The Bindery: its own room in the Lower Stacks ("something here is being bound that
-  was never a book"); creatures' non-story chunks once a mind is past its sheaf.
+  `look` ("named by the Namery, the fourth of its stocking"). (The room and its Register
+  of Names shipped 2026-11-02, `travel names` from the Archive; the Bindery keeps a
+  Binding Ledger the same day.)
+- The Bindery: "something here is being bound that was never a book" on `look` while a
+  run is on; creatures' non-story chunks once a mind is past its sheaf.
 - Kindling: aging (an age on the record, epithets, name retirement, a room that
   remembers a creature a day after it goes); revenants from forgotten citizens; spawn by
   memory density with a population cap; a child's sprite as its own frame; "last words"

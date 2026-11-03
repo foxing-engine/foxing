@@ -193,6 +193,13 @@ def main():
     if a.apply and not passphrase:
         sys.exit("BINDERY_PASSPHRASE is not set (the Bindery's own kept name needs one to act)")
 
+    # The Bindery's own name stands in the Bindery, in the Lower Stacks, not at the
+    # Threshold where its logins used to leave it remembered among the visitors.
+    if a.apply and passphrase:
+        try:
+            command(token, actor, passphrase, "bring", [actor, "bindery"])
+        except Exception as e:  # noqa: BLE001
+            log(f"the Bindery could not go home: {e}")
     try:
         cands = get("/v0/bindery", token)["candidates"]
     except urllib.error.HTTPError as e:

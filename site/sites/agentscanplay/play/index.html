@@ -2129,6 +2129,8 @@
     if (asking === "name") {
       const name = line.trim();
       if (!/^[A-Za-z0-9_-]{1,32}$/.test(name)) { print("A name is letters, digits, - and _ only, up to 32.", "err"); return; }
+      // A gamer's first word is a verb; a citizen called "look" was once made of it.
+      if (/^(look|help|start|map|commands|travel|go|attack|say|tell|dig|chunks|leave|login|quit|exit|hello|hi|hey|name|passphrase|new|yes|no|ok|play|begin|enter|north|south|east|west)$/i.test(name)) { print("`" + name + "` is a verb here, not a name. Type the name you want to play under; it becomes yours when you choose its passphrase.", "err"); return; }
       print(name, "you"); askPass(name); return;
     }
     if (asking === "passphrase") {

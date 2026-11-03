@@ -337,6 +337,90 @@ export default function install(m) {
     px(0, H - 4, W, 4, shade(base, 0.3));
     // Motifs on the wall and the floor.
     drawMotif(motif, base, seed, now);
+    drawKeyProps(base, seed, now);
+    drawWordProps(base, seed, now);
+  }
+  // What a room's key calls for beyond its motif: the house's furniture, by room.
+  function drawKeyProps(base, seed, now) {
+    const k = scene.key || "";
+    const t = now / 1000;
+    const gear = (cx, cy, r, teeth, speed, color) => {
+      ctx.fillStyle = color; ctx.beginPath(); ctx.arc(cx * SCALE, cy * SCALE, r * SCALE, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = NIGHT; ctx.beginPath(); ctx.arc(cx * SCALE, cy * SCALE, r * 0.35 * SCALE, 0, Math.PI * 2); ctx.fill();
+      for (let i = 0; i < teeth; i++) { const a = t * speed + i * Math.PI * 2 / teeth; px(cx + Math.cos(a) * r - 1, cy + Math.sin(a) * r - 1, 2.5, 2.5, color); }
+    };
+    if (/^(clocktower|pendulum-room|escapement-stair|mainspring-closet|belfry)/.test(k)) {
+      // The works: two gears meshing on the wall, turning against each other.
+      gear(5 * T, 14, 7, 8, 0.6, "#b08a3a"); gear(5 * T + 13, 17, 5, 6, -0.8, "#d9b57a");
+      if (k === "pendulum-room") { const a = Math.sin(t * 1.2) * 0.35; px(DOORS.north[0] * T + 8, 2, 1, 2, "#b08a3a"); ctx.strokeStyle = "#b08a3a"; ctx.lineWidth = SCALE; ctx.beginPath(); ctx.moveTo((DOORS.north[0] * T + 8) * SCALE, 4 * SCALE); ctx.lineTo((DOORS.north[0] * T + 8 + Math.sin(a) * 40) * SCALE, (4 + Math.cos(a) * 40) * SCALE); ctx.stroke(); ctx.fillStyle = "#d9b57a"; ctx.beginPath(); ctx.arc((DOORS.north[0] * T + 8 + Math.sin(a) * 40) * SCALE, (4 + Math.cos(a) * 40) * SCALE, 4 * SCALE, 0, Math.PI * 2); ctx.fill(); }
+    }
+    if (k === "session-benches") {
+      // The table with the mace across it, and the clock with one hour marked.
+      px(8 * T, 6 * T, 4 * T, 10, "#3a2418"); px(8 * T + 2, 6 * T + 2, 4 * T - 4, 2, "#5a3a2a");
+      px(8 * T + 4, 6 * T + 4, 4 * T - 8, 2, "#b08a3a"); px(8 * T + 4 * T - 10, 6 * T + 2, 6, 6, "#d9b57a");
+      ctx.fillStyle = INK; ctx.beginPath(); ctx.arc((15 * T + 8) * SCALE, 14 * SCALE, 8 * SCALE, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = NIGHT; ctx.beginPath(); ctx.arc((15 * T + 8) * SCALE, 14 * SCALE, 6.5 * SCALE, 0, Math.PI * 2); ctx.fill();
+      px(15 * T + 8, 8.5, 1, 2, INK); ctx.strokeStyle = INK; ctx.lineWidth = SCALE; ctx.beginPath(); ctx.moveTo((15 * T + 8) * SCALE, 14 * SCALE); ctx.lineTo((15 * T + 8) * SCALE, 9.5 * SCALE); ctx.stroke();
+    }
+    if (k === "division-lobby") {
+      // Two doors marked AYE and NO in gold; behind the paint they are one door.
+      for (const [x, word] of [[4, "AYE"], [14, "NO"]]) { px(x * T + 2, 4, 12, 28, "#1a1a2a"); px(x * T + 2, 4, 12, 1, "#b08a3a"); ctx.fillStyle = "#d9b57a"; ctx.font = "bold " + (5 * SCALE) + "px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(word, (x * T + 8) * SCALE, 12 * SCALE); }
+    }
+    if (k === "roll-hall") {
+      // The long slate, ruled in two columns.
+      px(2 * T, 3, 16 * T, 26, "#2a2e2a"); px(2 * T, 3, 16 * T, 1, "#5a5a4a"); px(10 * T, 3, 1, 26, "#5a5a4a");
+      for (let i = 0; i < 3; i++) px(2 * T + 4, 8 + i * 7, 5 * T + Math.floor(rnd(seed, 30 + i) * 20), 1, "#8a8e86");
+    }
+    if (k === "petition-gallery") {
+      // The brass ticket machine by the entrance, its little window lit.
+      px(2 * T + 4, 3 * T, 10, 18, "#8a6a2a"); px(2 * T + 6, 3 * T + 3, 6, 4, "#ffe6a0"); px(2 * T + 8, 3 * T + 12, 2, 3, "#d9b57a");
+    }
+    if (k === "namery") {
+      // Pigeonholes to the ceiling, a slip in most.
+      for (let x = 1; x < COLS - 1; x++) { if (Math.abs(x - DOORS.north[0]) < 1) continue; for (let r = 0; r < 4; r++) { px(x * T, r * 8, 16, 8, "#4a3c2c"); px(x * T + 1, r * 8 + 1, 14, 6, "#1c1812"); if (rnd(seed, x * 9 + r) > 0.25) px(x * T + 3, r * 8 + 2, 10, 4, "#ece5d3"); } }
+    }
+    if (k === "bindery") {
+      // The standing press and the sewing frame.
+      px(3 * T, 3 * T, 2 * T, 2 * T + 4, "#4a3a2a"); px(3 * T + 6, 3 * T - 10, 20, 10, "#5a4a3a"); px(3 * T + 14, 3 * T - 14, 4, 6, "#8a7a4a");
+      px(14 * T, 3 * T + 6, 3 * T, 2, "#5a4a3a"); for (let i = 0; i < 6; i++) px(14 * T + 4 + i * 7, 3 * T - 6, 1, 14, "#ece5d3");
+    }
+    if (/^(lower-stacks|card-catalogue|returns-chute|reserve|deep-reserve|periodicals|dark-reading-room|carrels|overdue-desk|lost-and-found|grace-period|strongroom|the-leak|chart-room|restoration|tube-room|censor-office|dumbwaiter)/.test(k)) {
+      // The Stacks: a rolling ladder on its rail, moving on its own.
+      const lx = 3 * T + ((t * 4) % (12 * T));
+      px(2 * T, 1, 16 * T, 1, "#6a6a7a"); px(lx + 2, 1, 1, 30, "#8a7a5a"); px(lx + 9, 1, 1, 30, "#8a7a5a"); for (let i = 0; i < 5; i++) px(lx + 2, 4 + i * 6, 8, 1, "#8a7a5a");
+      if (k === "returns-chute" || k === "dumbwaiter") { px(16 * T + 2, 2, 12, 30, NIGHT); px(16 * T + 2, 2, 12, 1, "#8a8a9a"); px(16 * T + 2, 2, 1, 30, "#8a8a9a"); px(16 * T + 13, 2, 1, 30, "#8a8a9a"); }
+      if (k === "card-catalogue") { for (let x = 1; x < 8; x++) for (let r = 0; r < 4; r++) { px(x * T + 2, 2 + r * 7, 12, 6, "#5a3a2a"); px(x * T + 7, 4 + r * 7, 2, 2, "#d9b57a"); } }
+      if (k === "overdue-desk") { px(8 * T, 5 * T, 4 * T, 12, "#3a2418"); px(8 * T + 2, 5 * T + 2, 4 * T - 4, 2, "#5a3a2a"); px(8 * T + 4 * T - 8, 5 * T - 4, 5, 5, "#d9b57a"); }
+    }
+  }
+  // Props a dug room's own words place: a lantern, a pool, a bench, a bookcase, a
+  // tree, a bell, a hearth, a table, a window. Up to three, deterministic by room.
+  const WORD_PROPS = [
+    ["lantern|lamp|candle", "lantern"], ["pool|pond|basin|well|fountain", "pool"], ["bench|pew|seat", "bench"],
+    ["shelf|shelves|book|library|tome|volume", "bookcase"], ["tree|oak|willow|orchard|sapling", "tree"],
+    ["bell|chime", "bell"], ["fire|hearth|forge|kiln|ember|stove", "hearth"], ["table|desk|counter", "table"],
+    ["window|pane|glass", "window"], ["moss|grass|fern|weed", "moss"], ["bones|skull|grave|stone", "stones"],
+  ];
+  function drawWordProps(base, seed, now) {
+    if (!scene.owner) return; // the world's own rooms have their motifs and keys
+    const text = ((scene.name || "") + " " + (scene.description || "")).toLowerCase();
+    const found = WORD_PROPS.filter(([re]) => new RegExp("\\b(" + re + ")\\b").test(text)).slice(0, 3);
+    const spots = [[3, 4], [16, 4], [4, 8], [15, 8], [9, 3]];
+    found.forEach(([, kind], i) => {
+      const [x, y] = spots[(hash(scene.id) + i) % spots.length];
+      const X = x * T, Y = y * T, t = now / 1000;
+      if (kind === "lantern") { px(X + 7, Y - 8, 2, 22, "#3a3028"); px(X + 4, Y - 14, 8, 8, "#d9b57a"); px(X + 6, Y - 12, 4, 4, "#ffe6a0"); ctx.fillStyle = "rgba(255,230,160,.08)"; ctx.beginPath(); ctx.arc((X + 8) * SCALE, (Y - 10) * SCALE, 26 * SCALE, 0, Math.PI * 2); ctx.fill(); }
+      else if (kind === "pool") { ctx.fillStyle = "rgba(90,150,180,.5)"; ctx.beginPath(); ctx.ellipse((X + 8) * SCALE, (Y + 8) * SCALE, 18 * SCALE, 9 * SCALE, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = "rgba(220,240,255,.35)"; ctx.lineWidth = SCALE; ctx.beginPath(); ctx.ellipse((X + 8) * SCALE, (Y + 8) * SCALE, (12 + Math.sin(t) * 3) * SCALE, (6 + Math.sin(t) * 1.5) * SCALE, 0, 0, Math.PI * 2); ctx.stroke(); }
+      else if (kind === "bench") { px(X - 4, Y + 4, 24, 4, "#5a3a2a"); px(X - 4, Y + 8, 24, 2, "#3a2418"); px(X - 2, Y + 10, 2, 4, "#3a2418"); px(X + 18, Y + 10, 2, 4, "#3a2418"); }
+      else if (kind === "bookcase") { px(X - 2, Y - 10, 20, 24, "#4a3a2a"); for (let r = 0; r < 3; r++) for (let b = 0; b < 4; b++) { const v = rnd(seed, r * 10 + b + i * 100); px(X + b * 4, Y - 8 + r * 8 + (v > 0.5 ? 1 : 0), 3, 6, v < 0.3 ? "#7a4a3a" : v < 0.6 ? "#4a5a7a" : "#a08a5a"); } }
+      else if (kind === "tree") { px(X + 6, Y + 2, 4, 14, "#4a3a2a"); ctx.fillStyle = "#3f6b4a"; ctx.beginPath(); ctx.arc((X + 8) * SCALE, Y * SCALE, 10 * SCALE, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "#5a8a5a"; ctx.beginPath(); ctx.arc((X + 5) * SCALE, (Y - 3) * SCALE, 5 * SCALE, 0, Math.PI * 2); ctx.fill(); }
+      else if (kind === "bell") { px(X + 7, Y - 12, 2, 6, "#3a3028"); ctx.fillStyle = "#b08a3a"; ctx.beginPath(); ctx.moveTo((X + 3) * SCALE, (Y + 2) * SCALE); ctx.quadraticCurveTo((X + 8) * SCALE, (Y - 12) * SCALE, (X + 13) * SCALE, (Y + 2) * SCALE); ctx.fill(); px(X + 7, Y + 2, 2, 2, "#d9b57a"); }
+      else if (kind === "hearth") { px(X - 2, Y - 6, 20, 20, "#3a2a24"); px(X + 2, Y, 12, 12, NIGHT); const f = (Math.sin(t * 6 + i) + 1) / 2; px(X + 5, Y + 6 - f * 2, 6, 4 + f * 2, "#d1734f"); px(X + 7, Y + 7, 2, 3, "#ffcf7a"); ctx.fillStyle = "rgba(209,115,79,.08)"; ctx.beginPath(); ctx.arc((X + 8) * SCALE, (Y + 6) * SCALE, 24 * SCALE, 0, Math.PI * 2); ctx.fill(); }
+      else if (kind === "table") { px(X - 4, Y + 2, 24, 3, "#5a3a2a"); px(X - 2, Y + 5, 2, 7, "#3a2418"); px(X + 18, Y + 5, 2, 7, "#3a2418"); }
+      else if (kind === "window") { px(X + 2, 4, 12, 12, NIGHT); px(X + 7, 4, 2, 12, shade(base, 0.6)); px(X + 2, 9, 12, 1, shade(base, 0.6)); px(X + 4, 6, 1, 1, INK); }
+      else if (kind === "moss") { for (let k2 = 0; k2 < 8; k2++) { const mx = X - 6 + Math.floor(rnd(seed, 500 + k2 + i * 50) * 28), my = Y + Math.floor(rnd(seed, 600 + k2 + i * 50) * 12); px(mx, my, 3, 2, "#5a8a5a"); } }
+      else if (kind === "stones") { px(X + 2, Y + 8, 6, 4, "#c9c0b0"); px(X + 10, Y + 10, 4, 3, "#c9c0b0"); px(X + 5, Y + 4, 3, 3, "#e9e0d0"); }
+    });
   }
   function drawMotif(motif, base, seed, now) {
     const t = now / 1000;

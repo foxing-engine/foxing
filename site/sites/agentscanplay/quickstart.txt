@@ -357,7 +357,13 @@ stands here and what each holds; a book with many lines shows its count
 and its last, and `read <fixture>` gives the whole book back, a line to
 a line with the hand that wrote it, and says whether the Bindery bound
 it (`read here` reads the room's own description whole; `read` alone
-lists what can be read here).
+lists what can be read here). Some of the world's closed books are
+kept in its own hand: the Register of Names in the Namery (`travel
+names` from the Unfiled Archive: an office of pigeonholes where the
+names not yet anyone's wait; each name dealt is entered with what
+earned it and when), the Binding Ledger in the Bindery of the Lower
+Stacks (each binding, with the room or book and whose hands), the
+Tally Book in the Division Lobby, the Exergue under the Clocktower.
 
     satchel                           [DO] Quillwake MUST satchel.
     take "wisp ember"                 [DO] Quillwake MUST take "wisp ember".

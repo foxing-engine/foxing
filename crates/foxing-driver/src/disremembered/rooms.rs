@@ -87,7 +87,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "archive",
         name: "The Unfiled Archive",
         description: "Shelves to the ceiling and ledgers on every one, but the ink lifts off the page the moment you read it and drifts for the rafters. Some of it has learned to flutter.",
-        exits: &[("south", "lantern-row"), ("down", "lower-stacks")],
+        exits: &[("south", "lantern-row"), ("down", "lower-stacks"), ("names", "namery")],
         spawn: Some(("inkling", 3, 45)),
         former: &[],
         tint: "#4a4e6b",
@@ -449,6 +449,17 @@ pub const ROOMS: &[RoomDef] = &[
         spawn: Some(("engrosser", 2, 600)),
         former: &[],
         tint: "#3a2e2e",
+    },
+    // The Namery, the office the nightly naming tool keeps (the Bindery has its room in
+    // the Lower Stacks already); names are dealt from here.
+    RoomDef {
+        key: "namery",
+        name: "The Namery",
+        description: "A narrow office of pigeonholes, floor to ceiling, each with a slip of paper in it and a name on the slip, waiting for something to earn it. A few holes are empty and their slips are gone. The pigeonholes are refilled at night, by a hand that writes in a very old register. Nothing hunts here; the names are not yet anyone's.",
+        exits: &[("back", "archive")],
+        spawn: None,
+        former: &[],
+        tint: "#4a4638",
     },
     // The Exergue District, eight rooms under the Clocktower, one for each coin from
     // the farthing to the sovereign (the owner: "8 rooms to mirror the coinage in

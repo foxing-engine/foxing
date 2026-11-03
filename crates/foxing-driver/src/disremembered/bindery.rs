@@ -333,6 +333,20 @@ pub fn register(world: &mut World, curves: Curves) {
                 json!({"target": id.0, "kind": kind, "name": name, "by": ctx.actor, "model": model, "before": before, "after": text, "hands": hands}),
             );
             w.notice(format!("The Bindery bound **{name}** ({kind}): {} characters became {}.", before.chars().count(), text.chars().count()));
+            let _ = super::craft::world_writes(
+                w,
+                "bindery",
+                "the Binding Ledger",
+                "the Bindery",
+                &format!(
+                    "{} UTC: bound {name} ({kind}), {} hand{} folded in, {} characters to {}",
+                    super::system::clock(w.now().0),
+                    hands.as_array().map(|h| h.len()).unwrap_or(0),
+                    if hands.as_array().map(|h| h.len()).unwrap_or(0) == 1 { "" } else { "s" },
+                    before.chars().count(),
+                    text.chars().count()
+                ),
+            );
             Ok(Outcome::new(
                 format!("{name} is bound: {text}"),
                 json!({"target": id.0, "kind": kind, "name": name, "before_chars": before.chars().count(), "after_chars": text.chars().count()}),

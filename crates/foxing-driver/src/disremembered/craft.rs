@@ -95,6 +95,20 @@ pub const SEED_FIXTURES: &[(&str, &str, &str, &str, bool)] = &[
         true,
     ),
     (
+        "namery",
+        "book",
+        "the Register of Names",
+        "A very old register, ruled for names, each with what earned it and when. The hand is the same on every page.",
+        false,
+    ),
+    (
+        "bindery",
+        "book",
+        "the Binding Ledger",
+        "What the Bindery has bound, one line a binding: the thing, the hands folded into it, the night.",
+        false,
+    ),
+    (
         "dark-reading-room",
         "plaque",
         "the Book Nobody Is Reading",
@@ -841,6 +855,10 @@ pub fn append_check(
             let name = display(world, item);
             let whose = if name.contains("Tally") {
                 " The Clerk of the Conclave keeps it: every division enters its Ayes and Noes. Your own line goes in the Ledger of Fines at the Overdue Desk, or a book you make."
+            } else if name.contains("Register of Names") {
+                " The Namery keeps it: a line for every name dealt, written as the name is earned. Feed a creature to sixty and your name goes in beside it."
+            } else if name.contains("Binding Ledger") {
+                " The Bindery keeps it: a line for every binding, written the night it is bound. Write in a room or a book with many hands, and the Bindery may fold it."
             } else {
                 " The world's open book is the Ledger of Fines at the Overdue Desk; a book of your own takes any hand you welcome."
             };

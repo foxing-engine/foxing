@@ -261,6 +261,26 @@ pub fn draw(world: &mut World, creature: EntityId) -> Result<Option<String>, Com
     changes.insert("pool".into(), json!(pool));
     changes.insert("used".into(), json!(used));
     write(world, changes).map_err(CommandError::precondition)?;
+    // The Register of Names, in the Namery, takes the line.
+    let kind = super::plain_str(world, creature, super::CREATURE, "name")
+        .unwrap_or("creature")
+        .to_string();
+    let keepers = super::mind::keepers(world, creature);
+    let _ = super::craft::world_writes(
+        world,
+        "namery",
+        "the Register of Names",
+        "the Namery",
+        &format!(
+            "{} UTC: {name}, to a {kind}{}",
+            super::system::clock(world.now().0),
+            if keepers.is_empty() {
+                String::new()
+            } else {
+                format!(", fed to its name by {}", keepers.join(" and "))
+            }
+        ),
+    );
     Ok(Some(name))
 }
 
