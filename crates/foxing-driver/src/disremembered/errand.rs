@@ -464,6 +464,28 @@ pub fn wants_story(world: &World, creature: EntityId, text: &str) -> bool {
             .any(|(_, k)| touches(k, &told))
 }
 
+/// Why a story missed the want that stands now: the words the creature listens
+/// for, which of them it heard, and how many it needs. None when nothing is wanted
+/// or the story met it.
+pub fn why_missed(world: &World, creature: EntityId, text: &str) -> Option<String> {
+    let e = of(world, creature).filter(|e| e.story.is_some())?;
+    let told: Vec<String> = keywords_all(text).iter().map(|t| stem(t)).collect();
+    let heard: Vec<&String> = e.keywords.iter().filter(|k| told.contains(&stem(k))).collect();
+    let need = match e.keywords.len() {
+        0 => return None,
+        1 => 1,
+        n => (n / 2).clamp(1, 2),
+    };
+    if heard.len() >= need {
+        return None;
+    }
+    let listens = e.keywords.iter().take(6).cloned().collect::<Vec<_>>().join(", ");
+    Some(format!(
+        "Not the one it wanted: it listens for {listens}, and heard {}; {need} of those would do. The hour is not spent on a miss, once.",
+        if heard.is_empty() { "none of them".to_string() } else { heard.iter().map(|h| h.as_str()).collect::<Vec<_>>().join(" and ") }
+    ))
+}
+
 /// Whether the story answers the want that stands now (not only the one just
 /// answered, which still pays).
 pub fn wants_story_now(world: &World, creature: EntityId, text: &str) -> bool {

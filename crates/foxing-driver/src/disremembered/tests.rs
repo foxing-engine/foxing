@@ -2843,6 +2843,14 @@ fn an_errand_is_a_story_wanted_or_a_word_carried_and_either_makes_you_known() {
     assert_eq!(out.result["wanted"], false);
     let usual = out.result["xp"].as_f64().unwrap();
     assert!(errand::of(&w, rag).is_some());
+    // The miss says why, in the want's own words, and does not spend the hour once:
+    // a second story goes in; a second miss does spend it.
+    assert!(out.summary.contains("Not the one it wanted: it listens for"), "{}", out.summary);
+    assert!(out.summary.contains("lantern"), "{}", out.summary);
+    let out = ok(&mut w, "dave", "story", json!([&rag_name, "A second try: the buttons were counted again by a ragpicker in the midden, and again the count was lost."]));
+    assert_eq!(out.result["wanted"], false, "{}", out.summary);
+    let err = call(&mut w, "dave", ActorKind::Citizen, "story", json!([&rag_name, "A third try about buttons and the midden and nothing of a lantern at all, counted twice."])).unwrap_err();
+    assert!(err.to_string().contains("One an hour"), "{err}");
     // An hour on, the one it wanted: double, the record says so, the errand is done.
     w.fixed_now = Some(t0.plus(Duration::seconds(3601)));
     let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));

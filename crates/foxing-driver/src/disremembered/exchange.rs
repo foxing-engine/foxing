@@ -48,15 +48,25 @@ pub fn heard_this_hour(world: &World, creature: EntityId) -> usize {
         .count()
 }
 
-/// Whether `actor` told `creature` a story within the hour: the cooldown.
+/// Whether `actor` told `creature` a story within the hour: the cooldown. A story
+/// that missed the creature's standing want does not spend the hour, once: the
+/// reply said why, and the teller may try again (a second miss does).
 pub fn told_this_hour(world: &World, actor: &str, creature: EntityId) -> bool {
     let now = world.now();
-    world.recent_events(2000).iter().any(|e| {
+    let mut misses = 0;
+    for e in world.recent_events(2000).iter().filter(|e| {
         e.kind == STORY
             && e.payload["from"] == actor
             && e.payload["creature"] == creature.0
             && now.since(e.at).0 < STORY_COOLDOWN_MS
-    })
+    }) {
+        if e.payload["missed"] == true {
+            misses += 1;
+        } else {
+            return true;
+        }
+    }
+    misses >= 2
 }
 
 pub fn register(world: &mut World, curves: Curves) {
@@ -240,6 +250,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     1.0
                 };
             let gist = gist(&text);
+            let missed = if wanted { None } else { super::errand::why_missed(w, creature, &text) };
             let heard_line = match repeats {
                 0 => String::new(),
                 1 => " It has heard one much like it this hour; this one pays half.".to_string(),
@@ -256,7 +267,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 STORY,
-                json!({"from": ctx.actor, "creature": creature.0, "kind": kind, "name": name, "words": words, "earned": earned.0, "kept": kept.0, "level": level, "keywords": story_words(&text), "repeats": repeats}),
+                json!({"from": ctx.actor, "creature": creature.0, "kind": kind, "name": name, "words": words, "earned": earned.0, "kept": kept.0, "level": level, "keywords": story_words(&text), "repeats": repeats, "missed": missed.is_some()}),
             );
             // A line of its own, drawn from what it holds beside the new story: four
             // creatures once thanked a teller in exactly the same words.
@@ -275,11 +286,12 @@ pub fn register(world: &mut World, curves: Curves) {
                 // The creature's answer reaches the teller as it reaches the room, a
                 // narrator line, so the outcome does not repeat it.
                 format!(
-                    "You tell {display} a story of {words} words, and it answers.{}{heard_line} You remember the telling: chunk-{} worth {paid:.0} XP.",
+                    "You tell {display} a story of {words} words, and it answers.{}{heard_line} You remember the telling: chunk-{} worth {paid:.0} XP.{}",
                     if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
-                    earned.0
+                    earned.0,
+                    missed.as_deref().map(|m| format!(" {m}")).unwrap_or_default()
                 ),
-                json!({"creature": creature.0, "name": name, "words": words, "distinct": distinct, "earned": earned.0, "xp": paid, "kept": kept.0, "level": level, "wanted": wanted, "repeats": repeats}),
+                json!({"creature": creature.0, "name": name, "words": words, "distinct": distinct, "earned": earned.0, "xp": paid, "kept": kept.0, "level": level, "wanted": wanted, "missed": missed, "repeats": repeats}),
             ))
         }),
     );
