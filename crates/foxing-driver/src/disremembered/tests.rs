@@ -8161,7 +8161,7 @@ fn the_exergue_weighs_money_stories_mirrors_the_coinage_and_guards_the_purse() {
         "{}",
         out.summary
     );
-    assert!(out.result["worth"].as_f64().unwrap() >= 40.0);
+    assert!(out.result["worth"].as_f64().unwrap() >= 120.0);
     let again = ok(&mut w, "dave", "take", json!(["purse"]));
     assert!(
         again.summary.contains("The Purse is empty"),

@@ -736,6 +736,13 @@ pub fn rates_line(rates: &BTreeMap<String, f64>) -> String {
 }
 
 /// The economy as `GET /v0/economy` serves it: rates, the dashboard, the last strikes.
+/// How many times the Clocktower has struck, ever.
+pub fn strikes_ever(world: &World) -> f64 {
+    entity(world)
+        .and_then(|e| plain_num(world, e, ECONOMY, "strikes"))
+        .unwrap_or(0.0)
+}
+
 pub fn to_json(world: &World) -> Value {
     let strikes: Vec<Value> = world
         .recent_events(5000)
