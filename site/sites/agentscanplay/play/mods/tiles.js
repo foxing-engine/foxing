@@ -525,29 +525,31 @@ export default function install(m) {
       hot.set(x + "," + y, { label: ex.more.length + " more doors: " + ex.more.map(e => e.via).join(", "), menu: ex.more.map(e => ({ label: "Walk " + e.via + " to " + e.name, run: () => m.command("travel", [e.via]) })) });
       return;
     }
+    // A dug room's way out is "back" to the world; the door says where that is.
+    const shown = ex.via === "back" ? String(ex.name || "back").replace(/^The /, "").slice(0, 16) : ex.via;
     if (ex.kind === "door") {
       if (ex.via === "north") { px(x * T + 2, 4, 12, 28, dark); px(x * T + 2, 4, 12, 1, shade(base, 1.3)); px(x * T + 2, 4, 1, 28, shade(base, 0.9)); px(x * T + 13, 4, 1, 28, shade(base, 0.9)); px(x * T + 4, 8, 8, 2, "rgba(236,229,211,.12)"); }
       else if (ex.via === "south") { px(x * T + 2, y * T + 8, 12, 8, dark); px(x * T + 2, y * T + 8, 12, 1, shade(base, 1.2)); }
       else if (ex.via === "west") { px(0, y * T - 4, 8, 24, dark); px(7, y * T - 4, 1, 24, shade(base, 1.2)); }
       else { px(W - 8, y * T - 4, 8, 24, dark); px(W - 8, y * T - 4, 1, 24, shade(base, 1.2)); }
-      labelAt(ex.via, x, y, ex.via === "north" ? 1 : -1);
+      labelAt(shown, x, y, ex.via === "north" ? 1 : -1);
     } else if (ex.kind === "arch") {
       if (x === 0 || x === COLS - 1) {
         px(x === 0 ? 0 : W - 8, y * T, 8, 16, dark); px(x === 0 ? 7 : W - 8, y * T, 1, 16, shade(base, 1.2));
-        labelAt(ex.via, x, y, -1);
+        labelAt(shown, x, y, -1);
       } else {
         px(x * T + 2, y * T + 6, 12, 10, dark);
         ctx.fillStyle = shade(base, 1.15); ctx.beginPath(); ctx.arc((x * T + 8) * SCALE, (y * T + 7) * SCALE, 6 * SCALE, Math.PI, 0); ctx.fill();
         ctx.fillStyle = dark; ctx.beginPath(); ctx.arc((x * T + 8) * SCALE, (y * T + 7) * SCALE, 5 * SCALE, Math.PI, 0); ctx.fill();
-        labelAt(ex.via, x, y, -1);
+        labelAt(shown, x, y, -1);
       }
     } else if (ex.kind === "stairs-up") {
       for (let i = 0; i < 4; i++) px(x * T + 2 + i * 3, y * T + 12 - i * 3, 12 - i * 3, 3, shade(base, 0.8 + i * 0.1));
-      labelAt(ex.via, x, y, -1);
+      labelAt(shown, x, y, -1);
     } else {
       px(x * T + 2, y * T + 2, 12, 12, dark);
       for (let i = 0; i < 4; i++) px(x * T + 3 + i * 2, y * T + 3 + i * 3, 10 - i * 2, 1, shade(base, 0.9));
-      labelAt(ex.via, x, y, -1);
+      labelAt(shown, x, y, -1);
     }
     hot.set(x + "," + y, { label: "walk " + ex.via + " → " + ex.name, primary: () => m.command("travel", [ex.via]), menu: [{ label: "Walk " + ex.via + " to " + ex.name, run: () => m.command("travel", [ex.via]) }] });
   }
