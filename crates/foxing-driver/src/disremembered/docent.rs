@@ -368,6 +368,7 @@ pub fn come_to(world: &mut World, actor: &str) -> Result<(), String> {
             },
         )
         .map_err(|e| e.to_string())?;
+    super::rooms::docent_came(world, there);
     for other in super::talk::others_here(world, there, actor) {
         super::combat::narrate(
             world,
@@ -968,6 +969,8 @@ pub fn round_step(world: &mut World) -> Result<Vec<String>, String> {
     let key = plain_str(world, next, ROOM, "key")
         .unwrap_or("")
         .to_string();
+    // The room has a line for the Docent, said to whoever stands in it.
+    super::rooms::docent_came(world, next);
     let empty_world = !anyone_in_the_world(world);
     // Test debris: a dug room named like one, with no one in it, is unmade; so is a
     // dug room forgotten a day (under a hundredth remembered, nothing kept in it).

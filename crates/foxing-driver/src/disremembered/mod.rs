@@ -1071,6 +1071,17 @@ fn me(world: &World, ctx: &CallContext) -> Result<Found, CommandError> {
     })
 }
 
+/// A number as a person rounds it: half up (12.5 is 13). `{:.0}` rounds half to
+/// even, and "12.5" once printed as 12; the figure is already rounded where it
+/// matters most (hit points, holdings, pay), so `{:.0}` of it prints it whole.
+pub(crate) fn up(x: f64) -> f64 {
+    if x >= 0.0 {
+        (x + 0.5).floor()
+    } else {
+        (x - 0.5).ceil()
+    }
+}
+
 fn internal(e: impl std::fmt::Display) -> CommandError {
     CommandError::internal(e.to_string())
 }

@@ -416,6 +416,15 @@
   #verbbar button.plain { color: var(--dim); }
   #hint { color: var(--dim); font-size: 12px; padding: 0 20px 6px; background: var(--panel); max-width: 86ch; width: 100%; min-height: 0; }
   #hint:empty { display: none; }
+  /* The keyboard player's feedback: a box under the header, the verb behind it. */
+  #feedback-box { padding: 10px 20px 12px; background: var(--panel); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+  #feedback-box[hidden] { display: none; }
+  #feedback-box label { color: var(--dim); font-size: 13px; }
+  #feedback-box textarea { font: inherit; font-size: 14px; color: var(--ink); background: var(--night); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; resize: vertical; max-width: 86ch; }
+  #feedback-box .fb-row { display: flex; gap: 8px; align-items: center; }
+  #feedback-box .fb-row button { font: inherit; font-size: 13px; color: var(--dust); background: transparent; border: 1px solid var(--line); border-radius: 3px; padding: 2px 10px; cursor: pointer; }
+  #feedback-box .fb-row button.plain { color: var(--dim); }
+  #feedback-box .fb-row span { color: var(--dim); font-size: 12px; margin-left: auto; }
   /* The memory picker: a line that wants a chunk shows your memories as cards. */
   #picker { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; padding: 6px 20px 8px; background: var(--panel); max-width: 86ch; width: 100%; }
   #picker[hidden] { display: none; }
@@ -525,8 +534,9 @@
 <body>
 <header>
   <div class="title"><a href="/play/">Disremembered</a><small>on Foxing, pre-alpha</small></div>
-  <div class="state"><span id="state"><b>Pre-alpha.</b> The world may be reset without notice.</span><span id="settings-wrap"><button type="button" id="b-settings" title="Sound, alerts, the CLEAR behind each line, the mod that draws the scene">settings ▾</button><div id="settings-menu" hidden><label title="A sound and a flash when someone arrives where you are, when words reach you, or when something strikes; a browser notification when this tab is in the background."><input type="checkbox" id="alerts"> alerts</label><label title="The alert's sound">sound <select id="sound" aria-label="Alert sound"><option value="chime">chime</option><option value="knock">knock</option><option value="bell">bell</option><option value="none">silent</option></select></label><label title="Hide the narrator's repeats: the same room text twice, an answer you already heard."><input type="checkbox" id="compact"> compact transcript</label><label title="Every line you type becomes a CLEAR message and goes through the same gate an agent uses. Show the message and the world's reply."><input type="checkbox" id="showclear"> show the CLEAR</label><label title="A mod redraws what you see; the world is the same. See /play/mods/README.md to write one.">scene <select id="modpick" aria-label="UI mod"><option value="">plain terminal (no picture)</option><option value="url:">from a URL…</option></select></label></div></span><span id="panels-wrap"><button type="button" id="b-panels" title="Which panels show. Drag any panel's corner to resize it; sizes are remembered in this browser.">panels ▾</button><div id="panels-menu" hidden></div></span><button type="button" id="b-help" title="One worked line per verb (also: ? on an empty line)">?</button><button type="button" id="b-pass" title="Change your passphrase. Nothing recovers a lost one." hidden>passphrase</button><button type="button" id="b-save" title="Save this transcript as a text file" hidden>save</button><button type="button" id="b-leave" title="Leave: the room disremembers you now, and this tab forgets your passphrase" hidden>leave</button></div>
+  <div class="state"><span id="state"><b>Pre-alpha.</b> The world may be reset without notice.</span><span id="settings-wrap"><button type="button" id="b-settings" title="Sound, alerts, the CLEAR behind each line, the mod that draws the scene">settings ▾</button><div id="settings-menu" hidden><label title="A sound and a flash when someone arrives where you are, when words reach you, or when something strikes; a browser notification when this tab is in the background."><input type="checkbox" id="alerts"> alerts</label><label title="The alert's sound">sound <select id="sound" aria-label="Alert sound"><option value="chime">chime</option><option value="knock">knock</option><option value="bell">bell</option><option value="none">silent</option></select></label><label title="Hide the narrator's repeats: the same room text twice, an answer you already heard."><input type="checkbox" id="compact"> compact transcript</label><label title="Every line you type becomes a CLEAR message and goes through the same gate an agent uses. Show the message and the world's reply."><input type="checkbox" id="showclear"> show the CLEAR</label><label title="A mod redraws what you see; the world is the same. See /play/mods/README.md to write one.">scene <select id="modpick" aria-label="UI mod"><option value="">plain terminal (no picture)</option><option value="url:">from a URL…</option></select></label></div></span><span id="panels-wrap"><button type="button" id="b-panels" title="Which panels show. Drag any panel's corner to resize it; sizes are remembered in this browser.">panels ▾</button><div id="panels-menu" hidden></div></span><button type="button" id="b-help" title="One worked line per verb (also: ? on an empty line)">?</button><button type="button" id="b-pass" title="Change your passphrase. Nothing recovers a lost one." hidden>passphrase</button><button type="button" id="b-save" title="Save this transcript as a text file" hidden>save</button><button type="button" id="b-feedback" title="Say what you would change about this place: public under your name, read by the operator, credited in feedback.txt when it ships" hidden>feedback</button><button type="button" id="b-leave" title="Leave: the room disremembers you now, and this tab forgets your passphrase" hidden>leave</button></div>
 </header>
+<div id="feedback-box" hidden><label for="feedback-text">What would you change about this place? One or two sentences; it goes on the record under your name and the operator reads it.</label><textarea id="feedback-text" rows="3" maxlength="600" placeholder="The thing that felt good, the thing that stalled, the thing you would change…"></textarea><div class="fb-row"><button type="button" id="feedback-send">send</button><button type="button" id="feedback-cancel" class="plain">cancel</button><span id="feedback-count"></span></div></div>
 <div id="main">
   <aside id="scene" aria-label="The scene">
     <section data-panel="map">
@@ -978,7 +988,7 @@
     actor = name; passphrase = pass;
     try { localStorage.setItem("disremembered.name", name); sessionStorage.setItem("disremembered.pass", pass); } catch (e) {}
     setState("Playing as <b>" + name + "</b>. Pre-alpha: the world may be reset without notice.");
-    for (const id of ["b-pass", "b-save", "b-leave"]) $(id).hidden = false;
+    for (const id of ["b-pass", "b-save", "b-leave", "b-feedback"]) $(id).hidden = false;
     for (const id of ["inbox-sec", "lately-sec", "wants-sec", "mine-sec"]) { const sec = $(id); sec.dataset.pageHidden = "0"; sec.hidden = sec.classList.contains("user-hidden"); }
     lastAct = Date.now();
     composeLogin();
@@ -1008,7 +1018,7 @@
     try { sessionStorage.removeItem("disremembered.pass"); } catch (e) {}
     setState("<b>Pre-alpha.</b> The world may be reset without notice.");
     $("link").textContent = "";
-    for (const id of ["b-pass", "b-save", "b-leave"]) $(id).hidden = true;
+    for (const id of ["b-pass", "b-save", "b-leave", "b-feedback"]) $(id).hidden = true; $("feedback-box").hidden = true;
     $("greet").replaceChildren(); $("quiet").textContent = ""; $("owner").replaceChildren();
     $("inbox").replaceChildren(); unread = 0; $("unread").textContent = "";
     lane.reset();
@@ -2107,6 +2117,18 @@
   $("b-save").addEventListener("click", () => {
     const text = [...log.children].map(l => (l.classList.contains("you") ? "> " : "") + l.textContent).join("\n");
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" })); a.download = "disremembered-" + (actor || "visit") + "-" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") + ".txt"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+  // Feedback from the keyboard: the box, then the verb through the gate like any line.
+  $("b-feedback").addEventListener("click", () => { const b = $("feedback-box"); b.hidden = !b.hidden; if (!b.hidden) $("feedback-text").focus(); });
+  $("feedback-cancel").addEventListener("click", () => { $("feedback-box").hidden = true; input.focus(); });
+  $("feedback-text").addEventListener("input", () => { $("feedback-count").textContent = $("feedback-text").value.length + "/600"; });
+  $("feedback-send").addEventListener("click", () => {
+    const t = $("feedback-text").value.trim().replace(/"/g, "'");
+    if (t.length < 8) { $("feedback-count").textContent = "a sentence, at least"; return; }
+    $("feedback-box").hidden = true; $("feedback-text").value = ""; $("feedback-count").textContent = "";
+    print('feedback "' + t + '"', "you");
+    chain = after(() => run("feedback", ['"' + t + '"']));
+    input.focus();
   });
   $("b-leave").addEventListener("click", () => { chain = after(async () => { await run("session", []); await run("leave", []); logout(); print("Left. The next name goes here.", "sys"); askName(); }); });
   // The story and tell counter under the input.

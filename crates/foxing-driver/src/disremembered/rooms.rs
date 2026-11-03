@@ -805,6 +805,79 @@ pub fn look_query(room: EntityId) -> Value {
 /// Describe a room as `actor` sees it. Runs the observation query and renders prose
 /// from the structure, which is the text client's job: the driver sends components,
 /// the client makes sentences.
+/// A line of the room's own for who stands in it, said on arrival: a stranger it
+/// has not had before, a keeper (its digger, or a hand that remembered into it),
+/// the Docent on its round (said to whoever is there). The owner's `greet` is the
+/// owner's; this is the room's.
+pub fn reaction(
+    world: &World,
+    actor: &str,
+    citizen: EntityId,
+    room: EntityId,
+    first_time: bool,
+) -> Option<String> {
+    let name = plain_str(world, room, ROOM, "name")?.to_string();
+    let owner = world.store.entity(room).and_then(|e| e.owner.clone());
+    let seed = (room.0 as usize).wrapping_mul(2654435761) ^ actor.len();
+    if owner.as_deref() == Some(actor) {
+        return Some(match seed % 3 {
+            0 => format!(
+                "{name} is yours; it brightens a little, as a dug room does for its digger."
+            ),
+            1 => {
+                format!("{name} knows the hand that opened it. It has kept the shape you gave it.")
+            }
+            _ => format!("{name} settles around you. It was yours before it was anything."),
+        });
+    }
+    let kept_by_you = super::building::kept_by(world, room)
+        .iter()
+        .any(|k| k == actor);
+    if kept_by_you {
+        return Some(format!("{name} knows your hand: some of what keeps it is yours, and it holds the door a little wider for you."));
+    }
+    if first_time {
+        let dug = owner.is_some();
+        return Some(match (dug, seed % 5) {
+            (true, _) => format!("{name} has not had you in it before; it was dug by {}, and it looks you over the way a borrowed room does.", owner.unwrap_or_default()),
+            (false, 0) => format!("{name} has not had you in it before; it notes you the way a shelf notes a book."),
+            (false, 1) => format!("You are new to {name}, and it is new to you; the stone takes a moment to settle."),
+            (false, 2) => format!("{name} does not know you yet. It will, if you come back."),
+            (false, 3) => format!("Nothing in {name} has your shape yet; the room looks you over, and keeps the look."),
+            (false, _) => format!("{name} had not expected you. Rooms expect very little; it is their one virtue."),
+        });
+    }
+    None
+}
+
+/// The room's line for the Docent coming through, said to whoever stands there.
+pub fn docent_came(world: &mut World, room: EntityId) {
+    let Some(name) = plain_str(world, room, ROOM, "name").map(str::to_string) else {
+        return;
+    };
+    let here: Vec<String> = world
+        .store
+        .children(room)
+        .filter(|e| e.kind == "citizen")
+        .filter_map(|e| plain_str(world, e.id, super::CITIZEN, "name").map(str::to_string))
+        .collect();
+    if here.is_empty() {
+        return;
+    }
+    let line = match room.0 % 3 {
+        0 => format!("{name} settles as the Docent comes through; the dust lies down for it."),
+        1 => format!(
+            "{name} straightens for the Docent, the way a room does for the one who keeps it."
+        ),
+        _ => format!(
+            "Something in {name} is quieter with the Docent in it; the room knows its reader."
+        ),
+    };
+    for who in here {
+        super::combat::narrate(world, &who, line.clone());
+    }
+}
+
 pub fn describe(
     world: &mut World,
     actor: &str,
@@ -942,7 +1015,7 @@ pub fn describe(
                     None if twins > 1 => format!("{kind}-{}", c["id"]),
                     None => kind.to_string(),
                 };
-                let holds = match c["mind"]["level"].as_f64() {
+                let holds = match c["mind"]["level"].as_f64().map(super::up) {
                     Some(l)
                         if l >= 0.5 && c["mind"]["name"].is_string() && l < mind::FAILING_BELOW =>
                     {
@@ -1179,7 +1252,15 @@ pub fn register(world: &mut World) {
             super::docent::on_arrival(w, &ctx.actor).map_err(internal)?;
             // What you carry records the room; a thing that wanted this room settles.
             let settled = super::past::after_travel(w, &super::Curves::from_env(), &ctx.actor, f.citizen, f.window, to)?;
+            // The room's own line for who stands in it, before describe marks it seen.
+            let first_time = !super::atlas::has_seen(w, f.citizen, to);
+            let reaction = reaction(w, &ctx.actor, f.citizen, to, first_time);
             let mut out = describe(w, &ctx.actor, ctx, to)?;
+            if let Some(r) = &reaction {
+                out.summary.push(' ');
+                out.summary.push_str(r);
+                out.result["reaction"] = json!(r);
+            }
             for line in &settled {
                 out.summary.push(' ');
                 out.summary.push_str(line);

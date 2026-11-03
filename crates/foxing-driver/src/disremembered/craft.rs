@@ -555,7 +555,7 @@ pub fn fixtures_line(world: &World, room: EntityId) -> Option<String> {
             } else {
                 ""
             };
-            let held = v["held"].as_f64().unwrap_or(0.0);
+            let held = super::up(v["held"].as_f64().unwrap_or(0.0));
             let held = if held >= 0.5 {
                 format!(", holding {held:.0}")
             } else {
@@ -597,7 +597,7 @@ pub fn item_line(v: &Value) -> String {
         Some(n) => format!("{n}, {}", v["name"].as_str().unwrap_or("something")),
         None => v["name"].as_str().unwrap_or("something").to_string(),
     };
-    let held = v["held"].as_f64().unwrap_or(0.0);
+    let held = super::up(v["held"].as_f64().unwrap_or(0.0));
     let held = if held >= 0.5 {
         format!(", holding {held:.0}")
     } else {

@@ -572,6 +572,8 @@ pub fn on_arrival(
     citizen: EntityId,
     room: EntityId,
 ) -> Result<(), String> {
+    // The room may mend you at its own pace (the Closet): the curve follows the room.
+    recurve_mending(world, citizen).map_err(|e| e.to_string())?;
     let hunters: Vec<EntityId> = creatures_in(world, room)
         .into_iter()
         .filter(|(id, _, _, _)| is_aggressive(world, *id))
@@ -794,13 +796,37 @@ pub fn mending_rate(world: &World, citizen: EntityId) -> f64 {
     if plain_num(world, citizen, BODY, "bleed_until").is_some_and(|u| u > now) {
         return 0.0;
     }
+    // The Cartographer's Closet (a player's room off the Archive) says "you heal
+    // about 6 HP a minute"; the owner made it so (2026-11-03): true in that room.
+    if super::rooms::room_of(world, citizen)
+        .and_then(|r| super::plain_str(world, r, super::ROOM, "name"))
+        .is_some_and(|n| n == CLOSET)
+    {
+        return CLOSET_HP_PER_SECOND;
+    }
     super::HP_PER_SECOND
 }
+
+/// The one room where the field guide's healing figure is true.
+pub const CLOSET: &str = "The Cartographer's Closet";
+pub const CLOSET_HP_PER_SECOND: f64 = 6.0 / 60.0;
 
 /// Set the body's mending to what it should be now (`mending_rate`): after a fight
 /// begins or ends, after a bleeding bite, when it staunches, on waking.
 pub fn recurve_mending(world: &mut World, citizen: EntityId) -> Result<(), StoreError> {
     let rate = mending_rate(world, citizen);
+    // Nothing to write when the curve already runs at this rate (an arrival once
+    // recorded the same curve again, and the world's reopening was no longer silent).
+    let current = world
+        .store
+        .timed_field(citizen, BODY, "hp")
+        .ok()
+        .map(|t| t.curve.clone());
+    if let Some(foxing_time::Curve::Linear { rate_per_ms }) = current {
+        if (rate_per_ms - rate / 1000.0).abs() < 1e-12 {
+            return Ok(());
+        }
+    }
     world.record(
         Actor::Driver,
         StoreEvent::FieldRecurved {
@@ -1468,6 +1494,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
                 end_fight(w, f.citizen).map_err(internal)?;
                 let chunk = super::memory::earn_chunk(w, &ctx.actor, f.window, &cname, xp, vividity, &curves)?;
+                let xp = super::up(xp);
                 lines.push(format!(
                     "The {cname} comes apart. You remember it: chunk-{} worth {xp:.0} XP{capped_line}, vividity {:.2}{}.{charm_line}{}{}",
                     chunk.0,

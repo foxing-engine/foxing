@@ -613,6 +613,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
                     super::kept_only(w, ctx, "remember a chunk into a thing")?;
                     let chunk = super::memory::resolve_chunk(w, ctx, args.str("chunk").unwrap_or(""), &[f.window, f.palace])?;
                     let (source, holds) = super::craft::remember_into(w, &curves, &ctx.actor, chunk, item)?;
+                    let holds = super::up(holds);
                     let called = super::craft::display(w, item);
                     let next = if holds < super::craft::NAME_AT && super::plain_str(w, item, super::craft::ITEM, "given_name").is_none() {
                         format!(" At {:.0} it could be named.", super::craft::NAME_AT)
@@ -650,6 +651,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
                         .map(|(_, bar, what)| format!(" At {bar:.0} it would be {what}."))
                         .unwrap_or_default()
                 };
+                let level = super::up(level);
                 w.notice(format!(
                     "**{}** gave the memory of {source} to **{after}**, which holds {level:.0}.",
                     ctx.actor

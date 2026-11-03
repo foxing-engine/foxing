@@ -560,6 +560,9 @@ into "a sheaf of N stories" worth their sum.
     messages                          [DO] Quillwake MUST messages.
     session                           [DO] Quillwake MUST session.
 
+`feedback "…"` from the play page is the feedback button beside leave:
+a box, then this verb. `travel` says the room it reaches; a `look`
+right after it in the same message is carried by it and does not run.
 `messages` is what was said to you, latest last: words said to you in
 a room, words left for you while you were away (they are shown once at
 the top of your next arrival, and here after), a creature's answers,

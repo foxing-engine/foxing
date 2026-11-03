@@ -277,6 +277,11 @@ impl Layout {
 }
 
 /// What a citizen remembers: room id to the moment they last stood in it.
+/// Whether the citizen has stood in the room before (it is on their map at all).
+pub fn has_seen(world: &World, citizen: EntityId, room: EntityId) -> bool {
+    seen(world, citizen).contains_key(&room.0)
+}
+
 fn seen(world: &World, citizen: EntityId) -> BTreeMap<u64, i64> {
     world
         .store

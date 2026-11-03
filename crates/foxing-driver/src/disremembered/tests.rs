@@ -213,7 +213,15 @@ fn the_map_is_built_once_and_travel_follows_exits() {
     let mut w = w;
     let before = events(&w);
     ensure_world(&mut w).unwrap();
-    assert_eq!(events(&w), before);
+    assert_eq!(
+        events(&w),
+        before,
+        "{:?}",
+        w.recent_events(2)
+            .iter()
+            .map(|e| (e.kind.clone(), e.payload.clone()))
+            .collect::<Vec<_>>()
+    );
 }
 
 #[test]
@@ -8674,4 +8682,47 @@ fn a_named_creature_keeps_a_word_under_the_others_and_a_story_that_carries_it_pa
     let out = ok(&mut w, "dave", "story", json!([&given, &story2]));
     assert_eq!(out.result["struck"]["level"], 2, "{}", out.summary);
     assert!(out.summary.contains("2.0 times the pay"), "{}", out.summary);
+}
+
+#[test]
+fn rooms_react_to_who_stands_in_them_and_the_closet_mends_six_a_minute() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // A stranger: the room has a line of its own, once; the second visit has none.
+    let out = ok(&mut w, "tyler", "travel", json!(["east"]));
+    assert!(
+        out.result["reaction"]
+            .as_str()
+            .is_some_and(|r| r.contains("The Fogbank")),
+        "{}",
+        out.summary
+    );
+    ok(&mut w, "tyler", "travel", json!(["west"]));
+    let out = ok(&mut w, "tyler", "travel", json!(["east"]));
+    assert!(out.result["reaction"].is_null(), "{}", out.summary);
+    // The digger: the room is theirs, and says so.
+    let c = admin(&mut w, "tyler", "earn", json!(["wisp", 40, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "tyler",
+        "dig",
+        json!(["closet", &c, "The Cartographer's Closet"]),
+    );
+    let out = ok(&mut w, "tyler", "travel", json!(["closet"]));
+    assert!(
+        out.result["reaction"]
+            .as_str()
+            .is_some_and(|r| r.contains("yours")
+                || r.contains("hand that opened it")
+                || r.contains("was yours")),
+        "{}",
+        out.summary
+    );
+    // The Closet mends at six a minute, as its field guide says; elsewhere at the usual.
+    let me = find_citizen(&w, "tyler").unwrap().citizen;
+    assert!((combat::mending_rate(&w, me) - combat::CLOSET_HP_PER_SECOND).abs() < 1e-9);
+    ok(&mut w, "tyler", "travel", json!(["back"]));
+    assert!((combat::mending_rate(&w, me) - super::HP_PER_SECOND).abs() < 1e-9);
 }

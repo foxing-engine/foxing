@@ -269,7 +269,7 @@ pub fn register(world: &mut World, curves: Curves) {
             // The creature's chunk is its own, not the teller's.
             let kept = mind::disown(w, kept)?;
             let earned = super::memory::earn_chunk(w, &ctx.actor, f.window, &format!("telling {name} a story"), paid, if struck.is_some() { 0.8 } else { 0.4 }, &curves)?;
-            let level = mind::level(w, creature);
+            let level = super::up(mind::level(w, creature));
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 STORY,

@@ -916,6 +916,8 @@ fn run_request(
     let mut woke = died_since_last_message(world, actor);
     // Which statement of this message the fall was at, when it was in this one.
     let mut fell_at: Option<usize> = None;
+    // The last statement that was a travel and arrived: a look right after is carried.
+    let mut last_travel_ok: Option<usize> = None;
     for st in dos {
         if woke {
             let verb = st.verb.clone().unwrap_or_default();
@@ -949,6 +951,29 @@ fn run_request(
         }
         let verb = st.verb.clone().unwrap_or_default();
         let args = Value::Array(compile_arguments(&st.args));
+        // `travel` says the room it arrives in; a `look` right after it in the same
+        // message is carried by it (the reply once quoted the room twice and the
+        // checker warned on the pair).
+        if verb.eq_ignore_ascii_case("look")
+            && args.as_array().map_or(true, |a| {
+                a.is_empty()
+                    || a.iter()
+                        .all(|v| v.as_str().is_some_and(|s| s.trim().is_empty()))
+            })
+            && last_travel_ok == Some(n.saturating_sub(1))
+        {
+            report.fact(
+                format!("Statement {n} (look) is carried by statement {}: travel says the room it reaches", n - 1),
+                "gate",
+            );
+            outcomes.push(StatementOutcome {
+                statement: n,
+                verb: verb.clone(),
+                ok: true,
+                result: serde_json::json!({"carried_by": n - 1}),
+            });
+            continue;
+        }
         let before = world
             .log
             .head(&world.id)
@@ -965,6 +990,9 @@ fn run_request(
                 if out.result["died"] == Value::Bool(true) {
                     woke = true;
                     fell_at = Some(n);
+                }
+                if verb.eq_ignore_ascii_case("travel") && out.result["died"] != Value::Bool(true) {
+                    last_travel_ok = Some(n);
                 }
                 outcomes.push(StatementOutcome {
                     statement: n,

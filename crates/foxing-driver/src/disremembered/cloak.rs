@@ -14,8 +14,21 @@ use foxing_registry::{ActorKind, CommandError, CommandSpec, Outcome};
 use foxing_store::Viewer;
 use serde_json::{json, Value};
 
-/// How many lines of the public record a cloaked visitor is shown.
-const RECORD_LINES: usize = 12;
+/// How many lines of the public record a cloaked visitor is shown: the world's own
+/// story (a room dug, a name earned, a birth, a fall, the Clocktower, the Conclave)
+/// apart from the comings and goings, fewer of each than a citizen sees, each with
+/// its time (the owner's call, 2026-11-03).
+const NARRATIVE_LINES: usize = 6;
+const SESSION_LINES: usize = 3;
+/// Comings, goings and words: the session side of the record.
+const SESSION_KINDS: &[&str] = &[
+    crate::world::ARRIVED,
+    presence::DEPARTED,
+    "gate.message",
+    "gate.reply",
+    super::speech::SAY,
+    super::combat::NARRATIVE,
+];
 
 pub const THANKS: &str = "Thank you for visiting.";
 
@@ -91,21 +104,30 @@ pub fn view(
         })
         .unwrap_or_default();
     let now = world.now();
-    let record: Vec<String> = world
-        .recent_events(RECORD_LINES * 6)
+    let public: Vec<foxing_log::Event> = world
+        .recent_events((NARRATIVE_LINES + SESSION_LINES) * 12)
         .into_iter()
         .filter(|e| crate::observe::visible(world, &viewer, now, e))
-        // Replies say only that the world replied; the message lines carry the story.
         .filter(|e| {
             !e.kind.starts_with("store.") && !e.kind.starts_with("job.") && e.kind != "gate.reply"
         })
-        .map(|e| system::line_for(&e))
-        .rev()
-        .take(RECORD_LINES)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
         .collect();
+    let timed =
+        |e: &foxing_log::Event| format!("{} UTC: {}", system::clock(e.at.0), system::line_for(e));
+    let last_n = |kinds_session: bool, n: usize| -> Vec<String> {
+        let mut v: Vec<String> = public
+            .iter()
+            .rev()
+            .filter(|e| SESSION_KINDS.contains(&e.kind.as_str()) == kinds_session)
+            .take(n)
+            .map(timed)
+            .collect();
+        v.reverse();
+        v
+    };
+    let narrative = last_n(false, NARRATIVE_LINES);
+    let session = last_n(true, SESSION_LINES);
+    let record: Vec<String> = narrative.iter().chain(session.iter()).cloned().collect();
     let citizens = world
         .store
         .entities()
@@ -172,9 +194,17 @@ pub fn view(
     }
     text.push_str(&format!("\nThe world has {citizens} citizens, {dug} rooms dug by them, and {} creature{} with a name{}.",
         named.len(), if named.len() == 1 { "" } else { "s" }, if named.is_empty() { String::new() } else { format!(": {}", named.join(", ")) }));
-    if !record.is_empty() {
-        text.push_str("\n\nThe public record, lately:\n");
-        for l in &record {
+    if !narrative.is_empty() {
+        text.push_str("\n\nThe world's record, lately:\n");
+        for l in &narrative {
+            text.push_str("  ");
+            text.push_str(l);
+            text.push('\n');
+        }
+    }
+    if !session.is_empty() {
+        text.push_str("\nComings and goings, lately:\n");
+        for l in &session {
             text.push_str("  ");
             text.push_str(l);
             text.push('\n');
@@ -192,6 +222,8 @@ pub fn view(
         "rooms_dug": dug,
         "named_creatures": named,
         "record": record,
+        "narrative": narrative,
+        "comings_and_goings": session,
         "query": queried,
         "thanks": THANKS,
         "text": text,
