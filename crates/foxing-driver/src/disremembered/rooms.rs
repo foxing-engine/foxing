@@ -809,13 +809,7 @@ pub fn look_query(room: EntityId) -> Value {
 /// has not had before, a keeper (its digger, or a hand that remembered into it),
 /// the Docent on its round (said to whoever is there). The owner's `greet` is the
 /// owner's; this is the room's.
-pub fn reaction(
-    world: &World,
-    actor: &str,
-    citizen: EntityId,
-    room: EntityId,
-    first_time: bool,
-) -> Option<String> {
+pub fn reaction(world: &World, actor: &str, room: EntityId, first_time: bool) -> Option<String> {
     let name = plain_str(world, room, ROOM, "name")?.to_string();
     let owner = world.store.entity(room).and_then(|e| e.owner.clone());
     let seed = (room.0 as usize).wrapping_mul(2654435761) ^ actor.len();
@@ -1254,7 +1248,7 @@ pub fn register(world: &mut World) {
             let settled = super::past::after_travel(w, &super::Curves::from_env(), &ctx.actor, f.citizen, f.window, to)?;
             // The room's own line for who stands in it, before describe marks it seen.
             let first_time = !super::atlas::has_seen(w, f.citizen, to);
-            let reaction = reaction(w, &ctx.actor, f.citizen, to, first_time);
+            let reaction = reaction(w, &ctx.actor, to, first_time);
             let mut out = describe(w, &ctx.actor, ctx, to)?;
             if let Some(r) = &reaction {
                 out.summary.push(' ');
