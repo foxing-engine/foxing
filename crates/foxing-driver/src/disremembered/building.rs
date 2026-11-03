@@ -459,10 +459,27 @@ pub fn register(world: &mut World, curves: super::Curves) {
             // A room takes so many doors: the Threshold once had fifteen, and the
             // picture is a wall of labels past eight. Dig from a room with fewer, or
             // from your own.
-            if exits_of(w, here).len() >= MAX_EXITS {
+            let doors = exits_of(w, here).len();
+            if doors >= MAX_EXITS {
+                // Which of the world's rooms still take a door, so the next try is not
+                // a guess (a visitor guessed the Shallows).
+                let mut open: Vec<String> = w
+                    .store
+                    .entities()
+                    .filter(|e| e.kind == "room" && e.owner.is_none() && e.id != here)
+                    .filter(|e| exits_of(w, e.id).len() < MAX_EXITS)
+                    .filter_map(|e| plain_str(w, e.id, ROOM, "name").map(str::to_string))
+                    .collect();
+                open.sort();
+                let where_ = if open.is_empty() {
+                    String::new()
+                } else {
+                    format!(" Of the world's own rooms, these still take a door: {}.", open.iter().take(8).cloned().collect::<Vec<_>>().join(", "))
+                };
                 return Err(CommandError::precondition(format!(
-                    "{} has its full count of doors ({MAX_EXITS}); dig from a room with fewer, or from one of your own.",
-                    plain_str(w, here, ROOM, "name").unwrap_or("This room")
+                    "{} has {doors} doors already, {}; dig from a room with fewer, or from one of your own.{where_}",
+                    plain_str(w, here, ROOM, "name").unwrap_or("This room"),
+                    if doors > MAX_EXITS { format!("more than the {MAX_EXITS} a room takes") } else { format!("the {MAX_EXITS} a room takes") }
                 )));
             }
             let chunk = super::memory::resolve_chunk(
@@ -476,6 +493,8 @@ pub fn register(world: &mut World, curves: super::Curves) {
                 None => "An Unnamed Digging".to_string(),
             };
             let hl = chunk_half_life(w, chunk);
+            // Read before the chunk is spent: the reply once said vividity 0.00 of a 0.65.
+            let viv = plain_num(w, chunk, CHUNK, "vividity").unwrap_or(0.0);
             let source = plain_str(w, chunk, CHUNK, "source")
                 .unwrap_or("something")
                 .to_string();
@@ -562,7 +581,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
                     "You dig {exit} with the memory of {source}. {name} opens: undescribed, yours, remembered for now. You still stand in {here_name}; `travel {exit}` goes in, and the way back is {}. Its memory halves every {} unless someone visits: the memory's own pace (vividity {viv:.2} stretches an hour's fading up to three times, no further); a visit remembers it whole, and `remember <chunk>` inside it is what makes a room last.",
                     opposite(&exit),
                     humane(hl),
-                    viv = plain_num(w, chunk, CHUNK, "vividity").unwrap_or(0.0),
+                    viv = viv,
                     here_name = plain_str(w, here, ROOM, "name").unwrap_or("this room"),
                 ),
                 json!({"room": id.0, "key": key, "name": name, "exit": exit, "back": opposite(&exit), "half_life_ms": hl.0, "spent": chunk.0}),

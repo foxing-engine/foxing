@@ -8031,7 +8031,7 @@ fn a_room_takes_eight_doors_and_a_forgotten_one_is_unmade_on_the_round() {
         json!(["bay", format!("chunk-{c}"), "One Too Many"]),
     )
     .unwrap_err();
-    assert!(err.to_string().contains("full count of doors (8)"), "{err}");
+    assert!(err.to_string().contains("8 doors already, the 8 a room takes"), "{err}");
     // The side rooms are left to fade: in a day and more they are forgotten, and the
     // Docent's round unmakes them one by one; the Hall, with dave in it, stands.
     ok(&mut w, "dave", "leave", json!([]));
