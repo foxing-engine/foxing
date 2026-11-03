@@ -211,6 +211,28 @@ questions an hour from one name). When it has no page for it, or no
 one is at the desk tonight, it says so. It never acts on what it is
 told.
 
+Under the story it wants and the word it may want carried, a named
+creature keeps a third word it never says. A story that happens to
+carry it pays more (one and a half times the first, twice the second,
+two and a half the third) and the memory of the telling is vivid; the
+creature says so ("You said the word under the others"), the strike is
+public with the word in it, and the creature keeps a new word under
+that, up a ladder of three: the first is in the first thing anyone told
+it (a born creature's is the word that made it), the next in something
+it wanted once, the last around it in the room where it stands. `tell
+<name> "what is your word?"` is a hint for the level it is at, never
+the word. Each teller strikes a given word once.
+
+A story that misses the want standing on a creature says why (the
+words it listens for, which it heard, how many would do) and does not
+spend your hour with it, once. A message of reads alone (look, chunks,
+rest, wants, mine, messages…) costs nothing of the hour's sixty, and
+every gate reply says what is left. Standing before the Clocktower and
+the Conclave (a "regular": your lines count toward the hour's wage,
+your petitions have the table) costs twenty lines across two half-hours
+and one deed in the day: a story a creature kept, an errand done, a
+room dug, a line in a book, a thing made, a petition laid.
+
 ## The Clocktower
 
 Once an hour the Clocktower strikes, and everyone in the world hears

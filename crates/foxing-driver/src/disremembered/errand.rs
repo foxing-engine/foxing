@@ -258,6 +258,18 @@ pub fn clear_story(world: &mut World, creature: EntityId) -> Result<(), CommandE
 
 /// The want answered within GRACE_MS, if any: its keywords.
 /// The keyword sets of every want answered within the grace, latest first.
+/// Something the creature wanted once and no longer does: the oldest want on its
+/// record, for the hidden word's second level.
+pub fn wanted_once(world: &World, creature: EntityId) -> Option<String> {
+    let f = fields_of(world, creature);
+    plain(&f, "prevs")
+        .and_then(|v| v.as_array().cloned())
+        .unwrap_or_default()
+        .first()
+        .and_then(|p| p["story"].as_str().map(str::to_string))
+        .or_else(|| plain(&f, "story_prev").and_then(|v| v.as_str().map(str::to_string)))
+}
+
 fn recent_prevs(world: &World, creature: EntityId) -> Vec<(String, Vec<String>)> {
     let f = fields_of(world, creature);
     let now = world.now().0;

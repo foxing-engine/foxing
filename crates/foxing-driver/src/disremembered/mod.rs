@@ -32,6 +32,7 @@ pub mod past;
 pub mod presence;
 pub mod preview;
 pub mod rooms;
+pub mod secret;
 pub mod session;
 pub mod speech;
 pub mod stacks;
@@ -311,7 +312,10 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // A child's sealed name, opened when it earns a name.
             .field("heir_name", FieldKind::Plain, Visibility::Public)
             // The name it had before it lost its tier: taken back when earned again.
-            .field("former_name", FieldKind::Plain, Visibility::Public),
+            .field("former_name", FieldKind::Plain, Visibility::Public)
+            // The word under the others (secret.rs): `{word, level, struck}`, the
+            // operator's to see and nobody else's.
+            .field("secret", FieldKind::Plain, Visibility::Admin),
         // The Docent: who it greeted this night, the questions on its record, its round.
         ComponentSchema::new(docent::DOCENT, 1)
             .field("name", FieldKind::Plain, Visibility::Public)

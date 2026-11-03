@@ -251,6 +251,12 @@ pub fn register(world: &mut World, curves: Curves) {
                 };
             let gist = gist(&text);
             let missed = if wanted { None } else { super::errand::why_missed(w, creature, &text) };
+            // The word under the others: a story that carries it pays the level's bonus.
+            let struck = super::secret::strike(w, &ctx.actor, creature, &text)?;
+            let paid = match &struck {
+                Some((bonus, _, _)) => paid * bonus,
+                None => paid,
+            };
             let heard_line = match repeats {
                 0 => String::new(),
                 1 => " It has heard one much like it this hour; this one pays half.".to_string(),
@@ -262,7 +268,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let kept = super::memory::earn_chunk(w, &ctx.actor, window, &format!("a story: \"{gist}\""), paid / 2.0, 0.6, &curves)?;
             // The creature's chunk is its own, not the teller's.
             let kept = mind::disown(w, kept)?;
-            let earned = super::memory::earn_chunk(w, &ctx.actor, f.window, &format!("telling {name} a story"), paid, 0.4, &curves)?;
+            let earned = super::memory::earn_chunk(w, &ctx.actor, f.window, &format!("telling {name} a story"), paid, if struck.is_some() { 0.8 } else { 0.4 }, &curves)?;
             let level = mind::level(w, creature);
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
@@ -272,10 +278,14 @@ pub fn register(world: &mut World, curves: Curves) {
             // A line of its own, drawn from what it holds beside the new story: four
             // creatures once thanked a teller in exactly the same words.
             let own = super::talk::line_of_its_own(w, creature, kept);
+            let under = match &struck {
+                Some((_, word, lvl)) => format!(" You said the word under the others: {word}.{}", if *lvl < super::secret::LEVELS { " There is another under that." } else { " There is none under that; you have them all." }),
+                None => String::new(),
+            };
             let answer = if wanted {
-                format!("That is the one I wanted. I will keep that. \"{gist}\"{own} I hold {level:.0} now.")
+                format!("That is the one I wanted. I will keep that. \"{gist}\"{own}{under} I hold {level:.0} now.")
             } else {
-                format!("I will keep that. \"{gist}\"{own} I hold {level:.0} now.")
+                format!("I will keep that. \"{gist}\"{own}{under} I hold {level:.0} now.")
             };
             super::talk::speak(w, creature, &ctx.actor, &answer)?;
             if wanted {
@@ -286,12 +296,14 @@ pub fn register(world: &mut World, curves: Curves) {
                 // The creature's answer reaches the teller as it reaches the room, a
                 // narrator line, so the outcome does not repeat it.
                 format!(
-                    "You tell {display} a story of {words} words, and it answers.{}{heard_line} You remember the telling: chunk-{} worth {paid:.0} XP.{}",
+                    "You tell {display} a story of {words} words, and it answers.{}{}{heard_line} You remember the telling: chunk-{} worth {paid:.0} XP{}.{}",
                     if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
+                    struck.as_ref().map(|(b, _, l)| format!(" It carried the word under the others, the {} of three: {b:.1} times the pay, and vivid.", ["first", "second", "third"][(*l as usize).clamp(1, 3) - 1])).unwrap_or_default(),
                     earned.0,
+                    if struck.is_some() { ", vividity 0.80" } else { "" },
                     missed.as_deref().map(|m| format!(" {m}")).unwrap_or_default()
                 ),
-                json!({"creature": creature.0, "name": name, "words": words, "distinct": distinct, "earned": earned.0, "xp": paid, "kept": kept.0, "level": level, "wanted": wanted, "missed": missed, "repeats": repeats}),
+                json!({"creature": creature.0, "name": name, "words": words, "distinct": distinct, "earned": earned.0, "xp": paid, "kept": kept.0, "level": level, "wanted": wanted, "missed": missed, "repeats": repeats, "struck": struck.as_ref().map(|(b, w, l)| json!({"word": w, "level": l, "bonus": b}))}),
             ))
         }),
     );

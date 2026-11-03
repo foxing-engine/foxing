@@ -237,6 +237,16 @@ pub fn shaken_for(world: &World, creature: EntityId) -> Option<i64> {
         .filter(|ms| *ms > 0)
 }
 
+/// `set_mind`, for the modules beside this one (the hidden word).
+pub(crate) fn set_mind_pub(
+    world: &mut World,
+    actor: Actor,
+    creature: EntityId,
+    changes: BTreeMap<String, Field>,
+) -> Result<(), CommandError> {
+    set_mind(world, actor, creature, changes)
+}
+
 fn set_mind(
     world: &mut World,
     actor: Actor,

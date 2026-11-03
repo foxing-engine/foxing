@@ -8598,3 +8598,80 @@ fn standing_costs_a_deed_and_not_lines_alone() {
     .unwrap();
     assert_eq!(economy::dashboard(&w)["regulars"], 1);
 }
+
+#[test]
+fn a_named_creature_keeps_a_word_under_the_others_and_a_story_that_carries_it_pays() {
+    use super::secret;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    login(&mut w, "dave", "test", PASS).unwrap();
+    admin(&mut w, "tyler", "stock", json!(["Quillon, Marrowgate"]));
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    let c = admin(&mut w, "tyler", "earn", json!(["wisp", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([&c, "wisp"]));
+    let fog = rooms::room_of(&w, find_citizen(&w, "tyler").unwrap().citizen).unwrap();
+    let named = combat::creatures_in(&w, fog)
+        .into_iter()
+        .map(|c| c.0)
+        .find(|&c| mind::name(&w, c).is_some())
+        .unwrap();
+    let given = mind::name(&w, named).unwrap().to_string();
+    // Asked, it hints and never says; the word is set at level one, from the lore
+    // when it holds no story of its own.
+    let out = ok(
+        &mut w,
+        "tyler",
+        "tell",
+        json!([&given, "what is your word?"]),
+    );
+    let said = out.summary.clone();
+    assert!(said.contains("a word under the others"), "{said}");
+    let (word, level, _) = secret::ensure(&mut w, named).unwrap().unwrap();
+    assert_eq!(level, 1);
+    assert!(!said.contains(&word), "the hint must not say it: {said}");
+    // A story without it pays the usual; one that carries it pays one and a half
+    // times, vivid, and the creature says so; the strike is public, word and all.
+    let plain = ok(&mut w, "tyler", "story", json!([&given, "Once a lantern was left burning in a window that nobody owned, and it burned until morning came."]));
+    assert!(plain.result["struck"].is_null(), "{}", plain.summary);
+    // The test world's chunks fade in seconds: fed again across each hour, the name holds.
+    let feed = |w: &mut World| {
+        let c = admin(w, "tyler", "earn", json!(["wisp", 300, 0.5]));
+        let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+        ok(w, "tyler", "remember", json!([&c, &given]));
+    };
+    w.fixed_now = Some(t0.plus(Duration::seconds(3601)));
+    feed(&mut w);
+    let story = format!("Once there was a {word} that nobody had counted, and it waited by the river for a name that would not come, patient as stone.");
+    let out = ok(&mut w, "tyler", "story", json!([&given, &story]));
+    assert_eq!(out.result["struck"]["word"], word, "{}", out.summary);
+    assert!(
+        out.summary
+            .contains("the first of three: 1.5 times the pay"),
+        "{}",
+        out.summary
+    );
+    assert!(w
+        .recent_events(20)
+        .iter()
+        .any(|e| e.kind == secret::STRUCK && e.payload["word"] == word));
+    // The ladder: a second word now, at level two; the same word pays nobody again.
+    let (word2, level2, _) = secret::ensure(&mut w, named).unwrap().unwrap();
+    assert_eq!(level2, 2);
+    w.fixed_now = Some(t0.plus(Duration::seconds(7202)));
+    feed(&mut w);
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let out = ok(&mut w, "dave", "story", json!([&given, &story]));
+    assert!(
+        out.result["struck"].is_null() || word2 == word,
+        "{}",
+        out.summary
+    );
+    let story2 = format!("The {word2} was the thing it had wanted most, and it said so to the fog, and the fog said nothing back at all.");
+    w.fixed_now = Some(t0.plus(Duration::seconds(10803)));
+    feed(&mut w);
+    let out = ok(&mut w, "dave", "story", json!([&given, &story2]));
+    assert_eq!(out.result["struck"]["level"], 2, "{}", out.summary);
+    assert!(out.summary.contains("2.0 times the pay"), "{}", out.summary);
+}

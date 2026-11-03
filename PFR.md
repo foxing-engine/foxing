@@ -25,21 +25,24 @@ before `reminisce` has it back (shipped); the death-between-messages refusal is
 deferred; the Conclave's refusals stand (no petition aimed at a name is now refused
 in words; the other two hold by construction). Still open:
 
-- **What "regular" should cost.** "Regular" is the standing a name has before the
-  Clocktower and the Conclave (its lines count toward the hour's median wage, and the
-  Architect's petition design gave regulars' petitions the table). Today it is twenty
-  gate lines in a day, which a polling script has for free: three of them once set the
-  median wage to zero. The question is whether standing should cost something a script
-  will not do (a story told, an errand done, an age in days) instead of a line count.
 - **The framing** ("the time the world remembers you", "everything you earn here will
   fade") reads as persuasion to one cautious reader (Night F). The lines are the game;
   your call whether a plain line on what a name costs and does sits beside the ASK.
 - **A floor under a name** (deferred until the map is bigger): a name once given holds
   at a lower level and only comes apart in a fight, or fades slower than chunks.
-- **A death between gate messages** (deferred): refuse the rest of the message with
-  "You woke at the Threshold; read the room first".
 - The rest of the Architect's petition design, still on the table: regulars' standing,
   `attend`, a hoard's petition to ease its own tax never counting.
+
+Decided 2026-11-02 23:38 PT, all shipped the same night: vividity by the creature's
+share of your blood; a missed story says why and does not spend the hour once; the
+Stacks keep their wounds ten minutes, a poultice from floor litter, the night
+lantern's floor at thirty; reads are free and the budget is said; standing costs a
+deed; a death between messages refuses the rest with "you woke at the Threshold;
+read the room first"; and the word under the others (secret.rs): a hidden third
+word per named creature, a ladder of three, bonus pay for a story that carries it.
+Next for the word: a parent that knows its child's word when asked; the Docent's
+hint; a word struck three times by one teller across creatures earning something
+of its own.
 
 From the loop cohort of 2026-11-02 (Copperwick, Nettlebright, Loamwhistle,
 Bellowsmith; reports in the session scratchpad; the obvious fixes shipped the same
@@ -48,23 +51,6 @@ failing at forty-five not seventy, "fed me to my name" naming the real feeder, t
 return digest starting at the last departure, venom named in the retreat line,
 `attack kind-id` falling through to the kind, the drop line at the Threshold, the
 record reading as a past, the float leak in `chunks`):
-- **Vividity.** It is 1 - hp/max at the moment of the kill, so a one-hit wisp after a
-  lamprey's venom elsewhere counts as "near death" while the fight itself was never
-  dangerous, and a tester gamed it in both directions. Copperwick's proposal: weigh it
-  by the damage *that creature* did you in that fight (or its share of your hit points
-  at the time). The loop's whole promise rides on this; your call on the formula.
-- **A story that misses its want.** A quoted-sentence want ("like the one it has
-  mostly forgotten") refused a 47-word story on the right subject with no reason, and
-  the hour lock meant no retry; the Docent later said "ran long". Proposal: the reply
-  says why (ran long, not near it, heard this hour) and a miss does not spend the hour.
-- **The second tier's wall.** A 75-hp censor that is whole again between visits, ten
-  a round and nine on the retreat, against thirty hit points mending one in twenty
-  seconds, cannot be worn down; the lamprey's venom then killed the tester in another
-  room. Bellowsmith's options: Stacks creatures keep their wounds for a while; a
-  bandage or charm craftable from the floor litter a new name finds (water, dust, ink,
-  embers, never thread); the night lantern's chunk floor nearer the bandage's.
-- **The message budget** (sixty an hour) counts `rest` and `look` polling and is
-  announced only when spent; a running count on each reply, or read-only verbs free.
 
 ## The play page
 

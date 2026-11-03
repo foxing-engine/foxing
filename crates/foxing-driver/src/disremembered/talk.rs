@@ -491,6 +491,17 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
             "I am {name}, a {kind}, of {a} and {b}. {carrier} carried the word between them, and I came of it.{strange}"
         ));
     }
+    // The word under the others: a hint for the level it is at, never the word.
+    if has(&[
+        "your word",
+        "the word under",
+        "secret",
+        "third word",
+        "hidden word",
+        "word you keep",
+    ]) {
+        return super::secret::hint(world, creature);
+    }
     // Born of nobody: "who made you" is who fed it to its name, which is the only
     // making it knows (the rest once got the canned "I don't know that" here).
     if has(&[
