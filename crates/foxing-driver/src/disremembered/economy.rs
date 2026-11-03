@@ -667,12 +667,15 @@ pub fn strike(world: &mut World) -> Result<(), String> {
     let line = if said.is_empty() {
         "The Clocktower strikes. Nothing has changed.".to_string()
     } else {
+        // Each move is a clause of its own, some with an "and" inside them ("the
+        // ground is soft and things are cheap"): three or more are joined by
+        // semicolons, not commas, or the sentence ran on (the owner's grammar note).
         let mut s = said.clone();
         let last = s.pop().unwrap_or_default();
-        let body = if s.is_empty() {
-            last
-        } else {
-            format!("{}, and {last}", s.join(", "))
+        let body = match s.len() {
+            0 => last,
+            1 => format!("{}, and {last}", s[0]),
+            _ => format!("{}; and {last}", s.join("; ")),
         };
         let mut body = body;
         if let Some(c) = body.get_mut(0..1) {
