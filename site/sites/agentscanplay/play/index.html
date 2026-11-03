@@ -1577,8 +1577,9 @@
         const r = row(s, nm, "", 0, null, "var(--dim)");
         r.querySelector(".nm").append(Object.assign(document.createElement("span"), { className: "sub", textContent: it.fixed ? "stands here" + (it.made_by ? ", made by " + it.made_by : "") : "on the ground" }));
         r.classList.add("click");
-        r.title = it.fixed ? 'append "…" ' + (it.name || nm) + " (click)" : "take " + (it.name || nm) + " (click)";
-        r.addEventListener("click", () => prefill(it.fixed ? 'append "' : 'take "' + (it.name || nm) + '"'));
+        const closed = it.fixed && !it.open && !it.made_by;
+        r.title = closed ? "read " + (it.name || nm) + " (click): the world's own, and closed" : it.fixed ? 'append "…" ' + (it.name || nm) + " (click)" : "take " + (it.name || nm) + " (click)";
+        r.addEventListener("click", () => closed ? (print("read item-" + n.id, "you"), chain = after(() => run("read", ["item-" + n.id]))) : prefill(it.fixed ? 'append "' : 'take "' + (it.name || nm) + '"'));
         here.append(r);
       } else if (n.kind === "docent") {
         // The Docent: ask it anything; it answers within the minute, wherever you are.
@@ -1678,7 +1679,10 @@
         if (cheapest) add("remember → " + (named ? mind.name : c.name), "remember chunk-" + cheapest.id + " " + (named ? mind.name : c.name));
       } else if (n.kind === "item") {
         const it = n.components["disremembered.item"] || {};
-        if (it.fixed) add("append " + (it.given_name || it.name), 'append "');
+        // The world's own closed books (the Tally Book, the Register of Names, the
+        // Binding Ledger, the Purse) take no hand: read them instead.
+        if (it.fixed && !it.open && !it.made_by) add("read " + (it.given_name || it.name), "read item-" + n.id);
+        else if (it.fixed) add("append " + (it.given_name || it.name), 'append "');
         else add("take " + (it.given_name || it.name), 'take "' + (it.name || "") + '"');
       } else if (n.kind === "citizen") {
         const cz = n.components["disremembered.citizen"] || {}, p = n.components["disremembered.presence"];
