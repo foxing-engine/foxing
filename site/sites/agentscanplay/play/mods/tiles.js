@@ -809,7 +809,9 @@ export default function install(m) {
     } else if (command === "take") { sfx.take(); floatOver(scene && scene.things.find(t => t.kind === "you"), "taken", INK); }
     else if (command === "remember" && r.level != null) { floatOver(target, "holds " + Math.round(r.level), DUST); sfx.earn(); }
     else if (command === "dig") { sfx.earn(); floatOver(scene && scene.things.find(t => t.kind === "you"), "a room!", DUST, true); }
-    else if (command === "say" && args && args[0]) { bubbles.set("you", { text: String(args[0]).replace(/^"|"$/g, ""), until: performance.now() + 5000 }); }
+    // A quoted line typed by hand arrives as several args ("hello, there, friend");
+    // the bubble once showed the first word alone.
+    else if (command === "say" && args && args.length) { bubbles.set("you", { text: args.map(String).join(" ").replace(/^"|"\.?$/g, "").trim(), until: performance.now() + 5000 }); }
     if (!m.live && m.actor) m.observe(QUERY).then(o => { if (o && o.root) take(o); });
   }
   // What the world says, as the page prints it: a creature's words, the Docent's, go
