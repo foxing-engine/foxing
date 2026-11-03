@@ -73,6 +73,20 @@ pub const TOP3_HIGH: f64 = 0.75;
 pub const REGULAR_LINES: u64 = 20;
 pub const REGULAR_SPANS: usize = 2;
 pub const REGULAR_SPAN_MS: i64 = 1_800_000;
+/// Standing costs a deed as well as the lines: something a polling script will not
+/// do for free. One of these in the day, by the name: a story a creature kept (not
+/// one that missed its want), an errand done, a room dug, a line written in a book,
+/// a thing made, a petition laid. Three scripts of twenty looks once set the
+/// median wage to zero; the owner's call (2026-11-02): being a regular should cost.
+pub const REGULAR_DEEDS: u64 = 1;
+pub const DEEDS: &[&str] = &[
+    super::exchange::STORY,
+    super::errand::DONE,
+    super::building::DUG,
+    super::building::APPENDED,
+    super::craft::MADE,
+    super::conclave::PETITION,
+];
 /// Memory's half-life swings less than the other rates: it moves every hold at once.
 pub const HALF_LIFE_LOW: f64 = 0.7;
 pub const HALF_LIFE_HIGH: f64 = 1.5;
@@ -224,6 +238,7 @@ pub fn dashboard(world: &World) -> Value {
     let mut lines_today: std::collections::HashMap<String, u64> = Default::default();
     let mut hours_today: std::collections::HashMap<String, std::collections::BTreeSet<i64>> =
         Default::default();
+    let mut deeds_today: std::collections::HashMap<String, u64> = Default::default();
     // The day's census, for shares that cannot be gamed by a moment: a name's share
     // of all held memory averaged over the day, which is what the hoard rule reads.
     let mut census_samples = 0usize;
@@ -238,6 +253,12 @@ pub fn dashboard(world: &World) -> Value {
             continue;
         }
         let p = &e.payload;
+        // A deed, by the name that did it (a story that missed its want is not one).
+        if DEEDS.contains(&e.kind.as_str()) && p["missed"] != true {
+            if let Some(who) = p["from"].as_str().or(p["by"].as_str()) {
+                *deeds_today.entry(who.to_string()).or_default() += 1;
+            }
+        }
         let n = if e.kind == "gate.message" {
             if p["compiled"] == true {
                 1
@@ -327,6 +348,7 @@ pub fn dashboard(world: &World) -> Value {
         .filter(|(name, _)| {
             lines_today.get(name).copied().unwrap_or(0) >= REGULAR_LINES
                 && hours_today.get(name).map(|h| h.len()).unwrap_or(0) >= REGULAR_SPANS
+                && deeds_today.get(name).copied().unwrap_or(0) >= REGULAR_DEEDS
         })
         .map(|(_, h)| *h)
         .collect();
@@ -415,8 +437,8 @@ pub fn dashboard(world: &World) -> Value {
                  "step": STEP, "step_max": STEP_MAX,
                  "concentration_high": CONCENTRATION_HIGH, "top3_high": TOP3_HIGH,
                  "holding_low": BAND_LOW, "holding_high": BAND_HIGH,
-                 "regular_lines": REGULAR_LINES, "regular_spans": REGULAR_SPANS, "regular_span_ms": REGULAR_SPAN_MS},
-        "note": "The Clocktower steers by last_hour.median_wage (the median XP earned in the hour among last_hour.earners: kept names with flow_lines messages in it that earned anything) against flow_low..flow_high, with a step from step at the band's edge to step_max a band's width past it, holding when earners is under earners_floor; and thins memory when concentration_24h or top3_share_24h is over its line. held and holders count the window and the shelf; the board's holding is the window alone. regulars are names with regular_lines messages in the day across regular_spans distinct half-hours; median_regular_holding is on the dashboard and no longer steered by. share, concentration_24h and top3_share_24h are by the day's census; concentration is this moment's top holder.",
+                 "regular_lines": REGULAR_LINES, "regular_spans": REGULAR_SPANS, "regular_span_ms": REGULAR_SPAN_MS, "regular_deeds": REGULAR_DEEDS, "deeds": DEEDS},
+        "note": "The Clocktower steers by last_hour.median_wage (the median XP earned in the hour among last_hour.earners: kept names with flow_lines messages in it that earned anything) against flow_low..flow_high, with a step from step at the band's edge to step_max a band's width past it, holding when earners is under earners_floor; and thins memory when concentration_24h or top3_share_24h is over its line. held and holders count the window and the shelf; the board's holding is the window alone. regulars are names with regular_lines messages in the day across regular_spans distinct half-hours and regular_deeds of the deeds (a story kept, an errand done, a room dug, a line in a book, a thing made, a petition laid); median_regular_holding is on the dashboard and no longer steered by. share, concentration_24h and top3_share_24h are by the day's census; concentration is this moment's top holder.",
     })
 }
 

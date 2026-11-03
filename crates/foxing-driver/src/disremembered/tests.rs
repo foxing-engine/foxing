@@ -66,6 +66,15 @@ fn level(w: &mut World, actor: &str) -> f64 {
 /// there: the log is in order, and the tests that call this set the hour after).
 fn regular(w: &mut World, actors: &[&str]) {
     let now = w.now();
+    // Standing costs a deed too: a thing made counts, and is the cheapest to fake here.
+    for actor in actors {
+        w.note(
+            Actor::Citizen(actor.to_string()),
+            super::craft::MADE,
+            json!({"by": actor, "item": 0, "name": "a test", "recipe": "test", "of": [], "spent": null}),
+        )
+        .unwrap();
+    }
     for i in 0..super::economy::REGULAR_LINES {
         if i == super::economy::REGULAR_LINES / 2 {
             w.fixed_now = Some(Timestamp(now.0 + 15 * 60 * 1000));
@@ -4983,7 +4992,11 @@ fn the_lower_stacks_lie_under_the_archive_and_their_creatures_have_tricks() {
     .unwrap();
     combat::set_engaged(&mut w, "dave", f.citizen, Some(lamprey)).unwrap();
     let out = ok(&mut w, "dave", "retreat", json!([]));
-    assert!(out.summary.contains("keeps the wound a while"), "{}", out.summary);
+    assert!(
+        out.summary.contains("keeps the wound a while"),
+        "{}",
+        out.summary
+    );
     // It keeps the wound ten minutes, then is whole again.
     assert!(
         combat::creatures_in(&w, sump)
@@ -8540,4 +8553,48 @@ fn a_thing_keeps_its_past_and_the_tiers_climb() {
     // Its name is its own: the sweep that unnames things under thirty leaves it.
     craft::sweep(&mut w).unwrap();
     assert_eq!(craft::display(&w, night), given);
+}
+
+#[test]
+fn standing_costs_a_deed_and_not_lines_alone() {
+    use super::economy;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "polly", "test", PASS).unwrap();
+    // Twenty lines across two half-hours with no deed: a script, not a regular.
+    for i in 0..economy::REGULAR_LINES {
+        if i == economy::REGULAR_LINES / 2 {
+            w.fixed_now = Some(Timestamp(t0.0 + 31 * 60 * 1000));
+        }
+        w.note(
+            Actor::Citizen("polly".into()),
+            "gate.message",
+            json!({"from": "polly", "text": "look", "compiled": true}),
+        )
+        .unwrap();
+    }
+    assert_eq!(
+        economy::dashboard(&w)["regulars"],
+        0,
+        "lines bought no standing"
+    );
+    // A story that missed its want is no deed either; one a creature kept is.
+    w.note(
+        Actor::Citizen("polly".into()),
+        super::exchange::STORY,
+        json!({"from": "polly", "creature": 1, "missed": true}),
+    )
+    .unwrap();
+    assert_eq!(
+        economy::dashboard(&w)["regulars"],
+        0,
+        "a missed story is no deed"
+    );
+    w.note(
+        Actor::Citizen("polly".into()),
+        super::exchange::STORY,
+        json!({"from": "polly", "creature": 1, "missed": false}),
+    )
+    .unwrap();
+    assert_eq!(economy::dashboard(&w)["regulars"], 1);
 }

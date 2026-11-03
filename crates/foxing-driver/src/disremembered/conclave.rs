@@ -516,7 +516,7 @@ pub fn sit(world: &mut World) -> Result<(), String> {
     let ceremony = [
         "Order. The Conclave is in session. It is midnight, because the Conclave has sat.".to_string(),
         "The Roll is called. The robes answer. A quorum is present, as a quorum is always present.".to_string(),
-        format!("The Ledger of the Clocktower is laid before the Conclave. The Conclave reads that {held:.0} is held in all the world, and that {regulars} names have spoken their twenty lines this day and have standing before it."),
+        format!("The Ledger of the Clocktower is laid before the Conclave. The Conclave reads that {held:.0} is held in all the world, and that {regulars} names have spoken their twenty lines and done a thing this day, and have standing before it."),
         format!("The Book is opened at the Lectern. The statutes that stand are these: {standing}. The Conclave has examined them and finds them sound. The Conclave wrote them."),
         naming,
         table_line(world),
