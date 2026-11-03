@@ -357,6 +357,10 @@ night lantern, a warden's charm, a surgeon's bandage, a jar of clipped
 silver) asks something only the Lower Stacks or the Exergue leave (a
 censor's lens, a warden's key, a lamprey's tooth, a clipped sliver)
 and a memory of vividity 0.6 or more, one of a fight you nearly lost.
+A Stacks creature keeps its wounds ten minutes after you back off, so a
+fight can be taken in two stands; a poultice (hollow water and moth
+dust, no chunk) does what a bandage does for a name that has found no
+thread.
 Such a thing does what its plain kin does and more, fades three times
 slower, and the Bindery writes its past as a passage in the world's
 voice, beside the record, and again as the record grows. One build in

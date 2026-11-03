@@ -735,17 +735,47 @@ pub(crate) fn mend(world: &mut World, creature: EntityId) -> Result<(), StoreErr
     let max = plain_num(world, creature, CREATURE, "max_hp").unwrap_or(0.0);
     let hp = plain_num(world, creature, CREATURE, "hp").unwrap_or(max);
     if hp < max {
-        world.record(
-            Actor::Driver,
-            StoreEvent::FieldSet {
-                id: creature,
-                component: CREATURE.into(),
-                field: "hp".into(),
-                value: json!(max),
-            },
-        )?;
+        // It keeps the wound a while: whole again in STACKS_MEND_MS, not at once.
+        // A 75-hit-point censor whole again between visits could not be worn down
+        // by a thirty-hit-point name, and the second tier was a wall.
+        let due = world.now().plus(foxing_time::Duration(STACKS_MEND_MS));
+        let id = creature.0;
+        let _ = world.cancel(JOB_MEND, |p| p["creature"] == id);
+        // A scheduling failure leaves the wound, which errs on the visitor's side.
+        let _ = world.schedule_once(JOB_MEND, due, json!({"creature": id}), |p| {
+            p["creature"] == id
+        });
     }
     Ok(())
+}
+
+/// How long a Stacks creature keeps its wounds after a fight ends.
+pub const STACKS_MEND_MS: i64 = 10 * 60 * 1000;
+pub const JOB_MEND: &str = "disremembered.mend";
+
+/// The mending, when it comes due: whole again.
+pub fn register_mend(world: &mut World) {
+    world.on_job(
+        JOB_MEND,
+        Box::new(|w: &mut World, job| {
+            let creature = EntityId(job.payload["creature"].as_u64().unwrap_or(0));
+            if w.store.entity(creature).is_none() {
+                return Ok(());
+            }
+            let max = plain_num(w, creature, CREATURE, "max_hp").unwrap_or(0.0);
+            w.record(
+                Actor::Driver,
+                StoreEvent::FieldSet {
+                    id: creature,
+                    component: CREATURE.into(),
+                    field: "hp".into(),
+                    value: json!(max),
+                },
+            )
+            .map_err(|e| e.to_string())?;
+            Ok(())
+        }),
+    );
 }
 
 /// The creature a citizen is engaged with, if it still exists.
@@ -1494,7 +1524,7 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             let mended = match super::stacks::trick_of(w, creature) {
                 Some(super::stacks::Trick::Enter) | Some(super::stacks::Trick::Below) => " It will be whole again by the time you come back; the Conclave keeps its order.",
-                Some(_) => " It will be whole again by the time you come back; the Stacks keep their own.",
+                Some(_) => " It keeps the wound a while: whole again in ten minutes, if nobody takes it up before.",
                 None => "",
             };
             // Venom follows you out of the room: said, with what it will cost, since

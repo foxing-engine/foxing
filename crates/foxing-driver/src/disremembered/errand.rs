@@ -470,7 +470,11 @@ pub fn wants_story(world: &World, creature: EntityId, text: &str) -> bool {
 pub fn why_missed(world: &World, creature: EntityId, text: &str) -> Option<String> {
     let e = of(world, creature).filter(|e| e.story.is_some())?;
     let told: Vec<String> = keywords_all(text).iter().map(|t| stem(t)).collect();
-    let heard: Vec<&String> = e.keywords.iter().filter(|k| told.contains(&stem(k))).collect();
+    let heard: Vec<&String> = e
+        .keywords
+        .iter()
+        .filter(|k| told.contains(&stem(k)))
+        .collect();
     let need = match e.keywords.len() {
         0 => return None,
         1 => 1,
@@ -479,7 +483,13 @@ pub fn why_missed(world: &World, creature: EntityId, text: &str) -> Option<Strin
     if heard.len() >= need {
         return None;
     }
-    let listens = e.keywords.iter().take(6).cloned().collect::<Vec<_>>().join(", ");
+    let listens = e
+        .keywords
+        .iter()
+        .take(6)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
     Some(format!(
         "Not the one it wanted: it listens for {listens}, and heard {}; {need} of those would do. The hour is not spent on a miss, once.",
         if heard.is_empty() { "none of them".to_string() } else { heard.iter().map(|h| h.as_str()).collect::<Vec<_>>().join(" and ") }

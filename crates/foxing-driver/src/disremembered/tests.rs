@@ -2845,7 +2845,12 @@ fn an_errand_is_a_story_wanted_or_a_word_carried_and_either_makes_you_known() {
     assert!(errand::of(&w, rag).is_some());
     // The miss says why, in the want's own words, and does not spend the hour once:
     // a second story goes in; a second miss does spend it.
-    assert!(out.summary.contains("Not the one it wanted: it listens for"), "{}", out.summary);
+    assert!(
+        out.summary
+            .contains("Not the one it wanted: it listens for"),
+        "{}",
+        out.summary
+    );
     assert!(out.summary.contains("lantern"), "{}", out.summary);
     let out = ok(&mut w, "dave", "story", json!([&rag_name, "A second try: the buttons were counted again by a ragpicker in the midden, and again the count was lost."]));
     assert_eq!(out.result["wanted"], false, "{}", out.summary);
@@ -4978,7 +4983,18 @@ fn the_lower_stacks_lie_under_the_archive_and_their_creatures_have_tricks() {
     .unwrap();
     combat::set_engaged(&mut w, "dave", f.citizen, Some(lamprey)).unwrap();
     let out = ok(&mut w, "dave", "retreat", json!([]));
-    assert!(out.summary.contains("whole again"), "{}", out.summary);
+    assert!(out.summary.contains("keeps the wound a while"), "{}", out.summary);
+    // It keeps the wound ten minutes, then is whole again.
+    assert!(
+        combat::creatures_in(&w, sump)
+            .iter()
+            .any(|c| c.0 == lamprey && c.2 < 10.0),
+        "{:?}",
+        combat::creatures_in(&w, sump)
+    );
+    let was = w.fixed_now;
+    w.fixed_now = Some(w.now().plus(Duration::seconds(601)));
+    w.tick();
     assert!(
         combat::creatures_in(&w, sump)
             .iter()
@@ -4986,6 +5002,7 @@ fn the_lower_stacks_lie_under_the_archive_and_their_creatures_have_tricks() {
         "{:?}",
         combat::creatures_in(&w, sump)
     );
+    w.fixed_now = was;
     // The tricks are on the public record.
     let tricks = w
         .log
@@ -7585,6 +7602,10 @@ fn only_the_stacks_own_kinds_are_whole_again_when_a_fight_ends() {
     let lamprey = combat::creatures_in(&w, sump)[0].0;
     combat::set_creature_hp(&mut w, lamprey, 2.0).unwrap();
     combat::mend(&mut w, lamprey).unwrap();
+    // Not at once: the wound keeps ten minutes, then it is whole.
+    assert_eq!(super::plain_num(&w, lamprey, CREATURE, "hp"), Some(2.0));
+    w.fixed_now = Some(w.now().plus(Duration::seconds(601)));
+    w.tick();
     let max = super::plain_num(&w, lamprey, CREATURE, "max_hp").unwrap();
     assert_eq!(super::plain_num(&w, lamprey, CREATURE, "hp"), Some(max));
 }

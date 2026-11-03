@@ -1138,6 +1138,7 @@ pub fn register(world: &mut World, curves: Curves) {
     economy::register(world);
     conclave::register(world);
     stacks::register(world);
+    combat::register_mend(world);
     combat::register(world, curves.clone());
     memory::register(world, curves.clone());
     presence::register(world, curves.clone());
