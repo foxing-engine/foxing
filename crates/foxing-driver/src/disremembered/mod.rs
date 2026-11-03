@@ -28,6 +28,7 @@ pub mod kindle;
 pub mod memory;
 pub mod mind;
 pub mod namery;
+pub mod past;
 pub mod presence;
 pub mod preview;
 pub mod rooms;
@@ -264,7 +265,19 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("held", FieldKind::Timed, Visibility::Public)
             .field("kept", FieldKind::Plain, Visibility::Public)
             .field("open", FieldKind::Plain, Visibility::Public)
-            .field("bound", FieldKind::Plain, Visibility::Public),
+            .field("bound", FieldKind::Plain, Visibility::Public)
+            // A thing with a past (past.rs): its tier, the record of its life and
+            // the passage the Bindery writes from it; a tier-3 thing's desire, which
+            // it says without words, is its own (hidden).
+            .field("tier", FieldKind::Plain, Visibility::Public)
+            .field("effect", FieldKind::Plain, Visibility::Public)
+            .field("past", FieldKind::Plain, Visibility::Public)
+            .field("past_folded", FieldKind::Plain, Visibility::Public)
+            .field("past_text", FieldKind::Plain, Visibility::Public)
+            .field("past_wanted", FieldKind::Plain, Visibility::Public)
+            .field("past_written", FieldKind::Plain, Visibility::Public)
+            .field("desire", FieldKind::Plain, Visibility::Owner)
+            .field("desire_met_at", FieldKind::Plain, Visibility::Owner),
         // The world's rates, which the Clocktower moves a step at a time: scales
         // around 1.0 on what a creature is worth, what a story pays, how fast new
         // memory fades, how long a room takes to refill, how often a creature leaves

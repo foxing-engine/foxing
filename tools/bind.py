@@ -21,7 +21,9 @@ checks are what make this safe to run unattended, not the model:
     voice; a no is a skip.
 
 Anything that fails is asked for once more, then skipped and logged; the room stays
-as it was. A summary goes to the Discord webhook, if one is set.
+as it was. A made thing of the second tier or above (a thing with a past, past.rs) is
+listed too, kind "past": its record becomes a short passage written beside it, under
+the same checks, and again whenever the record has grown. A summary goes to the Discord webhook, if one is set.
 
 Environment (see deploy/server/setup-bindery.sh): FOXING_BASE (default
 http://127.0.0.1:7777), FOXING_ADMIN_TOKEN, BINDERY_ACTOR and BINDERY_PASSPHRASE
@@ -52,6 +54,21 @@ from foxing_api import MODEL, Credentials, ask_model, command, get, log, post_di
 
 ROOM_CAP = 800
 BOOK_CAP = 600
+PAST_CAP = 500
+
+# A thing with a past: its record (what it was made of and with, whose hands, where
+# it went, what it did) becomes a short passage in the world's voice. Same checks:
+# nothing invented, every name kept, no second person; no hands sentence (the record
+# names them in its own way), no opening sentence to keep.
+PAST_SYSTEM = (
+    "You are the Bindery of Disremembered, a text world about memory and forgetting. "
+    "You write the past of a made thing from its record: two to four plain sentences in "
+    "the world's voice, concrete, a little uncanny, past tense, third person, no second "
+    "person, no exclamation, no promises of things a reader could do. Keep every proper "
+    "noun and every concrete thing in the record; invent nothing, add no verbs or objects "
+    "that are not there. A thing that is awake wants things and says so without words; "
+    "do not give it speech. Reply with the passage only."
+)
 
 # Words a binding may use that need not come from the original.
 CONNECTIVES = set(
@@ -119,7 +136,7 @@ def first_sentence(text):
 def check(kind, source, hands, names, binding):
     """The mechanical checks. Returns a list of failures (empty = passes)."""
     fails = []
-    cap = ROOM_CAP if kind == "room" else BOOK_CAP
+    cap = ROOM_CAP if kind == "room" else PAST_CAP if kind == "past" else BOOK_CAP
     if len(binding) > cap:
         fails.append(f"too long: {len(binding)} > {cap}")
     if len(binding) < 20:
@@ -132,7 +149,7 @@ def check(kind, source, hands, names, binding):
     if lost:
         fails.append("lost names or numbers: " + ", ".join(lost[:12]))
     missing = [h for h in hands if h.lower() not in binding.lower()]
-    if missing:
+    if missing and kind != "past":
         fails.append("hands not credited: " + ", ".join(missing))
     if kind == "room":
         opening = first_sentence(source)
@@ -160,6 +177,13 @@ def voice_check(creds, binding):
 def propose(creds, cand):
     kind = cand["kind"]
     hands = [h for h in cand.get("hands", []) if isinstance(h, str)]
+    if kind == "past":
+        user = (
+            f"Thing: {cand.get('name')} ({cand.get('of')}), made by {cand.get('maker') or 'nobody'}, tier {cand.get('tier')}"
+            f"{' (awake, with a name of its own)' if cand.get('tier') == 3 else ''}.\n"
+            f"Cap: {PAST_CAP} characters.\n\nIts record, oldest first:\n\n{cand['text']}"
+        )
+        return ask_model(creds, PAST_SYSTEM, user)
     if kind == "room":
         user = (
             f"Room: {cand.get('name')}\nOwner: {cand.get('owner')}\nHands that appended: {', '.join(hands) or 'none'}\n"

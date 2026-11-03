@@ -129,6 +129,16 @@ pub const MATERIALS: &[(&str, &str)] = &[
     ("sitter", "a sitter's patience"),
     ("hourhand", "a spare minute"),
     ("keeper", "a small key"),
+    // The Lower Stacks and the Exergue: rare, and what the second tier asks for.
+    ("lamprey", "a lamprey's tooth"),
+    ("usher", "an usher's ribbon"),
+    ("censor", "a censor's lens"),
+    ("cataloguer", "a catalogue card"),
+    ("engrosser", "a drop of engrossing ink"),
+    ("clipper", "a clipped sliver"),
+    ("sweater", "a pinch of coin sweat"),
+    ("assayer", "an assay needle"),
+    ("warden", "a warden's key"),
 ];
 
 /// What can be made, of what, for what memory, and what it does.
@@ -145,6 +155,14 @@ pub struct Recipe {
     pub fixed: bool,
     /// Takes `append`ed lines from other hands (a book); else only its maker's text.
     pub takes_lines: bool,
+    /// 1: anyone can make it. 2: a thing with a past, asking a rare material and a
+    /// vivid memory. (3 is never a recipe; it comes by chance from a 2.)
+    pub tier: u8,
+    /// The least vividity the spent chunk must have; 0 for none.
+    pub vividity_at_least: f64,
+    /// What it does, as the family of effect it belongs to (`lantern`, `charm`,
+    /// `bandage`): a second-tier thing does what its first-tier kin does, and more.
+    pub effect: &'static str,
 }
 
 pub const RECIPES: &[Recipe] = &[
@@ -157,6 +175,9 @@ pub const RECIPES: &[Recipe] = &[
         uses: 0,
         fixed: false,
         takes_lines: false,
+        tier: 1,
+        vividity_at_least: 0.0,
+        effect: "lantern",
     },
     Recipe {
         key: "charm",
@@ -167,6 +188,9 @@ pub const RECIPES: &[Recipe] = &[
         uses: 1,
         fixed: false,
         takes_lines: false,
+        tier: 1,
+        vividity_at_least: 0.0,
+        effect: "charm",
     },
     Recipe {
         key: "bandage",
@@ -177,6 +201,9 @@ pub const RECIPES: &[Recipe] = &[
         uses: 1,
         fixed: false,
         takes_lines: false,
+        tier: 1,
+        vividity_at_least: 0.0,
+        effect: "bandage",
     },
     Recipe {
         key: "jar",
@@ -187,6 +214,9 @@ pub const RECIPES: &[Recipe] = &[
         uses: 0,
         fixed: false,
         takes_lines: false,
+        tier: 1,
+        vividity_at_least: 0.0,
+        effect: "jar",
     },
     Recipe {
         key: "book",
@@ -197,6 +227,9 @@ pub const RECIPES: &[Recipe] = &[
         uses: 0,
         fixed: true,
         takes_lines: true,
+        tier: 1,
+        vividity_at_least: 0.0,
+        effect: "book",
     },
     Recipe {
         key: "plaque",
@@ -207,6 +240,63 @@ pub const RECIPES: &[Recipe] = &[
         uses: 0,
         fixed: true,
         takes_lines: false,
+        tier: 1,
+        vividity_at_least: 0.0,
+        effect: "plaque",
+    },
+    // The second tier: things with a past. Each asks something only the Stacks or
+    // the Exergue leave, and a memory that was nearly your last.
+    Recipe {
+        key: "night-lantern",
+        name: "a night lantern",
+        of: &["a wisp ember", "a censor's lens", "rag thread"],
+        chunk_at_least: 40.0,
+        does: "keeps the map in your memory three times as long while carried, and has a past",
+        uses: 0,
+        fixed: false,
+        takes_lines: false,
+        tier: 2,
+        vividity_at_least: 0.6,
+        effect: "lantern",
+    },
+    Recipe {
+        key: "warden-charm",
+        name: "a warden's charm",
+        of: &["a warden's key", "moth dust"],
+        chunk_at_least: 60.0,
+        does: "makes your next three fights' memories more vivid while carried, one each, and has a past",
+        uses: 3,
+        fixed: false,
+        takes_lines: false,
+        tier: 2,
+        vividity_at_least: 0.6,
+        effect: "charm",
+    },
+    Recipe {
+        key: "surgeon-bandage",
+        name: "a surgeon's bandage",
+        of: &["a lamprey's tooth", "rag thread", "rag thread"],
+        chunk_at_least: 30.0,
+        does: "closes a bite that will not close, twice, and has a past",
+        uses: 2,
+        fixed: false,
+        takes_lines: false,
+        tier: 2,
+        vividity_at_least: 0.6,
+        effect: "bandage",
+    },
+    Recipe {
+        key: "sliver-jar",
+        name: "a jar of clipped silver",
+        of: &["a clipped sliver", "a pinch of coin sweat", "hollow water"],
+        chunk_at_least: 20.0,
+        does: "does nothing but keep, and keeps a past; it is what the Exergue leaves, in a jar",
+        uses: 0,
+        fixed: false,
+        takes_lines: false,
+        tier: 2,
+        vividity_at_least: 0.6,
+        effect: "jar",
     },
 ];
 
@@ -324,6 +414,12 @@ pub fn leave_behind(
         LEFT,
         json!({"creature": creature.0, "kind": kind, "room": room.0, "item": id.0, "name": name}),
     );
+    super::past::push(
+        world,
+        "nobody",
+        id,
+        json!({"what": "left", "kind": kind, "room": plain_str(world, room, super::ROOM, "name").unwrap_or("nowhere")}),
+    )?;
     Ok(Some((id, name.to_string())))
 }
 
@@ -530,16 +626,36 @@ pub fn carries(world: &World, citizen: EntityId, recipe: &str) -> Option<EntityI
         .store
         .children(satchel)
         .filter(|e| e.kind == "item")
-        .find(|e| plain_str(world, e.id, ITEM, "origin") == Some(recipe))
+        .find(|e| {
+            plain_str(world, e.id, ITEM, "origin") == Some(recipe)
+                || plain_str(world, e.id, ITEM, "effect") == Some(recipe)
+        })
         .map(|e| e.id)
 }
 
 /// Spend one use of a carried thing: gone when its uses run out. The name, for the
 /// line that says so.
-pub fn spend(world: &mut World, actor: &str, item: EntityId) -> Result<String, CommandError> {
+pub fn spend(
+    world: &mut World,
+    actor: &str,
+    item: EntityId,
+    deed: &str,
+) -> Result<String, CommandError> {
     let name = plain_str(world, item, ITEM, "name")
         .unwrap_or("something")
         .to_string();
+    let room = world
+        .store
+        .entity(item)
+        .and_then(|e| e.parent)
+        .and_then(|s| world.store.entity(s))
+        .and_then(|s| s.parent);
+    super::past::push(
+        world,
+        actor,
+        item,
+        json!({"what": "did", "by": actor, "deed": deed, "room": room.and_then(|r| plain_str(world, r, super::ROOM, "name")).unwrap_or("nowhere")}),
+    )?;
     let uses = world
         .store
         .read_field(item, ITEM, "uses", world.now())
@@ -675,7 +791,7 @@ fn mine_to_shape(world: &World, actor: &str, item: EntityId) -> Result<(), Comma
     }
 }
 
-fn set_item_fields(
+pub(crate) fn set_item_fields(
     world: &mut World,
     actor: Actor,
     item: EntityId,
@@ -737,6 +853,12 @@ pub fn remember_into(
         })
         .unwrap_or_default();
     kept.push(json!({"by": actor, "with": source, "worth": (worth * 100.0).round() / 100.0}));
+    super::past::push(
+        world,
+        actor,
+        item,
+        json!({"what": "kept", "by": actor, "with": format!("the memory of {source}")}),
+    )?;
     let c: Curve = curves.palace(0.5);
     let mut changes = BTreeMap::new();
     changes.insert(
@@ -792,6 +914,12 @@ pub fn name_object(
         NAMED,
         json!({"item": item.0, "by": actor, "name": name, "was": was, "room": room.map(|r| r.0)}),
     );
+    super::past::push(
+        world,
+        actor,
+        item,
+        json!({"what": "named", "by": actor, "name": name}),
+    )?;
     Ok(name)
 }
 
@@ -812,6 +940,12 @@ pub fn describe_object(
     let mut changes = BTreeMap::new();
     changes.insert("text".into(), Field::Plain(json!(text)));
     set_item_fields(world, Actor::Citizen(actor.to_string()), item, changes)?;
+    super::past::push(
+        world,
+        actor,
+        item,
+        json!({"what": "described", "by": actor}),
+    )?;
     Ok(text)
 }
 
@@ -1062,6 +1196,8 @@ pub fn sweep(world: &mut World) -> Result<(), String> {
         .entities()
         .filter(|e| e.kind == "item")
         .filter(|e| plain_str(world, e.id, ITEM, "given_name").is_some())
+        // A tier-3 thing's name is dealt by the Namery and is its own, not written in memory.
+        .filter(|e| super::past::tier(world, e.id) < 3)
         .filter(|e| held(world, e.id) < NAME_LOST_BELOW)
         .map(|e| {
             (
@@ -1163,6 +1299,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 TOOK,
                 json!({"by": ctx.actor, "item": item.0, "name": name, "room": room.0}),
             );
+            super::past::push(w, &ctx.actor, item, json!({"what": "took", "by": ctx.actor, "room": plain_str(w, room, super::ROOM, "name").unwrap_or("nowhere")}))?;
             super::combat::narrate_others(
                 w,
                 f.citizen,
@@ -1209,6 +1346,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 DROPPED,
                 json!({"by": ctx.actor, "item": item.0, "name": name, "room": room.0}),
             );
+            super::past::push(w, &ctx.actor, item, json!({"what": "dropped", "by": ctx.actor, "room": plain_str(w, room, super::ROOM, "name").unwrap_or("nowhere")}))?;
             super::combat::narrate_others(
                 w,
                 f.citizen,
@@ -1319,7 +1457,9 @@ pub fn register(world: &mut World, curves: Curves) {
             // The memory spent.
             let mut spent: Option<EntityId> = None;
             let mut spent_worth = 0.0;
-            if r.chunk_at_least > 0.0 {
+            let mut spent_source: Option<String> = None;
+            let mut spent_vividity: Option<f64> = None;
+            if r.chunk_at_least > 0.0 || r.tier >= 2 {
                 let arg = args.str("chunk").unwrap_or("").trim().to_string();
                 if arg.is_empty() {
                     return Err(CommandError::precondition(format!(
@@ -1341,6 +1481,15 @@ pub fn register(world: &mut World, curves: Curves) {
                         chunk.0, r.name
                     )));
                 }
+                let viv = super::plain_num(w, chunk, super::CHUNK, "vividity").unwrap_or(0.0);
+                if viv < r.vividity_at_least {
+                    return Err(CommandError::precondition(format!(
+                        "Chunk {} has vividity {viv:.2}; {} takes a memory of {:.1} or more: one of a fight you nearly lost.",
+                        chunk.0, r.name, r.vividity_at_least
+                    )));
+                }
+                spent_source = Some(plain_str(w, chunk, super::CHUNK, "source").unwrap_or("something").to_string());
+                spent_vividity = Some(viv);
                 w.record(Actor::Citizen(ctx.actor.clone()), StoreEvent::EntityRemoved { id: chunk })
                     .map_err(internal)?;
                 spent = Some(chunk);
@@ -1371,23 +1520,42 @@ pub fn register(world: &mut World, curves: Curves) {
                 changes.insert("held".into(), Field::Timed(TimedValue::new(spent_worth, w.now(), curves.palace(0.5))));
                 set_item_fields(w, Actor::Citizen(ctx.actor.clone()), item, changes)?;
             }
+            if r.effect != r.key {
+                let mut changes = BTreeMap::new();
+                changes.insert("effect".into(), Field::Plain(json!(r.effect)));
+                set_item_fields(w, Actor::Citizen(ctx.actor.clone()), item, changes)?;
+            }
+            // The record begins, and one build in forty comes out a tier above.
+            let raised = super::past::made(
+                w,
+                &curves,
+                &ctx.actor,
+                item,
+                Some(here),
+                &used_names,
+                spent_source.as_deref(),
+                spent_vividity,
+                r.tier,
+            )?;
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 MADE,
                 json!({"by": ctx.actor, "item": item.0, "name": r.name, "recipe": r.key, "of": used_names, "spent": spent.map(|c| c.0)}),
             );
             super::combat::narrate_others(w, f.citizen, &format!("{} makes {}{}.", ctx.actor, r.name, if r.fixed { ", and it stands here" } else { "" }), &ctx.actor);
+            let tier_now = super::past::tier(w, item);
             Ok(Outcome::new(
                 format!(
-                    "You make {} of {}{}: item-{}. It {}.{}",
+                    "You make {} of {}{}: item-{}. It {}.{}{}",
                     r.name,
                     used_names.join(" and "),
                     spent.map(|c| format!(", spending chunk-{}", c.0)).unwrap_or_default(),
                     item.0,
                     r.does,
-                    if r.fixed { format!(" It stands here, holding {spent_worth:.0}; name it (name \"…\" item-{}) once it holds {NAME_AT:.0}, describe it, remember chunks into it so it lasts.", item.0) } else if spent.is_some() { format!(" The chunk is spent, not kept: it holds nothing yet. Remember chunks into it (remember chunk-N item-{}) and at {NAME_AT:.0} it takes a name.", item.0) } else { format!(" It holds nothing yet; remember chunks into it (remember chunk-N item-{}) and at {NAME_AT:.0} it takes a name.", item.0) }
+                    if r.fixed { format!(" It stands here, holding {spent_worth:.0}; name it (name \"…\" item-{}) once it holds {NAME_AT:.0}, describe it, remember chunks into it so it lasts.", item.0) } else if tier_now >= 3 { String::new() } else if spent.is_some() { format!(" The chunk is spent, not kept: it holds nothing yet. Remember chunks into it (remember chunk-N item-{}) and at {NAME_AT:.0} it takes a name.", item.0) } else { format!(" It holds nothing yet; remember chunks into it (remember chunk-N item-{}) and at {NAME_AT:.0} it takes a name.", item.0) },
+                    raised.unwrap_or_default()
                 ),
-                json!({"item": item.0, "name": r.name, "recipe": r.key, "of": used_names, "spent": spent.map(|c| c.0)}),
+                json!({"item": item.0, "name": r.name, "recipe": r.key, "of": used_names, "spent": spent.map(|c| c.0), "tier": tier_now, "given_name": plain_str(w, item, ITEM, "given_name")}),
             ))
         }),
     );
@@ -1492,6 +1660,21 @@ pub fn register(world: &mut World, curves: Curves) {
                 Some(Field::Plain(v)) => Some(v.clone()),
                 _ => None,
             };
+            // A thing that is not a book reads as its past: what it was made of and
+            // with, whose hands, where it went, what it did.
+            if !is_fixed(w, item) {
+                if let Some(past) = super::past::read(w, item) {
+                    let tier = super::past::tier(w, item);
+                    return Ok(Outcome::new(
+                        format!(
+                            "{called} (item-{}){}: {past}",
+                            item.0,
+                            if text.is_empty() { String::new() } else { format!(", \"{text}\"") }
+                        ),
+                        json!({"item": item.0, "name": called, "text": text, "tier": tier, "past": super::past::recital(w, item)}),
+                    ));
+                }
+            }
             if text.is_empty() {
                 return Ok(Outcome::new(
                     format!("{called} (item-{}) has nothing written on it{}.", item.0, maker.as_deref().map(|m| format!("; {m} made it and said nothing")).unwrap_or_default()),

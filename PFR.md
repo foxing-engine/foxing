@@ -158,6 +158,15 @@ bell, hearth, table, window, moss, stones, three at most). Still to do:
 
 ## The world
 
+- Crafting, three tiers (shipped 11-02 night): the record and `read` of it; the second
+  tier's four recipes, rare materials from the Stacks and the Exergue, the vividity
+  bar; the Bindery writing pasts (kind "past" in bind.py); the third tier by chance
+  (a name, a desire for a room, stirrings on `look`, thanks on arrival). Next: more
+  second-tier recipes and effects (an usher's ribbon that steps you through the
+  Stacks; a censor's lens that halves the ray); desires beyond rooms (a hand it has
+  not met, a story told near it); a thing's past as a want a creature can have; a
+  sprite per tier in the scene (a glow for tier 2, a flicker for the awake).
+
 - The Conclave, next pass (north star: glorious and bureaucratic at once; the Conclave
   always decides, eventually): the engrossers *say* the division's lines as they write
   them; a petition seconded by another name at the Gallery skips the Committee; the

@@ -91,6 +91,11 @@ pub fn candidates(world: &World) -> Value {
                     }));
                 }
             }
+            "item" if !craft::is_fixed(world, e.id) => {
+                if let Some(c) = super::past::candidate(world, e.id) {
+                    out.push(c);
+                }
+            }
             "item" if craft::is_fixed(world, e.id) => {
                 let text = plain_str(world, e.id, ITEM, "text").unwrap_or("");
                 let lines = text.split(" | ").filter(|l| !l.trim().is_empty()).count();
@@ -141,8 +146,13 @@ fn resolve_target(world: &World, arg: &str) -> Result<(EntityId, &'static str), 
         if world.store.entity(id).is_some_and(|e| e.kind == "item") && craft::is_fixed(world, id) {
             return Ok((id, "book"));
         }
+        if world.store.entity(id).is_some_and(|e| e.kind == "item")
+            && super::past::tier(world, id) >= 2
+        {
+            return Ok((id, "past"));
+        }
         return Err(CommandError::precondition(format!(
-            "There is no fixture item-{n}."
+            "There is no fixture or thing with a past called item-{n}."
         )));
     }
     if let Some(n) = arg
@@ -282,7 +292,7 @@ pub fn register(world: &mut World, curves: Curves) {
             "disremembered.bind",
             "Operator. Bind a room's description or a book's text into the prose given: what was there is kept on the record, and the owner may unbind once.",
         )
-        .param("target", ParamType::Entity, true, "room-12, a room key, or item-12 (a fixture)")
+        .param("target", ParamType::Entity, true, "room-12, a room key, or item-12 (a fixture, or a thing with a past)")
         .param("text", ParamType::Text, true, "the bound text, quoted")
         .param("model", ParamType::String, false, "what wrote it, for the record")
         .allowed(&[ActorKind::Admin]),
@@ -298,6 +308,31 @@ pub fn register(world: &mut World, curves: Curves) {
                 return Err(CommandError::precondition("A binding is at least twenty characters."));
             }
             let model = args.str("model").unwrap_or("").trim().to_string();
+            // A thing with a past: the passage is written beside the record, not over
+            // anything, and the want is cleared.
+            if kind == "past" {
+                if text.chars().count() > craft::MAX_TEXT_CHARS {
+                    return Err(CommandError::precondition(format!("A past is at most {} characters.", craft::MAX_TEXT_CHARS)));
+                }
+                let name = craft::display(w, id);
+                super::past::inscribe(w, &ctx.actor, id, &text, &model)?;
+                let _ = w.note(
+                    Actor::Citizen(ctx.actor.clone()),
+                    BOUND,
+                    json!({"target": id.0, "kind": "past", "name": name, "by": ctx.actor, "model": model, "after": text, "hands": super::past::hands(w, id)}),
+                );
+                let _ = super::craft::world_writes(
+                    w,
+                    "bindery",
+                    "the Binding Ledger",
+                    "the Bindery",
+                    &format!("{} UTC: wrote the past of {name}, {} characters", super::system::clock(w.now().0), text.chars().count()),
+                );
+                return Ok(Outcome::new(
+                    format!("The past of {name} is written: {text}"),
+                    json!({"target": id.0, "kind": "past", "name": name, "after_chars": text.chars().count()}),
+                ));
+            }
             let (component, field, name, hands) = match kind {
                 "room" => (
                     ROOM,

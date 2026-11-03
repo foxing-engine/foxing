@@ -1053,9 +1053,17 @@ pub fn describe(
         .iter()
         .map(|(n, t)| json!({"name": n, "trace": t}))
         .collect();
+    // A carried thing that is awake says what it wants without words.
+    let stirrings = super::find_citizen(world, actor)
+        .map(|f| super::past::stirrings(world, f.citizen))
+        .unwrap_or_default();
+    for line in &stirrings {
+        text.push(' ');
+        text.push_str(line);
+    }
     Ok(Outcome::new(
         text,
-        json!({"room": name, "description": desc, "memory": memory, "dug_by": dug_by, "exits": exits, "creatures": creatures, "citizens": others, "remembered": remembered, "things": super::craft::things_in(world, room), "fixtures": super::craft::fixtures_in(world, room), "observation": obs}),
+        json!({"room": name, "description": desc, "memory": memory, "dug_by": dug_by, "exits": exits, "creatures": creatures, "citizens": others, "remembered": remembered, "things": super::craft::things_in(world, room), "fixtures": super::craft::fixtures_in(world, room), "stirrings": stirrings, "observation": obs}),
     ))
 }
 
@@ -1169,7 +1177,13 @@ pub fn register(world: &mut World) {
             super::talk::greet(w, &ctx.actor, to);
             // The Docent greets whoever comes to the Threshold, once a night.
             super::docent::on_arrival(w, &ctx.actor).map_err(internal)?;
+            // What you carry records the room; a thing that wanted this room settles.
+            let settled = super::past::after_travel(w, &super::Curves::from_env(), &ctx.actor, f.citizen, f.window, to)?;
             let mut out = describe(w, &ctx.actor, ctx, to)?;
+            for line in &settled {
+                out.summary.push(' ');
+                out.summary.push_str(line);
+            }
             out.summary = if doorless {
                 format!("There is no door here, so you go the way every room was first reached. {}", out.summary)
             } else {

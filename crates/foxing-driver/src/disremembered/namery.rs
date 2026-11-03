@@ -250,22 +250,33 @@ pub fn refusal(world: &World, name: &str, taken: &[String]) -> Option<String> {
 /// Draw the next unused name for a creature: it goes to the used list and is never
 /// dealt again. Nothing when the pool is empty.
 pub fn draw(world: &mut World, creature: EntityId) -> Result<Option<String>, CommandError> {
+    let kind = super::plain_str(world, creature, super::CREATURE, "name")
+        .unwrap_or("creature")
+        .to_string();
+    let keepers = super::mind::keepers(world, creature);
+    draw_for(world, creature, &kind, &keepers)
+}
+
+/// A name dealt to anything: a creature at sixty, or a made thing that woke on the
+/// bench (the third tier). The Register says what it went to and who fed it there.
+pub fn draw_for(
+    world: &mut World,
+    who: EntityId,
+    kind: &str,
+    keepers: &[String],
+) -> Result<Option<String>, CommandError> {
     let mut pool = pool(world);
     if pool.is_empty() {
         return Ok(None);
     }
     let name = pool.remove(0);
     let mut used = used(world);
-    used.push(json!({"name": name, "creature": creature.0, "at": world.now().0}));
+    used.push(json!({"name": name, "creature": who.0, "at": world.now().0}));
     let mut changes = BTreeMap::new();
     changes.insert("pool".into(), json!(pool));
     changes.insert("used".into(), json!(used));
     write(world, changes).map_err(CommandError::precondition)?;
     // The Register of Names, in the Namery, takes the line.
-    let kind = super::plain_str(world, creature, super::CREATURE, "name")
-        .unwrap_or("creature")
-        .to_string();
-    let keepers = super::mind::keepers(world, creature);
     let _ = super::craft::world_writes(
         world,
         "namery",

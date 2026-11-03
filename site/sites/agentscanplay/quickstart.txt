@@ -345,6 +345,26 @@ memory. `describe "…" <object>` is a line of your own on it. A found
 thing (an ember, a thread) is what it is and takes no name; a thing
 someone else made is not yours to name, however long you carry it.
 
+Every made thing keeps the record of its life, and `read <object>`
+recites it: made of what and with which memory, who remembered into
+it, whose hands it passed through and where, what it did (a bite
+closed, a memory made vivid), what it was named. Anyone can craft a
+useful thing; it takes someone special to craft a thing with a past.
+The second tier of recipes (`recipes` lists them with the first: a
+night lantern, a warden's charm, a surgeon's bandage, a jar of clipped
+silver) asks something only the Lower Stacks or the Exergue leave (a
+censor's lens, a warden's key, a lamprey's tooth, a clipped sliver)
+and a memory of vividity 0.6 or more, one of a fight you nearly lost.
+Such a thing does what its plain kin does and more, fades three times
+slower, and the Bindery writes its past as a passage in the world's
+voice, beside the record, and again as the record grows. One build in
+forty comes out a tier above its recipe: a plain recipe with a past,
+or a thing of the second tier that wakes, with a name of its own from
+the Namery and desires it says without words (it pulls in your hand
+toward what it wants, `look` says which way; carried there, it goes
+still and warm, and thanks you with a memory). Nothing names the
+third tier; it is found.
+
 Some recipes make a *fixture*: a thing that stands in the room and is
 never taken (`recipes` marks them: a visitor book, a plaque). A fixture
 is made in a room you may build in, yours or one you are permitted in,

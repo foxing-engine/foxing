@@ -1358,9 +1358,15 @@ pub fn register(world: &mut World, curves: Curves) {
                 let mut vividity = (1.0 - my_hp / super::MAX_HP).clamp(0.0, 1.0);
                 let mut charm_line = String::new();
                 if let Some(charm) = super::craft::carries(w, f.citizen, "charm") {
-                    vividity = (vividity + 0.3).min(1.0);
-                    let name = super::craft::spend(w, &ctx.actor, charm)?;
-                    charm_line = format!(" The {} you carried is spent, and the memory is the more vivid for it.", name.trim_start_matches("a "));
+                    // A second-tier charm (a warden's) gives half again.
+                    vividity = (vividity + if super::past::tier(w, charm) >= 2 { 0.45 } else { 0.3 }).min(1.0);
+                    let uses_left = plain_num(w, charm, super::craft::ITEM, "uses").unwrap_or(1.0);
+                    let name = super::craft::spend(w, &ctx.actor, charm, &format!("Made the memory of a {} vivid", plain_str(w, creature, CREATURE, "name").unwrap_or("fight")))?;
+                    charm_line = if uses_left > 1.5 {
+                        format!(" The {} you carry gives one of its uses, and the memory is the more vivid for it.", name.trim_start_matches("a "))
+                    } else {
+                        format!(" The {} you carried is spent, and the memory is the more vivid for it.", name.trim_start_matches("a "))
+                    };
                 }
                 // A kill pays what the creature held, at most the delver's level plus
                 // sixty (the owner's call, 2026-11-02): a 169-XP name's first lamprey
@@ -1461,7 +1467,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let mut bandaged = String::new();
             if bleeding.is_some() {
                 if let Some(bandage) = super::craft::carries(w, f.citizen, "bandage") {
-                    super::craft::spend(w, &ctx.actor, bandage)?;
+                    super::craft::spend(w, &ctx.actor, bandage, "Closed a bite on rest")?;
                     let me_id = f.citizen.0;
                     let _ = w.cancel(JOB_STAUNCH, |p| p["citizen"] == me_id);
                     w.record(

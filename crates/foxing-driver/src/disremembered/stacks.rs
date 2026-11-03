@@ -696,7 +696,13 @@ fn play(
             }
             // A bandage carried takes the bite: spent, and the bleeding never starts.
             if let Some(bandage) = super::craft::carries(world, citizen, "bandage") {
-                super::craft::spend(world, actor, bandage).map_err(|e| e.to_string())?;
+                super::craft::spend(
+                    world,
+                    actor,
+                    bandage,
+                    &format!("Took a {kind}'s bite as it landed"),
+                )
+                .map_err(|e| e.to_string())?;
                 let _ = world.note(
                     Actor::Driver,
                     TRICK,

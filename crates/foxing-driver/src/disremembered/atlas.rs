@@ -333,11 +333,11 @@ pub fn remembered_map(
     let f = super::find_citizen(world, actor).ok_or_else(|| {
         CommandError::precondition(format!("{actor} has not arrived; log in first."))
     })?;
-    // A lantern carried: the map stays twice as long.
-    let half_life_ms = if super::craft::carries(world, f.citizen, "lantern").is_some() {
-        half_life_ms * 2.0
-    } else {
-        half_life_ms
+    // A lantern carried: the map stays twice as long; a night lantern, three times.
+    let half_life_ms = match super::craft::carries(world, f.citizen, "lantern") {
+        Some(l) if super::past::tier(world, l) >= 2 => half_life_ms * 3.0,
+        Some(_) => half_life_ms * 2.0,
+        None => half_life_ms,
     };
     let here = rooms::room_of(world, f.citizen);
     let visible: HashSet<EntityId> = here
@@ -511,10 +511,10 @@ pub fn remembered_map(
 /// The rooms a citizen could find their way through: what they remember (above
 /// FORGOTTEN on the map's half-life) and what they can see from where they stand.
 fn known_rooms(world: &World, citizen: EntityId, half_life_ms: f64) -> HashSet<EntityId> {
-    let half_life_ms = if super::craft::carries(world, citizen, "lantern").is_some() {
-        half_life_ms * 2.0
-    } else {
-        half_life_ms
+    let half_life_ms = match super::craft::carries(world, citizen, "lantern") {
+        Some(l) if super::past::tier(world, l) >= 2 => half_life_ms * 3.0,
+        Some(_) => half_life_ms * 2.0,
+        None => half_life_ms,
     };
     let now = world.now().0;
     let mut known: HashSet<EntityId> = seen(world, citizen)

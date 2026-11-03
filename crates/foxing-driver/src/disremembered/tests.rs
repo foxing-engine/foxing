@@ -8300,3 +8300,211 @@ fn a_room_welcomes_all_and_invites_a_named_creature_to_live_in_it() {
         said
     );
 }
+
+/// A material conjured into a satchel, as a creature would have left it.
+fn conjure(w: &mut World, satchel: EntityId, name: &str) -> EntityId {
+    let id = w.store.allocate_id();
+    w.record(
+        foxing_log::Actor::Driver,
+        StoreEvent::EntityCreated {
+            id,
+            kind: "item".into(),
+            owner: None,
+            parent: Some(satchel),
+            scopes: vec![],
+        },
+    )
+    .unwrap();
+    let mut f = BTreeMap::new();
+    f.insert("name".into(), Field::Plain(json!(name)));
+    f.insert("kind".into(), Field::Plain(json!("material")));
+    f.insert(
+        "memory".into(),
+        Field::Timed(foxing_time::TimedValue::new(
+            1.0,
+            w.now(),
+            foxing_time::Curve::Constant,
+        )),
+    );
+    w.record(
+        foxing_log::Actor::Driver,
+        StoreEvent::ComponentSet {
+            id,
+            component: craft::ITEM.into(),
+            fields: f,
+        },
+    )
+    .unwrap();
+    id
+}
+
+#[test]
+fn a_thing_keeps_its_past_and_the_tiers_climb() {
+    use super::past;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    login(&mut w, "dave", "test", PASS).unwrap();
+    admin(
+        &mut w,
+        "tyler",
+        "stock",
+        json!(["Quillon, Marrowgate, Tallow"]),
+    );
+    let tyler = find_citizen(&w, "tyler").unwrap().citizen;
+    let s = craft::satchel(&mut w, "tyler", tyler).unwrap();
+    // Tier 1: a lantern of an ember and a thread, with a plain memory; its record
+    // begins with its making and follows it through the rooms and hands.
+    conjure(&mut w, s, "a wisp ember");
+    conjure(&mut w, s, "rag thread");
+    let c = admin(&mut w, "tyler", "earn", json!(["wisp", 30, 0.4]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    let out = ok(&mut w, "tyler", "craft", json!(["lantern", &c]));
+    let lantern = out.result["item"].as_u64().unwrap();
+    let out = ok(&mut w, "tyler", "read", json!([format!("item-{lantern}")]));
+    assert!(out.summary.contains("Made by tyler in The Threshold of a wisp ember and rag thread, with a plain memory of wisp"), "{}", out.summary);
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    ok(&mut w, "tyler", "travel", json!(["west"]));
+    ok(&mut w, "tyler", "drop", json!([format!("item-{lantern}")]));
+    ok(&mut w, "dave", "take", json!([format!("item-{lantern}")]));
+    let out = ok(&mut w, "dave", "read", json!([format!("item-{lantern}")]));
+    assert!(
+        out.summary.contains("Carried by tyler into The Fogbank."),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary
+            .contains("Set down by tyler in The Threshold. Taken up by dave in The Threshold."),
+        "{}",
+        out.summary
+    );
+    // Tier 2 asks a rare material and a vivid memory: a faint one is refused.
+    conjure(&mut w, s, "a wisp ember");
+    conjure(&mut w, s, "a censor's lens");
+    conjure(&mut w, s, "rag thread");
+    let faint = admin(&mut w, "tyler", "earn", json!(["lamprey", 80, 0.2]));
+    let faint = format!("chunk-{}", faint.result["chunk"].as_u64().unwrap());
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "craft",
+        json!(["night-lantern", &faint]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("vividity"), "{err}");
+    let vivid = admin(&mut w, "tyler", "earn", json!(["lamprey", 80, 0.9]));
+    let vivid = format!("chunk-{}", vivid.result["chunk"].as_u64().unwrap());
+    let out = ok(&mut w, "tyler", "craft", json!(["night-lantern", &vivid]));
+    let night = out.result["item"].as_u64().unwrap();
+    assert!(out.result["tier"].as_u64().unwrap() >= 2, "{}", out.summary);
+    assert!(
+        out.summary.contains("Something in the making took"),
+        "{}",
+        out.summary
+    );
+    let out = ok(&mut w, "tyler", "read", json!([format!("item-{night}")]));
+    assert!(
+        out.summary.contains("with a vivid memory of lamprey"),
+        "{}",
+        out.summary
+    );
+    // The Bindery lists it, and writes its past beside the record.
+    let cands = bindery::candidates(&w);
+    let cand = cands["candidates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["kind"] == "past" && c["id"] == night)
+        .cloned();
+    assert!(cand.is_some(), "{cands}");
+    let out = admin(&mut w, "Bindery", "bind", json!([format!("item-{night}"), "It was made in the Threshold of an ember and a lens, with the memory of a lamprey that nearly had its maker.", "test"]));
+    assert!(out.summary.contains("The past of"), "{}", out.summary);
+    let out = ok(&mut w, "tyler", "read", json!([format!("item-{night}")]));
+    assert!(
+        out.summary
+            .contains("nearly had its maker. The record: Made by tyler"),
+        "{}",
+        out.summary
+    );
+    let cands = bindery::candidates(&w);
+    assert!(
+        !cands["candidates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["kind"] == "past" && c["id"] == night),
+        "written, so not wanted"
+    );
+    // A night lantern keeps the map three times as long.
+    let a = atlas::remembered_map(&w, "tyler", 3_600_000.0).unwrap();
+    assert_eq!(
+        a["half_life_ms"].as_f64().unwrap(),
+        3.0 * 3_600_000.0,
+        "{a}"
+    );
+    // Tier 3, raised by hand (one build in forty does it): a name from the Namery,
+    // a desire it signals without words, and thanks when carried to it.
+    let night = EntityId(night);
+    past::raise(&mut w, &curves(), "tyler", night, 3).unwrap();
+    assert_eq!(past::tier(&w, night), 3);
+    let given = craft::display(&w, night);
+    assert!(
+        ["Quillon", "Marrowgate", "Tallow"].contains(&given.as_str()),
+        "{given}"
+    );
+    let out = ok(&mut w, "tyler", "look", json!([]));
+    assert!(
+        out.summary.contains(&format!("{given} pulls "))
+            || out.summary.contains(&format!("{given} turns in your hand")),
+        "{}",
+        out.summary
+    );
+    // Walk it where it wants: follow the pull until it settles.
+    let mut settled = false;
+    for _ in 0..40 {
+        let look = ok(&mut w, "tyler", "look", json!([]));
+        let Some(stir) = look.result["stirrings"]
+            .as_array()
+            .and_then(|a| a.first())
+            .and_then(Value::as_str)
+        else {
+            break;
+        };
+        let Some(step) = stir
+            .strip_prefix(&format!("{given} pulls "))
+            .and_then(|r| r.strip_suffix(" in your hand."))
+        else {
+            break;
+        };
+        let out = ok(&mut w, "tyler", "travel", json!([step]));
+        if out.summary.contains("goes still in your hand") {
+            settled = true;
+            assert!(
+                out.summary.contains(&format!("{given}'s thanks"))
+                    || out.summary.contains("You remember its thanks"),
+                "{}",
+                out.summary
+            );
+            break;
+        }
+    }
+    assert!(settled, "the lantern never settled");
+    let out = ok(
+        &mut w,
+        "tyler",
+        "read",
+        json!([format!("item-{}", night.0)]),
+    );
+    assert!(
+        out.summary.contains("Awake, with a name of its own."),
+        "{}",
+        out.summary
+    );
+    assert!(out.summary.contains("It wanted "), "{}", out.summary);
+    assert!(w.recent_events(50).iter().any(|e| e.kind == past::SETTLED));
+    // Its name is its own: the sweep that unnames things under thirty leaves it.
+    craft::sweep(&mut w).unwrap();
+    assert_eq!(craft::display(&w, night), given);
+}
