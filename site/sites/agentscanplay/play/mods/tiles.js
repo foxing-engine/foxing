@@ -37,6 +37,11 @@ const EXTRA = {
   "censor": { p: { c: "#2d2d3a", d: "#17171f", f: "#c9c0b0", e: "#ff5a5a", r: "#ffb3b3", g: "#8a8aa0" }, r: ["................", "......cccc......", ".....cccccc.....", "....ccffffcc....", "....cfeffecc....", "....ccffffcc....", ".....ccrrcc.....", "....ccccccc.....", "...ccgccccgcc...", "...cdcccccccdc..", "...cdcccccccdc..", "...cddcccccddc..", "....dddcccddd...", "....dd.....dd...", "....dd.....dd...", "................"] },
   "cataloguer": { p: { c: "#4a3f5c", d: "#2b2436", f: "#d8ccb8", e: "#1a1612", g: "#d9b57a", p: "#ece5d3" }, r: ["................", "......gggg......", ".....gccccg.....", "....ccffffcc....", "....cfefefcc....", "....ccffffcc....", ".....cccccc.....", "...ppccccccpp...", "...ppccccccpp...", "...ppdcccccdpp..", "...cdccccccccd..", "...cddcccccddc..", "....ddcccccdd...", "....dd.....dd...", "....ee.....ee...", "................"] },
   "engrosser": { p: { c: "#3b3a2e", d: "#24231c", f: "#e4d8c4", e: "#1a1612", q: "#ece5d3", k: "#1a1612" }, r: ["................", "......cccc......", ".....cccccc.....", "....ccffffcc....", "....cfefefcc....", "....ccffffcc....", ".....cccccc.....", "....ccccccc.q...", "...cccccccccq...", "...cdcccccckq...", "...cdccccccqq...", "...cddcccddc....", "....ddcccdd.....", "....dd...dd.....", "....ee...ee.....", "................"] },
+  "tapster": { p: { c: "#5a3a2a", d: "#3a2418", f: "#e9d5b8", e: "#1a1612", a: "#ece5d3", g: "#9fd3e6" }, r: ["................", "......cccc......", ".....cffffc.....", "....cfefefcc....", "....cffffffc....", ".....cffffc.....", "......cccc......", "....ccaaaacc....", "...ccaaaaaacc...", "...cdaaaaaadc...", "...cdaaaaaadcg..", "...cddaaaaddcg..", "....ddccccdd.g..", "....dd....dd....", "....ee....ee....", "................"] },
+  "clipper": { p: { c: "#6a747d", d: "#3f474e", e: "#f0e0a0", s: "#d8dde2" }, r: ["................", "................", "................", "......cccc......", ".....ceccec.....", ".....cccccc.....", "....ccccccccs...", "...cdccccccds...", "...cdccccccd.s..", "...cdddddddd..s.", "....dd....dd.s..", "....dd....dd.s..", "................", "................", "................", "................"] },
+  "sweater": { p: { c: "#7a6a4a", d: "#4a3e2a", f: "#d8c8a8", e: "#1a1612", b: "#5a3a2a", g: "#ffcf7a" }, r: ["................", "......cccc......", ".....cffffc.....", "....cfefefcc....", "....cffffffc....", ".....cffffc.....", "......cccc......", "....ccccccccbb..", "...cccccccccbbb.", "...cdcccccccbgb.", "...cdccccccdbbb.", "...cddcccccdd...", "....ddcccccdd...", "....dd....dd....", "....ee....ee....", "................"] },
+  "assayer": { p: { c: "#8a8a7a", d: "#5a5a4a", f: "#e4d8c4", e: "#1a1612", k: "#2a2a3a", g: "#cfe8ee" }, r: ["......kkkk......", ".....kkkkkk.....", "....ccffffcc....", "....cfefefcc....", "....ccffffcc....", ".....cccccc.....", "....cccccccc.gg.", "...ccccccccc.gg.", "...cdcccccccdgg.", "...cdcccccccd...", "...cddcccccddc..", "....dddcccddd...", "....dd.....dd...", "....dd.....dd...", "....ee.....ee...", "................"] },
+  "warden": { p: { c: "#8a2a2a", d: "#4a1414", f: "#e9d5b8", e: "#1a1612", m: "#3a3a44", s: "#b0b0b8" }, r: [".............s..", "....mmmmmm...s..", "...mmmmmmmm..s..", "...mmffffmm..s..", "...mmfefefm..s..", "...mmffffmm..s..", "....mmmmmm...s..", "..cccccccccc.s..", ".cccccccccccss..", ".cdccccccccdcs..", ".cdccccccccdcs..", ".cddccccccddc...", "..dddccccddd....", "...dd....dd.....", "...ee....ee.....", "................"] },
   "tipstaff": { p: { c: "#1f2a3a", d: "#121a25", f: "#e9d5b8", e: "#1a1612", g: "#d9b57a", s: "#b08a3a" }, r: ["..........s.....", "......cccc.s....", ".....cccccc.s...", "....ccffffccs...", "....cfefefccs...", "....ccffffccs...", ".....ccccccgs...", "....ccccccccs...", "...cccccccccs...", "...cdcccccdcs...", "...cdcccccdc....", "...cddcccddc....", "....ddcccdd.....", "....dd...dd.....", "....ee...ee.....", "................"] },
 };
 // What lies on a floor, by the word in its name: 8x8 icons in two colors.
@@ -62,6 +67,7 @@ function iconFor(name) {
 }
 // The room's motifs, from its words.
 const MOTIFS = [
+  ["mint", /exergue|counting bar|die room|striking floor|assay|mintmark|purse room|mint\b|coin/],
   ["water", /water|cistern|shallow|undertow|drown|sluice|flood|moonpool|stillwater|tide|pool|choir|inkwell|lamprey/],
   ["shelves", /archive|stack|reading|catalogue|catalog|shelf|shelves|ledger|library|book|carrel|periodical|desk|minute|engross|lectern|robing|annex/],
   ["benches", /conclave|bench|gallery|sitting|bar of|division|roll of|tally|petition/],
@@ -390,6 +396,22 @@ export default function install(m) {
         ctx.fillStyle = "rgba(200,210,220,.10)"; ctx.beginPath(); ctx.ellipse(x * SCALE, y * SCALE, 48 * SCALE, 7 * SCALE, 0, 0, Math.PI * 2); ctx.fill();
       }
       for (let i = 0; i < 5; i++) { const x = 2 + Math.floor(rnd(seed, 300 + i) * (COLS - 4)), y = WALL_TOP + 1 + Math.floor(rnd(seed, 400 + i) * (ROWS - WALL_TOP - 2)); px(x * T + 4, y * T + 10, 6, 2, "#c9c0b0"); px(x * T + 3, y * T + 9, 2, 2, "#c9c0b0"); px(x * T + 9, y * T + 9, 2, 2, "#c9c0b0"); }
+    } else if (motif === "mint") {
+      // Brass presses against the wall, coins glinting in the seams, a slate; the
+      // Purse Room has a vault wheel on the wall.
+      for (const pxl of [4, 9, 14]) {
+        if (Math.abs(pxl - DOORS.north[0]) < 2) continue;
+        px(pxl * T + 3, 2, 10, 30, "#6a5a3a"); px(pxl * T + 4, 3, 8, 28, "#8a7a4a"); px(pxl * T + 6, 1, 4, 3, "#b08a3a");
+        px(pxl * T + 2, 12 + Math.round(Math.sin(t * 0.7 + pxl) * 2), 12, 2, "#b08a3a");
+      }
+      for (let i = 0; i < 10; i++) { const x = 1 + Math.floor(rnd(seed, 900 + i) * (COLS - 2)), y = WALL_TOP + 1 + Math.floor(rnd(seed, 950 + i) * (ROWS - WALL_TOP - 2)); const g = (Math.sin(t * 2 + i) + 1) / 2; px(x * T + 6, y * T + 10, 3, 2, g > 0.5 ? "#ffcf7a" : "#b08a3a"); }
+      if (scene.key === "purse-room") {
+        const vx = (DOORS.north[0] * T + 8 + 4 * T) * SCALE, vy = 16 * SCALE;
+        ctx.strokeStyle = "#8a8a94"; ctx.lineWidth = 2 * SCALE; ctx.beginPath(); ctx.arc(vx, vy, 9 * SCALE, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(vx, vy, 3 * SCALE, 0, Math.PI * 2); ctx.stroke();
+        for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + t * 0.2; ctx.beginPath(); ctx.moveTo(vx, vy); ctx.lineTo(vx + Math.cos(a) * 9 * SCALE, vy + Math.sin(a) * 9 * SCALE); ctx.stroke(); }
+      }
+      if (scene.key === "counting-bar") { px(2 * T, (WALL_TOP + 1) * T, 8 * T, 6, "#3a2418"); px(2 * T, (WALL_TOP + 1) * T + 6, 8 * T, 10, "#5a3a2a"); px(T, 3, 6 * T, 20, "#2a2a30"); for (let i = 0; i < 5; i++) px(T + 4, 6 + i * 3, 10 + i * 8, 1, "#ece5d3"); }
     } else if (motif === "garden") {
       // Trees against the wall, grass tufts, a fallen fruit or two.
       for (let x = 1; x < COLS - 1; x += 4) {

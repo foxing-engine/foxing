@@ -81,6 +81,20 @@ pub const SEED_FIXTURES: &[(&str, &str, &str, &str, bool)] = &[
         false,
     ),
     (
+        "purse-room",
+        "plaque",
+        "the Purse",
+        "A sack of worn leather on a plinth, tied with a cord that has been untied before. It holds a twentieth of everything the world remembers, and the Wardens hold it.",
+        false,
+    ),
+    (
+        "exergue",
+        "book",
+        "the Exergue",
+        "A plaque the length of the wall, ruled for dates. Whatever is written here is stamped with the hour it was written.",
+        true,
+    ),
+    (
         "dark-reading-room",
         "plaque",
         "the Book Nobody Is Reading",
@@ -863,6 +877,12 @@ pub fn append_object(
         .to_string();
     // A line in a book is signed, and the lines are kept apart (" | "): `read` gives
     // them back one per line, and the Bindery counts lines and credits hands.
+    // The Exergue's plaque stamps the hour on every line (the strip where the date goes).
+    let more = if display(world, item) == "the Exergue" {
+        format!("{} UTC: {more}", super::system::clock(world.now().0))
+    } else {
+        more
+    };
     let line = format!("{more} \u{2014} {}", ctx.actor);
     let joined = if current.is_empty() {
         line
@@ -1100,6 +1120,11 @@ pub fn register(world: &mut World, curves: Curves) {
                 rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
             let item = resolve_item(w, args.str("item").unwrap_or(""), room)?;
             if is_fixed(w, item) {
+                // The Purse in the Strongroom is the one fixture that can be taken, and
+                // only past its Wardens.
+                if display(w, item) == "the Purse" {
+                    return super::exergue::take_purse(w, ctx, room, item);
+                }
                 return Err(CommandError::precondition(format!(
                     "{} stands where it is; a fixture is not taken.",
                     display(w, item)
@@ -1389,6 +1414,9 @@ pub fn register(world: &mut World, curves: Curves) {
             // house's own pages come first (eleven rooms of books once read "Nothing
             // here has writing on it").
             if let Some(out) = super::conclave::read(w, here, &arg) {
+                return Ok(out);
+            }
+            if let Some(out) = super::exergue::read(w, here, &arg) {
                 return Ok(out);
             }
             if arg.is_empty() {

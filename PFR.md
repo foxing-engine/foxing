@@ -163,6 +163,16 @@ switch). Still to do:
   above the median, a fee on gifts, craft costs by holding, respawn by active names,
   the death penalty by holding); a statutes section on the board page. The hourhand's
   tower and the Escapement Stair have nothing to read; that is right.
+- The Exergue District (shipped 2026-11-02, the owner's brief: eight rooms to mirror the
+  coinage in circulation, devastating guards on the Purse, a bar where a story about
+  money is worth its weight, just not in gold). Next: a bar story's weight could rise
+  with the money words in it, not only its length; the Assayer could answer `tell`
+  with your holding's assay (what each chunk is worth tonight); the Wardens' respawn
+  could lengthen each time the Purse is taken, and the Purse's share could be a statute
+  the Conclave moves; the sweater's bag and the clippers' filings could be things that
+  drop (a coin item, a recipe); the Mintmark Hall could stamp each kept thing with the
+  hour it was named; a room frame for the atlas for each of the eight; the daemon could
+  write the slate's chalked lines in the tapster's voice.
 - The Docent, next: a second figure for the Lower Stacks (the Cataloguer's clerk); `tell
   docent "what have you found?"` listing the Lost and Found; a `thanks` that costs
   nothing; the Docent walking its round in the tiles mod; the round carries a thing on

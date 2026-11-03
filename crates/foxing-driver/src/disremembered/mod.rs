@@ -21,6 +21,7 @@ pub mod docent;
 pub mod economy;
 pub mod errand;
 pub mod exchange;
+pub mod exergue;
 pub mod footprint;
 mod identity;
 pub mod kindle;

@@ -8051,3 +8051,139 @@ fn a_room_takes_eight_doors_and_a_forgotten_one_is_unmade_on_the_round() {
         "the Hall itself, empty and faded, went too"
     );
 }
+
+#[test]
+fn the_exergue_weighs_money_stories_mirrors_the_coinage_and_guards_the_purse() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // Down from the Clocktower: the stair's dates, the bar's slate.
+    admin(&mut w, "dave", "bring", json!(["dave", "exergue-stair"]));
+    let r = ok(&mut w, "dave", "read", json!([]));
+    assert!(
+        r.summary.contains("The dates on the steps"),
+        "{}",
+        r.summary
+    );
+    ok(&mut w, "dave", "travel", json!(["down"]));
+    let r = ok(&mut w, "dave", "read", json!([]));
+    assert!(r.summary.contains("nothing weighed today"), "{}", r.summary);
+    // A story with no money in it weighs nothing; one about money pays its weight,
+    // not in gold: few XP, a day to halve.
+    let out = ok(
+        &mut w,
+        "dave",
+        "story",
+        json!([
+            "tapster",
+            "There was a lantern on the stair and a moth that would not leave it alone all night."
+        ]),
+    );
+    assert!(
+        out.summary.contains("weighs stories about money"),
+        "{}",
+        out.summary
+    );
+    let out = ok(&mut w, "dave", "story", json!(["tapster", "My grandmother kept her coins in a tea tin and paid the rent in silver every quarter, and owed nobody a penny when she died."]));
+    assert!(
+        out.summary.contains("chalks the figure") && out.summary.contains("just not in gold"),
+        "{}",
+        out.summary
+    );
+    let xp = out.result["xp"].as_f64().unwrap();
+    assert!((3.0..=12.0).contains(&xp), "{xp}");
+    assert_eq!(out.result["half_life_ms"], 86_400_000);
+    let chunks = ok(&mut w, "dave", "chunks", json!([]));
+    assert!(
+        chunks.summary.contains("Counting Bar"),
+        "{}",
+        chunks.summary
+    );
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "story",
+        json!([
+            "tapster",
+            "Another story about money and coins and the price of bread in a cold winter long ago."
+        ]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("One an hour"), "{err}");
+    // The rack mirrors the coinage: the weighted coin is in circulation now.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let r = ok(&mut w, "dave", "read", json!([]));
+    assert!(
+        r.summary.contains("the weighted coin") && r.summary.contains("1 struck"),
+        "{}",
+        r.summary
+    );
+    // The plate is the hour's rates.
+    admin(&mut w, "dave", "bring", json!(["dave", "striking-floor"]));
+    let r = ok(&mut w, "dave", "read", json!([]));
+    assert!(
+        r.summary.contains("The plate under the middle press"),
+        "{}",
+        r.summary
+    );
+    // The Purse: not past two Wardens; past none, what you can carry of it.
+    admin(&mut w, "dave", "bring", json!(["dave", "purse-room"]));
+    let err = call(&mut w, "dave", ActorKind::Citizen, "take", json!(["purse"])).unwrap_err();
+    assert!(
+        err.to_string().contains("Wardens stand over the Purse"),
+        "{err}"
+    );
+    let r = ok(&mut w, "dave", "read", json!(["purse"]));
+    assert!(
+        r.summary.contains("2 Wardens stand over it") && r.summary.contains("never been taken"),
+        "{}",
+        r.summary
+    );
+    let purse_room = rooms::room_of(&w, find_citizen(&w, "dave").unwrap().citizen).unwrap();
+    let wardens: Vec<u64> = super::combat::creatures_in(&w, purse_room)
+        .iter()
+        .filter(|(_, k, _, _)| k == "warden")
+        .map(|(id, _, _, _)| id.0)
+        .collect();
+    assert_eq!(wardens.len(), 2);
+    for id in &wardens {
+        admin(
+            &mut w,
+            "dave",
+            "bring",
+            json!([format!("creature-{id}"), "midden"]),
+        );
+    }
+    let out = ok(&mut w, "dave", "take", json!(["purse"]));
+    assert!(
+        out.summary.starts_with("You untie the cord.") && out.result["taken"] == true,
+        "{}",
+        out.summary
+    );
+    assert!(out.result["worth"].as_f64().unwrap() >= 40.0);
+    let again = ok(&mut w, "dave", "take", json!(["purse"]));
+    assert!(
+        again.summary.contains("The Purse is empty"),
+        "{}",
+        again.summary
+    );
+    // A bare attack at the plinth never picks a Warden.
+    admin(
+        &mut w,
+        "dave",
+        "bring",
+        json!([format!("creature-{}", wardens[0]), "purse-room"]),
+    );
+    let err = call(&mut w, "dave", ActorKind::Citizen, "attack", json!([])).unwrap_err();
+    assert!(err.to_string().contains("officer of the house"), "{err}");
+    // The plaque at the bottom stamps the hour.
+    ok(&mut w, "dave", "travel", json!(["down"]));
+    let out = ok(
+        &mut w,
+        "dave",
+        "append",
+        json!(["I was here, and the Purse was lighter for it.", "Exergue"]),
+    );
+    assert!(out.summary.contains(" UTC: I was here"), "{}", out.summary);
+}

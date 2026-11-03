@@ -230,6 +230,13 @@ pub const CREATURES: &[CreatureDef] = &[
         glyph: "T",
         tint: "#c0a060",
     },
+    // The Exergue District: the tapster who weighs stories, the clippers and sweaters
+    // who shave what you carry, the Assayer, and the Wardens over the Purse.
+    CreatureDef { key: "tapster", name: "tapster", hp: 150.0, attack: 12.0, xp: 400.0, aggressive: false, strike_seconds: 10, ambush: "sets down the glass it was drying and looks at you the way a scale looks at a weight.", glyph: "t", tint: "#b07a4a" },
+    CreatureDef { key: "clipper", name: "clipper", hp: 45.0, attack: 8.0, xp: 150.0, aggressive: true, strike_seconds: 9, ambush: "comes along the rack with its shears open.", glyph: "c", tint: "#9aa4ad" },
+    CreatureDef { key: "sweater", name: "sweater", hp: 70.0, attack: 11.0, xp: 260.0, aggressive: true, strike_seconds: 9, ambush: "steps out from behind the press, shaking a leather bag that is not empty.", glyph: "s", tint: "#a08a5a" },
+    CreatureDef { key: "assayer", name: "assayer", hp: 240.0, attack: 26.0, xp: 1200.0, aggressive: false, strike_seconds: 8, ambush: "lifts the glass bell off the balance and says that it will need a sample.", glyph: "A", tint: "#c8c0b0" },
+    CreatureDef { key: "warden", name: "warden", hp: 320.0, attack: 34.0, xp: 1500.0, aggressive: true, strike_seconds: 7, ambush: "does not move from the plinth, and reaches you anyway.", glyph: "W", tint: "#8a2a2a" },
 ];
 
 /// Base damage per round before the level bonus.
@@ -255,6 +262,9 @@ pub const OFFICERS: &[&str] = &[
     "keeper",
     "sitter",
     "hourhand",
+    "tapster",
+    "assayer",
+    "warden",
 ];
 /// A kill pays what the creature held, at most the delver's level plus this.
 pub const KILL_PAY_OVER_LEVEL: f64 = 60.0;

@@ -295,6 +295,32 @@ by the time you come back; the Stacks keep their own. Each has dying
 throes: its trick fires once more as it comes apart. Go with memory to
 lose, or go light.
 
+## The Exergue District
+
+Under the Stopped Clocktower (`travel exergue`) are eight rooms, one
+for each coin from the farthing to the sovereign, and every one of
+them reads the economy as it stands tonight (`read` in each): the
+Exergue Stair's dates; the Counting Bar's slate; the Die Room's rack,
+which is every chunk in the world grouped by what struck it (the coin of
+the fight, of the story, of the road, of the house, the weighted coin,
+the sovereign); the Striking Floor's plate, the hour's rates; the Assay
+Office's balance; the Mintmark Hall's register of everything kept; the
+Purse on its plinth; and at the bottom, the Exergue itself, a plaque
+that stamps the hour on any line you leave in it (`append "…"
+Exergue`). The tapster at the Counting Bar takes a story about money
+(`story tapster "…"`, a dozen words or more, one an hour) and pays
+its weight: a memory worth a few XP that halves in a day, not in
+hours; worth its weight, just not in gold. Clippers in the Die Room
+shave a tenth off one chunk; sweaters on the Striking Floor shake a
+twentieth off every chunk at once; the Assayer and the two Wardens
+carry the ray, and the Wardens are the most dangerous things in the
+world (320 hit points, 34 a swing). The Purse holds a twentieth of all
+memory held anywhere; fell both Wardens and `take purse`, and what you
+can carry of it (your level plus two hundred at most) is yours as a
+slow-fading memory; it fills again in an hour, and the Wardens come
+back before that. None of the district's officers is struck by a bare
+`attack`: name what you would strike.
+
 ## Things
 
 A creature that comes apart leaves something of itself behind, one

@@ -93,8 +93,13 @@ RULES = (
     "creature between the two. Names: a creature fed to sixty by `remember <chunk> "
     "<creature>` takes a name and knows who keeps it; below seventy its name is failing. "
     "Falls: a visitor who goes down wakes at the Threshold with what they had; a censor's "
-    "ray of forgetfulness halves one carried chunk where it stands. The Docent: asked only at the "
-    "Threshold, it finds the asker anywhere within minutes; between visitors it walks "
+    "ray of forgetfulness halves one carried chunk where it stands. The Exergue District, under "
+    "the Clocktower (`travel exergue`): eight rooms that read the economy; the tapster at the "
+    "Counting Bar weighs a story about money (`story tapster \"…\"`) and pays a few XP that "
+    "halve in a day; clippers shave a tenth off one chunk, sweaters a twentieth off all; the "
+    "Purse behind two Wardens holds a twentieth of all memory held, taken with `take purse` "
+    "once both are felled. The Docent: asked from anywhere, it comes to the asker with the "
+    "answer within minutes; between visitors it walks "
     "its round through the rooms, tidying what lies about."
 )
 

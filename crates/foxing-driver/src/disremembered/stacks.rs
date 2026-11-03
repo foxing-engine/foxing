@@ -71,6 +71,10 @@ pub enum Trick {
     /// Shown below the bar: moved to the Petitioners' Gallery, the fight over (the
     /// Conclave's Sergeant). Never out of the Conclave.
     Below,
+    /// Clipped: a tenth shaved off one chunk, by weight of value (the Die Room).
+    Clip,
+    /// Sweated: a twentieth shaken off every chunk at once (the Striking Floor).
+    Sweat,
     // Learned from kills, from irritating to painful (`death::maybe_learn`):
     /// It says your name back wrong. Nothing else; it is the principle of the thing.
     Chatter,
@@ -100,6 +104,8 @@ pub fn learned_key(t: Trick) -> &'static str {
         Trick::Usher => "usher",
         Trick::Enter => "enter",
         Trick::Below => "below",
+        Trick::Clip => "clip",
+        Trick::Sweat => "sweat",
     }
 }
 
@@ -135,6 +141,11 @@ pub const TRICKS: &[(&str, Trick)] = &[
     ("cataloguer", Trick::Forget),
     ("engrosser", Trick::Enter),
     ("tipstaff", Trick::Below),
+    // The Exergue District.
+    ("clipper", Trick::Clip),
+    ("sweater", Trick::Sweat),
+    ("assayer", Trick::Forget),
+    ("warden", Trick::Forget),
 ];
 
 /// Venom: this many ticks, this far apart, this much each.
@@ -392,6 +403,90 @@ fn play(
                     if keep < 0.5 { "a third of" } else { "half" },
                     was * keep
                 )),
+                false,
+            ))
+        }
+        Trick::Clip | Trick::Sweat => {
+            if !throes && world.roll(ONE_IN) != 0 {
+                return Ok((None, false));
+            }
+            let Some(f) = super::find_citizen(world, actor) else {
+                return Ok((None, false));
+            };
+            let chunks: Vec<EntityId> = world
+                .store
+                .children(f.window)
+                .filter(|e| e.kind == "chunk")
+                .map(|e| e.id)
+                .collect();
+            if chunks.is_empty() {
+                return Ok((
+                    Some(if t == Trick::Clip {
+                        "The shears close on nothing: you carry nothing to clip.".to_string()
+                    } else {
+                        "The bag is shaken over you and nothing comes off: you carry nothing to sweat.".to_string()
+                    }),
+                    false,
+                ));
+            }
+            let now = world.now();
+            let value_of = |w: &World, id: EntityId| {
+                w.store
+                    .read_field(id, CHUNK, "value", now)
+                    .ok()
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0)
+            };
+            let (targets, keep): (Vec<EntityId>, f64) = if t == Trick::Clip {
+                // One chunk, by weight of value.
+                let weights: Vec<f64> = chunks
+                    .iter()
+                    .map(|&c| value_of(world, c).max(0.01))
+                    .collect();
+                let total: f64 = weights.iter().sum();
+                let mut at = (world.roll(1_000_000) as f64 / 1_000_000.0) * total;
+                let mut pick = chunks[chunks.len() - 1];
+                for (c, w) in chunks.iter().zip(&weights) {
+                    if at < *w {
+                        pick = *c;
+                        break;
+                    }
+                    at -= w;
+                }
+                (vec![pick], 0.9)
+            } else {
+                (chunks.clone(), 0.95)
+            };
+            let mut lost = 0.0;
+            for id in &targets {
+                let was = value_of(world, *id);
+                lost += was * (1.0 - keep);
+                world
+                    .record(
+                        Actor::Driver,
+                        StoreEvent::FieldCommitted {
+                            id: *id,
+                            component: CHUNK.into(),
+                            field: "value".into(),
+                            value: was * keep,
+                        },
+                    )
+                    .map_err(|e| e.to_string())?;
+            }
+            let _ = world.note(
+                Actor::Driver,
+                TRICK,
+                json!({"trick": if t == Trick::Clip { "clipped" } else { "sweated" }, "creature": creature.0, "kind": kind, "citizen": actor, "chunks": targets.iter().map(|c| c.0).collect::<Vec<_>>(), "lost": (lost * 100.0).round() / 100.0}),
+            );
+            Ok((
+                Some(if t == Trick::Clip {
+                    let source = plain_str(world, targets[0], CHUNK, "source")
+                        .unwrap_or("?")
+                        .to_string();
+                    format!("The shears take a sliver: chunk-{} ({source}) is a tenth lighter, {lost:.1} XP gone to the filings.", targets[0].0)
+                } else {
+                    format!("The bag is shaken over everything you carry, and the dust comes off: a twentieth of each memory, {lost:.1} XP in all, into the sweater's bag.")
+                }),
                 false,
             ))
         }

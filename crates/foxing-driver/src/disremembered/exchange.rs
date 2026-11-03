@@ -168,6 +168,10 @@ pub fn register(world: &mut World, curves: Curves) {
                 return Err(CommandError::precondition(format!("There is no {who} here.")));
             };
             let display = mind::display(w, creature);
+            // The tapster at the Counting Bar takes a story about money, by the ounce.
+            if super::plain_str(w, creature, super::CREATURE, "name") == Some("tapster") {
+                return super::exergue::bar_story(w, ctx, creature, args.str("text").unwrap_or(""));
+            }
             let Some(name) = mind::name(w, creature) else {
                 return Ok(Outcome::new(
                     format!("You begin, and the {display} {}. It has no name to listen with.", mind::goes_on(&display)),
@@ -284,7 +288,7 @@ pub fn register(world: &mut World, curves: Curves) {
 /// The first sentence of a story, or its first words up to a line's worth, ending on a
 /// word: a creature that repeats "memory of a story: \"Once there was a lant…\"" told a
 /// visitor nothing. The ellipsis marks a cut, and only a cut.
-fn gist(text: &str) -> String {
+pub fn gist(text: &str) -> String {
     const LINE: usize = 56;
     let first = text
         .split_inclusive(['.', '!', '?'])
