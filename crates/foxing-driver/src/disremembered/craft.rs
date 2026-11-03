@@ -1385,11 +1385,11 @@ pub fn register(world: &mut World, curves: Curves) {
                     r.name,
                     if r.fixed { " (a fixture)" } else { "" },
                     r.of.join(" and "),
-                    if r.chunk_at_least > 0.0 { format!(" and a chunk worth {asks:.0} or more") } else { String::new() },
+                    if r.chunk_at_least > 0.0 { format!(" and a chunk worth {asks:.0} or more{}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else { String::new() },
                     r.does,
                     if can { " You could make this now.".to_string() } else if !missing.is_empty() { format!(" You lack {}.", missing.join(" and ")) } else { " You lack the memory to spend.".to_string() }
                 ));
-                list.push(json!({"recipe": r.key, "name": r.name, "of": r.of, "chunk_at_least": asks, "does": r.does, "uses": r.uses, "fixed": r.fixed, "could_make": can, "missing": missing}));
+                list.push(json!({"recipe": r.key, "name": r.name, "of": r.of, "chunk_at_least": asks, "vividity_at_least": r.vividity_at_least, "tier": r.tier, "does": r.does, "uses": r.uses, "fixed": r.fixed, "could_make": can, "missing": missing}));
             }
             Ok(Outcome::new(
                 format!("What can be made (craft <recipe> [<chunk>]):\n{}", lines.join("\n")),
