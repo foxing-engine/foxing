@@ -610,11 +610,15 @@ export default function install(m) {
           px(x * T + 2, y * T - 3 + bob, Math.round(12 * frac), 2, frac > 0.5 ? MOSS : frac > 0.25 ? DUST : EMBER);
         }
         const who = t.given ? t.given + " the " + t.name : "the " + t.name;
+        // Beside another of its kind, this one is wisp-4958: a tap on the left wisp
+        // once struck the right one, and the world says it that way too.
+        const twins = things.filter(o => o.kind === "creature" && o.name === t.name && !o.given).length > 1;
+        const ref = twins ? t.name + "-" + t.id : t.name;
         if (t.given) labelAt(t.given, x, y, -1, (t.holding != null && t.holding < 70) ? DUST : INK);
         const menuRows = t.given
           ? [{ label: "Talk to " + t.given, run: () => m.prefill("tell " + t.given + ' "') }, { label: "Tell " + t.given + " a story", run: () => m.prefill("story " + t.given + ' "') }, { label: "Give " + t.given + " a memory", run: () => m.prefill("remember " + bestChunk() + " " + t.given) }, { label: "Attack " + t.given, run: () => m.command("attack", [t.given]), warn: true }]
-          : [{ label: "Attack " + who, run: () => m.command("attack", [t.name]) }, { label: "Give it a memory (names it at 60)", run: () => m.prefill("remember " + bestChunk() + " " + t.name) }, { label: "Look", run: () => m.command("look", []) }];
-        hot.set(x + "," + y, { label: who + (t.max ? " (" + Number(t.hp).toFixed(0) + "/" + t.max + ")" : "") + (t.given ? " — talk, story, memory, attack" : " — attack, or feed it"), primary: t.given ? () => m.prefill("story " + t.given + ' "') : () => m.command("attack", [t.name]), menu: menuRows });
+          : [{ label: "Attack " + (twins ? ref : who), run: () => m.command("attack", [ref]) }, { label: "Give it a memory (names it at 60)", run: () => m.prefill("remember " + bestChunk() + " " + ref) }, { label: "Look", run: () => m.command("look", []) }];
+        hot.set(x + "," + y, { label: (twins ? ref : who) + (t.max ? " (" + Number(t.hp).toFixed(0) + "/" + t.max + ")" : "") + (t.given ? " — talk, story, memory, attack" : " — attack, or feed it"), primary: t.given ? () => m.prefill("story " + t.given + ' "') : () => m.command("attack", [ref]), menu: menuRows });
       } else if (t.kind === "you") {
         const by = Math.round(Math.sin(now / 300)) - 7;
         px(x * T + 7, y * T + by, 2, 2, DUST); px(x * T + 6, y * T + by - 2, 4, 2, DUST); px(x * T + 5, y * T + by - 4, 6, 2, DUST);

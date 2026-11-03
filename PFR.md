@@ -62,6 +62,12 @@ bell, hearth, table, window, moss, stones, three at most). Still to do:
   scales, the Purse's wheel is there); a lamp motif where the words say "dark".
 - Click-to-walk on the picture's floor (a path over the tiles), and drag to look at
   the atlas from the scene.
+- Shipped 11-02 evening: the memory picker (a line that wants a chunk shows the
+  memories as cards above the prompt; the window's rows pick too); twins named by id
+  in the scene, the here-row and the menu (a tap on the left wisp struck the right
+  one); Up/Down are the history again (the arrows walk with Ctrl, or when the prompt
+  is not focused); the minimap walks on click again (the pan's pointer capture had
+  swallowed the click); tooltips on the panels, the prompt, the ways, the window.
 - A sprite for each thing a creature leaves (the icons are by word now).
 
 - The strip could be room-aware: retarget the spend step when the creature is gone,
