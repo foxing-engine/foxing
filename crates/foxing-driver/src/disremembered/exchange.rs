@@ -62,6 +62,10 @@ pub fn told_this_hour(world: &World, actor: &str, creature: EntityId) -> bool {
     }) {
         if e.payload["missed"] == true {
             misses += 1;
+        } else if e.payload["struck"] == true {
+            // A story that struck the word under the others opens the next word: the
+            // ladder is three, and an hour between rungs put the top out of a visit.
+            continue;
         } else {
             return true;
         }
@@ -273,7 +277,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 STORY,
-                json!({"from": ctx.actor, "creature": creature.0, "kind": kind, "name": name, "words": words, "earned": earned.0, "kept": kept.0, "level": level, "keywords": story_words(&text), "repeats": repeats, "missed": missed.is_some()}),
+                json!({"from": ctx.actor, "creature": creature.0, "kind": kind, "name": name, "words": words, "earned": earned.0, "kept": kept.0, "level": level, "keywords": story_words(&text), "repeats": repeats, "missed": missed.is_some(), "struck": struck.is_some()}),
             );
             // A line of its own, drawn from what it holds beside the new story: four
             // creatures once thanked a teller in exactly the same words.

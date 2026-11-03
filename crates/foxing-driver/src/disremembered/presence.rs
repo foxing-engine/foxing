@@ -286,10 +286,12 @@ pub fn depart(world: &mut World, actor: &str, citizen: EntityId) -> Result<(), S
     let name = plain_str(world, citizen, CITIZEN, "name")
         .unwrap_or(actor)
         .to_string();
+    // The footprint's numbers go with the departure: a return compares.
+    let footprint = super::footprint::snapshot(world, actor);
     let _ = world.note(
         Actor::Citizen(actor.to_string()),
         DEPARTED,
-        json!({"actor": actor, "room": room.map(|r| r.0), "name": name}),
+        json!({"actor": actor, "room": room.map(|r| r.0), "name": name, "footprint": footprint}),
     );
     Ok(())
 }

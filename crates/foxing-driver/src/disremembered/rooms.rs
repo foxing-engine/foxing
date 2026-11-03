@@ -805,14 +805,28 @@ pub fn look_query(room: EntityId) -> Value {
 /// Describe a room as `actor` sees it. Runs the observation query and renders prose
 /// from the structure, which is the text client's job: the driver sends components,
 /// the client makes sentences.
+/// Ten minutes out of a room, and the room's say on return is a homecoming.
+pub const AWAY_MS: i64 = 10 * 60 * 1000;
+
 /// A line of the room's own for who stands in it, said on arrival: a stranger it
 /// has not had before, a keeper (its digger, or a hand that remembered into it),
 /// the Docent on its round (said to whoever is there). The owner's `greet` is the
 /// owner's; this is the room's.
-pub fn reaction(world: &World, actor: &str, room: EntityId, first_time: bool) -> Option<String> {
+pub fn reaction(
+    world: &World,
+    actor: &str,
+    room: EntityId,
+    first_time: bool,
+    away: bool,
+) -> Option<String> {
     let name = plain_str(world, room, ROOM, "name")?.to_string();
     let owner = world.store.entity(room).and_then(|e| e.owner.clone());
     let seed = (room.0 as usize).wrapping_mul(2654435761) ^ actor.len();
+    // The room's own say to its digger or a keeper is for a homecoming, not every
+    // step through the door: after ten minutes away, or the first time.
+    if !first_time && !away {
+        return None;
+    }
     if owner.as_deref() == Some(actor) {
         return Some(match seed % 3 {
             0 => format!(
@@ -832,13 +846,19 @@ pub fn reaction(world: &World, actor: &str, room: EntityId, first_time: bool) ->
     }
     if first_time {
         let dug = owner.is_some();
-        return Some(match (dug, seed % 5) {
-            (true, _) => format!("{name} has not had you in it before; it was dug by {}, and it looks you over the way a borrowed room does.", owner.unwrap_or_default()),
+        return Some(match (dug, seed % 10) {
+            (true, n) if n % 2 == 0 => format!("{name} has not had you in it before; it was dug by {}, and it looks you over the way a borrowed room does.", owner.unwrap_or_default()),
+            (true, _) => format!("{name} was {}'s before it was anyone's, and it has not decided about you.", owner.unwrap_or_default()),
             (false, 0) => format!("{name} has not had you in it before; it notes you the way a shelf notes a book."),
             (false, 1) => format!("You are new to {name}, and it is new to you; the stone takes a moment to settle."),
             (false, 2) => format!("{name} does not know you yet. It will, if you come back."),
             (false, 3) => format!("Nothing in {name} has your shape yet; the room looks you over, and keeps the look."),
-            (false, _) => format!("{name} had not expected you. Rooms expect very little; it is their one virtue."),
+            (false, 4) => format!("{name} had not expected you. Rooms expect very little; it is their one virtue."),
+            (false, 5) => format!("{name} makes a space for you the size of you, and no larger."),
+            (false, 6) => format!("Your first step into {name} is the one it will remember; the rest it files."),
+            (false, 7) => format!("{name} takes you in without a word. It has had words before, and kept none of them."),
+            (false, 8) => format!("A stranger in {name}: the air moves once, and then goes on as it was."),
+            (false, _) => format!("{name} counts you. It is not sure what it is counting toward."),
         });
     }
     None
@@ -1108,7 +1128,13 @@ pub fn describe(
         }
     }
     text.push_str(&if others.is_empty() {
-        " You are alone.".to_string()
+        // "You are alone" beside a named creature that greets you read as a
+        // contradiction: alone of citizens, said so when something is here.
+        if creatures.is_empty() {
+            " You are alone.".to_string()
+        } else {
+            " No other citizen is here.".to_string()
+        }
     } else {
         format!(" Also here: {}.", others.join(", "))
     });
@@ -1248,7 +1274,8 @@ pub fn register(world: &mut World) {
             let settled = super::past::after_travel(w, &super::Curves::from_env(), &ctx.actor, f.citizen, f.window, to)?;
             // The room's own line for who stands in it, before describe marks it seen.
             let first_time = !super::atlas::has_seen(w, f.citizen, to);
-            let reaction = reaction(w, &ctx.actor, to, first_time);
+            let away = super::atlas::last_seen_at(w, f.citizen, to).map_or(true, |t| w.now().0 - t > AWAY_MS);
+            let reaction = reaction(w, &ctx.actor, to, first_time, away);
             let mut out = describe(w, &ctx.actor, ctx, to)?;
             if let Some(r) = &reaction {
                 out.summary.push(' ');

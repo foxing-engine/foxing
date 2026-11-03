@@ -282,6 +282,11 @@ pub fn has_seen(world: &World, citizen: EntityId, room: EntityId) -> bool {
     seen(world, citizen).contains_key(&room.0)
 }
 
+/// When the citizen last stood in the room, if ever.
+pub fn last_seen_at(world: &World, citizen: EntityId, room: EntityId) -> Option<i64> {
+    seen(world, citizen).get(&room.0).copied()
+}
+
 fn seen(world: &World, citizen: EntityId) -> BTreeMap<u64, i64> {
     world
         .store
@@ -664,11 +669,26 @@ pub fn register(world: &mut World, curves: Curves) {
             "disremembered.where",
             "Where a named creature, a citizen or a room is, and the way there over the rooms you remember: a read.",
         )
-        .param("who", ParamType::String, true, "a creature's given name, a citizen, or a room's name"),
+        .param("who", ParamType::String, false, "a creature's given name, a citizen, or a room's name; nothing for where you are and the way back to the Threshold"),
         Box::new(move |w: &mut World, ctx, args: &Args| {
             let f = me(w, ctx)?;
             let here = rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
             let who = args.str("who").unwrap_or("").trim().trim_matches('"').to_string();
+            // Bare `where`: where you stand, and the way back to the Threshold (it once
+            // failed the checker for want of an argument and voided the message).
+            if who.is_empty() {
+                let name = super::plain_str(w, here, ROOM, "name").unwrap_or("?").to_string();
+                let back = rooms::arrival(w)
+                    .filter(|a| *a != here)
+                    .and_then(|a| super::errand::route(w, here, a))
+                    .filter(|p| !p.is_empty())
+                    .map(|p| format!(" The Threshold is {} step{} away: {}.", p.len(), if p.len() == 1 { "" } else { "s" }, p.join(", then ")))
+                    .unwrap_or_else(|| if rooms::arrival(w) == Some(here) { " This is the Threshold.".to_string() } else { String::new() });
+                return Ok(Outcome::new(
+                    format!("You are in {name}.{back} `where <name>` finds a creature, a citizen or a room."),
+                    json!({"here": here.0, "name": name}),
+                ));
+            }
             let (what, room): (String, Option<EntityId>) = if super::docent::is_named(&who) {
                 ("The Docent".to_string(), super::docent::room(w))
             } else if let Some((c, r)) = super::mind::find_named(w, &who) {

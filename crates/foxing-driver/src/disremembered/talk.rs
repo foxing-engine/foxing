@@ -417,7 +417,12 @@ pub fn greet(world: &mut World, actor: &str, room: EntityId) {
         .filter(|&c| mind::name(world, c).is_some())
         .collect();
     for c in named {
+        // Once an hour per visitor, like a citizen's greeting: said on every step
+        // through the room, "You again" twelve seconds later read as a tic.
         let name = mind::display(world, c);
+        if !world.greeted(&format!("creature-{}", c.0), actor) {
+            continue;
+        }
         let line = if mind::keepers(world, c).iter().any(|k| k == actor) {
             format!("{name} looks up. \"You again, {actor}.\"")
         } else {
@@ -871,6 +876,12 @@ pub(crate) fn short_source(source: &str) -> String {
         if let Some((head, _)) = source.split_once(':') {
             return head.to_string();
         }
+    }
+    // The word that made a born creature is the word under its others (secret.rs):
+    // recited whole, the hunt was four tells and one packed story. The carrier
+    // knows it, and the birth is on the public record.
+    if source.starts_with("the word that made it") {
+        return "the word that made it, which it keeps under the others".to_string();
     }
     source.to_string()
 }

@@ -283,6 +283,11 @@ pub fn register(world: &mut World) {
         Box::new(|w: &mut World, ctx, _| {
             let f = super::me(w, ctx)?;
             presence::depart(w, &ctx.actor, f.citizen).map_err(CommandError::internal)?;
+            // A leaving ends the session: the return is an arrival, not a pause (a
+            // visitor back from a `leave` read "Here 17m" as if they had never gone).
+            let mut changes = std::collections::BTreeMap::new();
+            changes.insert("session_at".into(), foxing_store::Field::Plain(Value::Null));
+            super::set_citizen_fields(w, &ctx.actor, f.citizen, changes)?;
             if super::is_passing(w, f.citizen) {
                 presence::forget(w, f.citizen).map_err(CommandError::internal)?;
                 return Ok(Outcome::new(

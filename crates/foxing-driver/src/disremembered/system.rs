@@ -698,9 +698,16 @@ fn register_rest(world: &mut World) {
             ParamType::Integer,
             false,
             "how many (default 10, max 100)",
+        )
+        .param(
+            "before",
+            ParamType::Integer,
+            false,
+            "skip this many of the newest first, to read further back (`log 100 300` is the hundred that came before the last three hundred)",
         ),
         Box::new(|w: &mut World, ctx, args: &Args| {
             let n = args.int("count").unwrap_or(10).clamp(1, 100) as usize;
+            let before = args.int("before").unwrap_or(0).clamp(0, 5000) as usize;
             // What this viewer may see, as they may see it: the same rule as /v0/log.
             let viewer = if ctx.kind == ActorKind::Admin {
                 foxing_store::Viewer::admin()
@@ -709,7 +716,7 @@ fn register_rest(world: &mut World) {
             };
             let now = w.now();
             let events: Vec<foxing_log::Event> = w
-                .recent_events(n * 4)
+                .recent_events((n + before) * 4)
                 .into_iter()
                 .filter(|e| crate::observe::visible(w, &viewer, now, e))
                 // What happened, in words: the store's and the scheduler's bookkeeping
@@ -726,6 +733,7 @@ fn register_rest(world: &mut World) {
             let events: Vec<foxing_log::Event> = events
                 .into_iter()
                 .rev()
+                .skip(before)
                 .take(n)
                 .collect::<Vec<_>>()
                 .into_iter()

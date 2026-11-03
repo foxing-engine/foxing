@@ -41,6 +41,36 @@ Next for the word: a parent that knows its child's word when asked; the Docent's
 hint; a word struck three times by one teller across creatures earning something
 of its own.
 
+From the Night's Watch of 2026-11-03 (Hazelquill free play 7, Marrowbit the hidden word
+7, Lintwhistling dig-and-return 5, Brasspocket the Stacks 6; obvious fixes shipped the
+same night: the return digest says what faded, a `leave` ends the session, room lines
+and "You again" only on a homecoming, "No other citizen is here" beside a creature,
+bare `where`, the refill hint on an empty room, the Docent's sense of place, the birth
+word no longer recited, a strike opens the next rung without the hour, `log <count>
+<before>`, the hint says when a word is the world's own, ten entry voices, the
+Register's article, `mine` sees the satchel, the free fall says why it was free, a
+retarget is named, the ground floor's wound line, help on rest and retreat):
+- **Dying beats retreating at low level.** A fresh name's falls are free (the curve
+  gives nothing at twelve), it wakes whole at the Threshold, and a retreat costs a free
+  strike and eight minutes of rest; Brasspocket killed a censor by dying three times.
+  Options: a strike-free retreat above half hit points; waking at the Threshold at half
+  hit points; a small flat cost under the curve. Your call; the curve itself stands.
+- **A censor against a fresh name.** Nine to eleven a round against thirty hit points:
+  two stands remove a third of it, and "about half" is unreachable in a three-line
+  batch. Options: the Stacks' creatures hit for less against a low name (a curve), or
+  the Stacks ask a level at the stair, or the first blow of a stand is free.
+- **The hidden word is too easy at level one** (Marrowbit struck four in ten minutes:
+  the oldest story in the hold list, or the birth word, now masked). Options: the first
+  word from a want the creature had before the teller met it (the record, not the
+  creature); a wrong guess costing the hour; the Docent as the only hint.
+- **Fights past level one hundred are clicking**: one-shots, "Nothing of it is left
+  behind" four times in five; Hazelquill stopped. Options: drops by the fight's length
+  rather than a flat one in three; unnamed creatures scaling with the visitor's level.
+- **The arithmetic of forgetting must be honest** (Hazelquill): the chunks rule said
+  "halves every 1h 2m at vividity 0, 3h 6m at 1" while carried chunks read "6h 12m";
+  "five times slower" on the shelf measured 1.6x; per-chunk half-lives did not move
+  after the strike. To investigate before the next cohort: which curve each line reads.
+
 From the loop cohort of 2026-11-02 (Copperwick, Nettlebright, Loamwhistle,
 Bellowsmith; reports in the session scratchpad; the obvious fixes shipped the same
 night: the dig reply's vividity, the door-cap refusal naming open rooms, the name
@@ -278,6 +308,21 @@ bell, hearth, table, window, moss, stones, three at most). Still to do:
   no warning). The moments that landed were all the world knowing the visitor by name:
   "You again, Nettlebright"; Dribble knowing Copperwick; `invite Rillet` arriving; a
   lantern's record backing up the name its maker gave it.
+- Night's Watch items, by report. Hazelquill: a visitor book whose text invites a line
+  refuses it (say who may write, or let the text's invitation be a welcome); "mostly
+  quiet now" said of a chunk given a minute ago (the line of its own picks the newest);
+  surface a failing name on `wants` ("Oddren's name is failing at 39"); the gate dropped
+  two receipts under the statement limit; the Orrery promises a drawer of notes `read`
+  denies; `board` counts stories as errands; the Docent's tidying wants a line in the
+  room. Marrowbit: the Docent named the newest story as the oldest and leaked a birth
+  word in the sentence it refused; "the first thing anyone told you" recites the last
+  four; an unrecognized `tell` dumps the whole hold list (Oddren's short form should be
+  the only form); `wants` stale after a strike and after a carry was done; "Here:
+  hollow" but `tell hollow` refused; hit and miss paid the same number (the bonus
+  shows only as vividity). Lintwhistling: `leave`'s farewell missing once in three; a
+  want's timer went up on rotation (the jitter); `observe` by a dug room's key.
+  Brasspocket: hit points drift by one between lines (ceil vs round); failed
+  statements cost budget; the ray fires on the killing blow.
 - Smaller cohort items, by loop. Earn-fade-spend: an empty room should say a wisp will
   come and when; `attack <kind>` with twins should say which it chose; the first empty
   Stacks room should hint `where lamprey`; the censor's trick is not visible on the

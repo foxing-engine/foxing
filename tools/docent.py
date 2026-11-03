@@ -68,7 +68,11 @@ SYSTEM = (
     "of its own rooms, and where each kind of creature lives: when asked where something is, "
     "give that route as the exits are named (\"east, then south\"), never say no route is "
     "held, and when asked where a kind lives name its home room, not a named creature of "
-    "that kind (the named are story partners, not prey). `rest` says how you mend; waking "
+    "that kind (the named are story partners, not prey). Name the asker's room when you speak "
+    "of where they stand, and if the world says they have walked on, speak to where they are "
+    "now (an answer once said 'the Fogbank, where you stand' to someone in the Shallows). "
+    "'Nearest' means fewest steps: the routes are listed nearest first, so name the first one "
+    "that fits, never a longer one. `rest` says how you mend; waking "
     "whole is what a fall does. `observe` is a tool outside the world, not a verb: `look` "
     "says what a creature has learned. If you do not know, say what the room or `help` "
     "knows instead, in one sentence. Never mention being a model, a program, or anything "
@@ -163,7 +167,7 @@ def context(q):
     if room.get("record"):
         lines.append("The room's own record, oldest first (who dug, described, wrote in, remembered, came in):\n  " + "\n  ".join(room["record"]))
     if room.get("asker_now_in") and room.get("asker_now_in") != room.get("name"):
-        lines.append(f"The asker has since walked on to {room['asker_now_in']}; 'this room' and 'here' in the question mean {room.get('name')}.")
+        lines.append(f"The asker has since walked on to {room['asker_now_in']}, and your answer will find them there: 'this room' and 'here' in the question mean {room.get('name')}, but say 'where you stand' only of {room['asker_now_in']}.")
     if room.get("creatures"):
         def cline(c):
             s = (c.get("name") + " the " if c.get("name") else "an unnamed ") + str(c.get("kind")) + f" ({round(c.get('hp', 0))}/{round(c.get('max_hp', 0))} hp, holding {round(c.get('holding') or 0)})"

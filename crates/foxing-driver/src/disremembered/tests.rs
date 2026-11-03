@@ -1558,7 +1558,7 @@ fn a_quiet_citizen_is_disremembered_by_the_room_and_returns_as_an_arrival() {
     let look = ok(&mut w, "tyler", "look", json!([]));
     assert!(
         look.summary
-            .contains("You are alone. Remembered here: dave."),
+            .contains("No other citizen is here. Remembered here: dave."),
         "{}",
         look.summary
     );

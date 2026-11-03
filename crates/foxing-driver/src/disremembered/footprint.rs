@@ -137,6 +137,98 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
 }
 
 /// Your footprint and what happened to it since you were last here.
+/// The numbers of a citizen's footprint at a moment: each creature they keep with
+/// what it holds, each room of theirs with its memory and half-life. Taken when they
+/// go quiet (the departure carries it), so a return can say what faded ("Thrope holds
+/// 66, down from 76"): fading is not an event, and the digest once said nothing
+/// touched any of it while a creature went ten points lighter.
+pub fn snapshot(world: &World, actor: &str) -> Value {
+    let now = world.now();
+    let mut creatures = serde_json::Map::new();
+    for e in world.store.entities().filter(|e| e.kind == "creature") {
+        if mind::keepers(world, e.id).iter().any(|k| k == actor) {
+            creatures.insert(
+                e.id.0.to_string(),
+                json!({"name": mind::display(world, e.id), "level": mind::level(world, e.id)}),
+            );
+        }
+    }
+    let mut rooms = serde_json::Map::new();
+    for e in world.store.entities().filter(|e| e.kind == "room") {
+        let dug = e.owner.as_deref() == Some(actor);
+        let kept = super::building::kept_by(world, e.id)
+            .iter()
+            .any(|k| k == actor);
+        if dug || kept {
+            rooms.insert(e.id.0.to_string(), json!({
+                "name": plain_str(world, e.id, ROOM, "name").unwrap_or("?"),
+                "memory": world.store.read_field(e.id, ROOM, "memory", now).ok().and_then(|v| v.as_f64()),
+                "half_life_ms": super::plain_num(world, e.id, ROOM, "half_life_ms").unwrap_or(0.0),
+            }));
+        }
+    }
+    json!({"creatures": creatures, "rooms": rooms})
+}
+
+/// What changed in the numbers between a snapshot and now, as lines.
+fn faded_since(world: &World, actor: &str, then: &Value) -> Vec<String> {
+    let now_snap = snapshot(world, actor);
+    let mut out = Vec::new();
+    if let Some(c) = then["creatures"].as_object() {
+        for (id, was) in c {
+            let name = was["name"].as_str().unwrap_or("a creature");
+            match now_snap["creatures"][id]["level"].as_f64() {
+                Some(l) => {
+                    let w = was["level"].as_f64().unwrap_or(l);
+                    if (l - w).abs() >= 1.0 {
+                        out.push(format!(
+                            "{name} holds {:.0}, {} from {:.0}",
+                            super::up(l),
+                            if l < w { "down" } else { "up" },
+                            super::up(w)
+                        ));
+                    }
+                }
+                None => out.push(format!(
+                    "{name} is no longer yours to keep (felled, forgotten, or its name gone)"
+                )),
+            }
+        }
+    }
+    if let Some(r) = then["rooms"].as_object() {
+        for (id, was) in r {
+            let name = was["name"].as_str().unwrap_or("a room");
+            match now_snap["rooms"][id].as_object() {
+                Some(_) => {
+                    let m = now_snap["rooms"][id]["memory"].as_f64();
+                    let wm = was["memory"].as_f64();
+                    let h = now_snap["rooms"][id]["half_life_ms"]
+                        .as_f64()
+                        .unwrap_or(0.0);
+                    let wh = was["half_life_ms"].as_f64().unwrap_or(h);
+                    if (h - wh).abs() > 60_000.0 {
+                        out.push(format!(
+                            "{name} halves every {} now, {} before",
+                            super::building::humane(foxing_time::Duration(h as i64)),
+                            super::building::humane(foxing_time::Duration(wh as i64))
+                        ));
+                    } else if let (Some(m), Some(wm)) = (m, wm) {
+                        if (m - wm).abs() >= 0.1 {
+                            out.push(format!(
+                                "{name} is {:.0}% remembered, from {:.0}%",
+                                m * 100.0,
+                                wm * 100.0
+                            ));
+                        }
+                    }
+                }
+                None => out.push(format!("{name} is gone")),
+            }
+        }
+    }
+    out
+}
+
 pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> {
     let f = super::find_citizen(world, actor).ok_or_else(|| {
         CommandError::precondition(format!("{actor} has not arrived; log in first."))
@@ -252,6 +344,20 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
             Some(h) if h.kind == "citizen" => {
                 format!("carried by {}", h.owner.clone().unwrap_or_default())
             }
+            // A satchel: the citizen it hangs from (a charm in the maker's own satchel
+            // was "somewhere").
+            Some(h) if h.kind == "satchel" => {
+                let who = h
+                    .parent
+                    .and_then(|c| world.store.entity(c))
+                    .and_then(|c| c.owner.clone())
+                    .unwrap_or_default();
+                if who == actor {
+                    "in your satchel".to_string()
+                } else {
+                    format!("carried by {who}")
+                }
+            }
             _ => "somewhere".to_string(),
         };
         lines.push(format!(
@@ -292,6 +398,15 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
         .filter(|e| e.kind == super::presence::DEPARTED && e.payload["actor"] == actor)
         .map(|e| e.seq.0)
         .collect();
+    let last_departure = recent
+        .iter()
+        .rev()
+        .find(|e| {
+            e.kind == super::presence::DEPARTED
+                && e.payload["actor"] == actor
+                && arrivals.last().is_some_and(|a| e.seq.0 < *a)
+        })
+        .cloned();
     // A first visit has no "last here": the digest is since this arrival, said so.
     let first_visit = arrivals.len() < 2;
     let this_arrival = arrivals.last().copied().unwrap_or(0);
@@ -440,8 +555,18 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
             "What remembers you:\n{}{}",
             lines.join("\n"),
             if shown.is_empty() {
-                if since > 0 {
-                    format!("\n{since_said}: nothing touched any of it.")
+                // Nothing on the record touched it; the numbers may still have moved.
+                let faded = last_departure
+                    .as_ref()
+                    .map(|d| faded_since(world, actor, &d.payload["footprint"]))
+                    .unwrap_or_default();
+                if !faded.is_empty() {
+                    format!(
+                        "\n{since_said}: no one touched it, and the fading went on: {}.",
+                        faded.join("; ")
+                    )
+                } else if since > 0 {
+                    format!("\n{since_said}: nothing touched any of it, and nothing of it has faded enough to say.")
                 } else {
                     String::new()
                 }

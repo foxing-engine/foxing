@@ -38,13 +38,13 @@ approved_verbs:
   resume: {params: []}
   time: {params: []}
   help: {params: [{name: verb, type: string, required: false}]}
-  where: {params: [{name: who, type: string, required: true}]}
+  where: {params: [{name: who, type: string, required: false}]}
   wants: {params: []}
   mine: {params: [{name: about, type: string, required: false}]}
   session: {params: []}
   messages: {params: [{name: count, type: integer, required: false}]}
   commands: {params: [{name: verb, type: string, required: false}]}
-  log: {params: [{name: count, type: integer, required: false}]}
+  log: {params: [{name: count, type: integer, required: false}, {name: before, type: integer, required: false}]}
   observe: {params: [{name: query, type: string, required: true}]}
   # movement and world
   look: {params: []}

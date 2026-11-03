@@ -283,8 +283,9 @@ pub fn draw_for(
         "the Register of Names",
         "the Namery",
         &format!(
-            "{} UTC: {name}, to a {kind}{}",
+            "{} UTC: {name}, to {}{}",
             super::system::clock(world.now().0),
+            super::mind::an(kind),
             if keepers.is_empty() {
                 String::new()
             } else {

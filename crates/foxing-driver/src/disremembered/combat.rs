@@ -1002,7 +1002,10 @@ impl Death {
                 None => out.push('.'),
             }
         }
-        if self.fall > 1 {
+        // "Costs half what the first did" of a first that cost nothing read as a
+        // lie (a level-twelve name's falls are free by the curve): said only when
+        // something was lost, and the free fall says why it was free.
+        if self.fall > 1 && self.lost.is_some() {
             out.push_str(&format!(
                 " The {} fall of the night: it costs {} what the first did.",
                 super::death::ordinal(self.fall),
@@ -1013,6 +1016,10 @@ impl Death {
                     _ => "almost nothing of",
                 }
             ));
+        } else if self.lost.is_none() {
+            out.push_str(
+                " A fall costs a share of the window that grows with level: nothing at yours.",
+            );
         }
         if let Some(l) = self.learned {
             out.push_str(&format!(" And {}.", super::death::learned_said(l)));
@@ -1320,6 +1327,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     "The Docent is not for fighting; it keeps the door, and has seen worse than you. Ask it something: tell docent \"\u{2026}\".",
                 ));
             }
+            let mut retargeted: Option<String> = None;
             let target = match args.str("creature") {
                 Some(name) if !name.is_empty() => {
                     // The kind you are already fighting is the one you mean, before any
@@ -1336,9 +1344,14 @@ pub fn register(world: &mut World, curves: Curves) {
                         .rsplit_once('-')
                         .filter(|(_, d)| d.chars().all(|c| c.is_ascii_digit()))
                         .map(|(k, _)| k.to_string());
-                    let found = fighting
-                        .or_else(|| super::mind::find_here(w, room, name))
+                    let by_name = fighting.or_else(|| super::mind::find_here(w, room, name));
+                    let found = by_name
                         .or_else(|| kind_only.as_deref().and_then(|k| super::mind::find_here(w, room, k)).filter(|c| super::mind::name(w, *c).is_none()));
+                    if by_name.is_none() {
+                        if let Some(c) = found {
+                            retargeted = Some(format!("{} is gone; you turn on {}-{}.", name.trim(), plain_str(w, c, CREATURE, "name").unwrap_or("it"), c.0));
+                        }
+                    }
                     // A kind never strikes a named creature, even one alone of its kind:
                     // two visitors in one night felled Lute by typing "attack wisp".
                     if let Some(c) = found {
@@ -1377,6 +1390,17 @@ pub fn register(world: &mut World, curves: Curves) {
                 // same message leaves you at the Threshold, and "No such creature here"
                 // read as an error.
                 let where_ = format!(" You are in {}.", plain_str(w, room, super::ROOM, "name").unwrap_or("?"));
+                // An empty room that refills says when: the Fogbank's "nothing here to
+                // fight" read as a dead end to a visitor who waited ninety seconds.
+                let refill = w
+                    .jobs
+                    .pending()
+                    .filter(|j| j.kind == JOB_RESPAWN && j.payload["room"] == room.0)
+                    .map(|j| j.due.0 - w.now().0)
+                    .min()
+                    .map(|ms| format!(" Something will drift in within about {}.", human(ms.max(5_000))))
+                    .unwrap_or_default();
+                let where_ = format!("{where_}{refill}");
                 let officers: Vec<String> = here.iter().filter(|c| super::mind::name(w, c.0).is_none() && plain_str(w, c.0, CREATURE, "name").is_some_and(|k| OFFICERS.contains(&k))).map(|c| super::mind::display(w, c.0)).collect();
                 return Err(CommandError::precondition(if here.is_empty() { format!("There is nothing here to fight.{where_}") } else if args.str("creature").map_or(true, str::is_empty) && !officers.is_empty() {
                     format!("Nothing here is struck by accident: {} {} an officer of the house, named in `attack` or left alone.", officers.join(" and "), if officers.len() == 1 { "is" } else { "are" })
@@ -1431,6 +1455,9 @@ pub fn register(world: &mut World, curves: Curves) {
             } else {
                 format!("You hit the {cname} for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" })
             }];
+            if let Some(r) = retargeted.take() {
+                lines.insert(0, r);
+            }
             if chp > 0.0 {
                 if let Some(c) = began.take() {
                     lines.push(c);
@@ -1530,7 +1557,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.retreat", "Break off the fight. The creature gets one free strike as you go."),
+        CommandSpec::new("disremembered.retreat", "Break off the fight. The creature gets one free strike as you go. A ground-floor creature keeps the wound you gave it; one of the Stacks or the Exergue keeps it ten minutes, then is whole; venom follows you out. You mend only out of the room."),
         Box::new(|w: &mut World, ctx, _| {
             let f = me(w, ctx)?;
             let Some(creature) = engaged_with(w, f.citizen) else {
@@ -1552,7 +1579,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let mended = match super::stacks::trick_of(w, creature) {
                 Some(super::stacks::Trick::Enter) | Some(super::stacks::Trick::Below) => " It will be whole again by the time you come back; the Conclave keeps its order.",
                 Some(_) => " It keeps the wound a while: whole again in ten minutes, if nobody takes it up before.",
-                None => "",
+                None => " It keeps the wound; it is yours to finish when you come back.",
             };
             // Venom follows you out of the room: said, with what it will cost, since
             // five hit points and four ticks of two is a death the text once left unsaid.
@@ -1580,7 +1607,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.rest", "Your hit points, and how long until they are full. Healing happens on its own, on your clock."),
+        CommandSpec::new("disremembered.rest", "Your hit points, and how long until they are full. Healing happens on its own, on your clock, but never while something fights you (step out of the room first) and never while a bite bleeds."),
         Box::new(|w: &mut World, ctx, _| {
             let f = me(w, ctx)?;
             let now = w.now();
