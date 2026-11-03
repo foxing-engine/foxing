@@ -279,7 +279,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
                     earned.0
                 ),
-                json!({"creature": creature.0, "name": name, "words": words, "earned": earned.0, "xp": paid, "kept": kept.0, "level": level, "wanted": wanted, "repeats": repeats}),
+                json!({"creature": creature.0, "name": name, "words": words, "distinct": distinct, "earned": earned.0, "xp": paid, "kept": kept.0, "level": level, "wanted": wanted, "repeats": repeats}),
             ))
         }),
     );

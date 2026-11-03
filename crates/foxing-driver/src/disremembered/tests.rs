@@ -8187,3 +8187,116 @@ fn the_exergue_weighs_money_stories_mirrors_the_coinage_and_guards_the_purse() {
     );
     assert!(out.summary.contains(" UTC: I was here"), "{}", out.summary);
 }
+
+#[test]
+fn a_room_welcomes_all_and_invites_a_named_creature_to_live_in_it() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // Tyler digs a room at the Fogbank and welcomes every hand.
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    let c = admin(&mut w, "tyler", "earn", json!(["wisp", 40, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "tyler",
+        "dig",
+        json!(["hollow", &c, "The Open House"]),
+    );
+    ok(&mut w, "tyler", "travel", json!(["hollow"]));
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "permit",
+        json!(["all"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("by name"), "{err}");
+    let out = ok(&mut w, "tyler", "welcome", json!(["all"]));
+    assert!(out.summary.contains("Everyone may add"), "{}", out.summary);
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "travel", json!(["hollow"]));
+    let out = ok(&mut w, "dave", "append", json!(["A line from a stranger."]));
+    assert!(
+        out.summary.contains("stranger") || out.summary.contains("add"),
+        "{}",
+        out.summary
+    );
+    ok(&mut w, "tyler", "revoke", json!(["everyone"]));
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "append",
+        json!(["Another."]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("owner")
+            || err.to_string().contains("welcome")
+            || err.to_string().contains("permitted"),
+        "{err}"
+    );
+    // A wisp at the Fogbank, fed to its name by tyler, is invited to live in the room.
+    let c2 = admin(&mut w, "tyler", "earn", json!(["wisp", 70, 0.5]));
+    let c2 = format!("chunk-{}", c2.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "travel", json!(["back"]));
+    let out = ok(&mut w, "tyler", "remember", json!([&c2, "wisp"]));
+    assert!(out.summary.contains(" the wisp"), "{}", out.summary);
+    let fog = rooms::room_of(&w, find_citizen(&w, "tyler").unwrap().citizen).unwrap();
+    let named = combat::creatures_in(&w, fog)
+        .into_iter()
+        .map(|c| c.0)
+        .find(|&c| mind::name(&w, c).is_some())
+        .expect("a named wisp");
+    let given = mind::name(&w, named).unwrap().to_string();
+    // Not from the world's room; not by someone it does not know.
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "invite",
+        json!([&given]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("room you dug"), "{err}");
+    ok(&mut w, "tyler", "travel", json!(["hollow"]));
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "invite",
+        json!([&given]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("owner"), "{err}");
+    let out = ok(&mut w, "tyler", "invite", json!([&given]));
+    assert!(
+        out.summary.contains("settles in The Open House"),
+        "{}",
+        out.summary
+    );
+    let house = rooms::room_of(&w, find_citizen(&w, "tyler").unwrap().citizen).unwrap();
+    assert_eq!(w.store.entity(named).and_then(|e| e.parent), Some(house));
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "invite",
+        json!([&given]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("here already"), "{err}");
+    // Dave, who told it nothing, cannot even from his own room; and the creature's
+    // "who made you" names its feeder.
+    let out = ok(&mut w, "tyler", "tell", json!([&given, "who made you?"]));
+    let said = narrative(&w, "tyler", 0).join(" ");
+    assert!(
+        said.contains("tyler fed me") || out.summary.contains("fed me"),
+        "{}\n{}",
+        out.summary,
+        said
+    );
+}

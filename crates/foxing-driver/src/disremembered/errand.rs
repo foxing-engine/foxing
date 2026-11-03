@@ -437,8 +437,16 @@ pub fn describe(world: &World, creature: EntityId) -> Option<String> {
                 .unwrap_or_default(),
             _ => String::new(),
         };
+        // The errand is two legs: the one it names hands back a word for the way
+        // home, and the birth is on the way home. Said up front, so a passing name
+        // with an hour does not take the first leg for the whole.
+        let halves = if e.word_by == "the way home" {
+            " This is the way home: the second half of an errand, and what may be born of it is born on this leg."
+        } else {
+            " That is half the errand: it will hand you a word for the way home, and the way home is the other half."
+        };
         parts.push(format!(
-            "{n} wants word carried to {to}{place}: \"{phrase}\"{way}."
+            "{n} wants word carried to {to}{place}: \"{phrase}\"{way}.{halves}"
         ));
     }
     Some(parts.join(" "))

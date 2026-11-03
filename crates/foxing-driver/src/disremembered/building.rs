@@ -11,7 +11,7 @@
 //! test, so no one digs "the gate".
 
 use super::rooms::{exits_of, room_of};
-use super::{internal, me, plain_str, CHUNK, EXITS, ROOM};
+use super::{internal, me, plain_num, plain_str, CHUNK, EXITS, ROOM};
 use crate::world::World;
 use foxing_log::Actor;
 use foxing_registry::{
@@ -35,6 +35,9 @@ pub const HALF_REMEMBERED: &str =
 const UNDESCRIBED: &str = "Freshly dug. No one has described it yet.";
 
 /// Whether a room was dug by a citizen (and so has a memory), as opposed to seeded.
+/// A named creature invited to live in a dug room: `{by, creature, name, kind, from, room}`.
+pub const INVITED: &str = "disremembered.invited";
+
 pub fn is_built(world: &World, room: EntityId) -> bool {
     world
         .store
@@ -255,9 +258,18 @@ pub(crate) fn may_append(
 /// an entry whose expiry is null or still ahead.
 fn granted(world: &World, room: EntityId, field: &str, who: &str) -> bool {
     let now = world.now().0;
-    grants_of(world, room, field)
-        .get(who)
-        .is_some_and(|until| until.is_null() || until.as_i64().is_some_and(|t| t > now))
+    let grants = grants_of(world, room, field);
+    let live = |until: &Value| until.is_null() || until.as_i64().is_some_and(|t| t > now);
+    // `welcome all` is the key "*": a guest book any hand may sign.
+    grants.get(who).is_some_and(live) || (field == "welcomes" && grants.get("*").is_some_and(live))
+}
+
+/// `all`, `anyone` or `everyone` as a citizen's name, for a welcome to every hand.
+fn everyone(typed: &str) -> bool {
+    matches!(
+        typed.to_lowercase().as_str(),
+        "all" | "anyone" | "everyone" | "*"
+    )
 }
 
 pub(crate) fn owner_only(
@@ -547,9 +559,10 @@ pub fn register(world: &mut World, curves: super::Curves) {
             );
             Ok(Outcome::new(
                 format!(
-                    "You dig {exit} with the memory of {source}. {name} opens: undescribed, yours, remembered for now. You still stand in {here_name}; `travel {exit}` goes in, and the way back is {}. Its memory halves every {} unless someone visits; a visit remembers it whole, and `remember <chunk>` inside it lengthens that half-life for good.",
+                    "You dig {exit} with the memory of {source}. {name} opens: undescribed, yours, remembered for now. You still stand in {here_name}; `travel {exit}` goes in, and the way back is {}. Its memory halves every {} unless someone visits: the memory's own pace (vividity {viv:.2} stretches an hour's fading up to three times, no further); a visit remembers it whole, and `remember <chunk>` inside it is what makes a room last.",
                     opposite(&exit),
                     humane(hl),
+                    viv = plain_num(w, chunk, CHUNK, "vividity").unwrap_or(0.0),
                     here_name = plain_str(w, here, ROOM, "name").unwrap_or("this room"),
                 ),
                 json!({"room": id.0, "key": key, "name": name, "exit": exit, "back": opposite(&exit), "half_life_ms": hl.0, "spent": chunk.0}),
@@ -860,7 +873,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.permit",
-            "Let another citizen describe and name this room of yours, for some hours or for good. To let them only add to it, welcome them instead. A kept name's verb.",
+            "Let another citizen describe and name this room of yours, for some hours or for good. To let them only add to it, welcome them instead (`welcome all` opens it to every hand). A kept name's verb.",
         )
         .param("citizen", ParamType::Entity, true, "a citizen's name")
         .param(
@@ -876,8 +889,81 @@ pub fn register(world: &mut World, curves: super::Curves) {
 
     world.register(
         CommandSpec::new(
+            "disremembered.invite",
+            "Ask a named creature that knows you (you fed it, or told it what it wanted) to come and live in this dug room of yours. It comes at once from wherever it is and stays, as creatures do, until it is felled or invited elsewhere; its wants and stories go on here. Officers of the house do not come. A kept name's verb, in a room you own.",
+        )
+        .param("creature", ParamType::Entity, true, "a named creature's name"),
+        Box::new(|w: &mut World, ctx, args: &Args| {
+            super::kept_only(w, ctx, "invite")?;
+            let f = me(w, ctx)?;
+            let here = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
+            if !is_built(w, here) {
+                return Err(CommandError::precondition(
+                    "This room is the world's; a creature is invited to a room you dug.",
+                ));
+            }
+            owner_only(w, ctx, here)?;
+            let typed = args.str("creature").unwrap_or("").trim().to_string();
+            let Some((creature, from)) = super::mind::find_named(w, &typed) else {
+                return Err(CommandError::precondition(format!(
+                    "No named creature is called {typed}; `wants` lists the named and where they are."
+                )));
+            };
+            let given = super::mind::name(w, creature).unwrap_or_default().to_string();
+            let kind = plain_str(w, creature, super::CREATURE, "name").unwrap_or("creature").to_string();
+            if super::combat::OFFICERS.contains(&kind.as_str()) {
+                return Err(CommandError::precondition(format!(
+                    "{given} is an officer of the house and keeps to it."
+                )));
+            }
+            let keepers = super::mind::keepers(w, creature);
+            let knows = keepers.iter().any(|k| k == &ctx.actor)
+                || super::errand::did_for(w, creature, &ctx.actor);
+            if !knows {
+                return Err(CommandError::precondition(format!(
+                    "{given} does not know you. Feed it a memory, or do what it wants, and ask again."
+                )));
+            }
+            if from == Some(here) {
+                return Err(CommandError::precondition(format!("{given} is here already.")));
+            }
+            let from_name = from
+                .and_then(|r| plain_str(w, r, ROOM, "name"))
+                .unwrap_or("nowhere")
+                .to_string();
+            let here_name = plain_str(w, here, ROOM, "name").unwrap_or("your room").to_string();
+            if let Some(r) = from {
+                let leaving = format!("{given} the {kind} leaves, going to {here_name} at {}'s invitation.", ctx.actor);
+                let mark = r;
+                // Told to whoever stands in the room it leaves.
+                // narrate_room speaks to everyone in the room of the entity it is
+                // handed: the creature itself, still standing there.
+                let _ = mark;
+                super::combat::narrate_room(w, creature, &leaving);
+            }
+            w.record(
+                Actor::Citizen(ctx.actor.clone()),
+                StoreEvent::EntityMoved { id: creature, parent: Some(here) },
+            )
+            .map_err(internal)?;
+            let _ = w.note(
+                Actor::Citizen(ctx.actor.clone()),
+                INVITED,
+                json!({"by": ctx.actor, "creature": creature.0, "name": given, "kind": kind, "from": from.map(|r| r.0), "room": here.0}),
+            );
+            super::combat::narrate_others(w, f.citizen, &format!("{given} the {kind} arrives from {from_name}, invited to live here."), &ctx.actor);
+            w.notice(format!("**{given}** the {kind} went to live in {here_name} at **{}**'s invitation.", ctx.actor));
+            Ok(Outcome::new(
+                format!("{given} the {kind} comes from {from_name} and settles in {here_name}. It lives here now: what it wants, it wants from here, and `wants` will say so."),
+                json!({"creature": creature.0, "name": given, "from": from.map(|r| r.0), "room": here.0}),
+            ))
+        }),
+    );
+
+    world.register(
+        CommandSpec::new(
             "disremembered.welcome",
-            "Let another citizen add to this room of yours, a sentence at a time, but not rewrite or rename it: a guest book. For some hours or for good. A kept name's verb.",
+            "Let another citizen add to this room of yours, a sentence at a time, but not rewrite or rename it: a guest book. For some hours or for good; `welcome all` opens it to every hand. A kept name's verb.",
         )
         .param("citizen", ParamType::Entity, true, "a citizen's name")
         .param(
@@ -903,7 +989,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
             let here = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
             owner_only(w, ctx, here)?;
             let typed = args.str("citizen").unwrap_or("").trim().to_string();
-            let who = super::canonical_name(w, &typed).unwrap_or(typed);
+            let who = if everyone(&typed) { "*".to_string() } else { super::canonical_name(w, &typed).unwrap_or(typed) };
             let mut permits = grants_of(w, here, "permits");
             let mut welcomes = grants_of(w, here, "welcomes");
             let had = permits.remove(&who).is_some() | welcomes.remove(&who).is_some();
@@ -917,7 +1003,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
             fields.insert("welcomes".into(), Field::Plain(Value::Object(welcomes)));
             set_room_fields(w, &ctx.actor, here, fields)?;
             Ok(Outcome::new(
-                format!("{who} may no longer change this room."),
+                if who == "*" { "The open welcome is withdrawn; those welcomed by name keep theirs.".to_string() } else { format!("{who} may no longer change this room.") },
                 json!({"room": here.0, "citizen": who}),
             ))
         }),
@@ -938,10 +1024,20 @@ fn grant(
     let here = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
     owner_only(w, ctx, here)?;
     let typed = args.str("citizen").unwrap_or("").trim().to_string();
-    let Some(who) = super::canonical_name(w, &typed) else {
-        return Err(CommandError::precondition(format!(
-            "No citizen is named {typed}."
-        )));
+    let who = if everyone(&typed) {
+        if field != "welcomes" {
+            return Err(CommandError::precondition(
+                "Permission to describe and name is given by name; `welcome all` lets every hand add to the room.",
+            ));
+        }
+        "*".to_string()
+    } else {
+        let Some(who) = super::canonical_name(w, &typed) else {
+            return Err(CommandError::precondition(format!(
+                "No citizen is named {typed}."
+            )));
+        };
+        who
     };
     let hours = args.num("hours");
     if hours.is_some_and(|h| !(h > 0.0 && h <= 24.0 * 3650.0)) {
@@ -963,7 +1059,11 @@ fn grant(
         None => "until you revoke it".to_string(),
     };
     Ok(Outcome::new(
-        format!("{who} {lets} {span}."),
+        if who == "*" {
+            format!("Everyone {lets} {span}: a guest book any hand may sign.")
+        } else {
+            format!("{who} {lets} {span}.")
+        },
         json!({"room": here.0, "citizen": who, "until": until, "grant": field}),
     ))
 }

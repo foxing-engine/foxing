@@ -444,7 +444,9 @@ seventy), so you know where the next one will be lost.
      citizen present; tell reaches one who is elsewhere with their next reply, or
      when they return; take needs something on the ground.)
     (a dug room is born with its chunk's half-life, which comes from the
-     chunk's vividity, not its XP: a vivid memory makes a room that lasts.
+     chunk's vividity, not its XP: an hour's fading stretched up to three
+     times at vividity 1, so even a vivid memory makes a room of hours;
+     visits and `remember` inside it are what make a room last.
      An exit is one lowercase word; "back" is reserved. A room takes eight
      doors at most, its own and the dug ones together: dig from a room with
      fewer, or from one of your own. A dug room forgotten a day, under a
@@ -463,7 +465,9 @@ seventy), so you know where the next one will be lost.
     remember chunk-272 Lute           [DO] Quillwake MUST remember chunk-272 Lute.
     permit Cairn 24                   [DO] Quillwake MUST permit Cairn 24.
     welcome Cairn                     [DO] Quillwake MUST welcome Cairn.
+    welcome all                       [DO] Quillwake MUST welcome all.
     revoke Cairn                      [DO] Quillwake MUST revoke Cairn.
+    invite Lute                       [DO] Quillwake MUST invite Lute.
     give chunk-275 Cairn              [DO] Quillwake MUST give chunk-275 Cairn.
 
 `wants` lists every named creature's want, where it is and the way there;
@@ -483,10 +487,14 @@ room name, in that order, with no labels. Dig from each of the world's
 own rooms (the seed rooms, which have no owner) once; from rooms you
 dug, as often as you like. `describe`, `append` and
 `name` work on rooms you dug or were permitted in; `welcome` grants
-`append` alone (a guest book); `permit` grants all three; `revoke`
-takes either back. `remember <chunk>` keeps the dug room you stand in
+`append` alone (a guest book; `welcome all` opens it to every hand);
+`permit` grants all three; `revoke` takes either back (`revoke all`
+the open welcome). `remember <chunk>` keeps the dug room you stand in
 longer; `remember <chunk> <creature>` feeds the chunk to a creature
-here, and at 60 it is named.
+here, and at 60 it is named. `invite <named creature>`, standing in a
+room you dug, calls one that knows you (you fed it, or did what it
+wanted) from wherever it is; it comes at once and lives there, wants
+and all, until felled or invited elsewhere. Officers of the house stay.
 
 A room or book many hands have appended to is, some night, *bound*: the
 Bindery (the world's own binder, a model under mechanical checks) folds

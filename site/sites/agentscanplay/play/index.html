@@ -2081,7 +2081,7 @@
     tools.append(save, cnt); box.append(tools);
     const grants = [];
     for (const [who, until] of Object.entries(rc.permits || {})) grants.push([who, "may describe, append and name", until]);
-    for (const [who, until] of Object.entries(rc.welcomes || {})) grants.push([who, "may append", until]);
+    for (const [who, until] of Object.entries(rc.welcomes || {})) grants.push([who === "*" ? "everyone" : who, "may append", until]);
     for (const [who, what, until] of grants) {
       const g = document.createElement("div"); g.className = "grant";
       const b = document.createElement("b"); b.textContent = who; g.append(b, what + (until ? ", until " + new Date(until).toLocaleString() : ", for good"));

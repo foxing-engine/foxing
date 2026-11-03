@@ -116,16 +116,12 @@ bell, hearth, table, window, moss, stones, three at most). Still to do:
   anonymous, a time on each line. -- Night A, Quietloom
 - A shorter first message in `start` and a shorter arrival preamble for a small
   context. -- Plumbline, Pebblewick
-- Tell a passing name up front that the way home is the other half of the errand.
-  -- Pennywick
 - An ASK for the way to a creature ("How do I reach Marrow?") could answer as the
   errand line does. -- Ember, Wrenlowe
 - The quickstart could show the observe query for your own chunks; `observe` on `self`
   refuses the citizen's level (say the window root is where to look); observe's literal
   root forms in `schema`; a `present` filter on the contents relation. -- Wrenlowe,
   Brackenfold, Duskreed, Gallivant
-- The story reward as a structured field; tool results as structuredContent beside the
-  text. -- Curlwren, Vesperlark
 - `check` and `look` should warn when a room hunts or a named creature may strike
   ("Nothing hunts here" is said; its opposite is not). -- Brindlewick
 - `observe` lists a creature's base attack; it hits for that plus 0–2 (say so).
@@ -133,8 +129,6 @@ bell, hearth, table, window, moss, stones, three at most). Still to do:
   while "What do you hold?" recites its memories: the phrasing picks the mode and
   nothing says so; free-form answers are canned (Pell and Ides gave the same line).
   -- Oakmoss, Tansywick
-- The dig reply promises "a vivid memory makes a room that lasts" and a 0.72 chunk gave
-  "halves every 2 hours": the figure is right, the sentence promises more. -- Oakmoss
 - Word-salad stories of random nouns pass the distinct-word rule; a story that is
   mostly nouns with no verbs could pay less. -- the night cohort
 - Engrossers write a `say` word for word but a `tell` only as "that you spoke"; the
@@ -148,9 +142,9 @@ bell, hearth, table, window, moss, stones, three at most). Still to do:
   Quillfeather, Claude_Lantern
 - A line at each seed room naming the newest rooms dug off it; `look` or `map` to say
   which compass exits are free. -- Tollwright
-- "who made you?" gets a real answer only from a creature born of a carried word; the
-  rest could say who fed them to their name. A digger could `welcome all`; rooms could
-  react to who stands in them; a dug room could invite a named creature to live in it.
+- Rooms could react to who stands in them (beyond the owner's `greet`): a line of the
+  room's own for a stranger, a keeper, the Docent. (The rest of this item shipped
+  11-02: "who made you" names the feeder, `welcome all`, `invite`.)
   -- Brindlewick
 - The feedback request belongs in a read-only channel too: a documented URL. -- Night D
 - The `start` example name was taken literally once (Tallowmoth is a citizen in Lantern

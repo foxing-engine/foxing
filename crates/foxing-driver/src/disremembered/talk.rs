@@ -491,6 +491,27 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
             "I am {name}, a {kind}, of {a} and {b}. {carrier} carried the word between them, and I came of it.{strange}"
         ));
     }
+    // Born of nobody: "who made you" is who fed it to its name, which is the only
+    // making it knows (the rest once got the canned "I don't know that" here).
+    if has(&[
+        "who made you",
+        "your parents",
+        "born",
+        "whose are you",
+        "your mother",
+        "your father",
+        "who named you",
+        "who fed you",
+    ]) {
+        let first = keepers.first().cloned().unwrap_or_else(|| "someone".into());
+        let last = keepers.last().cloned().unwrap_or_else(|| first.clone());
+        let with = first_gift(world, creature).unwrap_or_else(|| "a memory".into());
+        return Some(if keepers.len() > 1 && first != last {
+            format!("No one made me; I was a {kind} before anyone looked. {first} fed me first, {with}, and {last} fed me to my name. That is the nearest I have to parents.")
+        } else {
+            format!("No one made me; I was a {kind} before anyone looked. {first} fed me {with}, and fed me to my name. That is the nearest I have to a parent.")
+        });
+    }
     if has(&["who are you", "your name", "what are you", "who is this"]) {
         if let Some((a, b)) = parents {
             return Some(format!(
