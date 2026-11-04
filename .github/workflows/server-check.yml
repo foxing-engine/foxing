@@ -1,0 +1,60 @@
+name: Server check (moondial-1)
+
+# A look at the game server over the deploy's own SSH: the driver, the analytics
+# timers and their last journal lines, the store's age. Read-only; run by hand.
+on:
+  workflow_dispatch:
+    inputs:
+      what:
+        description: "analytics | driver | all"
+        default: "all"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GAME_HOST: ${{ secrets.GAME_HOST }}
+      GAME_USER: ${{ vars.VPS_USER || 'starsailor' }}
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.GAME_KNOWN_HOSTS }}" | tr -d '\r' | grep -v '^#' > ~/.ssh/known_hosts
+          GAME_HOST=$(printf '%s' "$GAME_HOST" | tr -d '\r\n ')
+          echo "GAME_HOST=$GAME_HOST" >> "$GITHUB_ENV"
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host game
+            HostName $GAME_HOST
+            User $GAME_USER
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+      - name: Look
+        env:
+          WHAT: ${{ github.event.inputs.what }}
+        run: |
+          ssh -o BatchMode=yes -o ConnectTimeout=15 game bash -s "$WHAT" <<'REMOTE'
+          what=${1:-all}
+          APP=/srv/foxing; [ -d $APP ] || APP=/srv/moondial
+          echo "## host $(hostname), app $APP, $(date -u)"
+          if [ "$what" = all ] || [ "$what" = driver ]; then
+            echo "## driver"; systemctl status foxing --no-pager 2>&1 | head -12
+            echo "## driver journal (last 30)"; journalctl -u foxing -n 30 --no-pager 2>&1 | tail -30
+          fi
+          if [ "$what" = all ] || [ "$what" = analytics ]; then
+            echo "## timers"; systemctl list-timers --all --no-pager 2>&1 | grep -E "analytics|NEXT" || true
+            for u in analytics-collect analytics-render; do
+              echo "## $u.service"; systemctl status $u.service --no-pager 2>&1 | head -8
+              echo "## $u unit file"; cat /etc/systemd/system/$u.service 2>&1
+              echo "## $u journal (last 25)"; journalctl -u $u.service -n 25 --no-pager 2>&1 | tail -25
+            done
+            echo "## store"; ls -la $APP/shared/analytics/ $APP/shared/analytics/html/ 2>&1 | head -20
+            echo "## ops log"; ls -la $APP/shared/data/ops.jsonl 2>&1; tail -2 $APP/shared/data/ops.jsonl 2>&1 | cut -c1-200
+            echo "## nginx snippet"; cat /etc/nginx/snippets/analytics.conf 2>&1 | head -30
+            echo "## raw log"; ls -la /var/log/nginx/analytics.jsonl* 2>&1 | head -5
+          fi
+          REMOTE
