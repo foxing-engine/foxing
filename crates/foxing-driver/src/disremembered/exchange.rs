@@ -239,6 +239,17 @@ pub fn register(world: &mut World, curves: Curves) {
                     "A story is at least {MIN_WORDS} different words; that was {distinct}.{wants}"
                 )));
             }
+            // Told in sentences, or not followed: the hour is not spent on a salad.
+            if let Some(why) = super::grammar::why_unfollowable(&text) {
+                let mut who = display.chars();
+                let who = match who.next() {
+                    Some(c) => c.to_uppercase().collect::<String>() + who.as_str(),
+                    None => String::new(),
+                };
+                return Err(CommandError::precondition(format!(
+                    "{who} cannot follow that: {why}. Tell it again, in sentences; the hour is not spent."
+                )));
+            }
             if text.chars().count() > MAX_STORY_CHARS {
                 return Err(CommandError::precondition(format!(
                     "That is more than {MAX_STORY_CHARS} characters; tell it in parts."

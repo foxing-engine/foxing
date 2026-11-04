@@ -23,6 +23,7 @@ pub mod errand;
 pub mod exchange;
 pub mod exergue;
 pub mod footprint;
+pub mod grammar;
 mod identity;
 pub mod kindle;
 pub mod memory;
@@ -270,6 +271,7 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("made_by", FieldKind::Plain, Visibility::Public)
             .field("made_of", FieldKind::Plain, Visibility::Public)
             .field("uses", FieldKind::Plain, Visibility::Public)
+            .field("pilot", FieldKind::Plain, Visibility::Public)
             .field("memory", FieldKind::Timed, Visibility::Public)
             // A fixture stands in its room; a shaped thing has a given name, a text,
             // what it holds (memory remembered into it), and who kept it; the

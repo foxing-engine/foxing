@@ -31,8 +31,8 @@ pub const TIERS: &[(u32, f64, &str)] = &[(1, 60.0, "named")];
 /// How long a creature stays shaken after a memory is taken, if its room says nothing.
 const SHAKEN_SECONDS: i64 = 300;
 
-/// Names a creature may be given, by the hash of its id: it keeps the same one if it
-/// forgets and is remembered again.
+/// The world's first names, dealt by the hash of a creature's id when the Namery's
+/// pool is empty; reserved (the Namery refuses them for citizens and stockings).
 pub(crate) const NAMES: &[&str] = &[
     "Ossian", "Wren", "Tallow", "Mote", "Hesper", "Fennick", "Lute", "Sorrel", "Quill", "Brindle",
     "Nim", "Vesper", "Ashby", "Loam", "Pell", "Thimble", "Marrow", "Ides", "Cinder", "Hollis",
@@ -49,11 +49,11 @@ fn name_for(creature: EntityId) -> &'static str {
     NAMES[(h % NAMES.len() as u64) as usize]
 }
 
-/// The creature's name by hash, or the next in the list that no other named creature
-/// has: two Hespers stood in the world at once, and `story Hesper` would have had to
-/// choose. A creature keeps its own name if it forgets and is remembered again, so
-/// its own name is never "taken".
-fn free_name_for(world: &World, creature: EntityId) -> String {
+/// With the Namery's pool empty: the creature's name by hash from the world's first
+/// thirty-two, or the next in the list that no other named creature has; all of those
+/// taken, one the Namery mints from the kind's syllables. A creature keeps its own
+/// name if it forgets and is remembered again, so its own name is never "taken".
+fn free_name_for(world: &World, creature: EntityId, kind: &str) -> (String, &'static str) {
     let taken: Vec<String> = world
         .store
         .entities()
@@ -67,10 +67,11 @@ fn free_name_for(world: &World, creature: EntityId) -> String {
     for i in 0..NAMES.len() {
         let n = NAMES[(start + i) % NAMES.len()];
         if !taken.iter().any(|t| t.eq_ignore_ascii_case(n)) {
-            return n.to_string();
+            return (n.to_string(), "reserved");
         }
     }
-    format!("{}-{}", name_for(creature), creature.0)
+    let all_taken = super::namery::taken(world);
+    (super::namery::mint(world, kind, &all_taken), "minted")
 }
 
 /// The window a creature keeps its memories in, if it has one.
@@ -518,12 +519,26 @@ pub fn check_tier(world: &mut World, creature: EntityId) -> Result<(), CommandEr
         .and_then(Value::as_str)
         .map(str::to_string)
         .filter(|f| free(world, f));
+    // Every name dealt is on the Register: an heir's, a former name taken back, the
+    // pool's, or one minted from the kind when the pool is empty.
     let given: Option<String> = if want >= 1 {
-        Some(match heir.or(former) {
-            Some(n) => n,
-            None => match super::namery::draw(world, creature)? {
+        let keepers_now = keepers(world, creature);
+        Some(match (heir, former) {
+            (Some(n), _) => {
+                super::namery::record_dealt(world, creature, &kind, &keepers_now, &n, "heir")?;
+                n
+            }
+            (None, Some(n)) => {
+                super::namery::record_dealt(world, creature, &kind, &keepers_now, &n, "former")?;
+                n
+            }
+            (None, None) => match super::namery::draw(world, creature)? {
                 Some(n) => n,
-                None => free_name_for(world, creature),
+                None => {
+                    let (n, how) = free_name_for(world, creature, &kind);
+                    super::namery::record_dealt(world, creature, &kind, &keepers_now, &n, how)?;
+                    n
+                }
             },
         })
     } else {
@@ -692,8 +707,10 @@ pub fn regard(world: &World, creature: EntityId, actor: &str) -> Option<String> 
 
 /// Everything the registry needs to know about a creature's mind, for `look`'s JSON.
 pub fn summary(world: &World, creature: EntityId) -> Value {
+    let n = name(world, creature);
     json!({
-        "name": name(world, creature),
+        "named": n.as_deref().and_then(|n| super::namery::provenance(world, n)),
+        "name": n,
         "tier": tier(world, creature),
         "level": level(world, creature),
         "kept_by": keepers(world, creature),

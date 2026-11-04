@@ -115,6 +115,13 @@ fn main() {
         std::process::exit(1);
     }
     disremembered::register(&mut world, disremembered::Curves::from_env());
+    // The three awake things near the Threshold, set down once (not in the test
+    // world: they would move every creature's id and roll).
+    if let Err(e) =
+        disremembered::past::ensure_pilots(&mut world, &disremembered::Curves::from_env())
+    {
+        eprintln!("the pilots were not set down: {e}");
+    }
     let ran = world.tick();
     if ran > 0 {
         eprintln!("ran {ran} jobs that came due while the driver was down");

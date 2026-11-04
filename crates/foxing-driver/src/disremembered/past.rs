@@ -195,6 +195,7 @@ pub fn recital(world: &World, item: EntityId) -> String {
                 }
             }
             "took" => out.push(format!("Taken up by {by} in {room}.")),
+            "found" => out.push(format!("Found by {by} in {room}, {}.", s(e, "how"))),
             "given" => out.push(format!("Given by {by} to {} in {room}.", s(e, "to"))),
             "traded" => out.push(format!(
                 "Traded by {by} to {} for {} in {room}.",
@@ -315,12 +316,24 @@ pub fn raise(
         .to_string();
     let mut name: Option<String> = None;
     if to >= 3 {
-        name = super::namery::draw_for(
-            world,
-            item,
-            kind.trim_start_matches("a ").trim_start_matches("an "),
-            &[actor.to_string()],
-        )?;
+        let kind_word = kind
+            .trim_start_matches("a ")
+            .trim_start_matches("an ")
+            .to_string();
+        let keepers = [actor.to_string()];
+        name = super::namery::draw_for(world, item, &kind_word, &keepers)?;
+        // The pool empty, the Namery mints one from the thing's own name.
+        if name.is_none() {
+            let taken = super::namery::taken(world);
+            let last = kind_word
+                .split_whitespace()
+                .last()
+                .unwrap_or("thing")
+                .to_string();
+            let n = super::namery::mint(world, &last, &taken);
+            super::namery::record_dealt(world, item, &kind_word, &keepers, &n, "minted")?;
+            name = Some(n);
+        }
         if let Some(n) = &name {
             changes.insert("given_name".into(), Field::Plain(json!(n)));
         }
@@ -345,6 +358,83 @@ pub fn raise(
         (3, None) => format!(" Something in the making took: {kind} came out awake, and the Namery had no name left for it. It has a past, and it will want things."),
         _ => " Something in the making took: it came out with a past, which `read` will tell as it grows.".to_string(),
     })
+}
+
+/// The pilots: three awake things the world set down near the Threshold, so the
+/// third tier is met before anyone's fortieth build. Found, not made; the Docent
+/// is written as the hand that found them. Placed once; re-running places only
+/// what is missing (a pilot carried off or faded is not replaced).
+pub const PILOTS: &[(&str, &str, &str)] = &[
+    (
+        "lantern-row",
+        "night-lantern",
+        "found lit on an iron hook no lantern of the row hangs from, burning without oil",
+    ),
+    (
+        "ossuary",
+        "warden-charm",
+        "found in a niche among the bones, the dust around it undisturbed",
+    ),
+    (
+        "fogbank",
+        "jar",
+        "found standing upright in the fog with the fog inside it moving against the wind",
+    ),
+];
+
+pub fn ensure_pilots(world: &mut World, curves: &Curves) -> Result<(), String> {
+    let placed = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "item")
+        .any(|e| item_pilot(world, e.id));
+    if placed {
+        return Ok(());
+    }
+    for (room_key, recipe, found) in PILOTS {
+        let Some(room) = super::rooms::room_by_key(world, room_key) else {
+            continue;
+        };
+        let Some(r) = craft::RECIPES.iter().find(|r| r.key == *recipe) else {
+            continue;
+        };
+        let item = craft::make(
+            world,
+            curves,
+            Actor::Driver,
+            None,
+            room,
+            r.name,
+            "made",
+            r.key,
+            None,
+            &[],
+            r.uses,
+            false,
+        )
+        .map_err(|e| e.to_string())?;
+        let mut changes = BTreeMap::new();
+        changes.insert("pilot".into(), Field::Plain(json!(true)));
+        set(world, "the Docent", item, changes).map_err(|e| e.to_string())?;
+        push(
+            world,
+            "the Docent",
+            item,
+            json!({"what": "found", "by": "the Docent", "room": room_name(world, Some(room)), "how": found}),
+        )
+        .map_err(|e| e.to_string())?;
+        raise(world, curves, "the Docent", item, 3).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+fn item_pilot(world: &World, item: EntityId) -> bool {
+    world
+        .store
+        .entity(item)
+        .and_then(|e| e.components.get(ITEM))
+        .and_then(|c| c.fields.get("pilot"))
+        .is_some_and(|f| matches!(f, Field::Plain(Value::Bool(true))))
 }
 
 /// A tier-3 thing's desire: a room of the world's own it has never been in.

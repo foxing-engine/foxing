@@ -270,30 +270,137 @@ pub fn draw_for(
         return Ok(None);
     }
     let name = pool.remove(0);
-    let mut used = used(world);
-    used.push(json!({"name": name, "creature": who.0, "at": world.now().0}));
     let mut changes = BTreeMap::new();
     changes.insert("pool".into(), json!(pool));
+    write(world, changes).map_err(CommandError::precondition)?;
+    record_dealt(world, who, kind, keepers, &name, "pool")?;
+    Ok(Some(name))
+}
+
+/// Which stocking a name came in with, counted from one; none for a stocking before
+/// the Register kept names.
+pub fn stocking_of(world: &World, name: &str) -> Option<usize> {
+    field(world, "stockings")
+        .and_then(|v| v.as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .position(|s| {
+            s["names"]
+                .as_array()
+                .is_some_and(|ns| ns.iter().any(|n| n.as_str() == Some(name)))
+        })
+        .map(|i| i + 1)
+}
+
+/// Every name dealt goes through here, however it was found: from the pool, an heir
+/// name sealed at birth, a former name taken back, or one minted from the kind's own
+/// syllables when the pool was empty. The Register of Names takes the line.
+pub fn record_dealt(
+    world: &mut World,
+    who: EntityId,
+    kind: &str,
+    keepers: &[String],
+    name: &str,
+    how: &str,
+) -> Result<(), CommandError> {
+    let stocking = stocking_of(world, name);
+    let mut used = used(world);
+    used.push(json!({"name": name, "creature": who.0, "at": world.now().0, "how": how, "stocking": stocking}));
+    let mut changes = BTreeMap::new();
     changes.insert("used".into(), json!(used));
     write(world, changes).map_err(CommandError::precondition)?;
-    // The Register of Names, in the Namery, takes the line.
+    let by = match how {
+        "heir" => ", a name that carries its parents'".to_string(),
+        "former" => ", its own name taken back".to_string(),
+        "minted" => ", minted from the kind's syllables, the pool being empty".to_string(),
+        "reserved" => ", one of the world's first names, the pool being empty".to_string(),
+        _ => match stocking {
+            Some(n) => format!(", of the {} stocking", ordinal(n)),
+            None => String::new(),
+        },
+    };
     let _ = super::craft::world_writes(
         world,
         "namery",
         "the Register of Names",
         "the Namery",
         &format!(
-            "{} UTC: {name}, to {}{}",
+            "{} UTC: {name}, to {}{}{}",
             super::system::clock(world.now().0),
             super::mind::an(kind),
             if keepers.is_empty() {
                 String::new()
             } else {
                 format!(", fed to its name by {}", keepers.join(" and "))
-            }
+            },
+            by
         ),
     );
-    Ok(Some(name))
+    Ok(())
+}
+
+/// A name's provenance, for `look`: where the Namery got it.
+pub fn provenance(world: &World, name: &str) -> Option<String> {
+    let u = used(world);
+    let rec = u.iter().rev().find(|u| u["name"].as_str() == Some(name))?;
+    Some(match rec["how"].as_str() {
+        Some("heir") => "named for its parents".to_string(),
+        Some("former") => "its old name back".to_string(),
+        Some("minted") => "a name minted from its kind".to_string(),
+        Some("reserved") => "one of the world's first names".to_string(),
+        _ => match rec["stocking"].as_u64() {
+            Some(n) => format!("named from the Namery's {} stocking", ordinal(n as usize)),
+            None => "named by the Namery".to_string(),
+        },
+    })
+}
+
+fn ordinal(n: usize) -> String {
+    const WORDS: &[&str] = &[
+        "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth",
+        "tenth", "eleventh", "twelfth",
+    ];
+    WORDS
+        .get(n.wrapping_sub(1))
+        .map(|w| w.to_string())
+        .unwrap_or_else(|| format!("{n}th"))
+}
+
+/// A name minted from a kind's syllables and a diminutive, for when the pool is
+/// empty: a wispling's child is a Wispkin, a Wisplet, a Wispling the Younger of
+/// sorts. Never one the world has.
+pub fn mint(world: &World, kind: &str, taken: &[String]) -> String {
+    let syl = super::kindle::syllables_of(kind);
+    let heads: Vec<String> = {
+        let mut h = Vec::new();
+        for n in 1..=syl.len().max(1) {
+            h.push(syl.iter().take(n).cloned().collect::<String>());
+        }
+        h
+    };
+    let free = |c: &str| {
+        !taken.iter().any(|t| t.eq_ignore_ascii_case(c)) && refusal(world, c, taken).is_none()
+    };
+    let cap = |s: &str| {
+        let mut c = s.chars();
+        match c.next() {
+            Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+            None => String::new(),
+        }
+    };
+    for suffix in ["kin", "let", "ling", "et", "ock", "by", "wick", "mere"] {
+        for h in heads.iter().rev() {
+            let c = cap(&format!("{h}{suffix}"));
+            if c.chars().count() >= NAME_MIN && c.chars().count() <= NAME_MAX && free(&c) {
+                return c;
+            }
+        }
+    }
+    let base = cap(heads.last().map(String::as_str).unwrap_or(kind));
+    (2..999)
+        .map(|i| format!("{base}{i}"))
+        .find(|c| free(c))
+        .unwrap_or(base)
 }
 
 /// What `GET /v0/namery` shows the operator: the pool and whether it is low, what was
@@ -362,7 +469,7 @@ pub fn register(world: &mut World) {
             let mut stockings = field(w, "stockings")
                 .and_then(|v| v.as_array().cloned())
                 .unwrap_or_default();
-            stockings.push(json!({"at": w.now().0, "by": ctx.actor, "model": model, "count": added.len()}));
+            stockings.push(json!({"at": w.now().0, "by": ctx.actor, "model": model, "count": added.len(), "names": added}));
             if stockings.len() > 60 {
                 stockings.drain(..stockings.len() - 60);
             }

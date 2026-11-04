@@ -822,7 +822,8 @@ fn describe_item(world: &World, id: EntityId) -> Value {
             .unwrap_or(Value::Null)
     };
     json!({"id": id.0, "name": f("name"), "kind": f("kind"), "origin": f("origin"), "memory": f("memory"), "made_by": f("made_by"), "made_of": f("made_of"), "uses": f("uses"),
-           "fixed": f("fixed") == json!(true), "given_name": f("given_name"), "text": f("text"), "held": f("held"), "kept": f("kept"), "open": f("open") == json!(true)})
+           "fixed": f("fixed") == json!(true), "given_name": f("given_name"), "text": f("text"), "held": f("held"), "kept": f("kept"), "open": f("open") == json!(true),
+           "tier": f("tier").as_u64().unwrap_or(0), "pilot": f("pilot") == json!(true)})
 }
 
 /// Whether a thing is a fixture: placed to stay, never taken.
@@ -949,8 +950,13 @@ pub fn item_line(v: &Value) -> String {
         String::new()
     };
     let text = v["text"].as_str().map(text_said).unwrap_or_default();
+    let tier = match v["tier"].as_u64().unwrap_or(0) {
+        0 | 1 => "",
+        2 => ", with a past",
+        _ => ", awake",
+    };
     format!(
-        "{} (item-{}{by}{held}{}){text}",
+        "{} (item-{}{by}{held}{tier}{}){text}",
         called,
         v["id"],
         if mem < 0.95 {
@@ -967,9 +973,15 @@ pub fn ground_line(world: &World, room: EntityId) -> Option<String> {
     if things.is_empty() {
         return None;
     }
+    let awake = things.iter().any(|t| t["tier"].as_u64().unwrap_or(0) >= 3);
     Some(format!(
-        "On the ground: {}.",
-        things.iter().map(item_line).collect::<Vec<_>>().join(", ")
+        "On the ground: {}.{}",
+        things.iter().map(item_line).collect::<Vec<_>>().join(", "),
+        if awake {
+            " Something lying here is awake: take it, and it says where it wants to go in its own way; `read` it for its past."
+        } else {
+            ""
+        }
     ))
 }
 
@@ -1679,8 +1691,18 @@ pub fn register(world: &mut World, curves: Curves) {
                 &format!("{} picks up {name}.", ctx.actor),
                 &ctx.actor,
             );
+            // An awake thing says, in its way, where it wants to go.
+            let stir = if super::past::tier(w, item) >= 3 {
+                super::past::stirrings(w, f.citizen)
+                    .into_iter()
+                    .filter(|l| l.starts_with(&name))
+                    .map(|l| format!(" {l}"))
+                    .collect::<String>()
+            } else {
+                String::new()
+            };
             Ok(Outcome::new(
-                format!("You take {name}. It is in your satchel."),
+                format!("You take {name}. It is in your satchel.{stir}"),
                 json!({"item": item.0, "name": name}),
             ))
         }),

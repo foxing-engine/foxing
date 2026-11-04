@@ -70,6 +70,11 @@ const NAMED_HYBRIDS: &[(&str, &str, &str)] = &[
     ("inkling", "ragpicker", "inkpicker"),
 ];
 
+/// A kind's syllables, for the Namery's minting.
+pub fn syllables_of(kind: &str) -> Vec<String> {
+    syllables(kind)
+}
+
 fn syllables(kind: &str) -> Vec<String> {
     if let Some((_, s)) = SYLLABLES.iter().find(|(k, _)| *k == kind) {
         return s.iter().map(|x| x.to_string()).collect();

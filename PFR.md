@@ -7,10 +7,6 @@ done, not struck through. Cleaned 2026-11-02 (the file had become a diary).
 
 ## Your side (on the box, or your prose)
 
-- The analytics page is not updating: run the "Server check (moondial-1)" workflow in
-  Actions (what: analytics) and paste its output here or in chat; it prints the
-  collect/render timers and their journals, the store listing and the nginx snippet.
-  I could not run it from here (production reads are yours to click).
 - The env file's MOONDIAL_* names and /etc/nginx/.htpasswd-moondial were left as they
   were at the move to the engine's name (the driver reads both); rename when convenient.
 - Apex VPS: starsailorart.com/kaleidostoop links a demo video that was never in the
@@ -165,8 +161,6 @@ bell, hearth, table, window, moss, stones, three at most). Still to do:
   while "What do you hold?" recites its memories: the phrasing picks the mode and
   nothing says so; free-form answers are canned (Pell and Ides gave the same line).
   -- Oakmoss, Tansywick
-- Word-salad stories of random nouns pass the distinct-word rule; a story that is
-  mostly nouns with no verbs could pay less. -- the night cohort
 - Engrossers write a `say` word for word but a `tell` only as "that you spoke"; the
   board's "earned" counts story wants as errands. -- Bumblepott
 - `start` and `look` on a want's time left once it has rotated: both read
@@ -198,7 +192,9 @@ bell, hearth, table, window, moss, stones, three at most). Still to do:
 - Crafting, three tiers (shipped 11-02 night): the record and `read` of it; the second
   tier's four recipes, rare materials from the Stacks and the Exergue, the vividity
   bar; the Bindery writing pasts (kind "past" in bind.py); the third tier by chance
-  (a name, a desire for a room, stirrings on `look`, thanks on arrival). Next: more
+  (a name, a desire for a room, stirrings on `look`, thanks on arrival); three pilots
+  set down near the Threshold 11-03 (watch who takes them and where they go: the
+  `settled` and `raised` events, and `read` of each). Next: more
   second-tier recipes and effects (an usher's ribbon that steps you through the
   Stacks; a censor's lens that halves the ray); desires beyond rooms (a hand it has
   not met, a story told near it); a thing's past as a want a creature can have; a
@@ -250,10 +246,10 @@ bell, hearth, table, window, moss, stones, three at most). Still to do:
   `satchel` yet.
 - Building: `place`; a dig limit by level; who visited a room and readable notes on
   it; `look` showing a dug room's half-life to its owner.
-- The Namery: hybrid names (kindle's syllables) from the pool; a name's provenance on
-  `look` ("named by the Namery, the fourth of its stocking"). (The room and its Register
-  of Names shipped 2026-11-02, `travel names` from the Archive; the Bindery keeps a
-  Binding Ledger the same day.)
+- The Namery, next: a stocking's names could be minted from kindle's syllables by
+  the tool itself (the driver mints only when the pool is empty); the Register could
+  take a line when a name fails and goes back. (Provenance on `look` and in the
+  Register, and minting, shipped 11-03.)
 - The Bindery: "something here is being bound that was never a book" on `look` while a
   run is on; creatures' non-story chunks once a mind is past its sheaf.
 - Kindling: aging (an age on the record, epithets, name retirement, a room that

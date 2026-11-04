@@ -1063,6 +1063,10 @@ pub fn describe(
                 } else {
                     ""
                 };
+                let named = match c["mind"]["named"].as_str() {
+                    Some(p) => format!(", {p}"),
+                    None => String::new(),
+                };
                 // What it keeps of you, and what it learned from a kill.
                 let cid = EntityId(c["id"].as_u64().unwrap_or(0));
                 // "one of them yours" only while it holds anything: a revenant at
@@ -1087,7 +1091,7 @@ pub fn describe(
                     }
                 };
                 format!(
-                    "{who} ({}/{}{holds}{yours}{shaken}{born}{learned})",
+                    "{who} ({}/{}{holds}{yours}{shaken}{born}{named}{learned})",
                     hp_said(&c["hp"]),
                     hp_said(&c["max_hp"])
                 )

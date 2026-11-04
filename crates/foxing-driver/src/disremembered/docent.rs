@@ -759,7 +759,9 @@ pub fn tidy(world: &mut World) -> Result<usize, String> {
             .store
             .entity(parent)
             .is_some_and(|p| p.kind == "room" && p.id != threshold);
-        if !in_room || super::craft::is_fixed(world, e.id) {
+        // A fixture stays; so does a thing that is awake (the third tier): it is
+        // not carried by one that does not want to go.
+        if !in_room || super::craft::is_fixed(world, e.id) || super::past::tier(world, e.id) >= 3 {
             continue;
         }
         let anyone = world

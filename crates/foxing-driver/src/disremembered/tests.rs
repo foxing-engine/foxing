@@ -1920,8 +1920,9 @@ fn a_remembered_creature_earns_a_name_can_be_robbed_and_forgets_again() {
     let name = mind::name(&w, rag).unwrap();
     let look = ok(&mut w, "tyler", "look", json!([]));
     assert!(
-        look.summary
-            .contains(&format!(", holding 100). {name} the ragpicker knows you.")),
+        look.summary.contains(&format!(
+            ", holding 100, one of the world's first names). {name} the ragpicker knows you."
+        )),
         "{}",
         look.summary
     );
@@ -9055,4 +9056,117 @@ fn the_map_says_what_is_next_door() {
         "{}",
         out.summary
     );
+}
+
+#[test]
+fn the_pilots_lie_awake_near_the_threshold_and_the_docent_leaves_them() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    past::ensure_pilots(&mut w, &curves()).unwrap();
+    past::ensure_pilots(&mut w, &curves()).unwrap();
+    let pilots: Vec<EntityId> = w
+        .store
+        .entities()
+        .filter(|e| e.kind == "item" && past::tier(&w, e.id) >= 3)
+        .map(|e| e.id)
+        .collect();
+    assert_eq!(pilots.len(), 3, "placed once");
+    login(&mut w, "dave", "test", PASS).unwrap();
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("a night lantern (item-"),
+        "{}",
+        look.summary
+    );
+    assert!(look.summary.contains(", awake)"), "{}", look.summary);
+    assert!(
+        look.summary.contains("Something lying here is awake"),
+        "{}",
+        look.summary
+    );
+    // The Docent's round carries lying things to the Threshold, but not these.
+    ok(&mut w, "dave", "travel", json!(["south"]));
+    for _ in 0..3 {
+        docent::tidy(&mut w).unwrap();
+    }
+    let row = rooms::room_by_key(&w, "lantern-row").unwrap();
+    assert!(
+        craft::things_in(&w, row)
+            .iter()
+            .any(|t| t["tier"] == json!(3)),
+        "{:?}",
+        craft::things_in(&w, row)
+    );
+    // Taken up, it says where it wants to go; its past says how it was found.
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    let lantern = pilots
+        .iter()
+        .copied()
+        .find(|p| {
+            craft::things_in(&w, row)
+                .iter()
+                .any(|t| t["id"] == json!(p.0))
+        })
+        .unwrap();
+    let out = ok(
+        &mut w,
+        "dave",
+        "take",
+        json!([format!("item-{}", lantern.0)]),
+    );
+    assert!(out.summary.contains("in your hand"), "{}", out.summary);
+    let read = ok(
+        &mut w,
+        "dave",
+        "read",
+        json!([format!("item-{}", lantern.0)]),
+    );
+    assert!(
+        read.summary
+            .contains("Found by the Docent in Lantern Row, found lit on an iron hook"),
+        "{}",
+        read.summary
+    );
+}
+
+#[test]
+fn a_story_is_told_in_sentences_or_not_followed() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let wisp = mind::find_here(
+        &w,
+        rooms::room_of(&w, find_citizen(&w, "dave").unwrap().citizen).unwrap(),
+        "wisp",
+    )
+    .unwrap();
+    let c = admin(&mut w, "dave", "earn", json!(["hydra", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "dave",
+        "remember",
+        json!([&c, format!("wisp-{}", wisp.0)]),
+    );
+    let name = mind::name(&w, wisp).expect("named at sixty");
+    let salad = "Fogbank Threshold Namery Bindery Clocktower Ossuary Lantern Row Undertow Orchard Sandbar Skiff Exergue Conclave Register Ledger Docent Hollis Quire Purse Warden";
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "story",
+        json!([&name, salad]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("cannot follow that"), "{err}");
+    assert!(err.to_string().contains("the hour is not spent"), "{err}");
+    let out = ok(
+        &mut w,
+        "dave",
+        "story",
+        json!([&name, "There was a lantern on the stair that would not go out, however hard the wind came up the shaft. The reader kept it lit for a friend who never came back."]),
+    );
+    assert!(out.result["kept"] != json!(false), "{}", out.summary);
 }
