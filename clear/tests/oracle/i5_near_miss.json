@@ -16,7 +16,7 @@
       "rule": "CL-I5",
       "severity": "error",
       "where": "statement 2",
-      "message": "Verb 'travle' is not an approved action verb for the sender; the driver cannot compile it. Nearest: travel.",
+      "message": "Verb 'travle' is not an approved action verb for the sender; the driver cannot compile it. Nearest: trade, travel.",
       "excerpt": "travle"
     }
   ],
