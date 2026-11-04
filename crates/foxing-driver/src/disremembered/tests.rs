@@ -8643,7 +8643,9 @@ fn a_named_creature_keeps_a_word_under_the_others_and_a_story_that_carries_it_pa
     assert!(!said.contains(&word), "the hint must not say it: {said}");
     // A story without it pays the usual; one that carries it pays one and a half
     // times, vivid, and the creature says so; the strike is public, word and all.
-    let plain = ok(&mut w, "tyler", "story", json!([&given, "Once a lantern was left burning in a window that nobody owned, and it burned until morning came."]));
+    // (No lore word in it: the seed that picks the word is the creature's id, which
+    // moves whenever the world gains an entity at boot.)
+    let plain = ok(&mut w, "tyler", "story", json!([&given, "Once a candle was left burning on a sill that nobody owned, and it burned until the morning came."]));
     assert!(plain.result["struck"].is_null(), "{}", plain.summary);
     // The test world's chunks fade in seconds: fed again across each hour, the name holds.
     let feed = |w: &mut World| {
@@ -9459,4 +9461,159 @@ fn a_fall_leaves_you_shaken_and_the_creature_wounded_and_named_creatures_seek_su
         Some(fog),
         "{name} is home"
     );
+}
+
+#[test]
+fn morphos_comes_with_a_riddle_clouds_the_wrong_and_opens_a_door_on_the_third_rung() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    for i in 0..4 {
+        admin(&mut w, "dave", "earn", json!([format!("memory-{i}"), 10]));
+    }
+    // Not here yet; asked after, it says when it comes.
+    let out = ok(&mut w, "dave", "tell", json!(["morphos", "a lantern"]));
+    assert!(
+        out.summary.contains("not in the world now"),
+        "{}",
+        out.summary
+    );
+    // Summoned, it stands where the people are, with a riddle; look says so.
+    admin(&mut w, "dave", "summon", json!([]));
+    let threshold = rooms::arrival(&w).unwrap();
+    assert_eq!(morphos::present(&w), Some(threshold));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(look.summary.contains("Morphos is here"), "{}", look.summary);
+    assert!(look.summary.contains("Its riddle:"), "{}", look.summary);
+    // A wrong answer: a cloud, the ladder to the ground, a Hand.
+    let level_before = level(&mut w, "dave");
+    let out = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!(["morphos", "the number seven"]),
+    );
+    assert!(
+        out.summary.contains("cloud of absentmindedness"),
+        "{}",
+        out.summary
+    );
+    assert!(out.summary.contains("A Hand of Morphos"), "{}", out.summary);
+    assert!(
+        level(&mut w, "dave") < level_before,
+        "clouded chunks do not count"
+    );
+    let chunks = ok(&mut w, "dave", "chunks", json!([]));
+    assert!(
+        chunks.summary.contains("A cloud of absentmindedness:"),
+        "{}",
+        chunks.summary
+    );
+    assert!(combat::creatures_in(&w, threshold)
+        .iter()
+        .any(|(_, k, _, _)| k == morphos::HAND_KIND));
+    // The right answer: rung one, a chunk.
+    let r = morphos::current_riddle(&w).unwrap();
+    let out = ok(&mut w, "dave", "tell", json!(["morphos", r.answer]));
+    assert!(out.summary.contains("Rung one of three"), "{}", out.summary);
+    assert_eq!(out.result["rung"], json!(1));
+    // Asked again: it has your answer.
+    let out = ok(&mut w, "dave", "tell", json!(["morphos", r.answer]));
+    assert!(
+        out.summary.contains("the riddle stands answered"),
+        "{}",
+        out.summary
+    );
+    // It goes: tyler, who never answered, is clouded; the Hand goes with it.
+    let tyler_level = level(&mut w, "tyler");
+    admin(&mut w, "tyler", "earn", json!(["a wisp", 30]));
+    let tyler_level2 = level(&mut w, "tyler");
+    assert!(tyler_level2 > tyler_level);
+    morphos::go(&mut w).unwrap();
+    assert!(morphos::present(&w).is_none());
+    assert!(level(&mut w, "tyler") < tyler_level2, "no answer, a cloud");
+    assert!(!combat::creatures_in(&w, threshold)
+        .iter()
+        .any(|(_, k, _, _)| k == morphos::HAND_KIND));
+    // The cloud lifts on the clock.
+    w.fixed_now = Some(w.now().plus(Duration(morphos::CLOUD_MS + 1000)));
+    w.tick();
+    // (The test world's chunks halve every ten seconds, so what comes back is
+    // faint; what matters is that the cloud is empty.)
+    assert!(
+        morphos::clouded(&w, find_citizen(&w, "tyler").unwrap().citizen).is_none(),
+        "the cloud lifted"
+    );
+    assert!(ok(&mut w, "tyler", "chunks", json!([])).result["clouded"].is_null());
+    // Rungs two and three over the next two visits: a vivid chunk, then a room.
+    admin(&mut w, "dave", "summon", json!([]));
+    let r = morphos::current_riddle(&w).unwrap();
+    let out = ok(&mut w, "dave", "tell", json!(["morphos", r.answer]));
+    assert!(out.summary.contains("Rung two of three"), "{}", out.summary);
+    assert_eq!(out.result["rung"], json!(2));
+    morphos::go(&mut w).unwrap();
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    admin(&mut w, "dave", "summon", json!([]));
+    let fog = rooms::room_of(&w, find_citizen(&w, "dave").unwrap().citizen).unwrap();
+    assert_eq!(
+        morphos::present(&w),
+        Some(fog),
+        "it comes to where the people are"
+    );
+    let r = morphos::current_riddle(&w).unwrap();
+    let out = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!(["morphos", &format!("I think it is the {}", r.answer)]),
+    );
+    assert!(
+        out.summary
+            .contains("a door in The Fogbank that no one else can see"),
+        "{}",
+        out.summary
+    );
+    assert_eq!(out.result["rung"], json!(3), "{}", out.result);
+    let door = out.result["reward"]["door"].as_str().unwrap().to_string();
+    let hidden = EntityId(out.result["reward"]["room"].as_u64().unwrap());
+    assert!(morphos::is_hidden(&w, hidden));
+    // The door is yours alone: tyler cannot take it; you can; look lists it for you.
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "travel",
+        json!([&door]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("There is no exit"), "{err}");
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains(&format!("a door no one else sees, {door}")),
+        "{}",
+        look.summary
+    );
+    let out = ok(&mut w, "dave", "travel", json!([&door]));
+    assert_eq!(
+        rooms::room_of(&w, find_citizen(&w, "dave").unwrap().citizen),
+        Some(hidden)
+    );
+    assert!(
+        out.summary.contains(", awake)"),
+        "something special: {}",
+        out.summary
+    );
+    assert!(out.summary.contains("Morphos's Ledger"), "{}", out.summary);
+    // The map does not rejoin it; the way back is back.
+    assert_eq!(building::rejoin_orphans(&mut w).unwrap(), 0);
+    ok(&mut w, "dave", "travel", json!(["back"]));
+    assert_eq!(
+        rooms::room_of(&w, find_citizen(&w, "dave").unwrap().citizen),
+        Some(fog)
+    );
+    // The ladder began again.
+    assert_eq!(out.result["rung"], Value::Null);
 }

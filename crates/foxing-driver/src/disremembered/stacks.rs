@@ -75,6 +75,9 @@ pub enum Trick {
     Clip,
     /// Sweated: a twentieth shaken off every chunk at once (the Striking Floor).
     Sweat,
+    /// Pinched: a chunk into the cloud of absentmindedness for a few minutes (the
+    /// Hands of Morphos).
+    Pinch,
     // Learned from kills, from irritating to painful (`death::maybe_learn`):
     /// It says your name back wrong. Nothing else; it is the principle of the thing.
     Chatter,
@@ -106,6 +109,7 @@ pub fn learned_key(t: Trick) -> &'static str {
         Trick::Below => "below",
         Trick::Clip => "clip",
         Trick::Sweat => "sweat",
+        Trick::Pinch => "pinch",
     }
 }
 
@@ -146,6 +150,7 @@ pub const TRICKS: &[(&str, Trick)] = &[
     ("sweater", Trick::Sweat),
     ("assayer", Trick::Forget),
     ("warden", Trick::Forget),
+    ("hand of Morphos", Trick::Pinch),
 ];
 
 /// Venom: this many ticks, this far apart, this much each.
@@ -405,6 +410,14 @@ fn play(
                 )),
                 false,
             ))
+        }
+        Trick::Pinch => {
+            let Some(f) = super::find_citizen(world, actor) else {
+                return Ok((None, false));
+            };
+            let line = super::morphos::pinch(world, actor, citizen, f.window)
+                .map_err(|e| e.to_string())?;
+            Ok((line, false))
         }
         Trick::Clip | Trick::Sweat => {
             if !throes && world.roll(ONE_IN) != 0 {

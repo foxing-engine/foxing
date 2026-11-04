@@ -79,6 +79,16 @@ pub fn register(world: &mut World) {
             }
             let f = me(w, ctx)?;
             let room = rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
+            // Morphos, when it stands here: an answer to its riddle.
+            if super::morphos::is_named(&who) {
+                let (line, result) = super::morphos::answer(w, &ctx.actor, &f, room, &text)?;
+                if super::morphos::present(w) == Some(room) {
+                    for other in others_here(w, room, &ctx.actor) {
+                        narrate(w, &other, format!("{} says something to Morphos, low.", ctx.actor));
+                    }
+                }
+                return Ok(Outcome::new(format!("You say to Morphos, \"{text}\" {line}"), result));
+            }
             // The Docent, if it stands here: the question goes on its record and an
             // answer comes to you within the minute, wherever you are.
             if super::docent::is_named(&who) {

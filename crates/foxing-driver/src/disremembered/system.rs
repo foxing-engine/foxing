@@ -429,6 +429,21 @@ pub fn register(world: &mut World) {
 
     world.register(
         CommandSpec::new(
+            "disremembered.summon",
+            "Admin: Morphos comes now, to the busiest room, for its usual twenty minutes.",
+        )
+        .allowed(&[ActorKind::Admin]),
+        Box::new(|w: &mut World, _, _| {
+            super::morphos::summon_now(w).map_err(CommandError::precondition)?;
+            Ok(Outcome::new(
+                format!("Morphos is here: {}", super::morphos::whereabouts(w)),
+                json!({"summoned": true}),
+            ))
+        }),
+    );
+
+    world.register(
+        CommandSpec::new(
             "disremembered.raze",
             "Admin: remove a dug room by its key, with its creatures, and every exit that led to it. Refused while a citizen is in it, and for a seed room. Rooms dug off it stay, reachable by their own exits if they have any.",
         )

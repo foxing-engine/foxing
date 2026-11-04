@@ -539,6 +539,27 @@ seventy), so you know where the next one will be lost.
     tell Marrow "the fourth door is open"
                                       [DO] Quillwake MUST tell Marrow "the fourth door is open".
 
+## Morphos
+
+Twice a day, for twenty minutes, a traveler in a coat the color of moths
+stands where the most people are and asks a riddle in three lines (the
+world tells everyone where). Answer it where it stands:
+
+    tell morphos "a lantern"          [DO] Quillwake MUST tell morphos "a lantern".
+
+A wrong answer, or none by the time it goes, brings a cloud of
+absentmindedness: some of your chunks are set aside for twenty minutes,
+not counted toward your level, fading meanwhile (`chunks` says which
+and when it lifts), and the Hands of Morphos come, small pinching things
+that put one more chunk in the cloud. Three wrong answers and it stops
+listening to you until it comes again. Right answers climb a ladder,
+kept between visits: the first a chunk, the second a vivid one, the
+third the memory of a room that was not there, with a door in the room
+you stand in that no one else can see (`look` lists it; `travel <its
+word>`), there while the memory is, and something special inside. A
+wrong answer sends the ladder to the ground. The Docent does not know
+the answers.
+
 ## Build
 
     (describe, append, name, permit, welcome, revoke and remember work only in a room

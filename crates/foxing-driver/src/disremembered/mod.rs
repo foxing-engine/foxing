@@ -28,6 +28,7 @@ mod identity;
 pub mod kindle;
 pub mod memory;
 pub mod mind;
+pub mod morphos;
 pub mod namery;
 pub mod past;
 pub mod presence;
@@ -196,7 +197,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("taxed", FieldKind::Plain, Visibility::Owner)
             // Where it was earned: "passing" when a passing name earned it. The mark
             // travels with the chunk through every hand it passes.
-            .field("provenance", FieldKind::Plain, Visibility::Public),
+            .field("provenance", FieldKind::Plain, Visibility::Public)
+            // A door only the holder can take: `{from, exit, to}` (Morphos's third rung).
+            .field("door", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(ROOM, 2)
             .field("key", FieldKind::Plain, Visibility::Public)
             .field("name", FieldKind::Plain, Visibility::Public)
@@ -220,6 +223,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // the Bindery's last binding (`{at, by, model, before}`).
             .field("appends", FieldKind::Plain, Visibility::Public)
             .field("hands", FieldKind::Plain, Visibility::Public)
+            // A room Morphos made: off the map, reached by a memory's door alone.
+            .field("hidden", FieldKind::Plain, Visibility::Public)
             .field("bound", FieldKind::Plain, Visibility::Public),
         ComponentSchema::new(EXITS, 1).field("exits", FieldKind::Plain, Visibility::Public),
         // A creature that is remembered: its tier, its given name, who keeps it, and
@@ -348,6 +353,19 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("desk", FieldKind::Plain, Visibility::Admin)
             // The greeting book, stocked nightly: {first: [...], welcome: [...]}.
             .field("book", FieldKind::Plain, Visibility::Public),
+        // Morphos: whether it stands, where, the riddle, who was asked, the ladders.
+        ComponentSchema::new(morphos::MORPHOS, 1)
+            .field("name", FieldKind::Plain, Visibility::Public)
+            .field("line", FieldKind::Plain, Visibility::Public)
+            .field("present", FieldKind::Plain, Visibility::Public)
+            .field("room", FieldKind::Plain, Visibility::Public)
+            .field("since", FieldKind::Plain, Visibility::Public)
+            .field("until", FieldKind::Plain, Visibility::Public)
+            .field("riddle", FieldKind::Plain, Visibility::Public)
+            .field("visits", FieldKind::Plain, Visibility::Public)
+            .field("asked", FieldKind::Plain, Visibility::Admin)
+            .field("ladder", FieldKind::Plain, Visibility::Admin)
+            .field("hidden", FieldKind::Plain, Visibility::Public),
         // The Namery: the pool of names not yet dealt, what was drawn, the stockings.
         ComponentSchema::new(namery::NAMERY, 1)
             .field("pool", FieldKind::Plain, Visibility::Admin)
@@ -692,6 +710,7 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     docent::ensure_round(world)?;
     board::ensure(world)?;
     combat::ensure_regen(world)?;
+    morphos::ensure(world)?;
     mind::ensure_wander(world)
 }
 
@@ -1180,6 +1199,7 @@ pub fn register(world: &mut World, curves: Curves) {
     conclave::register(world);
     stacks::register(world);
     combat::register_mend(world);
+    morphos::register(world);
     combat::register(world, curves.clone());
     memory::register(world, curves.clone());
     presence::register(world, curves.clone());

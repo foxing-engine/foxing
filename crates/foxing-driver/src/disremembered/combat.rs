@@ -35,6 +35,20 @@ pub struct CreatureDef {
 }
 
 pub const CREATURES: &[CreatureDef] = &[
+    // The Hands of Morphos: summoned when it is crossed, gone when it goes. Not
+    // spawned by any room; `morphos.rs` calls them.
+    CreatureDef {
+        key: "hand",
+        name: "hand of Morphos",
+        hp: 6.0,
+        attack: 1.0,
+        xp: 5.0,
+        aggressive: true,
+        strike_seconds: 8,
+        ambush: "unfolds from a sleeve that is not there and pinches.",
+        glyph: "h",
+        tint: "#c9b7d9",
+    },
     CreatureDef {
         key: "wisp",
         name: "wisp",

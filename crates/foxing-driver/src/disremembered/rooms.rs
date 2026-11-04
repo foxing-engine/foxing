@@ -1009,6 +1009,17 @@ pub fn describe(
             .collect();
         text.push_str(&format!(" Exits: {}.", shown.join(", ")));
     }
+    // A door only you can see, while you hold the memory of what is behind it.
+    if let Some(f) = super::find_citizen(world, actor) {
+        for (door, to) in super::morphos::private_doors(world, f.window, room) {
+            text.push_str(&format!(
+                " And a door no one else sees, {door} ({}), there while you remember it.",
+                super::plain_str(world, to, ROOM, "name")
+                    .unwrap_or("?")
+                    .trim_start_matches("The ")
+            ));
+        }
+    }
     if let Some(standing) = super::craft::fixtures_line(world, room) {
         text.push(' ');
         text.push_str(&standing);
@@ -1123,6 +1134,10 @@ pub fn describe(
     if let Some(d) = super::docent::look_line(world, room) {
         text.push(' ');
         text.push_str(&d);
+    }
+    if let Some(m) = super::morphos::look_line(world, room) {
+        text.push(' ');
+        text.push_str(&m);
     }
     // A fight on: said, with the rule you are under (a gate visitor read "You are
     // alone" with a hollow at its throat).
@@ -1263,6 +1278,12 @@ pub fn register(world: &mut World) {
                     }
                 }
             }
+            // A door only you can see: the memory of a room Morphos gave you.
+            if !exits.contains_key(&exit) {
+                if let Some(to) = super::morphos::private_door(w, f.window, room, &exit) {
+                    exits.insert(exit.clone(), to);
+                }
+            }
             // Not an exit: a room's name, if you remember the way (a person typed
             // "the fog bank" straight off the map). The first step is taken now and
             // the rest said, so each room is still a room passed through.
@@ -1323,6 +1344,8 @@ pub fn register(world: &mut World) {
             super::talk::greet(w, &ctx.actor, to);
             // The Docent greets whoever comes to the Threshold, once a night.
             super::docent::on_arrival(w, &ctx.actor).map_err(internal)?;
+            // Morphos, if it stands here, asks whoever comes in.
+            super::morphos::on_arrival(w, &ctx.actor, to).map_err(internal)?;
             // A bell standing here rings for whoever comes in; the rooms next door hear.
             if super::craft::fixture_of(w, to, "bell").is_some() {
                 let here_name = plain_str(w, to, ROOM, "name").unwrap_or("a room").to_string();

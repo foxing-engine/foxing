@@ -287,6 +287,8 @@ export default function install(m) {
         else things.push({ id: n.id, kind: "citizen", name, sprite: Object.assign({}, s, { tint: "hsl(" + (hash(name) % 360) + ",45%,60%)", frame: s.frame || "citizen", atlas: s.atlas || m.atlasName }), tile: SLOTS[(hash(n.id) + slot++) % SLOTS.length] });
       } else if (n.kind === "docent") {
         things.push({ id: n.id, kind: "docent", name: (n.components["disremembered.docent"] || {}).name || "the Docent", sprite: s, tile: [COLS - 5, 3] });
+      } else if (n.kind === "morphos") {
+        things.push({ id: n.id, kind: "morphos", name: "Morphos", sprite: Object.assign({}, s, { frame: s.frame || "docent", atlas: s.atlas || m.atlasName }), tile: [4, 3] });
       } else if (n.kind === "item") {
         const it = n.components["disremembered.item"] || {};
         const label = it.given_name || it.name || "something";
@@ -632,6 +634,9 @@ export default function install(m) {
         const by = Math.round(Math.sin(now / 300)) - 7;
         px(x * T + 7, y * T + by, 2, 2, DUST); px(x * T + 6, y * T + by - 2, 4, 2, DUST); px(x * T + 5, y * T + by - 4, 6, 2, DUST);
         hot.set(x + "," + y, { label: "you, " + t.name, primary: () => m.command("look", []), menu: [{ label: "Look around", run: () => m.command("look", []) }, { label: "What I hold", run: () => m.command("chunks", []) }, { label: "What remembers me", run: () => m.command("mine", []) }, { label: "Rest", run: () => m.command("rest", []) }, { label: "Dig a room here", run: () => m.prefill("dig nook " + chunkFor("dig") + ' "') }, { label: "Say something", run: () => m.prefill('say "') }] });
+      } else if (t.kind === "morphos") {
+        labelAt("Morphos", x, y, -1, "#c9b7d9");
+        hot.set(x + "," + y, { label: "Morphos, a traveler with a riddle — answer it", primary: () => m.prefill('tell morphos "'), menu: [{ label: "Answer the riddle", run: () => m.prefill('tell morphos "') }, { label: "Hear it again", run: () => m.command("look", []) }] });
       } else if (t.kind === "docent") {
         labelAt("the Docent", x, y, -1);
         hot.set(x + "," + y, { label: "the Docent, " + t.name + " — ask it anything", primary: () => m.prefill('tell docent "'), menu: [{ label: "Ask the Docent", run: () => m.prefill('tell docent "') }, { label: "Who are you?", run: () => m.command("tell", ["docent", '"who are you?"']) }] });
@@ -788,7 +793,7 @@ export default function install(m) {
     root: "here",
     select: { "disremembered.room": ["name", "key", "memory", "description", "bound"], "disremembered.sprite": "*" },
     relations: {
-      contents: { kinds: ["citizen", "creature", "docent", "item"], select: { "disremembered.docent": ["name"], "disremembered.citizen": ["name"], "disremembered.creature": ["name", "hp", "max_hp", "xp"], "disremembered.item": ["name", "given_name", "fixed"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace"], "disremembered.mind": ["name", "tier", "shaken_until"] } },
+      contents: { kinds: ["citizen", "creature", "docent", "morphos", "item"], select: { "disremembered.docent": ["name"], "disremembered.morphos": ["name", "present"], "disremembered.citizen": ["name"], "disremembered.creature": ["name", "hp", "max_hp", "xp"], "disremembered.item": ["name", "given_name", "fixed"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace"], "disremembered.mind": ["name", "tier", "shaken_until"] } },
       exits: { select: { "disremembered.room": ["name"], "disremembered.sprite": "*" } },
     },
     timed: "curve", commands: false,

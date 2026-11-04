@@ -335,9 +335,21 @@ pub fn register(world: &mut World, curves: Curves) {
                     rows_text(&rows).join("\n")
                 )
             };
+            // A cloud of absentmindedness (Morphos): chunks set aside, not counted.
+            let clouded = super::morphos::clouded(w, f.citizen);
+            let text = match clouded {
+                Some((n, left)) => format!(
+                    "{text}\nA cloud of absentmindedness: {} of yours {} out of reach and not counted, fading meanwhile; it lifts in {}.",
+                    if n == 1 { "one chunk".to_string() } else { format!("{n} chunks") },
+                    if n == 1 { "is" } else { "are" },
+                    super::combat::human(left)
+                ),
+                None => text,
+            };
             Ok(Outcome::new(
                 text,
-                json!({"level": level, "attack": attack, "chunks": rows, "active_half_life_ms": active_hl_ms, "observation": observation}),
+                json!({"level": level, "attack": attack, "chunks": rows, "active_half_life_ms": active_hl_ms, "observation": observation,
+                       "clouded": clouded.map(|(n, left)| json!({"chunks": n, "lifts_in_ms": left}))}),
             ))
         }),
     );

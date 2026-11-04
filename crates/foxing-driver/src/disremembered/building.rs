@@ -1480,6 +1480,8 @@ pub fn rejoin_orphans(world: &mut World) -> Result<usize, String> {
         .into_iter()
         .filter(|&r| world.store.entity(r).is_some_and(|e| e.owner.is_some()))
         .filter(|r| !reached.contains(r))
+        // A room Morphos made is reached by a memory's door, not the map's.
+        .filter(|&r| !super::morphos::is_hidden(world, r))
         .collect();
     let mut n = 0;
     for room in orphans {

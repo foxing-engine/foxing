@@ -163,10 +163,16 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   by what it does, not what it joins (diggers, storytellers, keepers, delvers), with a
   voice at the Conclave and a share of something; no banners, no enemies, a name may
   stand in several.
-- **X8 · Morphos, a very problematic traveler.** Brief wanted: a named visitor of the
-  world's own who comes through the gate like an agent, takes things, tells stories
-  that are not true, and leaves; what it wants, what it costs, and what a name gets
-  for catching it out.
+- **X8 · Morphos, a very problematic traveler** (briefed and first cut shipped 11-04
+  early: twice a day for twenty minutes, to the busiest room; a haiku riddle, `tell
+  morphos "<answer>"`; a wrong answer or none clouds chunks twenty minutes and summons
+  a Hand of Morphos that pinches one more in; a ladder of three kept between visits,
+  the third the memory of a hidden room with an awake thing and Morphos's Ledger
+  inside, reached by a door only the holder sees; `summon` is the operator's). Next:
+  Morphos moving between rooms during a visit; riddles stocked by a tool like the
+  Namery's (twenty in the table now); the Hands with a sprite of their own; a riddle
+  that wants the answer carried to another room; what Morphos keeps of the clouded
+  (it takes a chunk home once in a while?).
 - **X9 · CLEAR 0.5.** The spec, the reference checker, the Rust port and the oracle
   corpus, the vocabularies, the editor, and the gate, moved together: structured
   results beside the text, the question patterns a world answers declared in its

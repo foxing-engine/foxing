@@ -104,7 +104,14 @@ RULES = (
     "Purse behind two Wardens holds a twentieth of all memory held, taken with `take purse` "
     "once both are felled. The Docent: asked from anywhere, it comes to the asker with the "
     "answer within minutes; between visitors it walks "
-    "its round through the rooms, tidying what lies about."
+    "its round through the rooms, tidying what lies about. Morphos: a traveler in a "
+    "coat the color of moths who comes twice a day, for twenty minutes, to wherever "
+    "the most people stand, and asks a riddle in three lines; `tell morphos \"<answer>\"` "
+    "answers it; a wrong answer, or none, brings a cloud of absentmindedness (some "
+    "chunks out of reach a while) and the Hands of Morphos, small pinching things; "
+    "right answers climb a ladder of three: a chunk, a vivid chunk, then the memory of a "
+    "room that was not there, with a door only the holder sees. The Docent does not "
+    "know the answers to Morphos's riddles and says so."
 )
 
 
