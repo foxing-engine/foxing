@@ -57,12 +57,16 @@ const ICONS = {
   book: { p: { a: "#7a4a3a", b: "#ece5d3" }, r: ["........", ".aaaaaa.", ".abbbba.", ".abbbba.", ".abbbba.", ".aaaaaa.", "........", "........"] },
   bandage: { p: { a: "#ece5d3", b: "#c9c0b0" }, r: ["........", "..aaaa..", ".abbbba.", ".abbbba.", "..aaaa..", "........", "........", "........"] },
   wing: { p: { a: "#c9bfa8", b: "#8a8070" }, r: ["........", ".a....a.", ".ab..ba.", "..abba..", "..abba..", "...aa...", "........", "........"] },
+  lamp: { p: { a: "#8a6a2f", b: "#ffe6a0" }, r: ["...bb...", "..bbbb..", "..bbbb..", "...aa...", "...aa...", "..aaaa..", ".aaaaaa.", "........"] },
+  bell: { p: { a: "#b08a3a", b: "#d9b57a" }, r: ["...a....", "..aba...", ".abbba..", ".abbba..", "abbbbba.", "aaaaaaa.", "...a....", "........"] },
+  basin: { p: { a: "#8e887c", b: "#9fd3e6" }, r: ["........", "........", "aaaaaaaa", ".abbbba.", ".abbbba.", "..aaaa..", "...aa...", "..aaaa.."] },
+  plaque: { p: { a: "#5a4a3a", b: "#d9b57a" }, r: ["........", ".aaaaaa.", ".abbbba.", ".abbbba.", ".abbbba.", ".aaaaaa.", "........", "........"] },
   thing: { p: { a: "#bdb7a6", b: "#7a6f5f" }, r: ["........", "..aaaa..", ".abbbba.", ".abbbba.", ".aaaaaa.", "..aaaa..", "........", "........"] },
 };
 function iconFor(name) {
   const n = (name || "").toLowerCase();
-  for (const k of ["water", "dust", "ink", "ember", "thread", "key", "charm", "lantern", "book", "bandage", "wing"]) if (n.includes(k)) return k;
-  if (/plaque|ledger|volume|minutes|page/.test(n)) return "book";
+  for (const k of ["water", "dust", "ink", "ember", "thread", "key", "charm", "lantern", "basin", "bell", "lamp", "plaque", "book", "bandage", "wing"]) if (n.includes(k)) return k;
+  if (/ledger|volume|minutes|page|register/.test(n)) return "book";
   return "thing";
 }
 // The room's motifs, from its words.
@@ -286,8 +290,11 @@ export default function install(m) {
       } else if (n.kind === "item") {
         const it = n.components["disremembered.item"] || {};
         const label = it.given_name || it.name || "something";
-        if (it.fixed) things.push({ id: n.id, kind: "fixture", name: label, tile: [3 + (islot % 3) * 2, 3], icon: iconFor(label) });
-        else items.push({ id: n.id, kind: "item", name: label, take: it.name || label, tile: ITEM_SLOTS[(hash(n.id) + islot) % ITEM_SLOTS.length], icon: iconFor(label) });
+        // The icon by the thing's kind (a lamp, a bell, a basin, a book), not its given
+        // name: a book called The Fifth Ragpicker drew as a box.
+        const icon = iconFor(it.name || label);
+        if (it.fixed) things.push({ id: n.id, kind: "fixture", name: label, tile: [3 + (islot % 3) * 2, 3], icon });
+        else items.push({ id: n.id, kind: "item", name: label, take: it.name || label, tile: ITEM_SLOTS[(hash(n.id) + islot) % ITEM_SLOTS.length], icon });
         islot++;
       }
     }

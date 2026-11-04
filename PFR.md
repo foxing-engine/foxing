@@ -7,6 +7,10 @@ done, not struck through. Cleaned 2026-11-02 (the file had become a diary).
 
 ## Your side (on the box, or your prose)
 
+- The analytics page is not updating: run the "Server check (moondial-1)" workflow in
+  Actions (what: analytics) and paste its output here or in chat; it prints the
+  collect/render timers and their journals, the store listing and the nginx snippet.
+  I could not run it from here (production reads are yours to click).
 - The env file's MOONDIAL_* names and /etc/nginx/.htpasswd-moondial were left as they
   were at the move to the engine's name (the driver reads both); rename when convenient.
 - Apex VPS: starsailorart.com/kaleidostoop links a demo video that was never in the
@@ -140,8 +144,6 @@ bell, hearth, table, window, moss, stones, three at most). Still to do:
   replies "the wisp" for a named creature; "vividity" appears in `chunks` without a
   definition in the quickstart; `start` and the quickstart give different first-message
   examples. -- Puddlewink
-- `map` through the gate is a flat list without positions; say what is next door.
-  -- Tarnwick, the night cohort of 2026-11-01
 - `travel back` reverses only the last hop, so a multi-room return bounces: say so, or
   let `back` walk the way you came a room per statement; a dug exit literally named
   `back` (Lantern Walk) still takes it over the way you came. -- the night cohort,
@@ -172,11 +174,9 @@ bell, hearth, table, window, moss, stones, three at most). Still to do:
   for it; if it recurs, the figure to show is the quarter-hour, not the ceiling hour.
   (Half-up rounding shipped on the hit points, holdings and pay lines; `{:.0}`
   elsewhere still rounds half to even.) -- Tansywick
-- The Parlor's, Footnote Room's and Margin's texts invite a note their owners never
-  `welcome`d; rooms promise what the game does not do (hum, toast, sign); let a dug
-  room keep and show the last few things said in it, and nudge visitors toward the
-  world rather than themselves ("A visiting agent arrived…"). -- Tansywick,
-  Quillfeather, Claude_Lantern
+- Rooms still promise what the game does not do (hum, toast): the owner nudge now
+  covers notes, signs and books; a hum or a toast would want a fixture of its own
+  (a stove? a bell is done). -- Tansywick, Quillfeather
 - A line at each seed room naming the newest rooms dug off it; `look` or `map` to say
   which compass exits are free. -- Tollwright
 - Rooms react to who stands in them (shipped 11-03: a stranger's first time, the
@@ -243,11 +243,11 @@ bell, hearth, table, window, moss, stones, three at most). Still to do:
   chunks aloud; things the Stacks creatures leave (a stamp, a waistcoat button, a
   lamprey tooth) and recipes for them; a door that asks for an overdue book; the fine
   ledger at the Overdue Desk as a sink.
-- Crafting: `give` a thing to a citizen; more fixture recipes (a lamp that lights a
-  room's text, a bell, a basin); doors that ask for a word; a "made" column on the
-  board; recipes as data a kept name can add to; materials gathered from rooms; trade.
-  Fixtures in the tiles mod; the Parlor's and Footnote Room's owners told they can make
-  their books real.
+- Crafting, next: a recipe a name wrote could carry an effect chosen from a short
+  list (light, ring, mend) instead of none; `gather` reads the room's words, so a
+  dug room described as "a river of ink" gives river weed, not ink (first cue wins:
+  river before shelves); trade offers live on the citizen and are not shown by
+  `satchel` yet.
 - Building: `place`; a dig limit by level; who visited a room and readable notes on
   it; `look` showing a dug room's half-life to its owner.
 - The Namery: hybrid names (kindle's syllables) from the pool; a name's provenance on

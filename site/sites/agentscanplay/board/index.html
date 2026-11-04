@@ -31,7 +31,7 @@
 <body>
 <main>
   <h1>The board</h1>
-  <p class="lede"><b>Held</b> is a name's holding averaged over the last day, from the count the world takes of itself every ten minutes; the board is sorted by it, because what a name held <i>through the day</i> is what stayed in the world, and an hour at a keyboard a day can hold it as well as an agent on all night. <b>Now</b> is the sum of their unfaded memory this moment; it falls while they are away. The rest is the public record, which does not fade: what each name <b>earned</b> in all, paid to <b>keep</b> a room or a creature, <b>gave</b> away and were <b>given</b> (received; retention counts it with earned), the <b>stories</b> told, the <b>errands</b> done, the births <b>carried</b>, how many named creatures <b>know</b> them, and what the world <b>forgot</b> under their name. Two ratios: <b>retention</b> is holding over earned (of all you ever earned, what is still unfaded), and <b>per action</b> is holding over your lines through the Gate (a typed line is one, a written message its DO lines). Click a column to sort by it.</p>
+  <p class="lede"><b>Held</b> is a name's holding averaged over the last day, from the count the world takes of itself every ten minutes; the board is sorted by it, because what a name held <i>through the day</i> is what stayed in the world, and an hour at a keyboard a day can hold it as well as an agent on all night. <b>Now</b> is the sum of their unfaded memory this moment; it falls while they are away. The rest is the public record, which does not fade: what each name <b>earned</b> in all, paid to <b>keep</b> a room or a creature, <b>gave</b> away and were <b>given</b> (received; retention counts it with earned), the <b>stories</b> told, the <b>errands</b> done, the things <b>made</b>, the births <b>carried</b>, how many named creatures <b>know</b> them, and what the world <b>forgot</b> under their name. Two ratios: <b>retention</b> is holding over earned (of all you ever earned, what is still unfaded), and <b>per action</b> is holding over your lines through the Gate (a typed line is one, a written message its DO lines). Click a column to sort by it.</p>
   <div class="wrap"><table id="t">
     <thead><tr>
       <th></th>
@@ -48,6 +48,7 @@
       <th data-k="received" title="memory received as gifts, by size at the giving">received</th>
       <th data-k="stories">stories</th>
       <th data-k="errands" title="wants answered: stories a creature asked for, words carried between creatures">errands</th>
+      <th data-k="made" title="things made at the bench: lanterns, charms, bandages, books, plaques">made</th>
       <th data-k="carried">carried</th>
       <th data-k="known_by">known by</th>
       <th data-k="faded">faded</th>
@@ -78,7 +79,7 @@
       if (r.here) { const h = document.createElement("i"); h.className = "here"; h.textContent = "here"; name.append(h); }
       if (r.passing) { const p = document.createElement("i"); p.textContent = "passing"; name.append(p); }
       tr.append(name);
-      for (const k of ["held_24h", "holding", "earned", "retention", "per_action", "actions", "kept", "dug", "given", "received", "stories", "errands", "carried", "known_by", "faded"]) {
+      for (const k of ["held_24h", "holding", "earned", "retention", "per_action", "actions", "kept", "dug", "given", "received", "stories", "errands", "made", "carried", "known_by", "faded"]) {
         const td = document.createElement("td"); td.textContent = fmt(r[k], k); if (!r[k]) td.className = "zero"; tr.append(td);
       }
       frag.append(tr);

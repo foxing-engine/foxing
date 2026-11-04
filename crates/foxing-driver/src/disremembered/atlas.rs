@@ -478,13 +478,35 @@ pub fn remembered_map(
                 *ys.iter().min().unwrap_or(&0),
                 *ys.iter().max().unwrap_or(&0),
             );
-            if x1 - x0 <= 15 && y1 - y0 <= 11 {
+            // A floor wider than the grid is drawn as a window around where you
+            // stand, not left out (a visitor through the gate read a flat list with
+            // no positions once the ground floor outgrew the grid).
+            let (hx, hy) = on_floor
+                .iter()
+                .find(|r| r["here"] == true)
+                .map(|r| (r["x"].as_i64().unwrap_or(0), r["y"].as_i64().unwrap_or(0)))
+                .unwrap_or(((x0 + x1) / 2, (y0 + y1) / 2));
+            let (x0, x1) = if x1 - x0 > 15 {
+                ((hx - 7).max(x0), (hx - 7).max(x0) + 15)
+            } else {
+                (x0, x1)
+            };
+            let (y0, y1) = if y1 - y0 > 11 {
+                ((hy - 5).max(y0), (hy - 5).max(y0) + 11)
+            } else {
+                (y0, y1)
+            };
+            let (in_window, beyond): (Vec<&Value>, Vec<&Value>) = on_floor.iter().partition(|r| {
+                let (x, y) = (r["x"].as_i64().unwrap_or(0), r["y"].as_i64().unwrap_or(0));
+                (x0..=x1).contains(&x) && (y0..=y1).contains(&y)
+            });
+            {
                 let mut legend: Vec<String> = Vec::new();
                 let mut grid: Vec<Vec<String>> =
                     // Empty cells are dots, not spaces: a reply through the gate
                     // collapses whitespace, and the grid lost its columns.
                     vec![vec![" . ".to_string(); (x1 - x0 + 1) as usize]; (y1 - y0 + 1) as usize];
-                for (i, r) in on_floor.iter().enumerate() {
+                for (i, r) in in_window.iter().enumerate() {
                     let (x, y) = (r["x"].as_i64().unwrap_or(0), r["y"].as_i64().unwrap_or(0));
                     let code = format!("{:02}", (i + 1) % 100);
                     let mark = if r["here"] == true {
@@ -506,6 +528,55 @@ pub fn remembered_map(
                     rows.join("\n"),
                     legend.join("; ")
                 ));
+                if !beyond.is_empty() {
+                    summary.push_str(&format!(
+                        "\nOff this window, on the same floor: {}.",
+                        beyond
+                            .iter()
+                            .filter_map(|r| r["name"].as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ));
+                }
+                // What is next door to each room you remember, by the compass, so the
+                // list has positions even where the grid has none.
+                let next_door: Vec<String> = on_floor
+                    .iter()
+                    .filter(|r| r["here"] != true)
+                    .filter_map(|r| {
+                        let id = r["id"].as_u64()?;
+                        let mut sides: Vec<String> = Vec::new();
+                        for (via, to) in rooms::exits_of(world, EntityId(id)) {
+                            if !matches!(via.as_str(), "north" | "south" | "east" | "west") {
+                                continue;
+                            }
+                            if let Some(n) = on_floor
+                                .iter()
+                                .find(|o| o["id"].as_u64() == Some(to.0))
+                                .and_then(|o| o["name"].as_str())
+                            {
+                                sides.push(format!("{via} {}", n.trim_start_matches("The ")));
+                            }
+                        }
+                        sides.sort();
+                        if sides.is_empty() {
+                            None
+                        } else {
+                            Some(format!(
+                                "{}: {}",
+                                r["name"].as_str()?.trim_start_matches("The "),
+                                sides.join(", ")
+                            ))
+                        }
+                    })
+                    .take(24)
+                    .collect();
+                if !next_door.is_empty() {
+                    summary.push_str(&format!(
+                        "\nNext door, as you remember it: {}.",
+                        next_door.join("; ")
+                    ));
+                }
             }
         }
     }

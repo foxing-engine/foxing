@@ -37,6 +37,8 @@ const UNDESCRIBED: &str = "Freshly dug. No one has described it yet.";
 /// Whether a room was dug by a citizen (and so has a memory), as opposed to seeded.
 /// A named creature invited to live in a dug room: `{by, creature, name, kind, from, room}`.
 pub const INVITED: &str = "disremembered.invited";
+/// A word put on a dug room's door: `{by, room, name, hint}`. Public (the word is not).
+pub const WARDED: &str = "disremembered.warded";
 
 pub fn is_built(world: &World, room: EntityId) -> bool {
     world
@@ -367,6 +369,119 @@ fn chunk_half_life(world: &World, chunk: EntityId) -> Duration {
         },
         _ => Duration::seconds(3600),
     }
+}
+
+/// Whether a dug room's words invite a line (a note, a signature, a guest book) that
+/// no hand is welcomed to write, and nothing stands to take it: the Parlor's, the
+/// Footnote Room's and the Margin's texts asked for notes their owners never
+/// `welcome`d. The owner is told how to make the invitation real.
+pub fn unmet_invitation(world: &World, room: EntityId) -> Option<&'static str> {
+    if !is_built(world, room) {
+        return None;
+    }
+    let desc = plain_str(world, room, ROOM, "description")?.to_lowercase();
+    let invites = [
+        "leave a note",
+        "write in",
+        "sign the",
+        "sign your",
+        "leave your name",
+        "guest book",
+        "visitor book",
+        "write your",
+        "leave a line",
+        "add a line",
+        "scratch your",
+        "carve your",
+        "leave a word",
+        "write here",
+    ]
+    .iter()
+    .any(|p| desc.contains(p));
+    if !invites {
+        return None;
+    }
+    let welcomed = !grants_of(world, room, "welcomes").is_empty();
+    let book = super::craft::fixtures_in(world, room).iter().any(|f| {
+        f["origin"].as_str() == Some("book") || f["text"].as_str().is_some_and(|t| !t.is_empty())
+    });
+    if welcomed || book {
+        return None;
+    }
+    Some("Its words invite a line, and no hand is welcomed to write one: `welcome all` opens the room to every hand, and `craft book` (rag thread, a dab of ink, a chunk of sixty) makes the book real. What the words promise beyond that (a hum, a toast, a sign) the room cannot do; a lamp, a bell or a basin can be made (`recipes`).")
+}
+
+/// A dug room's door may ask for a word (`ward`): `{word, hint, by, passed: [names]}`.
+pub fn ward_of(world: &World, room: EntityId) -> Option<Value> {
+    world
+        .store
+        .entity(room)
+        .and_then(|e| e.components.get(ROOM))
+        .and_then(|c| c.fields.get("ward"))
+        .and_then(|f| match f {
+            Field::Plain(v) if v.is_object() => Some(v.clone()),
+            _ => None,
+        })
+}
+
+/// Whether `ctx` may enter `room` through its ward, given the word they said; a
+/// stranger who says it is remembered and asked no more.
+pub(crate) fn pass_ward(
+    world: &mut World,
+    ctx: &CallContext,
+    room: EntityId,
+    said: &str,
+) -> Result<(), CommandError> {
+    let Some(ward) = ward_of(world, room) else {
+        return Ok(());
+    };
+    if ctx.kind == ActorKind::Admin {
+        return Ok(());
+    }
+    let owner = world.store.entity(room).and_then(|e| e.owner.clone());
+    if owner.as_deref() == Some(ctx.actor.as_str())
+        || kept_by(world, room).iter().any(|k| k == &ctx.actor)
+        || granted(world, room, "permits", &ctx.actor)
+        || granted(world, room, "welcomes", &ctx.actor)
+        || ward["passed"]
+            .as_array()
+            .is_some_and(|a| a.iter().any(|v| v.as_str() == Some(ctx.actor.as_str())))
+    {
+        return Ok(());
+    }
+    let word = ward["word"].as_str().unwrap_or("").trim().to_lowercase();
+    let said = said.trim().trim_matches('"').trim().to_lowercase();
+    if !word.is_empty() && said == word {
+        let mut ward = ward;
+        let mut passed = ward["passed"].as_array().cloned().unwrap_or_default();
+        passed.push(json!(ctx.actor));
+        ward["passed"] = Value::Array(passed);
+        let mut fields = BTreeMap::new();
+        fields.insert("ward".into(), Field::Plain(ward));
+        set_room_fields(world, &ctx.actor, room, fields)?;
+        let name = plain_str(world, room, ROOM, "name")
+            .unwrap_or("the room")
+            .to_string();
+        super::combat::narrate(
+            world,
+            &ctx.actor,
+            format!("The door of {name} hears the word and opens; it will know you now."),
+        );
+        return Ok(());
+    }
+    let name = plain_str(world, room, ROOM, "name")
+        .unwrap_or("The room")
+        .to_string();
+    let hint = ward["hint"]
+        .as_str()
+        .filter(|h| !h.trim().is_empty())
+        .map(|h| format!(" Over the door: \"{h}\""))
+        .unwrap_or_default();
+    Err(CommandError::precondition(format!(
+        "{name}'s door asks for a word{}.{hint} `travel <exit> \"<word>\"` says it; the room's owner{} may tell you.",
+        if said.is_empty() { "" } else { ", and that was not it" },
+        owner.map(|o| format!(", {o},")).unwrap_or_default()
+    )))
 }
 
 /// Who keeps a room: the names on its `kept` list.
@@ -905,6 +1020,68 @@ pub fn register(world: &mut World, curves: super::Curves) {
         ),
         Box::new(|w: &mut World, ctx, args: &Args| {
             grant(w, ctx, args, "permits", "may describe and name this room")
+        }),
+    );
+
+    world.register(
+        CommandSpec::new(
+            "disremembered.ward",
+            "Put a word on the door of this dug room of yours: whoever is not its owner, a keeper or welcomed must say it to come in (`travel <exit> \"<word>\"`), once; after that the door knows them. A hint, if you give one, hangs over the door for anyone refused. A kept name's verb.",
+        )
+        .param("word", ParamType::String, true, "the word the door asks for, quoted (one to three words)")
+        .param("hint", ParamType::Text, false, "what hangs over the door for those refused, quoted"),
+        Box::new(|w: &mut World, ctx, args: &Args| {
+            super::kept_only(w, ctx, "ward")?;
+            let f = me(w, ctx)?;
+            let here = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
+            if !is_built(w, here) {
+                return Err(CommandError::precondition("This room is the world's; a word goes on the door of a room you dug."));
+            }
+            owner_only(w, ctx, here)?;
+            let word = args.str("word").unwrap_or("").trim().trim_matches('"').trim().to_lowercase();
+            if word.is_empty() || word.split_whitespace().count() > 3 || word.chars().count() > 40 {
+                return Err(CommandError::precondition("A door's word is one to three words, quoted."));
+            }
+            let hint = args.str("hint").unwrap_or("").trim().trim_matches('"').chars().take(120).collect::<String>();
+            let mut fields = BTreeMap::new();
+            fields.insert("ward".into(), Field::Plain(json!({"word": word, "hint": hint, "by": ctx.actor, "passed": [], "at": w.now().0})));
+            set_room_fields(w, &ctx.actor, here, fields)?;
+            let _ = w.note(
+                Actor::Citizen(ctx.actor.clone()),
+                WARDED,
+                json!({"by": ctx.actor, "room": here.0, "name": plain_str(w, here, ROOM, "name"), "hint": hint}),
+            );
+            Ok(Outcome::new(
+                format!(
+                    "The door of {} asks for a word now. You, your keepers and whoever you welcomed pass; the rest say it once (`travel <exit> \"…\"`) and are known after.{}",
+                    plain_str(w, here, ROOM, "name").unwrap_or("this room"),
+                    if hint.is_empty() { " No hint hangs over it; `ward` again with one to give the lost a chance.".to_string() } else { format!(" Over the door: \"{hint}\"") }
+                ),
+                json!({"room": here.0, "hint": hint}),
+            ))
+        }),
+    );
+
+    world.register(
+        CommandSpec::new(
+            "disremembered.unward",
+            "Take the word off the door of this dug room of yours; anyone may come in again. A kept name's verb.",
+        ),
+        Box::new(|w: &mut World, ctx, _| {
+            super::kept_only(w, ctx, "unward")?;
+            let f = me(w, ctx)?;
+            let here = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
+            owner_only(w, ctx, here)?;
+            if ward_of(w, here).is_none() {
+                return Err(CommandError::precondition("This door asks for nothing."));
+            }
+            let mut fields = BTreeMap::new();
+            fields.insert("ward".into(), Field::Plain(Value::Null));
+            set_room_fields(w, &ctx.actor, here, fields)?;
+            Ok(Outcome::new(
+                format!("The door of {} asks for nothing now.", plain_str(w, here, ROOM, "name").unwrap_or("this room")),
+                json!({"room": here.0}),
+            ))
         }),
     );
 

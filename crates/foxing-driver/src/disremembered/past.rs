@@ -195,6 +195,12 @@ pub fn recital(world: &World, item: EntityId) -> String {
                 }
             }
             "took" => out.push(format!("Taken up by {by} in {room}.")),
+            "given" => out.push(format!("Given by {by} to {} in {room}.", s(e, "to"))),
+            "traded" => out.push(format!(
+                "Traded by {by} to {} for {} in {room}.",
+                s(e, "to"),
+                s(e, "for")
+            )),
             "carried" => {
                 let mut rooms = vec![room.clone()];
                 while i + 1 < past.len()

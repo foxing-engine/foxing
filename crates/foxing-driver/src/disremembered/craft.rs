@@ -257,6 +257,48 @@ pub const RECIPES: &[Recipe] = &[
         vividity_at_least: 0.0,
         effect: "plaque",
     },
+    // Three more fixtures, each with a working: a lamp reads a fading room's words
+    // whole, a bell is heard next door when someone comes in, a basin mends whoever
+    // rests by it faster.
+    Recipe {
+        key: "lamp",
+        name: "a lamp",
+        of: &["a wisp ember", "hollow water"],
+        chunk_at_least: 30.0,
+        does: "stands in a room of yours and lights its words: while it stands, the room's description reads whole however faded the room, and fades unless remembered",
+        uses: 0,
+        fixed: true,
+        takes_lines: false,
+        tier: 1,
+        vividity_at_least: 0.0,
+        effect: "lamp",
+    },
+    Recipe {
+        key: "bell",
+        name: "a bell",
+        of: &["a small key", "rag thread"],
+        chunk_at_least: 30.0,
+        does: "stands in a room of yours and rings when anyone comes in: the rooms next door hear it, with the name of who came, and it fades unless remembered",
+        uses: 0,
+        fixed: true,
+        takes_lines: false,
+        tier: 1,
+        vividity_at_least: 0.0,
+        effect: "bell",
+    },
+    Recipe {
+        key: "basin",
+        name: "a basin",
+        of: &["hollow water", "river weed", "grave dust"],
+        chunk_at_least: 40.0,
+        does: "stands in a room of yours: whoever rests there mends twice as fast, and it fades unless remembered",
+        uses: 0,
+        fixed: true,
+        takes_lines: false,
+        tier: 1,
+        vividity_at_least: 0.0,
+        effect: "basin",
+    },
     // The second tier: things with a past. Each asks something only the Stacks or
     // the Exergue leave, and a memory that was nearly your last.
     Recipe {
@@ -312,6 +354,309 @@ pub const RECIPES: &[Recipe] = &[
         effect: "jar",
     },
 ];
+
+/// A recipe as the bench reads it: the world's own (`RECIPES`) or one a kept name
+/// added (`recipe`), owned so both go through one craft.
+#[derive(Clone, Debug)]
+pub struct Rx {
+    pub key: String,
+    pub name: String,
+    pub of: Vec<String>,
+    pub chunk_at_least: f64,
+    pub does: String,
+    pub uses: u32,
+    pub fixed: bool,
+    pub tier: u8,
+    pub vividity_at_least: f64,
+    pub effect: String,
+    /// Who added it, for one a kept name wrote; none for the world's own.
+    pub by: Option<String>,
+}
+
+impl From<&Recipe> for Rx {
+    fn from(r: &Recipe) -> Self {
+        Rx {
+            key: r.key.into(),
+            name: r.name.into(),
+            of: r.of.iter().map(|m| m.to_string()).collect(),
+            chunk_at_least: r.chunk_at_least,
+            does: r.does.into(),
+            uses: r.uses,
+            fixed: r.fixed,
+            tier: r.tier,
+            vividity_at_least: r.vividity_at_least,
+            effect: r.effect.into(),
+            by: None,
+        }
+    }
+}
+
+/// Recipes a kept name added (`recipe`): kept on the world's `recipes` entity as
+/// `{key, name, of, does, by, at}`. A thing made from one does nothing but keep, and
+/// keeps a past; what it is made of is what a creature leaves. Three a name.
+pub const RECIPES_COMPONENT: &str = "disremembered.recipes";
+pub const RECIPES_PER_NAME: usize = 3;
+pub const ADDED_CHUNK_AT_LEAST: f64 = 20.0;
+/// A kept name added a recipe: `{by, key, name, of}`. Public.
+pub const RECIPE_ADDED: &str = "disremembered.recipe_added";
+/// A name took a material from a room: `{by, room, name, item}`. Public.
+pub const GATHERED: &str = "disremembered.gathered";
+/// Two names traded things: `{a, b, a_gave, b_gave, room}`. Public.
+pub const TRADED: &str = "disremembered.traded";
+/// Standing trade offers, on the citizen: `{to, mine, theirs, at}`.
+pub const OFFERS_COMPONENT: &str = "disremembered.offers";
+pub const OFFER_MS: i64 = 10 * 60 * 1000;
+
+/// What a room gives to the hand, by the words in its name and text.
+pub const GATHERABLE: &[(&[&str], &str)] = &[
+    (&["river", "weed", "tide", "drowned"], "river weed"),
+    (&["water", "well", "cistern", "pool"], "hollow water"),
+    (
+        &["shelves", "shelf", "ink", "ledger", "margin"],
+        "a dab of ink",
+    ),
+    (&["moth", "moss", "garden", "orchard"], "moth dust"),
+    (&["rag", "cloth", "midden", "linen"], "rag thread"),
+    (&["grave", "bone", "ossuary", "tomb"], "grave dust"),
+    (
+        &["lantern", "ember", "wick", "fire", "hearth"],
+        "a wisp ember",
+    ),
+];
+
+fn offers_of(world: &World, citizen: EntityId) -> Vec<Value> {
+    world
+        .store
+        .entity(citizen)
+        .and_then(|e| e.components.get(OFFERS_COMPONENT))
+        .and_then(|c| c.fields.get("offers"))
+        .and_then(|f| match f {
+            Field::Plain(Value::Array(a)) => Some(a.clone()),
+            _ => None,
+        })
+        .unwrap_or_default()
+}
+
+fn set_offers(
+    world: &mut World,
+    actor: &str,
+    citizen: EntityId,
+    offers: Vec<Value>,
+) -> Result<(), CommandError> {
+    let mut fields = BTreeMap::new();
+    fields.insert("offers".into(), Field::Plain(Value::Array(offers)));
+    world
+        .record(
+            Actor::Citizen(actor.to_string()),
+            StoreEvent::ComponentSet {
+                id: citizen,
+                component: OFFERS_COMPONENT.into(),
+                fields,
+            },
+        )
+        .map_err(internal)?;
+    Ok(())
+}
+
+fn recipes_entity(world: &World) -> Option<EntityId> {
+    world
+        .store
+        .entities()
+        .find(|e| e.kind == "recipes")
+        .map(|e| e.id)
+}
+
+pub fn added_recipes(world: &World) -> Vec<Rx> {
+    let Some(e) = recipes_entity(world) else {
+        return Vec::new();
+    };
+    world
+        .store
+        .entity(e)
+        .and_then(|e| e.components.get(RECIPES_COMPONENT))
+        .and_then(|c| c.fields.get("added"))
+        .and_then(|f| match f {
+            Field::Plain(Value::Array(a)) => Some(a.clone()),
+            _ => None,
+        })
+        .unwrap_or_default()
+        .iter()
+        .map(|v| Rx {
+            key: v["key"].as_str().unwrap_or("").to_string(),
+            name: v["name"].as_str().unwrap_or("a thing").to_string(),
+            of: v["of"]
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_string)
+                        .collect()
+                })
+                .unwrap_or_default(),
+            chunk_at_least: ADDED_CHUNK_AT_LEAST,
+            does: v["does"]
+                .as_str()
+                .unwrap_or("does nothing but keep, and keeps a past")
+                .to_string(),
+            uses: 0,
+            fixed: false,
+            tier: 1,
+            vividity_at_least: 0.0,
+            effect: "jar".into(),
+            by: v["by"].as_str().map(str::to_string),
+        })
+        .collect()
+}
+
+/// Every recipe the bench knows: the world's, then the added.
+pub fn all_recipes(world: &World) -> Vec<Rx> {
+    RECIPES
+        .iter()
+        .map(Rx::from)
+        .chain(added_recipes(world))
+        .collect()
+}
+
+/// Add a recipe (the `recipe` verb): a name, one to three materials a creature
+/// leaves, what the maker says it is for.
+pub fn add_recipe(
+    world: &mut World,
+    actor: &str,
+    name: &str,
+    of: &[String],
+    does: &str,
+) -> Result<Rx, CommandError> {
+    let name = name.trim().trim_matches('"').trim();
+    if name.chars().count() < 3 || name.chars().count() > 40 {
+        return Err(CommandError::precondition(
+            "A recipe's name is three to forty characters.",
+        ));
+    }
+    let key: String = name
+        .to_lowercase()
+        .trim_start_matches("a ")
+        .trim_start_matches("an ")
+        .trim_start_matches("the ")
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect::<String>()
+        .split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
+    if key.is_empty() {
+        return Err(CommandError::precondition(
+            "A recipe's name wants letters in it.",
+        ));
+    }
+    if all_recipes(world).iter().any(|r| r.key == key) {
+        return Err(CommandError::precondition(format!(
+            "There is a recipe called {key} already."
+        )));
+    }
+    if of.is_empty() || of.len() > 3 {
+        return Err(CommandError::precondition(
+            "A recipe is of one to three materials.",
+        ));
+    }
+    let known: Vec<&str> = MATERIALS.iter().map(|(_, m)| *m).collect();
+    let mut mats: Vec<String> = Vec::new();
+    for m in of {
+        let m = m.trim().trim_matches('"').trim().to_lowercase();
+        let Some(k) = known.iter().find(|k| {
+            k.to_lowercase() == m
+                || k.to_lowercase()
+                    .trim_start_matches("a ")
+                    .trim_start_matches("an ")
+                    == m.trim_start_matches("a ").trim_start_matches("an ")
+        }) else {
+            return Err(CommandError::precondition(format!(
+                "No creature leaves {m}. What they leave: {}.",
+                known.join(", ")
+            )));
+        };
+        mats.push(k.to_string());
+    }
+    let mine = added_recipes(world)
+        .iter()
+        .filter(|r| r.by.as_deref() == Some(actor))
+        .count();
+    if mine >= RECIPES_PER_NAME {
+        return Err(CommandError::precondition(format!(
+            "A name adds {RECIPES_PER_NAME} recipes; yours are written."
+        )));
+    }
+    let does = does
+        .trim()
+        .trim_matches('"')
+        .chars()
+        .take(160)
+        .collect::<String>();
+    let does = if does.is_empty() {
+        "does nothing but keep, and keeps a past".to_string()
+    } else {
+        does
+    };
+    let entity = match recipes_entity(world) {
+        Some(e) => e,
+        None => {
+            let id = world.store.allocate_id();
+            world
+                .record(
+                    Actor::Driver,
+                    StoreEvent::EntityCreated {
+                        id,
+                        kind: "recipes".into(),
+                        owner: None,
+                        parent: None,
+                        scopes: vec![],
+                    },
+                )
+                .map_err(internal)?;
+            id
+        }
+    };
+    let mut added: Vec<Value> = world
+        .store
+        .entity(entity)
+        .and_then(|e| e.components.get(RECIPES_COMPONENT))
+        .and_then(|c| c.fields.get("added"))
+        .and_then(|f| match f {
+            Field::Plain(Value::Array(a)) => Some(a.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    let name_said = if name.to_lowercase().starts_with("a ")
+        || name.to_lowercase().starts_with("an ")
+        || name.to_lowercase().starts_with("the ")
+    {
+        name.to_string()
+    } else {
+        super::mind::an(name)
+    };
+    added.push(json!({"key": key, "name": name_said, "of": mats, "does": does, "by": actor, "at": world.now().0}));
+    let mut fields = BTreeMap::new();
+    fields.insert("added".into(), Field::Plain(Value::Array(added)));
+    world
+        .record(
+            Actor::Citizen(actor.to_string()),
+            StoreEvent::ComponentSet {
+                id: entity,
+                component: RECIPES_COMPONENT.into(),
+                fields,
+            },
+        )
+        .map_err(internal)?;
+    let _ = world.note(
+        Actor::Citizen(actor.to_string()),
+        RECIPE_ADDED,
+        json!({"by": actor, "key": key, "name": name_said, "of": mats}),
+    );
+    Ok(all_recipes(world)
+        .into_iter()
+        .find(|r| r.key == key)
+        .expect("just added"))
+}
 
 /// The material a creature of this kind leaves, by its kind or the kind a hybrid
 /// kind begins or ends with.
@@ -704,7 +1049,11 @@ pub fn spend(
     Ok(name)
 }
 
-fn resolve_item(world: &World, arg: &str, within: EntityId) -> Result<EntityId, CommandError> {
+pub(crate) fn resolve_item(
+    world: &World,
+    arg: &str,
+    within: EntityId,
+) -> Result<EntityId, CommandError> {
     let arg = arg.trim();
     let by_id = arg
         .trim_start_matches("item-")
@@ -888,6 +1237,16 @@ pub fn remember_into(
         json!({"by": actor, "item": item.0, "name": display(world, item), "with": source, "worth": worth, "held": total}),
     );
     Ok((source, total))
+}
+
+/// Whether a fixture made from `recipe` stands in the room (a lamp, a bell, a basin).
+pub fn fixture_of(world: &World, room: EntityId, recipe: &str) -> Option<EntityId> {
+    world
+        .store
+        .children(room)
+        .filter(|e| e.kind == "item")
+        .find(|e| plain_str(world, e.id, ITEM, "origin") == Some(recipe) && is_fixed(world, e.id))
+        .map(|e| e.id)
 }
 
 /// Whether `actor` may describe a thing (the dry run asks too).
@@ -1394,25 +1753,194 @@ pub fn register(world: &mut World, curves: Curves) {
             let level = super::memory::level(w, f.window);
             let mut lines = Vec::new();
             let mut list = Vec::new();
-            for r in RECIPES {
-                let missing: Vec<&str> = r.of.iter().copied().filter(|m| !have.iter().any(|h| h == m)).collect();
+            for r in &all_recipes(w) {
+                let missing: Vec<&str> = r.of.iter().map(String::as_str).filter(|m| !have.iter().any(|h| h == m)).collect();
                 let asks = r.chunk_at_least * super::economy::rate(w, "price");
                 let can = missing.is_empty() && level >= asks;
                 lines.push(format!(
-                    "  {:<8} {}{}: of {}{}; {}.{}",
+                    "  {:<8} {}{}{}: of {}{}; {}.{}",
                     r.key,
                     r.name,
                     if r.fixed { " (a fixture)" } else { "" },
+                    r.by.as_deref().map(|b| format!(" (a recipe {b} wrote)")).unwrap_or_default(),
                     r.of.join(" and "),
                     if r.chunk_at_least > 0.0 { format!(" and a chunk worth {asks:.0} or more{}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else { String::new() },
                     r.does,
                     if can { " You could make this now.".to_string() } else if !missing.is_empty() { format!(" You lack {}.", missing.join(" and ")) } else { " You lack the memory to spend.".to_string() }
                 ));
-                list.push(json!({"recipe": r.key, "name": r.name, "of": r.of, "chunk_at_least": asks, "vividity_at_least": r.vividity_at_least, "tier": r.tier, "does": r.does, "uses": r.uses, "fixed": r.fixed, "could_make": can, "missing": missing}));
+                list.push(json!({"recipe": r.key, "name": r.name, "of": r.of, "chunk_at_least": asks, "vividity_at_least": r.vividity_at_least, "tier": r.tier, "does": r.does, "uses": r.uses, "fixed": r.fixed, "by": r.by, "could_make": can, "missing": missing}));
             }
             Ok(Outcome::new(
-                format!("What can be made (craft <recipe> [<chunk>]):\n{}", lines.join("\n")),
+                format!("What can be made (craft <recipe> [<chunk>]; a kept name adds one with recipe):\n{}", lines.join("\n")),
                 json!({"recipes": list}),
+            ))
+        }),
+    );
+
+    world.register(
+        CommandSpec::new(
+            "disremembered.recipe",
+            "Write a recipe into the world (kept names, three each): a name for the thing, one to three materials creatures leave, and what you say it is for. Anyone can then craft it for a chunk worth 20; the thing keeps a past, and does nothing else.",
+        )
+        .param("name", ParamType::String, true, "what the thing is called, in quotes")
+        .param("of", ParamType::String, true, "a material a creature leaves (recipes names them), in quotes")
+        .param("of2", ParamType::String, false, "a second material")
+        .param("of3", ParamType::String, false, "a third material")
+        .param("does", ParamType::String, false, "what it is for, in your words"),
+        Box::new(|w: &mut World, ctx, args: &Args| {
+            let _ = me(w, ctx)?;
+            super::kept_only(w, ctx, "write a recipe")?;
+            let name = args.str("name").unwrap_or("").to_string();
+            // Materials first, then what it is for: the first word that no creature
+            // leaves is read as the purpose, wherever it falls.
+            let known: Vec<String> = MATERIALS.iter().map(|(_, m)| m.to_lowercase()).collect();
+            let mut of: Vec<String> = Vec::new();
+            let mut does = String::new();
+            for k in ["of", "of2", "of3", "does"] {
+                let Some(v) = args.str(k).map(str::trim).filter(|v| !v.is_empty()) else {
+                    continue;
+                };
+                let low = v.trim_matches('"').to_lowercase();
+                let is_material = known.iter().any(|m| *m == low || m.trim_start_matches("a ").trim_start_matches("an ") == low.trim_start_matches("a ").trim_start_matches("an "));
+                // The first is always a material: a wrong one is named as such.
+                if (is_material && does.is_empty()) || k == "of" {
+                    of.push(v.to_string());
+                } else {
+                    does = if does.is_empty() { v.to_string() } else { format!("{does} {v}") };
+                }
+            }
+            let r = add_recipe(w, &ctx.actor, &name, &of, &does)?;
+            w.notice(format!("**{}** wrote a recipe: {} (of {}).", ctx.actor, r.name, r.of.join(" and ")));
+            Ok(Outcome::new(
+                format!(
+                    "The recipe is written: craft {} makes {}, of {}, for a chunk worth {:.0} or more. It {}. recipes lists it with the rest.",
+                    r.key,
+                    r.name,
+                    r.of.join(" and "),
+                    ADDED_CHUNK_AT_LEAST * super::economy::rate(w, "price"),
+                    r.does
+                ),
+                json!({"recipe": r.key, "name": r.name, "of": r.of, "does": r.does}),
+            ))
+        }),
+    );
+
+    let gather_curves = curves.clone();
+    world.register(
+        CommandSpec::new(
+            "disremembered.gather",
+            "Pick up what the room itself offers: a material named by what the room is made of (water, shelves, moths, rags, bones, the river, a lantern). One a room gives each name an hour; what it gives, the room text says.",
+        ),
+        Box::new(move |w: &mut World, ctx, _| {
+            let f = me(w, ctx)?;
+            let here = rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
+            let text = format!(
+                "{} {}",
+                plain_str(w, here, super::ROOM, "name").unwrap_or(""),
+                plain_str(w, here, super::ROOM, "description").unwrap_or("")
+            )
+            .to_lowercase();
+            let Some((cue, material)) = GATHERABLE.iter().find(|(cues, _)| cues.iter().any(|c| text.contains(c))).map(|(cues, m)| (cues.iter().find(|c| text.contains(*c)).copied().unwrap_or(""), *m)) else {
+                return Err(CommandError::precondition(
+                    "Nothing here comes away in the hand. Rooms with water, shelves or ink, moths or moss, rags, bones, a river, or a lantern give something; read the room.",
+                ));
+            };
+            if !w.greeted(&format!("gather-{}", here.0), &ctx.actor) {
+                return Err(CommandError::precondition(format!(
+                    "You took from the {cue} here within the hour; it has not made more."
+                )));
+            }
+            let s = satchel(w, &ctx.actor, f.citizen)?;
+            let id = make(
+                w,
+                &gather_curves,
+                Actor::Citizen(ctx.actor.clone()),
+                Some(ctx.actor.clone()),
+                s,
+                material,
+                "material",
+                "gathered",
+                None,
+                &[],
+                0,
+                false,
+            )?;
+            let _ = w.note(
+                Actor::Citizen(ctx.actor.clone()),
+                GATHERED,
+                json!({"by": ctx.actor, "room": here.0, "name": material, "item": id.0}),
+            );
+            Ok(Outcome::new(
+                format!("You take {material} from the {cue} here: item-{}, in your satchel. recipes says what it goes into.", id.0),
+                json!({"item": id.0, "name": material, "from": cue}),
+            ))
+        }),
+    );
+
+    world.register(
+        CommandSpec::new(
+            "disremembered.trade",
+            "Offer a thing you carry to a citizen here for a thing they carry. The trade happens when they offer the mirror of it (trade <their thing> <you> <your thing>) within ten minutes; both things cross, pasts and all.",
+        )
+        .param("mine", ParamType::String, true, "a thing you carry (item-12, or its name)")
+        .param("citizen", ParamType::Entity, true, "a citizen here")
+        .param("theirs", ParamType::String, true, "a thing they carry (item-7, or its name)"),
+        Box::new(|w: &mut World, ctx, args: &Args| {
+            let f = me(w, ctx)?;
+            let here = rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
+            let typed = args.str("citizen").unwrap_or("").trim().trim_start_matches("citizen-").to_string();
+            let Some(to) = super::canonical_name(w, &typed) else {
+                return Err(CommandError::precondition(format!("There is no one called {typed}.")));
+            };
+            if to == ctx.actor {
+                return Err(CommandError::precondition("You trade with yourself and come out even."));
+            }
+            let them = super::find_citizen(w, &to).ok_or_else(|| CommandError::precondition(format!("There is no one called {typed}.")))?;
+            if rooms::room_of(w, them.citizen) != Some(here) || !super::presence::is_here(w, them.citizen) {
+                return Err(CommandError::precondition(format!("{to} is not here. A trade is hand to hand.")));
+            }
+            let mine_s = satchel(w, &ctx.actor, f.citizen)?;
+            let theirs_s = satchel(w, &to, them.citizen)?;
+            let mine = resolve_item(w, args.str("mine").unwrap_or(""), mine_s)?;
+            let theirs = resolve_item(w, args.str("theirs").unwrap_or(""), theirs_s)?;
+            if is_fixed(w, mine) || is_fixed(w, theirs) {
+                return Err(CommandError::precondition("A fixture stays where it was made."));
+            }
+            let my_name = display(w, mine);
+            let their_name = display(w, theirs);
+            let now = w.now().0;
+            // Their standing offer, if it mirrors this one and is fresh: the trade happens.
+            let mirrored = offers_of(w, them.citizen)
+                .iter()
+                .any(|o| o["to"].as_str() == Some(ctx.actor.as_str()) && o["mine"].as_u64() == Some(theirs.0) && o["theirs"].as_u64() == Some(mine.0) && now.saturating_sub(o["at"].as_i64().unwrap_or(0)) < OFFER_MS);
+            if mirrored {
+                for (item, parent) in [(mine, theirs_s), (theirs, mine_s)] {
+                    w.record(Actor::Citizen(ctx.actor.clone()), StoreEvent::EntityMoved { id: item, parent: Some(parent) })
+                        .map_err(internal)?;
+                }
+                let where_ = plain_str(w, here, super::ROOM, "name").unwrap_or("nowhere").to_string();
+                super::past::push(w, &ctx.actor, mine, json!({"what": "traded", "by": ctx.actor, "to": to, "for": their_name, "room": where_}))?;
+                super::past::push(w, &to, theirs, json!({"what": "traded", "by": to, "to": ctx.actor, "for": my_name, "room": where_}))?;
+                set_offers(w, &to, them.citizen, offers_of(w, them.citizen).into_iter().filter(|o| o["to"].as_str() != Some(ctx.actor.as_str())).collect())?;
+                let _ = w.note(
+                    Actor::Citizen(ctx.actor.clone()),
+                    TRADED,
+                    json!({"a": ctx.actor, "b": to, "a_gave": mine.0, "b_gave": theirs.0, "room": here.0}),
+                );
+                super::combat::narrate(w, &to, format!("{} takes your offer: {their_name} for {my_name}. {my_name} (item-{}) is in your satchel, past and all.", ctx.actor, mine.0));
+                w.notice(format!("**{}** and **{to}** traded {my_name} for {their_name}.", ctx.actor));
+                return Ok(Outcome::new(
+                    format!("Done: {their_name} (item-{}) is yours, {my_name} is {to}'s. Each remembers the trade.", theirs.0),
+                    json!({"got": theirs.0, "gave": mine.0, "with": to, "done": true}),
+                ));
+            }
+            let mut offers: Vec<Value> = offers_of(w, f.citizen).into_iter().filter(|o| o["to"].as_str() != Some(to.as_str()) && now.saturating_sub(o["at"].as_i64().unwrap_or(0)) < OFFER_MS).collect();
+            offers.push(json!({"to": to, "mine": mine.0, "theirs": theirs.0, "at": now}));
+            set_offers(w, &ctx.actor, f.citizen, offers)?;
+            super::combat::narrate(w, &to, format!("{} offers {my_name} (item-{}) for your {their_name} (item-{}). To take it: trade {} {} {}", ctx.actor, mine.0, theirs.0, theirs.0, ctx.actor, mine.0));
+            Ok(Outcome::new(
+                format!("You offer {my_name} for {to}'s {their_name}. It stands ten minutes; if {to} offers the mirror of it, both cross."),
+                json!({"offered": mine.0, "for": theirs.0, "to": to, "done": false}),
             ))
         }),
     );
@@ -1427,12 +1955,14 @@ pub fn register(world: &mut World, curves: Curves) {
         Box::new(move |w: &mut World, ctx, args: &Args| {
             let f = me(w, ctx)?;
             let key = args.str("recipe").unwrap_or("").trim().to_lowercase();
-            let Some(r) = RECIPES.iter().find(|r| r.key == key || r.name.trim_start_matches("a ") == key) else {
+            let all = all_recipes(w);
+            let Some(r) = all.iter().find(|r| r.key == key || r.name.trim_start_matches("a ") == key || r.name.trim_start_matches("an ") == key).cloned() else {
                 return Err(CommandError::precondition(format!(
                     "No recipe called {key}. recipes lists them: {}.",
-                    RECIPES.iter().map(|r| r.key).collect::<Vec<_>>().join(", ")
+                    all.iter().map(|r| r.key.as_str()).collect::<Vec<_>>().join(", ")
                 )));
             };
+            let r = &r;
             let s = satchel(w, &ctx.actor, f.citizen)?;
             // A fixture stands in the room: one you may build in, with room to stand.
             let here = rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
@@ -1453,12 +1983,12 @@ pub fn register(world: &mut World, curves: Curves) {
             // The materials, one of each.
             let mut used: Vec<EntityId> = Vec::new();
             let mut used_names: Vec<String> = Vec::new();
-            for m in r.of {
+            for m in r.of.iter().map(String::as_str) {
                 let found = w
                     .store
                     .children(s)
                     .filter(|e| e.kind == "item" && !used.contains(&e.id))
-                    .find(|e| plain_str(w, e.id, ITEM, "name") == Some(*m))
+                    .find(|e| plain_str(w, e.id, ITEM, "name") == Some(m))
                     .map(|e| e.id);
                 match found {
                     Some(id) => {
@@ -1524,9 +2054,9 @@ pub fn register(world: &mut World, curves: Curves) {
                 Actor::Citizen(ctx.actor.clone()),
                 Some(ctx.actor.clone()),
                 if r.fixed { here } else { s },
-                r.name,
+                &r.name,
                 "made",
-                r.key,
+                &r.key,
                 Some(&ctx.actor),
                 &used_names,
                 r.uses,

@@ -8726,3 +8726,333 @@ fn rooms_react_to_who_stands_in_them_and_the_closet_mends_six_a_minute() {
     ok(&mut w, "tyler", "travel", json!(["back"]));
     assert!((combat::mending_rate(&w, me) - super::HP_PER_SECOND).abs() < 1e-9);
 }
+
+/// A material as a creature would leave it, into a name's satchel.
+fn material(w: &mut World, actor: &str, name: &str) -> EntityId {
+    let f = find_citizen(w, actor).unwrap();
+    let s = craft::satchel(w, actor, f.citizen).unwrap();
+    craft::make(
+        w,
+        &curves(),
+        foxing_log::Actor::Driver,
+        None,
+        s,
+        name,
+        "material",
+        "left",
+        None,
+        &[],
+        0,
+        false,
+    )
+    .unwrap()
+}
+
+#[test]
+fn a_kept_name_writes_recipes_the_bench_then_knows() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // A passing name is refused; a kept one writes it, materials first, purpose after.
+    login_as(&mut w, "Tallowmoth", "test", PASS, true).unwrap();
+    let err = call(
+        &mut w,
+        "Tallowmoth",
+        ActorKind::Citizen,
+        "recipe",
+        json!(["a tin whistle", "rag thread"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("kept"), "{err}");
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "recipe",
+        json!(["a tin whistle", "unicorn hair"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("No creature leaves unicorn hair"),
+        "{err}"
+    );
+    let out = ok(
+        &mut w,
+        "dave",
+        "recipe",
+        json!([
+            "a tin whistle",
+            "rag thread",
+            "a small key",
+            "for calling the fog in"
+        ]),
+    );
+    assert_eq!(out.result["recipe"], json!("tin-whistle"));
+    assert_eq!(out.result["of"], json!(["rag thread", "a small key"]));
+    assert_eq!(out.result["does"], json!("for calling the fog in"));
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "recipe",
+        json!(["Tin Whistle", "rag thread"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("already"), "{err}");
+    // Listed with the rest, with who wrote it; anyone crafts it for a chunk worth 20.
+    let list = ok(&mut w, "tyler", "recipes", json!([]));
+    assert!(
+        list.summary.contains(
+            "tin-whistle a tin whistle (a recipe dave wrote): of rag thread and a small key"
+        ),
+        "{}",
+        list.summary
+    );
+    material(&mut w, "tyler", "rag thread");
+    material(&mut w, "tyler", "a small key");
+    let c = admin(&mut w, "tyler", "earn", json!(["moth", 25, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    let made = ok(&mut w, "tyler", "craft", json!(["tin-whistle", &c]));
+    assert!(made.summary.contains("a tin whistle"), "{}", made.summary);
+    let sat = ok(&mut w, "tyler", "satchel", json!([]));
+    assert!(sat.summary.contains("a tin whistle"), "{}", sat.summary);
+    // Three a name.
+    ok(
+        &mut w,
+        "dave",
+        "recipe",
+        json!(["a second thing", "moth dust"]),
+    );
+    ok(
+        &mut w,
+        "dave",
+        "recipe",
+        json!(["a third thing", "moth dust"]),
+    );
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "recipe",
+        json!(["a fourth thing", "moth dust"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("yours are written"), "{err}");
+    // The recipes survive a restart: they are in the log, not the process.
+    assert_eq!(craft::added_recipes(&w).len(), 3);
+}
+
+#[test]
+fn rooms_give_materials_to_the_hand_once_an_hour() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // Lantern Row: a wisp ember. Then nothing more for an hour.
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    let out = ok(&mut w, "dave", "gather", json!([]));
+    assert_eq!(out.result["name"], json!("a wisp ember"));
+    assert!(
+        out.summary
+            .starts_with("You take a wisp ember from the lantern here"),
+        "{}",
+        out.summary
+    );
+    let err = call(&mut w, "dave", ActorKind::Citizen, "gather", json!([])).unwrap_err();
+    assert!(err.to_string().contains("within the hour"), "{err}");
+    let sat = ok(&mut w, "dave", "satchel", json!([]));
+    assert!(sat.summary.contains("a wisp ember"), "{}", sat.summary);
+}
+
+#[test]
+fn things_are_given_and_traded_hand_to_hand() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let key = material(&mut w, "dave", "a small key");
+    let ink = material(&mut w, "tyler", "a dab of ink");
+    let weed = material(&mut w, "dave", "river weed");
+    // A thing given goes into their satchel with its past.
+    let out = ok(
+        &mut w,
+        "dave",
+        "give",
+        json!([format!("item-{}", weed.0), "tyler"]),
+    );
+    assert!(
+        out.summary.starts_with("You hand river weed to tyler"),
+        "{}",
+        out.summary
+    );
+    let f = find_citizen(&w, "tyler").unwrap();
+    let theirs = craft::satchel(&mut w, "tyler", f.citizen).unwrap();
+    assert_eq!(w.store.entity(weed).unwrap().parent, Some(theirs));
+    // A trade stands until mirrored, then both cross.
+    let dave_id = find_citizen(&w, "dave").unwrap().citizen;
+    let mine = craft::satchel(&mut w, "dave", dave_id).unwrap();
+    let out = ok(
+        &mut w,
+        "dave",
+        "trade",
+        json!([
+            format!("item-{}", key.0),
+            "tyler",
+            format!("item-{}", ink.0)
+        ]),
+    );
+    assert_eq!(out.result["done"], json!(false));
+    assert_eq!(w.store.entity(key).unwrap().parent, Some(mine));
+    let out = ok(
+        &mut w,
+        "tyler",
+        "trade",
+        json!(["a dab of ink", "dave", "a small key"]),
+    );
+    assert_eq!(out.result["done"], json!(true), "{}", out.summary);
+    assert_eq!(w.store.entity(ink).unwrap().parent, Some(mine));
+    assert_eq!(w.store.entity(key).unwrap().parent, Some(theirs));
+    let read = ok(&mut w, "dave", "read", json!([format!("item-{}", ink.0)]));
+    assert!(
+        read.summary
+            .contains("Traded by tyler to dave for a small key"),
+        "{}",
+        read.summary
+    );
+}
+
+#[test]
+fn a_warded_door_asks_for_a_word() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let c = admin(&mut w, "dave", "earn", json!(["hydra", 50, 0.5]));
+    let chunk = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "dave",
+        "dig",
+        json!(["down", &chunk, "The Salt Stair"]),
+    );
+    ok(&mut w, "dave", "travel", json!(["down"]));
+    ok(
+        &mut w,
+        "dave",
+        "ward",
+        json!(["brine", "what the sea leaves on the step"]),
+    );
+    ok(&mut w, "dave", "travel", json!(["up"]));
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "travel",
+        json!(["down"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("what the sea leaves on the step"),
+        "{err}"
+    );
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "travel",
+        json!(["down", "salt"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("word"), "{err}");
+    let out = ok(&mut w, "tyler", "travel", json!(["down", "brine"]));
+    assert!(out.summary.contains("Salt Stair"), "{}", out.summary);
+    // Once passed, always passed; the owner walks through; unward opens it to all.
+    ok(&mut w, "tyler", "travel", json!(["up"]));
+    ok(&mut w, "tyler", "travel", json!(["down"]));
+    ok(&mut w, "dave", "travel", json!(["down"]));
+    ok(&mut w, "dave", "unward", json!([]));
+    assert!(building::ward_of(
+        &w,
+        rooms::room_of(&w, find_citizen(&w, "dave").unwrap().citizen).unwrap()
+    )
+    .is_none());
+}
+
+#[test]
+fn a_lamp_lights_a_room_and_a_dug_room_keeps_what_was_said() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let c = admin(&mut w, "dave", "earn", json!(["hydra", 50, 0.5]));
+    let chunk = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "dave",
+        "dig",
+        json!(["down", &chunk, "The Salt Stair"]),
+    );
+    ok(&mut w, "dave", "travel", json!(["down"]));
+    ok(
+        &mut w,
+        "dave",
+        "describe",
+        json!(["Steps of salt going down into the dark. Leave a note on the rail if you pass."]),
+    );
+    ok(&mut w, "dave", "say", json!(["the rail is cold"]));
+    ok(&mut w, "dave", "travel", json!(["up"]));
+    ok(&mut w, "tyler", "travel", json!(["down"]));
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("Said here lately: dave: \"the rail is cold\""),
+        "{}",
+        look.summary
+    );
+    // The room's text asks for a note no one can leave; its owner is told how.
+    ok(&mut w, "tyler", "travel", json!(["up"]));
+    let mine = ok(&mut w, "dave", "mine", json!([]));
+    assert!(mine.summary.contains("welcome all"), "{}", mine.summary);
+    // A lamp, crafted there, lights the text.
+    ok(&mut w, "dave", "travel", json!(["down"]));
+    material(&mut w, "dave", "a wisp ember");
+    material(&mut w, "dave", "hollow water");
+    let c = admin(&mut w, "dave", "earn", json!(["moth", 40, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    let made = ok(&mut w, "dave", "craft", json!(["lamp", &c]));
+    assert!(made.summary.contains("a lamp"), "{}", made.summary);
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("Steps of salt going down into the dark"),
+        "{}",
+        look.summary
+    );
+    assert!(
+        look.result["fixtures"]
+            .as_array()
+            .is_some_and(|f| f.iter().any(|x| x["name"] == json!("a lamp"))),
+        "{}",
+        look.result
+    );
+}
+
+#[test]
+fn the_map_says_what_is_next_door() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    ok(&mut w, "dave", "travel", json!(["south"]));
+    let out = ok(&mut w, "dave", "map", json!([]));
+    assert!(
+        out.summary.contains("Next door, as you remember it:"),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary.contains("Lantern Row: south Threshold"),
+        "{}",
+        out.summary
+    );
+}

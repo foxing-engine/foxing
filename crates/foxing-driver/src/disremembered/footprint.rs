@@ -266,8 +266,15 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
             Some(_) => "nearly forgotten",
             None => "standing",
         };
+        let nudge = if dug {
+            super::building::unmet_invitation(world, e.id)
+                .map(|n| format!(" {n}"))
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
         lines.push(format!(
-            "{name}{way_said}: {}, {state}{}{}.",
+            "{name}{way_said}: {}, {state}{}{}.{nudge}",
             if dug { "yours" } else { "kept by you" },
             if half_life_ms > 0.0 {
                 format!(

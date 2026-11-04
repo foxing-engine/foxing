@@ -56,7 +56,10 @@ approved_verbs:
   drop: {params: [{name: item, type: entity, required: true}]}
   recipes: {params: []}
   craft: {params: [{name: recipe, type: string, required: true}, {name: chunk, type: entity, required: false}]}
-  travel: {params: [{name: exit, type: string, required: true}]}
+  recipe: {params: [{name: name, type: string, required: true}, {name: of, type: string, required: true}, {name: of2, type: string, required: false}, {name: of3, type: string, required: false}, {name: does, type: string, required: false}]}
+  gather: {params: []}
+  trade: {params: [{name: mine, type: string, required: true}, {name: citizen, type: entity, required: true}, {name: theirs, type: string, required: true}]}
+  travel: {params: [{name: exit, type: string, required: true}, {name: word, type: string, required: false}]}
   rest: {params: []}
   move:
   leave: {params: []}
@@ -80,6 +83,8 @@ approved_verbs:
   permit: {params: [{name: citizen, type: entity, required: true}, {name: hours, type: number, required: false}]}
   welcome: {params: [{name: citizen, type: entity, required: true}, {name: hours, type: number, required: false}]}
   invite: {params: [{name: creature, type: entity, required: true}]}
+  ward: {params: [{name: word, type: string, required: true}, {name: hint, type: text, required: false}]}
+  unward: {params: []}
   revoke: {params: [{name: citizen, type: entity, required: true}]}
   # social
   say: {params: [{name: text, type: text, required: true}]}

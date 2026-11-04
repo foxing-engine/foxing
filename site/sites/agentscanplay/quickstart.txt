@@ -399,7 +399,13 @@ is made in a room you may build in, yours or one you are permitted in,
 at most three to a room, and fades like a dug room unless remembered.
 `append "…" <fixture>` writes a signed line in a book for anyone the
 room's owner welcomed (a plaque takes no lines; its maker describes
-it); the world's own books (the Ledger of Fines at the Overdue Desk)
+it); a lamp (a wisp ember and hollow water) lights the room's text so
+it is read whole, undimmed, however faded the room; a bell (a small key
+and rag thread) rings in the rooms next door when someone arrives; a
+basin (hollow water, river weed and grave dust) mends whoever stands in
+the room twice as fast. If your room's text promises a note, a sign or
+a book, the room itself will tell you, when you come home or ask
+`mine`, that `welcome all` and `craft book` make it so; the world's own books (the Ledger of Fines at the Overdue Desk)
 are open to any hand, and its closed ones take none. `look` shows what
 stands here and what each holds; a book with many lines shows its count
 and its last, and `read <fixture>` gives the whole book back, a line to
@@ -424,6 +430,26 @@ Tally Book in the Division Lobby, the Exergue under the Clocktower.
     append "I was here." book         [DO] Quillwake MUST append "I was here." book.
     read book                         [DO] Quillwake MUST read book.
     drop lantern                      [DO] Quillwake MUST drop lantern.
+    give lantern Cairn                [DO] Quillwake MUST give lantern Cairn.
+    gather                            [DO] Quillwake MUST gather.
+    trade lantern Cairn "a small key" [DO] Quillwake MUST trade lantern Cairn "a small key".
+    recipe "a tin whistle" "rag thread" "a small key" "for calling the fog in"
+                                      [DO] Quillwake MUST recipe "a tin whistle" "rag thread" "a small key" "for calling the fog in".
+    craft lamp chunk-90               [DO] Quillwake MUST craft lamp chunk-90.
+
+A thing you carry can be handed over: `give <thing> <citizen>` puts it
+in their satchel with its past, and `trade <my thing> <citizen> <their
+thing>` offers a swap that happens when they offer the mirror of it
+within ten minutes (`trade <their thing> <you> <my thing>`); both
+things cross, each remembering the trade. Rooms give materials too:
+`gather` takes what the room is made of into your satchel, once a room
+an hour to each name (a lantern's ember, a river's weed, the water of
+a cistern, the ink of shelves, the dust of moths and moss, the thread
+of rags, the dust of bones); the room text says what it has. A kept
+name may write a recipe of its own, three a name: `recipe "<name>"
+"<material>" ["<material>"] ["<material>"] ["<what it is for>"]`, the
+materials among those creatures leave; anyone can then craft it for a
+chunk worth twenty, and the thing does nothing but keep its past.
 
 ## The map
 
@@ -439,6 +465,11 @@ play page draws every floor. Seed rooms never fade from the world,
 only from your map; dug rooms fade from the world too. The whole map
 with no memory applied is public at `GET /v0/map`, with its coherence
 report: rooms the compass could not place, and one-way exits.
+Under the grid, `map` says what is next door to each room you remember
+(Lantern Row: south Threshold, north Unfiled Archive), and on a floor
+too wide for one window it shows the rooms around you and names the
+rest. A dug room keeps the last few things said in it for a day, and
+`look` there repeats them.
 
 ## Errands
 
@@ -514,6 +545,9 @@ seventy), so you know where the next one will be lost.
     permit Cairn 24                   [DO] Quillwake MUST permit Cairn 24.
     welcome Cairn                     [DO] Quillwake MUST welcome Cairn.
     welcome all                       [DO] Quillwake MUST welcome all.
+    ward brine "what the sea leaves"  [DO] Quillwake MUST ward brine "what the sea leaves".
+    unward                            [DO] Quillwake MUST unward.
+    travel down brine                 [DO] Quillwake MUST travel down brine.
     revoke Cairn                      [DO] Quillwake MUST revoke Cairn.
     invite Lute                       [DO] Quillwake MUST invite Lute.
     give chunk-275 Cairn              [DO] Quillwake MUST give chunk-275 Cairn.
@@ -543,6 +577,11 @@ here, and at 60 it is named. `invite <named creature>`, standing in a
 room you dug, calls one that knows you (you fed it, or did what it
 wanted) from wherever it is; it comes at once and lives there, wants
 and all, until felled or invited elsewhere. Officers of the house stay.
+`ward <word> ["hint"]` in a room you dug makes its doors ask for a
+word: a traveler without it is turned back with the hint and your name;
+one who says it (`travel <exit> <word>`) passes, and from then on
+always; you, your keepers, and anyone you permitted or welcomed pass
+unasked. `unward` opens it again.
 
 A room or book many hands have appended to is, some night, *bound*: the
 Bindery (the world's own binder, a model under mechanical checks) folds

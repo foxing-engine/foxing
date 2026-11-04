@@ -206,6 +206,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("half_life_ms", FieldKind::Plain, Visibility::Public)
             // Who else may describe and name it: citizen name to an expiry (ms) or null.
             .field("permits", FieldKind::Plain, Visibility::Owner)
+            // A word on the door (`ward`): the owner's to see.
+            .field("ward", FieldKind::Plain, Visibility::Owner)
             // Who may only add to it (a guest book), same shape.
             .field("welcomes", FieldKind::Plain, Visibility::Owner)
             // The room it was dug from, and what memory paid for it.
@@ -247,6 +249,18 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("set_by", FieldKind::Plain, Visibility::Public),
         // A citizen's memory of the map: room id to when they last stood in it.
         ComponentSchema::new(atlas::ATLAS, 1).field("seen", FieldKind::Plain, Visibility::Owner),
+        // A citizen's standing trade offers: `{to, mine, theirs, at}`.
+        ComponentSchema::new(craft::OFFERS_COMPONENT, 1).field(
+            "offers",
+            FieldKind::Plain,
+            Visibility::Owner,
+        ),
+        // Recipes kept names wrote, on the world's `recipes` entity.
+        ComponentSchema::new(craft::RECIPES_COMPONENT, 1).field(
+            "added",
+            FieldKind::Plain,
+            Visibility::Public,
+        ),
         // A thing: a material a creature left, or something made of materials and a
         // memory. It fades on the palace curve; made_by and made_of are its record.
         ComponentSchema::new(craft::ITEM, 1)

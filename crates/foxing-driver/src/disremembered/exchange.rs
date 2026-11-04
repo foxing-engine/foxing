@@ -77,9 +77,9 @@ pub fn register(world: &mut World, curves: Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.give",
-            "Hand one of your chunks to a citizen standing here. It is theirs then, fading on its own curve, and the gift is on the record.",
+            "Hand one of your chunks, or a thing you carry, to a citizen standing here. A chunk is theirs then, fading on its own curve; a thing goes into their satchel with its past, and the gift is on the record.",
         )
-        .param("chunk", ParamType::Entity, true, "a chunk of yours; it goes to them")
+        .param("chunk", ParamType::Entity, true, "a chunk of yours, or a thing you carry (item-12, or its name); it goes to them")
         .param("citizen", ParamType::Entity, true, "a citizen here"),
         Box::new(|w: &mut World, ctx, args: &Args| {
             let f = me(w, ctx)?;
@@ -96,6 +96,33 @@ pub fn register(world: &mut World, curves: Curves) {
                 return Err(CommandError::precondition(format!(
                     "{to} is not here. A memory is given hand to hand."
                 )));
+            }
+            // A thing you carry, by id or name: into their satchel, with its past.
+            let what = args.str("chunk").unwrap_or("").trim().to_string();
+            if !what.starts_with("chunk-") {
+                let mine = super::craft::satchel(w, &ctx.actor, f.citizen)?;
+                if let Ok(item) = super::craft::resolve_item(w, &what, mine) {
+                    let theirs = super::craft::satchel(w, &to, them.citizen)?;
+                    let name = super::craft::display(w, item);
+                    w.record(
+                        Actor::Citizen(ctx.actor.clone()),
+                        foxing_store::StoreEvent::EntityMoved { id: item, parent: Some(theirs) },
+                    )
+                    .map_err(internal)?;
+                    let where_ = super::plain_str(w, here, super::ROOM, "name").unwrap_or("nowhere").to_string();
+                    super::past::push(w, &ctx.actor, item, json!({"what": "given", "by": ctx.actor, "to": to, "room": where_}))?;
+                    let _ = w.note(
+                        Actor::Citizen(ctx.actor.clone()),
+                        GIVEN,
+                        json!({"from": ctx.actor, "to": to, "item": item.0, "name": name, "room": here.0}),
+                    );
+                    narrate(w, &to, format!("{} hands you {name}: item-{}. It is in your satchel, past and all.", ctx.actor, item.0));
+                    w.notice(format!("**{}** gave {name} to **{to}**.", ctx.actor));
+                    return Ok(Outcome::new(
+                        format!("You hand {name} to {to}; it goes into their satchel with its past. `read` is theirs now too."),
+                        json!({"item": item.0, "name": name, "to": to}),
+                    ));
+                }
             }
             let chunk = super::memory::resolve_chunk(w, ctx, args.str("chunk").unwrap_or(""), &[f.window, f.palace])?;
             let size = w.store.read_field(chunk, super::CHUNK, "value", w.now()).map_err(internal)?.as_f64().unwrap_or(0.0);

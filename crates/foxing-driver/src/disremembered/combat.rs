@@ -798,11 +798,16 @@ pub fn mending_rate(world: &World, citizen: EntityId) -> f64 {
     }
     // The Cartographer's Closet (a player's room off the Archive) says "you heal
     // about 6 HP a minute"; the owner made it so (2026-11-03): true in that room.
-    if super::rooms::room_of(world, citizen)
+    let room = super::rooms::room_of(world, citizen);
+    if room
         .and_then(|r| super::plain_str(world, r, super::ROOM, "name"))
         .is_some_and(|n| n == CLOSET)
     {
         return CLOSET_HP_PER_SECOND;
+    }
+    // A basin standing in the room: twice the pace.
+    if room.is_some_and(|r| super::craft::fixture_of(world, r, "basin").is_some()) {
+        return super::HP_PER_SECOND * 2.0;
     }
     super::HP_PER_SECOND
 }

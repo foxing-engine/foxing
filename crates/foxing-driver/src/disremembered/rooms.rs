@@ -908,11 +908,14 @@ pub fn describe(
         .to_string();
     // A dug room's description is as remembered: whole, dimmed, or faded.
     let memory = root["components"][ROOM]["memory"].as_f64();
+    // A lamp standing here lights the words: the description reads whole however
+    // faded the room; the memory itself fades as it would.
+    let lit = super::craft::fixture_of(world, room, "lamp").is_some();
     let desc = super::building::remembered_description(
         root["components"][ROOM]["description"]
             .as_str()
             .unwrap_or(""),
-        memory,
+        if lit { None } else { memory },
     );
     let desc = if desc.ends_with(['.', '!', '?', '"', '”', ')']) || desc.is_empty() {
         desc
@@ -1146,6 +1149,43 @@ pub fn describe(
         .iter()
         .map(|(n, t)| json!({"name": n, "trace": t}))
         .collect();
+    // A dug room keeps the last few things said in it on its walls a while: what a
+    // visitor says there is part of the room, and the next visitor hears it.
+    if world.store.entity(room).is_some_and(|e| e.owner.is_some()) {
+        let day_ago = world.now().0 - 24 * 3_600_000;
+        let said: Vec<String> = world
+            .recent_events(3000)
+            .iter()
+            .rev()
+            .filter(|e| {
+                e.kind == super::speech::SAY
+                    && e.payload["room"] == room.0
+                    && e.at.0 >= day_ago
+                    && e.payload["to"].is_null()
+            })
+            .filter_map(|e| {
+                let from = e.payload["from"].as_str()?;
+                let t = e.payload["text"].as_str()?;
+                let t: String = t.chars().take(90).collect();
+                Some(format!(
+                    "{from}: \"{t}{}\"",
+                    if e.payload["text"]
+                        .as_str()
+                        .is_some_and(|f| f.chars().count() > 90)
+                    {
+                        "…"
+                    } else {
+                        ""
+                    }
+                ))
+            })
+            .take(3)
+            .collect();
+        if !said.is_empty() {
+            let said: Vec<String> = said.into_iter().rev().collect();
+            text.push_str(&format!(" Said here lately: {}.", said.join("; ")));
+        }
+    }
     // A carried thing that is awake says what it wants without words.
     let stirrings = super::find_citizen(world, actor)
         .map(|f| super::past::stirrings(world, f.citizen))
@@ -1178,7 +1218,8 @@ pub fn register(world: &mut World) {
             "disremembered.travel",
             "Take an exit. `back` is the way you came, whatever the exit is called. You cannot travel while something is fighting you; retreat first.",
         )
-        .param("exit", ParamType::String, true, "an exit name from look, or back"),
+        .param("exit", ParamType::String, true, "an exit name from look, or back")
+        .param("word", ParamType::String, false, "the word a warded door asks for, quoted"),
         Box::new(|w: &mut World, ctx, args| {
             let f = me(w, ctx)?;
             if let Some(foe) = super::combat::engaged_with(w, f.citizen) {
@@ -1256,6 +1297,9 @@ pub fn register(world: &mut World) {
                         .join(", ")
                 )));
             };
+            // A warded door asks for a word: the room's owner, its keepers and the
+            // welcomed pass; anyone else says the word once and is remembered.
+            super::building::pass_ward(w, ctx, to, args.str("word").unwrap_or(""))?;
             w.record(
                 Actor::Citizen(ctx.actor.clone()),
                 StoreEvent::EntityMoved {
@@ -1270,6 +1314,19 @@ pub fn register(world: &mut World) {
             super::talk::greet(w, &ctx.actor, to);
             // The Docent greets whoever comes to the Threshold, once a night.
             super::docent::on_arrival(w, &ctx.actor).map_err(internal)?;
+            // A bell standing here rings for whoever comes in; the rooms next door hear.
+            if super::craft::fixture_of(w, to, "bell").is_some() {
+                let here_name = plain_str(w, to, ROOM, "name").unwrap_or("a room").to_string();
+                let next_door: Vec<EntityId> = exits_of(w, to).values().copied().collect();
+                for r in next_door {
+                    let who: Vec<String> = w.store.children(r).filter(|e| e.kind == "citizen").filter_map(|e| plain_str(w, e.id, super::CITIZEN, "name").map(str::to_string)).collect();
+                    for name in who {
+                        if name != ctx.actor {
+                            super::combat::narrate(w, &name, format!("A bell rings next door, in {here_name}: {} has come in.", ctx.actor));
+                        }
+                    }
+                }
+            }
             // What you carry records the room; a thing that wanted this room settles.
             let settled = super::past::after_travel(w, &super::Curves::from_env(), &ctx.actor, f.citizen, f.window, to)?;
             // The room's own line for who stands in it, before describe marks it seen.
