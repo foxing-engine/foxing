@@ -1289,6 +1289,12 @@ pub fn register(world: &mut World) {
             // the rest said, so each room is still a room passed through.
             let mut onward: Option<String> = None;
             if !exits.contains_key(&exit) {
+                if super::atlas::room_named(w, &exit) == Some(room) {
+                    return Err(foxing_registry::CommandError::precondition(format!(
+                        "You are in {} already.",
+                        plain_str(w, room, ROOM, "name").unwrap_or("that room")
+                    )));
+                }
                 if let Some(target) = super::atlas::room_named(w, &exit).filter(|&t| t != room) {
                     let hl = super::Curves::from_env().active_half_life.0 as f64 * super::atlas::ATLAS_HALF_LIVES;
                     // The way as you remember it; for one of the world's own rooms you

@@ -1403,8 +1403,13 @@ impl Death {
             " You wake at the Threshold with everything you had"
         });
         out.push_str(&format!(
-            ", shaken: your strikes land less often for {}, steadying as it passes.",
-            human(self.shaken_ms)
+            ", shaken: your strikes land less often for {}, steadying as it passes{}.",
+            human(self.shaken_ms),
+            if self.fall > 1 {
+                " (longer with each fall of the night, whatever the memory cost)"
+            } else {
+                ""
+            }
         ));
         out
     }
@@ -1801,8 +1806,12 @@ pub fn register(world: &mut World, curves: Curves) {
                 let officers: Vec<String> = here.iter().filter(|c| super::mind::name(w, c.0).is_none() && plain_str(w, c.0, CREATURE, "name").is_some_and(|k| OFFICERS.contains(&k))).map(|c| super::mind::display(w, c.0)).collect();
                 return Err(CommandError::precondition(if here.is_empty() { format!("There is nothing here to fight.{where_}") } else if args.str("creature").map_or(true, str::is_empty) && !officers.is_empty() {
                     format!("Nothing here is struck by accident: {} {} an officer of the house, named in `attack` or left alone.", officers.join(" and "), if officers.len() == 1 { "is" } else { "are" })
+                } else if args.str("creature").map_or(true, str::is_empty) && here.iter().all(|c| super::mind::shaken(w, c.0)) {
+                    // Down and up again: not itself yet, not nameless. "has a name" was
+                    // said of a hollow that had none, and the visitor guessed at names.
+                    format!("Nothing here can be struck yet: {}.", here.iter().map(|c| format!("{} is not itself for {}", super::mind::display(w, c.0), super::mind::shaken_for(w, c.0).map(human).unwrap_or_else(|| "a while".into()))).collect::<Vec<_>>().join("; "))
                 } else if args.str("creature").map_or(true, str::is_empty) {
-                    format!("Nothing unnamed is here to fight. {} {} a name, and {} struck only by that name.", here.iter().map(|c| super::mind::display(w, c.0)).collect::<Vec<_>>().join(" and "), if here.len() == 1 { "has" } else { "have" }, if here.len() == 1 { "is" } else { "are" })
+                    format!("Nothing unnamed is here to fight. {} {} a name, and {} struck only by that name.", here.iter().filter(|c| !super::mind::shaken(w, c.0)).map(|c| super::mind::display(w, c.0)).collect::<Vec<_>>().join(" and "), if here.len() == 1 { "has" } else { "have" }, if here.len() == 1 { "is" } else { "are" })
                 } else {
                     // Named as look names them, so the retry can be copied from the refusal.
                     format!("No such creature here. Here: {}.", here.iter().map(|c| {
@@ -1817,9 +1826,20 @@ pub fn register(world: &mut World, curves: Curves) {
                 }));
             };
             let cname = plain_str(w, creature, CREATURE, "name").unwrap_or("?").to_string();
+            // The one you were fighting is gone (felled by another hand, or it drifted
+            // off): said, so two rounds of damage do not vanish without a word.
+            if let Some(was) = engaged_with(w, f.citizen).filter(|&e| e != creature) {
+                if !here.iter().any(|c| c.0 == was) {
+                    let gone_kind = plain_str(w, was, CREATURE, "name").map(str::to_string);
+                    retargeted = Some(match gone_kind {
+                        Some(k) => format!("The {k} you were fighting is gone, felled by another hand or drifted off; you turn on the {cname}."),
+                        None => format!("What you were fighting came apart under someone else's hand; you turn on the {cname}."),
+                    });
+                }
+            }
             if let Some(ms) = super::mind::shaken_for(w, creature) {
                 return Err(CommandError::precondition(format!(
-                    "{} is not itself yet; there is nothing to take from it for {}.",
+                    "{} is not itself yet and cannot be struck for {}; it stands up with nothing to take.",
                     super::mind::display(w, creature),
                     human(ms)
                 )));

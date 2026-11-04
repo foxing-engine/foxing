@@ -526,7 +526,22 @@ pub fn compile(actor: &str, world: &str, line: &str, now: Timestamp, checker: &C
             .position(|p| p.get("type").and_then(Value::as_str) == Some("text"))
     });
     let quoted;
+    // A room's name typed after `travel` or `where` ("Mortar and Pestle", "Moonpool,
+    // Described") is quoted whole: read as words, its "and" or comma tripped the
+    // checker or split the name, and one message in four of an explorer's failed.
+    let multiword_place = matches!(verb, "travel" | "where")
+        && rest.split_whitespace().count() > 1
+        && !rest.starts_with('"')
+        && !rest.starts_with('\u{201c}')
+        && !rest.to_ascii_lowercase().starts_with("to ");
     let body = match text_at {
+        _ if multiword_place => {
+            quoted = format!(
+                "{verb} \"{}\"",
+                rest.trim_end_matches('.').trim_end_matches('"')
+            );
+            quoted.as_str()
+        }
         Some(i) if !rest.is_empty() => {
             let tokens: Vec<&str> = rest.split_whitespace().collect();
             if tokens.len() > i && !tokens[i].starts_with('"') && !tokens[i].starts_with('“') {

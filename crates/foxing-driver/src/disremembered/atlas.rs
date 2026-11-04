@@ -546,8 +546,11 @@ pub fn remembered_map(
                     .filter_map(|r| {
                         let id = r["id"].as_u64()?;
                         let mut sides: Vec<String> = Vec::new();
+                        // Every door, the named ones too (kiln, alcove): a visitor
+                        // walked thirteen of the Threshold's doors and found none of
+                        // them next door.
                         for (via, to) in rooms::exits_of(world, EntityId(id)) {
-                            if !matches!(via.as_str(), "north" | "south" | "east" | "west") {
+                            if via == "back" {
                                 continue;
                             }
                             if let Some(n) = on_floor
@@ -706,8 +709,11 @@ fn way_over(
 
 /// A room by its name, the article aside, or its key; case does not matter.
 pub fn room_named(world: &World, text: &str) -> Option<EntityId> {
-    let want = text.trim().trim_matches('"').to_ascii_lowercase();
-    let want = want.strip_prefix("the ").unwrap_or(&want).to_string();
+    // Punctuation and the small words go on both sides: "Moonpool, Described" was
+    // typed as "moonpool described" (the gate strips a comma), "An Unnamed Digging"
+    // arrived as "unnamed digging" (the gate reads "an" as a connector), and "Back To
+    // Somewhere" lost its "to".
+    let want = loose(text);
     if want.is_empty() {
         return None;
     }
@@ -716,13 +722,24 @@ pub fn room_named(world: &World, text: &str) -> Option<EntityId> {
         .entities()
         .filter(|e| e.kind == "room")
         .find(|e| {
-            let name = plain_str(world, e.id, ROOM, "name")
-                .map(|n| n.to_ascii_lowercase())
-                .unwrap_or_default();
-            let name = name.strip_prefix("the ").unwrap_or(&name).to_string();
-            name == want || plain_str(world, e.id, ROOM, "key") == Some(want.as_str())
+            let name = plain_str(world, e.id, ROOM, "name").unwrap_or_default();
+            loose(name) == want
+                || plain_str(world, e.id, ROOM, "key")
+                    .is_some_and(|k| k.eq_ignore_ascii_case(text.trim().trim_matches('"')))
         })
         .map(|e| e.id)
+}
+
+/// A room name with its punctuation and small words gone, lowercased.
+fn loose(text: &str) -> String {
+    const SMALL: &[&str] = &["the", "a", "an", "of", "to", "and", "in", "at", "on"];
+    text.trim()
+        .trim_matches('"')
+        .to_ascii_lowercase()
+        .split(|c: char| !c.is_alphanumeric() && c != '\'')
+        .filter(|w| !w.is_empty() && !SMALL.contains(w))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn said_way(path: &[String]) -> String {

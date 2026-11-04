@@ -589,6 +589,7 @@ pub fn add_recipe(
     let does = does
         .trim()
         .trim_matches('"')
+        .trim_end_matches(['.', '!'])
         .chars()
         .take(160)
         .collect::<String>();
@@ -1787,7 +1788,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     r.by.as_deref().map(|b| format!(" (a recipe {b} wrote)")).unwrap_or_default(),
                     r.of.join(" and "),
                     if r.chunk_at_least > 0.0 { format!(" and a chunk worth {asks:.0} or more{}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else { String::new() },
-                    r.does,
+                    r.does.trim_end_matches('.'),
                     if can { " You could make this now.".to_string() } else if !missing.is_empty() { format!(" You lack {}.", missing.join(" and ")) } else { " You lack the memory to spend.".to_string() }
                 ));
                 list.push(json!({"recipe": r.key, "name": r.name, "of": r.of, "chunk_at_least": asks, "vividity_at_least": r.vividity_at_least, "tier": r.tier, "does": r.does, "uses": r.uses, "fixed": r.fixed, "by": r.by, "could_make": can, "missing": missing}));
@@ -1802,7 +1803,7 @@ pub fn register(world: &mut World, curves: Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.recipe",
-            "Write a recipe into the world (kept names, three each): a name for the thing, one to three materials creatures leave, and what you say it is for. Anyone can then craft it for a chunk worth 20; the thing keeps a past, and does nothing else.",
+            "Write a recipe into the world (kept names, three each): a name for the thing, one to three materials creatures leave, and what you say it is for. Anyone can then craft it for a chunk worth 20 at base price (the Clocktower's price rate moves it; recipes says tonight's figure); the thing keeps a past, and does nothing else.",
         )
         .param("name", ParamType::String, true, "what the thing is called, in quotes")
         .param("of", ParamType::String, true, "a material a creature leaves (recipes names them), in quotes")
@@ -2117,12 +2118,15 @@ pub fn register(world: &mut World, curves: Curves) {
             let tier_now = super::past::tier(w, item);
             Ok(Outcome::new(
                 format!(
-                    "You make {} of {}{}: item-{}. It {}.{}{}",
+                    "You make {} of {}{}: item-{}. {}{}{}",
                     r.name,
                     used_names.join(" and "),
                     spent.map(|c| format!(", spending chunk-{}", c.0)).unwrap_or_default(),
                     item.0,
-                    r.does,
+                    match &r.by {
+                        Some(by) => format!("In {by}'s words, {}.", r.does.trim_end_matches('.')),
+                        None => format!("It {}.", r.does.trim_end_matches('.')),
+                    },
                     if r.fixed { format!(" It stands here, holding {spent_worth:.0}; name it (name \"…\" item-{}) once it holds {NAME_AT:.0}, describe it, remember chunks into it so it lasts.", item.0) } else if tier_now >= 3 { String::new() } else if spent.is_some() { format!(" The chunk is spent, not kept: it holds nothing yet. Remember chunks into it (remember chunk-N item-{}) and at {NAME_AT:.0} it takes a name.", item.0) } else { format!(" It holds nothing yet; remember chunks into it (remember chunk-N item-{}) and at {NAME_AT:.0} it takes a name.", item.0) },
                     raised.unwrap_or_default()
                 ),

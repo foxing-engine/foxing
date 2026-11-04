@@ -657,6 +657,12 @@ pub fn greeting_refusal(line: &str, have: &[String]) -> Option<String> {
     if !t.contains("{name}") {
         return Some("no {name} in it".into());
     }
+    // The catalog's worked examples leak: a greeting told a newcomer "you asked about
+    // fading, shelve chunk-267" on a first login.
+    let low = t.to_lowercase();
+    if low.contains("chunk-") || low.contains("you asked") || low.contains("item-") {
+        return Some("cites a chunk, a thing or a question the visitor never had".into());
+    }
     if have.iter().any(|h| h.eq_ignore_ascii_case(t)) {
         return Some("already in the book".into());
     }

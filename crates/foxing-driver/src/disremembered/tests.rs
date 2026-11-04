@@ -5741,7 +5741,7 @@ fn a_memory_taken_from_a_creature_is_minted_at_what_it_is_worth_now() {
     .unwrap_err();
     assert!(
         err.to_string()
-            .contains("not itself yet; there is nothing to take from it for 60s"),
+            .contains("not itself yet and cannot be struck for 60s"),
         "{err}"
     );
     // The dry run says the same, and refuses a bare `take` and a `look` with an argument.

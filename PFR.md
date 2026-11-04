@@ -49,6 +49,27 @@ Stories and the word
   (**lean**); b) a wrong guess costs the hour; c) the Docent as the only hint; a+b is
   fine.
 
+From the Night's Watch of 11-04 (the Gn- cohort)
+- **D11 · The attack ramp** (Gnawbone could not die: two wisp chunks made level 62 and
+  attack 13, one-cycling every hollow; M; **waits**). a) attack grows on the square
+  root of level but from a lower base and slower (2 + 0.6√level: a 60 is attack 7,
+  a 300 is 12) (**lean**); b) creatures scale with the attacker's level (D4 b); c)
+  leave it: the ground floor is meant to be outgrown in an hour.
+- **D12 · A fixture within a first session** (Gnarlpocket: a lamp wants a chunk worth
+  44 at tonight's price; a fresh name's best fight pays 11 and fades; S; **ships by
+  policy**, a). a) fixtures ask a chunk, not a chunk worth N: the chunk's worth sets
+  how long the fixture lasts instead (**lean**); b) a starter chunk on first login;
+  c) leave it, fixtures are for the second visit.
+- **D13 · The hidden word and the hour** (Gnomebucket: the hint arrived after the
+  one-an-hour lock closed the only creature; S; **ships by policy**, a). a) a story
+  that carries the hidden word is heard even within the hour, paying only the bonus
+  (**lean**); b) the hint is withheld until the hour is open again; c) leave it.
+- **D14 · Named creatures near the hub** (every report: one named creature, Stythe,
+  shared by eight visitors, three stories an hour; S; **ships by policy**, a). a) the
+  world keeps three named creatures within two rooms of the Threshold, naming a
+  wanderer when fewer stand (**lean**); b) per-visitor story credit on a creature; c)
+  leave it to the players' feeding.
+
 Schema and framing
 - **D8 · A creature's holding as a field** (Tyler #10; S; **ships by policy**, a). a) a public `holding` on
   `disremembered.mind`, refreshed on every change, so `observe`, `where` and `wants`
@@ -129,6 +150,28 @@ in the tree on 11-03, most of them fallbacks that stay for a while):
 - **R24** (M; was B4, pulled 11-04) Phone: exits first in the verb bar; a send chip for staged text; the chunks and commands tables at 390px.
 - **R25** (M; was B5, pulled 11-04) A verb's argument from the scene (click `tell`, then a creature); a creature's own verbs on its figure; the palette on the plain page; marks for named creatures and citizens, a legend in `?`, the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll; admin on the play page; a `remember` that keeps a room on your map; the favicon on the apex site's other pages.
 - **R26** (M; was B6, pulled 11-04) Unreproduced: a `travel <room name>` walk that stops short; "You again" on `leave` (rare); `board` at ~4 s.
+From the Night's Watch of 11-04:
+- **R27** (M) A stable map: `map` re-laid itself between two calls in the same room
+  (a room dug elsewhere shoved the numbering); new rooms take free cells without
+  moving placed ones. -- Gnocchibell
+- **R28** (S) `wants` lists the awake things with their current pull; the ground
+  hint and the "awake" tag agree after a thing has settled. -- Gnocchibell
+- **R29** (S) `look` marks a citizen quiet for five minutes ("(quiet 6m)"), and
+  says which creature each present citizen is fighting, so a partner's "I'm on
+  hollow-6038" can be checked. -- Gnudibranch, Gnawbone
+- **R30** (S) A quoted quote inside `tell`/`say` text does not void the message; the
+  refusal names the token. -- Gnudibranch
+- **R31** (S) The "something will drift in within about N" estimate matched the
+  respawn job but visitors waited longer: check that free reads tick the scheduler,
+  and say the room's figure, not the next job. -- Gnawbone
+- **R32** (S) The dig refusal at the door cap names rooms with fewer doors that the
+  digger can route to, nearest first; `travel back` from the Threshold's dug doors
+  never means the Fogcup. -- Gnarlpocket
+- **R33** (S) The Docent is handed how many stand in the asker's room, so it does not
+  say "quiet here" to a crowd; `wants` says when a want rotated since login.
+  -- Gnudibranch, Gnarlpocket
+- **R34** (S) The play page's shaken state: the hit-chance in the status bar and a
+  tremor on the figure while shaken. -- Gnatwhistle
 - Kept on purpose: `nginx-moondial.conf` (moondial.ai redirects to foxing.dev), the
   `/clear/entropic.yaml` redirect, the postgres schema-lock constant, the host's name
   moondial-1, TRADEMARK.md's history line, the repo's local folder name.
@@ -349,6 +392,13 @@ The world
 - **T7** A brief must not list `start` as a gate verb (it is an MCP tool); one unknown verb
   voids the message.
 
+- **T9** The Watch of 11-04, by loop: explorer 7, grinder 7, crafter 7, storyteller 6,
+  builder 6, socialite 5, swarm 5 (petitioner pending). What landed: the awake
+  lantern's changing pull to a warm settle; a felled creature's quoted, decaying
+  memory; a made thing's layered past; the shaken wake read as a cost bought, not a
+  punishment. What stalled: travel by name; one named creature for eight visitors;
+  the fixture price; the swarm that could not die. Morphos did not come in the window
+  (first natural visit 8–16 h after boot); `summon` it for the next Watch.
 - **T8** Night's Watch names begin with "Gn" (Gnatwhistle, Gnomebucket, Gnarlpocket,
   Gnashwick, Gnocchibell, Gnudibranch, Gnomonshade, Gnawbone; from 11-04): organics
   never do, so the board, the log and the analytics sort them with `^Gn`. The rest of
