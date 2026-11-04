@@ -696,8 +696,9 @@ fn the_world_moves_on_its_own() {
     w.fixed_now = Some(t0.plus(Duration::seconds(30)));
     assert_eq!(w.tick(), 0, "respawn is about 60 s");
     w.fixed_now = Some(t0.plus(Duration::seconds(97)));
-    // The respawn, and the Docent's first round (every ninety seconds).
-    assert_eq!(w.tick(), 2);
+    // The respawn, the Docent's first round (every ninety seconds), and the
+    // creatures' mending pass (every minute).
+    assert_eq!(w.tick(), 3);
     assert!(
         combat::creatures_in(&w, fog).len() >= 2,
         "the fog refilled on its own (one refill in six brings an extra)"
@@ -730,7 +731,11 @@ fn the_world_moves_on_its_own() {
         .jobs
         .has(combat::JOB_STRIKE, |p| p["citizen"] == f.citizen.0));
     w.fixed_now = Some(t0.plus(Duration::seconds(200)));
-    assert_eq!(w.tick(), 0);
+    // Only the creatures' mending pass comes due; no strike.
+    assert_eq!(w.tick(), 1);
+    assert!(!w
+        .jobs
+        .has(combat::JOB_STRIKE, |p| p["citizen"] == f.citizen.0));
 
     // Walk into the Shallows: a hollow ambushes after a few seconds (a name in its
     // first hour would be spared; dave's is older).
@@ -4567,7 +4572,7 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
     assert!(w.tick() >= 1);
     let said = narrative(&w, "dave", head);
     assert!(
-        said.iter().any(|l| l == "The Clocktower strikes. The fog is thick with things worth remembering; stories carry further this hour; and the ground is soft and things are cheap."),
+        said.iter().any(|l| l == "The Clocktower strikes. The fog is thick with things worth remembering; stories carry further this hour; the ground is soft and things are cheap; and the creatures keep their wounds."),
         "{said:?}"
     );
     assert!(narrative(&w, "tyler", head)
@@ -4588,7 +4593,7 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
         .filter(|e| e.kind == economy::CLOCKTOWER)
         .collect();
     assert_eq!(struck.len(), 1);
-    assert_eq!(struck[0].payload["changes"].as_array().unwrap().len(), 3);
+    assert_eq!(struck[0].payload["changes"].as_array().unwrap().len(), 4);
     // What it went by is on the record, and `time` says it.
     let read = &struck[0].payload["inputs"];
     assert_eq!(read["held"], "poor", "{read}");
@@ -9273,4 +9278,185 @@ fn a_razed_room_s_children_are_rejoined_and_orphans_come_back_at_boot() {
     let t = rooms::exits_of(&w, threshold);
     assert!(!t.contains_key("back"), "{t:?}");
     assert_eq!(t.get("cloakroom"), Some(&cloak), "{t:?}");
+}
+
+#[test]
+fn a_fall_leaves_you_shaken_and_the_creature_wounded_and_named_creatures_seek_succor() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // Whole and unshaken, nine strikes in ten land.
+    let f = find_citizen(&w, "dave").unwrap();
+    assert_eq!(combat::to_hit(&w, f.citizen), combat::HIT_BASE);
+    // Into the Ossuary: the revenant kills a fresh name. It keeps its wounds, and
+    // dave wakes shaken for five minutes (the first fall), hitting less often.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let ossuary = rooms::room_of(&w, f.citizen).unwrap();
+    let revenant = combat::creatures_in(&w, ossuary)[0].0;
+    let max = super::plain_num(&w, revenant, CREATURE, "max_hp").unwrap();
+    let out = fight(&mut w, "dave");
+    assert_eq!(out.result["died"], json!(true), "{}", out.summary);
+    assert!(
+        out.summary
+            .contains("shaken: your strikes land less often for 5m 0s"),
+        "{}",
+        out.summary
+    );
+    let hurt = super::plain_num(&w, revenant, CREATURE, "hp").unwrap();
+    assert!(hurt < max, "the revenant keeps its wounds: {hurt} of {max}");
+    let hit = combat::to_hit(&w, f.citizen);
+    assert!(
+        (hit - (combat::HIT_BASE - combat::SHAKEN_PENALTY)).abs() < 1e-9,
+        "{hit}"
+    );
+    let rest = ok(&mut w, "dave", "rest", json!([]));
+    assert!(
+        rest.summary
+            .contains("Shaken from the Threshold: 3 strikes in 10 land"),
+        "{}",
+        rest.summary
+    );
+    // A parabola: half the penalty is gone before a third of the time has passed.
+    w.fixed_now = Some(w.now().plus(Duration::seconds(90)));
+    let hit = combat::to_hit(&w, f.citizen);
+    assert!(
+        hit > combat::HIT_BASE - combat::SHAKEN_PENALTY / 2.0,
+        "{hit}"
+    );
+    w.fixed_now = Some(w.now().plus(Duration::seconds(300)));
+    assert_eq!(combat::to_hit(&w, f.citizen), combat::HIT_BASE);
+    // Misses happen while shaken: over many strikes at 0.3, some miss.
+    let mut w2 = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w2, "dave", "test", PASS).unwrap();
+    let f2 = find_citizen(&w2, "dave").unwrap();
+    for (field, value) in [
+        ("woke_at", json!(w2.now().0)),
+        ("shaken_ms", json!(30 * 60 * 1000)),
+    ] {
+        w2.record(
+            foxing_log::Actor::Driver,
+            StoreEvent::FieldSet {
+                id: f2.citizen,
+                component: BODY.into(),
+                field: field.into(),
+                value,
+            },
+        )
+        .unwrap();
+    }
+    ok(&mut w2, "dave", "travel", json!(["east"]));
+    let mut missed = 0;
+    for _ in 0..6 {
+        let out = ok(&mut w2, "dave", "attack", json!([]));
+        if out.summary.contains("miss") {
+            missed += 1;
+        }
+        if out.result["killed"] == json!(true) || out.result["died"] == json!(true) {
+            break;
+        }
+    }
+    assert!(
+        missed >= 1,
+        "shaken at 0.3, six swings should miss at least once"
+    );
+    // The revenant mends on the world's clock: a ground creature is whole in twenty
+    // minutes at rate 1, so about half mended at ten.
+    w.fixed_now = Some(w.now().plus(Duration::seconds(600)));
+    w.tick();
+    let mended = super::plain_num(&w, revenant, CREATURE, "hp").unwrap();
+    assert!(mended > hurt, "{mended} > {hurt}");
+    assert!(mended <= max, "{mended} <= {max}");
+    // A named creature hurt below half walks to succor (a basin in a dug room off
+    // the Threshold), mends there, remembers it, and walks home.
+    let c = admin(&mut w, "dave", "earn", json!(["hydra", 50, 0.5]));
+    let chunk = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "dig", json!(["down", &chunk, "The Font"]));
+    let font = rooms::exits_of(&w, rooms::arrival(&w).unwrap())["down"];
+    craft::make(
+        &mut w,
+        &curves(),
+        foxing_log::Actor::Driver,
+        Some("dave".into()),
+        font,
+        "a basin",
+        "made",
+        "basin",
+        Some("dave"),
+        &[],
+        0,
+        true,
+    )
+    .unwrap();
+    assert_eq!(combat::healing_rooms(&w), vec![font]);
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let fog = rooms::room_of(&w, f.citizen).unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    let c = admin(&mut w, "dave", "earn", json!(["hydra", 70, 0.5]));
+    let chunk = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "dave",
+        "remember",
+        json!([&chunk, format!("wisp-{}", wisp.0)]),
+    );
+    let name = mind::name(&w, wisp).expect("named");
+    let wmax = super::plain_num(&w, wisp, CREATURE, "max_hp").unwrap();
+    w.record(
+        foxing_log::Actor::Driver,
+        StoreEvent::FieldSet {
+            id: wisp,
+            component: CREATURE.into(),
+            field: "hp".into(),
+            value: json!(1.0),
+        },
+    )
+    .unwrap();
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    // Two passes: Fogbank -> Threshold -> the Font.
+    combat::regen(&mut w, 1000).unwrap();
+    assert_eq!(
+        w.store.entity(wisp).unwrap().parent,
+        Some(rooms::arrival(&w).unwrap()),
+        "{name} limps to the Threshold"
+    );
+    let heard: Vec<String> = narrative(&w, "dave", 0);
+    assert!(
+        heard.iter().any(|l| l.contains(&format!(
+            "{name} the wisp comes in from the east, hurt, looking for somewhere to mend."
+        ))),
+        "{heard:?}"
+    );
+    combat::regen(&mut w, 1000).unwrap();
+    assert_eq!(
+        w.store.entity(wisp).unwrap().parent,
+        Some(font),
+        "{name} reaches the basin"
+    );
+    combat::regen(&mut w, 1000).unwrap();
+    let s = w
+        .store
+        .entity(wisp)
+        .unwrap()
+        .components
+        .get(CREATURE)
+        .unwrap()
+        .fields
+        .get("succor")
+        .cloned();
+    assert!(
+        matches!(s, Some(Field::Plain(ref v)) if v["room"] == json!(font.0) && v["home"] == json!(fog.0)),
+        "{s:?}"
+    );
+    // Mended whole at the basin's pace (a long elapsed), it goes home by the way it came.
+    combat::regen(&mut w, 40 * 60 * 1000).unwrap();
+    assert_eq!(super::plain_num(&w, wisp, CREATURE, "hp"), Some(wmax));
+    combat::regen(&mut w, 1000).unwrap();
+    combat::regen(&mut w, 1000).unwrap();
+    assert_eq!(
+        w.store.entity(wisp).unwrap().parent,
+        Some(fog),
+        "{name} is home"
+    );
 }

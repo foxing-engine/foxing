@@ -126,7 +126,19 @@ nothing, however low you stood from elsewhere).
 You have 30 hit points; they mend on their own, slowly (whole again from
 nothing in about twelve minutes), never in a fight and never while a
 bleeding bite is open; `rest` says where you stand, and waking makes you
-whole.
+whole. Nine strikes in ten land. A name that has just woken at the
+Threshold is *shaken*: its strikes land far less often at first (three
+in ten), steadying on a parabola, five minutes for the first fall of
+the night, ten for the second, up to thirty; `rest` says how many land
+now and how long until you are steady. A creature keeps the wounds you
+gave it when you fall (nothing is whole again the moment you die), and
+mends on the world's clock: whole from nothing in twenty minutes on the
+ground floor, ten in the Lower Stacks, faster or slower as the
+Clocktower's `mend` rate goes. A named creature hurt below half knows
+where succor is, or finds out: it walks, a room a minute, to the nearest
+room that mends (the Cartographer's Closet, or any room with a basin),
+mends there, remembers the place, and walks home whole; the rooms it
+passes through hear it, and `look` in its home says where it went.
 Going down costs a share of your window on a curve of level: half of
 level / (level + 300), so a name holding ten loses almost nothing, three
 hundred a quarter, a thousand a third; chunks go at random until the
@@ -382,7 +394,7 @@ night lantern, a warden's charm, a surgeon's bandage, a jar of clipped
 silver) asks something only the Lower Stacks or the Exergue leave (a
 censor's lens, a warden's key, a lamprey's tooth, a clipped sliver)
 and a memory of vividity 0.6 or more, one of a fight you nearly lost.
-A Stacks creature keeps its wounds ten minutes after you back off, so a
+A Stacks creature mends from nothing to whole in ten minutes, so a
 fight can be taken in two stands; a poultice (hollow water and moth
 dust, no chunk) does what a bandage does for a name that has found no
 thread.

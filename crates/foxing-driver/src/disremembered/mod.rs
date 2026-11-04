@@ -306,6 +306,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("respawn", FieldKind::Plain, Visibility::Public)
             .field("drop", FieldKind::Plain, Visibility::Public)
             .field("price", FieldKind::Plain, Visibility::Public)
+            // How fast the creatures mend their wounds.
+            .field("mend", FieldKind::Plain, Visibility::Public)
             .field("struck_at", FieldKind::Plain, Visibility::Public)
             .field("strikes", FieldKind::Plain, Visibility::Public),
         // The Conclave's book: the statutes memory moves under, the hoards as of
@@ -405,7 +407,11 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("bleed_until", FieldKind::Plain, Visibility::Owner)
             // What the creature you are fighting has done you in this fight:
             // `{creature, taken}`; the memory's vividity is its share of your blood.
-            .field("fight", FieldKind::Plain, Visibility::Owner),
+            .field("fight", FieldKind::Plain, Visibility::Owner)
+            // Woke at the Threshold at this time, shaken for this long: strikes land
+            // less often until it passes.
+            .field("woke_at", FieldKind::Plain, Visibility::Owner)
+            .field("shaken_ms", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(SPRITE, 2)
             .field("glyph", FieldKind::Plain, Visibility::Public)
             .field("tint", FieldKind::Plain, Visibility::Public)
@@ -428,6 +434,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("learned", FieldKind::Plain, Visibility::Public)
             // The names it has felled.
             .field("felled", FieldKind::Plain, Visibility::Public)
+            // Where a named creature mends: `{room, home, away, found_at}`.
+            .field("succor", FieldKind::Plain, Visibility::Public)
             // When it was born; a newborn is not struck in its first hour.
             .field("born_at", FieldKind::Plain, Visibility::Public),
     ]
@@ -683,6 +691,7 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     docent::ensure(world)?;
     docent::ensure_round(world)?;
     board::ensure(world)?;
+    combat::ensure_regen(world)?;
     mind::ensure_wander(world)
 }
 

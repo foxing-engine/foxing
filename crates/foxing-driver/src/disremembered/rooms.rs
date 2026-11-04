@@ -1111,6 +1111,11 @@ pub fn describe(
             text.push_str(&e);
         }
     }
+    // A named creature of this room that went off hurt, to mend.
+    for line in super::combat::away_mending(world, room) {
+        text.push(' ');
+        text.push_str(&line);
+    }
     if let Some(note) = super::conclave::room_note(world, room) {
         text.push(' ');
         text.push_str(&note);

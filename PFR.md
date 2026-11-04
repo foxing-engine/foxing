@@ -24,12 +24,12 @@ Economy and death
   the retention play. a) count the palace in `holding` and the census, show the shelf
   as its own column on `chunks` and the board (**lean**); b) leave it, and document
   that the board is the window on purpose.
-- **D2 · The free fall** (Tyler #8; Cinderlash 24 free deaths; Brasspocket killed a
-  censor by dying three times; M; **ships by policy**, a). a) a floor under the halving (a night's tenth fall
-  still costs a tenth of the first's share) and the share taken of window plus shelf
-  (**lean**); b) a strike-free retreat above half hit points; c) waking at the
-  Threshold at half hit points; d) a small flat cost under the curve; e) leave it.
-  More than one letter is fine (a+b).
+- **D2 · The free fall** (Tyler #8; decided 11-03 23:39 PT, shipped the same night): a
+  hit chance (nine in ten) with a shaken wake whose penalty falls on a parabola, five
+  minutes a fall of the night up to thirty; creatures keep their wounds and mend on a
+  Clocktower rate (`mend`), named ones walking to succor and home. Still open from
+  the same issue, **ships by policy**: the floor under the halving and the share
+  taken of window plus shelf (a).
 - **D3 · A censor against a fresh name** (S; **ships by policy**, a). Nine to eleven a round against thirty
   hit points; "about half" is unreachable in a three-line batch. a) the Stacks ask a
   level at the stair (**lean**: legible, one line); b) Stacks creatures hit for less

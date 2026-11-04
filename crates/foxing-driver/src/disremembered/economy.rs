@@ -91,7 +91,15 @@ pub const DEEDS: &[&str] = &[
 pub const HALF_LIFE_LOW: f64 = 0.7;
 pub const HALF_LIFE_HIGH: f64 = 1.5;
 
-pub const RATES: &[&str] = &["worth", "pay", "half_life", "respawn", "drop", "price"];
+pub const RATES: &[&str] = &[
+    "worth",
+    "pay",
+    "half_life",
+    "respawn",
+    "drop",
+    "price",
+    "mend",
+];
 
 fn entity(world: &World) -> Option<EntityId> {
     world
@@ -457,6 +465,8 @@ fn prose(rate: &str, up: bool) -> &'static str {
         ("drop", false) => "what comes apart leaves little",
         ("price", true) => "the ground is hard and things are dear",
         ("price", false) => "the ground is soft and things are cheap",
+        ("mend", true) => "the creatures mend quickly tonight",
+        ("mend", false) => "the creatures keep their wounds",
         _ => "something has shifted",
     }
 }
@@ -531,7 +541,7 @@ fn policy(dash: &Value, rates: &BTreeMap<String, f64>) -> Vec<(String, f64, &'st
     if earners < EARNERS_FLOOR {
         // Too few about to read the hour by: the band levers hold. Rates drift
         // home meanwhile, so a quiet day does not leave last night's settings.
-        for name in ["worth", "pay", "price", "half_life"] {
+        for name in ["worth", "pay", "price", "half_life", "mend"] {
             let r = rates.get(name).copied().unwrap_or(1.0);
             if r > 1.0 + 1e-9 {
                 step(
@@ -573,6 +583,13 @@ fn policy(dash: &Value, rates: &BTreeMap<String, f64>) -> Vec<(String, f64, &'st
             size,
             "the hour earned more than the band",
         );
+        step(
+            &mut moves,
+            "mend",
+            true,
+            size,
+            "the hour earned more than the band",
+        );
     } else if wage < FLOW_LOW {
         step(
             &mut moves,
@@ -595,9 +612,16 @@ fn policy(dash: &Value, rates: &BTreeMap<String, f64>) -> Vec<(String, f64, &'st
             size,
             "the hour earned less than the band",
         );
+        step(
+            &mut moves,
+            "mend",
+            false,
+            size,
+            "the hour earned less than the band",
+        );
     } else {
         // In the band: rates drift home toward 1.0, a step at a time.
-        for name in ["worth", "pay", "price", "half_life"] {
+        for name in ["worth", "pay", "price", "half_life", "mend"] {
             let r = rates.get(name).copied().unwrap_or(1.0);
             if r > 1.0 + 1e-9 {
                 step(

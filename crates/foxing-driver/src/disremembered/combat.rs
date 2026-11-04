@@ -726,37 +726,390 @@ pub(crate) fn set_creature_hp(
         .map_err(|e| e.to_string())
 }
 
-pub(crate) fn mend(world: &mut World, creature: EntityId) -> Result<(), StoreError> {
-    // The Stacks' own kinds only: a ground-floor creature that learned a trick from a
-    // kill keeps its wounds like its neighbors (a wisp that learned to shove was back
-    // to full hit points seconds after the shove; the owner called it a bug).
-    let kind = super::plain_str(world, creature, CREATURE, "name").unwrap_or("");
-    if !super::stacks::TRICKS.iter().any(|(k, _)| *k == kind) {
-        return Ok(());
-    }
-    let max = plain_num(world, creature, CREATURE, "max_hp").unwrap_or(0.0);
-    let hp = plain_num(world, creature, CREATURE, "hp").unwrap_or(max);
-    if hp < max {
-        // It keeps the wound a while: whole again in STACKS_MEND_MS, not at once.
-        // A 75-hit-point censor whole again between visits could not be worn down
-        // by a thirty-hit-point name, and the second tier was a wall.
-        let due = world.now().plus(foxing_time::Duration(STACKS_MEND_MS));
-        let id = creature.0;
-        let _ = world.cancel(JOB_MEND, |p| p["creature"] == id);
-        // A scheduling failure leaves the wound, which errs on the visitor's side.
-        let _ = world.schedule_once(JOB_MEND, due, json!({"creature": id}), |p| {
-            p["creature"] == id
-        });
-    }
+/// A fight ended with the creature standing: it keeps its wounds, and mends on the
+/// world's clock (`regen`), at the Clocktower's `mend` rate. Nothing is instant any
+/// more: a 75-hit-point censor whole again between visits could not be worn down by
+/// a thirty-hit-point name, and a wisp whole again the moment you died was what made
+/// dying cheaper than retreating. The wound is the balance lever now.
+pub(crate) fn mend(world: &mut World, _creature: EntityId) -> Result<(), StoreError> {
+    let _ = ensure_regen(world);
     Ok(())
 }
 
-/// How long a Stacks creature keeps its wounds after a fight ends.
+/// How long a Stacks creature takes to mend from nothing to whole at rate 1.0; the
+/// ground floor's kinds take twice that.
 pub const STACKS_MEND_MS: i64 = 10 * 60 * 1000;
+pub const GROUND_MEND_MS: i64 = 20 * 60 * 1000;
+/// The old one-shot mend, kept so a job already in the log replays without complaint.
 pub const JOB_MEND: &str = "disremembered.mend";
+/// The creatures' mending, every minute: each wounded creature nobody is fighting
+/// mends by the time since the last pass; a named one below half walks to succor.
+pub const JOB_REGEN: &str = "disremembered.regen";
+pub const REGEN_EVERY_MS: i64 = 60 * 1000;
+/// A named creature this hurt (a share of its hit points) goes looking for succor.
+pub const SUCCOR_BELOW: f64 = 0.5;
+/// A creature mended: `{creature, kind, name, room, from, to}`; a creature walking to
+/// succor or home: `{creature, name, from, to, via, why}`. Public.
+pub const SUCCORED: &str = "disremembered.succored";
 
-/// The mending, when it comes due: whole again.
+/// Striking: a strike lands [`HIT_BASE`] of the time, less while shaken.
+pub const HIT_BASE: f64 = 0.9;
+/// A name that just woke at the Threshold is shaken: its strikes land this much less
+/// often at the moment of waking, the penalty falling on a parabola to nothing
+/// as the shaking passes (half gone at three tenths of the time).
+pub const SHAKEN_PENALTY: f64 = 0.6;
+/// How long the shaking lasts: this per fall of the night, so a name that keeps
+/// dying is shaken longer each time, up to [`SHAKEN_MAX_MS`].
+pub const SHAKEN_PER_FALL_MS: i64 = 5 * 60 * 1000;
+pub const SHAKEN_MAX_MS: i64 = 30 * 60 * 1000;
+
+/// How shaken a body is now: the penalty to its hit chance and the time left, or
+/// nothing once it has steadied.
+pub fn shaken(world: &World, citizen: EntityId) -> Option<(f64, i64)> {
+    let woke = plain_num(world, citizen, BODY, "woke_at")? as i64;
+    let lasts = plain_num(world, citizen, BODY, "shaken_ms")? as i64;
+    let t = world.now().0 - woke;
+    if lasts <= 0 || t < 0 || t >= lasts {
+        return None;
+    }
+    let x = 1.0 - t as f64 / lasts as f64;
+    Some((SHAKEN_PENALTY * x * x, lasts - t))
+}
+
+/// The chance a strike lands, 0 to 1.
+pub fn to_hit(world: &World, citizen: EntityId) -> f64 {
+    (HIT_BASE - shaken(world, citizen).map(|(p, _)| p).unwrap_or(0.0)).clamp(0.05, 1.0)
+}
+
+/// "Shaken: 4 strikes in 10 land, steadying over 3m 20s", or nothing.
+pub fn shaken_said(world: &World, citizen: EntityId) -> Option<String> {
+    let (_, left) = shaken(world, citizen)?;
+    let hit = to_hit(world, citizen);
+    Some(format!(
+        "Shaken from the Threshold: {} strikes in 10 land, steadying over {}.",
+        (hit * 10.0).round() as i64,
+        human(left)
+    ))
+}
+
+/// Whoever is fighting this creature, if anyone.
+pub fn fought_by(world: &World, creature: EntityId) -> Option<EntityId> {
+    world
+        .store
+        .entities()
+        .filter(|e| e.kind == "citizen")
+        .find(|e| plain_num(world, e.id, BODY, "engaged").map(|v| v as u64) == Some(creature.0))
+        .map(|e| e.id)
+}
+
+/// Rooms where a body mends faster: the Cartographer's Closet, and any room with a
+/// basin standing in it.
+pub fn healing_rooms(world: &World) -> Vec<EntityId> {
+    world
+        .store
+        .entities()
+        .filter(|e| e.kind == "room")
+        .filter(|e| {
+            super::plain_str(world, e.id, super::ROOM, "name") == Some(CLOSET)
+                || super::craft::fixture_of(world, e.id, "basin").is_some()
+        })
+        .map(|e| e.id)
+        .collect()
+}
+
+pub(crate) fn ensure_regen(world: &mut World) -> Result<(), String> {
+    let due = world.now().plus(foxing_time::Duration(REGEN_EVERY_MS));
+    let now = world.now().0;
+    world
+        .schedule_once(JOB_REGEN, due, json!({"last": now}), |_| true)
+        .map(|_| ())
+}
+
+/// One pass of the creatures' mending: `elapsed` since the last. The count mended.
+pub fn regen(world: &mut World, elapsed_ms: i64) -> Result<usize, String> {
+    let rate = super::economy::rate(world, "mend");
+    // The wounded, and the whole ones still walking home from succor.
+    let wounded: Vec<(EntityId, f64, f64, String)> = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "creature")
+        .filter_map(|e| {
+            let max = plain_num(world, e.id, CREATURE, "max_hp")?;
+            let hp = plain_num(world, e.id, CREATURE, "hp").unwrap_or(max);
+            let away = e
+                .components
+                .get(CREATURE)
+                .and_then(|c| c.fields.get("succor"))
+                .is_some_and(|f| matches!(f, Field::Plain(v) if v["away"] == true));
+            (hp < max - 1e-9 || away).then(|| {
+                (
+                    e.id,
+                    hp,
+                    max,
+                    super::plain_str(world, e.id, CREATURE, "name")
+                        .unwrap_or("")
+                        .to_string(),
+                )
+            })
+        })
+        .collect();
+    let mut n = 0;
+    for (creature, hp, max, kind) in wounded {
+        if fought_by(world, creature).is_some() {
+            continue;
+        }
+        if hp >= max - 1e-9 {
+            // Whole, and on its way home.
+            succor_step(world, creature, hp, max)?;
+            continue;
+        }
+        let whole_ms = if super::stacks::TRICKS.iter().any(|(k, _)| *k == kind) {
+            STACKS_MEND_MS
+        } else {
+            GROUND_MEND_MS
+        };
+        let room = world.store.entity(creature).and_then(|e| e.parent);
+        // In a healing room a creature mends as a body does there: the Closet's pace
+        // or a basin's, against the kind's own figure, whichever is quicker.
+        let place = room
+            .map(|r| {
+                if super::plain_str(world, r, super::ROOM, "name") == Some(CLOSET) {
+                    CLOSET_HP_PER_SECOND / super::MAX_HP
+                } else if super::craft::fixture_of(world, r, "basin").is_some() {
+                    super::HP_PER_SECOND * 2.0 / super::MAX_HP
+                } else {
+                    0.0
+                }
+            })
+            .unwrap_or(0.0);
+        let per_ms = (1.0 / whole_ms as f64).max(place / 1000.0) * rate;
+        let gained = max * per_ms * elapsed_ms as f64;
+        let after = (hp + gained).min(max);
+        world
+            .record(
+                Actor::Driver,
+                StoreEvent::FieldSet {
+                    id: creature,
+                    component: CREATURE.into(),
+                    field: "hp".into(),
+                    value: json!(((after) * 10.0).round() / 10.0),
+                },
+            )
+            .map_err(|e| e.to_string())?;
+        n += 1;
+        // A named creature below half knows where succor is, or finds out, and goes;
+        // whole again, it goes home.
+        if super::mind::name(world, creature).is_some() {
+            succor_step(world, creature, after, max)?;
+        }
+    }
+    Ok(n)
+}
+
+/// A smart creature's errand to mend: below [`SUCCOR_BELOW`] of its hit points it
+/// walks a room a minute toward the nearest healing room (one it remembers from
+/// before, else the nearest it can route to), mends there, and walks home when whole.
+/// It remembers the room it found (`succor` on the creature) for next time.
+fn succor_step(world: &mut World, creature: EntityId, hp: f64, max: f64) -> Result<(), String> {
+    let Some(here) = world.store.entity(creature).and_then(|e| e.parent) else {
+        return Ok(());
+    };
+    let name = super::mind::display(world, creature);
+    let succor = world
+        .store
+        .entity(creature)
+        .and_then(|e| e.components.get(CREATURE))
+        .and_then(|c| c.fields.get("succor"))
+        .and_then(|f| match f {
+            Field::Plain(v) if v.is_object() => Some(v.clone()),
+            _ => None,
+        });
+    let going_home = succor.as_ref().is_some_and(|s| s["away"] == true);
+    let healing = healing_rooms(world);
+    let at_succor = healing.contains(&here);
+    let whole = hp >= max - 0.5;
+    // Whole and away: home.
+    if going_home && whole {
+        let Some(home) = succor
+            .as_ref()
+            .and_then(|s| s["home"].as_u64())
+            .map(EntityId)
+        else {
+            return Ok(());
+        };
+        if here == home {
+            return remember_succor(
+                world,
+                creature,
+                succor.map(|mut s| {
+                    s["away"] = json!(false);
+                    s
+                }),
+            );
+        }
+        if let Some(path) = super::errand::route(world, here, home) {
+            if let Some(via) = path.first() {
+                return walk(world, creature, here, via, "home");
+            }
+        }
+        return remember_succor(
+            world,
+            creature,
+            succor.map(|mut s| {
+                s["away"] = json!(false);
+                s["home"] = json!(here.0);
+                s
+            }),
+        );
+    }
+    if hp / max >= SUCCOR_BELOW && !going_home {
+        return Ok(());
+    }
+    if at_succor {
+        // Mending here; remember the place.
+        let mut s = succor.unwrap_or_else(|| json!({"home": here.0}));
+        if s["room"].as_u64() != Some(here.0) {
+            s["room"] = json!(here.0);
+            s["found_at"] = json!(world.now().0);
+            let _ = world.note(
+                Actor::Driver,
+                SUCCORED,
+                json!({"creature": creature.0, "name": name, "room": here.0, "why": "mending"}),
+            );
+        }
+        s["away"] = json!(true);
+        return remember_succor(world, creature, Some(s));
+    }
+    // Where to: the room it remembers, else the nearest healing room by route.
+    let remembered = succor
+        .as_ref()
+        .and_then(|s| s["room"].as_u64())
+        .map(EntityId)
+        .filter(|r| healing.contains(r));
+    let target = match remembered {
+        Some(r) => super::errand::route(world, here, r).map(|p| (r, p)),
+        None => healing
+            .iter()
+            .filter_map(|&r| super::errand::route(world, here, r).map(|p| (r, p)))
+            .min_by_key(|(_, p)| p.len()),
+    };
+    let Some((_, path)) = target else {
+        return Ok(());
+    };
+    let Some(via) = path.first() else {
+        return Ok(());
+    };
+    let mut s = succor.unwrap_or_else(|| json!({}));
+    if !going_home {
+        s["home"] = json!(here.0);
+        s["away"] = json!(true);
+        remember_succor(world, creature, Some(s))?;
+    }
+    walk(world, creature, here, via, "succor")
+}
+
+/// For `look`: the named creatures whose home this room is, away mending.
+pub fn away_mending(world: &World, room: EntityId) -> Vec<String> {
+    world
+        .store
+        .entities()
+        .filter(|e| e.kind == "creature" && e.parent != Some(room))
+        .filter_map(|e| {
+            let s = match e.components.get(CREATURE)?.fields.get("succor")? {
+                Field::Plain(v) if v["away"] == true && v["home"].as_u64() == Some(room.0) => v,
+                _ => return None,
+            };
+            let name = super::mind::name(world, e.id)?;
+            let kind = super::plain_str(world, e.id, CREATURE, "name").unwrap_or("creature");
+            let at = e
+                .parent
+                .and_then(|r| super::plain_str(world, r, super::ROOM, "name"))
+                .unwrap_or("somewhere");
+            let where_ = if s["room"].as_u64().map(EntityId) == e.parent {
+                format!("mending in {at}")
+            } else {
+                format!("on its way, in {at}")
+            };
+            Some(format!(
+                "{name} the {kind} went off hurt, to mend; it is {where_}, and comes back whole."
+            ))
+        })
+        .collect()
+}
+
+fn remember_succor(world: &mut World, creature: EntityId, s: Option<Value>) -> Result<(), String> {
+    let mut changes = BTreeMap::new();
+    changes.insert("succor".into(), Field::Plain(s.unwrap_or(Value::Null)));
+    super::bindery::set_fields(world, Actor::Driver, creature, CREATURE, changes)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+/// A creature takes a door on its own: the rooms on both sides hear it.
+fn walk(
+    world: &mut World,
+    creature: EntityId,
+    from: EntityId,
+    via: &str,
+    why: &str,
+) -> Result<(), String> {
+    let Some(to) = super::rooms::exits_of(world, from).get(via).copied() else {
+        return Ok(());
+    };
+    let name = super::mind::display(world, creature);
+    // The room it leaves hears it go (the creature still stands there), then the
+    // room it enters hears it come.
+    narrate_room(
+        world,
+        creature,
+        &if why == "home" {
+            format!("{name} goes {via}, mended, the way it came.")
+        } else {
+            format!("{name} limps off {via}, toward somewhere it remembers it can mend.")
+        },
+    );
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::EntityMoved {
+                id: creature,
+                parent: Some(to),
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    let _ = world.note(
+        Actor::Driver,
+        SUCCORED,
+        json!({"creature": creature.0, "name": name, "from": from.0, "to": to.0, "via": via, "why": why}),
+    );
+    let from_where = match super::building::opposite_of(via) {
+        "back" => format!("through {via}"),
+        opp => format!("from the {opp}"),
+    };
+    narrate_room(
+        world,
+        creature,
+        &if why == "home" {
+            format!("{name} comes back {from_where}, whole again.")
+        } else {
+            format!("{name} comes in {from_where}, hurt, looking for somewhere to mend.")
+        },
+    );
+    Ok(())
+}
+
+/// The mending jobs: the old one-shot (replayed from the log; whole again, as it
+/// said then) and the pass every minute.
 pub fn register_mend(world: &mut World) {
+    world.on_job(
+        JOB_REGEN,
+        Box::new(|w: &mut World, job| {
+            let last = job.payload["last"].as_i64().unwrap_or(w.now().0);
+            let elapsed = (w.now().0 - last).clamp(0, 6 * 60 * 60 * 1000);
+            regen(w, elapsed)?;
+            ensure_regen(w)
+        }),
+    );
     world.on_job(
         JOB_MEND,
         Box::new(|w: &mut World, job| {
@@ -990,6 +1343,7 @@ pub(crate) struct Death {
     pub epitaph: String,
     pub keeper: Option<String>,
     pub learned: Option<&'static str>,
+    pub shaken_ms: i64,
 }
 
 impl Death {
@@ -1030,10 +1384,14 @@ impl Death {
             out.push_str(&format!(" And {}.", super::death::learned_said(l)));
         }
         out.push_str(if self.lost.is_some() {
-            " You wake at the Threshold."
+            " You wake at the Threshold"
         } else {
-            " You wake at the Threshold with everything you had."
+            " You wake at the Threshold with everything you had"
         });
+        out.push_str(&format!(
+            ", shaken: your strikes land less often for {}, steadying as it passes.",
+            human(self.shaken_ms)
+        ));
         out
     }
 }
@@ -1150,8 +1508,27 @@ pub(crate) fn die(
         };
 
     let home = super::rooms::arrival(world).ok_or_else(|| internal("the Threshold is missing"))?;
-    if let Some(creature) = engaged_with(world, f.citizen) {
-        mend(world, creature).map_err(internal)?;
+    // The creature keeps its wounds (it mends on the world's clock); a swarm that
+    // dies on it does wear it down, as a swarm, not as one name reborn.
+    let _ = ensure_regen(world);
+    // You wake shaken: your strikes land less often, longer for each fall of the
+    // night, steadying on a parabola.
+    let shaken_ms = (SHAKEN_PER_FALL_MS * fall as i64).min(SHAKEN_MAX_MS);
+    for (field, value) in [
+        ("woke_at", json!(world.now().0)),
+        ("shaken_ms", json!(shaken_ms)),
+    ] {
+        world
+            .record(
+                Actor::Driver,
+                StoreEvent::FieldSet {
+                    id: f.citizen,
+                    component: BODY.into(),
+                    field: field.into(),
+                    value,
+                },
+            )
+            .map_err(internal)?;
     }
     // Whatever was in you dies with you: a lamprey's venom once went on working at
     // the Threshold, where nothing hunts, after the wake.
@@ -1188,6 +1565,7 @@ pub(crate) fn die(
         epitaph,
         keeper: keeper_slot,
         learned,
+        shaken_ms,
     })
 }
 
@@ -1442,23 +1820,29 @@ pub fn register(world: &mut World, curves: Curves) {
                 began = Some(clock_line(w, creature, &ctx.actor));
             }
 
-            // You strike.
+            // You strike: nine in ten land, fewer while you are shaken from a fall.
             let level = super::memory::level(w, f.window);
-            let mut dmg = attack_for_level(level) + w.roll(3) as f64;
+            let hit_chance = to_hit(w, f.citizen);
+            let landed = (w.roll(100) as f64) < hit_chance * 100.0;
+            let mut dmg = if landed { attack_for_level(level) + w.roll(3) as f64 } else { 0.0 };
             // An arm asleep from a numbing bite strikes for half, for a while.
             let numb = plain_num(w, f.citizen, BODY, "numb_until").is_some_and(|u| u > w.now().0 as f64);
-            if numb {
+            if numb && landed {
                 dmg = (dmg / 2.0).max(1.0).floor();
             }
             let chp = (plain_num(w, creature, CREATURE, "hp").unwrap_or(0.0) - dmg).max(0.0);
-            w.record(Actor::Citizen(ctx.actor.clone()), StoreEvent::FieldSet { id: creature, component: CREATURE.into(), field: "hp".into(), value: json!(chp) }).map_err(internal)?;
+            if landed {
+                w.record(Actor::Citizen(ctx.actor.clone()), StoreEvent::FieldSet { id: creature, component: CREATURE.into(), field: "hp".into(), value: json!(chp) }).map_err(internal)?;
+            }
             // A fight begun by default is said, not silent: six bare `attack` lines
             // felled an inkling on the fourth and struck its neighbor on the fifth.
             let turned = args.str("creature").map_or(true, str::is_empty) && began.is_some();
-            let mut lines = vec![if turned {
-                format!("You turn on the {cname} and hit it for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" })
-            } else {
-                format!("You hit the {cname} for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" })
+            let unsteady = if shaken(w, f.citizen).is_some() { ", your hand unsteady from the Threshold" } else { "" };
+            let mut lines = vec![match (landed, turned) {
+                (false, true) => format!("You turn on the {cname} and miss{unsteady}."),
+                (false, false) => format!("You swing at the {cname} and miss{unsteady}."),
+                (true, true) => format!("You turn on the {cname} and hit it for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" }),
+                (true, false) => format!("You hit the {cname} for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" }),
             }];
             if let Some(r) = retargeted.take() {
                 lines.insert(0, r);
@@ -1640,6 +2024,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     bandaged = "Your bandage closes the bite, and is spent. ".to_string();
                 }
             }
+            let shaken_line = shaken_said(w, f.citizen).map(|l| format!(" {l}")).unwrap_or_default();
             let text = match eta {
                 // Every branch says when a bandage went (#12: it was spent in a fight
                 // and the reply never said so).
@@ -1648,7 +2033,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 Some(d) if d.0 > 0 => format!("{bandaged}You have {current:.0}/{:.0}. Full in {}.", super::MAX_HP, human(d.0)),
                 _ => format!("{bandaged}You have {current:.0}/{:.0}. You are whole.", super::MAX_HP),
             };
-            Ok(Outcome::new(text, json!({"hp": current, "max_hp": super::MAX_HP, "full_in_seconds": eta.map(|d| d.0 / 1000), "bandage_spent": !bandaged.is_empty()})))
+            Ok(Outcome::new(format!("{text}{shaken_line}"), json!({"hp": current, "max_hp": super::MAX_HP, "full_in_seconds": eta.map(|d| d.0 / 1000), "bandage_spent": !bandaged.is_empty(), "to_hit": to_hit(w, f.citizen), "shaken_ms_left": shaken(w, f.citizen).map(|(_, l)| l)})))
         }),
     );
 }
