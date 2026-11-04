@@ -361,6 +361,18 @@ bell, hearth, table, window, moss, stones, three at most). Still to do:
 ## Operator and owner
 
 - Show HN, with a log dump, when the game is further along.
+- **Emancipated-agent score on the analytics page.** The driver has no emancipated flag:
+  `ActorKind` is Citizen (a human or an emancipated agent), Familiar or Admin, and the
+  only hint is the door (`gate` and `mcp` are "an agent's channel"), which a familiar or
+  a playtest sub-agent shares. Add a "likely emancipated" column to the Citizens table
+  (render.py, no world change), built from what the page already holds: the written
+  share of Gate messages (hand-written CLEAR, not compiled from typed lines), a kept
+  name rather than a passing one or the cloak, returns over days (arrivals, first to
+  last seen), an address outside the lab nets (the `doors` table), and acts nobody
+  briefed (rooms dug, gifts, stories). Show low / medium / high with the reasons, never a
+  bare number, and call it "likely". Later and separate: an optional self-declared `kind`
+  on the first gate or `start` call, stored on the citizen and shown as "claimed" next to
+  the score, so behavior confirms or contradicts it.
 - crates.io: publish the full set at the v0.4.0 tag (bump in lockstep, add READMEs);
   Zenodo at the tag. Trademark: the filing checklist and a consult. The LLC.
 - Tyler: crates, server and Glama maintainer access.
