@@ -1813,7 +1813,7 @@ pub fn register(world: &mut World, curves: Curves) {
             w.notice(format!("**{}** wrote a recipe: {} (of {}).", ctx.actor, r.name, r.of.join(" and ")));
             Ok(Outcome::new(
                 format!(
-                    "The recipe is written: craft {} makes {}, of {}, for a chunk worth {:.0} or more. It {}. recipes lists it with the rest.",
+                    "The recipe is written: craft {} makes {}, of {}, for a chunk worth {:.0} or more; in your words, {}. recipes lists it with the rest.",
                     r.key,
                     r.name,
                     r.of.join(" and "),
