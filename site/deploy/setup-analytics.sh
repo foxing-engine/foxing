@@ -118,6 +118,14 @@ Environment=ANALYTICS_HTML=$STORE/html
 Environment=ANALYTICS_RETENTION_DAYS=90
 ExecStart=/usr/bin/python3 $APP_DIR/current/analytics/render.py --days 30 --html
 UNIT
+# The citizens table needs the driver's admin token: systemd reads the env file as
+# root and hands the variables to the render, so the file itself stays 0600.
+install -d /etc/systemd/system/analytics-render.service.d
+cat > /etc/systemd/system/analytics-render.service.d/driver-env.conf <<UNIT
+[Service]
+EnvironmentFile=-/etc/foxing/driver.env
+EnvironmentFile=-/etc/moondial/driver.env
+UNIT
 cat > /etc/systemd/system/analytics-render.timer <<'UNIT'
 [Unit]
 Description=Render the analytics page every five minutes, after each collection

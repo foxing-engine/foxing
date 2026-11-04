@@ -146,16 +146,19 @@ def funnel(db, since: str) -> list[list]:
 
 
 def admin_token() -> str | None:
-    tok = os.environ.get("MOONDIAL_ADMIN_TOKEN")
+    tok = os.environ.get("MOONDIAL_ADMIN_TOKEN") or os.environ.get("FOXING_ADMIN_TOKEN")
     if tok:
         return tok
-    try:
-        with open(DRIVER_ENV, encoding="utf-8") as fh:
-            for line in fh:
-                if line.startswith("MOONDIAL_ADMIN_TOKEN="):
-                    return line.split("=", 1)[1].strip()
-    except OSError:
-        pass
+    # The driver's env file: where the engine's name put it, then where it was.
+    for path in (DRIVER_ENV, "/etc/foxing/driver.env", "/etc/moondial/driver.env"):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                for line in fh:
+                    for key in ("MOONDIAL_ADMIN_TOKEN=", "FOXING_ADMIN_TOKEN="):
+                        if line.startswith(key):
+                            return line.split("=", 1)[1].strip()
+        except OSError:
+            continue
     return None
 
 
