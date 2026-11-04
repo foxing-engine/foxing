@@ -540,12 +540,36 @@ pub(crate) fn raze_room(
             .children(room)
             .filter(|e| e.kind == "creature")
             .count();
+        // Its children (the dug rooms its own exits opened onto) are not left with
+        // no way in: each is rejoined to the nearest surviving ancestor, the Threshold
+        // failing that, by the exit name it had here. (#5: a sealed pocket, and
+        // rooms nothing could reach.)
+        let children: Vec<(String, foxing_store::EntityId)> = super::rooms::exits_of(w, room)
+            .into_iter()
+            .filter(|(_, to)| {
+                w.store
+                    .entity(*to)
+                    .is_some_and(|e| e.kind == "room" && e.owner.is_some())
+            })
+            .filter(|(_, to)| {
+                super::plain_num(w, *to, super::ROOM, "origin").map(|o| o as u64) == Some(room.0)
+            })
+            .collect();
+        let anchor = super::building::surviving_ancestor(w, room);
         w.record(Actor::Driver, StoreEvent::EntityRemoved { id: room })
             .map_err(internal)?;
+        let mut rejoined = Vec::new();
+        if let Some(anchor) = anchor {
+            for (via, child) in children {
+                if super::building::rejoin(w, child, anchor, &via).is_ok() {
+                    rejoined.push(child.0);
+                }
+            }
+        }
         let _ = w.note(
                 Actor::Driver,
                 "disremembered.razed",
-                json!({"room": room.0, "key": key, "name": name, "exits_dropped": unlinked, "creatures": creatures, "evicted": evicted}),
+                json!({"room": room.0, "key": key, "name": name, "exits_dropped": unlinked, "creatures": creatures, "evicted": evicted, "rejoined": rejoined}),
             );
         Ok((name, unlinked, creatures, evicted))
     }

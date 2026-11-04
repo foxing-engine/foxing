@@ -1641,12 +1641,14 @@ pub fn register(world: &mut World, curves: Curves) {
                 }
             }
             let text = match eta {
-                _ if current < super::MAX_HP - 0.5 && engaged_with(w, f.citizen).is_some() => format!("You have {current:.0}/{:.0}. Nothing mends in a fight; retreat, and it starts.", super::MAX_HP),
-                _ if current < super::MAX_HP - 0.5 && bleeding.is_some() => format!("You have {current:.0}/{:.0}. You are bleeding: nothing mends for {} more.", super::MAX_HP, human((bleeding.unwrap() as i64) - now.0)),
+                // Every branch says when a bandage went (#12: it was spent in a fight
+                // and the reply never said so).
+                _ if current < super::MAX_HP - 0.5 && engaged_with(w, f.citizen).is_some() => format!("{bandaged}You have {current:.0}/{:.0}. Nothing mends in a fight; retreat, and it starts.", super::MAX_HP),
+                _ if current < super::MAX_HP - 0.5 && bleeding.is_some() => format!("{bandaged}You have {current:.0}/{:.0}. You are bleeding: nothing mends for {} more.", super::MAX_HP, human((bleeding.unwrap() as i64) - now.0)),
                 Some(d) if d.0 > 0 => format!("{bandaged}You have {current:.0}/{:.0}. Full in {}.", super::MAX_HP, human(d.0)),
                 _ => format!("{bandaged}You have {current:.0}/{:.0}. You are whole.", super::MAX_HP),
             };
-            Ok(Outcome::new(text, json!({"hp": current, "max_hp": super::MAX_HP, "full_in_seconds": eta.map(|d| d.0 / 1000)})))
+            Ok(Outcome::new(text, json!({"hp": current, "max_hp": super::MAX_HP, "full_in_seconds": eta.map(|d| d.0 / 1000), "bandage_spent": !bandaged.is_empty()})))
         }),
     );
 }

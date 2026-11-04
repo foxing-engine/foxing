@@ -275,6 +275,20 @@ fn one_line(text: &str) -> String {
 }
 
 /// Milliseconds since the epoch as `YYYY-MM-DDTHH:MMZ`.
+/// `2026-11-03T19:16:42Z`: to the second, for a wait the reader will time.
+pub fn iso_second(t: Timestamp) -> String {
+    let secs = t.0.div_euclid(1000);
+    let days = secs.div_euclid(86_400);
+    let rem = secs.rem_euclid(86_400);
+    let (y, m, d) = civil_from_days(days);
+    format!(
+        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
+        rem / 3600,
+        (rem % 3600) / 60,
+        rem % 60
+    )
+}
+
 pub fn iso_minute(t: Timestamp) -> String {
     let secs = t.0.div_euclid(1000);
     let days = secs.div_euclid(86_400);
@@ -628,8 +642,17 @@ pub fn pass(
     };
     if cost > 0.0 {
         if let Err(resets) = budget.check_cost(actor, now, cost) {
+            // To the second, and as a wait (#7: truncated to the minute, the reset
+            // could read as the minute it was refused at, and the hour is a rolling
+            // one from the first charged message, not the clock's).
+            let wait = (resets.0 - now.0).max(0) / 1000;
             report.fact(
-                format!("{actor} has spent the message budget for the hour as of {}; the budget resets at {}", iso_minute(now), iso_minute(resets)),
+                format!(
+                    "{actor} has spent the rolling hour's sixty messages; the budget frees at {} ({} after {})",
+                    iso_second(resets),
+                    if wait >= 90 { format!("{}m {}s", wait / 60, wait % 60) } else { format!("{wait}s") },
+                    iso_second(now)
+                ),
                 "budget",
             );
             return finish(
@@ -1612,12 +1635,14 @@ mod tests {
         assert!(!p.acted);
         assert!(
             p.reply
-                .contains("has spent the message budget for the hour"),
+                .contains("has spent the rolling hour's sixty messages"),
             "{}",
             p.reply
         );
         assert!(
-            p.reply.contains("the budget resets at 2026-10-27T12:20Z"),
+            p.reply.contains(
+                "the budget frees at 2026-10-27T12:20:00Z (60m 0s after 2026-10-27T11:20:00Z)"
+            ),
             "{}",
             p.reply
         );
@@ -1760,7 +1785,7 @@ mod tests {
         assert!(!p.ok);
         assert!(
             p.reply
-                .contains("has spent the message budget for the hour"),
+                .contains("has spent the rolling hour's sixty messages"),
             "{}",
             p.reply
         );

@@ -14,6 +14,26 @@ done, not struck through. Cleaned 2026-11-02 (the file had become a diary).
 
 ## Decisions wanted (a sentence each)
 
+From Tyler's issues of 11-03 (foxing-engine/foxing #5–#12; #5, #7 and #12 are fixed in
+the tree and want closing, the rest are yours to decide; Glama's maintenance grade
+reads whether open issues get a maintainer's reply, so each one wants a comment from
+you or a close):
+- **#6 and #9, one decision**: the census and the board count the window only, so a
+  shelved hoard is invisible to the Conclave and the board punishes the palace. I would
+  count the palace in `holding` and the census both (economy.rs already says "a shelved
+  hoard is a hoard"), and show the shelf on `chunks` and the board as its own column.
+- **#8 the free fall** (the same as the death-cost floor below, now with the shelve
+  round-trip spelled out): a floor on the halving (never under a tenth of the first
+  fall's share) and a share of window-plus-shelf, not the window alone.
+- **#10 holding is not a field**: expose a creature's holding as a public plain field on
+  `disremembered.mind` refreshed on every change (feed, take, fade sweep), so `where`
+  and `observe` can sort by it; or say it is prose on purpose, so names are found by
+  walking.
+- **#11 a story pays the same at 61 words as at 6,000**: let words past sixty buy
+  vividity (to 0.9 at two hundred distinct words) rather than XP, so a long story keeps
+  longer without paying more; the grammar check (shipped 11-03) already keeps a list of
+  nouns from being a story.
+
 Decided 2026-11-02 13:54 PT: a kill pays at most the delver's level plus sixty
 (shipped); the floor under a name is deferred ("less of an issue when the map is
 bigger"); the creature-side story cap, three an hour from anyone, is approved

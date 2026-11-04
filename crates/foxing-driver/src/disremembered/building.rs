@@ -1359,6 +1359,134 @@ pub fn reframe(world: &mut World, room: EntityId) -> Result<(), CommandError> {
         .map_err(internal)
 }
 
+/// The nearest ancestor of a dug room that still stands (by `origin`, up the chain),
+/// or the Threshold. The room itself may already be gone from the store.
+pub fn surviving_ancestor(world: &World, room: EntityId) -> Option<EntityId> {
+    let mut cur = room;
+    for _ in 0..64 {
+        let Some(origin) = plain_num(world, cur, ROOM, "origin").map(|o| EntityId(o as u64)) else {
+            break;
+        };
+        if world.store.entity(origin).is_some_and(|e| e.kind == "room") {
+            return Some(origin);
+        }
+        cur = origin;
+    }
+    super::rooms::arrival(world)
+}
+
+/// Rejoin a dug room to an anchor room: the anchor gains an exit to it (the name it
+/// had, or that name numbered if the anchor has one), and the room's way back points
+/// at the anchor. The world's own repair, so the door cap does not apply.
+pub fn rejoin(
+    world: &mut World,
+    room: EntityId,
+    anchor: EntityId,
+    via: &str,
+) -> Result<(), CommandError> {
+    let mut exits: serde_json::Map<String, Value> = exits_of(world, anchor)
+        .into_iter()
+        .map(|(k, v)| (k, json!(v.0)))
+        .collect();
+    if exits.values().any(|v| v.as_u64() == Some(room.0)) {
+        return Ok(());
+    }
+    let base = if via.is_empty() || via == "back" {
+        plain_str(world, room, ROOM, "key")
+            .unwrap_or("room")
+            .split('-')
+            .next()
+            .unwrap_or("room")
+            .to_string()
+    } else {
+        via.to_string()
+    };
+    let mut name = base.clone();
+    let mut n = 2;
+    while exits.contains_key(&name) {
+        name = format!("{base}{n}");
+        n += 1;
+    }
+    exits.insert(name.clone(), json!(room.0));
+    let mut ef = BTreeMap::new();
+    ef.insert("exits".into(), Field::Plain(Value::Object(exits)));
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::ComponentSet {
+                id: anchor,
+                component: EXITS.into(),
+                fields: ef,
+            },
+        )
+        .map_err(internal)?;
+    let mut back: serde_json::Map<String, Value> = exits_of(world, room)
+        .into_iter()
+        .filter(|(_, to)| world.store.entity(*to).is_some())
+        .map(|(k, v)| (k, json!(v.0)))
+        .collect();
+    back.insert(opposite(&name).to_string(), json!(anchor.0));
+    let mut ef = BTreeMap::new();
+    ef.insert("exits".into(), Field::Plain(Value::Object(back)));
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::ComponentSet {
+                id: room,
+                component: EXITS.into(),
+                fields: ef,
+            },
+        )
+        .map_err(internal)?;
+    let mut fields = BTreeMap::new();
+    fields.insert("origin".into(), Field::Plain(json!(anchor.0)));
+    set_room_fields(world, "the world", room, fields)?;
+    let _ = world.note(
+        Actor::Driver,
+        REJOINED,
+        json!({"room": room.0, "name": plain_str(world, room, ROOM, "name"), "to": anchor.0, "via": name}),
+    );
+    Ok(())
+}
+
+/// A dug room nothing led to was rejoined to the world: `{room, name, to, via}`.
+pub const REJOINED: &str = "disremembered.rejoined";
+
+/// On boot: every dug room no exit leads to is rejoined to its nearest surviving
+/// ancestor, or the Threshold. The ones already orphaned (#5) before razing learned
+/// to rejoin.
+pub fn rejoin_orphans(world: &mut World) -> Result<usize, String> {
+    let rooms: Vec<EntityId> = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "room")
+        .map(|e| e.id)
+        .collect();
+    let mut reached: std::collections::HashSet<EntityId> = std::collections::HashSet::new();
+    for &r in &rooms {
+        for (_, to) in exits_of(world, r) {
+            reached.insert(to);
+        }
+    }
+    let orphans: Vec<EntityId> = rooms
+        .into_iter()
+        .filter(|&r| world.store.entity(r).is_some_and(|e| e.owner.is_some()))
+        .filter(|r| !reached.contains(r))
+        .collect();
+    let mut n = 0;
+    for room in orphans {
+        let Some(anchor) = surviving_ancestor(world, room) else {
+            continue;
+        };
+        if anchor == room {
+            continue;
+        }
+        rejoin(world, room, anchor, "").map_err(|e| e.to_string())?;
+        n += 1;
+    }
+    Ok(n)
+}
+
 /// On boot: every dug room drawn as a plain doorway takes the shape its name gives it.
 pub fn reframe_all(world: &mut World) -> Result<(), String> {
     // One pass over every exit, not one per room: at ten thousand dug rooms the

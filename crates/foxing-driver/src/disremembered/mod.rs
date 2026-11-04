@@ -675,6 +675,7 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     rooms::ensure_rooms(world)?;
     craft::ensure_fixtures(world, &Curves::from_env())?;
     combat::ensure_spawns(world)?;
+    building::rejoin_orphans(world)?;
     building::reframe_all(world)?;
     economy::ensure(world)?;
     conclave::ensure(world)?;

@@ -3940,9 +3940,9 @@ fn the_operator_can_raze_a_dug_room_and_banish_a_name() {
     )
     .unwrap_err();
     assert!(err.to_string().contains("seed room"), "{err}");
-    // A room dug off the probe, with probe in it, when the probe is razed: an orphan
-    // with no door. Nobody is kept anywhere: any travel leads to the Threshold, and
-    // the operator can bring a citizen out by hand too.
+    // A room dug off the probe, with probe in it, when the probe is razed: rejoined
+    // to the Threshold by the exit it had (#5), so no one is sealed in; the operator
+    // can bring a citizen out by hand too.
     ok(&mut w, "probe", "travel", json!(["down"]));
     ok(&mut w, "dave", "travel", json!(["down"]));
     let out = admin(&mut w, "dave", "earn", json!(["hydra", 100, 1.0]));
@@ -3954,18 +3954,14 @@ fn the_operator_can_raze_a_dug_room_and_banish_a_name() {
     ok(&mut w, "dave", "travel", json!(["up"]));
     let out = admin(&mut w, "dave", "raze", json!([&key]));
     assert!(out.summary.contains("2 exits"), "{}", out.summary);
-    assert!(
-        rooms::exits_of(&w, deeper).is_empty(),
-        "the orphan has no door"
+    assert_eq!(
+        rooms::exits_of(&w, deeper).get("up"),
+        Some(&threshold),
+        "the child is rejoined to the Threshold"
     );
-    let out = ok(&mut w, "probe", "travel", json!(["anywhere"]));
-    assert!(
-        out.summary.starts_with(
-            "There is no door here, so you go the way every room was first reached. The Threshold."
-        ),
-        "{}",
-        out.summary
-    );
+    assert_eq!(rooms::exits_of(&w, threshold).get("down"), Some(&deeper));
+    let out = ok(&mut w, "probe", "travel", json!(["up"]));
+    assert!(out.summary.contains("The Threshold"), "{}", out.summary);
     admin(&mut w, "dave", "bring", json!(["probe", &deeper_key]));
     assert_eq!(
         rooms::room_of(&w, super::find_citizen(&w, "probe").unwrap().citizen),
@@ -9169,4 +9165,93 @@ fn a_story_is_told_in_sentences_or_not_followed() {
         json!([&name, "There was a lantern on the stair that would not go out, however hard the wind came up the shaft. The reader kept it lit for a friend who never came back."]),
     );
     assert!(out.result["kept"] != json!(false), "{}", out.summary);
+}
+
+#[test]
+fn a_razed_room_s_children_are_rejoined_and_orphans_come_back_at_boot() {
+    let t0 = Timestamp(1_000_000);
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let chunk = |w: &mut World| {
+        let c = admin(w, "dave", "earn", json!(["hydra", 50, 0.5]));
+        format!("chunk-{}", c.result["chunk"].as_u64().unwrap())
+    };
+    let c1 = chunk(&mut w);
+    ok(
+        &mut w,
+        "dave",
+        "dig",
+        json!(["down", &c1, "The Waiting Bench"]),
+    );
+    ok(&mut w, "dave", "travel", json!(["down"]));
+    let bench = rooms::room_of(&w, find_citizen(&w, "dave").unwrap().citizen).unwrap();
+    let c2 = chunk(&mut w);
+    ok(
+        &mut w,
+        "dave",
+        "dig",
+        json!(["cloak", &c2, "The Cloakroom"]),
+    );
+    ok(&mut w, "dave", "travel", json!(["cloak"]));
+    let cloak = rooms::room_of(&w, find_citizen(&w, "dave").unwrap().citizen).unwrap();
+    let c3 = chunk(&mut w);
+    ok(&mut w, "dave", "dig", json!(["sleeve", &c3, "The Sleeve"]));
+    let sleeve = rooms::exits_of(&w, cloak)["sleeve"];
+    ok(&mut w, "dave", "travel", json!(["back"]));
+    ok(&mut w, "dave", "travel", json!(["up"]));
+    // The bench goes: the cloakroom is rejoined to the Threshold by its old exit
+    // name, and the sleeve still hangs off it.
+    let threshold = rooms::arrival(&w).unwrap();
+    system::raze_room(&mut w, bench).unwrap();
+    assert!(w.store.entity(bench).is_none());
+    let exits = rooms::exits_of(&w, threshold);
+    assert_eq!(exits.get("cloak"), Some(&cloak), "{exits:?}");
+    assert_eq!(rooms::exits_of(&w, cloak).get("back"), Some(&threshold));
+    assert_eq!(rooms::exits_of(&w, cloak).get("sleeve"), Some(&sleeve));
+    ok(&mut w, "dave", "travel", json!(["cloak"]));
+    ok(&mut w, "dave", "travel", json!(["sleeve"]));
+    ok(&mut w, "dave", "travel", json!(["back"]));
+    ok(&mut w, "dave", "travel", json!(["back"]));
+    assert_eq!(
+        rooms::room_of(&w, find_citizen(&w, "dave").unwrap().citizen),
+        Some(threshold)
+    );
+    // An orphan from before (no exit anywhere leads to it) is rejoined at boot.
+    let mut t_exits: serde_json::Map<String, Value> = rooms::exits_of(&w, threshold)
+        .into_iter()
+        .filter(|(_, r)| *r != cloak)
+        .map(|(k, r)| (k, json!(r.0)))
+        .collect();
+    t_exits.insert("sleeve".into(), json!(sleeve.0));
+    let mut ef = BTreeMap::new();
+    ef.insert("exits".into(), Field::Plain(Value::Object(t_exits)));
+    w.record(
+        foxing_log::Actor::Driver,
+        StoreEvent::ComponentSet {
+            id: threshold,
+            component: EXITS.into(),
+            fields: ef,
+        },
+    )
+    .unwrap();
+    for r in [cloak, sleeve] {
+        let mut ef = BTreeMap::new();
+        ef.insert("exits".into(), Field::Plain(json!({})));
+        w.record(
+            foxing_log::Actor::Driver,
+            StoreEvent::ComponentSet {
+                id: r,
+                component: EXITS.into(),
+                fields: ef,
+            },
+        )
+        .unwrap();
+    }
+    assert_eq!(building::rejoin_orphans(&mut w).unwrap(), 1);
+    assert!(
+        rooms::exits_of(&w, threshold).values().any(|r| *r == cloak),
+        "{:?}",
+        rooms::exits_of(&w, threshold)
+    );
 }
