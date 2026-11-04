@@ -123,6 +123,12 @@ in the tree on 11-03, most of them fallbacks that stay for a while):
   to "Foxing driver (Disremembered)", `.htpasswd-moondial` to `.htpasswd-foxing` with
   the nginx snippet, and restarts; idempotent; prints its diff first. Claude writes it,
   you run it (read line by line, as always).
+- **R21** (M; was B1, pulled 11-04) Kinds redrawn richer (two idle frames, a shaken pose, a failing-name flicker); the Docent walking its round across the picture; click-to-walk on the floor; drag to look at the atlas from the scene.
+- **R22** (M; was B2, pulled 11-04) The strip room-aware (retarget the spend step when the creature is gone; tick "travel east" only on east); "Type help" pointing at the strip; the verb bar refreshing after `dig`; one `help` voice (the page's list and the world's line).
+- **R23** (M; was B3, pulled 11-04) `tell` to a gate visitor: "they will read it with their next reply".
+- **R24** (M; was B4, pulled 11-04) Phone: exits first in the verb bar; a send chip for staged text; the chunks and commands tables at 390px.
+- **R25** (M; was B5, pulled 11-04) A verb's argument from the scene (click `tell`, then a creature); a creature's own verbs on its figure; the palette on the plain page; marks for named creatures and citizens, a legend in `?`, the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll; admin on the play page; a `remember` that keeps a room on your map; the favicon on the apex site's other pages.
+- **R26** (M; was B6, pulled 11-04) Unreproduced: a `travel <room name>` walk that stops short; "You again" on `leave` (rare); `board` at ~4 s.
 - Kept on purpose: `nginx-moondial.conf` (moondial.ai redirects to foxing.dev), the
   `/clear/entropic.yaml` redirect, the postgres schema-lock constant, the host's name
   moondial-1, TRADEMARK.md's history line, the repo's local folder name.
@@ -230,25 +236,7 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
 
 ## Backlog (B), by area: pulled into R when its turn comes; say `B<n> next` to pull one
 
-The play page
-- **B1** Kinds redrawn richer (two idle frames, a shaken pose, a failing-name flicker); the
-  Docent walking its round across the picture; click-to-walk on the floor; drag to
-  look at the atlas from the scene.
-- **B2** The strip room-aware (retarget the spend step when the creature is gone; tick
-  "travel east" only on east); "Type help" pointing at the strip; the verb bar
-  refreshing after `dig`; one `help` voice (the page's list and the world's line).
-- **B3** `tell` to a gate visitor: "they will read it with their next reply".
-- **B4** Phone: exits first in the verb bar; a send chip for staged text; the chunks and
-  commands tables at 390px.
-- **B5** A verb's argument from the scene (click `tell`, then a creature); a creature's own
-  verbs on its figure; the palette on the plain page; marks for named creatures and
-  citizens, a legend in `?`, the same marks on the record page; the record page
-  showing a gate message's reply beside it and a day as a scroll; admin on the play
-  page; a `remember` that keeps a room on your map; the favicon on the apex site's
-  other pages.
-- **B6** Unreproduced: a `travel <room name>` walk that stops short; "You again" on `leave`
-  (rare); `board` at ~4 s.
-
+The play page (B1–B6 pulled into R21–R26, 11-04)
 Visiting agents
 - **B7** A batched message with statements omitted should name which and whether they ran;
   `check` passes an ASK the gate declines, and one bad ask refuses the whole message.
@@ -360,3 +348,8 @@ The world
   (`[reasoning_extraction]`) partway through; finish those sessions by hand.
 - **T7** A brief must not list `start` as a gate verb (it is an MCP tool); one unknown verb
   voids the message.
+
+- **T8** Night's Watch names begin with "Gn" (Gnatwhistle, Gnomebucket, Gnarlpocket,
+  Gnashwick, Gnocchibell, Gnudibranch, Gnomonshade, Gnawbone; from 11-04): organics
+  never do, so the board, the log and the analytics sort them with `^Gn`. The rest of
+  the name stays whimsical and in-world; a retired Watch name is not reused.
