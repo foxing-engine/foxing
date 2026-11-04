@@ -36,25 +36,32 @@ jobs:
       - name: Look
         env:
           WHAT: ${{ github.event.inputs.what }}
+        # The script goes over as an argument, not on stdin: fed to `bash -s`, a
+        # command on the box swallowed a stretch of it (the timers and units never
+        # printed), so stdin is closed and nothing can eat the script.
         run: |
-          ssh -o BatchMode=yes -o ConnectTimeout=15 game bash -s "$WHAT" <<'REMOTE'
+          SCRIPT=$(cat <<'REMOTE'
           what=${1:-all}
           APP=/srv/foxing; [ -d $APP ] || APP=/srv/moondial
           echo "## host $(hostname), app $APP, $(date -u)"
           if [ "$what" = all ] || [ "$what" = driver ]; then
-            echo "## driver"; systemctl status foxing --no-pager 2>&1 | head -12
-            echo "## driver journal (last 30)"; journalctl -u foxing -n 30 --no-pager 2>&1 | tail -30
+            echo "## driver"; systemctl status foxing --no-pager </dev/null 2>&1 | head -12
+            echo "## driver journal (last 30)"; journalctl -u foxing -n 30 --no-pager </dev/null 2>&1 | tail -30
           fi
           if [ "$what" = all ] || [ "$what" = analytics ]; then
-            echo "## timers"; systemctl list-timers --all --no-pager 2>&1 | grep -E "analytics|NEXT" || true
+            echo "## timers"; systemctl list-timers --all --no-pager </dev/null 2>&1 | grep -E "analytics|NEXT" || true
             for u in analytics-collect analytics-render; do
-              echo "## $u.service"; systemctl status $u.service --no-pager 2>&1 | head -8
-              echo "## $u unit file"; cat /etc/systemd/system/$u.service 2>&1
-              echo "## $u journal (last 25)"; journalctl -u $u.service -n 25 --no-pager 2>&1 | tail -25
+              echo "## $u.timer"; systemctl status $u.timer --no-pager </dev/null 2>&1 | head -6
+              echo "## $u.service"; systemctl status $u.service --no-pager </dev/null 2>&1 | head -8
+              echo "## $u unit files"; systemctl cat $u.service $u.timer --no-pager </dev/null 2>&1
+              echo "## $u journal (last 25)"; journalctl -u $u.service -n 25 --no-pager </dev/null 2>&1 | tail -25
             done
+            echo "## env files"; ls -la /etc/foxing /etc/moondial 2>&1
             echo "## store"; ls -la $APP/shared/analytics/ $APP/shared/analytics/html/ 2>&1 | head -20
             echo "## ops log"; ls -la $APP/shared/data/ops.jsonl 2>&1; tail -2 $APP/shared/data/ops.jsonl 2>&1 | cut -c1-200
             echo "## nginx snippet"; cat /etc/nginx/snippets/analytics.conf 2>&1 | head -30
             echo "## raw log"; ls -la /var/log/nginx/analytics.jsonl* 2>&1 | head -5
           fi
           REMOTE
+          )
+          ssh -o BatchMode=yes -o ConnectTimeout=15 game "bash -c $(printf '%q' "$SCRIPT") _ $(printf '%q' "$WHAT")" </dev/null
