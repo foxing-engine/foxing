@@ -9249,9 +9249,28 @@ fn a_razed_room_s_children_are_rejoined_and_orphans_come_back_at_boot() {
         .unwrap();
     }
     assert_eq!(building::rejoin_orphans(&mut w).unwrap(), 1);
-    assert!(
-        rooms::exits_of(&w, threshold).values().any(|r| *r == cloak),
-        "{:?}",
-        rooms::exits_of(&w, threshold)
-    );
+    let t = rooms::exits_of(&w, threshold);
+    assert_eq!(t.get("cloakroom"), Some(&cloak), "{t:?}");
+    // A forward door is never `back`: one named so is renamed on the sweep.
+    let mut m: serde_json::Map<String, Value> = t
+        .iter()
+        .filter(|(k, _)| k.as_str() != "cloakroom")
+        .map(|(k, v)| (k.clone(), json!(v.0)))
+        .collect();
+    m.insert("back".into(), json!(cloak.0));
+    let mut ef = BTreeMap::new();
+    ef.insert("exits".into(), Field::Plain(Value::Object(m)));
+    w.record(
+        foxing_log::Actor::Driver,
+        StoreEvent::ComponentSet {
+            id: threshold,
+            component: EXITS.into(),
+            fields: ef,
+        },
+    )
+    .unwrap();
+    building::rejoin_orphans(&mut w).unwrap();
+    let t = rooms::exits_of(&w, threshold);
+    assert!(!t.contains_key("back"), "{t:?}");
+    assert_eq!(t.get("cloakroom"), Some(&cloak), "{t:?}");
 }

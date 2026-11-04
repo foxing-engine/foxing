@@ -1392,12 +1392,7 @@ pub fn rejoin(
         return Ok(());
     }
     let base = if via.is_empty() || via == "back" {
-        plain_str(world, room, ROOM, "key")
-            .unwrap_or("room")
-            .split('-')
-            .next()
-            .unwrap_or("room")
-            .to_string()
+        door_word(plain_str(world, room, ROOM, "key").unwrap_or("room"))
     } else {
         via.to_string()
     };
@@ -1449,6 +1444,19 @@ pub fn rejoin(
     Ok(())
 }
 
+/// A door word from a room key (`back-to-somewhere-2790` → `somewhere`): the first
+/// word of the key that is not reserved (`back` is the way you came) or a stop word.
+fn door_word(key: &str) -> String {
+    const SKIP: &[&str] = &[
+        "back", "the", "a", "an", "to", "of", "and", "in", "on", "at", "room",
+    ];
+    key.split('-')
+        .filter(|w| !w.is_empty() && !w.chars().all(|c| c.is_ascii_digit()))
+        .find(|w| !SKIP.contains(w))
+        .map(|w| w.chars().take(16).collect())
+        .unwrap_or_else(|| "room".to_string())
+}
+
 /// A dug room nothing led to was rejoined to the world: `{room, name, to, via}`.
 pub const REJOINED: &str = "disremembered.rejoined";
 
@@ -1483,6 +1491,50 @@ pub fn rejoin_orphans(world: &mut World) -> Result<usize, String> {
         }
         rejoin(world, room, anchor, "").map_err(|e| e.to_string())?;
         n += 1;
+    }
+    // A forward door named `back` (the first sweep took a key's first word, and one
+    // key began with it) is renamed: `back` is the way you came, never a door onward.
+    let rooms: Vec<EntityId> = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "room")
+        .map(|e| e.id)
+        .collect();
+    for r in rooms {
+        let exits = exits_of(world, r);
+        let Some(&to) = exits.get("back") else {
+            continue;
+        };
+        // Forward: the room it opens onto was dug from this one.
+        let forward = plain_num(world, to, ROOM, "origin").map(|o| o as u64) == Some(r.0);
+        if !forward {
+            continue;
+        }
+        let word = door_word(plain_str(world, to, ROOM, "key").unwrap_or("room"));
+        let mut m: serde_json::Map<String, Value> = exits
+            .iter()
+            .filter(|(k, _)| k.as_str() != "back")
+            .map(|(k, v)| (k.clone(), json!(v.0)))
+            .collect();
+        let mut name = word.clone();
+        let mut i = 2;
+        while m.contains_key(&name) {
+            name = format!("{word}{i}");
+            i += 1;
+        }
+        m.insert(name, json!(to.0));
+        let mut ef = BTreeMap::new();
+        ef.insert("exits".into(), Field::Plain(Value::Object(m)));
+        world
+            .record(
+                Actor::Driver,
+                StoreEvent::ComponentSet {
+                    id: r,
+                    component: EXITS.into(),
+                    fields: ef,
+                },
+            )
+            .map_err(|e| e.to_string())?;
     }
     Ok(n)
 }
