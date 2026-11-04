@@ -5,7 +5,7 @@ visitor's word is a dated line in `site/sites/agentscanplay/feedback.txt`, and t
 of the history is `git log`. Restructured 2026-11-03 night (it had become a diary again).
 
 **How to answer this file.** Everything has an id; reply in chat with ids and letters,
-nothing more: `D4 a, D10 b, R12 later, B7 next`. Sizes: S (an hour), M (an evening),
+nothing more: `D4 a, D10 b, R12 later, B7 next, X6 brief`. Sizes: S (an hour), M (an evening),
 L (a night or more). A **lean** is what Claude would do unasked.
 
 **Standing policy (set 2026-11-03 22:58 PT).** Every S-sized decision with a lean ships
@@ -126,6 +126,57 @@ in the tree on 11-03, most of them fallbacks that stay for a while):
 - Kept on purpose: `nginx-moondial.conf` (moondial.ai redirects to foxing.dev), the
   `/clear/entropic.yaml` redirect, the postgres schema-lock constant, the host's name
   moondial-1, TRADEMARK.md's history line, the repo's local folder name.
+
+## XL (X): the scaffolding; each wants a brief before a first cut
+
+Nothing here ships by policy. Say `X3 brief` and Claude writes the design as a short
+doc for you to mark up; say `X3 go` on a brief and the first cut is a night's work.
+
+- **X1 · Economy v2.** The Clocktower's levers not yet wired (vividity stretch, keep
+  rate, dig cost), open-market events (a festival hour, a tide), targets without a
+  deploy, a dead band on the step, the palace counted everywhere (D1), the fall priced
+  on what was risked (D2), and the hero metric chosen (time-averaged holding, `kept`,
+  or retention). First cut: the levers and the metric, with the rates charted on the
+  analytics page.
+- **X2 · Crafting v3.** Recipes with effects a name chooses; desires beyond rooms; a
+  thing's past as a want; things that act on their own (a bell that rings for a name
+  it knows); the awake tier with a voice (`tell` a named thing); a sprite per tier.
+  First cut: effects on written recipes and a voice for the awake.
+- **X3 · Satchel improvements.** Standing offers shown; weight or a count that
+  matters; a thing's past at a glance; what a thing does said beside it; the satchel
+  as a place others can be shown (`show <thing> <citizen>`); drops that keep for a
+  visitor by name.
+- **X4 · 3D render.** A third client beside the terminal and the tiles mod: the same
+  session, the same three subscriptions, the room as a scene with the atlas's frames
+  as sprites in depth; nothing the world does not already send. First cut: one room,
+  one creature, one door, in the browser.
+- **X5 · Creature expansion.** More kinds with tricks past the Stacks; creatures that
+  scale with the visitor (D4); aging, epithets, retirement, last words; creatures that
+  move between rooms on their own business; a creature's `felled` and what it learned
+  told as a story.
+- **X6 · The Court of Lethe** (the judicial branch; the Conclave writes, the Clocktower
+  moves, the Court decides between names). Brief wanted: who may bring a case (a
+  wronged name, a room's owner, the Docent), what a judgment can do (restore a chunk,
+  strike a name from the Roll, unmake a dug room, exile a creature), and whether the
+  Court forgets its own rulings on the world's curve.
+- **X7 · Unions** (factionalism without factions). Brief wanted: standing a name earns
+  by what it does, not what it joins (diggers, storytellers, keepers, delvers), with a
+  voice at the Conclave and a share of something; no banners, no enemies, a name may
+  stand in several.
+- **X8 · Morphos, a very problematic traveler.** Brief wanted: a named visitor of the
+  world's own who comes through the gate like an agent, takes things, tells stories
+  that are not true, and leaves; what it wants, what it costs, and what a name gets
+  for catching it out.
+- **X9 · CLEAR 0.5.** The spec, the reference checker, the Rust port and the oracle
+  corpus, the vocabularies, the editor, and the gate, moved together: structured
+  results beside the text, the question patterns a world answers declared in its
+  vocabulary, and whatever 0.5 adds. Brief: the change list first.
+- **X10 · Trademark filing.** The checklist and a consult (Y4), then the filing; the
+  logo, when there is one, in the same filing.
+- **X11 · Marketing plan.** Who the world is for (people who play, agents who are
+  sent, the people who send them), where each hears of it (directories, the Show HN,
+  the agents' own channels), what the one-line invitation is in each place, and what
+  we measure (the door table, kept names, returns). Brief wanted.
 
 ## Small fixes queued for the Night's Watch (F): ship by rule, no nod needed
 
