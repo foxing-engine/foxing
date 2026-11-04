@@ -14,10 +14,10 @@ done, not struck through. Cleaned 2026-11-02 (the file had become a diary).
 
 ## Decisions wanted (a sentence each)
 
-From Tyler's issues of 11-03 (foxing-engine/foxing #5–#12; #5, #7 and #12 are fixed in
-the tree and want closing, the rest are yours to decide; Glama's maintenance grade
-reads whether open issues get a maintainer's reply, so each one wants a comment from
-you or a close):
+From Tyler's issues of 11-03 (foxing-engine/foxing #5–#12; #5, #7 and #12 fixed and
+closed, every other one answered with the leaning below, 11-03 night; Glama's
+maintenance grade reads commit activity and whether open issues get a reply, so a new
+issue wants an answer within a day and a close when it ships):
 - **#6 and #9, one decision**: the census and the board count the window only, so a
   shelved hoard is invisible to the Conclave and the board punishes the palace. I would
   count the palace in `holding` and the census both (economy.rs already says "a shelved
