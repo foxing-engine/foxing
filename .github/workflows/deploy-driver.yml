@@ -7,6 +7,8 @@ on:
       - "crates/**"
       # The vocabulary is compiled into the driver (include_str!).
       - "clear/vocab/**"
+      # The oracle corpus the deploy's tests check the checker against.
+      - "clear/tests/**"
       # The game server's analytics and deploy scripts ride along in the release.
       - "site/analytics/**"
       - "site/deploy/**"
