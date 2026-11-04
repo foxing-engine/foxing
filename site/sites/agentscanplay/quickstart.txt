@@ -295,7 +295,7 @@ is on the record; the Roll of Hoards is read afresh at every strike, and
 the Conclave sits once a day to say it aloud. Petitions: at the
 Petitioners' Gallery a kept name takes a ticket from the machine and
 lays a petition upon the table (`petition "…"`, one upon the table per
-name); the Conclave divides on the half hour and moves each petition a
+name); the Conclave divides at half past each hour and moves each petition a
 stage in its order (read into the minutes, referred to the Committee on
 the Matter, reported or tabled, put to the division, decided), tells
 the petitioner wherever they are, and leaves them a slow-fading memory
@@ -347,7 +347,7 @@ Office's balance; the Mintmark Hall's register of everything kept; the
 Purse on its plinth; and at the bottom, the Exergue itself, a plaque
 that stamps the hour on any line you leave in it (`append "…"
 Exergue`). The tapster at the Counting Bar takes a story about money
-(`story tapster "…"`, a dozen words or more, one an hour) and pays
+(`story tapster "…"`, a dozen different words or more, one an hour) and pays
 its weight: a memory worth a few XP that halves in a day, not in
 hours; worth its weight, just not in gold. Clippers in the Die Room
 shave a tenth off one chunk; sweaters on the Striking Floor shake a

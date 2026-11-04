@@ -64,6 +64,12 @@ From the Night's Watch of 11-04 (the Gn- cohort)
   one-an-hour lock closed the only creature; S; **ships by policy**, a). a) a story
   that carries the hidden word is heard even within the hour, paying only the bonus
   (**lean**); b) the hint is withheld until the hour is open again; c) leave it.
+- **D15 · The Conclave's cadence** (Gnomonshade filed at 08:38 and left at 09:12 with
+  the division at 09:30; the whole loop is a countdown; S; **ships by policy**, a).
+  a) divide every thirty minutes, at :00 and :30, so a petition moves a stage inside
+  most sessions and decides in two or three hours (**lean**); b) a petition is read
+  into the minutes the moment it is laid (a stage seen at once) and the hourly
+  division stands; c) leave it: the Conclave is slow on purpose.
 - **D14 · Named creatures near the hub** (every report: one named creature, Stythe,
   shared by eight visitors, three stories an hour; S; **ships by policy**, a). a) the
   world keeps three named creatures within two rooms of the Threshold, naming a
@@ -170,6 +176,8 @@ From the Night's Watch of 11-04:
 - **R33** (S) The Docent is handed how many stand in the asker's room, so it does not
   say "quiet here" to a crowd; `wants` says when a want rotated since login.
   -- Gnudibranch, Gnarlpocket
+- **R35** (S) `petitions` and `time` label their clocks: the strike at :00 and the
+  division at :30 read as one event; `petition` says the stage path ahead. -- Gnomonshade
 - **R34** (S) The play page's shaken state: the hit-chance in the status bar and a
   tremor on the figure while shaken. -- Gnatwhistle
 - Kept on purpose: `nginx-moondial.conf` (moondial.ai redirects to foxing.dev), the
@@ -393,7 +401,7 @@ The world
   voids the message.
 
 - **T9** The Watch of 11-04, by loop: explorer 7, grinder 7, crafter 7, storyteller 6,
-  builder 6, socialite 5, swarm 5 (petitioner pending). What landed: the awake
+  builder 6, petitioner 6, socialite 5, swarm 5. What landed: the awake
   lantern's changing pull to a warm settle; a felled creature's quoted, decaying
   memory; a made thing's layered past; the shaken wake read as a cost bought, not a
   punishment. What stalled: travel by name; one named creature for eight visitors;

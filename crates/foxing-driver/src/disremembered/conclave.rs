@@ -51,7 +51,7 @@ pub const PETITION: &str = "disremembered.petition";
 pub const PETITION_MOVED: &str = "disremembered.petition_moved";
 /// A petition was decided: `{ticket, by, text, granted, ruling, effect}`. Public.
 pub const DECIDED: &str = "disremembered.petition_decided";
-/// The division job: on the half hour, between strikes.
+/// The division job: at half past each hour, between strikes.
 pub const JOB_DIVISION: &str = "disremembered.division";
 pub const DIVIDE_EVERY_MS: i64 = 3_600_000;
 const DIVIDE_AT_MS: i64 = 30 * 60 * 1000;
@@ -718,7 +718,7 @@ fn file(
     };
     Ok(Outcome::new(
         format!(
-            "The machine gives out a ticket: number {ticket}. Your petition is received and lies upon the table: \"{text}\".{about} The Conclave divides on the half hour and takes it up in its order, a stage at a time; `petitions` says where it stands. The Conclave always decides, eventually, and will tell you wherever you are."
+            "The machine gives out a ticket: number {ticket}. Your petition is received and lies upon the table: \"{text}\".{about} The Conclave divides at half past each hour and takes it up in its order, a stage at a time; `petitions` says where it stands. The Conclave always decides, eventually, and will tell you wherever you are."
         ),
         json!({"ticket": ticket, "text": text, "stage": 0, "next_division": next_division(world)}),
     ))
@@ -1263,7 +1263,7 @@ pub fn text(world: &World, in_house: bool) -> String {
         }
     }
     lines.push(
-        "A statute changes by enactment, on the public record, or by a petition granted. The Conclave divides on the half hour and sits at midnight; `petition` at the Petitioners' Gallery, `petitions` for the table."
+        "A statute changes by enactment, on the public record, or by a petition granted. The Conclave divides at half past each hour and sits at midnight; `petition` at the Petitioners' Gallery, `petitions` for the table."
             .to_string(),
     );
     if in_house {
@@ -1336,7 +1336,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.petition",
-            "Lay a petition before the Conclave, at the Petitioners' Gallery: take a ticket from the machine and say what you ask, in one sentence or three. The Conclave divides on the half hour and moves it a stage at a time; a petition that names a statute and a direction (raise, lower) may move the statute; any other, granted, becomes a Resolution read at the Lectern. The Conclave always decides, eventually, and tells you wherever you are. One upon the table per name. Alone, your petition as it stands.",
+            "Lay a petition before the Conclave, at the Petitioners' Gallery: take a ticket from the machine and say what you ask, in one sentence or three. The Conclave divides at half past each hour and moves it a stage at a time; a petition that names a statute and a direction (raise, lower) may move the statute; any other, granted, becomes a Resolution read at the Lectern. The Conclave always decides, eventually, and tells you wherever you are. One upon the table per name. Alone, your petition as it stands.",
         )
         .param("text", ParamType::Text, false, "what you ask of the Conclave, quoted")
         .allowed(&[ActorKind::Citizen, ActorKind::Admin]),

@@ -376,7 +376,7 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
                 })
                 .collect();
             format!(
-                "The slate behind the bar, chalked in columns: {}. The tapster weighs a story about money (`story tapster \"…\"`, a dozen words or more, one an hour) and pays its weight in a coin that halves in a day, not in hours. Worth its weight; just not in gold.",
+                "The slate behind the bar, chalked in columns: {}. The tapster weighs a story about money (`story tapster \"…\"`, a dozen different words or more, one an hour) and pays its weight in a coin that halves in a day, not in hours. Worth its weight; just not in gold.",
                 if rows.is_empty() { "nothing weighed today".to_string() } else { rows.join("; ") }
             )
         }
