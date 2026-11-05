@@ -562,6 +562,17 @@ fn resolutions(world: &World) -> Vec<Value> {
         .unwrap_or_default()
 }
 
+/// "upon the table (stage 1 of 5)": the number, so the path the receipt gave can be
+/// followed on the table (a visitor lost it after the receipt).
+fn stage_said(stage: u64) -> String {
+    format!(
+        "{} (stage {} of {})",
+        stage_name(stage),
+        stage.min(STAGES.len() as u64 - 1) + 1,
+        STAGES.len()
+    )
+}
+
 fn stage_name(stage: u64) -> &'static str {
     STAGES[(stage as usize).min(STAGES.len() - 1)]
 }
@@ -813,7 +824,7 @@ fn table(world: &World, actor: &str) -> Outcome {
                     Some("attended") => " (attended, taken next)",
                     _ => "",
                 },
-                stage_name(p["stage"].as_u64().unwrap_or(0)),
+                stage_said(p["stage"].as_u64().unwrap_or(0)),
                 if tabled > 0 {
                     format!(
                         ", tabled {tabled} time{}",
@@ -1476,7 +1487,9 @@ pub fn register(world: &mut World) {
         .param("text", ParamType::Text, false, "what you ask of the Conclave, quoted")
         .allowed(&[ActorKind::Citizen, ActorKind::Admin]),
         Box::new(|w: &mut World, ctx, args: &Args| {
-            let text = args.str("text").unwrap_or("").trim().to_string();
+            // A closing period is the petitioner's; the record quotes the sentence
+            // and adds its own ("more.". read as a stutter).
+            let text = args.str("text").unwrap_or("").trim().trim_end_matches('.').trim().to_string();
             if text.is_empty() {
                 return Ok(mine(w, &ctx.actor));
             }

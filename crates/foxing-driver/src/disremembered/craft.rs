@@ -2274,6 +2274,9 @@ pub fn register(world: &mut World, curves: Curves) {
             if let Some(out) = super::exergue::read(w, here, &arg) {
                 return Ok(out);
             }
+            if let Some(out) = super::trail::read(w, &ctx.actor, here, &arg) {
+                return Ok(out);
+            }
             if arg.is_empty() {
                 let mut names: Vec<String> = fixtures_in(w, here)
                     .iter()

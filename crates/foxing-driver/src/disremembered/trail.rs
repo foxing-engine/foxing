@@ -8,6 +8,7 @@ use super::craft::ITEM;
 use super::{plain_num, plain_str, BODY, CITIZEN, ROOM};
 use crate::world::World;
 use foxing_log::Actor;
+use foxing_registry::Outcome;
 use foxing_store::{EntityId, Field, StoreEvent};
 use serde_json::{json, Value};
 
@@ -320,6 +321,50 @@ fn whisper(world: &mut World, payload: &Value) -> Result<(), String> {
     };
     super::combat::narrate(world, &from, told);
     Ok(())
+}
+
+/// The trail's props answer `read`: the Stile's signpost (every arm points to a
+/// room you have stood in), the Well's rim (the word), the Lookout's plate (the
+/// view, with who is where), the Long Afternoon's book (about you: your session).
+/// The prose named them and the world refused them, the first night.
+pub fn read(world: &World, actor: &str, room: EntityId, arg: &str) -> Option<Outcome> {
+    let key = key_of(world, room)?;
+    let a = arg.trim().trim_matches('"').to_lowercase();
+    let named = |words: &[&str]| a.is_empty() || words.iter().any(|w| a.contains(w));
+    let f = super::find_citizen(world, actor)?;
+    let text = match key {
+        STILE if named(&["signpost", "sign", "post", "arm"]) => {
+            let hl = super::Curves::from_env().active_half_life.0 as f64
+                * super::atlas::ATLAS_HALF_LIVES;
+            let mut names = super::atlas::known_room_names(world, f.citizen, hl);
+            names.retain(|n| n != "The Stile");
+            names.sort();
+            if names.is_empty() {
+                "The signpost has one arm, and it points back the way you came, to the Orchard. The others are blank; they fill as you go.".to_string()
+            } else {
+                format!(
+                    "The signpost has {} arms, and every one points to somewhere you have been: {}. None points anywhere you have not.",
+                    names.len(),
+                    names.join(", ")
+                )
+            }
+        }
+        "trail-well" if named(&["rim", "well", "word", "stone", "letters"]) => {
+            format!("Inside the rim, deep, in capitals, smoothed over and still legible: {}. The wicket at the Long Afternoon asks for it (`travel wicket \"{}\"`).", WORD.to_uppercase(), WORD)
+        }
+        LOOKOUT if named(&["plate", "brass", "bench", "view"]) => {
+            let seen = look_line(world, actor, room).unwrap_or_default();
+            format!("The brass plate names the view: THE WISTFUL TRAIL, NINE ROOMS, EVERY ONE OF THEM MISSED. Under it, in a smaller hand: {}", seen)
+        }
+        AFTERNOON if named(&["book", "chair", "page"]) => {
+            let session = super::session::summary(world, actor)
+                .map(|o| o.summary)
+                .unwrap_or_default();
+            format!("The book on the deck chair is open at a page about you, and it is a good one. It reads: \"{session}\" The next page is blank, and warm from the sun.")
+        }
+        _ => return None,
+    };
+    Some(Outcome::new(text, json!({"room": key, "read": a})))
 }
 
 pub fn register(world: &mut World) {

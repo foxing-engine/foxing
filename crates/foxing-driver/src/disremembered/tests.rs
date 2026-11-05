@@ -9912,6 +9912,22 @@ fn the_wistful_trail_has_a_bog_a_wicket_and_a_lookout() {
         "{}",
         look.summary
     );
+    // The props read: the rim has the word, the plate the view, the signpost the
+    // rooms you have stood in, the book your session.
+    admin(&mut w, "dave", "bring", json!(["dave", "trail-well"]));
+    let out = ok(&mut w, "dave", "read", json!(["rim"]));
+    assert!(out.summary.contains("LINGER"), "{}", out.summary);
+    admin(&mut w, "dave", "bring", json!(["dave", trail::STILE]));
+    let out = ok(&mut w, "dave", "read", json!(["signpost"]));
+    assert!(
+        out.summary
+            .contains("every one points to somewhere you have been"),
+        "{}",
+        out.summary
+    );
+    admin(&mut w, "dave", "bring", json!(["dave", trail::AFTERNOON]));
+    let out = ok(&mut w, "dave", "read", json!(["book"]));
+    assert!(out.summary.contains("a page about you"), "{}", out.summary);
     // Said in the Hush, words leave and arrive elsewhere on the trail a minute later
     // as a whisper, to whoever stands there; the sayer is told where they went.
     admin(&mut w, "dave", "bring", json!(["dave", "trail-hush"]));

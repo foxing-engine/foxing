@@ -165,6 +165,14 @@ From the Night's Watch of 11-05 (the Trail's first night):
 - **R48** (S) One status line with hp, level and attack together (`rest` has hp, `chunks` has level, the attack rule is in neither); lean: `rest` and `look` say "hp 24/30, level 62, you hit for 10". -- Gnudgeon
 - **R49** (S) The repeated "Nothing of it is left behind this time; a longer fight leaves more" line on every one-blow kill; lean: say it once a session, then "Nothing left." -- Gnatterling
 - **R50** (S) `drop`'s "the Docent carries it to the Threshold on its round" overpromises: it takes a second sighting of an empty room, ten minutes apart while a visitor is at the door; say "in time" or say the rule. -- Gnatterling
+- **R51** shipped 11-05 (the trail's props answer `read`: the signpost lists the rooms you have stood in, the rim gives the word and the verb, the plate the view, the book your session). -- Gnomeward
+- **R52** shipped 11-05 (`petitions` says "stage N of 5" on each ticket; a petition's closing period is not doubled in the echo). -- Gnomonclock
+- **R53** (S) The Clocktower's strike and the Conclave's division narrated as pushed lines to whoever stands in the house or the tower when they fire (the strike changed the Tally Room's paper in silence). -- Gnomonclock
+- **R54** (S) `went()` for a named exit that is not a noun ("You take the abstain."): exits ending in a verb-like word read "You go by the abstain" or the digger names it; lean: `"You take the {exit} door."` when the word is not in a short noun list. -- Gnomonclock
+- **R55** (S) The Docent's login hint ("you asked where things are, so begin with `map`") fires after `time`/`petitions`; the Tally Book's "Nothing has been entered" above entries; `help time` says what the strike and the division do. -- Gnomonclock
+- **R56** (S) `rest` at full says "Full in 20s" (the eta rounds up past whole); "You have 30/30. You are whole." when hp ≥ max − 0.5. -- Gnomeward
+- **R57** (S) The Lookout said "nobody on it but you" while another walker stood on the trail (quiet marks?); check `is_here` against the five-minute quiet rule and list quiet names as "(quiet)". -- Gnomeward
+- **R58** (S) The Fogbank says nothing about hunting either way; a room with creatures that do not hunt says "Nothing here hunts; the wisps keep to themselves." -- Gnomonclock
 - **R44** (S) The Fogbank's "something will drift in within about N" was 52s, 29s, 84s across looks; see R31 (same root). -- Gnarlbog, Gnibblewick
 From the Night's Watch of 11-04:
 - **R27** shipped 11-04.
