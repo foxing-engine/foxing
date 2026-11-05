@@ -4345,7 +4345,8 @@ fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
     assert_eq!(embers, 2, "two embers left by the dice");
     let look = ok(&mut w, "dave", "look", json!([]));
     assert!(
-        look.summary.contains("On the ground: a wisp ember \u{d7}2 (item-"),
+        look.summary
+            .contains("On the ground: a wisp ember \u{d7}2 (item-"),
         "{}",
         look.summary
     );
