@@ -70,6 +70,11 @@ From the Night's Watch of 11-04 (the Gn- cohort)
   most sessions and decides in two or three hours (**lean**); b) a petition is read
   into the minutes the moment it is laid (a stage seen at once) and the hourly
   division stands; c) leave it: the Conclave is slow on purpose.
+- **D16 · The Sighing Meadow's pay** (the Watch's fighter went level 61 → 142 in five
+  rounds on three sighs at 25–30 XP each, hitting for 2, back in 45 s; the grinder
+  measured ~80 XP/min against the Fogbank's 15–30; S; **ships by policy**, a). a)
+  respawn 45 → 180 s, so the burst is once per walk and the meadow is a stop, not a
+  mine (**lean**); b) sigh XP 25 → 15; c) leave it: the trail is meant to be the draw.
 - **D14 · Named creatures near the hub** (every report: one named creature, Stythe,
   shared by eight visitors, three stories an hour; S; **ships by policy**, a). a) the
   world keeps three named creatures within two rooms of the Threshold, naming a
@@ -157,7 +162,7 @@ From the Night's Watch of 11-05 (the Trail's first night):
 - **R39** shipped 11-05 (the empty `wants` line names the verb that feeds a creature toward a name). -- Gnibblewick
 - **R40** shipped 11-05 (`rest` in the bog says the clock too).
 - **R41** shipped 11-05 (`where` and the walk toward the Long Afternoon say the wicket asks for the well's word; the last step of a walk already names the room, so no extra arrival line).
-- **R42** (M) The storyteller's first hour: a visitor who does not fight has no named creature to tell a story to when the world's names have all lapsed; lean: a pilot named creature that never loses its name (the Docent's cat?) with a standing want, somewhere quiet. -- Gnibblewick
+- **R42** (M; D14 covers it, ships with D14) The storyteller's first hour: a visitor who does not fight has no named creature to tell a story to when the world's names have all lapsed; lean: a pilot named creature that never loses its name (the Docent's cat?) with a standing want, somewhere quiet. -- Gnibblewick
 - **R43** (S) `tell <unnamed kind>` says in one line that only named creatures answer and how one gets a name. -- Gnibblewick
 - **R45** shipped 11-05 (the Docent's own rule text says what it tidies and when: a second sighting carries, a plain drop under 30% on the Threshold's floor is swept to the Midden, never while anyone stands at the door; it promised a visitor a sweep "sooner if you are standing here"). -- Gnatterling
 - **R46** (S) A wounded wisp that wanders off between messages reads as a despawn ("beaten to 0.5 hp, vanished when I paused 20s"); lean: a creature engaged within the last minute does not wander, and `look` says "the wisp drifted off, 0.5 left" when it did. -- Gnudgeon
@@ -173,6 +178,8 @@ From the Night's Watch of 11-05 (the Trail's first night):
 - **R56** (S) `rest` at full says "Full in 20s" (the eta rounds up past whole); "You have 30/30. You are whole." when hp ≥ max − 0.5. -- Gnomeward
 - **R57** (S) The Lookout said "nobody on it but you" while another walker stood on the trail (quiet marks?); check `is_here` against the five-minute quiet rule and list quiet names as "(quiet)". -- Gnomeward
 - **R58** (S) The Fogbank says nothing about hunting either way; a room with creatures that do not hunt says "Nothing here hunts; the wisps keep to themselves." -- Gnomonclock
+- **R59** (S) The Docent's greeting cites a question the newcomer never asked ("you asked how to get rag thread", "you asked where things are"): the refusal filter catches "you asked" only in the greeting it sees; check the asked-event lookup is by the greeted name, not the latest asker. -- Gnashgarden, Gnomonclock
+- **R60** (S) The on-ramp sends a level-0 name into contested wisps or lethal hollows; the Orchard's mothwings are the right first grind: the Docent's first-hour advice and `help attack` say so, and the Fogbank's "drift in within about Ns" says "or try the mothwings in the Orchard" when other names are fighting there. -- Gnashgarden
 - **R44** (S) The Fogbank's "something will drift in within about N" was 52s, 29s, 84s across looks; see R31 (same root). -- Gnarlbog, Gnibblewick
 From the Night's Watch of 11-04:
 - **R27** shipped 11-04.
