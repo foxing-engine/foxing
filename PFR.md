@@ -94,8 +94,7 @@ Each is designed and needs no decision. Say `R<n> hold` to keep one back.
 - **R1** (S) `back` walks the way you came a room per statement, and a dug exit may not
   be named `back` (Lantern Walk's is renamed). -- night cohort, Wrenlace
 - **R2** (S) The gate's lockout survives a restart (it is in memory). -- Quillvisitor
-- **R3** (S) `check` and `look` warn when a room hunts or a named creature may strike,
-  as "Nothing hunts here" already says the opposite. -- Brindlewick
+- **R3** shipped 11-05 (`look` names what hunts in a room: "The footpads hunt whoever comes in."; `check` left as is, the room line covers it).
 - **R4** (S) `observe` says a creature hits for its attack plus 0–2. The reply to
   `tell <creature>` says which mode answered (the room's said-log, or what it holds);
   free-form answers vary by creature. -- Oakmoss, Tansywick
@@ -152,7 +151,7 @@ in the tree on 11-03, most of them fallbacks that stay for a while):
   you run it (read line by line, as always).
 - **R21** shipped 11-04 (two idle frames, a shaken pose, the failing-name flicker, the Docent's round, click-to-walk by a door, drag to see what you remember of the map).
 - **R22** (M; was B2, pulled 11-04) The strip room-aware (retarget the spend step when the creature is gone; tick "travel east" only on east); "Type help" pointing at the strip; the verb bar refreshing after `dig`; one `help` voice (the page's list and the world's line).
-- **R23** (M; was B3, pulled 11-04) `tell` to a gate visitor: "they will read it with their next reply".
+- **R23** shipped 11-05 (a `tell` to a name elsewhere says how it reaches them: through the gate with their next reply, or at a keyboard now).
 - **R24** shipped 11-04 (exits first on a phone, with the room each leads to; the staged chip with Send and ×; a tap on a whole-line verb clears what was staged; the chunks rows and the commands table at 390px).
 - **R25** (M; was B5, pulled 11-04) A verb's argument from the scene (click `tell`, then a creature); a creature's own verbs on its figure; the palette on the plain page; marks for named creatures and citizens, a legend in `?`, the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll; admin on the play page; a `remember` that keeps a room on your map; the favicon on the apex site's other pages.
 - **R26** (M; was B6, pulled 11-04) Unreproduced: a `travel <room name>` walk that stops short; "You again" on `leave` (rare); `board` at ~4 s.
@@ -170,8 +169,7 @@ From the Night's Watch of 11-04:
   digger can route to, nearest first; `travel back` from the Threshold's dug doors
   never means the Fogcup. -- Gnarlpocket
 - **R33** shipped 11-04.
-- **R35** (S) `petitions` and `time` label their clocks: the strike at :00 and the
-  division at :30 read as one event; `petition` says the stage path ahead. -- Gnomonshade
+- **R35** shipped 11-05 (`time` says the strike is on the hour and the division at half past, with both countdowns; `petitions` says which clock it means; `petition` says the stage path ahead).
 - **R34** (S) The play page's shaken state: the hit-chance in the status bar and a
   tremor on the figure while shaken. -- Gnatwhistle
 - Kept on purpose: `nginx-moondial.conf` (moondial.ai redirects to foxing.dev), the
@@ -244,7 +242,7 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
 
 ## Small fixes queued for the Night's Watch (F): ship by rule, no nod needed
 
-- **F1** Hit points drifting by one between lines (ceil vs round).
+- **F1** shipped 11-05 (`rest` reads the ceiled figure the hit lines say).
 - **F2** Failed statements costing budget.
 - **F3** The ray firing on the killing blow.
 - **F4** "Here: hollow" but `tell hollow` refused.
@@ -269,7 +267,7 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
 - **F23** `attack <kind>` with twins saying which.
 - **F24** The first empty Stacks room hinting `where lamprey`.
 - **F25** The censor's trick visible on its first strike.
-- **F26** (S, seen 11-04) The Threshold's floor holds forty-odd drops (river weed, hollow water, rag thread) at 24–39% remembered; the Docent "tidies what is left lying" but is not keeping up. Lean: the Docent sweeps a room's drops below 30% on its round, and `look` folds same-named drops ("river weed ×12").
+- **F26** shipped 11-05 (`look` folds plain drops of one name, "river weed ×12 (item-… … item-…, 26–38% remembered)"; the Docent sweeps plain drops under 30% from the Threshold's floor into the Midden, three a pass, said on the heap; `disremembered.tidied` carries `swept`).
 
 ## Your side (Y): only you can
 

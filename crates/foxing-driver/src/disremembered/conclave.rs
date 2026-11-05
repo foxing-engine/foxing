@@ -745,13 +745,14 @@ fn file(
     };
     Ok(Outcome::new(
         format!(
-            "The machine gives out a ticket: number {ticket}. Your petition is received and lies upon the table: \"{text}\".{about}{standing} The Conclave divides at half past each hour and takes it up in its order, a stage at a time; `petitions` says where it stands. The Conclave always decides, eventually, and will tell you wherever you are."
+            "The machine gives out a ticket: number {ticket}. Your petition is received and lies upon the table: \"{text}\".{about}{standing} The Conclave divides at half past each hour (not the Clocktower's strike on the hour, which is another clock) and takes it up in its order, a stage at a time: {}; `petitions` says where it stands. The Conclave always decides, eventually, and will tell you wherever you are.",
+            STAGES[1..].join(", then ")
         ),
         json!({"ticket": ticket, "text": text, "stage": 0, "next_division": next_division(world)}),
     ))
 }
 
-fn next_division(world: &World) -> i64 {
+pub fn next_division(world: &World) -> i64 {
     let now = world.now().0;
     let mut due = (now / DIVIDE_EVERY_MS) * DIVIDE_EVERY_MS + DIVIDE_AT_MS;
     if due <= now {
@@ -845,7 +846,7 @@ fn table(world: &World, actor: &str) -> Outcome {
         }
     }
     lines.push(format!(
-        "The Conclave divides {} and sits at midnight. It always decides, eventually.",
+        "The Conclave divides {} (the division, at half past each hour; the Clocktower's strike on the hour is another clock) and sits at midnight. It always decides, eventually.",
         in_said(world, next_division(world))
     ));
     Outcome::new(

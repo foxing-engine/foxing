@@ -4345,7 +4345,7 @@ fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
     assert_eq!(embers, 2, "two embers left by the dice");
     let look = ok(&mut w, "dave", "look", json!([]));
     assert!(
-        look.summary.contains("On the ground: a wisp ember (item-"),
+        look.summary.contains("On the ground: a wisp ember \u{d7}2 (item-"),
         "{}",
         look.summary
     );
@@ -6626,7 +6626,7 @@ fn where_finds_a_way_you_remember_and_travel_takes_a_room_name() {
     );
     assert!(
         out.summary
-            .starts_with("tyler is elsewhere. The word goes to them:"),
+            .starts_with("tyler is elsewhere; the word goes to them ("),
         "{}",
         out.summary
     );
@@ -9923,3 +9923,87 @@ fn the_wistful_trail_has_a_bog_a_wicket_and_a_lookout() {
         .all(|(id, k, _, _)| k == "sigh" && !combat::is_aggressive(&w, *id)));
 }
 
+#[test]
+fn faded_drops_fold_in_look_and_the_docent_sweeps_them_into_the_midden() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let threshold = rooms::arrival(&w).unwrap();
+    let c = curves();
+    for _ in 0..3 {
+        craft::make(
+            &mut w,
+            &c,
+            Actor::Driver,
+            None,
+            threshold,
+            "river weed",
+            "material",
+            "left",
+            None,
+            &[],
+            0,
+            false,
+        )
+        .unwrap();
+    }
+    craft::make(
+        &mut w,
+        &c,
+        Actor::Driver,
+        None,
+        threshold,
+        "a small key",
+        "material",
+        "left",
+        None,
+        &[],
+        0,
+        false,
+    )
+    .unwrap();
+    // Three of one name fold; the one of another stands alone.
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("river weed ×3 (item-"),
+        "{}",
+        look.summary
+    );
+    assert!(
+        look.summary.contains("a small key (item-"),
+        "{}",
+        look.summary
+    );
+    assert_eq!(
+        look.summary.matches("river weed").count(),
+        1,
+        "{}",
+        look.summary
+    );
+    // Fresh, nothing is swept, even with no one at the door.
+    admin(&mut w, "dave", "bring", json!(["dave", "midden"]));
+    assert_eq!(docent::tidy(&mut w).unwrap(), 0);
+    // Faded under the mark: swept into the Midden on the round, at most three a pass.
+    let mut steps = 0;
+    loop {
+        w.fixed_now = Some(w.now().plus(Duration::seconds(30)));
+        let things = craft::things_in(&w, threshold);
+        let mem = things[0]["memory"].as_f64().unwrap();
+        if mem < docent::SWEEP_UNDER {
+            break;
+        }
+        steps += 1;
+        assert!(steps < 10_000, "never faded: {mem}");
+    }
+    let head = events(&w);
+    assert_eq!(docent::tidy(&mut w).unwrap(), 3, "three a pass");
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    assert_eq!(craft::things_in(&w, midden).len(), 3);
+    assert_eq!(craft::things_in(&w, threshold).len(), 1);
+    let said = narrative(&w, "dave", head);
+    assert!(
+        said.iter().any(|l| l.contains("sweeps 3 faded things")),
+        "{said:?}"
+    );
+    assert_eq!(docent::tidy(&mut w).unwrap(), 1, "the last one next pass");
+}

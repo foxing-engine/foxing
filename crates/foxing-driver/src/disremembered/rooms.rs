@@ -1196,6 +1196,29 @@ pub fn describe(
             })
             .collect();
         text.push_str(&format!(" Here: {}.", list.join(", ")));
+        // What hunts, said plainly: "Nothing hunts here" is said where it is true,
+        // so where it is not, the hunters are named (R3).
+        let hunters: Vec<String> = {
+            let mut kinds: Vec<String> = creatures
+                .iter()
+                .filter(|c| {
+                    c["id"]
+                        .as_u64()
+                        .is_some_and(|id| super::combat::is_aggressive(world, EntityId(id)))
+                })
+                .filter_map(|c| c["name"].as_str().map(str::to_string))
+                .collect();
+            kinds.sort();
+            kinds.dedup();
+            kinds
+        };
+        if !hunters.is_empty() {
+            text.push_str(&format!(
+                " The {} hunt{} whoever comes in.",
+                hunters.join(" and "),
+                if hunters.len() == 1 { "s" } else { "" }
+            ));
+        }
         for r in &regards {
             text.push(' ');
             text.push_str(r);

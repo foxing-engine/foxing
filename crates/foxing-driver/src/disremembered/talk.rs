@@ -195,9 +195,14 @@ pub fn register(world: &mut World) {
                 let here_name = plain_str(w, room, ROOM, "name").unwrap_or("somewhere").to_string();
                 narrate(w, &target, format!("{} left word for you from {here_name}: \"{text}\"", ctx.actor));
                 mark_heard(w, them.citizen)?;
+                let how = if super::combat::through_the_gate(w, &target) {
+                    "they came through the gate, and will read it with their next reply"
+                } else {
+                    "they are at a keyboard, and see it now"
+                };
                 return Ok(Outcome::new(
-                    format!("{target} is elsewhere. The word goes to them: \"{text}\""),
-                    json!({"to": target, "text": text, "delivered": true, "elsewhere": true}),
+                    format!("{target} is elsewhere; the word goes to them ({how}): \"{text}\""),
+                    json!({"to": target, "text": text, "delivered": true, "elsewhere": true, "gate": super::combat::through_the_gate(w, &target)}),
                 ));
             }
             Ok(Outcome::new(

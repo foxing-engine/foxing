@@ -748,6 +748,9 @@ fn answer(
 /// The Docent's round, on the wander clock: things left lying in rooms where no one
 /// stands are carried to the Threshold and set down there, said aloud; a thing is
 /// carried on its second sighting, so a thing just dropped is left a pass.
+/// A plain drop at the Threshold remembered under this share is swept into the Midden.
+pub const SWEEP_UNDER: f64 = 0.3;
+
 pub fn tidy(world: &mut World) -> Result<usize, String> {
     let Some(docent) = entity(world) else {
         return Ok(0);
@@ -814,6 +817,68 @@ pub fn tidy(world: &mut World) -> Result<usize, String> {
         }
     }
     seen = next_seen;
+    // The Threshold's floor: a plain drop remembered under [`SWEEP_UNDER`] is swept
+    // into the Midden, where everything forgotten ends up (forty-odd faded drops once
+    // lay by the door, F26). A thing with a name, a maker or a past is left where it
+    // lies; so is anything while someone stands at the door.
+    let mut swept = 0;
+    if let Some(midden) = super::rooms::room_by_key(world, "midden") {
+        let anyone = world
+            .store
+            .children(threshold)
+            .any(|c| c.kind == "citizen" && super::presence::is_here(world, c.id));
+        if !anyone {
+            let faded: Vec<(EntityId, String)> = super::craft::things_in(world, threshold)
+                .iter()
+                .filter(|t| {
+                    t["given_name"].is_null()
+                        && t["made_by"].is_null()
+                        && t["tier"].as_u64().unwrap_or(0) <= 1
+                        && t["memory"].as_f64().unwrap_or(1.0) < SWEEP_UNDER
+                })
+                .filter_map(|t| {
+                    t["id"].as_u64().map(|id| {
+                        (
+                            EntityId(id),
+                            t["name"].as_str().unwrap_or("something").to_string(),
+                        )
+                    })
+                })
+                .take(TIDY_PER_PASS)
+                .collect();
+            let mut last: Option<EntityId> = None;
+            for (item, name) in faded {
+                last = Some(item);
+                world
+                    .record(
+                        Actor::Driver,
+                        StoreEvent::EntityMoved {
+                            id: item,
+                            parent: Some(midden),
+                        },
+                    )
+                    .map_err(|e| e.to_string())?;
+                let _ = world.note(
+                    Actor::Driver,
+                    TIDIED,
+                    json!({"item": item.0, "name": name, "from": threshold.0, "from_name": "The Threshold", "to": midden.0, "swept": true}),
+                );
+                swept += 1;
+            }
+            // Said on the heap, where it lands (the door is empty by construction).
+            if let (true, Some(item)) = (swept > 0, last) {
+                super::combat::narrate_room(
+                    world,
+                    item,
+                    &format!(
+                        "The Docent sweeps {swept} faded thing{} from the Threshold's floor onto the heap: \"Nobody's, now.\"",
+                        if swept == 1 { "" } else { "s" }
+                    ),
+                );
+            }
+        }
+    }
+    let carried = carried + swept;
     let tidied = field(world, "tidied").and_then(|v| v.as_u64()).unwrap_or(0) + carried as u64;
     let round = field(world, "round").and_then(|v| v.as_u64()).unwrap_or(0) + 1;
     let mut changes = BTreeMap::new();

@@ -2062,7 +2062,8 @@ pub fn register(world: &mut World, curves: Curves) {
         Box::new(|w: &mut World, ctx, _| {
             let f = me(w, ctx)?;
             let now = w.now();
-            let current = hp(w, f.citizen);
+            // The same figure the hit lines say (ceiled), so lines agree (F1).
+            let current = hp_said(w, f.citizen);
             let eta = w
                 .store
                 .timed_field(f.citizen, BODY, "hp")

@@ -974,16 +974,65 @@ pub fn item_line(v: &Value) -> String {
     )
 }
 
-/// What lies here, for `look`: "On the ground: a wisp ember (item-9)."
+/// What lies here, for `look`: "On the ground: a wisp ember (item-9)." Plain drops of
+/// one name are folded ("river weed ×12 (item-5491 … item-6082, 26–38% remembered)"):
+/// the Threshold's floor once listed forty of them one by one (F26). A thing with a
+/// name, a maker, a past or a holding is listed on its own.
 pub fn ground_line(world: &World, room: EntityId) -> Option<String> {
     let things = things_in(world, room);
     if things.is_empty() {
         return None;
     }
     let awake = things.iter().any(|t| t["tier"].as_u64().unwrap_or(0) >= 3);
+    let plain = |t: &Value| {
+        t["given_name"].is_null()
+            && t["made_by"].is_null()
+            && t["text"].is_null()
+            && t["tier"].as_u64().unwrap_or(0) <= 1
+            && super::up(t["held"].as_f64().unwrap_or(0.0)) < 0.5
+    };
+    let mut lines: Vec<String> = Vec::new();
+    let mut folded: Vec<&str> = Vec::new();
+    for t in &things {
+        let name = t["name"].as_str().unwrap_or("something");
+        if !plain(t) || folded.contains(&name) {
+            if !plain(t) {
+                lines.push(item_line(t));
+            }
+            continue;
+        }
+        let same: Vec<&Value> = things
+            .iter()
+            .filter(|o| plain(o) && o["name"].as_str() == Some(name))
+            .collect();
+        if same.len() < 2 {
+            lines.push(item_line(t));
+            continue;
+        }
+        folded.push(name);
+        let mems: Vec<f64> = same
+            .iter()
+            .map(|o| o["memory"].as_f64().unwrap_or(1.0))
+            .collect();
+        let (lo, hi) = (
+            mems.iter().cloned().fold(1.0, f64::min),
+            mems.iter().cloned().fold(0.0, f64::max),
+        );
+        let mem = if hi < 0.95 {
+            format!(", {:.0}\u{2013}{:.0}% remembered", lo * 100.0, hi * 100.0)
+        } else {
+            String::new()
+        };
+        lines.push(format!(
+            "{name} \u{d7}{} (item-{} \u{2026} item-{}{mem})",
+            same.len(),
+            same[0]["id"],
+            same[same.len() - 1]["id"]
+        ));
+    }
     Some(format!(
         "On the ground: {}.{}",
-        things.iter().map(item_line).collect::<Vec<_>>().join(", "),
+        lines.join(", "),
         if awake {
             " Something lying here is awake: take it, and it says where it wants to go in its own way; `read` it for its past."
         } else {
