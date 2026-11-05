@@ -351,13 +351,19 @@ pub fn dashboard(world: &World) -> Value {
         })
         .collect();
     earners.sort_by(|a, b| a.0.cmp(&b.0));
+    let is_regular = |name: &String| {
+        lines_today.get(name).copied().unwrap_or(0) >= REGULAR_LINES
+            && hours_today.get(name).map(|h| h.len()).unwrap_or(0) >= REGULAR_SPANS
+            && deeds_today.get(name).copied().unwrap_or(0) >= REGULAR_DEEDS
+    };
+    let regular_names: Vec<String> = active
+        .iter()
+        .filter(|(name, _)| is_regular(name))
+        .map(|(n, _)| n.clone())
+        .collect();
     let regulars: Vec<f64> = active
         .iter()
-        .filter(|(name, _)| {
-            lines_today.get(name).copied().unwrap_or(0) >= REGULAR_LINES
-                && hours_today.get(name).map(|h| h.len()).unwrap_or(0) >= REGULAR_SPANS
-                && deeds_today.get(name).copied().unwrap_or(0) >= REGULAR_DEEDS
-        })
+        .filter(|(name, _)| is_regular(name))
         .map(|(_, h)| *h)
         .collect();
     let median_of = |v: &[f64]| {
@@ -428,6 +434,7 @@ pub fn dashboard(world: &World) -> Value {
         "active_today": active.len(),
         "median_active_holding": (median * 100.0).round() / 100.0,
         "regulars": regulars.len(),
+        "regular_names": regular_names,
         "median_regular_holding": (median_regular * 100.0).round() / 100.0,
         "shelved": (shelved * 100.0).round() / 100.0,
         "top": top.as_ref().map(|(n, h)| json!({"name": n, "holding": (h * 100.0).round() / 100.0})),

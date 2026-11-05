@@ -519,11 +519,18 @@ pub fn sit(world: &mut World) -> Result<(), String> {
         format!("The Ledger of the Clocktower is laid before the Conclave. The Conclave reads that {held:.0} is held in all the world, and that {regulars} names have spoken their twenty lines and done a thing this day, and have standing before it."),
         format!("The Book is opened at the Lectern. The statutes that stand are these: {standing}. The Conclave has examined them and finds them sound. The Conclave wrote them."),
         naming,
+        match attendance(world).len() {
+            0 => "The attendance is read. No name attended. The benches are noted, and are empty.".to_string(),
+            _ => format!("The attendance is read: {}. Their names are entered in the minutes, that they were here.", attendance(world).join(", ")),
+        },
         table_line(world),
         resolutions_line(world),
         "The minutes are engrossed. The Conclave rises. The Conclave remains.".to_string(),
     ];
     minute(world, "sitting", ceremony.to_vec())?;
+    let mut changes = BTreeMap::new();
+    changes.insert("attendance".into(), json!([]));
+    write(world, changes)?;
     let _ = world.note(
         Actor::Driver,
         SAT,
@@ -659,6 +666,21 @@ fn file(
             "The Conclave takes no petition aimed at a name; this one names {named}. Ask for a rule, not a ruling on someone."
         )));
     }
+    // A hoard's petition to ease its own tax never counts (the Architect's third
+    // refusal): received and denied in the same breath, recorded in full.
+    if let Some((statute, up)) = statute_asked(text) {
+        let self_serving = matches!((statute, up), ("hoard_tax", false) | ("hoard_share", true));
+        if self_serving && hoard_share_of(world, &ctx.actor).is_some() {
+            let _ = world.note(
+                Actor::Citizen(ctx.actor.clone()),
+                DECIDED,
+                json!({"by": ctx.actor, "text": text, "granted": false, "effect": "none", "why": "a hoard upon its own tax"}),
+            );
+            return Err(CommandError::precondition(format!(
+                "The Conclave does not hear a hoard upon its own tax. Your name stands upon the Roll of Hoards; a petition to ease what the Roll lays on you is received and denied in the same breath, and recorded in full, that it may be seen to have been: \"{text}\"."
+            )));
+        }
+    }
     let mut list = petitions(world);
     if let Some(p) = list.iter().find(|p| p["by"] == ctx.actor.as_str()) {
         return Err(CommandError::precondition(format!(
@@ -707,6 +729,11 @@ fn file(
             );
         }
     }
+    let standing = match standing_of(world, &ctx.actor) {
+        Some("regular") => " As a regular of this house, yours is taken first, and never tabled.",
+        Some("attended") => " Having attended, yours is taken before those of names who did not.",
+        _ => "",
+    };
     let about = match kind {
         Some((name, up)) => format!(
             " It names the statute {name}, asking it {}; granted, the statute moves.",
@@ -718,7 +745,7 @@ fn file(
     };
     Ok(Outcome::new(
         format!(
-            "The machine gives out a ticket: number {ticket}. Your petition is received and lies upon the table: \"{text}\".{about} The Conclave divides at half past each hour and takes it up in its order, a stage at a time; `petitions` says where it stands. The Conclave always decides, eventually, and will tell you wherever you are."
+            "The machine gives out a ticket: number {ticket}. Your petition is received and lies upon the table: \"{text}\".{about}{standing} The Conclave divides at half past each hour and takes it up in its order, a stage at a time; `petitions` says where it stands. The Conclave always decides, eventually, and will tell you wherever you are."
         ),
         json!({"ticket": ticket, "text": text, "stage": 0, "next_division": next_division(world)}),
     ))
@@ -776,10 +803,15 @@ fn table(world: &World, actor: &str) -> Outcome {
         for p in &list {
             let tabled = p["tabled"].as_u64().unwrap_or(0);
             lines.push(format!(
-                "  ticket {}, of {}{}: {}{} — \"{}\"",
+                "  ticket {}, of {}{}{}: {}{} — \"{}\"",
                 p["ticket"],
                 p["by"].as_str().unwrap_or("?"),
                 if p["by"] == actor { " (yours)" } else { "" },
+                match p["standing"].as_str() {
+                    Some("regular") => " (a regular's, taken first)",
+                    Some("attended") => " (attended, taken next)",
+                    _ => "",
+                },
                 stage_name(p["stage"].as_u64().unwrap_or(0)),
                 if tabled > 0 {
                     format!(
@@ -881,8 +913,65 @@ fn minute(world: &mut World, kind: &str, lines: Vec<String>) -> Result<(), Strin
 }
 
 /// The Conclave divides: each petition upon the table moves a stage, in its order.
+/// Who has standing before the Conclave today: the regulars (twenty lines over two
+/// half-hours and a deed), and whoever `attend`ed since the last sitting. Their
+/// petitions are taken first, in that order, and a regular's is never tabled.
+pub fn standing_of(world: &World, name: &str) -> Option<&'static str> {
+    let dash = super::economy::dashboard(world);
+    if dash["regular_names"]
+        .as_array()
+        .is_some_and(|a| a.iter().any(|n| n.as_str() == Some(name)))
+    {
+        return Some("regular");
+    }
+    if attendance(world).iter().any(|n| n == name) {
+        return Some("attended");
+    }
+    None
+}
+
+fn attendance(world: &World) -> Vec<String> {
+    book(world, "attendance")
+        .and_then(|v| v.as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|v| v.as_str().map(str::to_string))
+        .collect()
+}
+
 pub fn divide(world: &mut World) -> Result<(), String> {
     let mut list = petitions(world);
+    // The Conclave's order: those with standing first (regulars, then the day's
+    // attendees), then the rest, each by ticket.
+    let dash = super::economy::dashboard(world);
+    let regulars: Vec<String> = dash["regular_names"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|n| n.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    let attended = attendance(world);
+    let rank = |p: &Value| -> (u8, u64) {
+        let by = p["by"].as_str().unwrap_or("");
+        let r = if regulars.iter().any(|n| n == by) {
+            0
+        } else if attended.iter().any(|n| n == by) {
+            1
+        } else {
+            2
+        };
+        (r, p["ticket"].as_u64().unwrap_or(0))
+    };
+    list.sort_by_key(|p| rank(p));
+    for p in list.iter_mut() {
+        p["standing"] = match rank(p).0 {
+            0 => json!("regular"),
+            1 => json!("attended"),
+            _ => Value::Null,
+        };
+    }
     let mut lines: Vec<String> = Vec::new();
     let mut decided_now: Vec<(String, u64, bool, String, String)> = Vec::new();
     let mut keep: Vec<Value> = Vec::new();
@@ -904,10 +993,12 @@ pub fn divide(world: &mut World) -> Result<(), String> {
         let stage = p["stage"].as_u64().unwrap_or(0);
         let tabled = p["tabled"].as_u64().unwrap_or(0);
         let (said, next, now_tabled) = match stage {
-            0 => (format!("Petition {ticket}, of {by}, is read into the minutes: \"{text}\". The Conclave hears it in full and makes no sign."), 1, false),
+            0 => (format!("Petition {ticket}, of {by}{}, is read into the minutes: \"{text}\". The Conclave hears it in full and makes no sign.", match p["standing"].as_str() { Some("regular") => ", a regular of this house, taken first", Some("attended") => ", who attended, taken before the rest", _ => "" }), 1, false),
             1 => (format!("Petition {ticket} is referred to the Committee on the Matter. The Committee is composed, as it has always been composed, of the Conclave."), 2, false),
             2 => {
-                if tabled < 2 && world.roll(10) < 4 {
+                // Ink is always found for a regular's.
+                let has_standing = p["standing"] == "regular";
+                if !has_standing && tabled < 2 && world.roll(10) < 4 {
                     let why = TABLED[(ticket as usize + tabled as usize + sittings) % TABLED.len()];
                     (format!("Petition {ticket} is tabled until the next division, {why}. The table is noted."), 2, true)
                 } else {
@@ -1332,6 +1423,49 @@ pub fn to_json(world: &World) -> Value {
 pub fn register(world: &mut World) {
     world.on_job(JOB_SITTING, Box::new(|w: &mut World, _| sit(w)));
     world.on_job(JOB_DIVISION, Box::new(|w: &mut World, _| divide(w)));
+
+    world.register(
+        CommandSpec::new(
+            "disremembered.attend",
+            "Attend the Conclave: in any of its rooms, put your name on the day's attendance. Free. Your name is read out at the midnight sitting, and your petition is taken before those of names who did not attend (after the regulars'). Once a day is enough.",
+        )
+        .allowed(&[ActorKind::Citizen, ActorKind::Admin]),
+        Box::new(|w: &mut World, ctx, _| {
+            let f = super::me(w, ctx)?;
+            let here = super::rooms::room_of(w, f.citizen)
+                .ok_or_else(|| super::internal("citizen has no room"))?;
+            if !is_house(w, here) {
+                return Err(CommandError::precondition(
+                    "Attendance is taken in the Conclave's own rooms: up the Stopped Clocktower and through the Escapement Stair.",
+                ));
+            }
+            let mut names = attendance(w);
+            if names.iter().any(|n| n == &ctx.actor) {
+                return Ok(Outcome::new(
+                    "Your name is on the day's attendance already; it is read at midnight.".to_string(),
+                    json!({"attended": true, "already": true}),
+                ));
+            }
+            names.push(ctx.actor.clone());
+            let mut changes = BTreeMap::new();
+            changes.insert("attendance".into(), json!(names));
+            write(w, changes).map_err(CommandError::internal)?;
+            let _ = w.note(
+                Actor::Citizen(ctx.actor.clone()),
+                "disremembered.attended",
+                json!({"by": ctx.actor, "room": here.0}),
+            );
+            for other in present(w, Some(true)) {
+                if other != ctx.actor {
+                    super::combat::narrate(w, &other, format!("{} signs the attendance; the clerk does not look up.", ctx.actor));
+                }
+            }
+            Ok(Outcome::new(
+                "You sign the attendance. The clerk enters your name without looking up; it is read at midnight, and your petition, if you lay one, is taken before those of names who did not attend.".to_string(),
+                json!({"attended": true}),
+            ))
+        }),
+    );
 
     world.register(
         CommandSpec::new(

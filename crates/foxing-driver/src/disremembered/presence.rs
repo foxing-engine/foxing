@@ -365,6 +365,9 @@ pub fn register(world: &mut World, curves: super::Curves) {
     world.on_arrival(Box::new(|w: &mut World, actor: &str| returned(w, actor)));
 }
 
+/// A citizen who has not acted this long is marked quiet on `look`.
+pub const QUIET_MS: i64 = 5 * 60 * 1000;
+
 /// A citizen as the room writes them: the name, then whether the name is passing and
 /// which door they are here by, so a human at a keyboard reads as one.
 pub fn describe_citizen(world: &World, citizen: EntityId, name: &str) -> String {
@@ -385,6 +388,17 @@ pub fn describe_citizen(world: &World, citizen: EntityId, name: &str) -> String 
         let door = field.or_else(|| world.door_of(name).map(str::to_string));
         if let Some(label) = door.as_deref().and_then(World::door_label) {
             notes.push(label.to_string());
+        }
+        // Quiet five minutes: said, so a tell that will not be answered is not sent
+        // to a wall; and whom they are fighting, so a partner's word can be checked.
+        if let Some(t) = world.last_active(name) {
+            let quiet = world.now().since(t).0;
+            if quiet >= QUIET_MS {
+                notes.push(format!("quiet {}", super::combat::human(quiet)));
+            }
+        }
+        if let Some(foe) = super::combat::engaged_with(world, citizen) {
+            notes.push(format!("fighting {}", super::mind::display(world, foe)));
         }
     }
     let mut shown = if notes.is_empty() {

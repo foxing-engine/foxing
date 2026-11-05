@@ -1291,16 +1291,33 @@ fn creature_strikes(
     // felling it is its share of your blood, not where the meter stood at the end
     // (a one-hit wisp after a lamprey's venom elsewhere once counted as near death).
     let taken = fight_taken(world, citizen, creature) + dmg;
+    let rounds = fight_rounds(world, citizen, creature) + 1;
     world.record(
         Actor::Driver,
         StoreEvent::FieldSet {
             id: citizen,
             component: BODY.into(),
             field: "fight".into(),
-            value: json!({"creature": creature.0, "taken": taken}),
+            value: json!({"creature": creature.0, "taken": taken, "rounds": rounds}),
         },
     )?;
     Ok((dmg, after <= 0.0))
+}
+
+/// How many blows `creature` has struck `citizen` this fight: the fight's length,
+/// which sets what it leaves behind (a one-blow kill at level three hundred leaves
+/// little; six rounds leave something every time).
+pub fn fight_rounds(world: &World, citizen: EntityId, creature: EntityId) -> u64 {
+    world
+        .store
+        .entity(citizen)
+        .and_then(|e| e.components.get(BODY))
+        .and_then(|c| c.fields.get("fight"))
+        .and_then(|f| match f {
+            Field::Plain(v) if v["creature"] == creature.0 => v["rounds"].as_u64(),
+            _ => None,
+        })
+        .unwrap_or(0)
 }
 
 /// What `creature` has done `citizen` in the fight they are in; nothing if the
@@ -1936,7 +1953,10 @@ pub fn register(world: &mut World, curves: Curves) {
                     String::new()
                 };
                 // What it leaves behind, one time in three.
-                let left = super::craft::leave_behind(w, &curves, room, creature, &cname)?;
+                // What it leaves behind: by the fight's length, not a flat one in
+                // three (D4: fights past a hundred were clicking).
+                let length = fight_rounds(w, f.citizen, creature) + 1;
+                let left = super::craft::leave_behind(w, &curves, room, creature, &cname, length)?;
                 // The dying throes of a creature of the Stacks: its trick, once more.
                 let (throes, _) = super::stacks::throes(w, &curves, creature, f.citizen, &ctx.actor).map_err(internal)?;
                 w.record(Actor::Driver, StoreEvent::EntityRemoved { id: creature }).map_err(internal)?;
@@ -1954,7 +1974,7 @@ pub fn register(world: &mut World, curves: Curves) {
                         Some((id, n)) => format!(" It leaves {n} behind (item-{}); take it.", id.0),
                         // Say when the roll missed, so a visitor can tell a missed
                         // roll from a broken one (ten kills, nothing, and no way to know).
-                        None if super::craft::material_for(&cname).is_some() => " Nothing of it is left behind this time.".to_string(),
+                        None if super::craft::material_for(&cname).is_some() => if length < super::craft::DROP_SURE_ROUNDS { " Nothing of it is left behind this time; a longer fight leaves more.".to_string() } else { " Nothing of it is left behind this time.".to_string() },
                         None => String::new(),
                     },
                     throes.map(|t| format!(" {t}")).unwrap_or_default()

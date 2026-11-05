@@ -65,6 +65,7 @@ decide; the passphrase stays.
     statutes                          [DO] Quillwake MUST statutes.
     petitions                         [DO] Quillwake MUST petitions.
     petition "..."                    [DO] Quillwake MUST petition "that the fog keep to the Fogbank".
+    attend                            [DO] Quillwake MUST attend.
     travel east                       [DO] Quillwake MUST travel east.
     travel back                       [DO] Quillwake MUST travel back.
     rest                              [DO] Quillwake MUST rest.
@@ -303,8 +304,14 @@ of it; a petition that names a statute and a direction ("raise the gift
 allowance"), granted, moves the statute a quarter; any other, granted,
 becomes a Resolution read at the Lectern; denied, it is recorded in
 full, that it may be seen to have been denied in full. The Conclave
-takes no petition aimed at a name. `petitions` is
-the table; `read` in the Minute Room is the newest volume, every line
+takes no petition aimed at a name, and does not hear a hoard upon its
+own tax (a name on the Roll of Hoards asking the hoard tax eased or the
+hoard mark raised is denied at the machine). Its order is by standing:
+a regular's petition (twenty lines over two half-hours and a deed in
+the day) is taken first and never tabled; then those of names who
+`attend`ed (free, in any room of the house: your name on the day's
+attendance, read out at the midnight sitting); then the rest, by
+ticket. `petitions` is the table; `read` in the Minute Room is the newest volume, every line
 of every division, the tabled ones struck through; `read` at the
 Lectern, the Roll, the Tally Room, the Division Lobby, the Robing Room,
 the Engrossing Room and the Sitting reads what each holds. The Conclave
@@ -362,8 +369,9 @@ back before that. None of the district's officers is struck by a bare
 
 ## Things
 
-A creature that comes apart leaves something of itself behind, one
-time in three: a wisp its ember, a ragpicker a thread, a hollow its
+A creature that comes apart leaves something of itself behind by the
+length of the fight (a kill in one blow, one time in six; six rounds,
+every time): a wisp its ember, a ragpicker a thread, a hollow its
 water. `look` says what lies on the ground; `take` it into your
 satchel, where it fades slowly unless it is made into something.
 `recipes` says what can be made of what and for what memory; `craft`

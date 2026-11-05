@@ -102,6 +102,7 @@ approved_verbs:
   statutes: {params: []}
   petition: {params: [{name: text, type: text, required: false}]}
   petitions: {params: []}
+  attend: {params: []}
   enact: {params: [{name: statute, type: string, required: true}, {name: value, type: number, required: true}]}
   banish: {params: [{name: name, type: string, required: true}]}
   summon: {params: []}

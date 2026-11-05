@@ -45,7 +45,10 @@ pub const DROPPED: &str = "disremembered.dropped";
 /// Someone made a thing: `{by, item, name, recipe, of, spent}`. Public.
 pub const MADE: &str = "disremembered.made";
 /// One creature in this many leaves something behind.
-pub const DROP_ONE_IN: u32 = 3;
+/// A fight this many rounds long leaves something behind every time (at drop rate
+/// 1.0); a one-round kill leaves it one time in six. By the fight's length, so a
+/// level that one-shots the ground floor gathers little there.
+pub const DROP_SURE_ROUNDS: u64 = 6;
 /// Fixtures a room holds, at most.
 pub const FIXTURES_PER_ROOM: usize = 3;
 /// What a thing must hold to take a name, and below what it loses it.
@@ -745,9 +748,12 @@ pub fn leave_behind(
     room: EntityId,
     creature: EntityId,
     kind: &str,
+    rounds: u64,
 ) -> Result<Option<(EntityId, String)>, CommandError> {
-    // One in three at the world's drop rate of 1.0; the Clocktower moves it.
-    let chance = super::economy::rate(world, "drop") / DROP_ONE_IN as f64;
+    // By the fight's length at the world's drop rate of 1.0 (the Clocktower moves
+    // it): a round in six, sure at six rounds.
+    let chance = super::economy::rate(world, "drop")
+        * (rounds as f64 / DROP_SURE_ROUNDS as f64).clamp(1.0 / DROP_SURE_ROUNDS as f64, 1.0);
     if world.roll(1000) as f64 >= chance * 1000.0 {
         return Ok(None);
     }

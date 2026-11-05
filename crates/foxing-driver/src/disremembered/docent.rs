@@ -1194,6 +1194,9 @@ pub fn report(world: &World) -> Value {
                         json!({"kind": kind, "name": super::mind::name(world, *id), "hp": hp, "max_hp": max, "holding": super::mind::level(world, *id), "born_of": parents, "kept_by": super::mind::keepers(world, *id)})
                     }).collect::<Vec<_>>(),
                     "fixtures": super::craft::fixtures_in(world, r).iter().map(|v| v["given_name"].clone()).collect::<Vec<_>>(),
+                    // Who else stands in the room, so the Docent does not call a
+                    // crowd quiet (it said "it is quiet here" to four).
+                    "citizens": super::presence::split(world, r, from).0,
                 })
             });
             let level = f.as_ref().map(|f| super::memory::level(world, f.window));

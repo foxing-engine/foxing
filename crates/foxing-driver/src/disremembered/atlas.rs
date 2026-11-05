@@ -130,21 +130,26 @@ pub fn layout(world: &World) -> Layout {
             }
         }
     }
-    let hit = CACHE.with(|c| {
-        c.borrow()
-            .as_ref()
-            .filter(|(k, _)| *k == fp)
-            .map(|(_, l)| l.clone())
+    let (hit, prev) = CACHE.with(|c| {
+        let b = c.borrow();
+        match b.as_ref() {
+            Some((k, l)) if *k == fp => (Some(l.clone()), None),
+            Some((_, l)) => (None, Some(l.clone())),
+            None => (None, None),
+        }
     });
     if let Some(l) = hit {
         return l;
     }
-    let l = layout_uncached(world);
+    // A room dug anywhere re-laid the whole map, and the walk's order was a
+    // HashMap's, so two `map`s in the same room disagreed on every number. Rooms
+    // already placed keep their cells; only the new take free ones.
+    let l = layout_uncached(world, prev.as_ref());
     CACHE.with(|c| *c.borrow_mut() = Some((fp, l.clone())));
     l
 }
 
-fn layout_uncached(world: &World) -> Layout {
+fn layout_uncached(world: &World, prev: Option<&Layout>) -> Layout {
     let mut out = Layout::default();
     let Some(start) = rooms::arrival(world) else {
         return out;
@@ -152,6 +157,19 @@ fn layout_uncached(world: &World) -> Layout {
     let mut taken: HashSet<(i64, i64, i64)> = HashSet::new();
     let mut at: HashMap<EntityId, (i64, i64, i64)> = HashMap::new();
     let mut queue: VecDeque<EntityId> = VecDeque::new();
+    // What stood before stands where it stood (not the orphans: they may have been
+    // rejoined, and take a real cell now).
+    let mut kept: Vec<&Placed> = prev
+        .map(|p| {
+            p.rooms
+                .iter()
+                .filter(|r| {
+                    r.placed != "orphan" && r.id != start && world.store.entity(r.id).is_some()
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    kept.sort_by_key(|r| r.id.0);
     let room_name = |id: EntityId| {
         plain_str(world, id, ROOM, "name")
             .unwrap_or("?")
@@ -178,6 +196,13 @@ fn layout_uncached(world: &World) -> Layout {
     taken.insert((0, 0, 0));
     at.insert(start, (0, 0, 0));
     push(&mut out, start, (0, 0, 0), "compass", None);
+    for r in kept {
+        let pos = (r.x, r.y, r.z);
+        if taken.insert(pos) {
+            at.insert(r.id, pos);
+            push(&mut out, r.id, pos, r.placed, r.from.clone());
+        }
+    }
     // Two passes: the compass alone first, over the whole map, so a named door (the
     // Shallows' "dive") never takes a cell a compass exit will want (the Undertow is
     // east of the Cistern, two floors down; placed beside the Shallows it shoved the
@@ -186,7 +211,9 @@ fn layout_uncached(world: &World) -> Layout {
     for pass in 0..2 {
         loop {
             queue.clear();
-            queue.extend(at.keys().copied());
+            let mut keys: Vec<EntityId> = at.keys().copied().collect();
+            keys.sort_by_key(|k| k.0);
+            queue.extend(keys);
             let before = at.len();
             while let Some(here) = queue.pop_front() {
                 let (hx, hy, hz) = at[&here];

@@ -326,7 +326,10 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("resolutions", FieldKind::Plain, Visibility::Public)
             .field("minutes", FieldKind::Plain, Visibility::Public)
             .field("decided", FieldKind::Plain, Visibility::Public)
-            .field("last_ticket", FieldKind::Plain, Visibility::Public),
+            .field("last_ticket", FieldKind::Plain, Visibility::Public)
+            // Who attended since the last sitting: read at midnight, standing in
+            // the divisions between.
+            .field("attendance", FieldKind::Plain, Visibility::Public),
         ComponentSchema::new(mind::MIND, 1)
             .field("tier", FieldKind::Plain, Visibility::Public)
             .field("name", FieldKind::Plain, Visibility::Public)

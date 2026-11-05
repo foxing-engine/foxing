@@ -9617,3 +9617,168 @@ fn morphos_comes_with_a_riddle_clouds_the_wrong_and_opens_a_door_on_the_third_ru
     // The ladder began again.
     assert_eq!(out.result["rung"], Value::Null);
 }
+
+#[test]
+fn a_long_fight_leaves_something_behind_every_time() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let fog = rooms::room_of(&w, find_citizen(&w, "dave").unwrap().citizen).unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    // Six rounds: sure. One round: one in six over many tries, not every time.
+    for _ in 0..5 {
+        assert!(craft::leave_behind(
+            &mut w,
+            &curves(),
+            fog,
+            wisp,
+            "wisp",
+            craft::DROP_SURE_ROUNDS
+        )
+        .unwrap()
+        .is_some());
+    }
+    let mut left = 0;
+    for _ in 0..60 {
+        if craft::leave_behind(&mut w, &curves(), fog, wisp, "wisp", 1)
+            .unwrap()
+            .is_some()
+        {
+            left += 1;
+        }
+    }
+    assert!(left < 30, "one-blow kills leave little: {left} of 60");
+}
+
+#[test]
+fn the_map_keeps_its_cells_when_a_room_is_dug_elsewhere() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let before: std::collections::HashMap<EntityId, (i64, i64, i64)> = atlas::layout(&w)
+        .rooms
+        .iter()
+        .map(|r| (r.id, (r.x, r.y, r.z)))
+        .collect();
+    assert!(before.len() > 40);
+    // Dig off the Fogbank (east), then off the Shallows: every room that stood keeps
+    // its cell, and the new ones take free cells.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    for name in ["The First Digging", "The Second Digging"] {
+        let c = admin(&mut w, "dave", "earn", json!(["hydra", 50, 0.5]));
+        let chunk = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+        ok(&mut w, "dave", "dig", json!(["down", &chunk, name]));
+        ok(&mut w, "dave", "travel", json!(["down"]));
+    }
+    let after = atlas::layout(&w);
+    for r in &after.rooms {
+        if let Some(pos) = before.get(&r.id) {
+            assert_eq!((r.x, r.y, r.z), *pos, "{} moved", r.name);
+        }
+    }
+    assert_eq!(after.rooms.len(), before.len() + 2);
+    let cells: std::collections::HashSet<(i64, i64, i64)> =
+        after.rooms.iter().map(|r| (r.x, r.y, r.z)).collect();
+    assert_eq!(cells.len(), after.rooms.len(), "no two rooms share a cell");
+}
+
+#[test]
+fn attendance_gives_standing_and_a_hoard_is_not_heard_upon_its_own_tax() {
+    use super::conclave;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // Attendance is taken in the house only.
+    let err = call(&mut w, "dave", ActorKind::Citizen, "attend", json!([])).unwrap_err();
+    assert!(err.to_string().contains("Conclave's own rooms"), "{err}");
+    admin(&mut w, "dave", "bring", json!(["dave", "petition-gallery"]));
+    admin(
+        &mut w,
+        "tyler",
+        "bring",
+        json!(["tyler", "petition-gallery"]),
+    );
+    let out = ok(&mut w, "dave", "attend", json!([]));
+    assert!(
+        out.summary.starts_with("You sign the attendance."),
+        "{}",
+        out.summary
+    );
+    let again = ok(&mut w, "dave", "attend", json!([]));
+    assert_eq!(again.result["already"], json!(true));
+    assert_eq!(conclave::standing_of(&w, "dave"), Some("attended"));
+    assert_eq!(conclave::standing_of(&w, "tyler"), None);
+    // Tyler files first, dave second; at the division dave's is taken first.
+    ok(
+        &mut w,
+        "tyler",
+        "petition",
+        json!(["that the fog be asked to keep to the Fogbank"]),
+    );
+    let out = ok(
+        &mut w,
+        "dave",
+        "petition",
+        json!(["that the lanterns be counted at dusk"]),
+    );
+    assert!(
+        out.summary
+            .contains("Having attended, yours is taken before"),
+        "{}",
+        out.summary
+    );
+    conclave::divide(&mut w).unwrap();
+    let table = ok(&mut w, "dave", "petitions", json!([]));
+    let i_dave = table.summary.find("of dave").unwrap();
+    let i_tyler = table.summary.find("of tyler").unwrap();
+    assert!(i_dave < i_tyler, "{}", table.summary);
+    assert!(
+        table.summary.contains("(attended, taken next)"),
+        "{}",
+        table.summary
+    );
+    // The sitting reads the attendance, then clears it.
+    conclave::sit(&mut w).unwrap();
+    let heard: Vec<String> = narrative(&w, "dave", 0);
+    assert!(
+        heard
+            .iter()
+            .any(|l| l.starts_with("The attendance is read: dave.")),
+        "{heard:?}"
+    );
+    assert_eq!(conclave::standing_of(&w, "dave"), None);
+    // A hoard asking to ease its own tax is refused at the machine.
+    // (A hoard is named by the day's census; the Roll is written here as a strike
+    // would write it after a day of dave holding nine tenths.)
+    conclave::note_hoards(
+        &mut w,
+        &json!({"holders": [{"name": "dave", "share": 0.9}]}),
+    )
+    .unwrap();
+    assert!(conclave::hoard_share_of(&w, "dave").is_some());
+    // (Dave's first petition has moved on; a second is refused while one is on the
+    // table, so the hoard check must come first: it does.)
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "petition",
+        json!(["that the hoard tax be lowered for the good of all"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("does not hear a hoard upon its own tax"),
+        "{err}"
+    );
+    let ok_other = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "petition",
+        json!(["that the hoard tax be lowered for the good of all"]),
+    );
+    assert!(ok_other.is_err(), "tyler's own is still on the table");
+}

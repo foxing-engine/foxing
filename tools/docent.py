@@ -186,6 +186,11 @@ def context(q):
         lines.append("Here: " + "; ".join(cline(c) for c in room["creatures"]) + ".")
     if room.get("fixtures"):
         lines.append("Standing here: " + ", ".join(str(f) for f in room["fixtures"]) + ".")
+    cits = room.get("citizens") or []
+    if cits:
+        lines.append(f"Other citizens in the room with the asker ({len(cits)}): " + ", ".join(str(c) for c in cits) + ". It is not quiet; do not call it so.")
+    else:
+        lines.append("No other citizen stands in the room with the asker.")
     wants = q.get("wants") or []
     if wants:
         lines.append("The named want: " + " ".join(

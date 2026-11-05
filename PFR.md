@@ -34,9 +34,9 @@ Economy and death
   hit points; "about half" is unreachable in a three-line batch. a) the Stacks ask a
   level at the stair (**lean**: legible, one line); b) Stacks creatures hit for less
   against a low name; c) the first blow of a stand is free.
-- **D4 · Fights past level one hundred are clicking** (Hazelquill stopped; M; **waits**). a) drops
-  by the fight's length rather than a flat one in three (**lean**); b) unnamed
-  creatures scale with the visitor's level; c) both.
+- **D4 · Fights past level one hundred are clicking** (decided a, shipped 11-04: what a
+  creature leaves behind goes by the fight's length, a one-blow kill one time in six,
+  six rounds every time, at the Clocktower's drop rate).
 - **D5 · A floor under a name** (deferred 11-02 "until the map is bigger"). a) still
   deferred (**default**); b) a name holds at a lower level and only comes apart in a
   fight.
@@ -83,9 +83,9 @@ Schema and framing
 - **D9 · The framing** ("the time the world remembers you" read as persuasion to one
   cautious reader; S; **ships by policy**, a). a) a plain line on what a name costs and does beside the ASK
   (**lean**); b) the lines are the game, leave them.
-- **D10 · The rest of the Architect's petition design** (M; **waits**). a) ship all three:
-  regulars' standing, `attend`, a hoard's petition to ease its own tax never counting;
-  b) name which.
+- **D10 · The rest of the Architect's petition design** (decided a, shipped 11-04: a
+  regular's petition taken first and never tabled; `attend`, free, the names read at
+  the sitting and their petitions taken next; a hoard not heard upon its own tax).
 
 ## Ready to ship (R): all ship on the Night's Watch by policy, in Claude's batches
 
@@ -157,14 +157,10 @@ in the tree on 11-03, most of them fallbacks that stay for a while):
 - **R25** (M; was B5, pulled 11-04) A verb's argument from the scene (click `tell`, then a creature); a creature's own verbs on its figure; the palette on the plain page; marks for named creatures and citizens, a legend in `?`, the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll; admin on the play page; a `remember` that keeps a room on your map; the favicon on the apex site's other pages.
 - **R26** (M; was B6, pulled 11-04) Unreproduced: a `travel <room name>` walk that stops short; "You again" on `leave` (rare); `board` at ~4 s.
 From the Night's Watch of 11-04:
-- **R27** (M) A stable map: `map` re-laid itself between two calls in the same room
-  (a room dug elsewhere shoved the numbering); new rooms take free cells without
-  moving placed ones. -- Gnocchibell
+- **R27** shipped 11-04.
 - **R28** (S) `wants` lists the awake things with their current pull; the ground
   hint and the "awake" tag agree after a thing has settled. -- Gnocchibell
-- **R29** (S) `look` marks a citizen quiet for five minutes ("(quiet 6m)"), and
-  says which creature each present citizen is fighting, so a partner's "I'm on
-  hollow-6038" can be checked. -- Gnudibranch, Gnawbone
+- **R29** shipped 11-04.
 - **R30** (S) A quoted quote inside `tell`/`say` text does not void the message; the
   refusal names the token. -- Gnudibranch
 - **R31** (S) The "something will drift in within about N" estimate matched the
@@ -173,9 +169,7 @@ From the Night's Watch of 11-04:
 - **R32** (S) The dig refusal at the door cap names rooms with fewer doors that the
   digger can route to, nearest first; `travel back` from the Threshold's dug doors
   never means the Fogcup. -- Gnarlpocket
-- **R33** (S) The Docent is handed how many stand in the asker's room, so it does not
-  say "quiet here" to a crowd; `wants` says when a want rotated since login.
-  -- Gnudibranch, Gnarlpocket
+- **R33** shipped 11-04.
 - **R35** (S) `petitions` and `time` label their clocks: the strike at :00 and the
   division at :30 read as one event; `petition` says the stage path ahead. -- Gnomonshade
 - **R34** (S) The play page's shaken state: the hit-chance in the status bar and a

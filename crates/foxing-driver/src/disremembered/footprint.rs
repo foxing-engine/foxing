@@ -96,12 +96,27 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
             mind::regard(world, e.id, actor).is_some_and(|r| !r.contains("does not know you"));
         let mut want_said: Vec<String> = Vec::new();
         let told = story.is_some() && super::exchange::told_this_hour(world, actor, e.id);
+        // A want that turned since this session began is said to have: a visitor
+        // drafted to the first prompt and arrived to a moved target.
+        let session_at =
+            super::plain_num(world, f.citizen, super::CITIZEN, "session_at").map(|t| t as i64);
+        let turned = errand
+            .as_ref()
+            .zip(session_at)
+            .filter(|(x, at)| x.story_at > *at && x.story.is_some())
+            .map(|(x, _)| {
+                format!(
+                    " (turned {} ago)",
+                    super::combat::human(world.now().0 - x.story_at)
+                )
+            })
+            .unwrap_or_default();
         if let Some(s) = &story {
             want_said.push(if told {
-                format!("a story about {s} (you told it one this hour; another from you pays after the hour)")
+                format!("a story about {s}{turned} (you told it one this hour; another from you pays after the hour)")
             } else {
                 format!(
-                    "a story about {s} (pays double{})",
+                    "a story about {s}{turned} (pays double{})",
                     if scarcity > 1.0 {
                         format!(", and {scarcity:.1}× while names are few")
                     } else {
