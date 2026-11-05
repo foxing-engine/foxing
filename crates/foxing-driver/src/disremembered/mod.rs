@@ -40,6 +40,7 @@ pub mod speech;
 pub mod stacks;
 pub mod system;
 pub mod talk;
+pub mod trail;
 
 use crate::world::World;
 use foxing_log::Actor;
@@ -714,6 +715,7 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     board::ensure(world)?;
     combat::ensure_regen(world)?;
     morphos::ensure(world)?;
+    trail::ensure(world)?;
     mind::ensure_wander(world)
 }
 
@@ -1203,6 +1205,7 @@ pub fn register(world: &mut World, curves: Curves) {
     stacks::register(world);
     combat::register_mend(world);
     morphos::register(world);
+    trail::register(world);
     combat::register(world, curves.clone());
     memory::register(world, curves.clone());
     presence::register(world, curves.clone());

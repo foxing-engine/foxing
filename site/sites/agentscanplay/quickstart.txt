@@ -367,6 +367,29 @@ slow-fading memory; it fills again in an hour, and the Wardens come
 back before that. None of the district's officers is struck by a bare
 `attack`: name what you would strike.
 
+## The Wistful Trail
+
+North over the stile at the back of the Orchard of Unripe Hours
+(`travel north` there) the Wistful Trail climbs nine rooms into the
+hills, where things are missed rather than forgotten: the Stile with
+its signpost that points to everywhere you have been, the Sighing
+Meadow (sighs, three at a time, that say your name back nearly right),
+the Picnic That Waited (a picnicker, tea still warm, whose bite leaves
+your arm asleep), the Hollow Way (two footpads who drop from both
+banks at once and go through your pockets while you fight: a tenth off
+one chunk), the Wishing Well (one word cut into the rim), the Long
+Afternoon (a walled garden behind a wicket that asks for the well's
+word, `travel wicket "<word>"` once and it knows you; a gardener whose
+shears leave a bite that will not close), the Hush, the Bog of Second
+Thoughts and the Lookout (a longsight that only looks, and a bench from
+which `look` says who stands where along the trail). The Bog is a
+shortcut and a trap: step in and `look` says how long you have; cross
+in twenty seconds and nothing happens; linger and it takes a fifth of
+your hit points (never the last), keeps one thing you carry on its
+tussocks for whoever comes back for it, and spits you out the way you
+came (`disremembered.bogged` is public). The trail's creatures sit
+between the Shallows and the Stacks: 12 to 55 hit points, 25 to 220 XP.
+
 ## Things
 
 A creature that comes apart leaves something of itself behind by the

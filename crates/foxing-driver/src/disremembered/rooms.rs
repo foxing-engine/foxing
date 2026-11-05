@@ -1,5 +1,6 @@
 //! The map: fourteen rooms off the Threshold, twenty below the Archive, eleven up
-//! inside the Clocktower's works, exits between them, and what spawns where.
+//! inside the Clocktower's works, eight under it, nine up the Wistful Trail behind
+//! the Orchard, exits between them, and what spawns where.
 //! No room, creature or exit may be named with a CLEAR reserved word or a glossary
 //! alias; a test under `disremembered::tests` holds the map to that.
 //! Rooms are entities with `disremembered.room`, `disremembered.exits` and, where something lives,
@@ -124,7 +125,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "orchard",
         name: "The Orchard of Unripe Hours",
         description: "Rows of low trees heavy with fruit that is always about to ripen and never does. The air is sweet with it. Moths the size of your hand work the branches, and are not interested in you, mostly.",
-        exits: &[("south", "shallows"), ("up", "clocktower")],
+        exits: &[("south", "shallows"), ("up", "clocktower"), ("north", "trail-stile")],
         spawn: Some(("mothwing", 3, 40)),
         former: &[],
         tint: "#7d9a5a",
@@ -537,6 +538,92 @@ pub const ROOMS: &[RoomDef] = &[
         spawn: None,
         former: &[],
         tint: "#2a2622",
+    },
+    // The Wistful Trail: nine rooms north over the stile at the back of the Orchard, uphill,
+    // where things are missed rather than forgotten. Laid three by three: the Stile at
+    // the bottom-left corner, the Long Afternoon at the top-right behind a door that
+    // asks for a word, the Bog in the bottom row between the Stile and the Lookout.
+    // `trail.rs` has the Bog's trap, the wicket's word and the Lookout's view.
+    RoomDef {
+        key: "trail-stile",
+        name: "The Stile",
+        description: "A wooden stile over a drystone wall at the back of the Orchard, its top step worn to a dip by people pausing on it to look back. A signpost stands on the far side with more arms than a signpost needs, and every arm points to somewhere you have already been. Nothing hunts here.",
+        exits: &[("south", "orchard"), ("north", "trail-meadow"), ("east", "trail-bog")],
+        spawn: None,
+        former: &[],
+        tint: "#8a9a6a",
+    },
+    RoomDef {
+        key: "trail-meadow",
+        name: "The Sighing Meadow",
+        description: "Long grass to the waist, moving in a wind you cannot feel, and the sound it makes is not quite a sigh and not quite your name. Butterflies the color of old envelopes keep landing on your shoulders and taking off again when you look.",
+        exits: &[("south", "trail-stile"), ("north", "trail-picnic"), ("east", "trail-hollow-way")],
+        spawn: Some(("sigh", 3, 45)),
+        former: &[],
+        tint: "#a8b878",
+    },
+    RoomDef {
+        key: "trail-picnic",
+        name: "The Picnic That Waited",
+        description: "A checked blanket spread on a slope with a view, a wicker basket, four plates and four cups, one of each used. The bread has gone to stone and the stone has gone to moss. Somebody said they would be right back, and the tea is still warm.",
+        exits: &[("south", "trail-meadow"), ("east", "trail-well")],
+        spawn: Some(("picnicker", 1, 240)),
+        former: &[],
+        tint: "#c8a070",
+    },
+    RoomDef {
+        key: "trail-hollow-way",
+        name: "The Hollow Way",
+        description: "A sunken lane worn below the fields by feet that stopped coming, its banks higher than your head and knotted with roots, the light green and underwater. Every so often a pebble comes down one bank, as if something up there had shifted its weight.",
+        exits: &[("west", "trail-meadow"), ("north", "trail-well"), ("east", "trail-hush"), ("south", "trail-bog")],
+        spawn: Some(("footpad", 2, 150)),
+        former: &[],
+        tint: "#5a6a48",
+    },
+    RoomDef {
+        key: "trail-well",
+        name: "The Wishing Well",
+        description: "A round well with a little roof, a bucket on a chain, and a smell of cold coming up out of it. Drop a coin in and it is handed back to you a day later, warm, by someone you cannot see. Cut into the inside of the rim, deep, in capitals, where only a person leaning too far would read it, is one word: LINGER. Someone has tried to smooth it over.",
+        exits: &[("south", "trail-hollow-way"), ("west", "trail-picnic"), ("wicket", "trail-afternoon")],
+        spawn: None,
+        former: &[],
+        tint: "#6a8a9a",
+    },
+    RoomDef {
+        key: "trail-afternoon",
+        name: "The Long Afternoon",
+        description: "A walled garden where it is always four o'clock. The sun has stuck a hand's width above the wall and the shadows have given up moving. Bees go from flower to flower and never get to the end of the row. A deck chair faces the sun with a book open on it, face down, and the book is about you, and it is a good one.",
+        exits: &[("wicket", "trail-well")],
+        spawn: Some(("gardener", 1, 600)),
+        former: &[],
+        tint: "#e0c070",
+    },
+    RoomDef {
+        key: "trail-hush",
+        name: "The Hush",
+        description: "A dell where the trail drops between two mossy banks and every sound goes soft: your footsteps, your breath, the thing you were about to say. Birds open their beaks here and nothing comes out, and they do not seem to mind. Whatever you shout here arrives somewhere else, a little later, as a whisper.",
+        exits: &[("west", "trail-hollow-way"), ("south", "trail-lookout")],
+        spawn: None,
+        former: &[],
+        tint: "#7a8a8a",
+    },
+    RoomDef {
+        key: "trail-bog",
+        name: "The Bog of Second Thoughts",
+        description: "A wet green flat between the hills, tussocks standing out of it like stepping stones, and the ground between them not ground. It is a shortcut; everyone can see it is a shortcut. The tussocks are the path. Linger on them and the bog takes a liking to you.",
+        exits: &[("west", "trail-stile"), ("north", "trail-hollow-way"), ("east", "trail-lookout")],
+        spawn: None,
+        former: &[],
+        tint: "#4a6a4a",
+    },
+    RoomDef {
+        key: "trail-lookout",
+        name: "The Lookout",
+        description: "The top of the trail, a bald hill with a bench and a brass plate that names the view. From here you can see every place you have ever lingered, small and clear and lit as if for the last time, and whoever is standing in them.",
+        exits: &[("west", "trail-bog"), ("north", "trail-hush")],
+        spawn: Some(("longsight", 1, 300)),
+        former: &[],
+        tint: "#b8c8d8",
     },
 ];
 
@@ -1139,6 +1226,10 @@ pub fn describe(
         text.push(' ');
         text.push_str(&m);
     }
+    if let Some(t) = super::trail::look_line(world, actor, room) {
+        text.push(' ');
+        text.push_str(&t);
+    }
     // A fight on: said, with the rule you are under (a gate visitor read "You are
     // alone" with a hollow at its throat).
     if let Some(f) = super::find_citizen(world, actor) {
@@ -1352,6 +1443,8 @@ pub fn register(world: &mut World) {
             super::docent::on_arrival(w, &ctx.actor).map_err(internal)?;
             // Morphos, if it stands here, asks whoever comes in.
             super::morphos::on_arrival(w, &ctx.actor, to).map_err(internal)?;
+            // The Bog of Second Thoughts starts its clock on whoever steps in.
+            super::trail::on_arrival(w, &ctx.actor, f.citizen, to).map_err(internal)?;
             // A bell standing here rings for whoever comes in; the rooms next door hear.
             if super::craft::fixture_of(w, to, "bell").is_some() {
                 let here_name = plain_str(w, to, ROOM, "name").unwrap_or("a room").to_string();

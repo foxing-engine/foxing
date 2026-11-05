@@ -151,6 +151,11 @@ pub const TRICKS: &[(&str, Trick)] = &[
     ("assayer", Trick::Forget),
     ("warden", Trick::Forget),
     ("hand of Morphos", Trick::Pinch),
+    // The Wistful Trail.
+    ("sigh", Trick::Chatter),
+    ("footpad", Trick::Clip),
+    ("picnicker", Trick::Numb),
+    ("gardener", Trick::Bleed),
 ];
 
 /// Venom: this many ticks, this far apart, this much each.
@@ -434,7 +439,9 @@ fn play(
                 .collect();
             if chunks.is_empty() {
                 return Ok((
-                    Some(if t == Trick::Clip {
+                    Some(if t == Trick::Clip && kind == "footpad" {
+                        "A hand goes through your pockets and comes out empty: you carry nothing to lift.".to_string()
+                    } else if t == Trick::Clip {
                         "The shears close on nothing: you carry nothing to clip.".to_string()
                     } else {
                         "The bag is shaken over you and nothing comes off: you carry nothing to sweat.".to_string()
@@ -496,7 +503,11 @@ fn play(
                     let source = plain_str(world, targets[0], CHUNK, "source")
                         .unwrap_or("?")
                         .to_string();
-                    format!("The shears take a sliver: chunk-{} ({source}) is a tenth lighter, {lost:.1} XP gone to the filings.", targets[0].0)
+                    if kind == "footpad" {
+                        format!("A hand goes through your pockets while the other one has your attention: chunk-{} ({source}) is a tenth lighter, {lost:.1} XP gone up the bank with it.", targets[0].0)
+                    } else {
+                        format!("The shears take a sliver: chunk-{} ({source}) is a tenth lighter, {lost:.1} XP gone to the filings.", targets[0].0)
+                    }
                 } else {
                     format!("The bag is shaken over everything you carry, and the dust comes off: a twentieth of each memory, {lost:.1} XP in all, into the sweater's bag.")
                 }),

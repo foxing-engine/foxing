@@ -251,6 +251,14 @@ pub const CREATURES: &[CreatureDef] = &[
     CreatureDef { key: "sweater", name: "sweater", hp: 70.0, attack: 11.0, xp: 260.0, aggressive: true, strike_seconds: 9, ambush: "steps out from behind the press, shaking a leather bag that is not empty.", glyph: "s", tint: "#a08a5a" },
     CreatureDef { key: "assayer", name: "assayer", hp: 240.0, attack: 26.0, xp: 1200.0, aggressive: false, strike_seconds: 8, ambush: "lifts the glass bell off the balance and says that it will need a sample.", glyph: "A", tint: "#c8c0b0" },
     CreatureDef { key: "warden", name: "warden", hp: 320.0, attack: 34.0, xp: 1500.0, aggressive: true, strike_seconds: 7, ambush: "does not move from the plinth, and reaches you anyway.", glyph: "W", tint: "#8a2a2a" },
+    // The Wistful Trail: middling things, between the Shallows and the Stacks. The
+    // sighs chatter, the footpads lighten what you carry, the picnicker's tea numbs,
+    // the gardener's shears bleed, the longsight only looks.
+    CreatureDef { key: "sigh", name: "sigh", hp: 12.0, attack: 2.0, xp: 25.0, aggressive: false, strike_seconds: 12, ambush: "gathers itself up out of the grass and says your name, nearly.", glyph: "y", tint: "#c8d0a0" },
+    CreatureDef { key: "footpad", name: "footpad", hp: 24.0, attack: 5.0, xp: 85.0, aggressive: true, strike_seconds: 9, ambush: "drops from the bank, and another from the other bank, and both of them say good evening.", glyph: "f", tint: "#6a5a40" },
+    CreatureDef { key: "picnicker", name: "picnicker", hp: 30.0, attack: 5.0, xp: 100.0, aggressive: false, strike_seconds: 10, ambush: "sets down the teapot. \"You're late,\" it says, with no mouth to say it with.", glyph: "p", tint: "#d8b890" },
+    CreatureDef { key: "longsight", name: "longsight", hp: 40.0, attack: 6.0, xp: 160.0, aggressive: false, strike_seconds: 9, ambush: "unfolds a neck as long as the hill and looks at you from very close.", glyph: "L", tint: "#9ab0c8" },
+    CreatureDef { key: "gardener", name: "gardener", hp: 55.0, attack: 7.0, xp: 220.0, aggressive: false, strike_seconds: 9, ambush: "straightens from the border with the shears, and the shadow of the stuck sun does not move.", glyph: "G", tint: "#6a8a4a" },
 ];
 
 /// Base damage per round before the level bonus.

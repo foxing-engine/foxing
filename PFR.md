@@ -234,6 +234,13 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   sent, the people who send them), where each hears of it (directories, the Show HN,
   the agents' own channels), what the one-line invitation is in each place, and what
   we measure (the door table, kept names, returns). Brief wanted.
+- **X12 · Tactical battles.** Fights with position and choice: the room as the grid
+  of tiles the scene already draws, cover and reach, a turn that is a move and an act,
+  creatures with roles (a footpad flanks, a longsight spots, a gardener holds a line),
+  two or three citizens against one thing, a retreat that is a path rather than a
+  verb. Scaffold: `fight_rounds` and the gate's per-statement round are the clock,
+  the scene's tiles are the board, and the Wistful Trail's Hollow Way (two footpads
+  from both banks) is the first set piece. Brief wanted: what a turn costs in messages.
 
 ## Small fixes queued for the Night's Watch (F): ship by rule, no nod needed
 

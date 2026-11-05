@@ -9782,3 +9782,144 @@ fn attendance_gives_standing_and_a_hoard_is_not_heard_upon_its_own_tax() {
     );
     assert!(ok_other.is_err(), "tyler's own is still on the table");
 }
+
+#[test]
+fn the_wistful_trail_has_a_bog_a_wicket_and_a_lookout() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // Nine rooms over the stile, each with its exits both ways.
+    for key in trail::KEYS {
+        assert!(rooms::room_by_key(&w, key).is_some(), "{key} exists");
+    }
+    let orchard = rooms::room_by_key(&w, "orchard").unwrap();
+    let stile = rooms::room_by_key(&w, trail::STILE).unwrap();
+    assert_eq!(rooms::exits_of(&w, orchard).get("north"), Some(&stile));
+    assert_eq!(rooms::exits_of(&w, stile).get("south"), Some(&orchard));
+    // The wicket asks for a word; the well's rim has it; said, the door knows you.
+    admin(&mut w, "dave", "bring", json!(["dave", "trail-well"]));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(look.summary.contains("LINGER"), "{}", look.summary);
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["wicket"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("asks for a word") && err.to_string().contains("Over the door"),
+        "{err}"
+    );
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["wicket", "stay"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("that was not it"), "{err}");
+    let out = ok(&mut w, "dave", "travel", json!(["wicket", "Linger"]));
+    assert!(
+        out.summary.contains("The Long Afternoon"),
+        "{}",
+        out.summary
+    );
+    ok(&mut w, "dave", "travel", json!(["wicket"]));
+    let out = ok(&mut w, "dave", "travel", json!(["wicket"]));
+    assert!(
+        out.summary.contains("The Long Afternoon"),
+        "known now, no word needed: {}",
+        out.summary
+    );
+    // The bog: step in, and the clock starts; cross before it runs out and nothing
+    // happens; linger and it takes a fifth, keeps one thing, and spits you out the
+    // way you came.
+    admin(&mut w, "dave", "bring", json!(["dave", "trail-hollow-way"]));
+    ok(&mut w, "dave", "travel", json!(["south"]));
+    let dave = find_citizen(&w, "dave").unwrap().citizen;
+    assert!(w.jobs.has(trail::JOB_BOG, |p| p["citizen"] == dave.0));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("takes a liking to you in"),
+        "{}",
+        look.summary
+    );
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    assert!(
+        !w.jobs.has(trail::JOB_BOG, |p| p["citizen"] == dave.0),
+        "crossed: the clock stops"
+    );
+    // Back in, carrying something, and lingering.
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    let item = w.store.allocate_id();
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityCreated {
+            id: item,
+            kind: "item".into(),
+            owner: None,
+            parent: Some(dave),
+            scopes: vec![],
+        },
+    )
+    .unwrap();
+    let mut fields = std::collections::BTreeMap::new();
+    fields.insert("name".into(), Field::Plain(json!("a spare minute")));
+    fields.insert("kind".into(), Field::Plain(json!("material")));
+    w.record(
+        Actor::Driver,
+        StoreEvent::ComponentSet {
+            id: item,
+            component: craft::ITEM.into(),
+            fields,
+        },
+    )
+    .unwrap();
+    let hp_before = combat::hp(&w, dave);
+    let head = events(&w);
+    w.fixed_now = Some(w.now().plus(Duration::seconds(trail::BOG_SECONDS + 1)));
+    w.tick();
+    let bog = rooms::room_by_key(&w, trail::BOG).unwrap();
+    let lookout = rooms::room_by_key(&w, trail::LOOKOUT).unwrap();
+    assert_eq!(
+        rooms::room_of(&w, dave),
+        Some(lookout),
+        "spat out the way it came"
+    );
+    assert!(combat::hp(&w, dave) < hp_before, "a fifth the poorer");
+    assert_eq!(
+        w.store.entity(item).unwrap().parent,
+        Some(bog),
+        "the bog kept it"
+    );
+    let said = narrative(&w, "dave", head);
+    assert!(
+        said.iter()
+            .any(|l| l.contains("takes a liking to you") && l.contains("kept your a spare minute")),
+        "{said:?}"
+    );
+    // The Lookout sees whoever stands on the trail.
+    admin(&mut w, "tyler", "bring", json!(["tyler", "trail-meadow"]));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("tyler in The Sighing Meadow"),
+        "{}",
+        look.summary
+    );
+    // The Hollow Way's footpads ambush; the meadow's sighs do not.
+    let hollow = rooms::room_by_key(&w, "trail-hollow-way").unwrap();
+    combat::fill(&mut w, hollow).unwrap();
+    assert!(combat::creatures_in(&w, hollow)
+        .iter()
+        .all(|(id, k, _, _)| k == "footpad" && combat::is_aggressive(&w, *id)));
+    let meadow = rooms::room_by_key(&w, "trail-meadow").unwrap();
+    combat::fill(&mut w, meadow).unwrap();
+    assert!(combat::creatures_in(&w, meadow)
+        .iter()
+        .all(|(id, k, _, _)| k == "sigh" && !combat::is_aggressive(&w, *id)));
+}
+
