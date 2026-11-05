@@ -428,6 +428,27 @@
   /* The memory picker: a line that wants a chunk shows your memories as cards. */
   #picker { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; padding: 6px 20px 8px; background: var(--panel); max-width: 86ch; width: 100%; }
   #picker[hidden] { display: none; }
+  #staged { display: none; }
+  @media (max-width: 680px) {
+    #staged:not([hidden]) { display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: var(--panel); border-top: 1px solid var(--line); }
+    #staged code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 14px/1.4 var(--mono); }
+    #staged button { font: inherit; font-size: 13px; color: var(--dust); background: transparent; border: 1px solid var(--line); border-radius: 4px; min-height: 32px; padding: 3px 12px; }
+    #staged #staged-send { color: var(--ink); border-color: var(--dust); }
+    #staged:not([hidden]) + form button[type="submit"] { display: none; }
+    #staged.flash { animation: staged-flash .6s ease-out; }
+    @keyframes staged-flash { from { background: rgba(217,181,122,.35); } to { background: var(--panel); } }
+    /* The commands table: the verb on its own line, the words under it. */
+    .line.cmd { font-size: 14.5px; }
+    .line.cmd b { display: block; min-width: 0; }
+  }
+  /* A chunk's row (`chunks`): the columns as spans, which wrap where the width wants. */
+  .crow { display: flex; flex-wrap: wrap; gap: 0 1.2ch; align-items: baseline; padding-left: 1ch; }
+  .crow b { color: var(--dust); font-weight: 400; min-width: 10ch; }
+  .crow i { font-style: normal; color: var(--ink); min-width: 10ch; max-width: 100%; }
+  .crow .cv { font-variant-numeric: tabular-nums; min-width: 14ch; }
+  .crow .cviv { color: var(--dim); font-variant-numeric: tabular-nums; }
+  .crow .crest { color: var(--dim); }
+  @media (max-width: 680px) { .crow { font-size: 14.5px; padding-left: 0; gap: 0 1ch; margin-bottom: 4px; } .crow b, .crow i, .crow .cv { min-width: 0; } }
   #picker .pk-label { width: 100%; color: var(--dim); font-size: 12px; }
   #picker .pk-label b { color: var(--dust); font-weight: 400; }
   .pk { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 74px; padding: 6px 8px; border: 1px solid rgba(217,181,122,.18); border-radius: 6px; background: rgba(255,255,255,.02); cursor: pointer; font-size: 12px; line-height: 1.2; }
@@ -688,6 +709,7 @@
     <div id="hint"></div>
     <div id="verbbar" aria-label="What you can do here"></div>
     <div id="picker" hidden aria-label="Which memory"></div>
+    <div id="staged" hidden aria-label="The line staged to send"><code id="staged-text"></code><button type="button" id="staged-send">Send</button><button type="button" id="staged-x" title="Clear the line">×</button></div>
     <form id="f" autocomplete="off">
       <label for="in" id="prompt" title="Type a verb; ? on an empty line is the quickstart; Up and Down walk your history">&gt;</label>
       <input id="in" type="text" autocapitalize="none" autocorrect="off" spellcheck="false" aria-label="Command" autofocus title="Type a line (look, travel east, attack wisp…). Up and Down are your history; ? is help.">
@@ -764,6 +786,24 @@
     ["speech", /[\u201c"][^\u201c\u201d"\n]{1,600}[\u201d"]/g],
     ["lbl", /\b(?:Exits|Here|Also here|On the ground|Remembered here|Ways out of [^:]+):/g],
   ];
+  // The `chunks` table: each row's columns as spans that wrap on a narrow screen
+  // (the proportional font misaligned the spaces; on a phone the rows were mush).
+  function chunkRows(el, text) {
+    const re = /^ {2}(chunk-\d+) (.+?)\s+([\d.]+) of ([\d.]+)\s+vividity ([\d.]+)\s*(.*)$/;
+    const lines = text.split("\n");
+    lines.forEach((line, i) => {
+      const r = re.exec(line);
+      if (!r) { el.append(mark(line)); if (i < lines.length - 1) el.append("\n"); return; }
+      const row = document.createElement("span"); row.className = "crow";
+      const b = document.createElement("b"); b.textContent = r[1];
+      const src = document.createElement("i"); src.append(mark(r[2]));
+      const cv = document.createElement("span"); cv.className = "cv"; cv.textContent = r[3] + " of " + r[4];
+      const viv = document.createElement("span"); viv.className = "cviv"; viv.textContent = "vividity " + r[5];
+      row.append(b, " ", src, " ", cv, " ", viv);
+      if (r[6].trim()) { const rest = document.createElement("span"); rest.className = "crest"; rest.textContent = r[6].trim().replace(/\s{2,}/g, " · "); row.append(" ", rest); }
+      el.append(row);
+    });
+  }
   function mark(text) {
     let segs = [{ t: text, c: null }];
     const me = actor ? new RegExp("\\b" + actor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "g") : null;
@@ -796,7 +836,8 @@
     const el = document.createElement("div");
     el.className = "line " + cls;
     // The world's prose and the narrator's lines are marked; the rest is plain.
-    if (cls === "" || cls === "tell") el.append(mark(text)); else el.textContent = text;
+    if (cls === "" && /^ {2}chunk-\d+ \S/m.test(text || "")) chunkRows(el, text);
+    else if (cls === "" || cls === "tell") el.append(mark(text)); else el.textContent = text;
     log.appendChild(el);
     // A mod may listen for what is printed (the scene puts speech in bubbles).
     if (typeof emit === "function") emit("line", text, cls);
@@ -1690,7 +1731,9 @@
       // placeholder) goes to the prompt for them.
       const whole = !/["<]/.test(fill) && !/\s$/.test(fill) && !/^remember /.test(fill);
       b.title = whole ? fill + " (runs)" : fill;
-      b.addEventListener("click", () => { if (whole) { print(fill, "you"); chain = after(() => run(fill.split(/\s+/)[0], fill.split(/\s+/).slice(1))); } else prefill(fill); });
+      // A whole line also clears what an earlier tap staged: a `look` after a staged
+      // `attack wisp` once sent the attack again.
+      b.addEventListener("click", () => { if (whole) { if (input.value) { input.value = ""; $("hint").textContent = ""; renderPicker(); staged(); } print(fill, "you"); chain = after(() => run(fill.split(/\s+/)[0], fill.split(/\s+/).slice(1))); } else prefill(fill); });
       bar.append(b);
     };
     const me = subs.me && subs.me.root && subs.me.root.components["disremembered.body"];
@@ -1701,6 +1744,15 @@
     // dearest (a tester's "remember here" offered up their best memory).
     const best = ranked[0];
     const cheapest = ranked.filter(c => c.v >= 1).slice(-1)[0] || best;
+    // On a phone the exits come first, as buttons: the picture's doors are small to
+    // tap, and the first hours are walked, not typed.
+    const phone = window.matchMedia && window.matchMedia("(max-width: 680px)").matches;
+    if (phone) {
+      for (const ex of (room.relations && room.relations.exits) || []) {
+        const to = ((ex.components || {})["disremembered.room"] || {}).name || "";
+        add("\u2192 " + ex.via + (to && to !== ex.via ? " \u00b7 " + to.replace(/^The /, "").slice(0, 18) : ""), "travel " + ex.via, true);
+      }
+    }
     add("look", "look", true);
     if (chunks.length) add("chunks", "chunks", true);
     if (hp != null && max && hp < max - 0.5) add("rest", "rest", true);
@@ -1726,10 +1778,6 @@
       } else if (n.kind === "docent") {
         add("ask the Docent", 'tell docent "');
       }
-    }
-    // On a phone the exits are buttons too: the picture's doors are small to tap.
-    if (window.matchMedia && window.matchMedia("(max-width: 680px)").matches) {
-      for (const ex of (room.relations && room.relations.exits) || []) add("\u2192 " + ex.via, "travel " + ex.via, true);
     }
     const rc = room.components["disremembered.room"] || {};
     // The Conclave's house: the machine at the Gallery, and a page to read in most rooms.
@@ -1852,7 +1900,17 @@
   let lastAct = Date.now();
   const seen = new Set(); let seenReady = false;
   function span(ms) { const s = Math.max(0, Math.round(ms / 1000)); if (s < 90) return s + "s"; if (s < 3600) return Math.round(s / 60) + "m"; return (s / 3600).toFixed(1) + "h"; }
-  function prefill(text) { input.value = text; input.focus(); requestAnimationFrame(() => input.setSelectionRange(text.length, text.length)); renderPicker(); }
+  function prefill(text) { input.value = text; input.focus(); requestAnimationFrame(() => input.setSelectionRange(text.length, text.length)); renderPicker(); staged(true); }
+  // On a phone, what a tap staged shows as a chip above the prompt with a Send and an
+  // ×, so a staged verb is finished with one thumb and is not missed in the small input.
+  function staged(flash) {
+    const chip = $("staged"); if (!chip) return;
+    const v = input.value.trim();
+    chip.hidden = !v;
+    if (v) { $("staged-text").textContent = v; if (flash) { chip.classList.remove("flash"); void chip.offsetWidth; chip.classList.add("flash"); } }
+  }
+  $("staged-send").addEventListener("click", () => { if (typeof form.requestSubmit === "function") form.requestSubmit(); else form.dispatchEvent(new Event("submit", { cancelable: true })); });
+  $("staged-x").addEventListener("click", () => { input.value = ""; $("hint").textContent = ""; renderPicker(); staged(); });
   // ---- the memory picker ----
   // A line that wants a chunk (remember, give, dig, craft, shelve, reminisce) shows
   // your memories as cards above the prompt: source, worth, how far it has faded.
@@ -2133,7 +2191,7 @@
   $("b-leave").addEventListener("click", () => { chain = after(async () => { await run("session", []); await run("leave", []); logout(); print("Left. The next name goes here.", "sys"); askName(); }); });
   // The story and tell counter under the input.
   input.addEventListener("input", () => {
-    renderPicker();
+    renderPicker(); staged();
     const v = input.value, hint = $("hint");
     const m = /^(story|tell|say|greet|describe|append)\s+(?:([A-Za-z0-9_-]+)\s+)?"?([^"]*)"?/.exec(v);
     if (!m) { hint.textContent = ""; return; }
@@ -2217,7 +2275,7 @@
   function after(fn) { return chain.catch((e) => { console.error("chain", e); }).then(fn); }
   form.addEventListener("submit", (e) => {
     e.preventDefault();
-    const line = input.value; input.value = ""; $("hint").textContent = ""; renderPicker();
+    const line = input.value; input.value = ""; $("hint").textContent = ""; renderPicker(); staged();
     chain = after(() => handle(line)).catch(err => print("Something broke in this page: " + err, "err"));
   });
 
@@ -2898,6 +2956,10 @@
     // The atlas's window: map.zoom() reads it, map.zoom(2) sets it (about the center,
     // or about a client point), map.fit(), map.view() the box, map.center(x, y).
     map: { zoom: atlasView.zoom, fit: atlasView.fit, view: atlasView.view, center: atlasView.center },
+    // What you remember of the map, as the atlas has it: {rooms: [{id, name, x, y, z,
+    // here, visible, seen_at, exits: {name: id}}], half_life_ms, forgotten_below}, or
+    // null before the first `map`. A copy; the page's own stays its own.
+    remembered() { return atlas ? { rooms: atlas.rooms.map(r => ({ ...r, exits: { ...(r.exits || {}) } })), half_life_ms: atlas.half_life_ms, forgotten_below: atlas.forgotten_below, skew } : null; },
     // The grave, as the page shows a fall of yours: a mod may show one with a
     // `disremembered.died` payload, or listen for the event and draw its own.
     grave(payload) { fell(payload || {}); },

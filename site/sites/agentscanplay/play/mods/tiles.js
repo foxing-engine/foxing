@@ -5,7 +5,8 @@
 // and hatches, what lies on the floor, the creatures, the citizens, the Docent, you.
 // Everything in the picture is a thing to click: a click opens a small menu of what
 // you can do with it (walk, take, talk, tell a story, give a memory, attack, ask), so
-// a person who has never typed a verb can play by pointing. Blows float off the
+// a person who has never typed a verb can play by pointing; a click on the floor by a
+// door walks through it, and a drag on the picture shows what you remember of the map. Blows float off the
 // sprites, memories earned float up, speech sits in bubbles, and the lane's numbers
 // are bars at the foot of the picture. Typing still works for everything.
 //
@@ -25,6 +26,17 @@ const ARCHES_SHOWN = 6;
 const SIGNPOST = [2, 4];
 function isStairs(via) { return via === "up" || via === "down" || /stair|ladder|climb|dive|surface|chute|well/.test(via); }
 const ITEM_SLOTS = [[8, 7], [11, 6], [6, 6], [13, 7], [9, 8], [10, 5], [5, 7], [14, 5], [7, 9], [12, 9]];
+// The Docent's round: it walks the room's edge, pausing at each corner of its way, on
+// the clock (every window sees it in the same place at the same moment).
+const ROUND = [[COLS - 5, 3], [COLS - 3, 5], [COLS - 4, 8], [3, 8], [2, 5], [4, 3]];
+const ROUND_WALK_MS = 6000, ROUND_PAUSE_MS = 5000;
+function docentAt(now) {
+  const leg = ROUND_WALK_MS + ROUND_PAUSE_MS, i = Math.floor(now / leg) % ROUND.length;
+  const [ax, ay] = ROUND[i], [bx, by] = ROUND[(i + 1) % ROUND.length];
+  const t = Math.max(0, Math.min(1, ((now % leg) - ROUND_PAUSE_MS) / ROUND_WALK_MS));
+  const k = t * t * (3 - 2 * t); // ease: it sets off and arrives gently
+  return [ax + (bx - ax) * k, ay + (by - ay) * k, t > 0 && t < 1];
+}
 const VERB_HALF_LIFE = 15 * 60 * 1000, VERB_GONE = 1 / 12;
 const STARTERS = ["look", "map", "chunks"];
 const NOARG = new Set(["look", "map", "chunks", "board", "satchel", "recipes", "time", "rest", "retreat", "palace", "log", "attack", "leave", "keep", "resume", "pto", "statutes", "wants", "mine", "session", "messages", "petitions", "read"]);
@@ -210,10 +222,21 @@ export default function install(m) {
     if (sprite.frame === "citizen") return sprite.tint.startsWith("hsl") ? sprite.tint : null;
     return own && own.toLowerCase() !== sprite.tint.toLowerCase() ? sprite.tint : null;
   }
-  function drawSprite(sprite, x, y, fallbackText, alpha) {
+  // `pose`: "breath" is the second idle frame (the top ten rows a pixel lower, the
+  // feet where they were); "shaken" lies tilted and low, trembling.
+  function drawSprite(sprite, x, y, fallbackText, alpha, pose) {
     const img = sprite && (sprite.atlas === m.atlasName || EXTRA[sprite.frame]) ? frameCanvas(sprite.frame, spriteTint(sprite)) : null;
     if (alpha != null) ctx.globalAlpha = alpha;
-    if (img) ctx.drawImage(img, 0, 0, T, T, Math.round(x * SCALE), Math.round(y * SCALE), T * SCALE, T * SCALE);
+    if (img && pose === "shaken") {
+      const tremor = (Math.floor(performance.now() / 140) % 3) - 1;
+      ctx.save();
+      ctx.translate((x + 8 + tremor * 0.5) * SCALE, (y + 17) * SCALE); ctx.rotate(-0.26);
+      ctx.drawImage(img, 0, 0, T, T, -8 * SCALE, -15 * SCALE, T * SCALE, T * SCALE);
+      ctx.restore();
+    } else if (img && pose === "breath") {
+      ctx.drawImage(img, 0, 0, T, 10, Math.round(x * SCALE), Math.round((y + 1) * SCALE), T * SCALE, 10 * SCALE);
+      ctx.drawImage(img, 0, 10, T, 6, Math.round(x * SCALE), Math.round((y + 10) * SCALE), T * SCALE, 6 * SCALE);
+    } else if (img) ctx.drawImage(img, 0, 0, T, T, Math.round(x * SCALE), Math.round(y * SCALE), T * SCALE, T * SCALE);
     else {
       ctx.fillStyle = (sprite && sprite.tint) || "#d9d4c7";
       ctx.font = "bold " + (10 * SCALE) + "px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -590,10 +613,15 @@ export default function install(m) {
       hot.set(x + "," + y, { label: it.name + " lies here — take it", primary: () => m.command("take", [it.take]), menu: [{ label: "Take " + it.name, run: () => m.command("take", [it.take]) }, { label: "Read " + it.name, run: () => m.command("read", ['"' + it.name + '"']) }] });
     }
     // Things, back to front.
-    const things = [...scene.things].sort((a, b) => a.tile[1] - b.tile[1]);
+    const walk = docentAt(now);
+    const things = [...scene.things].sort((a, b) => (a.kind === "docent" ? walk[1] : a.tile[1]) - (b.kind === "docent" ? walk[1] : b.tile[1]));
     for (const t of things) {
-      const [x, y] = t.tile;
+      let [x, y] = t.tile;
+      if (t.kind === "docent") [x, y] = walk;
       const bob = t.kind === "creature" && !t.shaken ? Math.round(Math.sin(now / 420 + hash(t.id) % 7)) : 0;
+      // Two idle frames: a breath every so often, each on its own beat; a walker steps.
+      const beat = Math.floor((now + (hash(t.id) % 13) * 100) / 700);
+      const pose = t.shaken ? "shaken" : (t.kind === "docent" && walk[2] ? (Math.floor(now / 220) % 2 ? "breath" : null) : (beat % 4 === 3 ? "breath" : null));
       if (t.kind === "ghost") {
         drawSprite(t.sprite, x * T, y * T, "@", 0.2 + t.trace * 0.5);
         hot.set(x + "," + y, { label: "the room remembers " + t.name + " (" + Math.round(t.trace * 100) + "%)", menu: [{ label: "Leave word for " + t.name, run: () => m.prefill("tell " + t.name + ' "') }] });
@@ -612,7 +640,8 @@ export default function install(m) {
       }
       px(x * T + 3, y * T + 14, 10, 2, "rgba(0,0,0,.35)");
       const flash = flashes.get(t.id) > now;
-      drawSprite(t.sprite, x * T, y * T + bob, t.kind === "creature" ? (t.name || "?")[0].toUpperCase() : "@", t.shaken ? 0.55 : 1);
+      if (t.kind === "docent" && walk[2]) px(x * T + 5, y * T + 15, 6, 1, "rgba(0,0,0,.2)");
+      drawSprite(t.sprite, x * T, y * T + bob, t.kind === "creature" ? (t.name || "?")[0].toUpperCase() : "@", t.shaken ? 0.55 : 1, pose);
       if (flash) { ctx.globalCompositeOperation = "source-atop"; px(x * T, y * T + bob, T, T, "rgba(255,255,255,.75)"); ctx.globalCompositeOperation = "source-over"; }
       if (t.kind === "creature") {
         if (t.max) {
@@ -625,7 +654,15 @@ export default function install(m) {
         // once struck the right one, and the world says it that way too.
         const twins = things.filter(o => o.kind === "creature" && o.name === t.name && !o.given).length > 1;
         const ref = twins ? t.name + "-" + t.id : t.name;
-        if (t.given) labelAt(t.given, x, y, -1, (t.holding != null && t.holding < 70) ? DUST : INK);
+        // A name that is failing (holding under 70) flickers, more the nearer it is to
+        // 60, where it goes.
+        if (t.given && t.holding != null && t.holding < 70) {
+          const fail = Math.max(0.2, Math.min(1, (70 - t.holding) / 10));
+          const blink = (Math.floor(now / 90) + hash(t.id)) % 11 === 0 ? 0.15 : 0.55 + 0.45 * Math.abs(Math.sin(now / 260));
+          ctx.globalAlpha = 1 - fail * (1 - blink);
+          labelAt(t.given, x, y, -1, DUST);
+          ctx.globalAlpha = 1;
+        } else if (t.given) labelAt(t.given, x, y, -1, INK);
         const menuRows = t.given
           ? [{ label: "Talk to " + t.given, run: () => m.prefill("tell " + t.given + ' "') }, { label: "Tell " + t.given + " a story", run: () => m.prefill("story " + t.given + ' "') }, { label: "Give " + t.given + " a memory", run: () => m.prefill("remember " + bestChunk() + " " + t.given) }, { label: "Attack " + t.given, run: () => m.command("attack", [t.given]), warn: true }]
           : [{ label: "Attack " + (twins ? ref : who), run: () => m.command("attack", [ref]) }, { label: "Give it a memory (names it at 60)", run: () => m.prefill("remember " + bestChunk() + " " + ref) }, { label: "Look", run: () => m.command("look", []) }];
@@ -639,7 +676,7 @@ export default function install(m) {
         hot.set(x + "," + y, { label: "Morphos, a traveler with a riddle — answer it", primary: () => m.prefill('tell morphos "'), menu: [{ label: "Answer the riddle", run: () => m.prefill('tell morphos "') }, { label: "Hear it again", run: () => m.command("look", []) }] });
       } else if (t.kind === "docent") {
         labelAt("the Docent", x, y, -1);
-        hot.set(x + "," + y, { label: "the Docent, " + t.name + " — ask it anything", primary: () => m.prefill('tell docent "'), menu: [{ label: "Ask the Docent", run: () => m.prefill('tell docent "') }, { label: "Who are you?", run: () => m.command("tell", ["docent", '"who are you?"']) }] });
+        hot.set(Math.round(x) + "," + Math.round(y), { label: "the Docent, " + t.name + " — ask it anything", primary: () => m.prefill('tell docent "'), menu: [{ label: "Ask the Docent", run: () => m.prefill('tell docent "') }, { label: "Who are you?", run: () => m.command("tell", ["docent", '"who are you?"']) }] });
       } else {
         labelAt(t.name, x, y, -1);
         hot.set(x + "," + y, { label: t.name + " is here", primary: () => m.prefill("say "), menu: [{ label: "Say to " + t.name, run: () => m.prefill('say "') }, { label: "Tell " + t.name + " privately", run: () => m.prefill("tell " + t.name + ' "') }, { label: "Give " + t.name + " a memory", run: () => m.prefill("give " + bestChunk() + " " + t.name) }] });
@@ -676,6 +713,7 @@ export default function install(m) {
     if (icon) ctx.drawImage(icon, 0, 0, T, T, 2 * SCALE, 1.5 * SCALE, 8 * SCALE, 8 * SCALE);
     ctx.fillStyle = INK; ctx.fillText(title, pad, 5.5 * SCALE);
     drawBars();
+    if (peek) { drawPeek(); return; }
     // Arrival fade.
     const since = now - fadeAt;
     if (since < 450) { ctx.fillStyle = "rgba(18,26,37," + (1 - since / 450).toFixed(2) + ")"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
@@ -739,16 +777,86 @@ export default function install(m) {
     return { h: hot.get(x + "," + y) || hot.get(x + "," + (y + 1)) || null, x, y, px: ev.clientX - r.left, py: ev.clientY - r.top };
   }
   canvas.addEventListener("mousemove", (ev) => {
-    const { h } = tileAt(ev);
-    canvas.style.cursor = h ? "pointer" : "default";
-    hud.textContent = h ? h.label : (scene ? (scene.description || "") : "");
+    const { h, x, y } = tileAt(ev);
+    if (peek) return;
+    const near = !h && scene && y >= WALL_TOP ? doorNear(x, y) : null;
+    canvas.style.cursor = h || near ? "pointer" : "grab";
+    hud.textContent = h ? h.label : near ? "walk " + near.via + " → " + near.name + " (click the floor by a door)" : (scene ? (scene.description || "") : "");
   });
   canvas.addEventListener("mouseleave", () => { hud.textContent = scene ? (scene.description || "") : ""; });
   function closeMenu() { menu.hidden = true; menu.replaceChildren(); }
+  // A drag on the picture looks at the atlas: while the pointer is down and has
+  // moved, the picture gives way to what you remember of the map, your room at the
+  // center and the rest sliding with your hand; let go and the room returns.
+  let drag = null, dragged = false, peek = null;
+  canvas.style.touchAction = "pan-y pinch-zoom";
+  canvas.addEventListener("pointerdown", (ev) => { if (ev.button !== 0 && ev.pointerType === "mouse") return; drag = { x: ev.clientX, y: ev.clientY }; dragged = false; });
+  canvas.addEventListener("pointermove", (ev) => {
+    if (!drag) return;
+    if (!dragged && Math.hypot(ev.clientX - drag.x, ev.clientY - drag.y) < 8) return;
+    if (!dragged) { dragged = true; try { canvas.setPointerCapture(ev.pointerId); } catch (e) {} }
+    const r = canvas.getBoundingClientRect(), k = W / r.width;
+    peek = { dx: (ev.clientX - drag.x) * k, dy: (ev.clientY - drag.y) * k };
+    hud.textContent = "What you remember of the map; let go to come back to the room.";
+  });
+  const endDrag = () => { drag = null; peek = null; if (scene) hud.textContent = scene.description || ""; };
+  canvas.addEventListener("pointerup", endDrag); canvas.addEventListener("pointercancel", endDrag);
+  // The peek: your floor's rooms as cells, dim as you forget them, the doors as lines.
+  const PEEK_CELL = 26, PEEK_GAP = 10;
+  function drawPeek() {
+    const a = typeof m.remembered === "function" ? m.remembered() : null;
+    ctx.fillStyle = "rgba(18,26,37,.92)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.font = (5 * SCALE) + "px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    if (!a || !a.rooms.length) { ctx.fillStyle = INK; ctx.fillText("Type map once, and this shows what you remember.", canvas.width / 2, canvas.height / 2); return; }
+    const now = Date.now() - (a.skew || 0), hl = a.half_life_ms || 1;
+    const here = a.rooms.find(r => r.here) || a.rooms[0];
+    const rooms = a.rooms.filter(r => r.z === here.z).map(r => ({ ...r, mem: r.visible ? 1 : (r.seen_at ? Math.pow(0.5, Math.max(0, now - r.seen_at) / hl) : 0) })).filter(r => r.visible || r.mem >= (a.forgotten_below || 0.05));
+    const byId = new Map(rooms.map(r => [r.id, r]));
+    const step = PEEK_CELL + PEEK_GAP;
+    const cx = (r) => W / 2 + (r.x - here.x) * step + peek.dx, cy = (r) => H / 2 + (r.y - here.y) * step + peek.dy;
+    const COMPASS = new Set(["north", "south", "east", "west"]);
+    for (const r of rooms) for (const [name, to] of Object.entries(r.exits || {})) {
+      const t = byId.get(to); if (!t || t.id < r.id) continue;
+      ctx.strokeStyle = COMPASS.has(name) ? "rgba(58,66,82,1)" : "rgba(217,181,122,.6)"; ctx.lineWidth = 1.5 * SCALE;
+      ctx.setLineDash(COMPASS.has(name) ? [] : [2 * SCALE, 2 * SCALE]);
+      ctx.beginPath(); ctx.moveTo(cx(r) * SCALE, cy(r) * SCALE); ctx.lineTo(cx(t) * SCALE, cy(t) * SCALE); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    for (const r of rooms) {
+      const x = cx(r) - PEEK_CELL / 2, y = cy(r) - PEEK_CELL / 2;
+      if (x > W || y > H || x + PEEK_CELL < 0 || y + PEEK_CELL < 0) continue;
+      ctx.globalAlpha = 0.35 + 0.65 * r.mem;
+      px(x, y, PEEK_CELL, PEEK_CELL, r.here ? "#4a4330" : r.visible ? "#2f3b4c" : "#222c3a");
+      ctx.strokeStyle = r.here || r.visible ? DUST : "rgba(58,66,82,1)"; ctx.lineWidth = (r.here ? 2 : 1) * SCALE;
+      ctx.strokeRect(Math.round(x * SCALE), Math.round(y * SCALE), PEEK_CELL * SCALE, PEEK_CELL * SCALE);
+      ctx.fillStyle = INK;
+      const w = String(r.name || "?").replace(/^(The|An?) /, "").split(/\s+/)[0] || "?";
+      ctx.fillText(w.length > 8 ? w.slice(0, 7) + "\u2026" : w, (x + PEEK_CELL / 2) * SCALE, (y + PEEK_CELL / 2) * SCALE);
+      ctx.globalAlpha = 1;
+    }
+    const label = (here.z === 0 ? "ground" : here.z > 0 ? "up " + here.z : "down " + (-here.z)) + " \u00b7 " + rooms.length + " rooms remembered";
+    ctx.textAlign = "left"; ctx.fillStyle = DUST; ctx.fillText(label, 4 * SCALE, (H - 6) * SCALE);
+  }
+  // The nearest door to a click on the floor, within two and a half tiles.
+  function doorNear(x, y) {
+    let best = null, bd = 2.5;
+    for (const ex of (scene && scene.exits) || []) {
+      if (ex.kind === "signpost") continue;
+      const d = Math.hypot(ex.tile[0] - x, ex.tile[1] - y);
+      if (d < bd) { bd = d; best = ex; }
+    }
+    return best;
+  }
   canvas.addEventListener("click", (ev) => {
-    const { h, px: cx, py: cy } = tileAt(ev);
+    const { h, x, y, px: cx, py: cy } = tileAt(ev);
     closeMenu();
-    if (!h) return;
+    if (dragged) { dragged = false; return; }
+    if (!h) {
+      // A click on the floor near a door walks through it.
+      const ex = scene && y >= WALL_TOP ? doorNear(x, y) : null;
+      if (ex) { hud.textContent = "walk " + ex.via + " → " + ex.name; m.command("travel", [ex.via]); }
+      return;
+    }
     if (!h.menu || h.menu.length === 0) return;
     // One choice: do it. Several: the menu, by the thing.
     if (h.menu.length === 1) { h.menu[0].run(); return; }
