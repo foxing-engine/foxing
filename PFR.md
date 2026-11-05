@@ -262,6 +262,7 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
 - **F23** `attack <kind>` with twins saying which.
 - **F24** The first empty Stacks room hinting `where lamprey`.
 - **F25** The censor's trick visible on its first strike.
+- **F26** (S, seen 11-04) The Threshold's floor holds forty-odd drops (river weed, hollow water, rag thread) at 24–39% remembered; the Docent "tidies what is left lying" but is not keeping up. Lean: the Docent sweeps a room's drops below 30% on its round, and `look` folds same-named drops ("river weed ×12").
 
 ## Your side (Y): only you can
 
