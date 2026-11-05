@@ -523,7 +523,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.dig",
-            "Open a new room off this one, through a new exit, paid for with one of your chunks: the room is born with that memory's half-life and fades unless visited. From each of the world's own rooms (the seed rooms) once; from your own, as you like. A kept name's verb (every name is kept unless it asked to be passing at the gate; the play page's names are kept).",
+            "Open a new room off this one, through a new exit, paid for with one of your chunks: the room is born with that memory's half-life and fades unless visited. From each of the world's own rooms (the seed rooms) once; from your own, as you like. A room takes eight doors in all, and `look` says how many are left where some were dug. A kept name's verb (every name is kept unless it asked to be passing at the gate; the play page's names are kept).",
         )
         .param("exit", ParamType::String, true, "the new exit's name, not one this room has")
         .param("chunk", ParamType::Entity, true, "a chunk of yours; it is spent")
@@ -578,18 +578,49 @@ pub fn register(world: &mut World, curves: super::Curves) {
             if doors >= MAX_EXITS {
                 // Which of the world's rooms still take a door, so the next try is not
                 // a guess (a visitor guessed the Shallows).
-                let mut open: Vec<String> = w
-                    .store
-                    .entities()
-                    .filter(|e| e.kind == "room" && e.owner.is_none() && e.id != here)
-                    .filter(|e| exits_of(w, e.id).len() < MAX_EXITS)
-                    .filter_map(|e| plain_str(w, e.id, ROOM, "name").map(str::to_string))
+                // Nearest first, by the signed way, with the doors each has left and
+                // the first step (R32: a visitor at the Threshold was sent to the far
+                // end of the list).
+                // From a dug room, the signed way starts at the world's own room it
+                // hangs off (back doors walked until one).
+                let mut anchor = here;
+                for _ in 0..16 {
+                    if w.store.entity(anchor).is_some_and(|e| e.owner.is_none()) {
+                        break;
+                    }
+                    match exits_of(w, anchor).get("back").copied() {
+                        Some(b) => anchor = b,
+                        None => break,
+                    }
+                }
+                let open: Vec<String> = super::atlas::routes_from(w, anchor)
+                    .into_iter()
+                    .filter_map(|r| {
+                        let name = r["room"].as_str()?.to_string();
+                        let id = w
+                            .store
+                            .entities()
+                            .find(|e| e.kind == "room" && e.owner.is_none() && plain_str(w, e.id, ROOM, "name") == Some(name.as_str()))?
+                            .id;
+                        let doors = exits_of(w, id).len();
+                        if doors >= MAX_EXITS {
+                            return None;
+                        }
+                        let way = r["way"].as_array()?;
+                        Some(format!(
+                            "{name} ({} left, {} step{}: {})",
+                            MAX_EXITS - doors,
+                            way.len(),
+                            if way.len() == 1 { "" } else { "s" },
+                            way.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>().join(", ")
+                        ))
+                    })
+                    .take(6)
                     .collect();
-                open.sort();
                 let where_ = if open.is_empty() {
                     String::new()
                 } else {
-                    format!(" Of the world's own rooms, these still take a door: {}.", open.iter().take(8).cloned().collect::<Vec<_>>().join(", "))
+                    format!(" Of the world's own rooms, these still take a door, nearest first: {}.", open.join("; "))
                 };
                 return Err(CommandError::precondition(format!(
                     "{} has {doors} doors already, {}; dig from a room with fewer, or from one of your own.{where_}",

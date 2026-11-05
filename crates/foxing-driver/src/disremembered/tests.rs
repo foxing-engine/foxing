@@ -9854,8 +9854,9 @@ fn the_wistful_trail_has_a_bog_a_wicket_and_a_lookout() {
         !w.jobs.has(trail::JOB_BOG, |p| p["citizen"] == dave.0),
         "crossed: the clock stops"
     );
-    // Back in, carrying something, and lingering.
+    // Back in, carrying something (in the satchel, as things are), and lingering.
     ok(&mut w, "dave", "travel", json!(["west"]));
+    let sat = craft::satchel(&mut w, "dave", dave).unwrap();
     let item = w.store.allocate_id();
     w.record(
         Actor::Driver,
@@ -9863,7 +9864,7 @@ fn the_wistful_trail_has_a_bog_a_wicket_and_a_lookout() {
             id: item,
             kind: "item".into(),
             owner: None,
-            parent: Some(dave),
+            parent: Some(sat),
             scopes: vec![],
         },
     )
@@ -9910,6 +9911,40 @@ fn the_wistful_trail_has_a_bog_a_wicket_and_a_lookout() {
         look.summary.contains("tyler in The Sighing Meadow"),
         "{}",
         look.summary
+    );
+    // Said in the Hush, words leave and arrive elsewhere on the trail a minute later
+    // as a whisper, to whoever stands there; the sayer is told where they went.
+    admin(&mut w, "dave", "bring", json!(["dave", "trail-hush"]));
+    let out = ok(&mut w, "dave", "say", json!(["is anyone there"]));
+    assert!(
+        out.summary.contains("Your words go soft"),
+        "{}",
+        out.summary
+    );
+    assert!(w.jobs.has(trail::JOB_WHISPER, |p| p["from"] == "dave"));
+    let head = events(&w);
+    w.fixed_now = Some(w.now().plus(Duration(trail::WHISPER_MS + 1000)));
+    w.tick();
+    let said = narrative(&w, "dave", head);
+    assert!(
+        said.iter()
+            .any(|l| l.contains("Your whisper from the Hush arrives in")),
+        "{said:?}"
+    );
+    let heard = narrative(&w, "tyler", head);
+    let whispered = w
+        .recent_events(200)
+        .iter()
+        .any(|e| e.kind == trail::WHISPERED && e.payload["from"] == "dave");
+    assert!(whispered);
+    // tyler is in the Meadow: told if the whisper went there, and only then.
+    let to_meadow = said.iter().any(|l| l.contains("The Sighing Meadow"));
+    assert_eq!(
+        heard
+            .iter()
+            .any(|l| l.contains("A whisper comes up out of the ground")),
+        to_meadow,
+        "{said:?} {heard:?}"
     );
     // The Hollow Way's footpads ambush; the meadow's sighs do not.
     let hollow = rooms::room_by_key(&w, "trail-hollow-way").unwrap();
@@ -10007,4 +10042,65 @@ fn faded_drops_fold_in_look_and_the_docent_sweeps_them_into_the_midden() {
         "{said:?}"
     );
     assert_eq!(docent::tidy(&mut w).unwrap(), 1, "the last one next pass");
+}
+
+#[test]
+fn look_tells_a_digger_what_is_left_and_the_door_cap_refusal_points_nearest_first() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 30, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "dig", json!(["cellar", c, "Dave's Cellar"]));
+    // The seed room says what it has left and the newest door (R14).
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("5 of 8 doors left here; the newest dug: cellar."),
+        "{}",
+        look.summary
+    );
+    // The dug room, to its owner, says how it is remembered; to another, not (R14).
+    ok(&mut w, "dave", "travel", json!(["cellar"]));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("Yours: 100% remembered, halving every")
+            && look.summary.contains("7 of 8 doors left"),
+        "{}",
+        look.summary
+    );
+    ok(&mut w, "tyler", "travel", json!(["cellar"]));
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    assert!(!look.summary.contains("Yours:"), "{}", look.summary);
+    // Fill the cellar's doors; the refusal names the world's rooms with doors left,
+    // nearest first from the room the cellar hangs off, with the way (R32).
+    for (i, name) in ["ash", "bay", "cob", "dun", "elm", "fir", "gum"]
+        .iter()
+        .enumerate()
+    {
+        let c = admin(&mut w, "dave", "earn", json!(["wisp", 30, 0.5]));
+        let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+        ok(&mut w, "dave", "dig", json!([name, c, format!("Room {i}")]));
+    }
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 30, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "dig",
+        json!(["one-more", c, "Too Many"]),
+    )
+    .unwrap_err();
+    let msg = err.to_string();
+    assert!(
+        msg.contains("nearest first: The Fogbank (5 left, 1 step: east)")
+            || msg.contains("nearest first: Lantern Row (5 left, 1 step: north)"),
+        "{msg}"
+    );
+    // In the test world the Threshold is the anchor: it has three doors left itself
+    // and is not listed (you stand off it, not in it), its neighbors are.
+    assert!(!msg.contains("The Threshold ("), "{msg}");
 }

@@ -78,7 +78,10 @@ pub fn register(world: &mut World) {
             };
             // A named creature spoken to by name answers.
             let answers = super::talk::overhear(w, room, &ctx.actor, &text)?;
-            let mut summary = format!("You say, \"{text}\" {heard}");
+            // In the Hush, what you say goes soft and arrives elsewhere on the trail
+            // a minute later, as a whisper.
+            let hushed = super::trail::hush(w, &ctx.actor, room, &text).map_err(internal)?;
+            let mut summary = format!("You say, \"{text}\" {heard}{}", hushed.as_deref().unwrap_or(""));
             for a in &answers {
                 summary.push(' ');
                 summary.push_str(a);

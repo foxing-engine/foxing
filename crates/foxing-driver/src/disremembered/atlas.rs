@@ -333,6 +333,27 @@ fn seen(world: &World, citizen: EntityId) -> BTreeMap<u64, i64> {
 }
 
 /// Mark a room seen by a citizen, now. Called wherever a room is described to them.
+/// The numbers a citizen's map gives its rooms, dealt once each in the order the
+/// rooms came into view and never moved: a visitor steering by "room 08" found it
+/// renumbered 12 after a walk (the legend once ranked rooms by distance each time).
+fn codes(world: &World, citizen: EntityId) -> BTreeMap<u64, u64> {
+    world
+        .store
+        .entity(citizen)
+        .and_then(|e| e.components.get(ATLAS))
+        .and_then(|c| c.fields.get("codes"))
+        .and_then(|f| match f {
+            Field::Plain(Value::Object(m)) => Some(m.clone()),
+            _ => None,
+        })
+        .map(|m| {
+            m.iter()
+                .filter_map(|(k, v)| Some((k.parse().ok()?, v.as_u64()?)))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 pub fn mark_seen(world: &mut World, actor: &str, room: EntityId) -> Result<(), CommandError> {
     let Some(f) = super::find_citizen(world, actor) else {
         return Ok(());
@@ -344,9 +365,40 @@ pub fn mark_seen(world: &mut World, actor: &str, room: EntityId) -> Result<(), C
         return Ok(());
     }
     m.insert(room.0, now);
+    // Codes: every room marked before this change, oldest first; then this room;
+    // then what is in sight from it, by exit name. A room keeps its number.
+    let mut codes = codes(world, f.citizen);
+    let mut next = codes.values().copied().max().unwrap_or(0) + 1;
+    let mut by_time: Vec<(i64, u64)> = m.iter().map(|(id, t)| (*t, *id)).collect();
+    by_time.sort();
+    let mut order: Vec<u64> = by_time.into_iter().map(|(_, id)| id).collect();
+    // The Threshold is 01 on every map: everyone began there.
+    if codes.is_empty() {
+        if let Some(a) = rooms::arrival(world) {
+            order.insert(0, a.0);
+        }
+    }
+    order.retain(|id| *id != room.0);
+    order.push(room.0);
+    order.extend(rooms::exits_of(world, room).values().map(|r| r.0));
+    for id in order {
+        if let std::collections::btree_map::Entry::Vacant(e) = codes.entry(id) {
+            e.insert(next);
+            next += 1;
+        }
+    }
     let obj: Map<String, Value> = m.iter().map(|(k, v)| (k.to_string(), json!(v))).collect();
     let mut fields = BTreeMap::new();
     fields.insert("seen".into(), Field::Plain(Value::Object(obj)));
+    fields.insert(
+        "codes".into(),
+        Field::Plain(Value::Object(
+            codes
+                .iter()
+                .map(|(k, v)| (k.to_string(), json!(v)))
+                .collect(),
+        )),
+    );
     world
         .record(
             Actor::Citizen(actor.to_string()),
@@ -533,9 +585,21 @@ pub fn remembered_map(
                     // Empty cells are dots, not spaces: a reply through the gate
                     // collapses whitespace, and the grid lost its columns.
                     vec![vec![" . ".to_string(); (x1 - x0 + 1) as usize]; (y1 - y0 + 1) as usize];
-                for (i, r) in in_window.iter().enumerate() {
+                // Each room's own number, dealt when it came into view; one that
+                // has none yet (in sight of a room walked before numbers were kept)
+                // takes the next free.
+                let dealt = codes(world, f.citizen);
+                let mut next = dealt.values().copied().max().unwrap_or(0) + 1;
+                for r in in_window.iter() {
                     let (x, y) = (r["x"].as_i64().unwrap_or(0), r["y"].as_i64().unwrap_or(0));
-                    let code = format!("{:02}", (i + 1) % 100);
+                    let n = match r["id"].as_u64().and_then(|id| dealt.get(&id)) {
+                        Some(n) => *n,
+                        None => {
+                            next += 1;
+                            next - 1
+                        }
+                    };
+                    let code = format!("{:02}", n % 100);
                     let mark = if r["here"] == true {
                         "@"
                     } else if r["visible"] == true {

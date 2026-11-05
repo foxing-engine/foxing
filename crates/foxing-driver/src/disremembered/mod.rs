@@ -255,7 +255,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("to", FieldKind::Plain, Visibility::Public)
             .field("set_by", FieldKind::Plain, Visibility::Public),
         // A citizen's memory of the map: room id to when they last stood in it.
-        ComponentSchema::new(atlas::ATLAS, 1).field("seen", FieldKind::Plain, Visibility::Owner),
+        ComponentSchema::new(atlas::ATLAS, 1)
+            .field("seen", FieldKind::Plain, Visibility::Owner)
+            .field("codes", FieldKind::Plain, Visibility::Owner),
         // A citizen's standing trade offers: `{to, mine, theirs, at}`.
         ComponentSchema::new(craft::OFFERS_COMPONENT, 1).field(
             "offers",

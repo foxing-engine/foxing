@@ -113,7 +113,10 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
             .unwrap_or_default();
         if let Some(s) = &story {
             want_said.push(if told {
-                format!("a story about {s}{turned} (you told it one this hour; another from you pays after the hour)")
+                let ready = super::exchange::ready_in(world, actor, e.id)
+                    .map(|ms| format!("ready in {}", super::combat::human(ms)))
+                    .unwrap_or_else(|| "after the hour".to_string());
+                format!("a story about {s}{turned} (you told it one this hour; another from you pays {ready})")
             } else {
                 format!(
                     "a story about {s}{turned} (pays double{})",
@@ -131,19 +134,28 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
         if want_said.is_empty() {
             continue;
         }
+        // A failing name is said here too: the errand is the reason to go, and the
+        // name going is the reason to go now (R15).
+        let level = mind::level(world, e.id);
+        let failing = if level < mind::FAILING_BELOW {
+            format!("; its name is failing at {:.0}", super::up(level))
+        } else {
+            String::new()
+        };
         lines.push(format!(
-            "{name} the {kind}, in {where_}{way_said}, wants {}{}.",
+            "{name} the {kind}, in {where_}{way_said}, wants {}{}{failing}.",
             want_said.join("; and "),
             if knows_you { "; it knows you" } else { "" }
         ));
         rows.push(json!({
             "creature": e.id.0, "name": name, "kind": kind, "room": room.map(|r| r.0), "room_name": where_,
             "way": way, "story": story, "word": word, "word_to": word_to, "knows_you": knows_you, "told_this_hour": told,
-            "level": mind::level(world, e.id),
+            "ready_in_ms": if told { super::exchange::ready_in(world, actor, e.id) } else { None },
+            "level": level, "failing": level < mind::FAILING_BELOW,
         }));
     }
     let summary = if lines.is_empty() {
-        "No named creature wants anything just now. Feed an unnamed one to sixty and it will."
+        "No named creature wants anything just now. Feed an unnamed one to sixty and it will: `remember <chunk> <creature>` gives it one of your memories, in its room (`look` says who is here; a wisp east of the Threshold is the usual first)."
             .to_string()
     } else {
         format!("What the named want:\n{}", lines.join("\n"))

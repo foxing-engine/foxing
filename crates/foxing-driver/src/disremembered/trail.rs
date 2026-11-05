@@ -123,12 +123,21 @@ fn bog(world: &mut World, payload: &Value) -> Result<(), String> {
     }
     // One carried thing, kept by the bog: it lies on the tussocks for whoever comes
     // back for it.
-    let carried: Vec<EntityId> = world
+    // What they carry lives in the satchel under them (the first night's bog looked
+    // under the citizen and found nothing to keep).
+    let satchel: Option<EntityId> = world
         .store
         .children(citizen)
-        .filter(|e| e.kind == "item")
-        .map(|e| e.id)
-        .collect();
+        .find(|e| e.kind == "satchel")
+        .map(|e| e.id);
+    let carried: Vec<EntityId> = satchel
+        .map(|s| {
+            super::craft::things_in(world, s)
+                .iter()
+                .filter_map(|t| t["id"].as_u64().map(EntityId))
+                .collect()
+        })
+        .unwrap_or_default();
     let kept = if carried.is_empty() {
         None
     } else {
@@ -246,6 +255,77 @@ pub fn look_line(world: &World, actor: &str, room: EntityId) -> Option<String> {
     }
 }
 
+pub const HUSH: &str = "trail-hush";
+pub const JOB_WHISPER: &str = "disremembered.whisper";
+pub const WHISPER_MS: i64 = 60 * 1000;
+/// A whisper from the Hush arrived: `{from, text, room, heard: [names]}`. Public.
+pub const WHISPERED: &str = "disremembered.whispered";
+
+/// Said in the Hush: the words go soft and leave; a minute later they arrive in
+/// another room of the trail as a whisper, to whoever stands there, and the one who
+/// said them is told where they went. Returns the line for the sayer's reply.
+pub fn hush(
+    world: &mut World,
+    actor: &str,
+    room: EntityId,
+    text: &str,
+) -> Result<Option<String>, String> {
+    if key_of(world, room) != Some(HUSH) {
+        return Ok(None);
+    }
+    let others: Vec<&str> = KEYS.iter().copied().filter(|k| *k != HUSH).collect();
+    let to_key = others[world.roll(others.len() as u32) as usize];
+    let Some(to) = super::rooms::room_by_key(world, to_key) else {
+        return Ok(None);
+    };
+    let due = world.now().plus(foxing_time::Duration(WHISPER_MS));
+    world.schedule(
+        JOB_WHISPER,
+        due,
+        json!({"from": actor, "text": text, "to": to.0}),
+    )?;
+    Ok(Some(" Your words go soft before they are out, and leave for somewhere else on the trail; in a minute they arrive there as a whisper, and you will hear where.".to_string()))
+}
+
+fn whisper(world: &mut World, payload: &Value) -> Result<(), String> {
+    let from = payload["from"].as_str().unwrap_or("").to_string();
+    let text = payload["text"].as_str().unwrap_or("").to_string();
+    let to = EntityId(payload["to"].as_u64().unwrap_or(0));
+    let Some(rname) = plain_str(world, to, ROOM, "name").map(str::to_string) else {
+        return Ok(());
+    };
+    let heard: Vec<String> = world
+        .store
+        .children(to)
+        .filter(|e| e.kind == "citizen" && super::presence::is_here(world, e.id))
+        .filter_map(|e| e.owner.clone())
+        .collect();
+    for who in &heard {
+        super::combat::narrate(
+            world,
+            who,
+            format!("A whisper comes up out of the ground, in {from}'s voice, from the Hush: \"{text}\""),
+        );
+    }
+    let _ = world.note(
+        Actor::Driver,
+        WHISPERED,
+        json!({"from": from, "text": text, "room": to.0, "room_name": rname, "heard": heard}),
+    );
+    let told = match heard.iter().filter(|h| **h != from).count() {
+        0 if heard.contains(&from) => format!("Your whisper from the Hush arrives in {rname}, where you now stand, and you hear yourself say it."),
+        0 => format!("Your whisper from the Hush arrives in {rname}; no one is there to hear it, and the grass has it."),
+        1 => format!("Your whisper from the Hush arrives in {rname}; {} hears it.", heard.iter().find(|h| **h != from).cloned().unwrap_or_default()),
+        n => format!("Your whisper from the Hush arrives in {rname}; {n} hear it."),
+    };
+    super::combat::narrate(world, &from, told);
+    Ok(())
+}
+
 pub fn register(world: &mut World) {
     world.on_job(JOB_BOG, Box::new(|w: &mut World, job| bog(w, &job.payload)));
+    world.on_job(
+        JOB_WHISPER,
+        Box::new(|w: &mut World, job| whisper(w, &job.payload)),
+    );
 }

@@ -380,7 +380,9 @@ banks at once and go through your pockets while you fight: a tenth off
 one chunk), the Wishing Well (one word cut into the rim), the Long
 Afternoon (a walled garden behind a wicket that asks for the well's
 word, `travel wicket "<word>"` once and it knows you; a gardener whose
-shears leave a bite that will not close), the Hush, the Bog of Second
+shears leave a bite that will not close), the Hush (what you `say` there
+leaves and arrives in another room of the trail a minute later, as a
+whisper to whoever stands there; you are told where it went), the Bog of Second
 Thoughts and the Lookout (a longsight that only looks, and a bench from
 which `look` says who stands where along the trail). The Bog is a
 shortcut and a trap: step in and `look` says how long you have; cross

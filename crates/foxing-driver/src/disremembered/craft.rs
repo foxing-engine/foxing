@@ -1686,15 +1686,54 @@ pub fn register(world: &mut World, curves: Curves) {
             let f = me(w, ctx)?;
             let s = satchel(w, &ctx.actor, f.citizen)?;
             let things = things_in(w, s);
-            let text = if things.is_empty() {
-                "Your satchel is empty. A creature that comes apart leaves something behind one time in three; take it, and recipes says what it makes.".to_string()
+            // "whole" where the memory is full: a bare line read as no figure (R6).
+            let line = |t: &Value| {
+                let l = item_line(t);
+                if t["memory"].as_f64().unwrap_or(1.0) >= 0.95 {
+                    l.replacen(')', ", whole)", 1)
+                } else {
+                    l
+                }
+            };
+            let mut text = if things.is_empty() {
+                "Your satchel is empty. A creature that comes apart leaves something behind by the fight's length; take it, and recipes says what it makes.".to_string()
             } else {
                 format!(
                     "You carry: {}.",
-                    things.iter().map(item_line).collect::<Vec<_>>().join(", ")
+                    things.iter().map(line).collect::<Vec<_>>().join(", ")
                 )
             };
-            Ok(Outcome::new(text, json!({"things": things})))
+            // Standing trade offers, yours and to you, with what is left of their ten
+            // minutes (R6).
+            let now = w.now().0;
+            let mut offers: Vec<String> = Vec::new();
+            for e in w.store.entities().filter(|e| e.kind == "citizen").map(|e| e.id).collect::<Vec<_>>() {
+                let who = super::plain_str(w, e, super::CITIZEN, "name").unwrap_or("?").to_string();
+                for o in offers_of(w, e) {
+                    let left = OFFER_MS - now.saturating_sub(o["at"].as_i64().unwrap_or(0));
+                    if left <= 0 {
+                        continue;
+                    }
+                    let to = o["to"].as_str().unwrap_or("?");
+                    if who != ctx.actor && to != ctx.actor {
+                        continue;
+                    }
+                    let mine = EntityId(o["mine"].as_u64().unwrap_or(0));
+                    let theirs = EntityId(o["theirs"].as_u64().unwrap_or(0));
+                    offers.push(format!(
+                        "{} offers {} for {} {} ({} left)",
+                        if who == ctx.actor { "you".to_string() } else { who.clone() },
+                        display(w, mine),
+                        if to == ctx.actor { "your".to_string() } else { format!("{to}'s") },
+                        display(w, theirs),
+                        super::combat::human(left)
+                    ));
+                }
+            }
+            if !offers.is_empty() {
+                text.push_str(&format!(" Standing offers: {}.", offers.join("; ")));
+            }
+            Ok(Outcome::new(text, json!({"things": things, "offers": offers})))
         }),
     );
 

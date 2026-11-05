@@ -48,6 +48,25 @@ pub fn heard_this_hour(world: &World, creature: EntityId) -> usize {
         .count()
 }
 
+/// How long until `actor`'s hour with `creature` turns: the time left on the newest
+/// paid story (none when nothing is on the clock).
+pub fn ready_in(world: &World, actor: &str, creature: EntityId) -> Option<i64> {
+    let now = world.now();
+    world
+        .recent_events(2000)
+        .iter()
+        .filter(|e| {
+            e.kind == STORY
+                && e.payload["from"] == actor
+                && e.payload["creature"] == creature.0
+                && e.payload["missed"] != true
+                && e.payload["struck"] != true
+                && now.since(e.at).0 < STORY_COOLDOWN_MS
+        })
+        .map(|e| STORY_COOLDOWN_MS - now.since(e.at).0)
+        .max()
+}
+
 /// Whether `actor` told `creature` a story within the hour: the cooldown. A story
 /// that missed the creature's standing want does not spend the hour, once: the
 /// reply said why, and the teller may try again (a second miss does).

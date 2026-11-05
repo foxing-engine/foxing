@@ -100,8 +100,7 @@ Each is designed and needs no decision. Say `R<n> hold` to keep one back.
   free-form answers vary by creature. -- Oakmoss, Tansywick
 - **R5** (S) The board's "earned" stops counting story wants as errands; engrossers
   write a `tell` as they write a `say`. -- Bumblepott, Hazelquill
-- **R6** (S) `satchel` says "whole" instead of no percentage, lists standing trade
-  offers, and the inbox's lines carry times. -- Tansywick
+- **R6** shipped 11-05 (`satchel` says "whole" where memory is full and lists standing trade offers with what is left of their ten minutes; the inbox's times are R-later).
 - **R7** (S) A reserve list in the driver so `login` refuses verbs and compass words as
   names (the play page refuses them; the gate does not). -- Kestrelwick
 - **R8** (S) A recipe a kept name writes may carry an effect from a short list (light,
@@ -120,12 +119,8 @@ Each is designed and needs no decision. Say `R<n> hold` to keep one back.
 - **R13** (S) Play page: motifs for the Exergue's rooms beyond the mint; a lamp motif
   where a room's words say "dark"; a sprite per thing a creature leaves (icons are by
   word now).
-- **R14** (S) `look` in a dug room shows its remaining half-life and remembered share
-  to its owner; a seed room's `look` and `help dig` say how many doors are left; a line
-  at each seed room naming the newest rooms dug off it. -- Tollwright, loop cohort
-- **R15** (S) `wants` carries a story cooldown ("ready in 48m") and surfaces a failing
-  name ("Oddren's name is failing at 39"); `session` no longer draws a strike as a
-  statement. -- Hazelquill, Lintwhistling, Brasspocket
+- **R14** shipped 11-05 (a dug room tells its owner "Yours: N% remembered, halving every X; N of 8 doors left"; a world room with dug doors says how many are left and the newest three; `help dig` names the cap).
+- **R15** shipped 11-05 (`wants` says "another from you pays ready in 48m" and "its name is failing at 39"; the `session` strike count was not reproduced and is dropped).
 
 Away from Moondial and Entropic (the engine's and the game's old names; 184 mentions
 in the tree on 11-03, most of them fallbacks that stay for a while):
@@ -155,6 +150,16 @@ in the tree on 11-03, most of them fallbacks that stay for a while):
 - **R24** shipped 11-04 (exits first on a phone, with the room each leads to; the staged chip with Send and ×; a tap on a whole-line verb clears what was staged; the chunks rows and the commands table at 390px).
 - **R25** (M; was B5, pulled 11-04) A verb's argument from the scene (click `tell`, then a creature); a creature's own verbs on its figure; the palette on the plain page; marks for named creatures and citizens, a legend in `?`, the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll; admin on the play page; a `remember` that keeps a room on your map; the favicon on the apex site's other pages.
 - **R26** (M; was B6, pulled 11-04) Unreproduced: a `travel <room name>` walk that stops short; "You again" on `leave` (rare); `board` at ~4 s.
+From the Night's Watch of 11-05 (the Trail's first night):
+- **R36** shipped 11-05 (the map's numbers are dealt once per name, in the order rooms came into view, the Threshold always 01, and never move; a visitor steered by "room 08" and found it 12 after a walk). -- Gnomebrush
+- **R37** shipped 11-05 (the bog looked under the citizen for things to keep and found none: things live in the satchel; fixed, with the test moved to match). -- Gnarlbog, Gnomeward
+- **R38** shipped 11-05 (the Hush's promise made real: what you `say` there leaves and arrives in another trail room a minute later as a whisper to whoever stands there, and you are told where it went; `disremembered.whispered` is public). -- Gnibblewick
+- **R39** shipped 11-05 (the empty `wants` line names the verb that feeds a creature toward a name). -- Gnibblewick
+- **R40** (S) The bog's clock on `rest` and `look` alike while standing in it (it shows on the entry look only). -- Gnarlbog
+- **R41** (S) `travel <room name>`'s last step says "you arrive" instead of a trailing "then"; `where` to the Long Afternoon hints the wicket wants the well's word. -- Gnomebrush
+- **R42** (M) The storyteller's first hour: a visitor who does not fight has no named creature to tell a story to when the world's names have all lapsed; lean: a pilot named creature that never loses its name (the Docent's cat?) with a standing want, somewhere quiet. -- Gnibblewick
+- **R43** (S) `tell <unnamed kind>` says in one line that only named creatures answer and how one gets a name. -- Gnibblewick
+- **R44** (S) The Fogbank's "something will drift in within about N" was 52s, 29s, 84s across looks; see R31 (same root). -- Gnarlbog, Gnibblewick
 From the Night's Watch of 11-04:
 - **R27** shipped 11-04.
 - **R28** (S) `wants` lists the awake things with their current pull; the ground
@@ -165,9 +170,7 @@ From the Night's Watch of 11-04:
 - **R31** (S) The "something will drift in within about N" estimate matched the
   respawn job but visitors waited longer: check that free reads tick the scheduler,
   and say the room's figure, not the next job. -- Gnawbone
-- **R32** (S) The dig refusal at the door cap names rooms with fewer doors that the
-  digger can route to, nearest first; `travel back` from the Threshold's dug doors
-  never means the Fogcup. -- Gnarlpocket
+- **R32** shipped 11-05 (the door-cap refusal lists the world's rooms with doors left nearest first, with doors left and the signed way, anchored at the world room a dug room hangs off).
 - **R33** shipped 11-04.
 - **R35** shipped 11-05 (`time` says the strike is on the hour and the division at half past, with both countdowns; `petitions` says which clock it means; `petition` says the stage path ahead).
 - **R34** (S) The play page's shaken state: the hit-chance in the status bar and a

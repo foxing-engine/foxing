@@ -1050,6 +1050,22 @@ pub fn describe(
             .map(|s| format!(" with the memory of {s}"))
             .unwrap_or_default();
         text.push_str(&format!(" Dug by {who}{with}."));
+        // To its owner: how much of it is remembered and how long that halves in
+        // (R14: a digger asked, and only `mine` said).
+        if who == actor {
+            if let (Some(mem), Some(hl)) = (
+                super::building::memory(world, room),
+                super::building::half_life_of(world, room),
+            ) {
+                text.push_str(&format!(
+                    " Yours: {:.0}% remembered, halving every {}; {} of {} doors left.",
+                    mem * 100.0,
+                    super::combat::human(hl.0),
+                    super::building::MAX_EXITS.saturating_sub(exits.len()),
+                    super::building::MAX_EXITS
+                ));
+            }
+        }
         if let Some(kept) = root["components"][ROOM]["kept"].as_array() {
             let keepers: Vec<String> = kept
                 .iter()
@@ -1095,6 +1111,33 @@ pub fn describe(
             })
             .collect();
         text.push_str(&format!(" Exits: {}.", shown.join(", ")));
+        // A world's own room with doors dug off it says how many it has left and
+        // which are newest (R14): a digger at a full Threshold was refused by surprise.
+        if dug_by.is_none() {
+            let dug: Vec<(u64, String)> = by_name
+                .iter()
+                .filter_map(|(e, &to)| {
+                    let owned = world.store.entity(to).is_some_and(|r| r.owner.is_some());
+                    owned.then(|| (to.0, e.clone()))
+                })
+                .collect();
+            if !dug.is_empty() {
+                let mut newest = dug.clone();
+                newest.sort_by_key(|b| std::cmp::Reverse(b.0));
+                let left = super::building::MAX_EXITS.saturating_sub(exits.len());
+                text.push_str(&format!(
+                    " {} of {} doors left here; the newest dug: {}.",
+                    left,
+                    super::building::MAX_EXITS,
+                    newest
+                        .iter()
+                        .take(3)
+                        .map(|(_, e)| e.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            }
+        }
     }
     // A door only you can see, while you hold the memory of what is behind it.
     if let Some(f) = super::find_citizen(world, actor) {
