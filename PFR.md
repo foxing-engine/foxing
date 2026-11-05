@@ -155,10 +155,16 @@ From the Night's Watch of 11-05 (the Trail's first night):
 - **R37** shipped 11-05 (the bog looked under the citizen for things to keep and found none: things live in the satchel; fixed, with the test moved to match). -- Gnarlbog, Gnomeward
 - **R38** shipped 11-05 (the Hush's promise made real: what you `say` there leaves and arrives in another trail room a minute later as a whisper to whoever stands there, and you are told where it went; `disremembered.whispered` is public). -- Gnibblewick
 - **R39** shipped 11-05 (the empty `wants` line names the verb that feeds a creature toward a name). -- Gnibblewick
-- **R40** (S) The bog's clock on `rest` and `look` alike while standing in it (it shows on the entry look only). -- Gnarlbog
-- **R41** (S) `travel <room name>`'s last step says "you arrive" instead of a trailing "then"; `where` to the Long Afternoon hints the wicket wants the well's word. -- Gnomebrush
+- **R40** shipped 11-05 (`rest` in the bog says the clock too).
+- **R41** shipped 11-05 (`where` and the walk toward the Long Afternoon say the wicket asks for the well's word; the last step of a walk already names the room, so no extra arrival line).
 - **R42** (M) The storyteller's first hour: a visitor who does not fight has no named creature to tell a story to when the world's names have all lapsed; lean: a pilot named creature that never loses its name (the Docent's cat?) with a standing want, somewhere quiet. -- Gnibblewick
 - **R43** (S) `tell <unnamed kind>` says in one line that only named creatures answer and how one gets a name. -- Gnibblewick
+- **R45** shipped 11-05 (the Docent's own rule text says what it tidies and when: a second sighting carries, a plain drop under 30% on the Threshold's floor is swept to the Midden, never while anyone stands at the door; it promised a visitor a sweep "sooner if you are standing here"). -- Gnatterling
+- **R46** (S) A wounded wisp that wanders off between messages reads as a despawn ("beaten to 0.5 hp, vanished when I paused 20s"); lean: a creature engaged within the last minute does not wander, and `look` says "the wisp drifted off, 0.5 left" when it did. -- Gnudgeon
+- **R47** (S) The budget line jittered 54 → 59 between messages; check that refused messages are not counted and say so in the line ("a refused message is free"). -- Gnudgeon
+- **R48** (S) One status line with hp, level and attack together (`rest` has hp, `chunks` has level, the attack rule is in neither); lean: `rest` and `look` say "hp 24/30, level 62, you hit for 10". -- Gnudgeon
+- **R49** (S) The repeated "Nothing of it is left behind this time; a longer fight leaves more" line on every one-blow kill; lean: say it once a session, then "Nothing left." -- Gnatterling
+- **R50** (S) `drop`'s "the Docent carries it to the Threshold on its round" overpromises: it takes a second sighting of an empty room, ten minutes apart while a visitor is at the door; say "in time" or say the rule. -- Gnatterling
 - **R44** (S) The Fogbank's "something will drift in within about N" was 52s, 29s, 84s across looks; see R31 (same root). -- Gnarlbog, Gnibblewick
 From the Night's Watch of 11-04:
 - **R27** shipped 11-04.

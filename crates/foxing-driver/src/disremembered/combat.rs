@@ -2096,7 +2096,13 @@ pub fn register(world: &mut World, curves: Curves) {
                 Some(d) if d.0 > 0 => format!("{bandaged}You have {current:.0}/{:.0}. Full in {}.", super::MAX_HP, human(d.0)),
                 _ => format!("{bandaged}You have {current:.0}/{:.0}. You are whole.", super::MAX_HP),
             };
-            Ok(Outcome::new(format!("{text}{shaken_line}"), json!({"hp": current, "max_hp": super::MAX_HP, "full_in_seconds": eta.map(|d| d.0 / 1000), "bandage_spent": !bandaged.is_empty(), "to_hit": to_hit(w, f.citizen), "shaken_ms_left": shaken(w, f.citizen).map(|(_, l)| l)})))
+            // The bog's clock, while standing in it (R40: it showed on the entry look only).
+            let bog_line = super::rooms::room_of(w, f.citizen)
+                .and_then(|r| super::trail::look_line(w, &ctx.actor, r))
+                .filter(|l| l.contains("takes a liking"))
+                .map(|l| format!(" {l}"))
+                .unwrap_or_default();
+            Ok(Outcome::new(format!("{text}{shaken_line}{bog_line}"), json!({"hp": current, "max_hp": super::MAX_HP, "full_in_seconds": eta.map(|d| d.0 / 1000), "bandage_spent": !bandaged.is_empty(), "to_hit": to_hit(w, f.citizen), "shaken_ms_left": shaken(w, f.citizen).map(|(_, l)| l)})))
         }),
     );
 }

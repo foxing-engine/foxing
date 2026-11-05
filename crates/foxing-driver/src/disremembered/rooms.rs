@@ -1460,12 +1460,16 @@ pub fn register(world: &mut World) {
                     let signed = if remembered.is_none() && w.store.entity(target).is_some_and(|e| e.owner.is_none()) { super::atlas::way_seeded(w, room, target) } else { None };
                     match remembered.or(signed) {
                         Some(path) if !path.is_empty() => {
+                            // A wicket on the way says it asks a word (R41); the
+                            // last step's reply names the room, which is arrival enough.
+                            let tname = plain_str(w, target, ROOM, "name").unwrap_or("?").to_string();
+                            let wicket = if path.iter().any(|p| p == "wicket") {
+                                " (the wicket asks for the word cut into the Wishing Well's rim: `travel wicket \"<word>\"`)"
+                            } else {
+                                ""
+                            };
                             if path.len() > 1 {
-                                onward = Some(format!(
-                                    " Toward {}: then {}.",
-                                    plain_str(w, target, ROOM, "name").unwrap_or("?"),
-                                    path[1..].join(", ")
-                                ));
+                                onward = Some(format!(" Toward {tname}: then {}{wicket}.", path[1..].join(", ")));
                             }
                             exit = path[0].clone();
                         }

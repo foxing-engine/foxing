@@ -834,10 +834,17 @@ fn loose(text: &str) -> String {
 }
 
 fn said_way(path: &[String]) -> String {
+    // A wicket on the way asks a word; said here so the walk is not stopped by
+    // surprise (a visitor was).
+    let wicket = if path.iter().any(|p| p == "wicket") {
+        " (the wicket asks for the word cut into the Wishing Well's rim: `travel wicket \"<word>\"`)"
+    } else {
+        ""
+    };
     match path.len() {
         0 => "you are there".to_string(),
-        1 => format!("one step: {}", path[0]),
-        n => format!("{n} steps: {}", path.join(", ")),
+        1 => format!("one step: {}{wicket}", path[0]),
+        n => format!("{n} steps: {}{wicket}", path.join(", ")),
     }
 }
 
