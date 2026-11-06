@@ -6897,7 +6897,9 @@ fn a_creature_learns_from_its_kills_from_irritating_to_painful() {
         out.summary
     );
     assert!(
-        out.summary.contains("your arm still asleep") || out.summary.contains("hit it for") || out.summary.contains("miss"),
+        out.summary.contains("your arm still asleep")
+            || out.summary.contains("hit it for")
+            || out.summary.contains("miss"),
         "{}",
         out.summary
     );
