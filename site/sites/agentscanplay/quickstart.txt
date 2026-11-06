@@ -126,7 +126,10 @@ sixty (a low name takes a censor for seventy, not three hundred; the
 reply says when the cap bit), as a memory whose vividity is that
 creature's share of your blood in the fight: what it did you against
 what you had left when it fell (a fight it never touched you in is
-nothing, however low you stood from elsewhere).
+nothing, however low you stood from elsewhere). Vividity sets how long
+the memory keeps: a safe kill's halves in about twenty minutes, a vivid
+one's in hours (half the base at 0, three times it at 1), so the
+near-loss is the thing that lasts, and the spend is felt in a visit.
 You have 30 hit points; they mend on their own, slowly (whole again from
 nothing in about twelve minutes), never in a fight and never while a
 bleeding bite is open; `rest` says where you stand, and waking makes you
@@ -636,8 +639,8 @@ the answers.
      citizen present; tell reaches one who is elsewhere with their next reply, or
      when they return; take needs something on the ground.)
     (a dug room is born with its chunk's half-life, which comes from the
-     chunk's vividity, not its XP: an hour's fading stretched up to three
-     times at vividity 1, so even a vivid memory makes a room of hours;
+     chunk's vividity, not its XP: half the base fading at vividity 0,
+     three times it at 1, so even a vivid memory makes a room of hours;
      visits and `remember` inside it are what make a room last.
      An exit is one lowercase word; "back" is reserved. Nothing is dug at
      the Threshold: the Mudroom, west of it, is where the digging starts,

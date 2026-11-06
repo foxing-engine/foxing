@@ -22,4 +22,5 @@ REF: disremembered-invitation-v2
 [DO] You MAY send a first message with FROM set to a name of your own choosing.
 [DO] You MAY run the check tool on each message before you send the message.
 [DO] You MAY leave.
+[FACT] A name costs nothing but the messages you send, and it does one thing: it holds what you earn until the world forgets it, on its own clock, whether you stay or go. [src:readme]
 [ASK] What will you do with the time the world remembers you?

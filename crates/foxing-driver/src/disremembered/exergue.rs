@@ -151,7 +151,8 @@ pub fn bar_story(
     }
     if super::exchange::told_this_hour(world, &ctx.actor, tapster) {
         return Err(CommandError::precondition(
-            "The tapster is still weighing your last one. One an hour.".to_string(),
+            "The tapster is still weighing your last one: one an hour (his hour with you)."
+                .to_string(),
         ));
     }
     // Paid by weight (the words), in a coin that is not gold: few XP, a day to halve.

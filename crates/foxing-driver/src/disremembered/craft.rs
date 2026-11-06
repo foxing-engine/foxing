@@ -1848,7 +1848,9 @@ pub fn register(world: &mut World, curves: Curves) {
                 if at_threshold {
                     format!("You set {name} down here, at the Threshold, where the Docent leaves what it finds; it stays for whoever comes.")
                 } else {
-                    format!("You set {name} down here. Left lying, the Docent carries it to the Threshold on its round.")
+                    // R50: the round takes two sightings of an empty room, ten minutes
+                    // apart while someone is at the door; "on its round" overpromised.
+                    format!("You set {name} down here. Left lying in an empty room, the Docent carries it to the Threshold in time (it takes a thing on its second sighting, rounds ten minutes apart while anyone is at the door).")
                 },
                 json!({"item": item.0, "name": name, "room": room.0}),
             ))

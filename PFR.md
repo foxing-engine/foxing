@@ -49,17 +49,6 @@ Economy and death
   Lean, if asked: **c**, with d as the mechanism (tending = having shelved into it).
 
 From the Night's Watch of 11-04 (the Gn- cohort)
-- **D13 · The hidden word and the hour** (Gnomebucket: the hint arrived after the
-  one-an-hour lock closed the only creature; S; **ships by policy**, a). a) a story
-  that carries the hidden word is heard even within the hour, paying only the bonus
-  (**lean**); b) the hint is withheld until the hour is open again; c) leave it.
-- **D17 · Does the fade bite in a session?** (loop cohort 11-05: a vivid chunk fell 28 →
-  26.65 in thirty minutes; "gentle loss, not pressure"; the spend never felt urgent;
-  M; **decided 11-05: a, ships next batch**). a) shorten the low-vividity half-life so a safe kill's chunk halves
-  inside an hour (42 m → 20 m) and leave vivid ones long, so the near-loss is the
-  thing that lasts; b) a "gone in N minutes" line on `chunks` and `rest` for the
-  chunk nearest to lapsing, no curve change; c) leave it: the fade is for the week,
-  not the visit.
 - **D14 · Named creatures near the hub** (every report: one named creature, Stythe,
   shared by eight visitors, three stories an hour; S; **ships by policy**, a). a) the
   world keeps three named creatures within two rooms of the Threshold, naming a
@@ -67,13 +56,6 @@ From the Night's Watch of 11-04 (the Gn- cohort)
   leave it to the players' feeding.
 
 Schema and framing
-- **D8 · A creature's holding as a field** (Tyler #10; S; **decided 11-05: b**, nothing to ship;
-  #10 closes with a signed "by design" reply when you say so). a) a public `holding` on
-  `disremembered.mind`, refreshed on every change, so `observe`, `where` and `wants`
-  can sort by it; b) prose on purpose: names are found by walking (**chosen**).
-- **D9 · The framing** ("the time the world remembers you" read as persuasion to one
-  cautious reader; S; **ships by policy**, a). a) a plain line on what a name costs and does beside the ASK
-  (**lean**); b) the lines are the game, leave them.
 
 ## Ready to ship (R): all ship on the Night's Watch by policy, in Claude's batches
 
@@ -82,9 +64,6 @@ Each is designed and needs no decision. Say `R<n> hold` to keep one back.
 - **R1** (S) `back` walks the way you came a room per statement, and a dug exit may not
   be named `back` (Lantern Walk's is renamed). -- night cohort, Wrenlace
 - **R2** (S) The gate's lockout survives a restart (it is in memory). -- Quillvisitor
-- **R4** (S) `observe` says a creature hits for its attack plus 0–2. The reply to
-  `tell <creature>` says which mode answered (the room's said-log, or what it holds);
-  free-form answers vary by creature. -- Oakmoss, Tansywick
 - **R5** (S) The board's "earned" stops counting story wants as errands; engrossers
   write a `tell` as they write a `say`. -- Bumblepott, Hazelquill
 - **R7** (S) A reserve list in the driver so `login` refuses verbs and compass words as
@@ -133,43 +112,24 @@ in the tree on 11-03, most of them fallbacks that stay for a while):
 - **R26** (M; was B6, pulled 11-04) Unreproduced: a `travel <room name>` walk that stops short; "You again" on `leave` (rare); `board` at ~4 s.
 From the Night's Watch of 11-05 (the Trail's first night):
 - **R42** (M; D14 covers it, ships with D14) The storyteller's first hour: a visitor who does not fight has no named creature to tell a story to when the world's names have all lapsed; lean: a pilot named creature that never loses its name (the Docent's cat?) with a standing want, somewhere quiet. -- Gnibblewick
-- **R43** (S) `tell <unnamed kind>` says in one line that only named creatures answer and how one gets a name. -- Gnibblewick
-- **R46** (S) A wounded wisp that wanders off between messages reads as a despawn ("beaten to 0.5 hp, vanished when I paused 20s"); lean: a creature engaged within the last minute does not wander, and `look` says "the wisp drifted off, 0.5 left" when it did. -- Gnudgeon
-- **R47** (S) The budget line jittered 54 → 59 between messages; check that refused messages are not counted and say so in the line ("a refused message is free"). -- Gnudgeon
-- **R48** (S) One status line with hp, level and attack together (`rest` has hp, `chunks` has level, the attack rule is in neither); lean: `rest` and `look` say "hp 24/30, level 62, you hit for 10". -- Gnudgeon
-- **R49** (S) The repeated "Nothing of it is left behind this time; a longer fight leaves more" line on every one-blow kill; lean: say it once a session, then "Nothing left." -- Gnatterling
-- **R50** (S) `drop`'s "the Docent carries it to the Threshold on its round" overpromises: it takes a second sighting of an empty room, ten minutes apart while a visitor is at the door; say "in time" or say the rule. -- Gnatterling
 - **R53** (S) The Clocktower's strike and the Conclave's division narrated as pushed lines to whoever stands in the house or the tower when they fire (the strike changed the Tally Room's paper in silence). -- Gnomonclock
-- **R54** (S) `went()` for a named exit that is not a noun ("You take the abstain."): exits ending in a verb-like word read "You go by the abstain" or the digger names it; lean: `"You take the {exit} door."` when the word is not in a short noun list. -- Gnomonclock
 - **R55** (S) The Docent's login hint ("you asked where things are, so begin with `map`") fires after `time`/`petitions`; the Tally Book's "Nothing has been entered" above entries; `help time` says what the strike and the division do. -- Gnomonclock
-- **R56** (S) `rest` at full says "Full in 20s" (the eta rounds up past whole); "You have 30/30. You are whole." when hp ≥ max − 0.5. -- Gnomeward
 - **R57** (S) The Lookout said "nobody on it but you" while another walker stood on the trail (quiet marks?); check `is_here` against the five-minute quiet rule and list quiet names as "(quiet)". -- Gnomeward
-- **R58** (S) The Fogbank says nothing about hunting either way; a room with creatures that do not hunt says "Nothing here hunts; the wisps keep to themselves." -- Gnomonclock
 - **R59** (S) The Docent's greeting cites a question the newcomer never asked ("you asked how to get rag thread", "you asked where things are"): the refusal filter catches "you asked" only in the greeting it sees; check the asked-event lookup is by the greeted name, not the latest asker. -- Gnashgarden, Gnomonclock
 - **R60** (S) The on-ramp sends a level-0 name into contested wisps or lethal hollows; the Orchard's mothwings are the right first grind: the Docent's first-hour advice and `help attack` say so, and the Fogbank's "drift in within about Ns" says "or try the mothwings in the Orchard" when other names are fighting there. -- Gnashgarden
 From the loop cohort of 11-05 (one tester per loop):
 - **R64** (S) A big read first in a batch (`log 40 events`) fills the reply and the other statements' answers are omitted; cap each statement's quoted output in a batch (say 1,200 characters) so the others fit. -- Gnotwhisper
-- **R65** (S) `tell <name> "what …"` is keyword-greedy: "what word did X carry?" matched "what" and gave the holdings; match the holdings question on "hold/keep/carry" only, and answer a "what word" question from the carried-word record. -- Gnotwhisper
-- **R66** (S) `retreat` while a hunter is closing but not yet engaged says "You are not fighting anything"; say "It has not reached you; `travel` leaves before it does." -- Gnawlight
-- **R67** (S) The drop line reads as a contradiction when a one-round kill drops and a three-round one does not (chance by rounds, sure at six); say the rounds: "two rounds: one chance in three; sure at six". Folds R49. -- Gnawlight
-- **R68** (S) The secret word's hint ("in something I wanted once") should narrow after a miss (which story, then which sentence) so one story an hour is not a blind guess. -- Gnotwhisper
 - **R70** (M) The two-stand censor is unwinnable as the loop sells it: full heal takes 11 m, the wound lasts 10, and 67 hp at ~6 a round against ~10 back is not two stands at thirty hit points; lean: a wound kept twenty minutes in the Stacks, and `retreat` says in rounds what a second stand would take ("it would take you nine more rounds; you have four in you"). -- Gnibbleforge
-- **R71** (S) `give` to a creature or the Docent says plainly that only a name at a keyboard or through the gate can receive, and `look` marks who can; the censor's ray says what it took in the strike line ("chunk-12 halved: your hits land for 5 now"). -- Gnibbleforge
-- **R72** (S) Three things called "the hour": the message budget's rolling hour, a creature's story hour, a want's hour; name each ("the budget's hour", "its hour with you"). -- Gnibbleforge
 - **R73** (S) A Docent answer that never came ("finds you within a few minutes"): check the asked queue for a dropped question when the worker restarts across a deploy, and say so to the asker if a question is lost. -- Gnibbleforge, Gnomonclock
 Pulled from the backlog 11-05 ("B19 yes, B21 yes, B22 yes"), each in pieces the Watch can take a batch at a time:
 - **R74** (M; B19) Crafting, second tier: an usher's ribbon (a thing that lets you choose the room an usher shows you to) and a censor's lens (halves the ray) as recipes from Stacks drops; desires beyond rooms (a hand not met, a story told near it); a thing's past as a want; a sprite per tier on the page; `gather` reading the first cue ("a river of ink" gives ink).
 - **R75** (M; B21) The Exergue, next: a bar story's weight by its money words; the Assayer answering `tell` with your holding's assay; the Wardens' respawn lengthening each taking; the Purse's share as a statute; the sweater's bag and the clippers' filings as things; the Mintmark Hall stamping kept things with their hour; atlas frames for the eight; the slate in the tapster's voice.
 - **R76** (S; B22) The Docent, next: a second figure for the Lower Stacks (an Under-Docent at the stair); "what have you found?" listing the Lost and Found; a `thanks` that costs nothing; `recipes` not saying "You lack rag thread" the moment the thread was spent.
-- **R44** (S) The Fogbank's "something will drift in within about N" was 52s, 29s, 84s across looks; see R31 (same root). -- Gnarlbog, Gnibblewick
 From the Night's Watch of 11-04:
 - **R28** (S) `wants` lists the awake things with their current pull; the ground
   hint and the "awake" tag agree after a thing has settled. -- Gnocchibell
 - **R30** (S) A quoted quote inside `tell`/`say` text does not void the message; the
   refusal names the token. -- Gnudibranch
-- **R31** (S) The "something will drift in within about N" estimate matched the
-  respawn job but visitors waited longer: check that free reads tick the scheduler,
-  and say the room's figure, not the next job. -- Gnawbone
 - **R34** (S) The play page's shaken state: the hit-chance in the status bar and a
   tremor on the figure while shaken. -- Gnatwhistle
 - Kept on purpose: `nginx-moondial.conf` (moondial.ai redirects to foxing.dev), the
@@ -450,7 +410,27 @@ The world
 
 ## Shipped (ledger): moved out of the sections above when they went live
 
-11-05
+11-05 (batch A, by policy; one deploy)
+- **D9** (a: a FACT beside the invitation's ASK saying what a name costs and does).
+- **D13** (a: within its hour, a story that carries the word under the others is heard for the bonus alone; the refusal says so).
+- **D17** (a: vividity 0 keeps half the base half-life, 1 three times it; `earn` defaults to 0.2, the base; the quickstart says so).
+- **D8** (b: by design; #10 closed).
+- **R4** `look` says what each creature hits for ("hits 2–4").
+- **R31/R44** the drift-in estimate says the room's figure and the three-fifths-to-eight-fifths rule beside the next job's.
+- **R43** `tell` to an unnamed kind says how one gets a name.
+- **R46** `look` says when what you were fighting was felled by another hand while you were quiet.
+- **R47** the budget line says when the rolling hour frees; a refused message's cost is its own FACT.
+- **R48** `rest` ends "Level N; you hit for M (plus 0–2)".
+- **R49/R67** the empty-handed kill says the rounds and the chance once a session, then "Nothing left."
+- **R50** `drop` says the Docent's rule (second sighting, rounds ten minutes apart) rather than "on its round".
+- **R54** "You take the abstain door." for a door word that is not plainly a thing.
+- **R56** `rest` is whole within half a point.
+- **R58** "Nothing here hunts; the wisps keep to themselves." where the room's text says nothing.
+- **R65** "what word did X carry?" answers from the carried-word record; the hold answer no longer takes it.
+- **R66** `retreat` with a hunter closing says it has not reached you and `travel` leaves first.
+- **R68** the word's hint narrows after a miss: the text, then the sentence.
+- **R71** `give` to a creature or the Docent says who can receive and how a creature is fed; the ray's line says what your hits land for now.
+- **R72** the three hours named: the budget's hour, a creature's hour with you, the tapster's.
 - **H1 · The rewire** (T1 in chat; decided a, shipped 11-05: the Mudroom west of the
   Threshold; dug doors rehung there on boot, `disremembered.moved_to_mudroom`; no digs
   at the door; no cap in the Mudroom; orphans rejoin there; a Mudroom tile).

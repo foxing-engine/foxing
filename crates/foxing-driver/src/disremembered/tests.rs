@@ -269,7 +269,8 @@ fn vivid_chunks_fade_slower() {
     let t0 = Timestamp(0);
     let mut w = open(dir.path(), t0);
     login(&mut w, "dave", "test", PASS).unwrap();
-    let dull = admin(&mut w, "dave", "earn", json!(["dull", 100, 0.0])).result["chunk"]
+    // Vividity 0.2 is the base half-life; 0 is half of it (D17), 1 three times.
+    let dull = admin(&mut w, "dave", "earn", json!(["dull", 100, 0.2])).result["chunk"]
         .as_u64()
         .unwrap();
     let vivid = admin(&mut w, "dave", "earn", json!(["vivid", 100, 1.0])).result["chunk"]
@@ -1944,7 +1945,7 @@ fn a_remembered_creature_earns_a_name_can_be_robbed_and_forgets_again() {
     let look = ok(&mut w, "tyler", "look", json!([]));
     assert!(
         look.summary.contains(&format!(
-            ", holding 100, one of the world's first names). {name} the ragpicker knows you."
+            ", holding 100, one of the world's first names). Nothing here hunts; the ragpickers keep to themselves. {name} the ragpicker knows you."
         )),
         "{}",
         look.summary
@@ -2659,7 +2660,7 @@ fn memory_moves_by_gift_and_by_story() {
         json!([&name, tale]),
     )
     .unwrap_err();
-    assert!(err.to_string().contains("One an hour"), "{err}");
+    assert!(err.to_string().contains("one an hour"), "{err}");
     w.fixed_now = Some(t0.plus(Duration::seconds(3601)));
     // An hour on, the test world's chunks have faded; keep it named for the rest.
     let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
@@ -2900,7 +2901,7 @@ fn an_errand_is_a_story_wanted_or_a_word_carried_and_either_makes_you_known() {
     let out = ok(&mut w, "dave", "story", json!([&rag_name, "A second try: the buttons were counted again by a ragpicker in the midden, and again the count was lost."]));
     assert_eq!(out.result["wanted"], false, "{}", out.summary);
     let err = call(&mut w, "dave", ActorKind::Citizen, "story", json!([&rag_name, "A third try about buttons and the midden and nothing of a lantern at all, counted twice."])).unwrap_err();
-    assert!(err.to_string().contains("One an hour"), "{err}");
+    assert!(err.to_string().contains("one an hour"), "{err}");
     // An hour on, the one it wanted: double, the record says so, the errand is done.
     w.fixed_now = Some(t0.plus(Duration::seconds(3601)));
     let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
@@ -3402,6 +3403,9 @@ REF: s-1
     assert_eq!(what[2], "true goes south to The Midden");
     // A door with a name of its own is taken, not gone: "You take the orrery."
     assert_eq!(rooms::went("orrery"), "You take the orrery.");
+    // A word that is not plainly a thing is a door (R54: "You take the abstain.").
+    assert_eq!(rooms::went("abstain"), "You take the abstain door.");
+    assert_eq!(rooms::went("lanternwalk"), "You take the lanternwalk.");
     assert_eq!(rooms::went("back"), "You go back.");
     assert!(
         what[3].starts_with(&format!(
@@ -5519,7 +5523,7 @@ fn a_story_a_creature_has_heard_this_hour_pays_by_halves() {
     assert!(
         second
             .summary
-            .contains("It has heard one much like it this hour; this one pays half."),
+            .contains("It has heard one much like it in its hour; this one pays half."),
         "{}",
         second.summary
     );
@@ -5529,7 +5533,7 @@ fn a_story_a_creature_has_heard_this_hour_pays_by_halves() {
     assert!(
         third
             .summary
-            .contains("It has heard 2 much like it this hour; this one pays a 4 part."),
+            .contains("It has heard 2 much like it in its hour; this one pays a 4 part."),
         "{}",
         third.summary
     );
@@ -5733,7 +5737,7 @@ fn a_memory_taken_from_a_creature_is_minted_at_what_it_is_worth_now() {
     // about 10. Dave fells it and takes the memory at that worth, not at 40.
     let fog = rooms::room_by_key(&w, "fogbank").unwrap();
     let wisp = combat::creatures_in(&w, fog)[0].0;
-    let c = admin(&mut w, "tyler", "earn", json!(["a story", 40, 0.0]));
+    let c = admin(&mut w, "tyler", "earn", json!(["a story", 40, 0.2]));
     let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
     ok(
         &mut w,
@@ -8224,7 +8228,7 @@ fn the_exergue_weighs_money_stories_mirrors_the_coinage_and_guards_the_purse() {
         ]),
     )
     .unwrap_err();
-    assert!(err.to_string().contains("One an hour"), "{err}");
+    assert!(err.to_string().contains("one an hour"), "{err}");
     // The rack mirrors the coinage: the weighted coin is in circulation now.
     ok(&mut w, "dave", "travel", json!(["east"]));
     let r = ok(&mut w, "dave", "read", json!([]));

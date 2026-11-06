@@ -75,9 +75,12 @@ impl Curves {
         Curves { active_half_life }
     }
 
-    /// How much longer a chunk lasts for its vividity: 1x at 0, 3x at 1.
+    /// How much longer a chunk lasts for its vividity: half the base at 0, 3x at 1.
+    /// D17: a safe kill's chunk halves inside an hour (about twenty minutes at the
+    /// world's usual rate), so the fade is felt in a visit; a vivid one keeps the
+    /// hours it had, so the near-loss is the thing that lasts.
     pub fn stretch(vividity: f64) -> f64 {
-        1.0 + 2.0 * vividity.clamp(0.0, 1.0)
+        0.5 + 2.5 * vividity.clamp(0.0, 1.0)
     }
 
     /// The active window's curve for a chunk of this vividity.
@@ -417,7 +420,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // The session: when this arrival began, the level then, the log's place.
             .field("session_at", FieldKind::Plain, Visibility::Owner)
             .field("session_level", FieldKind::Plain, Visibility::Owner)
-            .field("session_seq", FieldKind::Plain, Visibility::Owner),
+            .field("session_seq", FieldKind::Plain, Visibility::Owner)
+            // R49: the session the drop rule was last said in full.
+            .field("drop_rule_said", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(ACCOUNT, 1).field(
             "passphrase_hash",
             FieldKind::Plain,

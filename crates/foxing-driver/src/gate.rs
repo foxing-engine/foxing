@@ -108,6 +108,16 @@ impl HourBudget {
         entry.1 += cost;
     }
 
+    /// When `actor`'s rolling hour frees, if anything is spent in it.
+    pub fn frees_at(&self, actor: &str, now: Timestamp) -> Option<Timestamp> {
+        match self.used.get(actor) {
+            Some((start, spent)) if now.since(*start).0 < HOUR_MS && *spent > 0.0 => {
+                Some(Timestamp(start.0 + HOUR_MS))
+            }
+            _ => None,
+        }
+    }
+
     /// What `actor` has left this hour.
     pub fn remaining(&self, actor: &str, now: Timestamp) -> f64 {
         match self.used.get(actor) {
@@ -785,18 +795,38 @@ pub fn pass(
     let acted = matches!(intent, "REQUEST" | "QUERY");
     if matches!(via, Via::Gate | Via::Http) && !compiled {
         let left = budget.remaining(actor, now);
+        // R47: the hour is a rolling one from the first charged message, and the
+        // figure climbs back when it frees (54 then 59 read as jitter); say when,
+        // and what a refused message costs.
+        let frees = budget
+            .frees_at(actor, now)
+            .map(|t| format!(", which frees at {}", iso_second(t)))
+            .unwrap_or_default();
         report.fact(
             format!(
-                "Budget: {left:.0} of {:.0} messages left this hour{}",
+                "Budget: {left:.0} of {:.0} messages left in the budget's hour{frees}{}",
                 budget.per_hour,
                 if reads_only {
                     "; a message of reads alone is free, as this one was"
                 } else {
                     "; a message of reads alone (look, chunks, rest, wants) is free"
-                }
+                },
             ),
             "budget",
         );
+        if result.verdict != "PASS" {
+            report.fact(
+                format!(
+                    "A message refused at the door costs {} of one, not one",
+                    match budget.fail_cost {
+                        c if (c - 0.25).abs() < 1e-9 => "a quarter".to_string(),
+                        c if (c - 0.5).abs() < 1e-9 => "a half".to_string(),
+                        c => format!("{c}"),
+                    }
+                ),
+                "budget",
+            );
+        }
     }
     if matches!(via, Via::Gate | Via::Http) {
         let said: Vec<String> = world

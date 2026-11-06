@@ -653,8 +653,107 @@ pub fn went(exit: &str) -> String {
         "north" | "south" | "east" | "west" | "up" | "down" | "back" | "in" | "out" => {
             format!("You go {exit}.")
         }
+        // R54: "You take the abstain." read wrong; a door word that is not plainly a
+        // thing is taken as a door.
+        e if !door_noun(e) => format!("You take the {exit} door."),
         _ => format!("You take the {exit}."),
     }
+}
+
+/// Whether an exit word reads as a thing you can take (a stair, a nook, a kiln): by
+/// suffix and a short list; anything else is "the {word} door".
+fn door_noun(word: &str) -> bool {
+    const NOUNS: &[&str] = &[
+        "stair",
+        "stairs",
+        "stile",
+        "gate",
+        "door",
+        "arch",
+        "hatch",
+        "ladder",
+        "tunnel",
+        "passage",
+        "path",
+        "trail",
+        "bridge",
+        "nook",
+        "alcove",
+        "annex",
+        "kiln",
+        "cellar",
+        "attic",
+        "well",
+        "wicket",
+        "bog",
+        "lookout",
+        "hush",
+        "escapement",
+        "exergue",
+        "names",
+        "dive",
+        "surface",
+        "landing",
+        "lane",
+        "walk",
+        "row",
+        "hall",
+        "hole",
+        "gap",
+        "crack",
+        "vent",
+        "chute",
+        "slide",
+        "steps",
+        "step",
+        "ramp",
+        "lift",
+        "shaft",
+        "sewer",
+        "drain",
+        "pipe",
+        "window",
+        "mirror",
+        "pool",
+        "moonpool",
+        "mossbed",
+        "bramble",
+        "hedge",
+        "orchard",
+        "meadow",
+        "garden",
+        "survey",
+        "link",
+        "somewhere",
+        "escape",
+        "teapot",
+        "cloak",
+        "sleeve",
+        "closet",
+        "nest",
+        "burrow",
+        "den",
+        "lair",
+        "orrery",
+        "cistern",
+        "oubliette",
+        "vault",
+        "crypt",
+        "gallery",
+        "tower",
+        "cave",
+    ];
+    NOUNS.contains(&word)
+        || word.ends_with("way")
+        || word.ends_with("walk")
+        || word.ends_with("room")
+        || word.ends_with("stair")
+        || word.ends_with("door")
+        || word.ends_with("gate")
+        || word.ends_with("path")
+        || word.ends_with("hole")
+        || word.ends_with("bed")
+        || word.ends_with("pool")
 }
 
 /// The room entity with this key.
@@ -1028,6 +1127,9 @@ pub fn describe(
     } else {
         format!("{desc}.")
     };
+    let desc_says_nothing_hunts = root["components"][ROOM]["description"]
+        .as_str()
+        .is_some_and(|d| d.contains("Nothing hunts here"));
     let dug_by = root["owner"].as_str().map(str::to_string);
     let exits: Vec<String> = root["components"][EXITS]["exits"]
         .as_object()
@@ -1044,8 +1146,7 @@ pub fn describe(
         .map(|n| {
             let c = &n["components"][super::CREATURE];
             let id = EntityId(n["id"].as_u64().unwrap_or(0));
-            let mut v =
-                json!({"id": n["id"], "name": c["name"], "hp": c["hp"], "max_hp": c["max_hp"]});
+            let mut v = json!({"id": n["id"], "name": c["name"], "hp": c["hp"], "max_hp": c["max_hp"], "attack": c["attack"]});
             if c["parents"].is_array() {
                 v["parents"] = c["parents"].clone();
                 v["born_of"] = c["born_of"].clone();
@@ -1257,8 +1358,14 @@ pub fn describe(
                         None => v.to_string(),
                     }
                 };
+                // What it hits for (R4: `observe` gave the attack and nothing said
+                // the 0–2 on top).
+                let hits = match c["attack"].as_f64() {
+                    Some(a) if a > 0.0 => format!(", hits {:.0}–{:.0}", a, a + 2.0),
+                    _ => String::new(),
+                };
                 format!(
-                    "{who} ({}/{}{holds}{yours}{shaken}{born}{named}{learned})",
+                    "{who} ({}/{}{hits}{holds}{yours}{shaken}{born}{named}{learned})",
                     hp_said(&c["hp"]),
                     hp_said(&c["max_hp"])
                 )
@@ -1287,6 +1394,27 @@ pub fn describe(
                 hunters.join(" and "),
                 if hunters.len() == 1 { "s" } else { "" }
             ));
+        } else if !desc_says_nothing_hunts {
+            // R58: the Fogbank said nothing either way.
+            let mut kinds: Vec<String> = creatures
+                .iter()
+                .filter_map(|c| c["name"].as_str().map(|k| format!("{k}s")))
+                .collect();
+            kinds.sort();
+            kinds.dedup();
+            text.push_str(&format!(
+                " Nothing here hunts; the {} keep to themselves.",
+                kinds.join(" and ")
+            ));
+        }
+        // R46: the one you were fighting came apart under another hand while you
+        // were quiet; said, so a wounded wisp does not read as a despawn.
+        if let Some(f) = super::find_citizen(world, actor) {
+            if super::plain_num(world, f.citizen, super::BODY, "engaged").is_some()
+                && super::combat::engaged_with(world, f.citizen).is_none()
+            {
+                text.push_str(" What you were fighting is gone: felled by another hand while you were quiet; `attack` picks another.");
+            }
         }
         for r in &regards {
             text.push(' ');

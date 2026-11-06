@@ -139,6 +139,83 @@ fn first_told(world: &World, creature: EntityId, seed: usize) -> Option<String> 
     }
 }
 
+/// The text the level's word was drawn from (R68: the hint narrows to it after a
+/// miss): the want it had once, the first thing it was told, the room around it;
+/// nothing for a word the world lent.
+fn source_text(world: &World, creature: EntityId, level: u8, from: &str) -> Option<String> {
+    let told = || {
+        let window = mind::window_of(world, creature)?;
+        let sources: Vec<String> = world
+            .store
+            .children(window)
+            .filter(|e| e.kind == "chunk")
+            .filter_map(|e| plain_str(world, e.id, super::CHUNK, "source").map(str::to_string))
+            .collect();
+        sources
+            .iter()
+            .find(|s| s.starts_with("the word that made it"))
+            .or_else(|| sources.iter().find(|s| s.starts_with("a story")))
+            .map(|s| {
+                s.trim_start_matches("the word that made it:")
+                    .trim_start_matches("a story:")
+                    .trim()
+                    .trim_matches('"')
+                    .to_string()
+            })
+    };
+    match (level, from) {
+        (_, "lore") => None,
+        (1, "wanted") | (2, "wanted") => super::errand::wanted_once(world, creature)
+            .or_else(|| super::errand::of(world, creature).and_then(|e| e.story)),
+        (1, _) | (2, _) => told(),
+        _ => world
+            .store
+            .entity(creature)
+            .and_then(|e| e.parent)
+            .and_then(|r| plain_str(world, r, ROOM, "description"))
+            .map(str::to_string),
+    }
+}
+
+/// How many stories `actor` has told this creature since its word was last struck
+/// (or ever, at the first rung) that did not carry the word: the misses.
+fn misses(world: &World, actor: &str, creature: EntityId) -> usize {
+    let events = world.recent_events(4000);
+    let last_struck = events
+        .iter()
+        .rposition(|e| e.kind == STRUCK && e.payload["creature"] == creature.0);
+    events
+        .iter()
+        .skip(last_struck.map(|i| i + 1).unwrap_or(0))
+        .filter(|e| {
+            e.kind == super::exchange::STORY
+                && e.payload["from"] == actor
+                && e.payload["creature"] == creature.0
+                && e.payload["struck"] != true
+        })
+        .count()
+}
+
+/// Whether `text` carries the creature's current word, without recording anything
+/// (D13: within the hour, a story that carries it is still heard).
+pub fn would_strike(world: &World, actor: &str, creature: EntityId, text: &str) -> bool {
+    let Some(v) = field(world, creature) else {
+        return false;
+    };
+    let word = v["word"].as_str().unwrap_or("");
+    if word.is_empty()
+        || v["struck"]
+            .as_array()
+            .is_some_and(|a| a.iter().any(|s| s == actor))
+    {
+        return false;
+    }
+    let stem = super::errand::stem(word);
+    text.split(|c: char| !c.is_alphanumeric() && c != '\'')
+        .map(|w| w.trim_matches('\'').to_lowercase())
+        .any(|w| !w.is_empty() && super::errand::stem(&w) == stem)
+}
+
 /// The creature's word, its level and who has struck it; set at level one if a named
 /// creature has none yet.
 pub fn ensure(
@@ -175,7 +252,7 @@ pub fn ensure(
 }
 
 /// What the creature says of its word, for the level it is at: a hint, never the word.
-pub fn hint(world: &World, creature: EntityId) -> Option<String> {
+pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
     mind::name(world, creature)?;
     let (level, struck, from): (u8, Vec<String>, String) = match field(world, creature) {
         Some(v) => (
@@ -221,8 +298,46 @@ pub fn hint(world: &World, creature: EntityId) -> Option<String> {
     } else {
         format!(" {} found one before you.", struck.join(" and "))
     };
+    // R68: after a miss the hint narrows, so one story an hour is not a blind guess:
+    // first the text it is in, then the sentence, then that it is one of the longer
+    // words there.
+    let narrowed = match (
+        misses(world, actor, creature),
+        source_text(world, creature, level, &from),
+    ) {
+        (0, _) | (_, None) => String::new(),
+        (1, Some(text)) => {
+            let shown: String = text.chars().take(160).collect();
+            format!(
+                " You have missed once, so: it is in this: \"{shown}{}\"",
+                if text.chars().count() > 160 {
+                    "…"
+                } else {
+                    ""
+                }
+            )
+        }
+        (n, Some(text)) => {
+            let word = field(world, creature)
+                .and_then(|v| v["word"].as_str().map(str::to_string))
+                .unwrap_or_default();
+            let stem = super::errand::stem(&word);
+            let sentence = text
+                .split_inclusive(['.', '!', '?'])
+                .map(str::trim)
+                .find(|s| {
+                    s.split(|c: char| !c.is_alphanumeric())
+                        .any(|w| !w.is_empty() && super::errand::stem(&w.to_lowercase()) == stem)
+                })
+                .unwrap_or(text.as_str())
+                .to_string();
+            format!(
+                " You have missed {n} times, so: it is in this sentence, one of the longer words: \"{sentence}\"",
+            )
+        }
+    };
     let _ = name;
-    Some(format!("{said}{who}"))
+    Some(format!("{said}{who}{narrowed}"))
 }
 
 /// Whether `text` carries the creature's word; if so, by `actor` for the first time,

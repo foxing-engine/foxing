@@ -107,6 +107,20 @@ pub fn register(world: &mut World, curves: Curves) {
             let here = rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
             let typed = args.str("citizen").unwrap_or("").trim().trim_start_matches("citizen-").to_string();
             let Some(to) = super::canonical_name(w, &typed) else {
+                // R71: a creature or the Docent named here is not a receiver; say
+                // what is, and how a creature is given to.
+                let lower = typed.to_lowercase();
+                if lower == "docent" || lower.starts_with("the docent") || lower == "hollis" {
+                    return Err(CommandError::precondition(
+                        "The Docent takes nothing by the hand. `give` reaches a name at a keyboard or through the gate who stands here; `look` marks each as such. To a creature, `remember <chunk> <creature>` is the giving.",
+                    ));
+                }
+                if let Some(c) = mind::find_here(w, here, &typed) {
+                    return Err(CommandError::precondition(format!(
+                        "{} is a creature; `give` reaches a name at a keyboard or through the gate who stands here (`look` marks each). To feed it a memory, `remember <chunk> {typed}`; to hand it a thing, nothing takes one yet.",
+                        mind::display(w, c)
+                    )));
+                }
                 return Err(CommandError::precondition(format!("There is no one called {typed}.")));
             };
             if to == ctx.actor {
@@ -276,14 +290,19 @@ pub fn register(world: &mut World, curves: Curves) {
                     "That is more than {MAX_STORY_CHARS} characters; tell it in parts."
                 )));
             }
-            if told_this_hour(w, &ctx.actor, creature) {
+            // D13: within its hour with you, a story that carries the word under the
+            // others is still heard, paying the bonus alone (the hint once arrived
+            // after the hour had closed the only creature).
+            let within_hour = told_this_hour(w, &ctx.actor, creature);
+            let bonus_only = within_hour && super::secret::would_strike(w, &ctx.actor, creature, &text);
+            if within_hour && !bonus_only {
                 return Err(CommandError::precondition(format!(
-                    "{name} is still turning your last story over. One an hour."
+                    "{name} is still turning your last story over: one an hour (its hour with you; `wants` says when it turns). A story that carries the word under the others is heard even now, for the bonus alone."
                 )));
             }
-            if heard_this_hour(w, creature) >= STORIES_AN_HOUR {
+            if heard_this_hour(w, creature) >= STORIES_AN_HOUR && !bonus_only {
                 return Err(CommandError::precondition(format!(
-                    "{name} has heard {STORIES_AN_HOUR} stories this hour and is turning them over; it takes no more until the hour turns. `wants` names another."
+                    "{name} has heard {STORIES_AN_HOUR} stories in its hour and is turning them over; it takes no more until that hour turns. `wants` names another."
                 )));
             }
             // The story is said, as itself.
@@ -317,13 +336,15 @@ pub fn register(world: &mut World, curves: Curves) {
             // The word under the others: a story that carries it pays the level's bonus.
             let struck = super::secret::strike(w, &ctx.actor, creature, &text)?;
             let paid = match &struck {
+                // Within the hour, the bonus alone (D13): what the word adds, not the pay.
+                Some((bonus, _, _)) if bonus_only => (paid * (bonus - 1.0)).round(),
                 Some((bonus, _, _)) => paid * bonus,
                 None => paid,
             };
             let heard_line = match repeats {
                 0 => String::new(),
-                1 => " It has heard one much like it this hour; this one pays half.".to_string(),
-                n => format!(" It has heard {n} much like it this hour; this one pays a {} part.", 1u32 << n.min(20)),
+                1 => " It has heard one much like it in its hour; this one pays half.".to_string(),
+                n => format!(" It has heard {n} much like it in its hour; this one pays a {} part.", 1u32 << n.min(20)),
             };
             let kind = super::plain_str(w, creature, super::CREATURE, "name").unwrap_or("?").to_string();
             // It keeps the story; you keep the telling.
@@ -366,7 +387,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 format!(
                     "You tell {display} a story of {words} words, and it answers.{}{}{heard_line} You remember the telling: chunk-{} worth {paid:.0} XP{}.{}",
                     if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
-                    struck.as_ref().map(|(b, _, l)| format!(" It carried the word under the others, the {} of three: {b:.1} times the pay, and vivid.", ["first", "second", "third"][(*l as usize).clamp(1, 3) - 1])).unwrap_or_default(),
+                    struck.as_ref().map(|(b, _, l)| format!(" It carried the word under the others, the {} of three: {}, and vivid.", ["first", "second", "third"][(*l as usize).clamp(1, 3) - 1], if bonus_only { format!("heard within its hour with you, so the bonus alone, {:.1} times the pay less the pay", b) } else { format!("{b:.1} times the pay") })).unwrap_or_default(),
                     earned.0,
                     if vivid > 0.4 { format!(", vividity {vivid:.2}{}", if long > 0.0 && struck.is_none() { " (length buys vividity, to 0.90 at two hundred words)" } else { "" }) } else { String::new() },
                     missed.as_deref().map(|m| format!(" {m}")).unwrap_or_default()

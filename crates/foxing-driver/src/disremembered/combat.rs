@@ -1292,6 +1292,35 @@ pub(crate) fn commit_hp(
     Ok(())
 }
 
+/// The line for a kill that left nothing (R49, R67): the rule with the rounds, once
+/// a session; then "Nothing left." A visitor read "a longer fight leaves more" on
+/// every one-blow kill as nagging, and a three-round miss beside a one-round drop as
+/// a contradiction.
+fn drop_miss_said(world: &mut World, actor: &str, citizen: EntityId, rounds: u64) -> String {
+    let session = plain_num(world, citizen, super::CITIZEN, "session_at").unwrap_or(0.0);
+    let said = plain_num(world, citizen, super::CITIZEN, "drop_rule_said").unwrap_or(-1.0);
+    if said == session {
+        return " Nothing left.".to_string();
+    }
+    let mut changes = BTreeMap::new();
+    changes.insert("drop_rule_said".into(), Field::Plain(json!(session)));
+    let _ = super::set_citizen_fields(world, actor, citizen, changes);
+    let n = rounds.clamp(1, super::craft::DROP_SURE_ROUNDS);
+    let chance = match n {
+        1 => "one chance in six",
+        2 => "one chance in three",
+        3 => "one chance in two",
+        4 => "two chances in three",
+        5 => "five chances in six",
+        _ => "sure",
+    };
+    format!(
+        " Nothing of it is left behind: {} round{}, {chance}; sure at six.",
+        n,
+        if n == 1 { "" } else { "s" }
+    )
+}
+
 /// Damage per round at this level.
 pub fn attack_for_level(level: f64) -> f64 {
     BASE_ATTACK + (ATTACK_PER_ROOT_LEVEL * level.max(0.0).sqrt()).floor()
@@ -1845,7 +1874,17 @@ pub fn register(world: &mut World, curves: Curves) {
                     .filter(|j| j.kind == JOB_RESPAWN && j.payload["room"] == room.0)
                     .map(|j| j.due.0 - w.now().0)
                     .min()
-                    .map(|ms| format!(" Something will drift in within about {}.", human(ms.max(5_000))))
+                    .map(|ms| {
+                        // R31/R44: the room's figure beside the next job's, so the
+                        // estimate moving between looks reads as the rule, not a fault.
+                        let every = plain_num(w, room, SPAWN, "respawn_seconds").unwrap_or(60.0)
+                            * super::economy::rate(w, "respawn");
+                        format!(
+                            " Something will drift in within about {}; this room refills three fifths to eight fifths of {} after it empties, never on the minute.",
+                            human(ms.max(5_000)),
+                            human((every * 1000.0) as i64)
+                        )
+                    })
                     .unwrap_or_default();
                 let where_ = format!("{where_}{refill}");
                 let officers: Vec<String> = here.iter().filter(|c| super::mind::name(w, c.0).is_none() && plain_str(w, c.0, CREATURE, "name").is_some_and(|k| OFFICERS.contains(&k))).map(|c| super::mind::display(w, c.0)).collect();
@@ -2002,7 +2041,7 @@ pub fn register(world: &mut World, curves: Curves) {
                         Some((id, n)) => format!(" It leaves {n} behind (item-{}); take it.", id.0),
                         // Say when the roll missed, so a visitor can tell a missed
                         // roll from a broken one (ten kills, nothing, and no way to know).
-                        None if super::craft::material_for(&cname).is_some() => if length < super::craft::DROP_SURE_ROUNDS { " Nothing of it is left behind this time; a longer fight leaves more.".to_string() } else { " Nothing of it is left behind this time.".to_string() },
+                        None if super::craft::material_for(&cname).is_some() => drop_miss_said(w, &ctx.actor, f.citizen, length),
                         None => String::new(),
                     },
                     throes.map(|t| format!(" {t}")).unwrap_or_default()
@@ -2032,6 +2071,14 @@ pub fn register(world: &mut World, curves: Curves) {
         Box::new(|w: &mut World, ctx, _| {
             let f = me(w, ctx)?;
             let Some(creature) = engaged_with(w, f.citizen) else {
+                // R66: a hunter closing but not yet on you is not a fight; `travel`
+                // leaves before it lands.
+                let me_id = f.citizen.0;
+                if w.jobs.has(JOB_AMBUSH, |p| p["citizen"] == me_id) {
+                    return Err(CommandError::precondition(
+                        "It has not reached you yet; `travel` leaves before it does, and there is nothing to retreat from until it lands.",
+                    ));
+                }
                 return Err(CommandError::precondition("You are not fighting anything."));
             };
             let cname = plain_str(w, creature, CREATURE, "name").unwrap_or("?").to_string();
@@ -2113,9 +2160,16 @@ pub fn register(world: &mut World, curves: Curves) {
                 // and the reply never said so).
                 _ if current < super::MAX_HP - 0.5 && engaged_with(w, f.citizen).is_some() => format!("{bandaged}You have {current:.0}/{:.0}. Nothing mends in a fight; retreat, and it starts.", super::MAX_HP),
                 _ if current < super::MAX_HP - 0.5 && bleeding.is_some() => format!("{bandaged}You have {current:.0}/{:.0}. You are bleeding: nothing mends for {} more.", super::MAX_HP, human((bleeding.unwrap() as i64) - now.0)),
-                Some(d) if d.0 > 0 => format!("{bandaged}You have {current:.0}/{:.0}. Full in {}.", super::MAX_HP, human(d.0)),
+                // R56: whole within a half point is whole; the eta rounded up past it.
+                Some(d) if d.0 > 0 && current < super::MAX_HP - 0.5 => format!("{bandaged}You have {current:.0}/{:.0}. Full in {}.", super::MAX_HP, human(d.0)),
                 _ => format!("{bandaged}You have {current:.0}/{:.0}. You are whole.", super::MAX_HP),
             };
+            // R48: one line with hp, level and what you hit for.
+            let level = super::memory::level(w, f.window);
+            let text = format!(
+                "{text} Level {level:.0}; you hit for {:.0} (plus 0–2).",
+                attack_for_level(level)
+            );
             // The bog's clock, while standing in it (R40: it showed on the entry look only).
             let bog_line = super::rooms::room_of(w, f.citizen)
                 .and_then(|r| super::trail::look_line(w, &ctx.actor, r))

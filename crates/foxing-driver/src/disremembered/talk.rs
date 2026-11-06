@@ -138,8 +138,9 @@ pub fn register(world: &mut World) {
                     None => reply(w, creature, &ctx.actor, &text),
                 };
                 let Some(answer) = answer else {
+                    // R43: how one gets a name, in the same breath.
                     return Ok(Outcome::new(
-                        format!("You say to the {name}, \"{text}\" It does not understand you. It is only {}; it {}.", super::mind::an(&name), super::mind::goes_on(&name)),
+                        format!("You say to the {name}, \"{text}\" It does not understand you. It is only {}; it {}. Only a named creature answers: feed one to sixty (`remember <chunk> {name}`) and it has a name and an ear.", super::mind::an(&name), super::mind::goes_on(&name)),
                         json!({"to": name, "text": text, "answered": false}),
                     ));
                 };
@@ -520,7 +521,7 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
         "hidden word",
         "word you keep",
     ]) {
-        return super::secret::hint(world, creature);
+        return super::secret::hint(world, actor, creature);
     }
     // What it wanted once: the want before this one, said whole (the first word under
     // the others is drawn from it, D7).
@@ -692,6 +693,51 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
                 String::new()
             }
         ));
+    }
+    // R65: "what word did X carry?" is about the carried-word record, not the hold
+    // (it matched "what" and "carry" and gave the holdings).
+    if has(&[
+        "what word",
+        "which word",
+        "word did",
+        "word was",
+        "carried",
+        "brought",
+    ]) {
+        let display = mind::display(world, creature);
+        let mine = |v: &serde_json::Value| {
+            v.as_str()
+                .is_some_and(|t| t.eq_ignore_ascii_case(&name) || t.eq_ignore_ascii_case(&display))
+        };
+        let carried: Vec<String> = world
+            .recent_events(6000)
+            .iter()
+            .filter(|e| e.kind == super::errand::DONE && e.payload["errand"] == "word")
+            .filter_map(|e| {
+                let p = &e.payload;
+                let from = p["from"].as_str()?;
+                let word = p["want"].as_str()?;
+                if p["creature"].as_u64() == Some(creature.0) {
+                    Some(format!(
+                        "{from} carried my word, \"{word}\", to {}",
+                        p["to"].as_str().unwrap_or("someone")
+                    ))
+                } else if mine(&p["to"]) {
+                    Some(format!(
+                        "{from} brought me {}'s word: \"{word}\"",
+                        p["name"].as_str().unwrap_or("someone")
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        return Some(if carried.is_empty() {
+            "No word has been carried for me or to me yet.".to_string()
+        } else {
+            let n = carried.len();
+            format!("{}.", carried[n.saturating_sub(3)..].join("; "))
+        });
     }
     if has(&[
         "remember",

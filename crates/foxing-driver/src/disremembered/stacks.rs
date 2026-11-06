@@ -401,9 +401,19 @@ fn play(
                 TRICK,
                 json!({"trick": "forget", "creature": creature.0, "kind": kind, "citizen": actor, "chunk": id.0, "source": source, "was": was, "now": was * keep, "aimed": aimed, "aim": (aim * 1000.0).round() / 1000.0}),
             );
+            // R71: what the taking did to you, in the same line.
+            let now_hit = super::find_citizen(world, actor)
+                .map(|f| super::memory::level(world, f.window))
+                .map(|l| {
+                    format!(
+                        " Your hits land for {:.0} now.",
+                        super::combat::attack_for_level(l)
+                    )
+                })
+                .unwrap_or_default();
             Ok((
                 Some(format!(
-                    "A ray of forgetfulness{}: chunk-{} ({source}) is {} what it was, {:.1} now.",
+                    "A ray of forgetfulness{}: chunk-{} ({source}) is {} what it was, {:.1} now.{now_hit}",
                     if aimed && chunks.len() > 1 {
                         ", and it finds what matters"
                     } else {

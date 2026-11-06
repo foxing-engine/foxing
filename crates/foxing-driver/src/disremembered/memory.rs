@@ -394,13 +394,19 @@ pub fn register(world: &mut World, curves: Curves) {
                 true,
                 "its XP value at the moment of earning",
             )
-            .param("vividity", ParamType::Number, false, "0 to 1; default 0")
+            .param(
+                "vividity",
+                ParamType::Number,
+                false,
+                "0 to 1; default 0.2 (the base half-life, neither stretched nor shortened)",
+            )
             .allowed(&[ActorKind::Admin]),
         Box::new(move |w: &mut World, ctx, args: &Args| {
             let f = me(w, ctx)?;
             let source = args.str("source").unwrap_or("unknown").to_string();
             let size = args.num("size").unwrap_or(0.0);
-            let vividity = args.num("vividity").unwrap_or(0.0).clamp(0.0, 1.0);
+            // 0.2 is one base half-life under D17's stretch (half at 0, three at 1).
+            let vividity = args.num("vividity").unwrap_or(0.2).clamp(0.0, 1.0);
             if size <= 0.0 || size > 100_000.0 {
                 return Err(CommandError::precondition(
                     "size must be between 0 and 100000 XP.",
