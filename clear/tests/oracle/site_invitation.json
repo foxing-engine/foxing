@@ -1,10 +1,32 @@
 {
-  "verdict": "PASS",
-  "score": 100,
+  "verdict": "FAIL",
+  "score": 95,
   "mode": "clear",
-  "errors": 0,
+  "errors": 3,
   "warnings": 0,
-  "findings": [],
+  "findings": [
+    {
+      "rule": "CL-M1",
+      "severity": "error",
+      "where": "message",
+      "message": "21 statements exceed the limit of 20.",
+      "excerpt": ""
+    },
+    {
+      "rule": "CL-R1",
+      "severity": "error",
+      "where": "statement 20",
+      "message": "Vague pronoun 'it' starts a clause. Name the thing it refers to.",
+      "excerpt": "it"
+    },
+    {
+      "rule": "CL-S3",
+      "severity": "error",
+      "where": "statement 20",
+      "message": "Statement has 33 words; the limit is 25.",
+      "excerpt": ""
+    }
+  ],
   "message": {
     "header": {
       "FROM": "disremembered",
@@ -385,6 +407,24 @@
       {
         "index": 20,
         "line": 25,
+        "raw": "[FACT] A name costs nothing but the messages you send, and it does one thing: it holds what you earn until the world forgets it, on its own clock, whether you stay or go. [src:readme]",
+        "type": "FACT",
+        "confidence": null,
+        "body": "A name costs nothing but the messages you send, and it does one thing: it holds what you earn until the world forgets it, on its own clock, whether you stay or go.",
+        "sources": [
+          "readme"
+        ],
+        "actor": null,
+        "modal": null,
+        "verb": null,
+        "arguments": null,
+        "args": [],
+        "pattern": null,
+        "slots": {}
+      },
+      {
+        "index": 21,
+        "line": 26,
         "raw": "[ASK] What will you do with the time the world remembers you?",
         "type": "ASK",
         "confidence": null,
