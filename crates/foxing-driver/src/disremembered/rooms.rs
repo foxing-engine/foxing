@@ -996,7 +996,7 @@ pub fn room_of(world: &World, citizen: EntityId) -> Option<EntityId> {
 pub fn look_query(room: EntityId) -> Value {
     json!({
         "root": {"entity": room.0},
-        "select": {ROOM: ["name", "description", "memory", "dug_with", "kept", "bound"], EXITS: "*"},
+        "select": {ROOM: ["key", "name", "description", "memory", "dug_with", "kept", "bound"], EXITS: "*"},
         "relations": {
             "contents": {
                 "kinds": ["citizen", "creature"],

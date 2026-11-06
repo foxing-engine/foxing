@@ -399,6 +399,9 @@ The world
 
 ## Shipped (ledger): moved out of the sections above when they went live
 
+11-06 (batch K; one deploy)
+- `look`'s query never selected the room's key, so every line keyed on it was silent: F14's lantern hint on the Stacks' landing (since 11-05), the weather (G), the door's three ways (H5), the chalk tally and the day (I). Selected now; a live look at the Threshold found it.
+
 11-06 (batch J, X5's first cut; one deploy)
 - Creatures scale with their own level, never the player's (`combat::rescale`, `base_hp`); six new kinds on the library's floors with homes and tricks; a boot fills a room to its figure exactly (the one-in-six extra comes on a refill of a room partly cleared); `plural()`; llms.txt and the quickstart say the rule and the kinds.
 
