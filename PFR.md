@@ -303,8 +303,8 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   convenient (the driver reads both): R20's script does it; run it when it lands.
 - **Y2** Apex VPS: starsailorart.com/kaleidostoop links a demo video that was never in the
   repo (add it or drop it); the probe snippet on moondial-1's play site.
-- **Y3** Issues: Tyler's #6, #8, #9, #10, #11 are D1, D2, D1, D8, D6 above; each is answered
-  on GitHub with the lean and stays open until it ships. Glama's maintenance grade
+- **Y3** Issues: Tyler's #6, #8, #9, #11 are D1, D2, D1, D6 (shipped 11-05, in the
+  ledger; closed with a signed reply when you say so); #10 is D8, still queued. Glama's maintenance grade
   reads commit activity and whether open issues get a reply: a new issue gets an
   answer within a day and a close when it ships (Claude posts, signed, by the 11-03
   permission).
