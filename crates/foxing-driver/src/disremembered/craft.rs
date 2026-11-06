@@ -2277,6 +2277,18 @@ pub fn register(world: &mut World, curves: Curves) {
             if let Some(out) = super::trail::read(w, &ctx.actor, here, &arg) {
                 return Ok(out);
             }
+            // A named creature is not a page: say so and point at `tell` (a keeper
+            // read "There is no vellic here" with Vellic in the room).
+            if let Some((c, room)) = super::mind::find_named(w, &arg) {
+                if room == Some(here) {
+                    let kind = super::plain_str(w, c, super::CREATURE, "kind").unwrap_or("creature");
+                    return Err(CommandError::precondition(format!(
+                        "{} is a {kind}, not a page. `tell {} \"who are you?\"` and it will tell you; `look` says what it holds.",
+                        arg.trim(),
+                        arg.trim().to_lowercase()
+                    )));
+                }
+            }
             if arg.is_empty() {
                 let mut names: Vec<String> = fixtures_in(w, here)
                     .iter()

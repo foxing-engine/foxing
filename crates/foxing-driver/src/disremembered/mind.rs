@@ -208,6 +208,13 @@ pub fn keepers(world: &World, creature: EntityId) -> Vec<String> {
 /// Who fed it last: the hand on the latest feed, counted again even if it fed before
 /// (`keepers` lists each name once, first appearance, so its last was the wrong
 /// one: "since Pindle fed me to it", of a parent). Births and confidings are not feeds.
+/// Who fed it to its name, as kept at the moment; the last feeder when nothing was kept.
+pub fn namer(world: &World, creature: EntityId) -> Option<String> {
+    mind_field(world, creature, "namer")
+        .and_then(|v| v.as_str().map(str::to_string))
+        .or_else(|| last_feeder(world, creature))
+}
+
 pub fn last_feeder(world: &World, creature: EntityId) -> Option<String> {
     mind_field(world, creature, "kept")
         .and_then(Value::as_array)
@@ -550,6 +557,13 @@ pub fn check_tier(world: &mut World, creature: EntityId) -> Result<(), CommandEr
         }
     }
     changes.insert("name".into(), Field::Plain(json!(given)));
+    // Who fed it to its name: the last feeder at the moment it crossed, kept so the
+    // answer does not drift to whoever fed it last (it told two keepers each had).
+    if want > have && given.is_some() && name(world, creature).is_none() {
+        if let Some(namer) = last_feeder(world, creature) {
+            changes.insert("namer".into(), Field::Plain(json!(namer)));
+        }
+    }
     set_mind(world, Actor::Driver, creature, changes)?;
     let _ = world.note(
         Actor::Driver,

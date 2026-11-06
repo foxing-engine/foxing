@@ -10120,3 +10120,58 @@ fn look_tells_a_digger_what_is_left_and_the_door_cap_refusal_points_nearest_firs
     // and is not listed (you stand off it, not in it), its neighbors are.
     assert!(!msg.contains("The Threshold ("), "{msg}");
 }
+
+#[test]
+fn a_named_creature_recites_a_story_whole_and_knows_who_named_it() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    combat::fill(&mut w, fog).unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    // tyler feeds first, dave feeds it over sixty: dave named it, whoever feeds after.
+    let c = admin(&mut w, "tyler", "earn", json!(["wisp", 30, 0.5]));
+    ok(
+        &mut w,
+        "tyler",
+        "remember",
+        json!([format!("chunk-{}", c.result["chunk"]), "wisp"]),
+    );
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 40, 0.5]));
+    ok(
+        &mut w,
+        "dave",
+        "remember",
+        json!([format!("chunk-{}", c.result["chunk"]), "wisp"]),
+    );
+    let name = mind::name(&w, wisp).expect("named at sixty");
+    let c = admin(&mut w, "tyler", "earn", json!(["wisp", 20, 0.5]));
+    ok(
+        &mut w,
+        "tyler",
+        "remember",
+        json!([format!("chunk-{}", c.result["chunk"]), &name]),
+    );
+    let out = ok(&mut w, "tyler", "tell", json!([&name, "who made you?"]));
+    assert!(
+        out.summary.contains("dave fed me to my name"),
+        "{}",
+        out.summary
+    );
+    // A story told is held whole and recited on request.
+    let story = "The letter reached the house on a grey morning, long after its writer had gone to sea and the gulls had stopped expecting her.";
+    ok(&mut w, "dave", "story", json!([&name, story]));
+    let out = ok(
+        &mut w,
+        "tyler",
+        "tell",
+        json!([&name, "recite the letter story"]),
+    );
+    assert!(out.summary.contains(story), "{}", out.summary);
+    // `read <name>` points at tell.
+    let err = call(&mut w, "tyler", ActorKind::Citizen, "read", json!([&name])).unwrap_err();
+    assert!(err.to_string().contains("not a page"), "{err}");
+}

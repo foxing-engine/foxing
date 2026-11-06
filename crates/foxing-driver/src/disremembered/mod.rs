@@ -342,6 +342,7 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("heir_name", FieldKind::Plain, Visibility::Public)
             // The name it had before it lost its tier: taken back when earned again.
             .field("former_name", FieldKind::Plain, Visibility::Public)
+            .field("namer", FieldKind::Plain, Visibility::Public)
             // The word under the others (secret.rs): `{word, level, struck}`, the
             // operator's to see and nobody else's.
             .field("secret", FieldKind::Plain, Visibility::Admin),

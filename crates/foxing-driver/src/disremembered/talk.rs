@@ -535,7 +535,7 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
         "who fed you",
     ]) {
         let first = keepers.first().cloned().unwrap_or_else(|| "someone".into());
-        let last = mind::last_feeder(world, creature).unwrap_or_else(|| first.clone());
+        let last = mind::namer(world, creature).unwrap_or_else(|| first.clone());
         let with = first_gift(world, creature).unwrap_or_else(|| "a memory".into());
         return Some(if keepers.len() > 1 && first != last {
             format!("No one made me; I was a {kind} before anyone looked. {first} fed me first, {with}, and {last} fed me to my name. That is the nearest I have to parents.")
@@ -605,6 +605,79 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
                 }
             )
         });
+    }
+    // Recite: the full text of a story it was told (the hunt for the word under the
+    // others pointed at a held story no verb could surface). The newest, or the one
+    // the asker names a word of.
+    if has(&[
+        "recite",
+        "whole story",
+        "tell me the story",
+        "story again",
+        "word for word",
+        "the full story",
+        "read me",
+    ]) {
+        let display = mind::display(world, creature);
+        let to_me = |to: &str| {
+            display.eq_ignore_ascii_case(to)
+                || mind::name(world, creature).is_some_and(|n| n.eq_ignore_ascii_case(to))
+        };
+        let told: Vec<(String, String)> = world
+            .recent_events(4000)
+            .iter()
+            .filter(|e| {
+                e.kind == SAY
+                    && e.payload["story"] == true
+                    && e.payload["to"].as_str().is_some_and(to_me)
+            })
+            .filter_map(|e| {
+                Some((
+                    e.payload["from"].as_str()?.to_string(),
+                    e.payload["text"].as_str()?.to_string(),
+                ))
+            })
+            .collect();
+        if told.is_empty() {
+            return Some(
+                "No one has told me a story yet. I would hold one, if you had it.".to_string(),
+            );
+        }
+        let asked: Vec<String> = t
+            .split(|c: char| !c.is_alphanumeric())
+            .filter(|w| w.len() > 3)
+            .map(str::to_string)
+            .collect();
+        let pick = told
+            .iter()
+            .rev()
+            .find(|(_, t)| {
+                let lt = t.to_lowercase();
+                asked.iter().any(|w| {
+                    ![
+                        "recite", "whole", "story", "tell", "again", "word", "full", "read",
+                        "please",
+                    ]
+                    .contains(&w.as_str())
+                        && lt.contains(w.as_str())
+                })
+            })
+            .or_else(|| told.last())
+            .cloned()
+            .unwrap();
+        return Some(format!(
+            "I hold it whole. {} told me: \"{}\"{}",
+            pick.0,
+            pick.1,
+            if told.len() > 1 {
+                format!(
+                    " I hold {} stories; name a word of another and I will say that one.",
+                    told.len()
+                )
+            } else {
+                String::new()
+            }
+        ));
     }
     if has(&[
         "remember",

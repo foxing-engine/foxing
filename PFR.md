@@ -75,6 +75,13 @@ From the Night's Watch of 11-04 (the Gn- cohort)
   measured ~80 XP/min against the Fogbank's 15–30; S; **ships by policy**, a). a)
   respawn 45 → 180 s, so the burst is once per walk and the meadow is a stop, not a
   mine (**lean**); b) sigh XP 25 → 15; c) leave it: the trail is meant to be the draw.
+- **D17 · Does the fade bite in a session?** (loop cohort 11-05: a vivid chunk fell 28 →
+  26.65 in thirty minutes; "gentle loss, not pressure"; the spend never felt urgent;
+  M; **waits**). a) shorten the low-vividity half-life so a safe kill's chunk halves
+  inside an hour (42 m → 20 m) and leave vivid ones long, so the near-loss is the
+  thing that lasts; b) a "gone in N minutes" line on `chunks` and `rest` for the
+  chunk nearest to lapsing, no curve change; c) leave it: the fade is for the week,
+  not the visit.
 - **D14 · Named creatures near the hub** (every report: one named creature, Stythe,
   shared by eight visitors, three stories an hour; S; **ships by policy**, a). a) the
   world keeps three named creatures within two rooms of the Threshold, naming a
@@ -180,6 +187,15 @@ From the Night's Watch of 11-05 (the Trail's first night):
 - **R58** (S) The Fogbank says nothing about hunting either way; a room with creatures that do not hunt says "Nothing here hunts; the wisps keep to themselves." -- Gnomonclock
 - **R59** (S) The Docent's greeting cites a question the newcomer never asked ("you asked how to get rag thread", "you asked where things are"): the refusal filter catches "you asked" only in the greeting it sees; check the asked-event lookup is by the greeted name, not the latest asker. -- Gnashgarden, Gnomonclock
 - **R60** (S) The on-ramp sends a level-0 name into contested wisps or lethal hollows; the Orchard's mothwings are the right first grind: the Docent's first-hour advice and `help attack` say so, and the Fogbank's "drift in within about Ns" says "or try the mothwings in the Orchard" when other names are fighting there. -- Gnashgarden
+From the loop cohort of 11-05 (one tester per loop):
+- **R61** shipped 11-05 (a named creature's "who made you" names the keeper who fed it over sixty, kept at the moment, not whoever fed it last; two keepers were each told they had). -- Gnomekeeper
+- **R62** shipped 11-05 (`tell <name> "recite …"` has the creature say a held story whole, the newest or the one a word names; the hunt for the word under the others pointed at a story no verb could surface). -- Gnotwhisper
+- **R63** shipped 11-05 (`read <named creature>` says it is not a page and points at `tell`). -- Gnomekeeper
+- **R64** (S) A big read first in a batch (`log 40 events`) fills the reply and the other statements' answers are omitted; cap each statement's quoted output in a batch (say 1,200 characters) so the others fit. -- Gnotwhisper
+- **R65** (S) `tell <name> "what …"` is keyword-greedy: "what word did X carry?" matched "what" and gave the holdings; match the holdings question on "hold/keep/carry" only, and answer a "what word" question from the carried-word record. -- Gnotwhisper
+- **R66** (S) `retreat` while a hunter is closing but not yet engaged says "You are not fighting anything"; say "It has not reached you; `travel` leaves before it does." -- Gnawlight
+- **R67** (S) The drop line reads as a contradiction when a one-round kill drops and a three-round one does not (chance by rounds, sure at six); say the rounds: "two rounds: one chance in three; sure at six". Folds R49. -- Gnawlight
+- **R68** (S) The secret word's hint ("in something I wanted once") should narrow after a miss (which story, then which sentence) so one story an hour is not a blind guess. -- Gnotwhisper
 - **R44** (S) The Fogbank's "something will drift in within about N" was 52s, 29s, 84s across looks; see R31 (same root). -- Gnarlbog, Gnibblewick
 From the Night's Watch of 11-04:
 - **R27** shipped 11-04.
