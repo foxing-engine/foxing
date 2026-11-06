@@ -32,6 +32,7 @@ pub mod mind;
 pub mod morphos;
 pub mod namery;
 pub mod past;
+pub mod pilots;
 pub mod presence;
 pub mod preview;
 pub mod rooms;
@@ -347,6 +348,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // The name it had before it lost its tier: taken back when earned again.
             .field("former_name", FieldKind::Plain, Visibility::Public)
             .field("namer", FieldKind::Plain, Visibility::Public)
+            // The Docent keeps it near the door (pilots.rs, D14).
+            .field("pilot", FieldKind::Plain, Visibility::Public)
             // The word under the others (secret.rs): `{word, level, struck}`, the
             // operator's to see and nobody else's.
             .field("secret", FieldKind::Plain, Visibility::Admin),
@@ -716,6 +719,7 @@ pub(crate) fn find_citizen(world: &World, actor: &str) -> Option<Found> {
 
 /// Build the rooms on first boot; add any room the log does not have yet.
 pub fn ensure_world(world: &mut World) -> Result<(), String> {
+    world.rebuild_failures();
     rooms::ensure_rooms(world)?;
     craft::ensure_fixtures(world, &Curves::from_env())?;
     combat::ensure_spawns(world)?;
@@ -732,6 +736,7 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     morphos::ensure(world)?;
     trail::ensure(world)?;
     life::ensure(world)?;
+    pilots::ensure(world)?;
     mind::ensure_wander(world)
 }
 
@@ -744,6 +749,68 @@ pub fn login(
     passphrase: &str,
 ) -> Result<Found, LoginError> {
     login_as(world, actor, origin, passphrase, false)
+}
+
+/// Why a new name is refused, if it is: a verb, a compass word, a creature's kind,
+/// a figure of the world's, or a word the vocabulary keeps.
+pub fn reserved_name(world: &World, name: &str) -> Option<String> {
+    let low = name.to_ascii_lowercase();
+    const COMPASS: &[&str] = &[
+        "north", "south", "east", "west", "up", "down", "in", "out", "back",
+    ];
+    const FIGURES: &[&str] = &[
+        "docent",
+        "hollis",
+        "quire",
+        "morphos",
+        "bindery",
+        "namery",
+        "conclave",
+        "clocktower",
+        "tapster",
+        "assayer",
+        "warden",
+        "clerk",
+        "tipstaff",
+        "engrosser",
+        "world",
+        "disremembered",
+        "foxing",
+        "admin",
+        "operator",
+        "nobody",
+        "someone",
+        "anyone",
+        "everyone",
+        "self",
+        "here",
+        "all",
+        "none",
+        "the",
+    ];
+    if COMPASS.contains(&low.as_str()) {
+        return Some("a compass word".into());
+    }
+    if FIGURES.contains(&low.as_str()) {
+        return Some("a figure or a word of the world's".into());
+    }
+    if combat::CREATURES
+        .iter()
+        .any(|d| d.key == low || d.name == low)
+    {
+        return Some("a kind of creature".into());
+    }
+    let verb = world
+        .commands_for(foxing_registry::ActorKind::Citizen)
+        .iter()
+        .any(|c| c.name.rsplit('.').next().is_some_and(|v| v == low));
+    if verb {
+        return Some("a verb".into());
+    }
+    if crate::gate::world_checker().collision(&low).is_some() {
+        return Some("a word the vocabulary reserves".into());
+    }
+    None
 }
 
 /// Three safe first moves for a new name, with a creature that would take a story
@@ -802,7 +869,22 @@ fn first_moves(world: &World) -> String {
             })
         })
         .unwrap_or_else(|| "story <a named creature> \"<a dozen words>\"".to_string());
-    format!("Three safe first moves: look; {listener}; travel east to the Fogbank, where the wisps are mild. Nothing here is required.")
+    // R60: the Fogbank is contested on a busy night and the Shallows' hollows kill a
+    // level-0 name; the Orchard's mothwings (6 hp, hit for 1) are the right first
+    // grind, three rooms on.
+    let fog_busy = rooms::room_by_key(world, "fogbank").is_some_and(|fog| {
+        world
+            .store
+            .children(fog)
+            .filter(|e| e.kind == "citizen" && presence::is_here(world, e.id))
+            .any(|e| combat::engaged_with(world, e.id).is_some())
+    });
+    let grind = if fog_busy {
+        "the Fogbank's wisps are spoken for just now, so travel east, north, north to the Orchard, where the mothwings are mildest (6 hp, a hit of 1) and the fog keeps its hollows (20 hp, a hit of 4, and they hunt)"
+    } else {
+        "travel east to the Fogbank, where the wisps are mild (8 hp, a hit of 2), or on north, north to the Orchard's mothwings, milder still; the Shallows' hollows between them hunt a new name and hit for 4"
+    };
+    format!("Three safe first moves: look; {listener}; {grind}. Nothing here is required.")
 }
 
 /// Whether a citizen's name is a passing one: forgotten an hour after they go quiet,
@@ -921,6 +1003,14 @@ pub fn login_as(
             presence::mark_here(world, actor, f.citizen, origin).map_err(LoginError::Internal)?;
         }
         return Ok(f);
+    }
+    // A name the world uses for something else is no one's (R7: the play page
+    // refused "north" and "attack"; the gate took them).
+    if let Some(what) = reserved_name(world, actor) {
+        return Err(LoginError::Reserved {
+            name: actor.to_string(),
+            what,
+        });
     }
     // A name is one name whatever its letters: claude-scout is Claude-scout's, not a
     // second citizen. Log in with the spelling the world knows.
@@ -1235,6 +1325,7 @@ pub fn register(world: &mut World, curves: Curves) {
     morphos::register(world);
     trail::register(world);
     life::register(world);
+    pilots::register(world);
     combat::register(world, curves.clone());
     memory::register(world, curves.clone());
     presence::register(world, curves.clone());

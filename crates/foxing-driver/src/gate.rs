@@ -165,6 +165,8 @@ pub struct Report {
 /// The most lines a reply carries; the vocabulary's statement limit less room for a
 /// continuation note.
 const MAX_REPLY_LINES: usize = 38;
+/// In a message of several statements, the most lines one statement's answer takes.
+const PER_STATEMENT_LINES: usize = 12;
 
 impl Report {
     pub(crate) fn new(world: &str, to: &str, r#ref: Option<&str>) -> Self {
@@ -193,17 +195,33 @@ impl Report {
     /// A summary with line breaks (the map's grid) becomes one QUOTE per line: a
     /// statement is one line in CLEAR, and the grid flattened to one was unreadable.
     pub fn quote(&mut self, text: impl Into<String>, src: impl Into<String>) {
+        self.quote_capped(text, src, usize::MAX);
+    }
+
+    /// A quote capped at `cap` lines (R64: a `log 40` first in a batch filled the
+    /// reply and the other statements' answers were omitted); the rest is counted.
+    pub fn quote_capped(&mut self, text: impl Into<String>, src: impl Into<String>, cap: usize) {
         let text: String = text.into();
         let src: String = src.into();
-        let mut parts = text.split('\n').filter(|l| !l.trim().is_empty()).peekable();
-        if parts.peek().is_none() {
+        let parts: Vec<&str> = text.split('\n').filter(|l| !l.trim().is_empty()).collect();
+        if parts.is_empty() {
             self.lines.push(Line::Quote { text, src });
             return;
         }
-        for part in parts {
+        let shown = parts.len().min(cap.max(1));
+        for part in &parts[..shown] {
             self.lines.push(Line::Quote {
                 text: part.to_string(),
                 src: src.clone(),
+            });
+        }
+        if parts.len() > shown {
+            self.lines.push(Line::Quote {
+                text: format!(
+                    "… and {} more lines of this; send it alone to read it whole.",
+                    parts.len() - shown
+                ),
+                src,
             });
         }
     }
@@ -521,6 +539,26 @@ const AFTER_DEATH: &[&str] = &[
 /// the verb's signature has a text parameter (`say hello there`, `tell Pell who are
 /// you`, `dig north chunk-5 The Salt Stair`), everything from that position on is
 /// quoted for the typist, as the grammar wants it; text already in quotes is left alone.
+/// Straight quotes inside a text argument, alternately opening and closing, as
+/// curly ones: the checker reads `"` as the argument's edge.
+fn curl_inner_quotes(text: &str) -> String {
+    let mut open = true;
+    text.chars()
+        .map(|c| {
+            if c == '"' {
+                open = !open;
+                if open {
+                    '\u{201d}'
+                } else {
+                    '\u{201c}'
+                }
+            } else {
+                c
+            }
+        })
+        .collect()
+}
+
 pub fn compile(actor: &str, world: &str, line: &str, now: Timestamp, checker: &Checker) -> String {
     let full = one_line(line);
     let body = full.trim_end_matches('.');
@@ -566,12 +604,35 @@ pub fn compile(actor: &str, world: &str, line: &str, now: Timestamp, checker: &C
             if tokens.len() > i && !tokens[i].starts_with('"') && !tokens[i].starts_with('“') {
                 let text = tokens[i..].join(" ");
                 let head = tokens[..i].join(" ");
+                // R30: a quote inside the text (`say He said "hi" to me`) is written
+                // curly, so the outer quoting holds and the message is not voided.
+                let text = curl_inner_quotes(text.trim_end_matches('"'));
                 quoted = if head.is_empty() {
-                    format!("{verb} \"{}\"", text.trim_end_matches('"'))
+                    format!("{verb} \"{text}\"")
                 } else {
-                    format!("{verb} {head} \"{}\"", text.trim_end_matches('"'))
+                    format!("{verb} {head} \"{text}\"")
                 };
                 quoted.as_str()
+            } else if tokens.len() > i && tokens[i].starts_with('"') {
+                // Typed with its own quotes and a quote inside them: the inside
+                // goes curly too.
+                let text = tokens[i..].join(" ");
+                let head = tokens[..i].join(" ");
+                let inner = text
+                    .trim_start_matches('"')
+                    .trim_end_matches('.')
+                    .trim_end_matches('"');
+                if inner.contains('"') {
+                    let text = curl_inner_quotes(inner);
+                    quoted = if head.is_empty() {
+                        format!("{verb} \"{text}\"")
+                    } else {
+                        format!("{verb} {head} \"{text}\"")
+                    };
+                    quoted.as_str()
+                } else {
+                    body
+                }
             } else {
                 body
             }
@@ -995,6 +1056,7 @@ fn run_request(
     let mut fell_at: Option<usize> = None;
     // The last statement that was a travel and arrived: a look right after is carried.
     let mut last_travel_ok: Option<usize> = None;
+    let batch = dos.len() > 1;
     for st in dos {
         if woke {
             let verb = st.verb.clone().unwrap_or_default();
@@ -1094,7 +1156,13 @@ fn run_request(
                         &src,
                     );
                 }
-                report.quote(out.summary, &world.id.0);
+                // R64: in a batch, one statement's answer is capped so the others fit.
+                let cap = if batch {
+                    PER_STATEMENT_LINES
+                } else {
+                    usize::MAX
+                };
+                report.quote_capped(out.summary, &world.id.0, cap);
             }
             Err(e) => {
                 outcomes.push(StatementOutcome {
@@ -2086,5 +2154,19 @@ mod quoting_tests {
         assert!(t.contains("travel wicket \"linger\""), "{t}");
         let t = c("travel The Lookout.");
         assert!(t.contains("travel \"The Lookout\""), "{t}");
+        // A quote inside the text goes curly, so the message is not voided (R30),
+        // typed with or without its own quotes; the checker passes it.
+        let t = c("say He said \"hi\" to me.");
+        assert!(
+            t.contains("say \"He said \u{201c}hi\u{201d} to me.\""),
+            "{t}"
+        );
+        let t = c("tell docent \"what is a \"wisp\"?\"");
+        assert!(
+            t.contains("tell docent \"what is a \u{201c}wisp\u{201d}?\""),
+            "{t}"
+        );
+        let r = checker.check(&t);
+        assert_eq!(r.verdict, "PASS", "{:?}", r.findings);
     }
 }

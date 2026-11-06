@@ -1792,7 +1792,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the closer you came to dying, the longer the memory lasts. While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour.")
+        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the closer you came to dying, the longer the memory lasts. While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour. A new name's first grind: the Orchard's mothwings (6 hp, a hit of 1; east, north, north) or the Fogbank's wisps (8 hp, a hit of 2; east); the Shallows' hollows between them hunt and hit for 4.")
             .param("creature", ParamType::Entity, false, "a creature name from look; defaults to the one you are fighting, else an unnamed one here. A named creature is never struck by default."),
         Box::new(move |w: &mut World, ctx, args| {
             let f = me(w, ctx)?;
@@ -1879,10 +1879,19 @@ pub fn register(world: &mut World, curves: Curves) {
                         // estimate moving between looks reads as the rule, not a fault.
                         let every = plain_num(w, room, SPAWN, "respawn_seconds").unwrap_or(60.0)
                             * super::economy::rate(w, "respawn");
+                        // R60: with others fighting here, the mothwings are nearer
+                        // than the wait.
+                        let others_fighting = w
+                            .store
+                            .children(room)
+                            .filter(|e| e.kind == "citizen" && e.id != f.citizen && super::presence::is_here(w, e.id))
+                            .any(|e| engaged_with(w, e.id).is_some());
+                        let is_fog = plain_str(w, room, super::ROOM, "key") == Some("fogbank");
                         format!(
-                            " Something will drift in within about {}; this room refills three fifths to eight fifths of {} after it empties, never on the minute.",
+                            " Something will drift in within about {}; this room refills three fifths to eight fifths of {} after it empties, never on the minute.{}",
                             human(ms.max(5_000)),
-                            human((every * 1000.0) as i64)
+                            human((every * 1000.0) as i64),
+                            if is_fog && others_fighting { " Or try the mothwings in the Orchard (north, north), the mildest things there are." } else { "" }
                         )
                     })
                     .unwrap_or_default();

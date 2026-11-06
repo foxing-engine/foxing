@@ -22,6 +22,9 @@ pub enum LoginError {
     /// A new name that is an old name in other letters.
     #[error("That name is taken, as {taken}. Log in as {taken}, or choose another name.")]
     Taken { taken: String },
+    /// A new name the world uses for something else (R7).
+    #[error("{name} is {what} here, and a name that is also one reads wrong in every line; choose another.")]
+    Reserved { name: String, what: String },
     /// A passphrase longer than anyone types.
     #[error("A passphrase is at most {max} bytes.")]
     TooLong { max: usize },

@@ -178,9 +178,19 @@ pub fn register(world: &mut World) {
                 for other in others_here(w, room, &ctx.actor).into_iter().filter(|o| o != &target) {
                     narrate(w, &other, format!("{} says to {target}, \"{text}\"", ctx.actor));
                 }
+                // R5: the Conclave's clerks write a `tell` down as they write a `say`.
+                let clerks = super::combat::creatures_in(w, room)
+                    .iter()
+                    .filter(|c| c.1 == "engrosser")
+                    .count();
+                let wrote = match clerks {
+                    0 => "",
+                    1 => " An engrosser writes it down, word for word.",
+                    _ => " The engrossers write it down, word for word.",
+                };
                 return Ok(Outcome::new(
-                    format!("You say to {target}, \"{text}\" They hear you."),
-                    json!({"to": target, "text": text, "delivered": true}),
+                    format!("You say to {target}, \"{text}\" They hear you.{wrote}"),
+                    json!({"to": target, "text": text, "delivered": true, "written_down": clerks > 0}),
                 ));
             }
             w.note(

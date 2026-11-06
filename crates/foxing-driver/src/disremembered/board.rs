@@ -144,7 +144,9 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
                     lines.entry(by.to_string()).or_default().made += 1;
                 }
             }
-            k if k == errand::DONE => {
+            // R5: an errand on the board is a word carried; a story wanted is a story
+            // told, counted under stories.
+            k if k == errand::DONE && p["errand"] == "word" => {
                 if let Some(from) = p["from"].as_str() {
                     lines.entry(from.to_string()).or_default().errands += 1;
                 }

@@ -496,16 +496,26 @@ pub fn added_recipes(world: &World) -> Vec<Rx> {
                         .collect()
                 })
                 .unwrap_or_default(),
-            chunk_at_least: ADDED_CHUNK_AT_LEAST,
+            // R8: an effect from the short list, read from what the maker said it
+            // is for; a thing that does something costs twice the memory.
+            chunk_at_least: if v["effect"].as_str().is_some_and(|e| e != "jar") {
+                ADDED_CHUNK_AT_LEAST * 2.0
+            } else {
+                ADDED_CHUNK_AT_LEAST
+            },
             does: v["does"]
                 .as_str()
                 .unwrap_or("does nothing but keep, and keeps a past")
                 .to_string(),
-            uses: 0,
+            uses: if v["effect"] == "bandage" || v["effect"] == "charm" {
+                1
+            } else {
+                0
+            },
             fixed: false,
             tier: 1,
             vividity_at_least: 0.0,
-            effect: "jar".into(),
+            effect: v["effect"].as_str().unwrap_or("jar").to_string(),
             by: v["by"].as_str().map(str::to_string),
         })
         .collect()
@@ -638,7 +648,9 @@ pub fn add_recipe(
     } else {
         super::mind::an(name)
     };
-    added.push(json!({"key": key, "name": name_said, "of": mats, "does": does, "by": actor, "at": world.now().0}));
+    // R8: what it is for picks an effect from the short list, by the words.
+    let effect = added_effect(&does);
+    added.push(json!({"key": key, "name": name_said, "of": mats, "does": does, "by": actor, "at": world.now().0, "effect": effect}));
     let mut fields = BTreeMap::new();
     fields.insert("added".into(), Field::Plain(Value::Array(added)));
     world
@@ -660,6 +672,26 @@ pub fn add_recipe(
         .into_iter()
         .find(|r| r.key == key)
         .expect("just added"))
+}
+
+/// The effect a written recipe's purpose names (R8): light (the map keeps twice as
+/// long while it is carried, as a lantern), mend (closes a bite or takes one as it
+/// lands, once, as a bandage), charm (the next fight's memory more vivid, once);
+/// else none, a thing that keeps a past.
+pub fn added_effect(does: &str) -> &'static str {
+    let d = does.to_lowercase();
+    let any = |ws: &[&str]| ws.iter().any(|w| d.contains(w));
+    if any(&["light", "lamp", "lantern", "glow", "shine", "bright"]) {
+        "lantern"
+    } else if any(&[
+        "mend", "heal", "bandage", "close a", "bind a", "wound", "bite",
+    ]) {
+        "bandage"
+    } else if any(&["charm", "luck", "vivid", "blessing", "fortune"]) {
+        "charm"
+    } else {
+        "jar"
+    }
 }
 
 /// The material a creature of this kind leaves, by its kind or the kind a hybrid
@@ -983,7 +1015,13 @@ pub fn ground_line(world: &World, room: EntityId) -> Option<String> {
     if things.is_empty() {
         return None;
     }
+    // R28: an awake thing that has settled here is said so, not as one still pulling.
+    let awake_here: Vec<Value> = super::past::awake_things(world)
+        .into_iter()
+        .filter(|a| a["room"].as_u64() == Some(room.0) && a["carried_by"].is_null())
+        .collect();
     let awake = things.iter().any(|t| t["tier"].as_u64().unwrap_or(0) >= 3);
+    let settled = awake && awake_here.iter().all(|a| a["settled"] == true);
     let plain = |t: &Value| {
         t["given_name"].is_null()
             && t["made_by"].is_null()
@@ -1033,7 +1071,9 @@ pub fn ground_line(world: &World, room: EntityId) -> Option<String> {
     Some(format!(
         "On the ground: {}.{}",
         lines.join(", "),
-        if awake {
+        if awake && settled {
+            " Something lying here is awake and has settled: this is the room it wanted; `read` it for its past."
+        } else if awake {
             " Something lying here is awake: take it, and it says where it wants to go in its own way; `read` it for its past."
         } else {
             ""
@@ -1899,7 +1939,7 @@ pub fn register(world: &mut World, curves: Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.recipe",
-            "Write a recipe into the world (kept names, three each): a name for the thing, one to three materials creatures leave, and what you say it is for. Anyone can then craft it for a chunk worth 20 at base price (the Clocktower's price rate moves it; recipes says tonight's figure); the thing keeps a past, and does nothing else.",
+            "Write a recipe into the world (kept names, three each): a name for the thing, one to three materials creatures leave, and what you say it is for. Anyone can then craft it for a chunk worth 20 at base price (the Clocktower's price rate moves it; recipes says tonight's figure); the thing keeps a past. Say what it is for in words of light (a lantern: the map keeps twice as long while it is carried), mending (a bandage: one bite closed, once) or charm (the next fight's memory more vivid, once) and it does that, for twice the memory; any other purpose, it keeps a past and nothing more.",
         )
         .param("name", ParamType::String, true, "what the thing is called, in quotes")
         .param("of", ParamType::String, true, "a material a creature leaves (recipes names them), in quotes")
@@ -1930,13 +1970,19 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             let r = add_recipe(w, &ctx.actor, &name, &of, &does)?;
             w.notice(format!("**{}** wrote a recipe: {} (of {}).", ctx.actor, r.name, r.of.join(" and ")));
+            let effect_said = match r.effect.as_str() {
+                "lantern" => " It will light: the map keeps twice as long in the hand that carries it.",
+                "bandage" => " It will mend: one bite closed, once, and it is spent.",
+                "charm" => " It will charm: the next fight's memory more vivid, once, and it is spent.",
+                _ => "",
+            };
             Ok(Outcome::new(
                 format!(
-                    "The recipe is written: craft {} makes {}, of {}, for a chunk worth {:.0} or more; in your words, {}. recipes lists it with the rest.",
+                    "The recipe is written: craft {} makes {}, of {}, for a chunk worth {:.0} or more; in your words, {}.{effect_said} recipes lists it with the rest.",
                     r.key,
                     r.name,
                     r.of.join(" and "),
-                    ADDED_CHUNK_AT_LEAST * super::economy::rate(w, "price"),
+                    r.chunk_at_least * super::economy::rate(w, "price"),
                     r.does
                 ),
                 json!({"recipe": r.key, "name": r.name, "of": r.of, "does": r.does}),

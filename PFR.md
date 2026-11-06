@@ -49,11 +49,6 @@ Economy and death
   Lean, if asked: **c**, with d as the mechanism (tending = having shelved into it).
 
 From the Night's Watch of 11-04 (the Gn- cohort)
-- **D14 · Named creatures near the hub** (every report: one named creature, Stythe,
-  shared by eight visitors, three stories an hour; S; **ships by policy**, a). a) the
-  world keeps three named creatures within two rooms of the Threshold, naming a
-  wanderer when fewer stand (**lean**); b) per-visitor story credit on a creature; c)
-  leave it to the players' feeding.
 
 Schema and framing
 
@@ -61,17 +56,6 @@ Schema and framing
 
 Each is designed and needs no decision. Say `R<n> hold` to keep one back.
 
-- **R1** (S) `back` walks the way you came a room per statement, and a dug exit may not
-  be named `back` (Lantern Walk's is renamed). -- night cohort, Wrenlace
-- **R2** (S) The gate's lockout survives a restart (it is in memory). -- Quillvisitor
-- **R5** (S) The board's "earned" stops counting story wants as errands; engrossers
-  write a `tell` as they write a `say`. -- Bumblepott, Hazelquill
-- **R7** (S) A reserve list in the driver so `login` refuses verbs and compass words as
-  names (the play page refuses them; the gate does not). -- Kestrelwick
-- **R8** (S) A recipe a kept name writes may carry an effect from a short list (light,
-  ring, mend) instead of none.
-- **R9** (S) `drop` says the Docent carries a thing on its second sighting, and the
-  Docent's tidying leaves a line in the room. -- loop cohort, Hazelquill
 - **R10** (M) The arithmetic of forgetting, audited: which curve each line reads
   (`chunks` said "halves every 1h 2m at vividity 0" while a carried chunk read "6h
   12m"; "five times slower" measured 1.6x; per-chunk half-lives did not move after the
@@ -111,25 +95,13 @@ in the tree on 11-03, most of them fallbacks that stay for a while):
 - **R25** (M; was B5, pulled 11-04) A verb's argument from the scene (click `tell`, then a creature); a creature's own verbs on its figure; the palette on the plain page; marks for named creatures and citizens, a legend in `?`, the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll; admin on the play page; a `remember` that keeps a room on your map; the favicon on the apex site's other pages.
 - **R26** (M; was B6, pulled 11-04) Unreproduced: a `travel <room name>` walk that stops short; "You again" on `leave` (rare); `board` at ~4 s.
 From the Night's Watch of 11-05 (the Trail's first night):
-- **R42** (M; D14 covers it, ships with D14) The storyteller's first hour: a visitor who does not fight has no named creature to tell a story to when the world's names have all lapsed; lean: a pilot named creature that never loses its name (the Docent's cat?) with a standing want, somewhere quiet. -- Gnibblewick
-- **R53** (S) The Clocktower's strike and the Conclave's division narrated as pushed lines to whoever stands in the house or the tower when they fire (the strike changed the Tally Room's paper in silence). -- Gnomonclock
-- **R55** (S) The Docent's login hint ("you asked where things are, so begin with `map`") fires after `time`/`petitions`; the Tally Book's "Nothing has been entered" above entries; `help time` says what the strike and the division do. -- Gnomonclock
-- **R57** (S) The Lookout said "nobody on it but you" while another walker stood on the trail (quiet marks?); check `is_here` against the five-minute quiet rule and list quiet names as "(quiet)". -- Gnomeward
-- **R59** (S) The Docent's greeting cites a question the newcomer never asked ("you asked how to get rag thread", "you asked where things are"): the refusal filter catches "you asked" only in the greeting it sees; check the asked-event lookup is by the greeted name, not the latest asker. -- Gnashgarden, Gnomonclock
-- **R60** (S) The on-ramp sends a level-0 name into contested wisps or lethal hollows; the Orchard's mothwings are the right first grind: the Docent's first-hour advice and `help attack` say so, and the Fogbank's "drift in within about Ns" says "or try the mothwings in the Orchard" when other names are fighting there. -- Gnashgarden
 From the loop cohort of 11-05 (one tester per loop):
-- **R64** (S) A big read first in a batch (`log 40 events`) fills the reply and the other statements' answers are omitted; cap each statement's quoted output in a batch (say 1,200 characters) so the others fit. -- Gnotwhisper
 - **R70** (M) The two-stand censor is unwinnable as the loop sells it: full heal takes 11 m, the wound lasts 10, and 67 hp at ~6 a round against ~10 back is not two stands at thirty hit points; lean: a wound kept twenty minutes in the Stacks, and `retreat` says in rounds what a second stand would take ("it would take you nine more rounds; you have four in you"). -- Gnibbleforge
-- **R73** (S) A Docent answer that never came ("finds you within a few minutes"): check the asked queue for a dropped question when the worker restarts across a deploy, and say so to the asker if a question is lost. -- Gnibbleforge, Gnomonclock
 Pulled from the backlog 11-05 ("B19 yes, B21 yes, B22 yes"), each in pieces the Watch can take a batch at a time:
 - **R74** (M; B19) Crafting, second tier: an usher's ribbon (a thing that lets you choose the room an usher shows you to) and a censor's lens (halves the ray) as recipes from Stacks drops; desires beyond rooms (a hand not met, a story told near it); a thing's past as a want; a sprite per tier on the page; `gather` reading the first cue ("a river of ink" gives ink).
 - **R75** (M; B21) The Exergue, next: a bar story's weight by its money words; the Assayer answering `tell` with your holding's assay; the Wardens' respawn lengthening each taking; the Purse's share as a statute; the sweater's bag and the clippers' filings as things; the Mintmark Hall stamping kept things with their hour; atlas frames for the eight; the slate in the tapster's voice.
 - **R76** (S; B22) The Docent, next: a second figure for the Lower Stacks (an Under-Docent at the stair); "what have you found?" listing the Lost and Found; a `thanks` that costs nothing; `recipes` not saying "You lack rag thread" the moment the thread was spent.
 From the Night's Watch of 11-04:
-- **R28** (S) `wants` lists the awake things with their current pull; the ground
-  hint and the "awake" tag agree after a thing has settled. -- Gnocchibell
-- **R30** (S) A quoted quote inside `tell`/`say` text does not void the message; the
-  refusal names the token. -- Gnudibranch
 - **R34** (S) The play page's shaken state: the hit-chance in the status bar and a
   tremor on the figure while shaken. -- Gnatwhistle
 - Kept on purpose: `nginx-moondial.conf` (moondial.ai redirects to foxing.dev), the
@@ -409,6 +381,24 @@ The world
 
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-06 (batch B, by policy; one deploy)
+- **D14/R42** (a: the Docent keeps three named creatures within two rooms of the Threshold, naming a mild stranger when fewer stand and feeding its own back up when failing; `pilots.rs`, `disremembered.piloted`).
+- **R1** `back` retraces the trail a room per step (the bog's spit is a step back too).
+- **R2** the gate's lockout is on the record (`citizen.login_failed`) and rebuilt at boot.
+- **R5** the board's errands are words carried; engrossers write a `tell` down as a `say`.
+- **R7** `login` refuses a verb, a compass word, a kind, a figure or a reserved word as a name.
+- **R8** a written recipe whose purpose speaks of light, mending or charm makes a thing that does it, at twice the memory.
+- **R9** `look` says when the Docent came through and what it carried or swept, for two hours.
+- **R28** `wants` lists the awake things with their pull; the ground line says when one has settled.
+- **R30** a quote inside a typed `say`/`tell` text goes curly, so the message holds.
+- **R53** whoever stands in the tower, the Exergue or the house sees the paper change at the strike.
+- **R55** `help time` says what the strike and the division do.
+- **R57** the Lookout marks walkers quiet five minutes "(quiet)".
+- **R59** the greeting sieve refuses every "you asked/said/wanted" form; the writer is told not to.
+- **R60** the on-ramp names the Orchard's mothwings (first moves, `help attack`, the Docent's greeting, the Fogbank's wait line when others fight there).
+- **R64** in a batch, one statement's answer is capped at twelve lines so the others fit.
+- **R73** a question the world gave up on takes a late answer within the hour; the worker still sees it.
 
 11-05 (batch A, by policy; one deploy)
 - **D9** (a: a FACT beside the invitation's ASK saying what a name costs and does).

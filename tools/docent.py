@@ -83,6 +83,9 @@ SYSTEM = (
 # behaves, checked against the verbs. A visitor was told a dug room's memory is not
 # restored by a visit (it is), and that a carried word "was a story" (it was not).
 RULES = (
+    "The Docent keeps three named creatures within two rooms of the Threshold, fed with the "
+    "world's own memories, so a newcomer always has someone to tell a story to; `look` says "
+    "'kept by Hollis Quire' of them. "
     "The rules, as the world keeps them. Rooms: `dig <exit> <chunk>` opens a room off "
     "the one the digger stands in; the digger stays where they were, and `travel <exit>` "
     "goes in. Nothing is dug at the Threshold: the Mudroom, west of it, is where the "
@@ -342,7 +345,8 @@ def stock_greetings(creds, token, actor, passphrase, dry, out=None, fill=False):
     user = (
         f"Write {6 if 'first' in need else 0} FIRST lines and {6 if 'welcome' in need else 0} WELCOME lines. "
         "Let what visitors asked steer what the first words point at (if many asked where something is, say how to find things; if "
-        "they asked about fading, say what keeps). Not these, already in the book:\n"
+        "they asked about fading, say what keeps), but never address the one you greet as having asked, said or wanted anything: "
+        "they are new, and 'you asked where things are' to a newcomer is wrong on its face. Not these, already in the book:\n"
         + "\n".join(f"FIRST: {l}" for l in have["first"]) + "\n" + "\n".join(f"WELCOME: {l}" for l in have["welcome"])
         + "\n\nWhat the world knows tonight:\n" + ("\n".join(lines) if lines else "(a quiet day: nobody asked anything)")
     )

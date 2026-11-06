@@ -154,13 +154,42 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
             "level": level, "failing": level < mind::FAILING_BELOW,
         }));
     }
-    let summary = if lines.is_empty() {
+    let mut summary = if lines.is_empty() {
         "No named creature wants anything just now. Feed an unnamed one to sixty and it will: `remember <chunk> <creature>` gives it one of your memories, in its room (`look` says who is here; a wisp east of the Threshold is the usual first)."
             .to_string()
     } else {
         format!("What the named want:\n{}", lines.join("\n"))
     };
-    Ok(json!({"summary": summary, "wants": rows, "scarcity": scarcity}))
+    // R28: the awake things, with their pull (a room they want) or that they have
+    // settled.
+    let awake = super::past::awake_things(world);
+    if !awake.is_empty() {
+        let said: Vec<String> = awake
+            .iter()
+            .map(|a| {
+                let where_ = match (a["carried_by"].as_str(), a["room_name"].as_str()) {
+                    (Some(c), Some(r)) => format!("in {c}'s hand, in {r}"),
+                    (None, Some(r)) => format!("lying in {r}"),
+                    _ => "nowhere anyone can see".to_string(),
+                };
+                let want = if a["settled"] == true {
+                    "settled where it is".to_string()
+                } else {
+                    format!(
+                        "pulls toward {}",
+                        a["wants_name"].as_str().unwrap_or("somewhere")
+                    )
+                };
+                format!(
+                    "{} (item-{}), {where_}: {want}",
+                    a["name"].as_str().unwrap_or("?"),
+                    a["item"]
+                )
+            })
+            .collect();
+        summary.push_str(&format!("\nThe awake things:\n{}", said.join("\n")));
+    }
+    Ok(json!({"summary": summary, "wants": rows, "scarcity": scarcity, "awake": awake}))
 }
 
 /// Your footprint and what happened to it since you were last here.

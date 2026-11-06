@@ -77,7 +77,9 @@ pub struct World {
     last_forget_minute: i64,
     /// The room each actor last traveled from, so `travel back` means the way you
     /// came. In this process only.
-    came_from: std::collections::HashMap<String, foxing_store::EntityId>,
+    /// The rooms each actor walked through, latest last: `back` retraces them a
+    /// room per step (R1: one room remembered made `back, back` a ping-pong).
+    came_from: std::collections::HashMap<String, Vec<foxing_store::EntityId>>,
 }
 
 /// An address or a prefix of them, as `MOONDIAL_LAB_NETS` lists them: `203.0.113.7`,
@@ -354,9 +356,18 @@ impl World {
         (left > 0).then(|| (left + 59_999) / 60_000)
     }
 
-    /// A wrong passphrase for this name.
+    /// A wrong passphrase for this name. On the record too (`citizen.login_failed`,
+    /// the name and nothing else), so the lockout survives a restart (R2).
     pub fn failed_login(&mut self, actor: &str) {
-        let now = self.now();
+        self.count_failure(actor, self.now());
+        let _ = self.note(
+            foxing_log::Actor::Driver,
+            "citizen.login_failed",
+            serde_json::json!({"name": actor}),
+        );
+    }
+
+    fn count_failure(&mut self, actor: &str, now: Timestamp) {
         let e = self.failures.entry(actor.to_string()).or_insert((0, now));
         if now.since(e.1).0 > LOCKOUT.0 {
             e.0 = 0;
@@ -367,7 +378,41 @@ impl World {
 
     /// A right passphrase: the count starts over.
     pub fn succeeded_login(&mut self, actor: &str) {
-        self.failures.remove(actor);
+        if self.failures.remove(actor).is_some() {
+            let _ = self.note(
+                foxing_log::Actor::Driver,
+                "citizen.login_ok",
+                serde_json::json!({"name": actor}),
+            );
+        }
+    }
+
+    /// On boot: the failures of the last lockout window, replayed from the record,
+    /// so a restart does not open a locked name (R2).
+    pub fn rebuild_failures(&mut self) {
+        let now = self.now();
+        let since = now.0 - LOCKOUT.0;
+        let events: Vec<(String, String, Timestamp)> = self
+            .recent_events(5000)
+            .iter()
+            .filter(|e| e.at.0 >= since)
+            .filter(|e| e.kind == "citizen.login_failed" || e.kind == "citizen.login_ok")
+            .filter_map(|e| {
+                Some((
+                    e.kind.clone(),
+                    e.payload["name"].as_str()?.to_string(),
+                    e.at,
+                ))
+            })
+            .collect();
+        self.failures.clear();
+        for (kind, name, at) in events {
+            if kind == "citizen.login_ok" {
+                self.failures.remove(&name);
+            } else {
+                self.count_failure(&name, at);
+            }
+        }
     }
 
     /// A line for the operator.
@@ -375,12 +420,24 @@ impl World {
         self.notices.push(line);
     }
 
+    /// The room the actor came from: the latest on their trail.
     pub fn came_from(&self, actor: &str) -> Option<foxing_store::EntityId> {
-        self.came_from.get(actor).copied()
+        self.came_from.get(actor).and_then(|t| t.last().copied())
     }
 
+    /// The actor walked on from `room`: it joins their trail (thirty-two deep).
     pub fn set_came_from(&mut self, actor: &str, room: foxing_store::EntityId) {
-        self.came_from.insert(actor.to_string(), room);
+        let trail = self.came_from.entry(actor.to_string()).or_default();
+        trail.push(room);
+        if trail.len() > 32 {
+            trail.remove(0);
+        }
+    }
+
+    /// The actor went back: the latest room leaves the trail, so the next `back`
+    /// goes a room further.
+    pub fn pop_came_from(&mut self, actor: &str) -> Option<foxing_store::EntityId> {
+        self.came_from.get_mut(actor).and_then(|t| t.pop())
     }
 
     pub fn last_forget_minute(&self) -> i64 {

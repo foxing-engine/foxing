@@ -225,7 +225,11 @@ came. It greets whoever comes to the door (once a night), and answers
 questions. When no one is at the door it keeps busy: every minute or
 two it walks to the next room of the world, carries what was left
 lying back to the Threshold (you may `take` it there), unmakes a dug
-room named like a test, and nods to whoever it passes; `where docent`
+room named like a test, and nods to whoever it passes. It keeps three
+named creatures within two rooms of the door, fed with the world's own
+memories (`look` says "kept by Hollis Quire"), so a newcomer always has
+someone to tell a story to; the rest of the names are the players'.
+`where docent`
 finds it, and a visitor at the door brings it back. `tell docent "…"`
 from anywhere: at the door it takes the question with a word, elsewhere
 the question goes to its desk, and within a few minutes it comes to you

@@ -1285,6 +1285,43 @@ pub fn describe(
         text.push(' ');
         text.push_str(&ground);
     }
+    // R9: the Docent's tidying leaves a line in the room for two hours, so a thing
+    // set down and gone is not a mystery (it was carried to the Threshold).
+    {
+        let now = world.now().0;
+        let carried: Vec<(i64, String, bool)> = world
+            .recent_events(3000)
+            .iter()
+            .filter(|e| e.kind == super::docent::TIDIED && e.payload["from"] == room.0)
+            .filter(|e| now - e.at.0 < 2 * 3_600_000)
+            .filter_map(|e| {
+                Some((
+                    e.at.0,
+                    e.payload["name"].as_str()?.to_string(),
+                    e.payload["swept"] == true,
+                ))
+            })
+            .collect();
+        if let Some((at, _, swept)) = carried.last() {
+            let names: Vec<&str> = carried
+                .iter()
+                .rev()
+                .take(3)
+                .map(|(_, n, _)| n.as_str())
+                .collect();
+            text.push_str(&format!(
+                " The Docent came through {} ago and {} {}{}.",
+                super::combat::human(now - at),
+                if *swept { "swept" } else { "carried" },
+                names.join(", "),
+                if *swept {
+                    " into the Midden"
+                } else {
+                    " to the Threshold"
+                }
+            ));
+        }
+    }
     if !creatures.is_empty() {
         let list: Vec<String> = creatures
             .iter()
@@ -1580,11 +1617,15 @@ pub fn register(world: &mut World) {
             }
             // `back`: the exit that leads to the room you came from, unless the room has
             // an exit named back of its own (diggers name exits as they like).
+            let mut retracing = false;
             if exit == "back" && !exits.contains_key("back") {
                 match w.came_from(&ctx.actor).and_then(|from| {
                     exits.iter().find(|(_, &to)| to == from).map(|(via, _)| via.clone())
                 }) {
-                    Some(via) => exit = via,
+                    Some(via) => {
+                        exit = via;
+                        retracing = true;
+                    }
                     None => {
                         return Err(foxing_registry::CommandError::precondition(
                             "There is no way back from here that the world remembers you taking; name an exit.".to_string(),
@@ -1675,7 +1716,12 @@ pub fn register(world: &mut World) {
                 },
             )
             .map_err(internal)?;
-            w.set_came_from(&ctx.actor, room);
+            // R1: `back` retraces the trail a room per step; any other door adds to it.
+            if retracing {
+                w.pop_came_from(&ctx.actor);
+            } else {
+                w.set_came_from(&ctx.actor, room);
+            }
             super::combat::on_arrival(w, &ctx.actor, f.citizen, to).map_err(internal)?;
             super::building::visited(w, to).map_err(internal)?;
             super::talk::greet(w, &ctx.actor, to);

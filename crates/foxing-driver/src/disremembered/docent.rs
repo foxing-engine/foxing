@@ -50,7 +50,7 @@ const JOB_EMPTY: &str = "disremembered.docent_empty";
 /// (a named creature with a want and the way), `{room}` (the newest dug room).
 pub const FIRST_WORDS: &[&str] = &[
     "Welcome, {name}. Everything you earn here fades; what you do with it is yours. The strip above the prompt walks you through your first hour; `help` is what I keep by heart. Ask me anything: tell docent \"…\".",
-    "{name}. New, then. Read the room, go east, hit a wisp, keep what it drops. {creature} Ask me anything with tell docent \"…\"; I answer within the minute.",
+    "{name}. New, then. Read the room, go east, hit a wisp (or on to the Orchard for a mothwing, milder still), keep what it drops. {creature} Ask me anything with tell docent \"…\"; I answer within the minute.",
 ];
 /// What it says to a name it has met. Slots as above, and `{since}` (how long away).
 pub const WELCOMES: &[&str] = &[
@@ -659,8 +659,24 @@ pub fn greeting_refusal(line: &str, have: &[String]) -> Option<String> {
     }
     // The catalog's worked examples leak: a greeting told a newcomer "you asked about
     // fading, shelve chunk-267" on a first login.
+    // R59: in every form ("you were asking", "you wanted to know", "your question"):
+    // the lines are written from what the night's visitors asked, and the one being
+    // greeted asked nothing yet.
     let low = t.to_lowercase();
-    if low.contains("chunk-") || low.contains("you asked") || low.contains("item-") {
+    const ASKED_YOU: &[&str] = &[
+        "you asked",
+        "you were asking",
+        "you ask ",
+        "you wanted",
+        "you wondered",
+        "your question",
+        "since you ",
+        "as you said",
+        "you said",
+        "you mentioned",
+    ];
+    if low.contains("chunk-") || low.contains("item-") || ASKED_YOU.iter().any(|a| low.contains(a))
+    {
         return Some("cites a chunk, a thing or a question the visitor never had".into());
     }
     if have.iter().any(|h| h.eq_ignore_ascii_case(t)) {
@@ -708,7 +724,14 @@ fn answer(
             "No question {id} on the record."
         )));
     };
-    if !a["answered"].is_null() {
+    // R73: a question the world gave up on (the desk was empty across a deploy)
+    // still takes a late answer within the hour, said as a return; one answered
+    // for real is not answered twice.
+    let late = a["answered"] == false
+        && a["at"]
+            .as_i64()
+            .is_some_and(|t| world.now().0 - t < 3_600_000);
+    if !a["answered"].is_null() && !late {
         return Err(CommandError::precondition(format!(
             "Question {id} was answered already."
         )));
@@ -735,7 +758,11 @@ fn answer(
     super::combat::narrate(
         world,
         &to,
-        format!("The Docent finds you, on \"{question}\": \"{text}\""),
+        if late {
+            format!("The Docent finds you after all, the page found late, on \"{question}\": \"{text}\"")
+        } else {
+            format!("The Docent finds you, on \"{question}\": \"{text}\"")
+        },
     );
     let _ = world.note(
         Actor::Citizen(by.to_string()),
@@ -1216,10 +1243,16 @@ fn room_record(world: &World, room: EntityId) -> Vec<String> {
 pub fn report(world: &World) -> Value {
     let now = world.now().0;
     let hl = atlas_hl();
+    // Open, and the ones the world gave up on within the hour (R73): the desk was
+    // empty across a deploy, and a late page still finds the asker.
     let open: Vec<Value> = asks(world)
         .iter()
-        .filter(|a| a["answered"].is_null())
-        .filter(|a| a["at"].as_i64().is_some_and(|t| now - t < EMPTY_AFTER_S * 1000))
+        .filter(|a| a["answered"].is_null() || a["answered"] == false)
+        .filter(|a| {
+            a["at"].as_i64().is_some_and(|t| {
+                now - t < if a["answered"] == false { 3_600_000 } else { EMPTY_AFTER_S * 1000 }
+            })
+        })
         .map(|a| {
             let from = a["from"].as_str().unwrap_or("");
             let f = super::find_citizen(world, from);

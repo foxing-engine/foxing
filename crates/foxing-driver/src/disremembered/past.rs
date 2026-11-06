@@ -463,6 +463,40 @@ fn new_desire(world: &mut World, actor: &str, item: EntityId) -> Result<(), Comm
     set(world, actor, item, changes)
 }
 
+/// Every awake thing in the world with where it is and what it wants, for `wants`
+/// (R28): `{item, name, room, room_name, carried_by, wants, wants_name, settled}`.
+pub fn awake_things(world: &World) -> Vec<serde_json::Value> {
+    world
+        .store
+        .entities()
+        .filter(|e| e.kind == "item" && tier(world, e.id) >= 3)
+        .map(|e| {
+            // Lying in a room, or in a satchel under a citizen.
+            let (room, carried_by) = match e.parent.and_then(|p| world.store.entity(p)) {
+                Some(p) if p.kind == "room" => (Some(p.id), None),
+                Some(p) if p.kind == "satchel" => (
+                    p.parent.and_then(|c| super::rooms::room_of(world, c)),
+                    p.parent
+                        .and_then(|c| world.store.entity(c))
+                        .and_then(|c| c.owner.clone()),
+                ),
+                _ => (None, None),
+            };
+            let want = desire(world, e.id);
+            serde_json::json!({
+                "item": e.id.0,
+                "name": craft::display(world, e.id),
+                "room": room.map(|r| r.0),
+                "room_name": room.and_then(|r| plain_str(world, r, super::ROOM, "name")),
+                "carried_by": carried_by,
+                "wants": want.as_ref().map(|(r, _)| r.0),
+                "wants_name": want.as_ref().map(|(_, n)| n.clone()),
+                "settled": want.is_none() || want.as_ref().is_some_and(|(r, _)| Some(*r) == room),
+            })
+        })
+        .collect()
+}
+
 fn desire(world: &World, item: EntityId) -> Option<(EntityId, String)> {
     world
         .store

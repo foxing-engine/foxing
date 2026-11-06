@@ -736,6 +736,41 @@ pub fn strike(world: &mut World) -> Result<(), String> {
     for actor in &present {
         super::combat::narrate(world, actor, line.clone());
     }
+    // R53: whoever stands where the figures are kept (the tower, the Exergue, the
+    // house) sees the paper change, not only hears the bell.
+    const PAPERED: &[&str] = &[
+        "clocktower",
+        "exergue-stair",
+        "counting-bar",
+        "die-room",
+        "striking-floor",
+        "assay-office",
+        "mintmark-hall",
+        "purse-room",
+        "exergue",
+    ];
+    let papered: Vec<String> = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "citizen" && super::presence::is_here(world, e.id))
+        .filter(|e| {
+            e.parent.is_some_and(|r| {
+                super::plain_str(world, r, super::ROOM, "key").is_some_and(|k| PAPERED.contains(&k))
+                    || super::conclave::is_house(world, r)
+            })
+        })
+        .filter_map(|e| e.owner.clone())
+        .collect();
+    for actor in &papered {
+        super::combat::narrate(
+            world,
+            actor,
+            format!(
+                "The figures on the paper here change as the bell dies: {}.",
+                rates_line(&after)
+            ),
+        );
+    }
     if !moves.is_empty() {
         world.notice(format!("{line} ({})", rates_line(&after)));
     }

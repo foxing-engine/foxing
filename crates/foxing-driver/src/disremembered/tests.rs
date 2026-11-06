@@ -8,6 +8,9 @@ use foxing_time::Timestamp;
 const PASS: &str = "correct-horse-battery";
 
 fn open(dir: &std::path::Path, at: Timestamp) -> World {
+    // The Docent's tending of the door (pilots.rs) names three creatures ten
+    // minutes in; the tests that want a nameless world would meet them.
+    super::pilots::ENABLED.store(false, std::sync::atomic::Ordering::Relaxed);
     let mut w = World::open(
         WorldId("test".into()),
         Store::new(registry()),
@@ -1243,7 +1246,8 @@ fn append_adds_to_a_description_and_arrivals_are_counted() {
 
 #[test]
 fn five_wrong_passphrases_lock_a_name_for_five_minutes() {
-    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(0));
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
     login(&mut w, "dave", "test", PASS).unwrap();
     for _ in 0..5 {
         let Err(e) = login(&mut w, "dave", "test", "not-the-passphrase") else {
@@ -1256,6 +1260,13 @@ fn five_wrong_passphrases_lock_a_name_for_five_minutes() {
         panic!("the lock did not hold")
     };
     assert!(matches!(e, LoginError::Locked { minutes: 5, .. }), "{e}");
+    // The lock survives a restart (R2: it was in memory, and a deploy opened it).
+    drop(w);
+    let mut w = open(dir.path(), Timestamp(60_000));
+    let Err(e) = login(&mut w, "dave", "test", PASS) else {
+        panic!("the lock did not survive the restart")
+    };
+    assert!(matches!(e, LoginError::Locked { .. }), "{e}");
     w.fixed_now = Some(w.now().plus(Duration::seconds(5 * 60 + 1)));
     login(&mut w, "dave", "test", PASS).unwrap();
     // Success resets the count.
@@ -2715,6 +2726,21 @@ fn a_name_in_other_letters_is_the_same_name() {
     };
     assert!(matches!(e, LoginError::Taken { .. }), "{e}");
     assert!(e.to_string().contains("as Claude-scout"), "{e}");
+    // A verb, a compass word, a kind or a figure is no one's name (R7).
+    for (name, what) in [
+        ("attack", "a verb"),
+        ("North", "a compass word"),
+        ("wisp", "a kind of creature"),
+        ("Docent", "a figure"),
+    ] {
+        let Err(e) = login(&mut w, name, "test", PASS) else {
+            panic!("{name} was taken as a name")
+        };
+        assert!(
+            matches!(e, LoginError::Reserved { .. }) && e.to_string().contains(what),
+            "{name}: {e}"
+        );
+    }
     assert_eq!(
         w.store.entities().filter(|e| e.kind == "citizen").count(),
         1
@@ -3613,12 +3639,23 @@ fn travel_back_is_the_way_you_came() {
         "{}",
         out.summary
     );
+    // R1: `back` retraces the trail a room per step, not a ping-pong: the second
+    // `back` is the Threshold, and a third has nowhere left.
     let out = ok(&mut w, "dave", "travel", json!(["back"]));
     assert!(
-        out.summary.starts_with("You go south. The Midden."),
+        out.summary.starts_with("You go west. The Threshold."),
         "{}",
         out.summary
     );
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["back"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("no way back"), "{err}");
 }
 
 #[test]
@@ -7438,6 +7475,29 @@ fn the_docent_greets_once_a_night_takes_questions_answers_or_admits_the_page_is_
             .any(|l| l.starts_with("The Docent comes back without the page")),
         "{said:?}"
     );
+    // The desk comes back within the hour (R73: a deploy emptied it): the question
+    // is still open to the worker, and the late page finds the asker.
+    let rep = docent::report(&w);
+    assert_eq!(rep["open"][0]["text"], "what is the Conclave?", "{rep}");
+    let qid = rep["open"][0]["id"].as_u64().unwrap();
+    let head = events(&w);
+    admin(
+        &mut w,
+        "Bindery",
+        "answer",
+        json!([
+            qid,
+            "A house that sits at midnight and divides at the half hour.",
+            "test"
+        ]),
+    );
+    let said = narrative(&w, "dave", head);
+    assert!(
+        said.iter()
+            .any(|l| l.starts_with("The Docent finds you after all, the page found late")),
+        "{said:?}"
+    );
+    assert!(docent::report(&w)["open"].as_array().unwrap().is_empty());
     // Six an hour from one name, no more.
     for i in 0..4 {
         ok(
@@ -8887,12 +8947,24 @@ fn a_kept_name_writes_recipes_the_bench_then_knows() {
     assert!(made.summary.contains("a tin whistle"), "{}", made.summary);
     let sat = ok(&mut w, "tyler", "satchel", json!([]));
     assert!(sat.summary.contains("a tin whistle"), "{}", sat.summary);
-    // Three a name.
-    ok(
+    // Three a name; one written for light is a lantern in the hand (R8), at twice
+    // the memory.
+    let out = ok(
         &mut w,
         "dave",
         "recipe",
-        json!(["a second thing", "moth dust"]),
+        json!(["a second thing", "moth dust", "a light to read the map by"]),
+    );
+    assert!(out.summary.contains("It will light"), "{}", out.summary);
+    assert!(out.summary.contains("worth 40 or more"), "{}", out.summary);
+    material(&mut w, "tyler", "moth dust");
+    let c = admin(&mut w, "tyler", "earn", json!(["moth", 45, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "craft", json!(["second-thing", &c]));
+    let tyler_id = find_citizen(&w, "tyler").unwrap().citizen;
+    assert!(
+        craft::carries(&w, tyler_id, "lantern").is_some(),
+        "a written light is a lantern"
     );
     ok(
         &mut w,
@@ -9347,6 +9419,88 @@ fn the_door_is_cleared_at_boot_and_its_dug_rooms_hang_off_the_mudroom() {
         "{}",
         look.summary
     );
+}
+
+#[test]
+fn the_docent_keeps_three_names_near_the_door() {
+    use super::pilots;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    assert_eq!(mind::named_count(&w), 0);
+    // Rooms within two of the door: the Threshold, its three, and theirs.
+    let near = pilots::near_the_door(&w);
+    let keys: Vec<String> = near
+        .iter()
+        .filter_map(|&r| plain_str(&w, r, ROOM, "key").map(str::to_string))
+        .collect();
+    for k in [
+        "threshold",
+        "fogbank",
+        "lantern-row",
+        "mudroom",
+        "shallows",
+        "midden",
+        "archive",
+        "stairwell",
+    ] {
+        assert!(keys.contains(&k.to_string()), "{keys:?}");
+    }
+    assert!(
+        !keys.contains(&"orchard".to_string()),
+        "three away: {keys:?}"
+    );
+    // One pass names three mild creatures, kept by the Docent, with the world's
+    // own memories; `look` says who keeps them.
+    let did = pilots::tend(&mut w).unwrap();
+    assert_eq!(did, 3);
+    assert_eq!(mind::named_count(&w), 3);
+    let named: Vec<EntityId> = w
+        .store
+        .entities()
+        .filter(|e| e.kind == "creature" && mind::name(&w, e.id).is_some())
+        .map(|e| e.id)
+        .collect();
+    for c in &named {
+        assert!(mind::is_pilot(&w, *c));
+        assert_eq!(mind::keepers(&w, *c), vec![docent::NAME.to_string()]);
+        assert!(mind::level(&w, *c) >= 60.0);
+    }
+    assert_eq!(
+        pilots::tend(&mut w).unwrap(),
+        0,
+        "three stand; nothing to do"
+    );
+    // A pilot fading toward the half of its bar is fed back up; a player's name is not.
+    let c = named[0];
+    let window = mind::window_of(&w, c).unwrap();
+    let chunks: Vec<EntityId> = w
+        .store
+        .children(window)
+        .filter(|e| e.kind == "chunk")
+        .map(|e| e.id)
+        .collect();
+    for ch in chunks {
+        w.record(
+            foxing_log::Actor::Driver,
+            StoreEvent::FieldCommitted {
+                id: ch,
+                component: CHUNK.into(),
+                field: "value".into(),
+                value: 10.0,
+            },
+        )
+        .unwrap();
+    }
+    assert!(mind::level(&w, c) < mind::FAILING_BELOW);
+    assert_eq!(pilots::tend(&mut w).unwrap(), 1);
+    assert!(mind::level(&w, c) >= 60.0, "{}", mind::level(&w, c));
+    let piloted = w
+        .recent_events(2000)
+        .iter()
+        .filter(|e| e.kind == pilots::PILOTED)
+        .count();
+    assert_eq!(piloted, 4);
 }
 
 #[test]

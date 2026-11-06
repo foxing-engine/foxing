@@ -175,7 +175,8 @@ fn bog(world: &mut World, payload: &Value) -> Result<(), String> {
             },
         )
         .map_err(|e| e.to_string())?;
-    world.set_came_from(&actor, room);
+    // Spat out is a step back along the trail, not a step on (R1).
+    world.pop_came_from(&actor);
     super::building::visited(world, to)?;
     let _ = super::atlas::mark_seen(world, &actor, to);
     super::combat::on_arrival(world, &actor, citizen, to)?;
@@ -232,11 +233,24 @@ pub fn look_line(world: &World, actor: &str, room: EntityId) -> Option<String> {
                 let Some(r) = super::rooms::room_by_key(world, key) else {
                     continue;
                 };
+                // R57: a walker quiet five minutes is still on the trail, marked so;
+                // one gone ten is not (the room has disremembered them).
                 let who: Vec<String> = world
                     .store
                     .children(r)
                     .filter(|e| e.kind == "citizen" && super::presence::is_here(world, e.id))
                     .filter_map(|e| plain_str(world, e.id, CITIZEN, "name").map(str::to_string))
+                    .map(|n| {
+                        let quiet = world
+                            .last_active(&n)
+                            .map(|t| world.now().since(t).0)
+                            .is_some_and(|q| q >= super::presence::QUIET_MS);
+                        if quiet {
+                            format!("{n} (quiet)")
+                        } else {
+                            n
+                        }
+                    })
                     .collect();
                 if !who.is_empty() {
                     let rname = plain_str(world, r, ROOM, "name").unwrap_or("?");

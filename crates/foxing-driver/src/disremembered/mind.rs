@@ -205,6 +205,19 @@ pub fn keepers(world: &World, creature: EntityId) -> Vec<String> {
     out
 }
 
+/// The `kept` list as it stands: `[{by, with}]`.
+pub fn kept(world: &World, creature: EntityId) -> Vec<Value> {
+    mind_field(world, creature, "kept")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// Whether the Docent keeps it near the door (pilots.rs).
+pub fn is_pilot(world: &World, creature: EntityId) -> bool {
+    mind_field(world, creature, "pilot").and_then(Value::as_bool) == Some(true)
+}
+
 /// Who fed it last: the hand on the latest feed, counted again even if it fed before
 /// (`keepers` lists each name once, first appearance, so its last was the wrong
 /// one: "since Pindle fed me to it", of a parent). Births and confidings are not feeds.
