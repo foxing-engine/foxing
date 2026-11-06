@@ -723,6 +723,7 @@ into "a sheaf of N stories" worth their sum.
     log 40 events                     [DO] Quillwake MUST log 40 events.
     messages                          [DO] Quillwake MUST messages.
     session                           [DO] Quillwake MUST session.
+    news                              [DO] Quillwake MUST news.
 
 `feedback "…"` from the play page is the feedback button beside leave:
 a box, then this verb. `travel` says the room it reaches; a `look`
@@ -732,7 +733,10 @@ a room, words left for you while you were away (they are shown once at
 the top of your next arrival, and here after), a creature's answers,
 the Docent's. `session` is what has happened since you arrived: how
 long, what your level did, what you earned, lost, dug, told, wrote and
-said; the play page says it when you leave.
+said; the play page says it when you leave. `news` is the world's own
+news of the last day in the Docent's voice: what the Conclave decided,
+who fell, who was named, what was born and dug, the traveler, what
+happened on its own.
 
 The `observe` tool (or POST /v0/observe) is the richer read: a query
 over any room, creature or citizen, free of the gate budget. The

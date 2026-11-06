@@ -525,12 +525,13 @@ const READ_VERBS: &[&str] = &[
     "session",
     "messages",
     "petitions",
+    "news",
 ];
 
 const AFTER_DEATH: &[&str] = &[
     "look", "chunks", "map", "time", "rest", "board", "statutes", "palace", "satchel", "log",
     "recipes", "help", "commands", "read", "wants", "mine", "where", "check", "session",
-    "messages",
+    "messages", "news",
 ];
 
 /// Compile a terminal line (`attack the wisp`) into a REQUEST from `actor` to `world`:
@@ -1035,9 +1036,11 @@ fn rejection(result: &CheckResult, report: &mut Report) {
             "clear_check",
         );
     }
+    // D18 (a): a message runs whole or not at all; a score between is a count of
+    // statements that passed, not partial credit, and the line says so.
     report.fact(
         format!(
-            "The message scored {} Legibility and the world ran none of it",
+            "The message scored {} Legibility and the world ran none of it: a message runs whole or not at all",
             result.score
         ),
         "clear_check",

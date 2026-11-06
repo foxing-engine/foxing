@@ -1172,6 +1172,16 @@ pub fn describe(
         }
     };
     let mut text = format!("{name}. {desc}");
+    // R78: the weather, by the Clocktower's rates and the hour.
+    if dug_by.is_none() {
+        if let Some(wx) = super::weather::line(
+            world,
+            root["components"][ROOM]["key"].as_str().unwrap_or(""),
+        ) {
+            text.push(' ');
+            text.push_str(&wx);
+        }
+    }
     if let Some(who) = &dug_by {
         let with = root["components"][ROOM]["dug_with"]
             .as_str()
@@ -1321,6 +1331,13 @@ pub fn describe(
     // without a lantern is told what one keeps, once a room.
     if let Some(f) = super::find_citizen(world, actor) {
         let key = root["components"][ROOM]["key"].as_str().unwrap_or("");
+        // H5: the door, to a name under an hour old, carries the three ways in a line.
+        if key == ARRIVAL
+            && super::plain_num(world, f.citizen, super::CITIZEN, "named_at")
+                .is_some_and(|t| world.now().0 - (t as i64) < super::kindle::GRACE_MS)
+        {
+            text.push_str(" Three ways from the door: east into the fog, where the mild things are fought and remembered; north under the lanterns, where the world is read; west into the mud, where rooms are dug. One is enough to start.");
+        }
         if key == "lower-stacks" && super::craft::carries(world, f.citizen, "lantern").is_none() {
             text.push_str(" Twenty rooms below, and the map of them fades as you walk them; a lantern in the hand (craft lantern) keeps it twice as long. Nothing lives on this landing: `where lamprey`, `where usher`, `where censor` say where each kind does.");
         }

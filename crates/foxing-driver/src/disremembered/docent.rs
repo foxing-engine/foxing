@@ -958,6 +958,23 @@ pub fn tidy(world: &mut World) -> Result<usize, String> {
         }
     }
     let carried = carried + swept;
+    // R77: the round seen passing, by whoever stands at the door when it brought
+    // nothing there (what it sets down is said already).
+    if carried == 0 {
+        let at_door: Vec<String> = world
+            .store
+            .children(threshold)
+            .filter(|c| c.kind == "citizen" && super::presence::is_here(world, c.id))
+            .filter_map(|c| c.owner.clone())
+            .collect();
+        for actor in at_door {
+            super::combat::narrate(
+                world,
+                &actor,
+                "The Docent passes through on its round, looks at the floor, finds nothing to carry, and goes on.".to_string(),
+            );
+        }
+    }
     let tidied = field(world, "tidied").and_then(|v| v.as_u64()).unwrap_or(0) + carried as u64;
     let round = field(world, "round").and_then(|v| v.as_u64()).unwrap_or(0) + 1;
     let mut changes = BTreeMap::new();
@@ -1508,4 +1525,41 @@ pub fn register(world: &mut World) {
             ))
         }),
     );
+}
+
+/// H5: the Docent's line to a name on its first arrival, by name, with the one next
+/// move: a story to the nearest named creature, else a wisp in the fog.
+pub fn first_arrival(world: &World, actor: &str) -> String {
+    let home = super::rooms::arrival(world);
+    let near: Vec<EntityId> = super::pilots::near_the_door(world);
+    let named = near.iter().find_map(|&r| {
+        super::combat::creatures_in(world, r)
+            .into_iter()
+            .find(|c| super::mind::name(world, c.0).is_some())
+            .map(|c| (r, super::mind::display(world, c.0)))
+    });
+    let next = match named {
+        Some((r, who)) if Some(r) == home => {
+            format!("{who} is here; tell it a dozen words it does not know, and it keeps them")
+        }
+        Some((r, who)) => {
+            let place = super::plain_str(world, r, super::ROOM, "name").unwrap_or("the next room");
+            let via = home
+                .and_then(|h| {
+                    super::rooms::exits_of(world, h)
+                        .into_iter()
+                        .find(|(_, to)| *to == r)
+                })
+                .map(|(e, _)| format!("`travel {e}`"))
+                .unwrap_or_else(|| format!("`where {}`", who.split(' ').next().unwrap_or("it")));
+            format!("{who} is in {place}, {via}; tell it a dozen words it does not know, and it keeps them")
+        }
+        None => {
+            "east is the fog, and a wisp in it; strike one, or tell it a story once it has a name"
+                .to_string()
+        }
+    };
+    format!(
+        "The Docent looks up from the page: \"{actor}. New, then. One thing first: {next}. The rest finds you.\""
+    )
 }

@@ -19,8 +19,8 @@ went by policy, with ids.
 ## Decisions (D): one letter each; **waits** means yours, the rest go by policy
 
 The gate and the hour (from the Watch of 11-06; S, each with a lean, so by policy)
-- **D18 · A message scored 50 that ran nothing.** One of two statements failed and the whole message ran nothing; the "50 Legibility" read as partial credit. a) **lean**: keep the all-or-nothing (CLEAR's thesis) and say it in the line: "scored 50; a message runs whole or not at all, so the world ran none of it". b) run the statements that passed.
-- **D19 · A want-match inside the hour.** A story about what the creature wants, told inside your hour with it, is refused like any other; only a story that carries the word is heard. a) **lean**: as is, said: the refusal names the want as waiting for the hour too. b) a want-match is heard inside the hour at base pay (no double).
+- **D18 · A message scored 50 that ran nothing.** Decided a (11-06, "CLEAR is binary, all or nothing"), **shipped 11-06 (batch G)**: the line says "a message runs whole or not at all". The fixes that reduce the chance of a 50 (what the gate can mend before checking: inner quotes curled, a missing period, a `look` after `travel`, an unknown verb's nearest) go into **X9 · CLEAR 0.5** as its change list.
+- **D19 · A want-match inside the hour.** Decided b (11-06), **shipped 11-06 (batch G)**: the wanted story is heard inside the hour at plain pay, and the want stands (told again when the hour turns, it pays double); the refusal says what is heard inside the hour.
 - **D20 · A refused guess and the hint.** The hint narrows on heard misses only; four guesses refused inside the hour narrowed nothing (batch F puts the hint in the refusal). a) **lean**: as now. b) a refused in-hour guess counts as a miss (narrows the lent-word pool to five after two refusals).
 
 Economy and death
@@ -127,8 +127,9 @@ yours to call: say `H5 go`, or `H5 brief` for a design first.
   11-06 (Gnomestead) asked for the same on the exits line itself: "east (Fogbank:
   fight), west (Mudroom: dig), north (Lantern Row: read)"; the three doors map
   exactly to the three ways, so the line should say so.
-- **H5 · A first-arrival line at the door** (S). The Docent greets a new name by
-  name on its first arrival with the one next move (the fog, a wisp), apart from the
+- **H5 · A first-arrival line at the door** (S, **shipped 11-06, batch G**). The
+  Docent greets a new name by name on its first arrival with the one next move (the
+  nearest named creature and the way to it, else a wisp in the fog), apart from the
   nightly greeting; `look` at the door for a name under an hour old carries the
   three ways in one line.
 - **H6 · A signpost at the door** (S). Like the Trail's: `read signpost` lists the
@@ -189,7 +190,13 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
 - **X9 · CLEAR 0.5.** The spec, the reference checker, the Rust port and the oracle
   corpus, the vocabularies, the editor, and the gate, moved together: structured
   results beside the text, the question patterns a world answers declared in its
-  vocabulary, and whatever 0.5 adds. Brief: the change list first.
+  vocabulary, and whatever 0.5 adds. Brief: the change list first. On it (D18,
+  11-06): what the gate may mend before the check so fewer messages score a 50
+  (the message stays all-or-nothing): inner straight quotes curled (done, R30), a
+  missing final period supplied, a `look` after `travel` folded (done), an unknown
+  verb answered with its nearest approved one (`strat` → `start`? no: `story`),
+  a statement over the word limit split at a semicolon, and the oracle cases for
+  each.
 - **X10 · Trademark filing.** The checklist and a consult (Y4), then the filing; the
   logo, when there is one, in the same filing.
 - **X11 · Marketing plan.** Who the world is for (people who play, agents who are
@@ -208,14 +215,17 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   an hour somewhere), named creatures' business (walk to a keeper, home, count), the
   Conclave's holidays (no division; the house's characters in tempers). The rest, by
   complexity and policy:
-  - **R77** (S, by policy) Narrate what already happens: the Clocktower's strike and the
-    division as pushed lines to the house and the tower (folds R53); the Docent seen
-    passing on its round; a creature arriving ("Something comes in from the Shallows:
-    a hollow"); the sweep landing on the heap said to whoever is in the Midden.
-  - **R78** (S, by policy) Weather and hours in `look`: a second sentence that varies by
-    the Clocktower's rates and the hour (the Fogbank thick or thin by `mend`, the
-    Orchard's hours ripe by `price`, the Long Afternoon's sun a hand's width off);
-    Morphos's visit changes the sky.
+  - **R77** (S, **shipped 11-06, batch G**) Narrate what already happens: the strike
+    and the division were pushed already (to everyone active within the hour; to the
+    house); added: a creature arriving in a room with people in it ("The fog gives up
+    a shape: a wisp", "Something comes in from the Shallows: a hollow"), and the
+    Docent seen passing at the door when its round brought nothing there; the sweep
+    was said on the heap already.
+  - **R78** (S, **shipped 11-06, batch G**) Weather and hours in `look`, a second
+    sentence on the world's own rooms by the Clocktower's rates and the hour: the fog
+    by `mend`, the Orchard's hours by `price`, the Shallows' water by `respawn`, the
+    lanterns by `half_life`, the door's air by `pay`, the Long Afternoon's sun by the
+    hour; Morphos in the world turns the sky the wrong color outdoors.
   - **R79** (M, by policy) Creatures with lives: wandering said aloud ("the wisp drifts
     east"); the picnicker sets another place when someone new arrives; the longsight
     says who it is looking at; a creature that remembers you greets you by name before
@@ -224,9 +234,9 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
     not only dug rooms); a chalk tally on the Threshold of who came through today;
     "Gnomeward was here 2h ago" on the Lookout's bench; the board's names drawn on the
     atlas when they are in the world.
-  - **R81** (S, by policy) `news`: the world's own gossip in the Docent's voice (the last
-    division's decisions, who fell, who was named, what was dug, Morphos sighted), so a
-    returning name can tell the world lived while they were away.
+  - **R81** (S, **shipped 11-06, batch G**) `news`, a free read: the world's own gossip
+    of the last day in the Docent's voice (the Conclave's decisions, who fell, who
+    was named, what was born and dug, the traveler, what happened on its own).
   - **R82** (M, by policy) More happenings: a Naming Day in the calendar when the Namery
     deals cheaply; a festival on each named holiday with a thing of its own (a lantern
     on the Long Night, an unfiled page on the Day of Unfiled Things).
@@ -368,6 +378,9 @@ The world
 
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-06 (batch G, David's morning answers; one deploy)
+- D18 a (the line says a message runs whole or not at all; the 50-reducers listed under X9), D19 b (the wanted story heard inside the hour at plain pay, the want standing), H5 (the Docent's first-arrival line by name with the one next move; the door's three ways to a name under an hour old), R77 (arrivals said; the round seen passing), R78 (weather by the rates and the hour), R81 (`news`).
 
 11-06 (batch F, the Watch of 11-06's obvious fixes; one deploy)
 - (Gnomestead) the Docent's stocked greeting is sieved when chosen, not only when stocked, so a newcomer is not told "you asked about fading"; `help dig` says every room but the Mudroom takes eight doors; the Fogbank refills by its unnamed count, and the Docent names no creature of a room's own kind while fewer than two unnamed stand there, so "attack a wisp east" finds one.

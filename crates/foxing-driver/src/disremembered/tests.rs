@@ -2926,8 +2926,32 @@ fn an_errand_is_a_story_wanted_or_a_word_carried_and_either_makes_you_known() {
     assert!(out.summary.contains("lantern"), "{}", out.summary);
     let out = ok(&mut w, "dave", "story", json!([&rag_name, "A second try: the buttons were counted again by a ragpicker in the midden, and again the count was lost."]));
     assert_eq!(out.result["wanted"], false, "{}", out.summary);
-    let err = call(&mut w, "dave", ActorKind::Citizen, "story", json!([&rag_name, "A third try about buttons and the midden and nothing of a lantern at all, counted twice."])).unwrap_err();
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "story",
+        json!([
+            &rag_name,
+            "A third try about buttons and the midden and nothing of a lamp at all, counted twice."
+        ]),
+    )
+    .unwrap_err();
     assert!(err.to_string().contains("one an hour"), "{err}");
+    // D19 (b): inside the hour, the one it wanted is heard all the same, at plain pay.
+    let out = ok(&mut w, "dave", "story", json!([&rag_name, "The lantern was found under the buttons, lit, and the ragpicker counted by its light at last."]));
+    assert_eq!(out.result["wanted_early"], true, "{}", out.summary);
+    assert!(
+        out.summary
+            .contains("heard inside its hour with you at plain pay"),
+        "{}",
+        out.summary
+    );
+    assert!(!out.summary.contains("worth double"), "{}", out.summary);
+    assert!(
+        errand::of(&w, rag).is_some_and(|e| e.story.is_some()),
+        "the want stands"
+    );
     // An hour on, the one it wanted: double, the record says so, the errand is done.
     w.fixed_now = Some(t0.plus(Duration::seconds(3601)));
     let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));

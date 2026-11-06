@@ -434,9 +434,41 @@ pub fn fill(world: &mut World, room: EntityId) -> Result<usize, StoreError> {
         count
     };
     let mut spawned = 0;
+    let mut last = None;
     for _ in have..count {
-        spawn_one(world, room, d)?;
+        last = Some(spawn_one(world, room, d)?);
         spawned += 1;
+    }
+    // R77: an arrival is said to whoever stands here, in the room's own terms (the
+    // fog gives up a wisp; the rest come in from the next room along).
+    if let Some(c) = last {
+        let from = super::rooms::exits_of(world, room)
+            .into_iter()
+            .next()
+            .and_then(|(_, to)| plain_str(world, to, super::ROOM, "name").map(str::to_string));
+        let line = match (key.as_str(), from) {
+            ("wisp", _) => format!(
+                "The fog gives up {}: {} wisp{}.",
+                if spawned == 1 { "a shape" } else { "shapes" },
+                if spawned == 1 {
+                    "a".to_string()
+                } else {
+                    spawned.to_string()
+                },
+                if spawned == 1 { "" } else { "s" }
+            ),
+            (k, Some(place)) => format!(
+                "Something comes in from {place}: {} {k}{}.",
+                if spawned == 1 {
+                    "a".to_string()
+                } else {
+                    spawned.to_string()
+                },
+                if spawned == 1 { "" } else { "s" }
+            ),
+            (k, None) => format!("Something arrives: a {k}."),
+        };
+        narrate_room(world, c, &line);
     }
     Ok(spawned)
 }

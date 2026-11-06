@@ -295,16 +295,19 @@ pub fn register(world: &mut World, curves: Curves) {
             // after the hour had closed the only creature).
             let within_hour = told_this_hour(w, &ctx.actor, creature);
             let bonus_only = within_hour && super::secret::would_strike(w, &ctx.actor, creature, &text);
-            if within_hour && !bonus_only {
+            // D19 (b): the story it wants is heard inside the hour too, at base pay,
+            // not double.
+            let wanted_early = within_hour && !bonus_only && super::errand::wants_story(w, creature, &text);
+            if within_hour && !bonus_only && !wanted_early {
                 return Err(CommandError::precondition(format!(
-                    "{name} is still turning your last story over: one an hour (its hour with you; `wants` says when it turns). A story that carries the word under the others is heard even now, for the bonus alone; that one did not carry it.{}",
+                    "{name} is still turning your last story over: one an hour (its hour with you; `wants` says when it turns). A story that carries the word under the others is heard even now, for the bonus alone, and the one it wants is heard at plain pay; that one was neither.{}",
                     super::secret::hint(w, &ctx.actor, creature)
                         .filter(|_| super::secret::would_strike_any(w, &ctx.actor, creature))
                         .map(|h| format!(" {h}"))
                         .unwrap_or_default()
                 )));
             }
-            if heard_this_hour(w, creature) >= STORIES_AN_HOUR && !bonus_only {
+            if heard_this_hour(w, creature) >= STORIES_AN_HOUR && !bonus_only && !wanted_early {
                 return Err(CommandError::precondition(format!(
                     "{name} has heard {STORIES_AN_HOUR} stories in its hour and is turning them over; it takes no more until that hour turns. `wants` names another."
                 )));
@@ -317,7 +320,9 @@ pub fn register(world: &mut World, curves: Curves) {
             )
             .map_err(internal)?;
             // The story it wanted is worth double, and the errand is done.
-            let wanted = super::errand::wants_story(w, creature, &text);
+            // Inside the hour (D19 b) the wanted story is heard at plain pay and the
+            // want stands: told again when the hour turns, it pays double.
+            let wanted = super::errand::wants_story(w, creature, &text) && !wanted_early;
             // About a third of an XP a word: the creature's mood is a fifth either way,
             // so no length is the right length to the decimal.
             // A story the creature has heard lately pays less, by halves: each story
@@ -390,13 +395,13 @@ pub fn register(world: &mut World, curves: Curves) {
                 // narrator line, so the outcome does not repeat it.
                 format!(
                     "You tell {display} a story of {words} words, and it answers.{}{}{heard_line} You remember the telling: chunk-{} worth {paid:.0} XP{}.{}",
-                    if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
+                    if wanted_early { " It was the story it wanted, heard inside its hour with you at plain pay; the want stands, and told again when its hour turns it pays double." } else if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
                     struck.as_ref().map(|(b, _, l)| format!(" It carried the word under the others, the {} of three: {}, and vivid.", ["first", "second", "third"][(*l as usize).clamp(1, 3) - 1], if bonus_only { format!("heard within its hour with you, so the bonus alone, {:.1} times the pay less the pay", b) } else { format!("{b:.1} times the pay") })).unwrap_or_default(),
                     earned.0,
                     if vivid > 0.4 { format!(", vividity {vivid:.2}{}", if long > 0.0 && struck.is_none() { " (length buys vividity, to 0.90 at two hundred words)" } else { "" }) } else { String::new() },
                     missed.as_deref().map(|m| format!(" {m}")).unwrap_or_default()
                 ),
-                json!({"creature": creature.0, "name": name, "words": words, "distinct": distinct, "earned": earned.0, "xp": paid, "kept": kept.0, "level": level, "wanted": wanted, "missed": missed, "repeats": repeats, "struck": struck.as_ref().map(|(b, w, l)| json!({"word": w, "level": l, "bonus": b}))}),
+                json!({"creature": creature.0, "name": name, "words": words, "distinct": distinct, "earned": earned.0, "xp": paid, "kept": kept.0, "level": level, "wanted": wanted, "wanted_early": wanted_early, "missed": missed, "repeats": repeats, "struck": struck.as_ref().map(|(b, w, l)| json!({"word": w, "level": l, "bonus": b}))}),
             ))
         }),
     );

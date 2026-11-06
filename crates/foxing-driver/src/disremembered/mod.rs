@@ -31,6 +31,7 @@ pub mod memory;
 pub mod mind;
 pub mod morphos;
 pub mod namery;
+pub mod news;
 pub mod past;
 pub mod pilots;
 pub mod presence;
@@ -43,6 +44,7 @@ pub mod stacks;
 pub mod system;
 pub mod talk;
 pub mod trail;
+pub mod weather;
 
 use crate::world::World;
 use foxing_log::Actor;
@@ -1120,6 +1122,9 @@ pub fn login_as(
         },
     );
     combat::narrate(world, actor, first_moves(world));
+    // H5: the Docent, by name, on a first arrival, with the one next move; apart
+    // from its nightly greeting, which is the book's.
+    combat::narrate(world, actor, docent::first_arrival(world, actor));
     Ok(Found {
         citizen,
         window,
@@ -1343,6 +1348,7 @@ pub fn register(world: &mut World, curves: Curves) {
     namery::register_epitaphs(world);
     docent::register(world);
     session::register(world);
+    news::register(world);
     system::register(world);
 }
 
