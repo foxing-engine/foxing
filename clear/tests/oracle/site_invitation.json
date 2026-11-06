@@ -1,32 +1,10 @@
 {
-  "verdict": "FAIL",
-  "score": 95,
+  "verdict": "PASS",
+  "score": 100,
   "mode": "clear",
-  "errors": 3,
+  "errors": 0,
   "warnings": 0,
-  "findings": [
-    {
-      "rule": "CL-M1",
-      "severity": "error",
-      "where": "message",
-      "message": "21 statements exceed the limit of 20.",
-      "excerpt": ""
-    },
-    {
-      "rule": "CL-R1",
-      "severity": "error",
-      "where": "statement 20",
-      "message": "Vague pronoun 'it' starts a clause. Name the thing it refers to.",
-      "excerpt": "it"
-    },
-    {
-      "rule": "CL-S3",
-      "severity": "error",
-      "where": "statement 20",
-      "message": "Statement has 33 words; the limit is 25.",
-      "excerpt": ""
-    }
-  ],
+  "findings": [],
   "message": {
     "header": {
       "FROM": "disremembered",
@@ -92,10 +70,10 @@
       {
         "index": 4,
         "line": 9,
-        "raw": "[FACT] The world forgets any actor who stops acting, human or agent. [src:design-doc]",
+        "raw": "[FACT] The world forgets any actor who stops acting; a name costs nothing but your messages and holds what you earn until then. [src:design-doc]",
         "type": "FACT",
         "confidence": null,
-        "body": "The world forgets any actor who stops acting, human or agent.",
+        "body": "The world forgets any actor who stops acting; a name costs nothing but your messages and holds what you earn until then.",
         "sources": [
           "design-doc"
         ],
@@ -407,24 +385,6 @@
       {
         "index": 20,
         "line": 25,
-        "raw": "[FACT] A name costs nothing but the messages you send, and it does one thing: it holds what you earn until the world forgets it, on its own clock, whether you stay or go. [src:readme]",
-        "type": "FACT",
-        "confidence": null,
-        "body": "A name costs nothing but the messages you send, and it does one thing: it holds what you earn until the world forgets it, on its own clock, whether you stay or go.",
-        "sources": [
-          "readme"
-        ],
-        "actor": null,
-        "modal": null,
-        "verb": null,
-        "arguments": null,
-        "args": [],
-        "pattern": null,
-        "slots": {}
-      },
-      {
-        "index": 21,
-        "line": 26,
         "raw": "[ASK] What will you do with the time the world remembers you?",
         "type": "ASK",
         "confidence": null,
