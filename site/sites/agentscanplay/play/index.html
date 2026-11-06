@@ -1694,15 +1694,30 @@
       const b = me.components["disremembered.body"];
       const hp = timed(b.hp), max = b.max_hp;
       let eta = "";
-      if (hp < max && b.hp && b.hp.curve && b.hp.curve.Linear && b.hp.curve.Linear.rate_per_ms > 0) eta = "  full in " + span((max - hp) / b.hp.curve.Linear.rate_per_ms);
-      you.append(row(sprite(me), "hit points" + eta, "hp", hp / max, hp.toFixed(1) + "/" + max, "var(--dust)"));
+      const rate = b.hp && b.hp.curve && b.hp.curve.Linear ? b.hp.curve.Linear.rate_per_ms : 0;
+      if (hp < max && rate > 0) eta = "  full in " + span((max - hp) / rate);
+      const hpRow = row(sprite(me), "hit points" + eta, "hp", hp / max, hp.toFixed(1) + "/" + max, "var(--dust)");
+      hpRow.title = "Hit points: " + hp.toFixed(1) + " of " + max + (rate > 0 ? ", mending " + (rate * 60000).toFixed(1) + " a minute (never in a fight, never while bleeding)" : hp >= max - 0.5 ? ", whole" : ", not mending now (a fight, or a bleeding bite)") + ". A creature's hit takes its attack plus nought to two.";
+      you.append(hpRow);
+      // Attack: two and six tenths of the square root of level, plus nought to two
+      // a swing; three swings in four land, fewer while shaken.
+      const lvlNow = ((subs.window && subs.window.root.relations && subs.window.root.relations.contents) || []).reduce((a, n) => a + timed(n.components["disremembered.chunk"].value), 0);
+      const atk = 2 + Math.floor(0.6 * Math.sqrt(Math.max(0, lvlNow)));
+      const atkRow = row({ atlas: ATLAS_NAME, frame: "chunk" }, "attack: two and six tenths of \u221a" + "level", "", Math.min(1, atk / 20), String(atk), "var(--dust)");
+      atkRow.title = "Attack " + atk + " = 2 + 0.6\u00d7\u221a" + lvlNow.toFixed(0) + ", plus nought to two a swing; three swings in four land (fewer while shaken from a fall). It rises with level: 6 at 60, 8 at 100, 12 at 300, 20 at 1,000.";
+      atkRow.querySelector(".glyph").style.visibility = "hidden";
+      you.append(atkRow);
     }
     greetPanel(me);
     const chunks = (subs.window && subs.window.root.relations && subs.window.root.relations.contents) || [];
     if (!chunks.length) win.innerHTML = '<div class="empty">Nothing remembered yet.</div>';
-    let level = 0;
+    let level = 0, fallPerHour = 0;
     for (const n of chunks) {
       const c = n.components["disremembered.chunk"]; const v = timed(c.value); level += v;
+      // The fall per hour of this chunk, by its curve (exponential: v\u00b7ln2/half-life).
+      const cx = c.value && c.value.curve;
+      if (cx && cx.Exponential && cx.Exponential.half_life > 0) fallPerHour += v * Math.LN2 * 3600000 / cx.Exponential.half_life;
+      else if (cx && cx.PowerLaw && cx.PowerLaw.scale > 0) fallPerHour += v * 3600000 / (cx.PowerLaw.scale * 2);
       const cv = c.value && c.value.curve;
       const hl = cv && cv.Exponential ? "  halves every " + span(cv.Exponential.half_life) : cv && cv.PowerLaw ? "  fading slowly" : "";
       const r = row({ atlas: ATLAS_NAME, frame: "chunk" }, c.source + "  v" + (c.vividity || 0).toFixed(2) + hl, "", v / c.size, v.toFixed(2));
@@ -1713,7 +1728,7 @@
     }
     if (chunks.length) {
       const lv = row({ atlas: ATLAS_NAME, frame: "chunk" }, "level: the sum of these, as they fade", "", Math.min(1, level / 60), level.toFixed(2), "var(--dust)");
-      lv.title = "Your level is what has not faded. Shelved memories count for nothing; the bar fills at sixty.";
+      lv.title = "Your level is what has not faded: " + level.toFixed(1) + " now, falling about " + fallPerHour.toFixed(1) + " an hour at this moment (each chunk by its own half-life; a vivid one slower). Earning raises it; spending (remember, dig, craft) lowers it; shelved memories count for nothing toward attack. The bar fills at sixty.";
       lv.querySelector(".glyph").style.visibility = "hidden";
       win.append(lv);
     }
@@ -1754,6 +1769,8 @@
       }
     }
     add("look", "look", true);
+    // Engaged: retreat first, as a button; it costs one parting blow and ends the fight.
+    if (me && me.engaged) add("retreat", "retreat", true);
     if (chunks.length) add("chunks", "chunks", true);
     if (hp != null && max && hp < max - 0.5) add("rest", "rest", true);
     let fought = false;

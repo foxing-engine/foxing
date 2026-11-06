@@ -6,7 +6,8 @@
 // Everything in the picture is a thing to click: a click opens a small menu of what
 // you can do with it (walk, take, talk, tell a story, give a memory, attack, ask), so
 // a person who has never typed a verb can play by pointing; a click on the floor by a
-// door walks through it, and a drag on the picture shows what you remember of the map. Blows float off the
+// door walks through it, and a drag on the picture shows what you remember of the map. A
+// Satchel panel draws what you carry; click a thing to drop, read or give it. Blows float off the
 // sprites, memories earned float up, speech sits in bubbles, and the lane's numbers
 // are bars at the foot of the picture. Typing still works for everything.
 //
@@ -16,7 +17,7 @@ const COLS = 20, ROWS = 11, T = 16;
 const W = COLS * T, H = ROWS * T;
 const WALL_TOP = 2; // the north wall is two tiles tall: shelves, windows, a door
 const DOORS = { north: [Math.floor(COLS / 2), 1], south: [Math.floor(COLS / 2), ROWS - 1], west: [0, 6], east: [COLS - 1, 6] };
-const NIGHT = "#121a25", INK = "#ece5d3", DUST = "#d9b57a", EMBER = "#d1734f", MOSS = "#7fb37f";
+const NIGHT = "#121a25", INK = "#ece5d3", DUST = "#d9b57a", EMBER = "#d1734f", MOSS = "#7fb37f", SLATE = "#7d8794";
 // Where things stand: you in the middle, the rest on a ring of slots, by id.
 const SLOTS = [[7, 5], [12, 5], [6, 8], [13, 8], [9, 4], [10, 8], [4, 6], [15, 6], [7, 7], [12, 4], [9, 9], [10, 3], [5, 4], [14, 4], [4, 8], [15, 8], [8, 3], [11, 9]];
 // Named doors: along the south wall either side of the door; past ARCHES_SHOWN they
@@ -120,7 +121,9 @@ export default function install(m) {
   menu.hidden = true;
   menu.style.cssText = "position:absolute;z-index:5;min-width:150px;background:rgba(18,26,37,.96);border:1px solid var(--line,#334);border-radius:8px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.45);font-size:13px";
   const hud = document.createElement("div");
-  hud.style.cssText = "font-size:12px;color:var(--dim);margin-top:6px;min-height:1.2em;line-height:1.3";
+  // Two lines at most (the full text on hover): a long room description once pushed
+  // the verbs into the page's command bar.
+  hud.style.cssText = "font-size:12px;color:var(--dim);margin-top:6px;min-height:1.2em;line-height:1.3;max-height:2.6em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical";
   hud.textContent = "Log in to see the room.";
   const verbs = document.createElement("div");
   verbs.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;margin-top:6px";
@@ -141,7 +144,8 @@ export default function install(m) {
     // The picture fits the scene area's height too: a canvas taller than the area
     // was cut at the south door and the bars.
     const area = panel.parentElement;
-    const availH = area ? Math.max(160, area.clientHeight - 56) : 9999;
+    const below = (hud.offsetHeight || 16) + (verbs.offsetHeight || 24) + 28;
+    const availH = area ? Math.max(160, area.clientHeight - below) : 9999;
     const maxW = Math.floor(availH * W / H);
     const pw = panel.clientWidth ? panel.clientWidth - 12 : 640;
     canvas.style.width = Math.min(pw, maxW) + "px";
@@ -652,7 +656,8 @@ export default function install(m) {
         if (t.max) {
           const frac = Math.max(0, Math.min(1, t.hp / t.max));
           px(x * T + 2, y * T - 3 + bob, 12, 2, NIGHT);
-          px(x * T + 2, y * T - 3 + bob, Math.round(12 * frac), 2, frac > 0.5 ? MOSS : frac > 0.25 ? DUST : EMBER);
+          // A knocked-out (shaken) creature's bar is slate: it is down, whatever it holds.
+          px(x * T + 2, y * T - 3 + bob, Math.round(12 * frac), 2, t.shaken ? SLATE : frac > 0.5 ? MOSS : frac > 0.25 ? DUST : EMBER);
         }
         const who = t.given ? t.given + " the " + t.name : "the " + t.name;
         // Beside another of its kind, this one is wisp-4958: a tap on the left wisp
@@ -754,7 +759,20 @@ export default function install(m) {
     px(x0 + 12, y0 - 2, 40, 4, NIGHT);
     if (hp != null) px(x0 + 12, y0 - 2, Math.round(40 * Math.max(0, Math.min(1, hp / max))), 4, hp / max > 0.5 ? MOSS : hp / max > 0.25 ? DUST : EMBER);
     ctx.fillText("level " + Math.round(level), (x0 + 56) * SCALE, y0 * SCALE);
-    ctx.fillText(chunks.length + " ✦", (x0 + 100) * SCALE, y0 * SCALE);
+    const attack = 2 + Math.floor(0.6 * Math.sqrt(Math.max(0, level)));
+    ctx.fillText("atk " + attack, (x0 + 94) * SCALE, y0 * SCALE);
+    // Hover over the bar: what each figure is and how it moves.
+    const rate = bodyC && bodyC.hp && bodyC.hp.curve && bodyC.hp.curve.Linear ? bodyC.hp.curve.Linear.rate_per_ms : 0;
+    let fall = 0;
+    for (const c of chunks) { const ch = c.components["disremembered.chunk"]; const cx = ch && ch.value && ch.value.curve; const v = ch && ch.value != null ? m.timed(ch.value) : 0; if (cx && cx.Exponential && cx.Exponential.half_life > 0) fall += v * Math.LN2 * 3600000 / cx.Exponential.half_life; else if (cx && cx.PowerLaw && cx.PowerLaw.scale > 0) fall += v * 3600000 / (cx.PowerLaw.scale * 2); }
+    const hpLabel = hp == null ? "hp" : "hp " + hp.toFixed(1) + "/" + max + (rate > 0 && hp < max - 0.5 ? ", mending " + (rate * 60000).toFixed(1) + " a minute" : hp >= max - 0.5 ? ", whole" : ", not mending (a fight, or bleeding)");
+    const lvLabel = "level " + level.toFixed(1) + ": the sum of " + chunks.length + " chunk" + (chunks.length === 1 ? "" : "s") + ", falling about " + fall.toFixed(1) + " an hour as they fade";
+    const atkLabel = "attack " + attack + " = 2 + 0.6×√level, plus 0–2 a swing; three in four land, fewer while shaken";
+    for (let cx = Math.floor((x0 - 4) / T); cx < COLS; cx++) {
+      const px0 = cx * T + 8;
+      const label = px0 < x0 + 54 ? hpLabel : px0 < x0 + 92 ? lvLabel : atkLabel;
+      hot.set(cx + ",0", { label, primary: () => m.command("chunks", []) });
+    }
   }
   // The chunk a menu spends: the cheapest worth anything for a gift or a room's
   // keeping, the most vivid for a dig (a vivid memory makes a room that lasts).
@@ -785,7 +803,7 @@ export default function install(m) {
     const { h, x, y } = tileAt(ev);
     if (peek) return;
     const near = !h && scene && y >= WALL_TOP ? doorNear(x, y) : null;
-    canvas.style.cursor = h || near ? "pointer" : "grab";
+    canvas.style.cursor = h || near ? "pointer" : "default";
     hud.textContent = h ? h.label : near ? "walk " + near.via + " → " + near.name + " (click the floor by a door)" : (scene ? (scene.description || "") : "");
   });
   canvas.addEventListener("mouseleave", () => { hud.textContent = scene ? (scene.description || "") : ""; });
@@ -916,6 +934,8 @@ export default function install(m) {
     if (next && next.id !== roomId) { if (roomId !== null) sfx.door(); roomId = next.id; fadeAt = performance.now(); closeMenu(); }
     scene = next;
     hud.textContent = scene ? (scene.description || "") : "Log in to see the room.";
+    hud.title = scene ? (scene.description || "") : "";
+    fit();
   }
   function floatOver(thing, text, color, big) {
     const [x, y] = thing ? thing.tile : [Math.floor(COLS / 2), 6];
@@ -934,6 +954,7 @@ export default function install(m) {
     } else if (command === "story" && (r.xp != null || r.earned != null)) {
       floatOver(target, "+" + Math.round(r.xp || 0) + " ✦", MOSS, true); sfx.earn();
     } else if (command === "take") { sfx.take(); floatOver(scene && scene.things.find(t => t.kind === "you"), "taken", INK); }
+    if (["take", "drop", "give", "craft", "gather", "trade"].includes(command)) refreshSatchel();
     else if (command === "remember" && r.level != null) { floatOver(target, "holds " + Math.round(r.level), DUST); sfx.earn(); }
     else if (command === "dig") { sfx.earn(); floatOver(scene && scene.things.find(t => t.kind === "you"), "a room!", DUST, true); }
     // A quoted line typed by hand arrives as several args ("hello, there, friend");
@@ -952,13 +973,91 @@ export default function install(m) {
     mm = /^(?:The )?([\w-]+) (?:bites|hits|strikes|shoves|stings)[^0-9]*?(\d+)/.exec(text);
     if (mm && scene) { const t = thingNamed(mm[1]); if (t) { flashes.set(t.id, performance.now() + 100); } hurt = performance.now() + 500; floatOver(scene.things.find(t2 => t2.kind === "you"), "−" + mm[2], EMBER); sfx.hurt(); }
   }
-  m.on("observation", (id, obs) => { if (id === "mod:scene") take(obs); });
-  m.on("login", () => { if (used.size === 0) for (const v of STARTERS) used.set(v, Date.now()); saveVerbs(); drawVerbs(); m.subscribe("scene", QUERY); });
-  m.on("logout", () => { scene = null; roomId = null; lastHp = null; bubbles.clear(); floats.length = 0; hud.textContent = "Log in to see the room."; closeMenu(); });
+  // ---- the satchel: what you carry, drawn; click a thing to drop, read or give it ----
+  const satPanel = m.panel("Satchel", { id: "satchel", w: 300, at: "end" });
+  const satGrid = document.createElement("div");
+  satGrid.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;min-height:52px;position:relative";
+  satGrid.setAttribute("aria-label", "Your satchel; click a thing to act on it");
+  const satNote = document.createElement("div");
+  satNote.style.cssText = "font-size:12px;color:var(--dim);line-height:1.3";
+  satNote.textContent = "Log in to see your satchel.";
+  const satMenu = document.createElement("div");
+  satMenu.hidden = true;
+  // Fixed to the viewport, on the body: inside the panel it was clipped at the
+  // panel's foot.
+  satMenu.style.cssText = "position:fixed;z-index:50;min-width:140px;background:rgba(18,26,37,.96);border:1px solid var(--line,#334);border-radius:8px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.45)";
+  document.body.append(satMenu);
+  satPanel.append(satGrid, satNote);
+  const SAT_QUERY = {
+    root: "self",
+    select: {},
+    relations: { contents: { kinds: ["satchel"], select: {}, relations: { contents: { kinds: ["item"], select: { "disremembered.item": ["name", "given_name", "kind", "memory", "uses", "effect", "made_by"], "disremembered.sprite": "*" } } } } },
+    timed: "curve", commands: false,
+  };
+  let satchel = [];
+  function closeSatMenu() { satMenu.hidden = true; }
+  function satTile(it) {
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.style.cssText = "width:46px;height:52px;padding:2px;border:1px solid var(--line,#334);border-radius:6px;background:rgba(18,26,37,.6);color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;font:inherit";
+    const ic = document.createElement("canvas"); ic.width = 24; ic.height = 24;
+    const g = ic.getContext("2d"); g.imageSmoothingEnabled = false;
+    g.drawImage(iconCanvas(iconFor(it.name)), 0, 0, 8, 8, 0, 0, 24, 24);
+    ic.style.cssText = "width:24px;height:24px;image-rendering:pixelated;opacity:" + (0.45 + 0.55 * it.memory).toFixed(2);
+    const lab = document.createElement("span");
+    lab.style.cssText = "font-size:9px;line-height:1;max-width:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim)";
+    lab.textContent = (it.given || it.name).replace(/^(a|an|the) /i, "");
+    tile.append(ic, lab);
+    tile.title = (it.given ? it.given + ", " : "") + it.name + " (item-" + it.id + "), " + Math.round(it.memory * 100) + "% remembered" + (it.uses ? ", " + it.uses + " use" + (it.uses === 1 ? "" : "s") + " left" : "") + (it.made_by ? ", made by " + it.made_by : "") + ". Click: drop, read, give.";
+    tile.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const rows = [
+        ["drop " + it.name, () => m.command("drop", ['"' + it.name + '"'])],
+        ["read " + it.name, () => m.command("read", ["item-" + it.id])],
+        ["give to \u2026", () => m.prefill("give item-" + it.id + " ")],
+      ];
+      satMenu.replaceChildren(...rows.map(([label, run]) => {
+        const b = document.createElement("button"); b.type = "button"; b.textContent = label;
+        b.style.cssText = "display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink);font:inherit;font-size:13px;padding:4px 6px;cursor:pointer";
+        b.addEventListener("click", (e2) => { e2.stopPropagation(); closeSatMenu(); run(); });
+        return b;
+      }));
+      const r = tile.getBoundingClientRect();
+      satMenu.style.left = Math.min(r.left, window.innerWidth - 160) + "px";
+      satMenu.style.top = Math.min(r.bottom + 2, window.innerHeight - 120) + "px";
+      satMenu.hidden = false;
+    });
+    return tile;
+  }
+  function drawSatchel() {
+    satGrid.replaceChildren();
+    if (!m.actor) { satNote.textContent = "Log in to see your satchel."; return; }
+    if (!satchel.length) { satNote.textContent = "Empty. A creature that comes apart leaves something behind by the fight's length; take it, and recipes says what it makes."; return; }
+    for (const it of satchel) satGrid.append(satTile(it));
+    satNote.textContent = satchel.length + " thing" + (satchel.length === 1 ? "" : "s") + "; things fade slowly, and one under a third remembered is swept in time.";
+  }
+  function takeSatchel(obs) {
+    const root = obs && obs.root;
+    const sats = (root && root.relations && root.relations.contents) || [];
+    const items = [];
+    for (const sat of sats) for (const n of (sat.relations && sat.relations.contents) || []) {
+      const it = n.components["disremembered.item"] || {};
+      items.push({ id: n.id, name: it.name || "something", given: it.given_name || null, memory: it.memory != null ? Math.max(0, Math.min(1, m.timed(it.memory))) : 1, uses: it.uses || 0, effect: it.effect || null, made_by: it.made_by || null });
+    }
+    satchel = items;
+    drawSatchel();
+  }
+  document.addEventListener("click", closeSatMenu);
+  function refreshSatchel() { if (!m.live && m.actor) m.observe(SAT_QUERY).then(o => { if (o && o.root) takeSatchel(o); }); }
+
+  m.on("observation", (id, obs) => { if (id === "mod:scene") take(obs); else if (id === "mod:satchel") takeSatchel(obs); });
+  m.on("login", () => { if (used.size === 0) for (const v of STARTERS) used.set(v, Date.now()); saveVerbs(); drawVerbs(); m.subscribe("scene", QUERY); m.subscribe("satchel", SAT_QUERY); refreshSatchel(); });
+  m.on("logout", () => { scene = null; roomId = null; lastHp = null; bubbles.clear(); floats.length = 0; hud.textContent = "Log in to see the room."; closeMenu(); satchel = []; drawSatchel(); });
   m.on("result", onResult);
   m.on("line", onLine);
-  if (m.actor) m.subscribe("scene", QUERY);
+  if (m.actor) { m.subscribe("scene", QUERY); m.subscribe("satchel", SAT_QUERY); refreshSatchel(); }
+  drawSatchel();
   let raf = 0;
   (function loop() { draw(); raf = requestAnimationFrame(loop); })();
-  return () => { cancelAnimationFrame(raf); clearInterval(verbTimer); if (ro) ro.disconnect(); m.unsubscribe("scene"); panel.remove(); m.builtin("map", true); m.builtin("here", true); };
+  return () => { cancelAnimationFrame(raf); clearInterval(verbTimer); if (ro) ro.disconnect(); m.unsubscribe("scene"); m.unsubscribe("satchel"); document.removeEventListener("click", closeSatMenu); satMenu.remove(); panel.remove(); satPanel.remove(); m.builtin("map", true); m.builtin("here", true); };
 }

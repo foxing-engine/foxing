@@ -270,6 +270,14 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   - **X15** (XL, brief wanted) A travelling market: the Exergue's tapster walks a circuit
     of the ground floor, the slate with it, trade where it stands.
 
+- **R83** shipped 11-05 (the play view, David's list: a knocked-out creature's bar is
+  slate; hover on the picture's hp / level / attack figures says what each is and how
+  it moves (mending a minute, falling an hour, the attack rule), and the page's rows
+  carry the same as tooltips with an attack row added; a `retreat` button while
+  engaged; the room description under the picture clamped to two lines (full text on
+  hover) so it no longer pushes the verbs into the command bar; no grab cursor on the
+  picture; a Satchel panel drawing what you carry, click a thing to drop, read or give).
+
 ## Small fixes queued for the Night's Watch (F): ship by rule, no nod needed
 
 - **F2** Failed statements costing budget.
