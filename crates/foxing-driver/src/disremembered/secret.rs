@@ -216,6 +216,17 @@ pub fn would_strike(world: &World, actor: &str, creature: EntityId, text: &str) 
         .any(|w| !w.is_empty() && super::errand::stem(&w) == stem)
 }
 
+/// Whether `actor` can still strike this creature's current word at all (it has
+/// one, and they have not struck it): what makes a hint worth saying.
+pub fn would_strike_any(world: &World, actor: &str, creature: EntityId) -> bool {
+    field(world, creature).is_some_and(|v| {
+        !v["word"].as_str().unwrap_or("").is_empty()
+            && !v["struck"]
+                .as_array()
+                .is_some_and(|a| a.iter().any(|s| s == actor))
+    })
+}
+
 /// The creature's word, its level and who has struck it; set at level one if a named
 /// creature has none yet.
 pub fn ensure(
@@ -305,7 +316,33 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
         misses(world, actor, creature),
         source_text(world, creature, level, &from),
     ) {
-        (0, _) | (_, None) => String::new(),
+        (0, _) => String::new(),
+        // A lent word has no text to be found in; it narrows by the pool it was
+        // lent from, then to five of them (the door's pilots carry lent words, and
+        // the Watch of 11-06 found their hint never moved).
+        (n, None) if lent => {
+            let word = field(world, creature)
+                .and_then(|v| v["word"].as_str().map(str::to_string))
+                .unwrap_or_default();
+            if n == 1 {
+                format!(
+                    " You have missed once, so: it is one of these: {}.",
+                    LORE.join(", ")
+                )
+            } else {
+                let seed = hash(&format!("{}-{level}-five", creature.0));
+                let mut five: Vec<&str> = LORE.iter().copied().filter(|w| *w != word).collect();
+                let len = five.len();
+                five.rotate_left(seed % len);
+                five.truncate(4);
+                five.insert(seed % 5, &word);
+                format!(
+                    " You have missed {n} times, so: it is one of these five: {}.",
+                    five.join(", ")
+                )
+            }
+        }
+        (_, None) => String::new(),
         (1, Some(text)) => {
             let shown: String = text.chars().take(160).collect();
             format!(

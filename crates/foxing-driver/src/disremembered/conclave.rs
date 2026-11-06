@@ -1150,7 +1150,8 @@ pub fn divide(world: &mut World) -> Result<(), String> {
             "the Clerk",
             &format!(
                 "{}: ticket {ticket}, the petition of {by}, {}; the {} have it",
-                super::system::clock(world.now().0),
+                // The day too: "02:30" above "00:30" read as out of order.
+                crate::gate::iso_second(world.now())[..16].replace('T', " "),
                 short_text(&text),
                 if *granted { "Ayes" } else { "Noes" }
             ),

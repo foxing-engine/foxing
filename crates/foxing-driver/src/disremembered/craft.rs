@@ -413,7 +413,12 @@ pub const OFFER_MS: i64 = 10 * 60 * 1000;
 /// What a room gives to the hand, by the words in its name and text.
 pub const GATHERABLE: &[(&[&str], &str)] = &[
     (&["river", "weed", "tide", "drowned"], "river weed"),
-    (&["water", "well", "cistern", "pool"], "hollow water"),
+    // Fog condenses in the hand: the Fogbank, where every maker is sent first,
+    // gave nothing (Gnomeforge, 11-06).
+    (
+        &["water", "well", "cistern", "pool", "fog", "mist"],
+        "hollow water",
+    ),
     (
         &["shelves", "shelf", "ink", "ledger", "margin"],
         "a dab of ink",
@@ -1596,8 +1601,21 @@ pub fn ensure_fixtures(world: &mut World, curves: &Curves) -> Result<(), String>
         };
         let already = fixtures_in(world, room)
             .iter()
-            .any(|v| v["given_name"].as_str() == Some(name));
-        if already {
+            .find(|v| v["given_name"].as_str() == Some(name))
+            .and_then(|v| {
+                v["id"]
+                    .as_u64()
+                    .map(|id| (EntityId(id), v["text"].as_str().map(str::to_string)))
+            });
+        if let Some((id, text_now)) = already {
+            // The world's own words on its own books follow the code: the Tally
+            // Book said "Nothing has been entered" above seven entries (the Watch
+            // of 11-06).
+            if text_now.as_deref() != Some(text) {
+                let mut changes = BTreeMap::new();
+                changes.insert("text".into(), Field::Plain(json!(text)));
+                set_item_fields(world, Actor::Driver, id, changes).map_err(|e| e.to_string())?;
+            }
             continue;
         }
         let Some(r) = RECIPES.iter().find(|r| r.key == *recipe) else {
@@ -1743,6 +1761,21 @@ pub fn register(world: &mut World, curves: Curves) {
                     things.iter().map(line).collect::<Vec<_>>().join(", ")
                 )
             };
+            // What a made thing does, beside it: a maker forgot what their own
+            // bandage was for, and only `recipes` said (the Watch of 11-06).
+            let mut does: Vec<String> = Vec::new();
+            for t in &things {
+                let Some(origin) = t["origin"].as_str() else { continue };
+                if let Some(r) = all_recipes(w).into_iter().find(|r| r.key == origin) {
+                    let l = format!("{} {}", r.name, r.does.trim_end_matches('.'));
+                    if !does.contains(&l) {
+                        does.push(l);
+                    }
+                }
+            }
+            if !does.is_empty() {
+                text.push_str(&format!(" What they do: {}.", does.join("; ")));
+            }
             // Standing trade offers, yours and to you, with what is left of their ten
             // minutes (R6).
             let now = w.now().0;
@@ -2028,7 +2061,7 @@ pub fn register(world: &mut World, curves: Curves) {
             .to_lowercase();
             let Some((cue, material)) = GATHERABLE.iter().find(|(cues, _)| cues.iter().any(|c| text.contains(c))).map(|(cues, m)| (cues.iter().find(|c| text.contains(*c)).copied().unwrap_or(""), *m)) else {
                 return Err(CommandError::precondition(
-                    "Nothing here comes away in the hand. Rooms with water, shelves or ink, moths or moss, rags, bones, a river, or a lantern give something; read the room.",
+                    "Nothing here comes away in the hand. Rooms with water or fog, shelves or ink, moths or moss, rags, bones, a river, or a lantern give something; read the room.",
                 ));
             };
             if !w.greeted(&format!("gather-{}", here.0), &ctx.actor) {
@@ -2299,7 +2332,13 @@ pub fn register(world: &mut World, curves: Curves) {
                     "You make {} of {}{}: item-{}. {}{}{}",
                     r.name,
                     used_names.join(" and "),
-                    spent.map(|c| format!(", spending chunk-{}", c.0)).unwrap_or_default(),
+                    match spent {
+                        Some(c) => format!(", spending chunk-{}", c.0),
+                        // A chunk named for a recipe that takes none is kept, and said
+                        // so (a maker thought it spent; Gnomeforge, 11-06).
+                        None if args.str("chunk").is_some_and(|a| !a.trim().is_empty()) => format!(" ({} takes no chunk; {} is kept)", r.name, args.str("chunk").unwrap_or("").trim()),
+                        None => String::new(),
+                    },
                     item.0,
                     match &r.by {
                         Some(by) => format!("In {by}'s words, {}.", r.does.trim_end_matches('.')),
@@ -2433,9 +2472,15 @@ pub fn register(world: &mut World, curves: Curves) {
             if !is_fixed(w, item) {
                 if let Some(past) = super::past::read(w, item) {
                     let tier = super::past::tier(w, item);
+                    // What it does, from its recipe (a maker who forgot found only
+                    // the provenance on the thing; Gnomeforge, 11-06).
+                    let does = plain_str(w, item, ITEM, "origin")
+                        .and_then(|o| all_recipes(w).into_iter().find(|r| r.key == o))
+                        .map(|r| format!(" It {}.", r.does.trim_end_matches('.')))
+                        .unwrap_or_default();
                     return Ok(Outcome::new(
                         format!(
-                            "{called} (item-{}){}: {past}",
+                            "{called} (item-{}){}:{does} {past}",
                             item.0,
                             if text.is_empty() { String::new() } else { format!(", \"{text}\"") }
                         ),

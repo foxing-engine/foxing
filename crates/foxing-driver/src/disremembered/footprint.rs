@@ -117,6 +117,15 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
                     .map(|ms| format!("ready in {}", super::combat::human(ms)))
                     .unwrap_or_else(|| "after the hour".to_string());
                 format!("a story about {s}{turned} (you told it one this hour; another from you pays {ready})")
+            } else if super::exchange::heard_this_hour(world, e.id)
+                >= super::exchange::STORIES_AN_HOUR
+            {
+                // Full from others: said here, so the list does not send you to a
+                // creature that refuses (the Watch of 11-06).
+                format!(
+                    "a story about {s}{turned} (full for the hour: it has heard {} from others; a story that carries the word under the others is heard even so)",
+                    super::exchange::STORIES_AN_HOUR
+                )
             } else {
                 format!(
                     "a story about {s}{turned} (pays double{})",

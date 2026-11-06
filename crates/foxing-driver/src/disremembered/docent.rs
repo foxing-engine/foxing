@@ -421,7 +421,12 @@ pub fn on_arrival(world: &mut World, actor: &str) -> Result<(), String> {
         .is_some_and(|t| now - (t as i64) < super::kindle::GRACE_MS);
     // From the book the nightly stocks (steered by what visitors ask), else the few
     // built in.
-    let stocked = book(world, if newcomer { "first" } else { "welcome" });
+    // Lines stocked before the sieve learned a form ("you asked about fading", said
+    // to a newcomer who had asked nothing) are passed over at the moment of choosing.
+    let stocked: Vec<String> = book(world, if newcomer { "first" } else { "welcome" })
+        .into_iter()
+        .filter(|l| greeting_refusal(l, &[]).is_none())
+        .collect();
     let built: Vec<String> = (if newcomer { FIRST_WORDS } else { WELCOMES })
         .iter()
         .map(|s| s.to_string())
@@ -524,7 +529,7 @@ pub fn ask(
     // answered from the record of its own round (the things it carried to the door).
     let low = text.to_lowercase();
     if low.starts_with("thank") || low.contains(" thank") || low.starts_with("cheers") {
-        let line = "The Docent inclines its head: \"Keep it for the room. I only find the page.\"";
+        let line = "The Docent inclines its head: \"Keep it for the room. I only find the page.\" (No question spent.)";
         super::combat::narrate(world, actor, line);
         return Ok((line.to_string(), 0));
     }
@@ -832,12 +837,16 @@ pub fn tidy(world: &mut World) -> Result<usize, String> {
         .and_then(|v| v.as_object().cloned())
         .unwrap_or_default();
     let mut lying: Vec<(EntityId, EntityId)> = Vec::new();
+    // The Midden is where the swept go and stay: carried back to the door, a thing
+    // was swept into it again on the next pass, and the two rooms told the same
+    // tidying in opposite directions (the Watch of 11-06).
+    let midden = super::rooms::room_by_key(world, "midden");
     for e in world.store.entities().filter(|e| e.kind == "item") {
         let Some(parent) = e.parent else { continue };
         let in_room = world
             .store
             .entity(parent)
-            .is_some_and(|p| p.kind == "room" && p.id != threshold);
+            .is_some_and(|p| p.kind == "room" && p.id != threshold && Some(p.id) != midden);
         // A fixture stays; so does a thing that is awake (the third tier): it is
         // not carried by one that does not want to go.
         if !in_room || super::craft::is_fixed(world, e.id) || super::past::tier(world, e.id) >= 3 {

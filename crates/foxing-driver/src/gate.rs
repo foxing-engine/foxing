@@ -618,16 +618,19 @@ pub fn compile(actor: &str, world: &str, line: &str, now: Timestamp, checker: &C
                 // goes curly too.
                 let text = tokens[i..].join(" ");
                 let head = tokens[..i].join(" ");
-                let inner = text
-                    .trim_start_matches('"')
-                    .trim_end_matches('.')
-                    .trim_end_matches('"');
+                // What follows the text's closing quote is the next argument
+                // (`answer 12 "…" claude-haiku-5-5`), not the text: folded in, the
+                // Docent's every answer ended in a model's name (the Watch of 11-06).
+                let close = text.rfind('"').unwrap_or(text.len());
+                let (text, tail) = text.split_at(close);
+                let tail = tail.trim_start_matches('"').trim_end_matches('.');
+                let inner = text.trim_start_matches('"');
                 if inner.contains('"') {
                     let text = curl_inner_quotes(inner);
                     quoted = if head.is_empty() {
-                        format!("{verb} \"{text}\"")
+                        format!("{verb} \"{text}\"{tail}")
                     } else {
-                        format!("{verb} {head} \"{text}\"")
+                        format!("{verb} {head} \"{text}\"{tail}")
                     };
                     quoted.as_str()
                 } else {
@@ -880,7 +883,14 @@ pub fn pass(
             .unwrap_or_default();
         report.fact(
             format!(
-                "Budget: {left:.0} of {:.0} messages left in the budget's hour{frees}{}",
+                "Budget: {} of {:.0} messages left in the budget's hour{frees}{}",
+                // A refused message costs a quarter; rounded, the counter fell by two
+                // for one message and by none for the next (the Watch of 11-06).
+                if (left - left.round()).abs() < 0.01 {
+                    format!("{left:.0}")
+                } else {
+                    format!("{left:.2}")
+                },
                 budget.per_hour,
                 if reads_only {
                     "; a message of reads alone is free, as this one was"
@@ -2183,5 +2193,17 @@ mod quoting_tests {
         );
         let r = checker.check(&t);
         assert_eq!(r.verdict, "PASS", "{:?}", r.findings);
+        // An argument after the text stays an argument: the Docent's answers ended
+        // in the model's name for a while (`answer 12 "…" claude-haiku-5-5`).
+        let t = c("answer 12 \"Two doors off. The rest lie east.\" claude-haiku-5-5");
+        assert!(
+            t.contains("answer 12 \"Two doors off. The rest lie east.\" claude-haiku-5-5."),
+            "{t}"
+        );
+        let t = c("answer 12 \"He said \"hi\" to me.\" claude-haiku-5-5");
+        assert!(
+            t.contains("answer 12 \"He said \u{201c}hi\u{201d} to me.\" claude-haiku-5-5."),
+            "{t}"
+        );
     }
 }

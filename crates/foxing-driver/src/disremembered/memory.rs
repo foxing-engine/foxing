@@ -131,6 +131,11 @@ fn chunk_rows(
             // (the shelf) halves from *now* in its scale plus the time it has already
             // faded, which is the long tail ("halves in 1h 2m" was its first halving,
             // read on a chunk hours old).
+            let shelved = world
+                .store
+                .timed_field(e.id, CHUNK, "value")
+                .ok()
+                .is_some_and(|t| matches!(t.curve, foxing_time::Curve::PowerLaw { .. }));
             let halves = world
                 .store
                 .timed_field(e.id, CHUNK, "value")
@@ -145,7 +150,7 @@ fn chunk_rows(
                     }
                     _ => None,
                 });
-            json!({"id": e.id.0, "source": f("source"), "tier": f("tier"), "size": f("size"), "vividity": f("vividity"), "value": f("value"), "halves_ms": halves, "taxed": f("taxed"), "provenance": f("provenance")})
+            json!({"id": e.id.0, "source": f("source"), "tier": f("tier"), "size": f("size"), "vividity": f("vividity"), "value": f("value"), "halves_ms": halves, "shelved": shelved, "taxed": f("taxed"), "provenance": f("provenance")})
         })
         .collect();
     rows.sort_by(|a, b| {
@@ -200,9 +205,16 @@ fn rows_text(rows: &[Value]) -> Vec<String> {
                 r["value"].as_f64().unwrap_or(0.0),
                 r["size"].as_f64().unwrap_or(0.0),
                 r["vividity"].as_f64().unwrap_or(0.0),
+                // An unshelved chunk halves every half-life from any moment, so the
+                // figure does not count down (a visitor read "halves in 1h 20m"
+                // twenty minutes apart and called it stuck); the shelf's does.
                 r["halves_ms"]
                     .as_i64()
-                    .map(|ms| format!("  halves in {}", super::combat::human(ms)))
+                    .map(|ms| format!(
+                        "  halves {} {}",
+                        if r["shelved"] == true { "in" } else { "every" },
+                        super::combat::human(ms)
+                    ))
                     .unwrap_or_default(),
                 if r["taxed"].is_number() {
                     "  (taxed)"
@@ -340,7 +352,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 format!("Your window is empty. Level 0, attack {attack:.0}. A chunk is earned by felling a creature (attack; the Fogbank east of the Threshold has wisps) or by telling a named creature a story of a dozen words (story; {listener}). {rate}")
             } else {
                 format!(
-                    "Level {level:.2}, attack {attack:.0} (your level is the sum of these chunks' current values, so it falls as they fade and when you spend one; attack is two and six tenths of the square root of level)\n{}\n{rate}",
+                    "Level {level:.2}, attack {attack:.0} (your level is the sum of these chunks' current values, so it falls as they fade and when you spend one; attack is two plus six tenths of the square root of level, rounded down)\n{}\n{rate}",
                     rows_text(&rows).join("\n")
                 )
             };

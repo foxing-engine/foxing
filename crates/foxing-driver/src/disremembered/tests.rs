@@ -5098,7 +5098,10 @@ fn the_lower_stacks_lie_under_the_archive_and_their_creatures_have_tricks() {
     combat::set_engaged(&mut w, "dave", f.citizen, Some(lamprey)).unwrap();
     let out = ok(&mut w, "dave", "retreat", json!([]));
     assert!(
-        out.summary.contains("keeps the wound a while"),
+        out.summary
+            .contains("It mends on the world's clock, whole in")
+            && out.summary.contains("A second stand now:")
+            && out.summary.contains("When you are whole:"),
         "{}",
         out.summary
     );
@@ -5717,7 +5720,7 @@ fn the_named_confide_in_the_unnamed_when_names_are_few() {
     // forty-five and still named (above thirty).
     let look = ok(&mut w, "tyler", "look", json!([]));
     assert!(
-        look.summary.contains("wisp (9/9, holding "),
+        look.summary.contains("wisp (9/9, hits 2–4, holding "),
         "{}",
         look.summary
     );
@@ -7557,10 +7560,11 @@ fn the_docent_greets_once_a_night_takes_questions_answers_or_admits_the_page_is_
             .any(|l| l.contains("New, then") || l.contains("Welcome, dave")),
         "{said:?}"
     );
-    admin(&mut w, "dave", "bring", json!(["dave", "midden"]));
     // Its round: a thing left lying in an empty room is carried to the Threshold on
-    // the second pass and set down, said aloud there.
-    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    // the second pass and set down, said aloud there (not from the Midden, where the
+    // swept stay: the Fogbank here).
+    admin(&mut w, "dave", "bring", json!(["dave", "fogbank"]));
+    let midden = rooms::room_by_key(&w, "fogbank").unwrap();
     let item = w.store.allocate_id();
     w.record(
         Actor::Driver,
@@ -7585,7 +7589,7 @@ fn the_docent_greets_once_a_night_takes_questions_answers_or_admits_the_page_is_
         },
     )
     .unwrap();
-    // dave stands in the Midden: nothing is taken from under anyone.
+    // dave stands in the room: nothing is taken from under anyone.
     assert_eq!(docent::tidy(&mut w).unwrap(), 0);
     admin(&mut w, "dave", "bring", json!(["dave", "threshold"]));
     assert_eq!(docent::tidy(&mut w).unwrap(), 0, "first sighting");
@@ -7595,7 +7599,7 @@ fn the_docent_greets_once_a_night_takes_questions_answers_or_admits_the_page_is_
     let said = narrative(&w, "dave", head);
     assert!(
         said.iter()
-            .any(|l| l.contains("The Docent sets down a wisp ember, found lying in The Midden")),
+            .any(|l| l.contains("The Docent sets down a wisp ember, found lying in The Fogbank")),
         "{said:?}"
     );
     assert_eq!(docent::report(&w)["tidied"], 1);

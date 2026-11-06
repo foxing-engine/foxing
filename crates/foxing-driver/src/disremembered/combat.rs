@@ -421,7 +421,13 @@ pub fn fill(world: &mut World, room: EntityId) -> Result<usize, StoreError> {
     // wisps, mostly, and now and then three. (Never fewer: a room below its figure
     // is what a boot refills, and a short room would refill forever.) A room
     // already at its figure is left as it is.
-    let have = creatures_in(world, room).len();
+    // A named creature is someone's, not the room's stock (the Watch of 11-06 found
+    // the fog's two wisps both named by the Docent and nothing to strike): only the
+    // unnamed count toward the figure, so a room with pilots in it still refills.
+    let have = creatures_in(world, room)
+        .iter()
+        .filter(|c| super::mind::name(world, c.0).is_none())
+        .count();
     let count = if have < count && world.roll(6) == 0 {
         count + 1
     } else {
@@ -1911,7 +1917,17 @@ pub fn register(world: &mut World, curves: Curves) {
                     // said of a hollow that had none, and the visitor guessed at names.
                     format!("Nothing here can be struck yet: {}.", here.iter().map(|c| format!("{} is not itself for {}", super::mind::display(w, c.0), super::mind::shaken_for(w, c.0).map(human).unwrap_or_else(|| "a while".into()))).collect::<Vec<_>>().join("; "))
                 } else if args.str("creature").map_or(true, str::is_empty) {
-                    format!("Nothing unnamed is here to fight. {} {} a name, and {} struck only by that name.", here.iter().filter(|c| !super::mind::shaken(w, c.0)).map(|c| super::mind::display(w, c.0)).collect::<Vec<_>>().join(" and "), if here.len() == 1 { "has" } else { "have" }, if here.len() == 1 { "is" } else { "are" })
+                    {
+                        let named: Vec<String> = here.iter().filter(|c| !super::mind::shaken(w, c.0) && super::mind::name(w, c.0).is_some()).map(|c| super::mind::display(w, c.0)).collect();
+                        let shaken: Vec<String> = here.iter().filter(|c| super::mind::shaken(w, c.0) && super::mind::name(w, c.0).is_none()).map(|c| format!("the {} is not itself for {}", c.1, super::mind::shaken_for(w, c.0).map(human).unwrap_or_else(|| "a while".into()))).collect();
+                        format!(
+                            "Nothing unnamed is here to fight{}. {} {} a name, and {} struck only by that name; felled, it loses the name and the stories told to it.",
+                            if shaken.is_empty() { String::new() } else { format!(" ({})", shaken.join("; ")) },
+                            named.join(" and "),
+                            if named.len() == 1 { "has" } else { "have" },
+                            if named.len() == 1 { "is" } else { "are" }
+                        )
+                    }
                 } else {
                     // Named as look names them, so the retry can be copied from the refusal.
                     format!("No such creature here. Here: {}.", here.iter().map(|c| {
@@ -2000,7 +2016,11 @@ pub fn register(world: &mut World, curves: Curves) {
             if chp <= 0.0 {
                 // A creature that holds memories does not die: you take one, it is shaken.
                 // The memory is yours at what it is worth now, as vivid as the fight.
-                let who = super::mind::display(w, creature);
+                // "wisp goes down" lost its article; a named one keeps its name.
+                let who = match super::mind::name(w, creature) {
+                    Some(_) => super::mind::display(w, creature),
+                    None => format!("The {}", super::mind::display(w, creature)),
+                };
                 let taken_vividity = fight_vividity(w, f.citizen, creature);
                 if let Some((chunk, source, worth, was)) = super::mind::take(w, &ctx.actor, f.window, creature, taken_vividity, &curves)? {
                     set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
@@ -2093,7 +2113,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.retreat", "Break off the fight. The creature gets one free strike as you go. A creature keeps the wound you gave it twenty minutes, then is whole (the Conclave's officers sooner); venom follows you out. You mend only out of the room. The reply says in rounds what a second stand would take."),
+        CommandSpec::new("disremembered.retreat", "Break off the fight. The creature gets one free strike as you go. A creature mends on the world's clock, whole from nothing in twenty minutes, faster than you (the Conclave's officers sooner); venom follows you out. You mend only out of the room. The reply says when each of you is whole and in rounds what a second stand would take, now and then."),
         Box::new(|w: &mut World, ctx, _| {
             let f = me(w, ctx)?;
             let Some(creature) = engaged_with(w, f.citizen) else {
@@ -2120,10 +2140,25 @@ pub fn register(world: &mut World, curves: Curves) {
                 };
                 return Ok(Outcome::new(msg, json!({"died": true, "lost": lost})));
             }
+            // The creature mends on the world's clock, whole from nothing in twenty
+            // minutes, which is faster than you: said with both clocks, not "it keeps
+            // the wound a while" (a visitor rested eleven minutes and came back to a
+            // whole picnicker; the Watch of 11-06).
+            let cmax = plain_num(w, creature, CREATURE, "max_hp").unwrap_or(super::MAX_HP);
+            let chp_now = plain_num(w, creature, CREATURE, "hp").unwrap_or(0.0);
+            let ckind = plain_str(w, creature, CREATURE, "name").unwrap_or("").to_string();
+            let c_whole_ms = if super::stacks::TRICKS.iter().any(|(k, _)| *k == ckind) { STACKS_MEND_MS } else { GROUND_MEND_MS };
+            let c_whole_in_ms = (((cmax - chp_now).max(0.0) / cmax) * c_whole_ms as f64) as i64;
+            let me_whole_in_ms = ((super::MAX_HP - hp(w, f.citizen)) / super::HP_PER_SECOND * 1000.0) as i64;
             let mended = match super::stacks::trick_of(w, creature) {
-                Some(super::stacks::Trick::Enter) | Some(super::stacks::Trick::Below) => " It will be whole again by the time you come back; the Conclave keeps its order.",
-                Some(_) => " It keeps the wound a while: whole again in twenty minutes, if nobody takes it up before.",
-                None => " It keeps the wound; it is yours to finish when you come back.",
+                Some(super::stacks::Trick::Enter) | Some(super::stacks::Trick::Below) => " It will be whole again by the time you come back; the Conclave keeps its order.".to_string(),
+                _ if chp_now <= 0.0 => String::new(),
+                _ => format!(
+                    " It mends on the world's clock, whole in {}{}; you are whole in {}.",
+                    super::combat::human(c_whole_in_ms),
+                    if c_whole_in_ms < me_whole_in_ms { ", before you are" } else { "" },
+                    super::combat::human(me_whole_in_ms)
+                ),
             };
             // Venom follows you out of the room: said, with what it will cost, since
             // five hit points and four ticks of two is a death the text once left unsaid.
@@ -2149,20 +2184,25 @@ pub fn register(world: &mut World, curves: Curves) {
             // R70: what a second stand would take, in rounds, against what you have
             // and what you will have when you are whole.
             let second = {
-                let chp = plain_num(w, creature, CREATURE, "hp").unwrap_or(0.0);
+                let chp = chp_now;
                 let level = super::memory::level(w, f.window);
                 let mine = attack_for_level(level) + 1.0;
                 let its = plain_num(w, creature, CREATURE, "attack").unwrap_or(1.0) + 1.0;
                 let hit = to_hit(w, f.citizen);
-                let rounds_to_fell = (chp / (mine * hit)).ceil().max(1.0);
+                let rounds_now = (chp / (mine * hit)).ceil().max(1.0);
                 let in_me_now = (hp(w, f.citizen) / its).floor().max(0.0);
+                // The creature as it will be when you are whole: the two halves of the
+                // sum at one time (as it is now against you when whole was never a
+                // stand anyone could take).
+                let chp_then = (chp + cmax * (me_whole_in_ms as f64 / c_whole_ms as f64)).min(cmax);
+                let rounds_then = (chp_then / (mine * hit)).ceil().max(1.0);
                 let in_me_whole = (super::MAX_HP / its).floor();
-                let whole_in = super::combat::human(((super::MAX_HP - hp(w, f.citizen)) / super::HP_PER_SECOND * 1000.0) as i64);
                 if chp > 0.0 {
                     format!(
-                        " A second stand: about {rounds_to_fell:.0} more round{} to fell it as it is now; you have {in_me_now:.0} in you, {in_me_whole:.0} when whole (whole in {whole_in}){}.",
-                        if rounds_to_fell == 1.0 { "" } else { "s" },
-                        if in_me_whole < rounds_to_fell { "; it is not a fight for one name at this level" } else { "" }
+                        " A second stand now: about {rounds_now:.0} round{} to fell it, and you have {in_me_now:.0} in you. When you are whole: about {rounds_then:.0} round{} against its {chp_then:.0}, and you have {in_me_whole:.0}{}.",
+                        if rounds_now == 1.0 { "" } else { "s" },
+                        if rounds_then == 1.0 { "" } else { "s" },
+                        if in_me_whole < rounds_then { "; not a fight for one name at this level: bring another" } else { "" }
                     )
                 } else {
                     String::new()

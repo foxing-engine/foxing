@@ -18,6 +18,11 @@ went by policy, with ids.
 
 ## Decisions (D): one letter each; **waits** means yours, the rest go by policy
 
+The gate and the hour (from the Watch of 11-06; S, each with a lean, so by policy)
+- **D18 · A message scored 50 that ran nothing.** One of two statements failed and the whole message ran nothing; the "50 Legibility" read as partial credit. a) **lean**: keep the all-or-nothing (CLEAR's thesis) and say it in the line: "scored 50; a message runs whole or not at all, so the world ran none of it". b) run the statements that passed.
+- **D19 · A want-match inside the hour.** A story about what the creature wants, told inside your hour with it, is refused like any other; only a story that carries the word is heard. a) **lean**: as is, said: the refusal names the want as waiting for the hour too. b) a want-match is heard inside the hour at base pay (no double).
+- **D20 · A refused guess and the hint.** The hint narrows on heard misses only; four guesses refused inside the hour narrowed nothing (batch F puts the hint in the refusal). a) **lean**: as now. b) a refused in-hour guess counts as a miss (narrows the lent-word pool to five after two refusals).
+
 Economy and death
 - **D5 · A floor under a name** (deferred 11-02 "until the map is bigger"; **waits**,
   detail asked 11-05). What happens now: a named creature's name rests on its
@@ -69,6 +74,30 @@ Left from batch D (the play page's bigger pieces):
 - **R13b** (S) A sprite per thing a creature leaves (icons are by word now).
 - **R22b** (S) One `help` voice (the page's list and the world's line).
 - **R25b** (M) A verb's argument from the scene (click `tell`, then a creature); a creature's own verbs on its figure; the palette on the plain page; the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll; admin on the play page; a `remember` that keeps a room on your map.
+From the Night's Watch of 11-06 (the Mudroom's first night; the obvious fixes are in the ledger as batch F):
+- **R84** (S) A dug room's way out is an exit named `back` (every word-named door digs one), so `Exits: back (Mudroom)` reads as the keyword; the keyword now retraces first (batch F), which closes the trap, and the door's name should still change: `out` for new digs, the old ones migrated on boot (the ancestor walk, the mend walk, the atlas and Morphos's doors all read `back`; one deploy, alone).
+- **R85** (S) The Mudroom's exit list came in dig order on one `look` and alphabetical on the next (two code paths); one order, the compass first.
+- **R86** (S) After the bog spits you out, `back` pops past the bog as if you had walked out of it; the bog's line says so ("the trail forgets the bog").
+- **R87** (S) "Dug by Oakmoss … Kept in memory by Oakmoss (wisp)" reads as the digger being a wisp; the fold says "Oakmoss (a wisp of theirs)" or names the creature.
+- **R88** (S) "recite the first story": Osgar, holding eighty, recited the visitor's own as the first (the oldest had folded into a sheaf, which is not recited); say "the oldest I still hold whole", and Fallis recited another citizen's as first, which was right and read wrong.
+- **R89** (S) A want that turns reads as two creatures swapping wants (`wants` and the room text disagreed within a minute, twice this Watch); the room text carries the same "(turned 40s ago)" mark `wants` does, and the Docent's arrival line names the want's clock.
+- **R90** (S) A carried word is heard inside your hour (D13) and nothing says the next from you then waits for the hour; the strike's reply says it.
+- **R91** (S) The worth line on a second kill does not shorten (only the combat clause does, and that per fight); the "said once a session" rule for the worth line.
+- **R92** (S) `rest` said 25/30 after a stated loss of 6 from 30 (a tick mended one in between?); check the arithmetic and say "mended 1 since".
+- **R93** (S) "The Docent nods to Gnomestead" rides on top of the next reply of everyone at the door; keep it, but after the reply's own lines, not before.
+- **R94** (S) The second-stand projection takes your level as it stands; it fades while you rest (27 to 24 in twelve minutes cost a point of attack), so "you have 5 when whole" was 4; project the level at the time too, or say "less as your level fades".
+- **R95** (S) The Stile says nothing of what is north (a visitor sent to "the Wistful Trail" found no room of that name; the trail is the Stile, the Meadow, the Picnic, and on); a line on the Stile's `look` naming the next rooms, as the signpost does.
+- **R96** (S) `travel east` into the Fogbank said "No other citizen is here" with two gate names in the room a message later (presence read before the arrival landed?); check the order.
+- **R97** (S) Striking a named creature takes its name and the stories others told it, and nothing warned the fighter (batch F says so in the "nothing unnamed" refusal); a line before the first strike by name, and a tell to its keepers after.
+- **R98** (S) The kill line says the chunk's worth and vividity but not its clock ("halves every 55m"), which is the figure a fighter compares mothwings against hollows by; add it.
+- **R99** (S) A creature's `look` row has no id when it is the only unnamed one, while the strike lines say "wisp-6403" (F23 said the twins); one rule, said in both.
+- **R100** (S) The worth is rounded two ways: "worth 35 XP" in the kill line, "34.83 of 34.9" in `chunks`; one figure.
+- **R101** (S) `rest` in a room just fought in moved 6 s in 31 s (nothing was fighting; the mothwing was dead); check whether `end_fight` recurved the mending.
+- **R102** (S) "The hourhand hunts whoever comes in" / "The hollow hunts…" with no attack in three to six passes (two reports); say the odds ("hunts, one pass in three") or raise them.
+- **R103** (S) `observe` has no `disremembered.room.exits` field ("did you mean permits?"); exits are a relation; the error should say `relations.exits`.
+- **R104** (S) `wants` gives "(no way you remember)" for a dug room two doors off; the signed way is only for the world's own rooms; give the way through the Mudroom too.
+- **R105** (S) "it is read at midnight" / "sits at midnight" / "read out at the midnight sitting": one phrase for the sitting.
+- **R106** (M) A bell wakes the quiet in its rooms: the division's line reaches a name standing in a Conclave room however quiet (now it goes to `messages` once the room has forgotten them after ten minutes; `help time` says so since batch F).
 From the Night's Watch of 11-05 (the Trail's first night):
 From the loop cohort of 11-05 (one tester per loop):
 Pulled from the backlog 11-05 ("B19 yes, B21 yes, B22 yes"), each in pieces the Watch can take a batch at a time:
@@ -94,7 +123,10 @@ yours to call: say `H5 go`, or `H5 brief` for a design first.
 - **H3 · The door litter** (= T3, **declined**): the Docent's sweep rule stands.
 - **H4 · The Threshold's text as a front door** (S). Rewritten to present the three
   ways as three invitations (fight in the fog, read under the lanterns, dig in the
-  mud) and name the one thing to do first; the Mudroom's text to match.
+  mud) and name the one thing to do first; the Mudroom's text to match. The Watch of
+  11-06 (Gnomestead) asked for the same on the exits line itself: "east (Fogbank:
+  fight), west (Mudroom: dig), north (Lantern Row: read)"; the three doors map
+  exactly to the three ways, so the line should say so.
 - **H5 · A first-arrival line at the door** (S). The Docent greets a new name by
   name on its first arrival with the one next move (the fog, a wisp), apart from the
   nightly greeting; `look` at the door for a name under an hour old carries the
@@ -336,6 +368,16 @@ The world
 
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-06 (batch F, the Watch of 11-06's obvious fixes; one deploy)
+- (Gnomestead) the Docent's stocked greeting is sieved when chosen, not only when stocked, so a newcomer is not told "you asked about fading"; `help dig` says every room but the Mudroom takes eight doors; the Fogbank refills by its unnamed count, and the Docent names no creature of a room's own kind while fewer than two unnamed stand there, so "attack a wisp east" finds one.
+- (Gnomeforge) `gather` in the fog takes hollow water; `read` of a made thing says what it does; `craft` with a chunk the recipe does not take says the chunk is kept; `satchel` says what each made thing does.
+- (Gnarlfoot) `travel back` retraces the trail first, even in a dug room whose way out is named back (the Mudroom–Moss Bed loop); "You take the survey door", not "the survey"; the map's legend is sorted by number; one layout cache for the process, so a room dug between two `map`s does not move; a digger's text starts with a capital.
+- (Gnatterbox) `tell wisp` beside named wisps names them ("The wisps here each have a name: Fallis, Tinsel. Tell one by its name"); "try again in 1 minute"; `wants` marks a creature full for the hour.
+- (Gnibblestack) the retreat line says both clocks ("It mends on the world's clock, whole in 8m, before you are; you are whole in 10m") instead of "it keeps the wound a while", and sizes the second stand twice, now and when you are whole against the creature as it will be then, with "bring another" when the whole stand is beyond one name; `chunks` says attack is "two plus six tenths of the square root of level, rounded down" (it read as 2.6×) and "halves every 1h 20m" for an unshelved chunk, which does not count down.
+- (Gnashbrook) the creature row says what it hits for ("hits 2–4"; R4's line never showed: `look`'s query did not select the attack), and the first-moves line says the wisps hit 2–4 and the hollows 4–6; "The wisp goes down" keeps its article; the "nothing unnamed" refusal counts the named it names ("Fallis the wisp has a name"), lists the unnamed not itself yet, and says a felled name loses its name and the stories told to it; the Docent's round leaves the Midden alone (it carried the swept back to the door and swept them again, and the two rooms told it in opposite directions); the greeting sieve fix above covers "you asked how to get rag thread".
+- (Gnomonbell) the budget line shows its quarters ("47.75 of 60") instead of a rounded counter that fell by two; `session` says the clock time, not the same span twice; the Tally Book's seeded text follows the code on boot (it said "Nothing has been entered" above seven entries) and its entries carry the day; `help time` says what present means (acting within ten minutes) and that a bell missed is in `messages`. The leaked model name is the gate fix above.
+- (Gnashwhistle) the gate kept an argument after a quoted text inside the text, so every Docent answer since R30 ended in the model's name; fixed, with a test; a lent word's hint narrows after misses (the pool, then five of it), so the door's pilots can be climbed; the inside-the-hour refusal says the story did not carry the word and repeats the hint; "what word did anyone carry?" lists the words under the others said to it beside the errands'; `tell docent "thanks"` says no question was spent.
 
 11-06 (batch E; one deploy)
 - **R70** a creature keeps its wound twenty minutes in the Stacks as on the ground; `retreat` says in rounds what a second stand would take, against what you have and will have.

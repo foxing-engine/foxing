@@ -722,7 +722,6 @@ fn door_noun(word: &str) -> bool {
         "orchard",
         "meadow",
         "garden",
-        "survey",
         "link",
         "somewhere",
         "escape",
@@ -1001,7 +1000,7 @@ pub fn look_query(room: EntityId) -> Value {
         "relations": {
             "contents": {
                 "kinds": ["citizen", "creature"],
-                "select": {super::CITIZEN: ["name"], super::CREATURE: ["name", "hp", "max_hp", "parents", "born_of", "mutation"], super::mind::MIND: ["name", "tier"]}
+                "select": {super::CITIZEN: ["name"], super::CREATURE: ["name", "hp", "max_hp", "attack", "parents", "born_of", "mutation"], super::mind::MIND: ["name", "tier"]}
             }
         }
     })
@@ -1163,6 +1162,15 @@ pub fn describe(
         .filter_map(|c| c["id"].as_u64())
         .filter_map(|id| super::mind::regard(world, EntityId(id), actor))
         .collect();
+    // A digger's text starts with a capital however it was typed ("an ice fortress
+    // with a bit of an aroma." read as a slip of the world's).
+    let desc = {
+        let mut c = desc.chars();
+        match c.next() {
+            Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+            None => String::new(),
+        }
+    };
     let mut text = format!("{name}. {desc}");
     if let Some(who) = &dug_by {
         let with = root["components"][ROOM]["dug_with"]
@@ -1679,17 +1687,23 @@ pub fn register(world: &mut World) {
                     exits.insert(exit.clone(), start);
                 }
             }
-            // `back`: the exit that leads to the room you came from, unless the room has
-            // an exit named back of its own (diggers name exits as they like).
+            // `back`: the exit that leads to the room you came from. The trail is asked
+            // first, even in a dug room whose way out is itself named "back" (every
+            // word-named door digs one): taking that door as a step forward put the
+            // room you left on the trail, and `back` from its parent walked you in
+            // again, forever (the Watch of 11-06). The door named back is for a
+            // walker with no trail: a login in a dug room.
             let mut retracing = false;
-            if exit == "back" && !exits.contains_key("back") {
-                match w.came_from(&ctx.actor).and_then(|from| {
+            if exit == "back" {
+                let trail = w.came_from(&ctx.actor).and_then(|from| {
                     exits.iter().find(|(_, &to)| to == from).map(|(via, _)| via.clone())
-                }) {
+                });
+                match trail {
                     Some(via) => {
                         exit = via;
                         retracing = true;
                     }
+                    None if exits.contains_key("back") => {}
                     None => {
                         return Err(foxing_registry::CommandError::precondition(
                             "There is no way back from here that the world remembers you taking; name an exit.".to_string(),

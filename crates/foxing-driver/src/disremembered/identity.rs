@@ -32,7 +32,7 @@ pub enum LoginError {
     #[error("login <name> <passphrase>: the passphrase is set on first login and required after.")]
     Missing,
     /// Too many wrong passphrases for this name recently.
-    #[error("Too many wrong passphrases for {name}; try again in {minutes} minutes.")]
+    #[error("Too many wrong passphrases for {name}; try again in {minutes} minute{}.", if *.minutes == 1 { "" } else { "s" })]
     Locked { name: String, minutes: i64 },
     /// The world's fault.
     #[error("internal: {0}")]

@@ -77,18 +77,32 @@ fn named_near(world: &World, rooms: &[EntityId]) -> Vec<(EntityId, f64)> {
         .collect()
 }
 
-/// A mild, unnamed, unborn creature near the door, by preference of kind.
+/// A mild, unnamed, unborn creature near the door, by preference of kind. A room is
+/// left its stock: the Docent never names the last unnamed creature of a room that
+/// spawns its kind, so a newcomer sent east to hit a wisp finds one to hit.
 fn candidate(world: &World, rooms: &[EntityId]) -> Option<EntityId> {
-    let all: Vec<(EntityId, String)> = rooms
+    let all: Vec<(EntityId, String, EntityId)> = rooms
         .iter()
-        .flat_map(|&r| super::combat::creatures_in(world, r))
+        .flat_map(|&r| {
+            super::combat::creatures_in(world, r)
+                .into_iter()
+                .map(move |c| (c.0, c.1.clone(), r))
+        })
         .filter(|c| mind::name(world, c.0).is_none())
         .filter(|c| super::kindle::born_at(world, c.0).is_none())
         .filter(|c| !mind::shaken(world, c.0))
-        .map(|c| (c.0, c.1.clone()))
+        .filter(|(_, kind, room)| {
+            let spawns_kind =
+                super::plain_str(world, *room, super::SPAWN, "creature") == Some(kind);
+            let unnamed_of_kind = super::combat::creatures_in(world, *room)
+                .iter()
+                .filter(|o| o.1 == *kind && mind::name(world, o.0).is_none())
+                .count();
+            !spawns_kind || unnamed_of_kind >= 2
+        })
         .collect();
     MILD.iter()
-        .find_map(|kind| all.iter().find(|(_, k)| k == kind).map(|(id, _)| *id))
+        .find_map(|kind| all.iter().find(|(_, k, _)| k == kind).map(|(id, _, _)| *id))
 }
 
 /// Feed a creature with the world's own memories until it holds `to`, in the

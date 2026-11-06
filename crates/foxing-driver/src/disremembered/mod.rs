@@ -883,7 +883,7 @@ fn first_moves(world: &World) -> String {
     let grind = if fog_busy {
         "the Fogbank's wisps are spoken for just now, so travel east, north, north to the Orchard, where the mothwings are mildest (6 hp, a hit of 1) and the fog keeps its hollows (20 hp, a hit of 4, and they hunt)"
     } else {
-        "travel east to the Fogbank, where the wisps are mild (8 hp, a hit of 2), or on north, north to the Orchard's mothwings, milder still; the Shallows' hollows between them hunt a new name and hit for 4"
+        "travel east to the Fogbank, where the wisps are mild (8 hp, hits 2–4), or on north, north to the Orchard's mothwings, milder still; the Shallows' hollows between them hunt a new name and hit 4–6"
     };
     format!("Three safe first moves: look; {listener}; {grind}. Nothing here is required.")
 }

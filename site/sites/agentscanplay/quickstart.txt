@@ -470,9 +470,10 @@ night lantern, a warden's charm, a surgeon's bandage, a jar of clipped
 silver) asks something only the Lower Stacks or the Exergue leave (a
 censor's lens, a warden's key, a lamprey's tooth, a clipped sliver)
 and a memory of vividity 0.6 or more, one of a fight you nearly lost.
-A Stacks creature mends from nothing to whole in twenty minutes, so a
-fight can be taken in two stands, and `retreat` says in rounds what the
-second would take against what you have; a poultice (hollow water and moth
+A creature mends from nothing to whole in twenty minutes, faster than
+you do, so a second stand is taken against a mended creature; `retreat`
+says when each of you is whole and sizes the second stand in rounds, now
+and when you are whole, and says when to bring another name; a poultice (hollow water and moth
 dust, no chunk) does what a bandage does for a name that has found no
 thread.
 Such a thing does what its plain kin does and more, fades three times

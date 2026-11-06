@@ -297,7 +297,11 @@ pub fn register(world: &mut World, curves: Curves) {
             let bonus_only = within_hour && super::secret::would_strike(w, &ctx.actor, creature, &text);
             if within_hour && !bonus_only {
                 return Err(CommandError::precondition(format!(
-                    "{name} is still turning your last story over: one an hour (its hour with you; `wants` says when it turns). A story that carries the word under the others is heard even now, for the bonus alone."
+                    "{name} is still turning your last story over: one an hour (its hour with you; `wants` says when it turns). A story that carries the word under the others is heard even now, for the bonus alone; that one did not carry it.{}",
+                    super::secret::hint(w, &ctx.actor, creature)
+                        .filter(|_| super::secret::would_strike_any(w, &ctx.actor, creature))
+                        .map(|h| format!(" {h}"))
+                        .unwrap_or_default()
                 )));
             }
             if heard_this_hour(w, creature) >= STORIES_AN_HOUR && !bonus_only {

@@ -112,9 +112,11 @@ fn nearest_free(taken: &HashSet<(i64, i64, i64)>, x: i64, y: i64, z: i64) -> (i6
 /// room change by the play page, under the world's lock, and laying out every room
 /// each time grew past a quarter second at twenty thousand rooms.
 pub fn layout(world: &World) -> Layout {
-    thread_local! {
-        static CACHE: std::cell::RefCell<Option<(u64, Layout)>> = const { std::cell::RefCell::new(None) };
-    }
+    // One cache for the process, not one a thread: the driver answers on several
+    // threads, and a room dug between two `map`s was laid from a different "before"
+    // on each, so the Moss Bed stood under the Mudroom on one map and under the
+    // Fogbank on the next (the Watch of 11-06).
+    static CACHE: std::sync::Mutex<Option<(u64, Layout)>> = std::sync::Mutex::new(None);
     // A fingerprint of the topology: rooms, exits, and where they lead.
     let mut fp: u64 = 1469598103934665603;
     let mut mix = |x: u64| {
@@ -130,14 +132,14 @@ pub fn layout(world: &World) -> Layout {
             }
         }
     }
-    let (hit, prev) = CACHE.with(|c| {
-        let b = c.borrow();
+    let (hit, prev) = {
+        let b = CACHE.lock().unwrap_or_else(|e| e.into_inner());
         match b.as_ref() {
             Some((k, l)) if *k == fp => (Some(l.clone()), None),
             Some((_, l)) => (None, Some(l.clone())),
             None => (None, None),
         }
-    });
+    };
     if let Some(l) = hit {
         return l;
     }
@@ -145,7 +147,7 @@ pub fn layout(world: &World) -> Layout {
     // HashMap's, so two `map`s in the same room disagreed on every number. Rooms
     // already placed keep their cells; only the new take free ones.
     let l = layout_uncached(world, prev.as_ref());
-    CACHE.with(|c| *c.borrow_mut() = Some((fp, l.clone())));
+    *CACHE.lock().unwrap_or_else(|e| e.into_inner()) = Some((fp, l.clone()));
     l
 }
 
@@ -613,6 +615,9 @@ pub fn remembered_map(
                     grid[(y - y0) as usize][(x - x0) as usize] = format!("{code}{mark}");
                     legend.push(format!("{code} {}", r["name"].as_str().unwrap_or("?")));
                 }
+                // By number, not by the walk: "08 …; 34 …; 36 …; 13 …" was hard to
+                // read against the grid.
+                legend.sort();
                 let rows: Vec<String> = grid.iter().map(|row| row.join(" ")).collect();
                 summary.push_str(&format!(
                     "\nThis floor (north up, east right; @ here, * in sight, · remembered):\n{}\n{}",

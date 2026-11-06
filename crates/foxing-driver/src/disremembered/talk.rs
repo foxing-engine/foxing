@@ -163,6 +163,23 @@ pub fn register(world: &mut World) {
             // A citizen, here or away.
             let typed = who.trim_start_matches("citizen-").to_string();
             let Some(target) = super::canonical_name(w, &typed) else {
+                // A kind typed where every one of the kind has a name ("tell wisp"
+                // beside Fallis and Tinsel) is answered with the names, not "no such
+                // creature" (the Watch of 11-06 read that as a lie about the room).
+                let kind = typed.trim_start_matches("the ").to_ascii_lowercase();
+                let of_kind: Vec<String> = super::combat::creatures_in(w, room)
+                    .iter()
+                    .filter(|c| c.1 == kind)
+                    .map(|c| mind::display(w, c.0))
+                    .collect();
+                if !of_kind.is_empty() {
+                    return Err(CommandError::precondition(format!(
+                        "The {kind}{} here {} a name: {}. Tell one by its name.",
+                        if of_kind.len() == 1 { "" } else { "s" },
+                        if of_kind.len() == 1 { "has" } else { "each have" },
+                        of_kind.join(", ")
+                    )));
+                }
                 return Err(CommandError::precondition(format!(
                     "There is no one called {typed}, and no such creature here."
                 )));
@@ -760,11 +777,35 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
                 }
             })
             .collect();
-        return Some(if carried.is_empty() {
-            "No word has been carried for me or to me yet.".to_string()
+        // The words under the others said to it are carries too, to the one who
+        // said them: "none" right after three of them read as a contradiction
+        // (the Watch of 11-06).
+        let struck: Vec<String> = world
+            .recent_events(6000)
+            .iter()
+            .filter(|e| {
+                e.kind == super::secret::STRUCK
+                    && e.payload["creature"].as_u64() == Some(creature.0)
+            })
+            .filter_map(|e| {
+                Some(format!(
+                    "{} said the word under the others, \"{}\"",
+                    e.payload["from"].as_str()?,
+                    e.payload["word"].as_str()?
+                ))
+            })
+            .collect();
+        let errands = if carried.is_empty() {
+            "No errand's word has been carried for me or to me yet".to_string()
         } else {
             let n = carried.len();
-            format!("{}.", carried[n.saturating_sub(3)..].join("; "))
+            carried[n.saturating_sub(3)..].join("; ")
+        };
+        return Some(if struck.is_empty() {
+            format!("{errands}.")
+        } else {
+            let n = struck.len();
+            format!("{errands}; {}.", struck[n.saturating_sub(3)..].join("; "))
         });
     }
     if has(&[
