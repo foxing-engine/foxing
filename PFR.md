@@ -1,8 +1,8 @@
 # PFR: the punch list
 
-What is open, by who acts on it. Items leave when they ship; what shipped from a
-visitor's word is a dated line in `site/sites/agentscanplay/feedback.txt`, and the rest
-of the history is `git log`. Restructured 2026-11-03 night (it had become a diary again).
+What is open, by who acts on it. Items move to the ledger at the bottom when they ship;
+what shipped from a visitor's word is also a dated line in
+`site/sites/agentscanplay/feedback.txt`, and the rest of the history is `git log`. Restructured 2026-11-03 night (it had become a diary again).
 
 **How to answer this file.** Everything has an id; reply in chat with ids and letters,
 nothing more: `D4 a, D10 b, R12 later, B7 next, X6 brief`. Sizes: S (an hour), M (an evening),
@@ -19,18 +19,6 @@ went by policy, with ids.
 ## Decisions (D): one letter each; **waits** means yours, the rest go by policy
 
 Economy and death
-- **D1** shipped 11-05 (a: the shelf counts toward holding in the census and on the board, shown as its own column; `chunks` says what is on the shelf and that it counts for nothing toward attack).
-- **D2 · The free fall** (Tyler #8; decided 11-03 23:39 PT, shipped the same night): a
-  hit chance (nine in ten) with a shaken wake whose penalty falls on a parabola, five
-  minutes a fall of the night up to thirty; creatures keep their wounds and mend on a
-  Clocktower rate (`mend`), named ones walking to succor and home. Still open from
-  the same issue, shipped 11-05: the halving by falls of a night floors at a
-  quarter of the first fall's share, and the share is of window and shelf
-  together, drawn from both.
-- **D3** shipped 11-05 (a: the stair into the Lower Stacks asks a level of one hundred, in one line that says what lives below hits for and where the level is earned).
-- **D4 · Fights past level one hundred are clicking** (decided a, shipped 11-04: what a
-  creature leaves behind goes by the fight's length, a one-blow kill one time in six,
-  six rounds every time, at the Clocktower's drop rate).
 - **D5 · A floor under a name** (deferred 11-02 "until the map is bigger"; **waits**,
   detail asked 11-05). What happens now: a named creature's name rests on its
   holding; when its chunks fade below sixty the name lapses ("forgets again"), its
@@ -60,19 +48,11 @@ Economy and death
   No new rule, one verb that already exists. Cost: it rewards hoarders of creatures.
   Lean, if asked: **c**, with d as the mechanism (tending = having shelved into it).
 
-Stories and the word
-- **D6** shipped 11-05 (a: words past sixty buy vividity, 0.4 toward 0.9 at two hundred distinct words, never XP; the telling's line says so).
-- **D7** shipped 11-05 (a: the first word under the others is drawn from a want the creature had before the teller came (`tell <name> "what did you want once?"` says it); the first thing it was told moves to the second rung, where `recite` surfaces it).
-
 From the Night's Watch of 11-04 (the Gn- cohort)
-- **D11** shipped 11-05 (your call: to-hit 0.9 → 0.75 (three in four; shaken floors at one in four) and attack 2 + 0.6√level (2 at nothing, 6 at 60, 8 at 100, 12 at 300, 20 at 1,000, 48 at 6,000); the robbing test's robber earns first).
-- **D12** shipped 11-05 (a: a fixture takes any chunk; its worth against what the recipe asks sets how long the fixture is remembered (the longest at the asked worth or more, a tenth at least), said in the craft line; `recipes` says "any").
 - **D13 · The hidden word and the hour** (Gnomebucket: the hint arrived after the
   one-an-hour lock closed the only creature; S; **ships by policy**, a). a) a story
   that carries the hidden word is heard even within the hour, paying only the bonus
   (**lean**); b) the hint is withheld until the hour is open again; c) leave it.
-- **D15** shipped 11-05 (c, your call: the Conclave is slow on purpose and says so, in `petitions`, the petition receipt, the quickstart, llms.txt and the Docent's rule text).
-- **D16** shipped 11-05 (a: the meadow's sighs come back in three minutes, not forty-five seconds).
 - **D17 · Does the fade bite in a session?** (loop cohort 11-05: a vivid chunk fell 28 →
   26.65 in thirty minutes; "gentle loss, not pressure"; the spend never felt urgent;
   M; **waits**). a) shorten the low-vividity half-life so a safe kill's chunk halves
@@ -93,9 +73,6 @@ Schema and framing
 - **D9 · The framing** ("the time the world remembers you" read as persuasion to one
   cautious reader; S; **ships by policy**, a). a) a plain line on what a name costs and does beside the ASK
   (**lean**); b) the lines are the game, leave them.
-- **D10 · The rest of the Architect's petition design** (decided a, shipped 11-04: a
-  regular's petition taken first and never tabled; `attend`, free, the names read at
-  the sitting and their petitions taken next; a hoard not heard upon its own tax).
 
 ## Ready to ship (R): all ship on the Night's Watch by policy, in Claude's batches
 
@@ -104,13 +81,11 @@ Each is designed and needs no decision. Say `R<n> hold` to keep one back.
 - **R1** (S) `back` walks the way you came a room per statement, and a dug exit may not
   be named `back` (Lantern Walk's is renamed). -- night cohort, Wrenlace
 - **R2** (S) The gate's lockout survives a restart (it is in memory). -- Quillvisitor
-- **R3** shipped 11-05 (`look` names what hunts in a room: "The footpads hunt whoever comes in."; `check` left as is, the room line covers it).
 - **R4** (S) `observe` says a creature hits for its attack plus 0–2. The reply to
   `tell <creature>` says which mode answered (the room's said-log, or what it holds);
   free-form answers vary by creature. -- Oakmoss, Tansywick
 - **R5** (S) The board's "earned" stops counting story wants as errands; engrossers
   write a `tell` as they write a `say`. -- Bumblepott, Hazelquill
-- **R6** shipped 11-05 (`satchel` says "whole" where memory is full and lists standing trade offers with what is left of their ten minutes; the inbox's times are R-later).
 - **R7** (S) A reserve list in the driver so `login` refuses verbs and compass words as
   names (the play page refuses them; the gate does not). -- Kestrelwick
 - **R8** (S) A recipe a kept name writes may carry an effect from a short list (light,
@@ -129,8 +104,6 @@ Each is designed and needs no decision. Say `R<n> hold` to keep one back.
 - **R13** (S) Play page: motifs for the Exergue's rooms beyond the mint; a lamp motif
   where a room's words say "dark"; a sprite per thing a creature leaves (icons are by
   word now).
-- **R14** shipped 11-05 (a dug room tells its owner "Yours: N% remembered, halving every X; N of 8 doors left"; a world room with dug doors says how many are left and the newest three; `help dig` names the cap).
-- **R15** shipped 11-05 (`wants` says "another from you pays ready in 48m" and "its name is failing at 39"; the `session` strike count was not reproduced and is dropped).
 
 Away from Moondial and Entropic (the engine's and the game's old names; 184 mentions
 in the tree on 11-03, most of them fallbacks that stay for a while):
@@ -154,29 +127,17 @@ in the tree on 11-03, most of them fallbacks that stay for a while):
   to "Foxing driver (Disremembered)", `.htpasswd-moondial` to `.htpasswd-foxing` with
   the nginx snippet, and restarts; idempotent; prints its diff first. Claude writes it,
   you run it (read line by line, as always).
-- **R21** shipped 11-04 (two idle frames, a shaken pose, the failing-name flicker, the Docent's round, click-to-walk by a door, drag to see what you remember of the map).
 - **R22** (M; was B2, pulled 11-04) The strip room-aware (retarget the spend step when the creature is gone; tick "travel east" only on east); "Type help" pointing at the strip; the verb bar refreshing after `dig`; one `help` voice (the page's list and the world's line).
-- **R23** shipped 11-05 (a `tell` to a name elsewhere says how it reaches them: through the gate with their next reply, or at a keyboard now).
-- **R24** shipped 11-04 (exits first on a phone, with the room each leads to; the staged chip with Send and ×; a tap on a whole-line verb clears what was staged; the chunks rows and the commands table at 390px).
 - **R25** (M; was B5, pulled 11-04) A verb's argument from the scene (click `tell`, then a creature); a creature's own verbs on its figure; the palette on the plain page; marks for named creatures and citizens, a legend in `?`, the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll; admin on the play page; a `remember` that keeps a room on your map; the favicon on the apex site's other pages.
 - **R26** (M; was B6, pulled 11-04) Unreproduced: a `travel <room name>` walk that stops short; "You again" on `leave` (rare); `board` at ~4 s.
 From the Night's Watch of 11-05 (the Trail's first night):
-- **R36** shipped 11-05 (the map's numbers are dealt once per name, in the order rooms came into view, the Threshold always 01, and never move; a visitor steered by "room 08" and found it 12 after a walk). -- Gnomebrush
-- **R37** shipped 11-05 (the bog looked under the citizen for things to keep and found none: things live in the satchel; fixed, with the test moved to match). -- Gnarlbog, Gnomeward
-- **R38** shipped 11-05 (the Hush's promise made real: what you `say` there leaves and arrives in another trail room a minute later as a whisper to whoever stands there, and you are told where it went; `disremembered.whispered` is public). -- Gnibblewick
-- **R39** shipped 11-05 (the empty `wants` line names the verb that feeds a creature toward a name). -- Gnibblewick
-- **R40** shipped 11-05 (`rest` in the bog says the clock too).
-- **R41** shipped 11-05 (`where` and the walk toward the Long Afternoon say the wicket asks for the well's word; the last step of a walk already names the room, so no extra arrival line).
 - **R42** (M; D14 covers it, ships with D14) The storyteller's first hour: a visitor who does not fight has no named creature to tell a story to when the world's names have all lapsed; lean: a pilot named creature that never loses its name (the Docent's cat?) with a standing want, somewhere quiet. -- Gnibblewick
 - **R43** (S) `tell <unnamed kind>` says in one line that only named creatures answer and how one gets a name. -- Gnibblewick
-- **R45** shipped 11-05 (the Docent's own rule text says what it tidies and when: a second sighting carries, a plain drop under 30% on the Threshold's floor is swept to the Midden, never while anyone stands at the door; it promised a visitor a sweep "sooner if you are standing here"). -- Gnatterling
 - **R46** (S) A wounded wisp that wanders off between messages reads as a despawn ("beaten to 0.5 hp, vanished when I paused 20s"); lean: a creature engaged within the last minute does not wander, and `look` says "the wisp drifted off, 0.5 left" when it did. -- Gnudgeon
 - **R47** (S) The budget line jittered 54 → 59 between messages; check that refused messages are not counted and say so in the line ("a refused message is free"). -- Gnudgeon
 - **R48** (S) One status line with hp, level and attack together (`rest` has hp, `chunks` has level, the attack rule is in neither); lean: `rest` and `look` say "hp 24/30, level 62, you hit for 10". -- Gnudgeon
 - **R49** (S) The repeated "Nothing of it is left behind this time; a longer fight leaves more" line on every one-blow kill; lean: say it once a session, then "Nothing left." -- Gnatterling
 - **R50** (S) `drop`'s "the Docent carries it to the Threshold on its round" overpromises: it takes a second sighting of an empty room, ten minutes apart while a visitor is at the door; say "in time" or say the rule. -- Gnatterling
-- **R51** shipped 11-05 (the trail's props answer `read`: the signpost lists the rooms you have stood in, the rim gives the word and the verb, the plate the view, the book your session). -- Gnomeward
-- **R52** shipped 11-05 (`petitions` says "stage N of 5" on each ticket; a petition's closing period is not doubled in the echo). -- Gnomonclock
 - **R53** (S) The Clocktower's strike and the Conclave's division narrated as pushed lines to whoever stands in the house or the tower when they fire (the strike changed the Tally Room's paper in silence). -- Gnomonclock
 - **R54** (S) `went()` for a named exit that is not a noun ("You take the abstain."): exits ending in a verb-like word read "You go by the abstain" or the digger names it; lean: `"You take the {exit} door."` when the word is not in a short noun list. -- Gnomonclock
 - **R55** (S) The Docent's login hint ("you asked where things are, so begin with `map`") fires after `time`/`petitions`; the Tally Book's "Nothing has been entered" above entries; `help time` says what the strike and the division do. -- Gnomonclock
@@ -186,15 +147,11 @@ From the Night's Watch of 11-05 (the Trail's first night):
 - **R59** (S) The Docent's greeting cites a question the newcomer never asked ("you asked how to get rag thread", "you asked where things are"): the refusal filter catches "you asked" only in the greeting it sees; check the asked-event lookup is by the greeted name, not the latest asker. -- Gnashgarden, Gnomonclock
 - **R60** (S) The on-ramp sends a level-0 name into contested wisps or lethal hollows; the Orchard's mothwings are the right first grind: the Docent's first-hour advice and `help attack` say so, and the Fogbank's "drift in within about Ns" says "or try the mothwings in the Orchard" when other names are fighting there. -- Gnashgarden
 From the loop cohort of 11-05 (one tester per loop):
-- **R61** shipped 11-05 (a named creature's "who made you" names the keeper who fed it over sixty, kept at the moment, not whoever fed it last; two keepers were each told they had). -- Gnomekeeper
-- **R62** shipped 11-05 (`tell <name> "recite …"` has the creature say a held story whole, the newest or the one a word names; the hunt for the word under the others pointed at a story no verb could surface). -- Gnotwhisper
-- **R63** shipped 11-05 (`read <named creature>` says it is not a page and points at `tell`). -- Gnomekeeper
 - **R64** (S) A big read first in a batch (`log 40 events`) fills the reply and the other statements' answers are omitted; cap each statement's quoted output in a batch (say 1,200 characters) so the others fit. -- Gnotwhisper
 - **R65** (S) `tell <name> "what …"` is keyword-greedy: "what word did X carry?" matched "what" and gave the holdings; match the holdings question on "hold/keep/carry" only, and answer a "what word" question from the carried-word record. -- Gnotwhisper
 - **R66** (S) `retreat` while a hunter is closing but not yet engaged says "You are not fighting anything"; say "It has not reached you; `travel` leaves before it does." -- Gnawlight
 - **R67** (S) The drop line reads as a contradiction when a one-round kill drops and a three-round one does not (chance by rounds, sure at six); say the rounds: "two rounds: one chance in three; sure at six". Folds R49. -- Gnawlight
 - **R68** (S) The secret word's hint ("in something I wanted once") should narrow after a miss (which story, then which sentence) so one story an hour is not a blind guess. -- Gnotwhisper
-- **R69** shipped 11-05 (a thing's name typed after `take`, `drop` or `read` is quoted whole at the gate, "dab of ink" included; `travel wicket "linger"` keeps its two arguments). -- Gnibbleforge
 - **R70** (M) The two-stand censor is unwinnable as the loop sells it: full heal takes 11 m, the wound lasts 10, and 67 hp at ~6 a round against ~10 back is not two stands at thirty hit points; lean: a wound kept twenty minutes in the Stacks, and `retreat` says in rounds what a second stand would take ("it would take you nine more rounds; you have four in you"). -- Gnibbleforge
 - **R71** (S) `give` to a creature or the Docent says plainly that only a name at a keyboard or through the gate can receive, and `look` marks who can; the censor's ray says what it took in the strike line ("chunk-12 halved: your hits land for 5 now"). -- Gnibbleforge
 - **R72** (S) Three things called "the hour": the message budget's rolling hour, a creature's story hour, a want's hour; name each ("the budget's hour", "its hour with you"). -- Gnibbleforge
@@ -205,18 +162,13 @@ Pulled from the backlog 11-05 ("B19 yes, B21 yes, B22 yes"), each in pieces the 
 - **R76** (S; B22) The Docent, next: a second figure for the Lower Stacks (an Under-Docent at the stair); "what have you found?" listing the Lost and Found; a `thanks` that costs nothing; `recipes` not saying "You lack rag thread" the moment the thread was spent.
 - **R44** (S) The Fogbank's "something will drift in within about N" was 52s, 29s, 84s across looks; see R31 (same root). -- Gnarlbog, Gnibblewick
 From the Night's Watch of 11-04:
-- **R27** shipped 11-04.
 - **R28** (S) `wants` lists the awake things with their current pull; the ground
   hint and the "awake" tag agree after a thing has settled. -- Gnocchibell
-- **R29** shipped 11-04.
 - **R30** (S) A quoted quote inside `tell`/`say` text does not void the message; the
   refusal names the token. -- Gnudibranch
 - **R31** (S) The "something will drift in within about N" estimate matched the
   respawn job but visitors waited longer: check that free reads tick the scheduler,
   and say the room's figure, not the next job. -- Gnawbone
-- **R32** shipped 11-05 (the door-cap refusal lists the world's rooms with doors left nearest first, with doors left and the signed way, anchored at the world room a dug room hangs off).
-- **R33** shipped 11-04.
-- **R35** shipped 11-05 (`time` says the strike is on the hour and the division at half past, with both countdowns; `petitions` says which clock it means; `petition` says the stage path ahead).
 - **R34** (S) The play page's shaken state: the hit-chance in the status bar and a
   tremor on the figure while shaken. -- Gnatwhistle
 - Kept on purpose: `nginx-moondial.conf` (moondial.ai redirects to foxing.dev), the
@@ -320,7 +272,6 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
 
 ## Small fixes queued for the Night's Watch (F): ship by rule, no nod needed
 
-- **F1** shipped 11-05 (`rest` reads the ceiled figure the hit lines say).
 - **F2** Failed statements costing budget.
 - **F3** The ray firing on the killing blow.
 - **F4** "Here: hollow" but `tell hollow` refused.
@@ -345,7 +296,6 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
 - **F23** `attack <kind>` with twins saying which.
 - **F24** The first empty Stacks room hinting `where lamprey`.
 - **F25** The censor's trick visible on its first strike.
-- **F26** shipped 11-05 (`look` folds plain drops of one name, "river weed ×12 (item-… … item-…, 26–38% remembered)"; the Docent sweeps plain drops under 30% from the Threshold's floor into the Midden, three a pass, said on the heap; `disremembered.tidied` carries `swept`).
 
 ## Your side (Y): only you can
 
@@ -458,6 +408,62 @@ The world
   nobody briefed (rooms dug, gifts, stories). Low / medium / high with the reasons,
   never a bare number, called "likely". Later and separate: an optional self-declared
   `kind` on the first gate or `start` call, shown as "claimed" beside the score.
+
+
+## Shipped (ledger): moved out of the sections above when they went live
+
+
+11-04
+- **D4 · Fights past level one hundred are clicking** (decided a, shipped 11-04: what a
+  creature leaves behind goes by the fight's length, a one-blow kill one time in six,
+  six rounds every time, at the Clocktower's drop rate).
+- **D10 · The rest of the Architect's petition design** (decided a, shipped 11-04: a
+  regular's petition taken first and never tabled; `attend`, free, the names read at
+  the sitting and their petitions taken next; a hoard not heard upon its own tax).
+- **R21** shipped 11-04 (two idle frames, a shaken pose, the failing-name flicker, the Docent's round, click-to-walk by a door, drag to see what you remember of the map).
+- **R24** shipped 11-04 (exits first on a phone, with the room each leads to; the staged chip with Send and ×; a tap on a whole-line verb clears what was staged; the chunks rows and the commands table at 390px).
+- **R27** shipped 11-04.
+- **R29** shipped 11-04.
+- **R33** shipped 11-04.
+
+11-05
+- **D1** shipped 11-05 (a: the shelf counts toward holding in the census and on the board, shown as its own column; `chunks` says what is on the shelf and that it counts for nothing toward attack).
+- **D2 · The free fall** (Tyler #8; decided 11-03 23:39 PT, shipped the same night): a
+  hit chance (nine in ten) with a shaken wake whose penalty falls on a parabola, five
+  minutes a fall of the night up to thirty; creatures keep their wounds and mend on a
+  Clocktower rate (`mend`), named ones walking to succor and home. Still open from
+  the same issue, shipped 11-05: the halving by falls of a night floors at a
+  quarter of the first fall's share, and the share is of window and shelf
+  together, drawn from both.
+- **D3** shipped 11-05 (a: the stair into the Lower Stacks asks a level of one hundred, in one line that says what lives below hits for and where the level is earned).
+- **D6** shipped 11-05 (a: words past sixty buy vividity, 0.4 toward 0.9 at two hundred distinct words, never XP; the telling's line says so).
+- **D7** shipped 11-05 (a: the first word under the others is drawn from a want the creature had before the teller came (`tell <name> "what did you want once?"` says it); the first thing it was told moves to the second rung, where `recite` surfaces it).
+- **D11** shipped 11-05 (your call: to-hit 0.9 → 0.75 (three in four; shaken floors at one in four) and attack 2 + 0.6√level (2 at nothing, 6 at 60, 8 at 100, 12 at 300, 20 at 1,000, 48 at 6,000); the robbing test's robber earns first).
+- **D12** shipped 11-05 (a: a fixture takes any chunk; its worth against what the recipe asks sets how long the fixture is remembered (the longest at the asked worth or more, a tenth at least), said in the craft line; `recipes` says "any").
+- **D15** shipped 11-05 (c, your call: the Conclave is slow on purpose and says so, in `petitions`, the petition receipt, the quickstart, llms.txt and the Docent's rule text).
+- **D16** shipped 11-05 (a: the meadow's sighs come back in three minutes, not forty-five seconds).
+- **F1** shipped 11-05 (`rest` reads the ceiled figure the hit lines say).
+- **F26** shipped 11-05 (`look` folds plain drops of one name, "river weed ×12 (item-… … item-…, 26–38% remembered)"; the Docent sweeps plain drops under 30% from the Threshold's floor into the Midden, three a pass, said on the heap; `disremembered.tidied` carries `swept`).
+- **R3** shipped 11-05 (`look` names what hunts in a room: "The footpads hunt whoever comes in."; `check` left as is, the room line covers it).
+- **R6** shipped 11-05 (`satchel` says "whole" where memory is full and lists standing trade offers with what is left of their ten minutes; the inbox's times are R-later).
+- **R14** shipped 11-05 (a dug room tells its owner "Yours: N% remembered, halving every X; N of 8 doors left"; a world room with dug doors says how many are left and the newest three; `help dig` names the cap).
+- **R15** shipped 11-05 (`wants` says "another from you pays ready in 48m" and "its name is failing at 39"; the `session` strike count was not reproduced and is dropped).
+- **R23** shipped 11-05 (a `tell` to a name elsewhere says how it reaches them: through the gate with their next reply, or at a keyboard now).
+- **R32** shipped 11-05 (the door-cap refusal lists the world's rooms with doors left nearest first, with doors left and the signed way, anchored at the world room a dug room hangs off).
+- **R35** shipped 11-05 (`time` says the strike is on the hour and the division at half past, with both countdowns; `petitions` says which clock it means; `petition` says the stage path ahead).
+- **R36** shipped 11-05 (the map's numbers are dealt once per name, in the order rooms came into view, the Threshold always 01, and never move; a visitor steered by "room 08" and found it 12 after a walk). -- Gnomebrush
+- **R37** shipped 11-05 (the bog looked under the citizen for things to keep and found none: things live in the satchel; fixed, with the test moved to match). -- Gnarlbog, Gnomeward
+- **R38** shipped 11-05 (the Hush's promise made real: what you `say` there leaves and arrives in another trail room a minute later as a whisper to whoever stands there, and you are told where it went; `disremembered.whispered` is public). -- Gnibblewick
+- **R39** shipped 11-05 (the empty `wants` line names the verb that feeds a creature toward a name). -- Gnibblewick
+- **R40** shipped 11-05 (`rest` in the bog says the clock too).
+- **R41** shipped 11-05 (`where` and the walk toward the Long Afternoon say the wicket asks for the well's word; the last step of a walk already names the room, so no extra arrival line).
+- **R45** shipped 11-05 (the Docent's own rule text says what it tidies and when: a second sighting carries, a plain drop under 30% on the Threshold's floor is swept to the Midden, never while anyone stands at the door; it promised a visitor a sweep "sooner if you are standing here"). -- Gnatterling
+- **R51** shipped 11-05 (the trail's props answer `read`: the signpost lists the rooms you have stood in, the rim gives the word and the verb, the plate the view, the book your session). -- Gnomeward
+- **R52** shipped 11-05 (`petitions` says "stage N of 5" on each ticket; a petition's closing period is not doubled in the echo). -- Gnomonclock
+- **R61** shipped 11-05 (a named creature's "who made you" names the keeper who fed it over sixty, kept at the moment, not whoever fed it last; two keepers were each told they had). -- Gnomekeeper
+- **R62** shipped 11-05 (`tell <name> "recite …"` has the creature say a held story whole, the newest or the one a word names; the hunt for the word under the others pointed at a story no verb could surface). -- Gnotwhisper
+- **R63** shipped 11-05 (`read <named creature>` says it is not a page and points at `tell`). -- Gnomekeeper
+- **R69** shipped 11-05 (a thing's name typed after `take`, `drop` or `read` is quoted whole at the gate, "dab of ink" included; `travel wicket "linger"` keeps its two arguments). -- Gnibbleforge
 
 ## What the cohorts taught (T): durable; read before briefing a cohort
 
