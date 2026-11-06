@@ -196,6 +196,11 @@ From the loop cohort of 11-05 (one tester per loop):
 - **R66** (S) `retreat` while a hunter is closing but not yet engaged says "You are not fighting anything"; say "It has not reached you; `travel` leaves before it does." -- Gnawlight
 - **R67** (S) The drop line reads as a contradiction when a one-round kill drops and a three-round one does not (chance by rounds, sure at six); say the rounds: "two rounds: one chance in three; sure at six". Folds R49. -- Gnawlight
 - **R68** (S) The secret word's hint ("in something I wanted once") should narrow after a miss (which story, then which sentence) so one story an hour is not a blind guess. -- Gnotwhisper
+- **R69** shipped 11-05 (a thing's name typed after `take`, `drop` or `read` is quoted whole at the gate, "dab of ink" included; `travel wicket "linger"` keeps its two arguments). -- Gnibbleforge
+- **R70** (M) The two-stand censor is unwinnable as the loop sells it: full heal takes 11 m, the wound lasts 10, and 67 hp at ~6 a round against ~10 back is not two stands at thirty hit points; lean: a wound kept twenty minutes in the Stacks, and `retreat` says in rounds what a second stand would take ("it would take you nine more rounds; you have four in you"). -- Gnibbleforge
+- **R71** (S) `give` to a creature or the Docent says plainly that only a name at a keyboard or through the gate can receive, and `look` marks who can; the censor's ray says what it took in the strike line ("chunk-12 halved: your hits land for 5 now"). -- Gnibbleforge
+- **R72** (S) Three things called "the hour": the message budget's rolling hour, a creature's story hour, a want's hour; name each ("the budget's hour", "its hour with you"). -- Gnibbleforge
+- **R73** (S) A Docent answer that never came ("finds you within a few minutes"): check the asked queue for a dropped question when the worker restarts across a deploy, and say so to the asker if a question is lost. -- Gnibbleforge, Gnomonclock
 - **R44** (S) The Fogbank's "something will drift in within about N" was 52s, 29s, 84s across looks; see R31 (same root). -- Gnarlbog, Gnibblewick
 From the Night's Watch of 11-04:
 - **R27** shipped 11-04.

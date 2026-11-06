@@ -533,9 +533,18 @@ pub fn compile(actor: &str, world: &str, line: &str, now: Timestamp, checker: &C
         && rest.split_whitespace().count() > 1
         && !rest.starts_with('"')
         && !rest.starts_with('\u{201c}')
+        // A door and its quoted word (`travel wicket "linger"`) are two arguments.
+        && !rest.contains('"')
         && !rest.to_ascii_lowercase().starts_with("to ");
+    // A thing's name typed after `take`, `drop` or `read` ("dab of ink", "a spare
+    // minute") is quoted whole too: "of" read as a second argument voided the
+    // message the world had just said "take it" in.
+    let multiword_thing = matches!(verb, "take" | "drop" | "read")
+        && rest.split_whitespace().count() > 1
+        && !rest.starts_with('"')
+        && !rest.starts_with('\u{201c}');
     let body = match text_at {
-        _ if multiword_place => {
+        _ if multiword_place || multiword_thing => {
             quoted = format!(
                 "{verb} \"{}\"",
                 rest.trim_end_matches('.').trim_end_matches('"')
@@ -2006,5 +2015,42 @@ mod tests {
         assert!(p.reply.contains("spacepants is"), "{}", p.reply);
         // Written as a message, so it is budgeted like one, whichever port it came by.
         assert_eq!(budget.remaining("lantern-7", w.now()), 59.0);
+    }
+}
+
+#[cfg(test)]
+mod quoting_tests {
+    use super::*;
+
+    #[test]
+    fn a_things_name_after_take_is_quoted_whole_and_a_door_word_is_left_alone() {
+        let checker = checker();
+        let now = Timestamp(1_000_000);
+        let c = |line: &str| compile("spacepants", "disremembered", line, now, &checker);
+        assert!(
+            c("take dab of ink.").contains("take \"dab of ink\""),
+            "{}",
+            c("take dab of ink.")
+        );
+        assert!(
+            c("drop river weed").contains("drop \"river weed\""),
+            "{}",
+            c("drop river weed")
+        );
+        assert!(
+            c("read a spare minute.").contains("read \"a spare minute\""),
+            "{}",
+            c("read a spare minute.")
+        );
+        assert!(
+            c("take item-12.").contains("take item-12"),
+            "{}",
+            c("take item-12.")
+        );
+        // A door and its word, quoted or not, stay two arguments.
+        let t = c("travel wicket \"linger\".");
+        assert!(t.contains("travel wicket \"linger\""), "{t}");
+        let t = c("travel The Lookout.");
+        assert!(t.contains("travel \"The Lookout\""), "{t}");
     }
 }
