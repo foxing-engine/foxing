@@ -60,6 +60,7 @@ const EXTRA = {
   "picnicker": { p: { h: "#d8b890", b: "#8a6a4a", g: "#f2ecdc", t: "#9fd3e6", e: "#3a3a44" }, r: ["................", ".....hhhhhh.....", "....hhhhhhhh....", "...bbbbbbbbbb...", "................", "......e..e......", "................", "..gg........gg..", ".gggg.tttt.gggg.", ".gggg.tttt.gggg.", "..gg.ttttttt.g..", ".....ttttt......", "......ttt.......", "................", "................", "................"] },
   "longsight": { p: { c: "#9ab0c8", d: "#5a7088", e: "#1a1612", y: "#f0e0a0", k: "#d8b060" }, r: [".......ccc......", "......ccyec.....", "......cccckk....", "......cc........", "......cc........", ".....ccc........", "....cccc........", "...ccccccc......", "..cccccccccc....", "..dccccccccd....", "...dddccccdd....", ".....dcccd......", "......dd.d......", "......d..d......", ".....dd..dd.....", "................"] },
   "gardener": { p: { h: "#d8c070", a: "#6a8a4a", d: "#3e5a2e", f: "#e4d8c4", e: "#1a1612", s: "#b0b8c0", g: "#4a7a3a" }, r: ["................", "....hhhhhhhh....", "..hhhhhhhhhhhh..", ".....ffffff.....", ".....fefefe.....", ".....ffffff.....", "....aaaaaaaa..s.", "...gaaaaaaaag.s.", "...g.aaaaaa.gs..", ".....adaada..s..", ".....adaada.s.s.", ".....dd..dd.....", ".....dd..dd.....", "....ddd..ddd....", "................", "................"] },
+  "mudroom": { p: { w: "#3a2f24", h: "#b89a6a", b: "#5a4a3a", s: "#8c8f94", d: "#1a1410", k: "#2a2018", m: "#6b5236", p: "#4e3a26" }, r: ["wwwwwwwwwwwwwwww", "wwhwwhwwhwwwwddw", "wwhwwhwwhwwwwddw", "wwhwwhwwhwwwwddw", "wbbbbbbbbbwwwddw", "wwswwswwswwwwddw", "wwswwswwswwwwddw", "wwwwwwwwwwwwwddw", "wwwwwwwwwkkwkkdw", "mmmmmmmmmkkmkkmm", "mmmpmmmmmmmmmmmm", "mmmmmmpmmmmpmmmm", "mpmmmmmmmpmmmmmm", "mmmmmpmmmmmmmpmm", "mmmmmmmmmmmmmmmm", "mmpmmmmmmpmmmmmm"] },
   "tipstaff": { p: { c: "#1f2a3a", d: "#121a25", f: "#e9d5b8", e: "#1a1612", g: "#d9b57a", s: "#b08a3a" }, r: ["..........s.....", "......cccc.s....", ".....cccccc.s...", "....ccffffccs...", "....cfefefccs...", "....ccffffccs...", ".....ccccccgs...", "....ccccccccs...", "...cccccccccs...", "...cdcccccdcs...", "...cdcccccdc....", "...cddcccddc....", "....ddcccdd.....", "....dd...dd.....", "....ee...ee.....", "................"] },
 };
 // What lies on a floor, by the word in its name: 8x8 icons in two colors.
@@ -193,7 +194,7 @@ export default function install(m) {
 
   // ---- sprites: the atlas rows (and the extra frames) rasterized once per frame ----
   function frameData(frame) { return m.atlas[frame] || EXTRA[frame] || null; }
-  const ROOM_FRAMES = new Set(["threshold", "fogbank", "shallows", "ossuary", "dug", "lantern-row", "archive", "stairwell", "cistern", "undertow", "orchard", "clocktower", "midden", "gallery", "oubliette", "burrow", "parlor", "chapel", "nook", "attic", "office", "chunk"]);
+  const ROOM_FRAMES = new Set(["mudroom", "threshold", "fogbank", "shallows", "ossuary", "dug", "lantern-row", "archive", "stairwell", "cistern", "undertow", "orchard", "clocktower", "midden", "gallery", "oubliette", "burrow", "parlor", "chapel", "nook", "attic", "office", "chunk"]);
   function isRoomFrame(frame) { return ROOM_FRAMES.has(frame) || /^dug/.test(frame); }
   function frameCanvas(frame, tint) {
     const f = frameData(frame); if (!f) return null;

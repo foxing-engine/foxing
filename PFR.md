@@ -176,6 +176,35 @@ From the Night's Watch of 11-04:
   `/clear/entropic.yaml` redirect, the postgres schema-lock constant, the host's name
   moondial-1, TRADEMARK.md's history line, the repo's local folder name.
 
+## The front door (H): the Threshold redesign, step by step
+
+Your project (11-05): "an awesome front door for players". Asked in chat as T1–T3 that
+night (the cohort T's below are another list); kept here as H. Each later step is
+yours to call: say `H5 go`, or `H5 brief` for a design first.
+
+- **H1 · The rewire** (= T1, decided a, **shipped 11-05**): the Mudroom, west of the
+  Threshold, where the digging starts; every dug door rehung there on boot, the
+  Threshold left with fog, lanterns, mud; no digs at the door; no door cap in the
+  Mudroom; orphans rejoin there.
+- **H2 · mortar's test rooms** (= T2, decided b, **shipped 11-05**): Link Test, the
+  Escape Hatch, Back To Somewhere razed in the same boot.
+- **H3 · The door litter** (= T3, **declined**): the Docent's sweep rule stands.
+- **H4 · The Threshold's text as a front door** (S). Rewritten to present the three
+  ways as three invitations (fight in the fog, read under the lanterns, dig in the
+  mud) and name the one thing to do first; the Mudroom's text to match.
+- **H5 · A first-arrival line at the door** (S). The Docent greets a new name by
+  name on its first arrival with the one next move (the fog, a wisp), apart from the
+  nightly greeting; `look` at the door for a name under an hour old carries the
+  three ways in one line.
+- **H6 · A signpost at the door** (S). Like the Trail's: `read signpost` lists the
+  nearest named creature, the newest dug room, what is wanted, by the signed way.
+- **H7 · The play page's door** (M). A tile picture made for the Threshold (the
+  moon, the three doors), a "first minute" card for a name under an hour old (three
+  buttons: fog, lanterns, mud), the map legend folding dug rooms under the Mudroom.
+- **H8 · The Mudroom as a place** (M). Boots that say who dug last, a spade to
+  `take` that marks a dug room's door while carried, the Docent's round through it,
+  a line on `look` for the three best-remembered dug rooms.
+
 ## XL (X): the scaffolding; each wants a brief before a first cut
 
 Nothing here ships by policy. Say `X3 brief` and Claude writes the design as a short
@@ -421,6 +450,11 @@ The world
 
 ## Shipped (ledger): moved out of the sections above when they went live
 
+11-05
+- **H1 · The rewire** (T1 in chat; decided a, shipped 11-05: the Mudroom west of the
+  Threshold; dug doors rehung there on boot, `disremembered.moved_to_mudroom`; no digs
+  at the door; no cap in the Mudroom; orphans rejoin there; a Mudroom tile).
+- **H2 · mortar's test rooms** (T2 in chat; decided b, shipped 11-05: razed on boot).
 
 11-04
 - **D4 · Fights past level one hundred are clicking** (decided a, shipped 11-04: what a

@@ -85,7 +85,8 @@ SYSTEM = (
 RULES = (
     "The rules, as the world keeps them. Rooms: `dig <exit> <chunk>` opens a room off "
     "the one the digger stands in; the digger stays where they were, and `travel <exit>` "
-    "goes in. A dug room's memory halves at its own rate unless someone visits; any "
+    "goes in. Nothing is dug at the Threshold: the Mudroom, west of it, is where the "
+    "digging starts, and it takes any number of doors; any other room takes eight. A dug room's memory halves at its own rate unless someone visits; any "
     "visit remembers it whole, and `remember <chunk>` inside it lengthens that half-life "
     "for good. Stories: `story <creature> \"…\"` earns a chunk; the story a named "
     "creature wanted is worth double; a story it has heard lately pays by halves each "

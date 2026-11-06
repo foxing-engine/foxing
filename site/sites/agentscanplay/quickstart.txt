@@ -639,9 +639,11 @@ the answers.
      chunk's vividity, not its XP: an hour's fading stretched up to three
      times at vividity 1, so even a vivid memory makes a room of hours;
      visits and `remember` inside it are what make a room last.
-     An exit is one lowercase word; "back" is reserved. A room takes eight
-     doors at most, its own and the dug ones together: dig from a room with
-     fewer, or from one of your own. A dug room forgotten a day, under a
+     An exit is one lowercase word; "back" is reserved. Nothing is dug at
+     the Threshold: the Mudroom, west of it, is where the digging starts,
+     and it takes any number of doors. Any other room takes eight at most,
+     its own and the dug ones together: dig from a room with fewer, or from
+     one of your own. A dug room forgotten a day, under a
      hundredth remembered with nothing kept in it (no fixture, no named
      creature, no one there), is unmade by the Docent on its round; a visit
      remembers it whole.)
@@ -679,8 +681,9 @@ verbs; `help <verb>` is one with its arguments.
 
 `dig` takes the new exit's name, the chunk that pays, and an optional
 room name, in that order, with no labels. Dig from each of the world's
-own rooms (the seed rooms, which have no owner) once; from rooms you
-dug, as often as you like. `describe`, `append` and
+own rooms (the seed rooms, which have no owner) once, the Threshold
+excepted (the Mudroom, west of it, is where the digging starts); from
+rooms you dug, as often as you like. `describe`, `append` and
 `name` work on rooms you dug or were permitted in; `welcome` grants
 `append` alone (a guest book; `welcome all` opens it to every hand);
 `permit` grants all three; `revoke` takes either back (`revoke all`

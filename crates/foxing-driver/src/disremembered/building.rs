@@ -523,7 +523,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.dig",
-            "Open a new room off this one, through a new exit, paid for with one of your chunks: the room is born with that memory's half-life and fades unless visited. From each of the world's own rooms (the seed rooms) once; from your own, as you like. A room takes eight doors in all, and `look` says how many are left where some were dug. A kept name's verb (every name is kept unless it asked to be passing at the gate; the play page's names are kept).",
+            "Open a new room off this one, through a new exit, paid for with one of your chunks: the room is born with that memory's half-life and fades unless visited. Not at the Threshold: the Mudroom, west of it, is where the digging starts, and takes any number of doors. From each of the world's other rooms (the seed rooms) once; from your own, as you like. A room takes eight doors in all, and `look` says how many are left where some were dug. A kept name's verb (every name is kept unless it asked to be passing at the gate; the play page's names are kept).",
         )
         .param("exit", ParamType::String, true, "the new exit's name, not one this room has")
         .param("chunk", ParamType::Entity, true, "a chunk of yours; it is spent")
@@ -559,6 +559,13 @@ pub fn register(world: &mut World, curves: super::Curves) {
             let seed = !is_built(w, here);
             let owner = w.store.entity(here).and_then(|e| e.owner.clone());
             if ctx.kind != ActorKind::Admin {
+                // The front door is kept clear (T1): fifteen doors once opened off
+                // it, thirteen of them dug or washed up there.
+                if Some(here) == super::rooms::arrival(w) {
+                    return Err(CommandError::precondition(
+                        "Nothing is dug at the door. The Mudroom, west of here, is where the digging starts, and it takes any number of doors.",
+                    ));
+                }
                 if seed {
                     if dug_from(w, &ctx.actor, here) >= 1 {
                         return Err(CommandError::precondition(
@@ -575,7 +582,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
             // picture is a wall of labels past eight. Dig from a room with fewer, or
             // from your own.
             let doors = exits_of(w, here).len();
-            if doors >= MAX_EXITS {
+            if doors >= MAX_EXITS && !super::rooms::is_mudroom(w, here) {
                 // Which of the world's rooms still take a door, so the next try is not
                 // a guess (a visitor guessed the Shallows).
                 // Nearest first, by the signed way, with the doors each has left and
@@ -584,16 +591,29 @@ pub fn register(world: &mut World, curves: super::Curves) {
                 // From a dug room, the signed way starts at the world's own room it
                 // hangs off (back doors walked until one).
                 let mut anchor = here;
+                let mut hops = 0;
                 for _ in 0..16 {
                     if w.store.entity(anchor).is_some_and(|e| e.owner.is_none()) {
                         break;
                     }
                     match exits_of(w, anchor).get("back").copied() {
-                        Some(b) => anchor = b,
+                        Some(b) => {
+                            anchor = b;
+                            hops += 1;
+                        }
                         None => break,
                     }
                 }
-                let open: Vec<String> = super::atlas::routes_from(w, anchor)
+                // The Mudroom first, always: it takes any number (T1). Off a room
+                // that hangs off it, the way is back.
+                let mut open: Vec<String> = Vec::new();
+                if super::rooms::is_mudroom(w, anchor) {
+                    open.push(format!(
+                        "The Mudroom (any number, {hops} step{} back)",
+                        if hops == 1 { "" } else { "s" }
+                    ));
+                }
+                open.extend(super::atlas::routes_from(w, anchor)
                     .into_iter()
                     .filter_map(|r| {
                         let name = r["room"].as_str()?.to_string();
@@ -603,20 +623,24 @@ pub fn register(world: &mut World, curves: super::Curves) {
                             .find(|e| e.kind == "room" && e.owner.is_none() && plain_str(w, e.id, ROOM, "name") == Some(name.as_str()))?
                             .id;
                         let doors = exits_of(w, id).len();
-                        if doors >= MAX_EXITS {
+                        let mudroom = super::rooms::is_mudroom(w, id);
+                        if (doors >= MAX_EXITS && !mudroom) || Some(id) == super::rooms::arrival(w) {
                             return None;
                         }
                         let way = r["way"].as_array()?;
                         Some(format!(
-                            "{name} ({} left, {} step{}: {})",
-                            MAX_EXITS - doors,
+                            "{name} ({}, {} step{}: {})",
+                            if mudroom { "any number".to_string() } else { format!("{} left", MAX_EXITS - doors) },
                             way.len(),
                             if way.len() == 1 { "" } else { "s" },
                             way.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>().join(", ")
                         ))
                     })
-                    .take(6)
-                    .collect();
+                    .take(6));
+                if let Some(i) = open.iter().position(|o| o.starts_with("The Mudroom (")) {
+                    let m = open.remove(i);
+                    open.insert(0, m);
+                }
                 let where_ = if open.is_empty() {
                     String::new()
                 } else {
@@ -1403,7 +1427,92 @@ pub fn surviving_ancestor(world: &World, room: EntityId) -> Option<EntityId> {
         }
         cur = origin;
     }
-    super::rooms::arrival(world)
+    super::rooms::room_by_key(world, super::rooms::MUDROOM).or_else(|| super::rooms::arrival(world))
+}
+
+/// A room dug off the Threshold was moved to the Mudroom: `{room, name, via}`.
+pub const MOVED_TO_MUDROOM: &str = "disremembered.moved_to_mudroom";
+
+/// Rooms that hung off the Threshold and were only ever a test (T2): razed when the
+/// door is cleared, not moved.
+const DEBRIS_AT_THE_DOOR: &[&str] = &["link-test", "escape-hatch", "back-to-somewhere"];
+
+/// On boot: the front door is cleared (T1). Every dug room whose door opens off the
+/// Threshold is rehung on the Mudroom by the same door word (numbered if the Mudroom
+/// has it), its way back repointed and its origin reset; the test rooms among them
+/// are razed. The Threshold is left with the world's own three. Nothing to do once
+/// it has run.
+pub fn clear_the_door(world: &mut World) -> Result<(usize, usize), String> {
+    let (Some(door), Some(mud)) = (
+        super::rooms::arrival(world),
+        super::rooms::room_by_key(world, super::rooms::MUDROOM),
+    ) else {
+        return Ok((0, 0));
+    };
+    let mut moved = 0;
+    let mut razed = 0;
+    for (via, to) in exits_of(world, door) {
+        if to == mud || !world.store.entity(to).is_some_and(|e| e.owner.is_some()) {
+            continue;
+        }
+        let key = plain_str(world, to, ROOM, "key").unwrap_or("").to_string();
+        let name = plain_str(world, to, ROOM, "name").unwrap_or("").to_string();
+        if DEBRIS_AT_THE_DOOR.iter().any(|d| key.starts_with(d)) {
+            super::system::raze_room(world, to).map_err(|e| e.to_string())?;
+            razed += 1;
+            continue;
+        }
+        rejoin(world, to, mud, &via).map_err(|e| e.to_string())?;
+        // The room's own doors: none may lead to the Threshold now.
+        let back: serde_json::Map<String, Value> = exits_of(world, to)
+            .into_iter()
+            .filter(|(_, t)| *t != door)
+            .map(|(k, v)| (k, json!(v.0)))
+            .collect();
+        set_exits(world, to, back)?;
+        let mut rest: serde_json::Map<String, Value> = exits_of(world, door)
+            .into_iter()
+            .filter(|(k, _)| *k != via)
+            .map(|(k, v)| (k, json!(v.0)))
+            .collect();
+        if !rest.contains_key("west") {
+            rest.insert("west".into(), json!(mud.0));
+        }
+        set_exits(world, door, rest)?;
+        let _ = world.note(
+            Actor::Driver,
+            MOVED_TO_MUDROOM,
+            json!({"room": to.0, "name": name, "via": via}),
+        );
+        moved += 1;
+    }
+    if moved + razed > 0 {
+        world.notice(format!(
+            "The door was cleared: {moved} dug room{} rehung on the Mudroom, {razed} razed.",
+            if moved == 1 { "" } else { "s" }
+        ));
+    }
+    Ok((moved, razed))
+}
+
+fn set_exits(
+    world: &mut World,
+    room: EntityId,
+    exits: serde_json::Map<String, Value>,
+) -> Result<(), String> {
+    let mut ef = BTreeMap::new();
+    ef.insert("exits".into(), Field::Plain(Value::Object(exits)));
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::ComponentSet {
+                id: room,
+                component: EXITS.into(),
+                fields: ef,
+            },
+        )
+        .map_err(|e| e.to_string())
+        .map(|_| ())
 }
 
 /// Rejoin a dug room to an anchor room: the anchor gains an exit to it (the name it

@@ -31,16 +31,33 @@ pub struct RoomDef {
 }
 
 pub const ARRIVAL: &str = "threshold";
+/// The room off the Threshold where the digging starts: every dug door that once hung
+/// off the front door hangs here, and the door cap does not apply.
+pub const MUDROOM: &str = "mudroom";
+
+/// Whether a room is the Mudroom.
+pub fn is_mudroom(world: &World, room: EntityId) -> bool {
+    plain_str(world, room, ROOM, "key") == Some(MUDROOM)
+}
 
 pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: ARRIVAL,
         name: "The Threshold",
         description: "A threshold of pale stone under a moon that is always up. Everything you earn here will fade; what you do with it is yours. Nothing hunts here.",
-        exits: &[("east", "fogbank"), ("north", "lantern-row")],
+        exits: &[("east", "fogbank"), ("north", "lantern-row"), ("west", MUDROOM)],
         spawn: None,
         former: &["gate"],
         tint: "#d9d4c7",
+    },
+    RoomDef {
+        key: MUDROOM,
+        name: "The Mudroom",
+        description: "A low room off the Threshold where the digging starts: boots by the door, a rack of spades worn to the handle, and mud on everything, tracked in from rooms that did not exist yesterday. Every door here was dug by someone. Nothing hunts here.",
+        exits: &[("east", ARRIVAL)],
+        spawn: None,
+        former: &[],
+        tint: "#8a6e4b",
     },
     RoomDef {
         key: "fogbank",
@@ -1126,18 +1143,25 @@ pub fn describe(
             if !dug.is_empty() {
                 let mut newest = dug.clone();
                 newest.sort_by_key(|b| std::cmp::Reverse(b.0));
-                let left = super::building::MAX_EXITS.saturating_sub(exits.len());
-                text.push_str(&format!(
-                    " {} of {} doors left here; the newest dug: {}.",
-                    left,
-                    super::building::MAX_EXITS,
-                    newest
-                        .iter()
-                        .take(3)
-                        .map(|(_, e)| e.as_str())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ));
+                let newest = newest
+                    .iter()
+                    .take(3)
+                    .map(|(_, e)| e.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                if is_mudroom(world, room) {
+                    text.push_str(&format!(
+                        " {} doors dug here, and room for any number; the newest: {newest}.",
+                        dug.len()
+                    ));
+                } else {
+                    let left = super::building::MAX_EXITS.saturating_sub(exits.len());
+                    text.push_str(&format!(
+                        " {} of {} doors left here; the newest dug: {newest}.",
+                        left,
+                        super::building::MAX_EXITS,
+                    ));
+                }
             }
         }
     }
