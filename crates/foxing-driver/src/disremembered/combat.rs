@@ -291,6 +291,8 @@ pub const OFFICERS: &[&str] = &[
 /// A kill pays what the creature held, at most the delver's level plus this.
 pub const KILL_PAY_OVER_LEVEL: f64 = 60.0;
 pub const DEATH_SHARE_MAX: f64 = 0.5;
+/// The halving by falls of a night stops here: a quarter of the first fall's share.
+pub const FALL_FLOOR: f64 = 0.25;
 pub const DEATH_SCALE: f64 = 300.0;
 /// Something was lost to a death: `{citizen, lost: [{chunk, source, value}], share}`.
 pub const DIED: &str = "disremembered.died";
@@ -1452,14 +1454,20 @@ pub(crate) fn die(
     // a window, the one chunk the roll landed on). Nothing goes from a window worth
     // almost nothing. The share halves with every fall of the same night: cheap, but
     // not at first.
-    let level = super::memory::level(world, f.window);
+    // The share is of window and shelf together, and drawn from both (D2, Tyler #8:
+    // a delver shelved the big chunks and fell for nothing); the halving by falls of
+    // the night has a floor, a quarter of the first fall's share, so the fourth fall
+    // of a night still costs.
+    let on_shelf = super::conclave::shelved(world, f.palace);
+    let level = super::memory::level(world, f.window) + on_shelf;
     let (fall, ever) = super::death::record_fall(world, actor, f.citizen, killer)?;
-    let share = death_share(level) * 0.5f64.powi(fall.saturating_sub(1) as i32);
+    let share = death_share(level) * 0.5f64.powi(fall.saturating_sub(1) as i32).max(FALL_FLOOR);
     let owed = level * share;
     let fell_in = super::rooms::room_of(world, f.citizen);
     let mut chunks: Vec<(EntityId, String, f64)> = world
         .store
         .children(f.window)
+        .chain(world.store.children(f.palace))
         .filter(|e| e.kind == "chunk")
         .map(|e| {
             (

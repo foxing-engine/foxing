@@ -98,7 +98,9 @@ long fight). `retreat` ends that either way.
     resume                            [DO] Quillwake MUST resume.
 
 `chunks` states the fade rate. `shelve` moves a chunk to the palace,
-where it fades about five times slower and counts for nothing;
+where it fades about five times slower and counts for nothing toward
+attack, though it counts toward holding on the board and the Conclave's
+census, and a fall takes its share of window and shelf together;
 `reminisce` brings it back. `pto` is leave: your clock stops when the
 room disremembers you, ten minutes after your last word, and runs again
 the moment you act (two windows in thirty days, seven days each at
@@ -147,7 +149,9 @@ share is met (the last one thinned to the remainder, not taken whole),
 and you wake at the Threshold whole, and whatever was in you (venom) dies
 with you. Death is cheap, but not at first: every fall within twelve
 hours of the last halves the share (the second fall of a night costs half
-what the first did, the third a quarter). What you lose moves rather than
+what the first did, the third a quarter, and no fall less than a quarter
+of the first); the share is of window and shelf together, and chunks go
+from both. What you lose moves rather than
 vanishes: the creature that felled you keeps it as a vivid memory of its
 own (`look` says "one of them yours"; a creature fed enough falls earns a
 name; fell it to take it back), and a creature whose kind has no trick
@@ -196,8 +200,9 @@ creature answers `tell` from what it remembers, four memories at a
 time ("what else?" for the next four); a citizen hears it now, or when
 they next arrive. `story` earns you a chunk
 (about a third of an XP a *different* word, up to sixty; the creature's
-mood is a fifth either way; filler is not a story) without a fight, once an
-hour per creature. It is told in sentences: a list of names with no
+mood is a fifth either way; filler is not a story; words past sixty buy
+no XP but vividity, from 0.4 toward 0.9 at two hundred different words)
+without a fight, once an hour per creature. It is told in sentences: a list of names with no
 small words (the, and, of, it, was) to hold it together, a run of sixty
 words without a period, or a word no one says is not followed, and the
 hour is not spent on it. A story the creature has heard this hour from anyone
@@ -233,9 +238,12 @@ carry it pays more (one and a half times the first, twice the second,
 two and a half the third) and the memory of the telling is vivid; the
 creature says so ("You said the word under the others"), the strike is
 public with the word in it, and the creature keeps a new word under
-that, up a ladder of three: the first is in the first thing anyone told
-it (a born creature's is the word that made it), the next in something
-it wanted once, the last around it in the room where it stands. `tell
+that, up a ladder of three: the first is in something it wanted before
+you came (`tell <name> "what did you want once?"`; a creature that has
+wanted only one thing keeps its first in the first thing anyone told
+it, or the word that made it), the next in the first thing anyone told
+it (`tell <name> "recite …"` says a held story whole), the last around
+it in the room where it stands. `tell
 <name> "what is your word?"` is a hint for the level it is at, never
 the word. Each teller strikes a given word once.
 
@@ -326,7 +334,8 @@ day, not what you earned last.
 The Unfiled Archive is north of Lantern Row, which is north of the
 Threshold; the Stopped Clocktower is up from the Orchard, north of the
 Shallows. Under the Unfiled Archive (`travel down`) are twenty rooms of the Lower
-Stacks, where the higher things live, each with a trick. A lamprey's
+Stacks, where the higher things live, each with a trick. The stair asks a
+level of one hundred (what lives below hits for nine and ten a round). A lamprey's
 bite stays in you: venom works for a minute after. An usher shows you
 out: one hit in two moves you to another room of the Stacks, the fight
 over, whatever is there noticing you. A censor's stamp is a ray of

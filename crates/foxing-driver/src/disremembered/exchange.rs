@@ -23,6 +23,8 @@ pub const STORY: &str = "disremembered.story";
 
 /// A story is at least this many words, and worth up to this many.
 const MIN_WORDS: usize = 12;
+/// Distinct words at which a story's vividity reaches 0.9 (D6).
+pub const VIVID_WORDS: f64 = 200.0;
 const MAX_WORDS_PAID: usize = 60;
 /// XP per word for the teller; the creature keeps half as much.
 const XP_PER_WORD: f64 = 0.3;
@@ -329,7 +331,12 @@ pub fn register(world: &mut World, curves: Curves) {
             let kept = super::memory::earn_chunk(w, &ctx.actor, window, &format!("a story: \"{gist}\""), paid / 2.0, 0.6, &curves)?;
             // The creature's chunk is its own, not the teller's.
             let kept = mind::disown(w, kept)?;
-            let earned = super::memory::earn_chunk(w, &ctx.actor, f.window, &format!("telling {name} a story"), paid, if struck.is_some() { 0.8 } else { 0.4 }, &curves)?;
+            // Length buys vividity, never XP (D6, Tyler #11): words past the pay cap
+            // raise the telling's vividity from 0.4 toward 0.9 at two hundred distinct
+            // words; the word under the others is 0.8 at least.
+            let long = ((distinct as f64 - MAX_WORDS_PAID as f64) / (VIVID_WORDS - MAX_WORDS_PAID as f64)).clamp(0.0, 1.0);
+            let vivid = (0.4 + 0.5 * long).max(if struck.is_some() { 0.8 } else { 0.0 });
+            let earned = super::memory::earn_chunk(w, &ctx.actor, f.window, &format!("telling {name} a story"), paid, vivid, &curves)?;
             let level = super::up(mind::level(w, creature));
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
@@ -361,7 +368,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
                     struck.as_ref().map(|(b, _, l)| format!(" It carried the word under the others, the {} of three: {b:.1} times the pay, and vivid.", ["first", "second", "third"][(*l as usize).clamp(1, 3) - 1])).unwrap_or_default(),
                     earned.0,
-                    if struck.is_some() { ", vividity 0.80" } else { "" },
+                    if vivid > 0.4 { format!(", vividity {vivid:.2}{}", if long > 0.0 && struck.is_none() { " (length buys vividity, to 0.90 at two hundred words)" } else { "" }) } else { String::new() },
                     missed.as_deref().map(|m| format!(" {m}")).unwrap_or_default()
                 ),
                 json!({"creature": creature.0, "name": name, "words": words, "distinct": distinct, "earned": earned.0, "xp": paid, "kept": kept.0, "level": level, "wanted": wanted, "missed": missed, "repeats": repeats, "struck": struck.as_ref().map(|(b, w, l)| json!({"word": w, "level": l, "bonus": b}))}),

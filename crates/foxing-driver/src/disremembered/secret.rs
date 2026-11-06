@@ -73,7 +73,43 @@ fn word_of(text: &str, seed: usize) -> Option<String> {
 fn word_for(world: &World, creature: EntityId, level: u8) -> (String, &'static str) {
     let seed = hash(&format!("{}-{level}", creature.0));
     let from = match level {
-        1 => {
+        // D7: the first word is from a want the creature had before the teller came
+        // (a first-story word was struck four times in ten minutes by whoever had
+        // told the story); the first thing it was told waits at the second rung.
+        1 => super::errand::wanted_once(world, creature)
+            .and_then(|s| word_of(&s, seed))
+            .or_else(|| first_told(world, creature, seed)),
+        2 => first_told(world, creature, seed).or_else(|| {
+            super::errand::of(world, creature)
+                .and_then(|e| e.story)
+                .and_then(|s| word_of(&s, seed))
+        }),
+        _ => world
+            .store
+            .entity(creature)
+            .and_then(|e| e.parent)
+            .and_then(|r| plain_str(world, r, ROOM, "description"))
+            .and_then(|d| word_of(d, seed)),
+    };
+    match from {
+        Some(w) => (
+            w,
+            match level {
+                1 if super::errand::wanted_once(world, creature).is_some() => "wanted",
+                1 => "told",
+                2 if first_told(world, creature, seed).is_some() => "told",
+                2 => "wanted",
+                _ => "room",
+            },
+        ),
+        None => (LORE[seed % LORE.len()].to_string(), "lore"),
+    }
+}
+
+/// The word that made it, or its first story: the thing anyone first told it.
+fn first_told(world: &World, creature: EntityId, seed: usize) -> Option<String> {
+    {
+        {
             // The word that made it, or its first story.
             let window = mind::window_of(world, creature);
             let sources: Vec<String> = window
@@ -100,29 +136,6 @@ fn word_for(world: &World, creature: EntityId, level: u8) -> (String, &'static s
                     )
                 })
         }
-        2 => super::errand::of(world, creature)
-            .and_then(|e| e.story)
-            .and_then(|s| word_of(&s, seed))
-            .or_else(|| {
-                super::errand::wanted_once(world, creature).and_then(|s| word_of(&s, seed))
-            }),
-        _ => world
-            .store
-            .entity(creature)
-            .and_then(|e| e.parent)
-            .and_then(|r| plain_str(world, r, ROOM, "description"))
-            .and_then(|d| word_of(d, seed)),
-    };
-    match from {
-        Some(w) => (
-            w,
-            match level {
-                1 => "told",
-                2 => "wanted",
-                _ => "room",
-            },
-        ),
-        None => (LORE[seed % LORE.len()].to_string(), "lore"),
     }
 }
 
@@ -196,8 +209,10 @@ pub fn hint(world: &World, creature: EntityId) -> Option<String> {
     let lent = from == "lore";
     let said = match level {
         _ if lent => format!("There is a word under the others, and I do not say it. It is not mine; it is one of this world's own words, the kind the Threshold and the Fogbank are made of{}.", if level > 1 { ", the next of three" } else { "" }),
+        1 if from == "wanted" => "There is a word under the others, and I do not say it. It was in something I wanted before you came, and have not forgotten; ask me what I wanted once.".to_string(),
         1 if born => "There is a word under the others, and I do not say it. It is the one that made me; whoever carried it knows it, and the record of my birth has it.".to_string(),
         1 => "There is a word under the others, and I do not say it. It was in the first thing anyone told me; ask me what I hold.".to_string(),
+        2 if from == "told" => "The first was found. The next was in the first thing anyone told me; ask me to recite it.".to_string(),
         2 => "The first was found. The next is in something I wanted once, and have not forgotten.".to_string(),
         _ => "The last is around me. Look at where I stand.".to_string(),
     };

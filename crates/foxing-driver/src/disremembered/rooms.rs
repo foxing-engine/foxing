@@ -1381,6 +1381,9 @@ pub fn describe(
     ))
 }
 
+/// The level the stair into the Lower Stacks asks of a name (D3).
+pub const STAIR_LEVEL: f64 = 100.0;
+
 pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
@@ -1494,6 +1497,19 @@ pub fn register(world: &mut World) {
                         .join(", ")
                 )));
             };
+            // The stair into the Lower Stacks asks a level (D3): a censor's nine to
+            // eleven a round against thirty hit points is not a fight a fresh name
+            // can read its way out of, and "about half" was unreachable in a batch.
+            if plain_str(w, to, ROOM, "key") == Some("lower-stacks")
+                && plain_str(w, room, ROOM, "key") == Some("archive")
+            {
+                let level = super::memory::level(w, f.window);
+                if level < STAIR_LEVEL {
+                    return Err(foxing_registry::CommandError::precondition(format!(
+                        "The stair down asks a level of {STAIR_LEVEL:.0}, and you hold {level:.0}. What lives below hits for nine and ten a round; the Fogbank, the Orchard and the Sighing Meadow pay toward it, and `chunks` says where you stand."
+                    )));
+                }
+            }
             // A warded door asks for a word: the room's owner, its keepers and the
             // welcomed pass; anyone else says the word once and is remembered.
             super::building::pass_ward(w, ctx, to, args.str("word").unwrap_or(""))?;

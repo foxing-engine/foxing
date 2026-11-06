@@ -40,6 +40,8 @@ pub struct Line {
     pub held_24h: f64,
     /// Unfaded chunks now.
     pub holding: f64,
+    /// What is on the palace shelf now, part of `holding`.
+    pub shelf: f64,
     /// Every chunk ever created under the name, by size.
     pub earned: f64,
     /// Chunks paid into rooms and creatures.
@@ -265,7 +267,8 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
             passing: super::is_passing(world, f.citizen),
             here: super::presence::is_here(world, f.citizen),
             held_24h: average(name, memory::level(world, f.window)),
-            holding: memory::level(world, f.window),
+            holding: memory::level(world, f.window) + super::conclave::shelved(world, f.palace),
+            shelf: super::conclave::shelved(world, f.palace),
             known_by: known.get(name).copied().unwrap_or(0),
             ..Default::default()
         });
@@ -303,6 +306,7 @@ pub fn to_json(world: &World) -> Value {
             "name": l.name, "passing": l.passing, "here": l.here,
             "held_24h": (l.held_24h * 100.0).round() / 100.0,
             "holding": (l.holding * 100.0).round() / 100.0,
+            "shelf": (l.shelf * 100.0).round() / 100.0,
             "earned": (l.earned * 100.0).round() / 100.0,
             "kept": l.kept, "dug": l.dug, "given": l.given, "received": (l.received * 100.0).round() / 100.0, "stories": l.stories, "falls": l.falls, "felled": l.felled,
             "errands": l.errands, "made": l.made, "carried": l.carried, "known_by": l.known_by, "faded": l.faded,
@@ -311,7 +315,7 @@ pub fn to_json(world: &World) -> Value {
             "per_action": (l.per_action * 100.0).round() / 100.0,
         })).collect::<Vec<_>>(),
         "forgotten": forgotten,
-        "note": "held_24h is holding averaged over the last day's census (every ten minutes), and the board is sorted by it; holding is the sum of unfaded chunks now and falls while you are away; the rest is the record and does not fade. retention is holding over earned; per_action is holding over actions through the Gate (a typed line is one, a written message its DO lines). Names the world has forgotten are off the board.",
+        "note": "held_24h is holding averaged over the last day's census (every ten minutes), and the board is sorted by it; holding is the sum of unfaded chunks now, window and shelf together (shelf is the palace's part), and falls while you are away; the rest is the record and does not fade. retention is holding over earned; per_action is holding over actions through the Gate (a typed line is one, a written message its DO lines). Names the world has forgotten are off the board.",
     })
 }
 
@@ -324,11 +328,12 @@ pub fn text(world: &World, asker: Option<&str>) -> String {
     let mut out = String::from("Held through the day (averaged), highest first:");
     for (i, l) in lines.iter().take(10).enumerate() {
         out.push_str(&format!(
-            "\n  {:>2}. {:<20} {:>9.2}  now {:>9.2}  earned {:>9.2}  kept {:>3.0}%  per action {:>6.2}  given {:>3}  stories {:>3}  errands {:>3}  falls {:>3}{}{}{}{}",
+            "\n  {:>2}. {:<20} {:>9.2}  now {:>9.2}  shelf {:>7.2}  earned {:>9.2}  kept {:>3.0}%  per action {:>6.2}  given {:>3}  stories {:>3}  errands {:>3}  falls {:>3}{}{}{}{}",
             i + 1,
             l.name,
             l.held_24h,
             l.holding,
+            l.shelf,
             l.earned,
             l.retention * 100.0,
             l.per_action,
@@ -370,15 +375,26 @@ pub fn census(world: &mut World) -> Result<(), String> {
         .filter(|e| e.kind == "citizen" && !super::is_passing(world, e.id))
         .filter_map(|e| e.owner.clone().map(|o| (o, e.id)))
         .collect();
+    // The shelf counts (D1, Tyler #6, #9): a hoard moved to the palace was invisible
+    // to the Conclave and the board punished the retention play.
+    let mut shelf = serde_json::Map::new();
     for (name, _) in citizens {
         if let Some(f) = super::find_citizen(world, &name) {
-            let v = memory::level(world, f.window);
+            let on_shelf = super::conclave::shelved(world, f.palace);
+            let v = memory::level(world, f.window) + on_shelf;
             if v > 0.005 {
-                holding.insert(name, json!((v * 100.0).round() / 100.0));
+                holding.insert(name.clone(), json!((v * 100.0).round() / 100.0));
+            }
+            if on_shelf > 0.005 {
+                shelf.insert(name, json!((on_shelf * 100.0).round() / 100.0));
             }
         }
     }
-    let _ = world.note(Actor::Driver, CENSUS, json!({"holding": holding}));
+    let _ = world.note(
+        Actor::Driver,
+        CENSUS,
+        json!({"holding": holding, "shelf": shelf}),
+    );
     wind(world)
 }
 

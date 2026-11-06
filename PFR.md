@@ -19,21 +19,15 @@ went by policy, with ids.
 ## Decisions (D): one letter each; **waits** means yours, the rest go by policy
 
 Economy and death
-- **D1 · The palace counts** (Tyler #6, #9; M; **ships by policy**, a). The census and the board read the
-  window only, so a shelved hoard is invisible to the Conclave and the board punishes
-  the retention play. a) count the palace in `holding` and the census, show the shelf
-  as its own column on `chunks` and the board (**lean**); b) leave it, and document
-  that the board is the window on purpose.
+- **D1** shipped 11-05 (a: the shelf counts toward holding in the census and on the board, shown as its own column; `chunks` says what is on the shelf and that it counts for nothing toward attack).
 - **D2 · The free fall** (Tyler #8; decided 11-03 23:39 PT, shipped the same night): a
   hit chance (nine in ten) with a shaken wake whose penalty falls on a parabola, five
   minutes a fall of the night up to thirty; creatures keep their wounds and mend on a
   Clocktower rate (`mend`), named ones walking to succor and home. Still open from
-  the same issue, **ships by policy**: the floor under the halving and the share
-  taken of window plus shelf (a).
-- **D3 · A censor against a fresh name** (S; **ships by policy**, a). Nine to eleven a round against thirty
-  hit points; "about half" is unreachable in a three-line batch. a) the Stacks ask a
-  level at the stair (**lean**: legible, one line); b) Stacks creatures hit for less
-  against a low name; c) the first blow of a stand is free.
+  the same issue, shipped 11-05: the halving by falls of a night floors at a
+  quarter of the first fall's share, and the share is of window and shelf
+  together, drawn from both.
+- **D3** shipped 11-05 (a: the stair into the Lower Stacks asks a level of one hundred, in one line that says what lives below hits for and where the level is earned).
 - **D4 · Fights past level one hundred are clicking** (decided a, shipped 11-04: what a
   creature leaves behind goes by the fight's length, a one-blow kill one time in six,
   six rounds every time, at the Clocktower's drop rate).
@@ -42,12 +36,8 @@ Economy and death
   fight.
 
 Stories and the word
-- **D6 · Length buys vividity** (Tyler #11; S; **ships by policy**, a). Words past sixty buy vividity, to 0.9 at
-  two hundred distinct words, never XP. a) yes (**lean**); b) no, the cap stands.
-- **D7 · The hidden word is too easy at level one** (Marrowbit struck four in ten
-  minutes; S; **ships by policy**, a). a) the first word from a want the creature had before the teller met it
-  (**lean**); b) a wrong guess costs the hour; c) the Docent as the only hint; a+b is
-  fine.
+- **D6** shipped 11-05 (a: words past sixty buy vividity, 0.4 toward 0.9 at two hundred distinct words, never XP; the telling's line says so).
+- **D7** shipped 11-05 (a: the first word under the others is drawn from a want the creature had before the teller came (`tell <name> "what did you want once?"` says it); the first thing it was told moves to the second rung, where `recite` surfaces it).
 
 From the Night's Watch of 11-04 (the Gn- cohort)
 - **D11 · The attack ramp** (Gnawbone could not die: two wisp chunks made level 62 and

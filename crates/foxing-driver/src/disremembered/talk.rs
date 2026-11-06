@@ -522,6 +522,20 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
     ]) {
         return super::secret::hint(world, creature);
     }
+    // What it wanted once: the want before this one, said whole (the first word under
+    // the others is drawn from it, D7).
+    if has(&[
+        "wanted once",
+        "want once",
+        "used to want",
+        "wanted before",
+        "once want",
+    ]) {
+        return Some(match super::errand::wanted_once(world, creature) {
+            Some(s) => format!("Once I wanted a story about {s}. I have not forgotten it."),
+            None => "I have wanted only what I want now.".to_string(),
+        });
+    }
     // Born of nobody: "who made you" is who fed it to its name, which is the only
     // making it knows (the rest once got the canned "I don't know that" here).
     if has(&[

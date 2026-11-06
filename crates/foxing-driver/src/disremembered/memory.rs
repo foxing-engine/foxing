@@ -335,6 +335,14 @@ pub fn register(world: &mut World, curves: Curves) {
                     rows_text(&rows).join("\n")
                 )
             };
+            // The shelf as its own line (D1): it counts toward holding on the board
+            // and the census, and for nothing toward attack until you reminisce.
+            let on_shelf = super::conclave::shelved(w, f.palace);
+            let text = if on_shelf > 0.005 {
+                format!("{text}\nOn the shelf: {on_shelf:.2} (counts toward holding on the board and the Conclave's census; not toward attack until you reminisce).")
+            } else {
+                text
+            };
             // A cloud of absentmindedness (Morphos): chunks set aside, not counted.
             let clouded = super::morphos::clouded(w, f.citizen);
             let text = match clouded {
