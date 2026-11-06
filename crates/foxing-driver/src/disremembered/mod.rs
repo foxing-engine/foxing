@@ -26,6 +26,7 @@ pub mod footprint;
 pub mod grammar;
 mod identity;
 pub mod kindle;
+pub mod life;
 pub mod memory;
 pub mod mind;
 pub mod morphos;
@@ -462,7 +463,12 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // Where a named creature mends: `{room, home, away, found_at}`.
             .field("succor", FieldKind::Plain, Visibility::Public)
             // When it was born; a newborn is not struck in its first hour.
-            .field("born_at", FieldKind::Plain, Visibility::Public),
+            .field("born_at", FieldKind::Plain, Visibility::Public)
+            // A named creature's business (life.rs): where it lives, whether it is in a
+            // temper on a holiday, and which holiday decided that.
+            .field("home", FieldKind::Plain, Visibility::Public)
+            .field("furious", FieldKind::Plain, Visibility::Public)
+            .field("temper_day", FieldKind::Plain, Visibility::Public),
     ]
 }
 
@@ -719,6 +725,7 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     combat::ensure_regen(world)?;
     morphos::ensure(world)?;
     trail::ensure(world)?;
+    life::ensure(world)?;
     mind::ensure_wander(world)
 }
 
@@ -1183,6 +1190,18 @@ fn plain_str<'a>(world: &'a World, id: EntityId, component: &str, field: &str) -
 }
 
 /// A plain field as a number, or a fallback.
+fn plain_bool(world: &World, id: EntityId, component: &str, field: &str) -> bool {
+    match world
+        .store
+        .entity(id)
+        .and_then(|e| e.components.get(component))
+        .and_then(|c| c.fields.get(field))
+    {
+        Some(Field::Plain(Value::Bool(b))) => *b,
+        _ => false,
+    }
+}
+
 fn plain_num(world: &World, id: EntityId, component: &str, field: &str) -> Option<f64> {
     match world
         .store
@@ -1209,6 +1228,7 @@ pub fn register(world: &mut World, curves: Curves) {
     combat::register_mend(world);
     morphos::register(world);
     trail::register(world);
+    life::register(world);
     combat::register(world, curves.clone());
     memory::register(world, curves.clone());
     presence::register(world, curves.clone());

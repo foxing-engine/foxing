@@ -769,7 +769,23 @@ pub fn next_division(world: &World) -> i64 {
     if due <= now {
         due += DIVIDE_EVERY_MS;
     }
-    due
+    // Not on a holiday: the first half hour of the next working day.
+    let working = super::life::next_working_moment(due);
+    if working > due {
+        (working / DIVIDE_EVERY_MS) * DIVIDE_EVERY_MS + DIVIDE_AT_MS
+    } else {
+        due
+    }
+}
+
+/// "The Conclave does not sit today: All Names' Day; it divides again in 9h 12m."
+/// when it is a holiday; nothing otherwise.
+pub fn holiday_said(world: &World) -> Option<String> {
+    let h = super::life::holiday(world)?;
+    Some(format!(
+        "The Conclave does not sit today, {h}: a government holiday, the table kept as it stands and the clerks about their own business; it divides again {}.",
+        in_said(world, next_division(world))
+    ))
 }
 
 fn in_said(world: &World, at: i64) -> String {
@@ -856,10 +872,13 @@ fn table(world: &World, actor: &str) -> Outcome {
             ));
         }
     }
-    lines.push(format!(
-        "The Conclave divides {} (the division, at half past each hour; the Clocktower's strike on the hour is another clock) and sits at midnight. It is slow on purpose: a petition is a thing you lay and come back to, not a thing you wait on, and it always decides, eventually, and tells you wherever you are.",
-        in_said(world, next_division(world))
-    ));
+    lines.push(match holiday_said(world) {
+        Some(h) => h,
+        None => format!(
+            "The Conclave divides {} (the division, at half past each hour; the Clocktower's strike on the hour is another clock) and sits at midnight. It is slow on purpose: a petition is a thing you lay and come back to, not a thing you wait on, and it always decides, eventually, and tells you wherever you are.",
+            in_said(world, next_division(world))
+        ),
+    });
     Outcome::new(
         lines.join("\n"),
         json!({"petitions": list, "decided": decided, "next_division": next_division(world)}),
@@ -990,6 +1009,29 @@ pub fn divide(world: &mut World) -> Result<(), String> {
     let sittings = entity(world)
         .and_then(|e| plain_num(world, e, CONCLAVE, "sittings"))
         .unwrap_or(0.0) as usize;
+    // A holiday: no division. The house hears it once, the record has it, and the
+    // table waits for the next working day.
+    if let Some(h) = super::life::holiday(world) {
+        let next = next_division(world);
+        let _ = world.note(
+            Actor::Driver,
+            super::life::HOLIDAY,
+            json!({"holiday": h, "next_division": next, "upon_the_table": list.len()}),
+        );
+        for name in present(world, Some(true)) {
+            super::combat::narrate(
+                world,
+                &name,
+                format!(
+                    "The clock at the table shows the half hour and nobody rises. {h}: the Conclave does not sit, and the {} upon the table wait{} for the next working day ({}).",
+                    list.len(),
+                    if list.len() == 1 { "s" } else { "" },
+                    in_said(world, next)
+                ),
+            );
+        }
+        return wind_division(world);
+    }
     if list.is_empty() {
         // Nothing to divide on: the house hears nothing, and the minutes are spared.
         return wind_division(world);

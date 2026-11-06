@@ -4384,6 +4384,10 @@ fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
     while !thread && seed < 600 {
         w.seed(seed);
         seed += 1;
+        // A fall (likelier at 2 + 0.6√level) wakes dave at the door: back to the heap.
+        if find_citizen(&w, "dave").and_then(|f| rooms::room_of(&w, f.citizen)) != Some(midden) {
+            admin(&mut w, "dave", "bring", json!(["dave", "midden"]));
+        }
         ok(&mut w, "dave", "rest", json!([]));
         w.fixed_now = Some(w.now().plus(Duration::seconds(400)));
         w.tick();
@@ -10180,4 +10184,162 @@ fn a_named_creature_recites_a_story_whole_and_knows_who_named_it() {
     // `read <name>` points at tell.
     let err = call(&mut w, "tyler", ActorKind::Citizen, "read", json!([&name])).unwrap_err();
     assert!(err.to_string().contains("not a page"), "{err}");
+}
+
+#[test]
+fn the_calendar_knows_sundays_and_the_named_days() {
+    // 1970-01-01 was a Thursday; 2026-11-01 a Sunday (All Names' Day too); 2026-11-05 a Thursday.
+    assert_eq!(life::civil(0), (1970, 1, 1, 4));
+    let nov5 = 1_793_836_800_000; // 2026-11-05T00:00Z
+    assert_eq!(life::civil(nov5), (2026, 11, 5, 4));
+    assert_eq!(life::holiday_at(nov5), None);
+    let nov1 = nov5 - 4 * 86_400_000;
+    assert_eq!(life::civil(nov1), (2026, 11, 1, 0));
+    // Before the calendar was adopted (11-06) no day is a holiday; a year on, it is.
+    assert_eq!(life::holiday_at(nov1), None);
+    assert_eq!(
+        life::holiday_at(nov1 + 365 * 86_400_000),
+        Some("All Names' Day")
+    );
+    let nov8 = nov5 + 3 * 86_400_000;
+    assert_eq!(life::holiday_at(nov8), Some(life::SABBATH));
+    assert_eq!(life::next_working_moment(nov8), nov8 + 86_400_000);
+    assert_eq!(life::next_working_moment(nov5 + 1000), nov5 + 1000);
+}
+
+#[test]
+fn on_a_holiday_the_conclave_does_not_sit_and_the_clerks_conduct_their_business() {
+    // 2026-11-08T10:00Z, a Sunday: the Clerks' Sabbath.
+    let t0 = Timestamp(1_793_836_800_000 + 3 * 86_400_000 + 10 * 3_600_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    admin(&mut w, "dave", "bring", json!(["dave", "petition-gallery"]));
+    let out = ok(
+        &mut w,
+        "dave",
+        "petition",
+        json!(["that the stair ask less of a fresh name"]),
+    );
+    let ticket = out.result["ticket"].as_u64().unwrap();
+    let table = ok(&mut w, "dave", "petitions", json!([]));
+    assert!(
+        table
+            .summary
+            .contains("does not sit today, the Clerks' Sabbath"),
+        "{}",
+        table.summary
+    );
+    let t = ok(&mut w, "dave", "time", json!([]));
+    assert!(t.summary.contains("a government holiday"), "{}", t.summary);
+    // The half hour comes and goes: no stage moves, the house hears why.
+    // (A name is in a room for ten minutes after its last word: dave speaks just
+    // before the half hour.)
+    w.fixed_now = Some(w.now().plus(Duration(29 * 60 * 1000)));
+    ok(&mut w, "dave", "look", json!([]));
+    let head = events(&w);
+    w.fixed_now = Some(w.now().plus(Duration(2 * 60 * 1000)));
+    w.tick();
+    let table = ok(&mut w, "dave", "petitions", json!([]));
+    assert!(
+        table.summary.contains(&format!("{ticket}"))
+            && table.summary.contains("upon the table (stage 1 of"),
+        "{}",
+        table.summary
+    );
+    assert!(
+        w.recent_events(200).iter().any(|e| e.kind == life::HOLIDAY),
+        "holiday noted; jobs: {:?}",
+        w.jobs
+            .pending()
+            .map(|j| (j.kind.clone(), j.due.0))
+            .collect::<Vec<_>>()
+    );
+    let said = narrative(&w, "dave", head);
+    assert!(
+        said.iter()
+            .any(|l| l.contains("nobody rises") && l.contains("the Clerks' Sabbath")),
+        "{said:?}"
+    );
+    // The house's characters are about their business: on the business tick an
+    // engrosser decides its temper for the day.
+    let tally = rooms::room_by_key(&w, "tally-room").unwrap();
+    combat::fill(&mut w, tally).unwrap();
+    let engrosser = combat::creatures_in(&w, tally)[0].0;
+    life::business(&mut w).unwrap();
+    assert_eq!(
+        plain_str(&w, engrosser, CREATURE, "temper_day"),
+        Some(life::SABBATH)
+    );
+    // On Monday the division sits again and tempers cool.
+    w.fixed_now = Some(w.now().plus(Duration(14 * 3_600_000 + 31 * 60 * 1000)));
+    assert_eq!(life::holiday(&w), None);
+    life::business(&mut w).unwrap();
+    assert!(
+        !combat::is_aggressive(&w, engrosser)
+            || plain_str(&w, engrosser, CREATURE, "temper_day").is_some()
+    );
+    w.tick();
+    let table = ok(&mut w, "dave", "petitions", json!([]));
+    assert!(
+        !table.summary.contains("does not sit today"),
+        "{}",
+        table.summary
+    );
+}
+
+#[test]
+fn small_things_happen_on_their_own_and_a_named_creature_goes_about_its_business() {
+    let t0 = Timestamp(1_793_836_800_000 + 12 * 3_600_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    assert!(w.jobs.has(life::JOB_HAPPENING, |_| true));
+    assert!(w.jobs.has(life::JOB_BUSINESS, |_| true));
+    // A happening, by hand, lands somewhere and is public.
+    let before = w
+        .recent_events(500)
+        .iter()
+        .filter(|e| e.kind == life::HAPPENED)
+        .count();
+    for _ in 0..4 {
+        life::happen(&mut w).unwrap();
+    }
+    let after = w
+        .recent_events(500)
+        .iter()
+        .filter(|e| e.kind == life::HAPPENED)
+        .count();
+    assert!(after > before, "something happened");
+    // A named creature with its keeper two rooms off walks to them and says so.
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    combat::fill(&mut w, fog).unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 70, 0.5]));
+    ok(
+        &mut w,
+        "dave",
+        "remember",
+        json!([format!("chunk-{}", c.result["chunk"]), "wisp"]),
+    );
+    let name = mind::name(&w, wisp).expect("named");
+    admin(&mut w, "dave", "bring", json!(["dave", "lantern-row"]));
+    let head = events(&w);
+    life::business(&mut w).unwrap();
+    life::business(&mut w).unwrap();
+    let lantern = rooms::room_by_key(&w, "lantern-row").unwrap();
+    assert_eq!(
+        w.store.entity(wisp).unwrap().parent,
+        Some(lantern),
+        "it came to its keeper"
+    );
+    let said = narrative(&w, "dave", head);
+    assert!(
+        said.iter()
+            .any(|l| l.contains(&name) && l.contains("comes in, looking for dave")),
+        "{said:?}"
+    );
+    assert!(w
+        .recent_events(200)
+        .iter()
+        .any(|e| e.kind == life::BUSINESS));
 }

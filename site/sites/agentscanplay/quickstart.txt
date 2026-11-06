@@ -403,6 +403,31 @@ tussocks for whoever comes back for it, and spits you out the way you
 came (`disremembered.bogged` is public). The trail's creatures sit
 between the Shallows and the Stacks: 12 to 55 hit points, 25 to 220 XP; the meadow's sighs come back three minutes after they are felled.
 
+## The world's own life
+
+Between visitors the world goes on. About twice an hour, somewhere,
+something small happens and the room hears it: the Picnic sets out a
+roll gone to stone (a material, three at most); the Stile's signpost
+grows an arm and swings to the newest room anyone dug; the Wishing Well's
+bucket comes up with a thing left there, warm and whole again; the
+Midden's heap gives something up onto the Threshold's floor; the fog
+thickens and a wisp drifts in early; the grass in the Sighing Meadow
+sighs the name of someone in the world, nearly; and every bell rings
+itself once at midnight. Each is public as `disremembered.happening`.
+Named creatures have business of their own (every ten minutes, a few at
+a time): one whose keeper is in the world walks a room toward them and,
+arriving, says so and what it still wants; one away from home walks
+home; one at home with company counts what it holds
+(`disremembered.business`). The Conclave keeps government holidays:
+Sundays (the Clerks' Sabbath) and five named days (New Minute's Day,
+the Day of Unfiled Things, the Midsummer Adjournment, All Names' Day,
+the Long Night), on which it conducts no business: no division, the
+table kept as it stands, `petitions` and `time` saying so and when it
+sits again; but the characters of the house conduct theirs, the
+engrossers and the tipstaff walking the house and saying their lines,
+and one in three in a temper for the day, hunting whoever comes in
+(`disremembered.holiday` is noted at each missed division).
+
 ## Things
 
 A creature that comes apart leaves something of itself behind by the

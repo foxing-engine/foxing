@@ -1078,21 +1078,44 @@ fn walk(
     via: &str,
     why: &str,
 ) -> Result<(), String> {
+    let name = super::mind::display(world, creature);
+    let from_where = match super::building::opposite_of(via) {
+        "back" => format!("through {via}"),
+        opp => format!("from the {opp}"),
+    };
+    let (leave, arrive) = if why == "home" {
+        (
+            format!("{name} goes {via}, mended, the way it came."),
+            format!("{name} comes back {from_where}, whole again."),
+        )
+    } else {
+        (
+            format!("{name} limps off {via}, toward somewhere it remembers it can mend."),
+            format!("{name} comes in {from_where}, hurt, looking for somewhere to mend."),
+        )
+    };
+    walk_said(world, creature, from, via, why, &leave, &arrive, SUCCORED)
+}
+
+/// A creature takes a door with lines of the caller's: the room it leaves hears
+/// `leave` (the creature still standing there), the room it enters hears `arrive`,
+/// and `event` is noted with from, to, via and why.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn walk_said(
+    world: &mut World,
+    creature: EntityId,
+    from: EntityId,
+    via: &str,
+    why: &str,
+    leave: &str,
+    arrive: &str,
+    event: &str,
+) -> Result<(), String> {
     let Some(to) = super::rooms::exits_of(world, from).get(via).copied() else {
         return Ok(());
     };
     let name = super::mind::display(world, creature);
-    // The room it leaves hears it go (the creature still stands there), then the
-    // room it enters hears it come.
-    narrate_room(
-        world,
-        creature,
-        &if why == "home" {
-            format!("{name} goes {via}, mended, the way it came.")
-        } else {
-            format!("{name} limps off {via}, toward somewhere it remembers it can mend.")
-        },
-    );
+    narrate_room(world, creature, leave);
     world
         .record(
             Actor::Driver,
@@ -1104,22 +1127,10 @@ fn walk(
         .map_err(|e| e.to_string())?;
     let _ = world.note(
         Actor::Driver,
-        SUCCORED,
+        event,
         json!({"creature": creature.0, "name": name, "from": from.0, "to": to.0, "via": via, "why": why}),
     );
-    let from_where = match super::building::opposite_of(via) {
-        "back" => format!("through {via}"),
-        opp => format!("from the {opp}"),
-    };
-    narrate_room(
-        world,
-        creature,
-        &if why == "home" {
-            format!("{name} comes back {from_where}, whole again.")
-        } else {
-            format!("{name} comes in {from_where}, hurt, looking for somewhere to mend.")
-        },
-    );
+    narrate_room(world, creature, arrive);
     Ok(())
 }
 

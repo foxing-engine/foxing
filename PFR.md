@@ -287,6 +287,37 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   the scene's tiles are the board, and the Wistful Trail's Hollow Way (two footpads
   from both banks) is the first set piece. Brief wanted: what a turn costs in messages.
 
+- **X13 · A world that is lived in.** Shipped 11-05 as the first cut: happenings (twice
+  an hour somewhere), named creatures' business (walk to a keeper, home, count), the
+  Conclave's holidays (no division; the house's characters in tempers). The rest, by
+  complexity and policy:
+  - **R77** (S, by policy) Narrate what already happens: the Clocktower's strike and the
+    division as pushed lines to the house and the tower (folds R53); the Docent seen
+    passing on its round; a creature arriving ("Something comes in from the Shallows:
+    a hollow"); the sweep landing on the heap said to whoever is in the Midden.
+  - **R78** (S, by policy) Weather and hours in `look`: a second sentence that varies by
+    the Clocktower's rates and the hour (the Fogbank thick or thin by `mend`, the
+    Orchard's hours ripe by `price`, the Long Afternoon's sun a hand's width off);
+    Morphos's visit changes the sky.
+  - **R79** (M, by policy) Creatures with lives: wandering said aloud ("the wisp drifts
+    east"); the picnicker sets another place when someone new arrives; the longsight
+    says who it is looking at; a creature that remembers you greets you by name before
+    you speak.
+  - **R80** (M, by policy) Traces: said-walls in every room (the last few things said,
+    not only dug rooms); a chalk tally on the Threshold of who came through today;
+    "Gnomeward was here 2h ago" on the Lookout's bench; the board's names drawn on the
+    atlas when they are in the world.
+  - **R81** (S, by policy) `news`: the world's own gossip in the Docent's voice (the last
+    division's decisions, who fell, who was named, what was dug, Morphos sighted), so a
+    returning name can tell the world lived while they were away.
+  - **R82** (M, by policy) More happenings: a Naming Day in the calendar when the Namery
+    deals cheaply; a festival on each named holiday with a thing of its own (a lantern
+    on the Long Night, an unfiled page on the Day of Unfiled Things).
+  - **X14** (XL, brief wanted) Day and night: which creatures hunt by the hour (hollows
+    by night, sighs by day), the page's light, the Fogbank's fog by the hour.
+  - **X15** (XL, brief wanted) A travelling market: the Exergue's tapster walks a circuit
+    of the ground floor, the slate with it, trade where it stands.
+
 ## Small fixes queued for the Night's Watch (F): ship by rule, no nod needed
 
 - **F1** shipped 11-05 (`rest` reads the ceiled figure the hit lines say).
