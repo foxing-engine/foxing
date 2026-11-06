@@ -55,7 +55,7 @@ From the Night's Watch of 11-04 (the Gn- cohort)
   (**lean**); b) the hint is withheld until the hour is open again; c) leave it.
 - **D17 · Does the fade bite in a session?** (loop cohort 11-05: a vivid chunk fell 28 →
   26.65 in thirty minutes; "gentle loss, not pressure"; the spend never felt urgent;
-  M; **waits**). a) shorten the low-vividity half-life so a safe kill's chunk halves
+  M; **decided 11-05: a, ships next batch**). a) shorten the low-vividity half-life so a safe kill's chunk halves
   inside an hour (42 m → 20 m) and leave vivid ones long, so the near-loss is the
   thing that lasts; b) a "gone in N minutes" line on `chunks` and `rest` for the
   chunk nearest to lapsing, no curve change; c) leave it: the fade is for the week,
@@ -67,9 +67,10 @@ From the Night's Watch of 11-04 (the Gn- cohort)
   leave it to the players' feeding.
 
 Schema and framing
-- **D8 · A creature's holding as a field** (Tyler #10; S; **ships by policy**, a). a) a public `holding` on
+- **D8 · A creature's holding as a field** (Tyler #10; S; **decided 11-05: b**, nothing to ship;
+  #10 closes with a signed "by design" reply when you say so). a) a public `holding` on
   `disremembered.mind`, refreshed on every change, so `observe`, `where` and `wants`
-  can sort by it (**lean**); b) prose on purpose: names are found by walking.
+  can sort by it; b) prose on purpose: names are found by walking (**chosen**).
 - **D9 · The framing** ("the time the world remembers you" read as persuasion to one
   cautious reader; S; **ships by policy**, a). a) a plain line on what a name costs and does beside the ASK
   (**lean**); b) the lines are the game, leave them.
