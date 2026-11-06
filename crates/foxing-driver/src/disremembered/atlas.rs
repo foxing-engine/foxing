@@ -460,6 +460,7 @@ pub fn remembered_map(
             "seen_at": marks.get(&p.id.0),
             "here": Some(p.id) == here,
             "visible": is_visible,
+            "dug_by": p.owner,
         });
         // Exits only to rooms on this map: the rest you do not remember.
         v["exits"] = p

@@ -161,6 +161,9 @@
   #scene section { min-width: 0; }
   #scene section.mod canvas { display: block; max-width: 100%; height: auto; image-rendering: pixelated; border: 1px solid var(--line); border-radius: 4px; background: var(--night); }
   #scene h2 { font: 15px/1.3 var(--serif); color: var(--dim); margin: 0 0 8px; font-weight: 400; }
+  .door { margin: 6px 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .door .lead { flex-basis: 100%; opacity: .85; }
+  .door button { font: inherit; padding: 4px 10px; }
   #map { --tile: 128px; display: grid; grid-auto-columns: var(--tile); grid-auto-rows: var(--tile); grid-auto-flow: row; gap: 4px; }
   .tile { position: relative; border: 1px solid var(--line); border-radius: 4px; color: var(--dim); overflow: hidden; background: var(--night); }
   .tile.here { color: var(--ink); border-color: var(--dust); box-shadow: 0 0 0 1px var(--dust); }
@@ -208,6 +211,7 @@
   #atlas .link.odd { stroke-dasharray: 3 3; stroke: var(--dust); opacity: .7; }
   #atlas .floor { fill: var(--dim); font: 10px var(--mono); }
   #atlas .stair { fill: var(--dust); font: 8px var(--mono); }
+  #atlas .fold { cursor: pointer; text-decoration: underline; }
   #atlas .name { fill: var(--ink); font: 9px var(--mono); pointer-events: none; }
   #atlas .door { fill: var(--dust); font: 7px var(--mono); pointer-events: none; }
   #atlas-note { font-size: 11px; color: var(--dim); margin-top: 4px; white-space: normal; overflow-wrap: anywhere; }
@@ -602,6 +606,7 @@
     <section data-panel="you">
       <h2 title="Hit points mend on their own, never in a fight">You</h2>
       <div id="you"></div>
+      <div id="door" class="door" hidden></div>
       <div id="greet"></div>
       <div id="quiet"></div>
       <h2 title="The memories you hold; your level is their sum as they fade. Click one to use it in the line you are typing">Your window</h2>
@@ -890,7 +895,7 @@
             contents: { kinds: ["citizen", "creature", "item", "docent"], select: { "disremembered.docent": ["name", "line"], "disremembered.citizen": ["name", "passing", "greeting"], "disremembered.creature": ["name", "hp", "max_hp"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace", "door"], "disremembered.mind": ["name", "tier"], "disremembered.errand": ["story", "word", "word_to"], "disremembered.item": ["name", "given_name", "fixed", "kind", "made_by"] } },
             exits: { select: { "disremembered.room": ["name"], "disremembered.sprite": "*" } } }, timed: "curve", commands: false };
           subscribe("room", roomQuery);
-          subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp", "engaged", "bleed_until", "numb_until", "woke_at", "shaken_ms"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting", "falls", "session_at", "session_level"] }, timed: "curve", commands: false });
+          subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp", "engaged", "bleed_until", "numb_until", "woke_at", "shaken_ms"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting", "falls", "session_at", "session_level", "named_at"] }, timed: "curve", commands: false });
           subscribe("window", { root: "window", select: {}, relations: { contents: { kinds: ["chunk"], select: { "disremembered.chunk": "*" } } }, timed: "curve", commands: false });
           for (const [id, q] of modSubs) subscribe(id, q);
           return;
@@ -903,7 +908,7 @@
         if (f.type === "observation") { subs[f.id] = f; skew = Date.now() - f.as_of; draw(); emit("observation", f.id, f); return; }
         if (f.type === "error" && f.id !== undefined) {
           // A world from before a field this page asks for: ask again for less.
-          if (f.id === "me" && !meFallback) { meFallback = true; subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting", "falls"] }, timed: "curve", commands: false }); return; }
+          if (f.id === "me" && !meFallback) { meFallback = true; subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting", "falls", "named_at"] }, timed: "curve", commands: false }); return; }
           print("Subscription " + f.id + ": " + f.error, "err"); emit("observation", f.id, f); return;
         }
         if (f.type === "event") {
@@ -1185,7 +1190,7 @@
   // world gave, so the decay is visible without a round trip. Compass neighbors are
   // drawn adjacent; a named door or a shoved room is a dashed link; another floor is
   // marked with a stair glyph on the room that has it.
-  let atlas = null, atlasRoom = null, atlasTimer = null, atlasFit = null;
+  let atlas = null, atlasRoom = null, atlasTimer = null, atlasFit = null, atlasUnfold = false;
   (function () {
     // The atlas fills its panel; the panel's width is the layout's (foxing.layout).
     const sec = $("atlas-box"); if (!sec) return;
@@ -1462,9 +1467,17 @@
     const svg = $("atlas"); if (!svg) return;
     if (!atlas || !actor) { svg.removeAttribute("data-drawn"); $("atlas-note").textContent = ""; return; }
     const now = Date.now() - skew, hl = atlas.half_life_ms || 1;
-    const rooms = atlas.rooms.map(r => ({ ...r, mem: r.visible ? 1 : (r.seen_at ? Math.pow(0.5, Math.max(0, now - r.seen_at) / hl) : 0) }))
+    const all = atlas.rooms.map(r => ({ ...r, mem: r.visible ? 1 : (r.seen_at ? Math.pow(0.5, Math.max(0, now - r.seen_at) / hl) : 0) }))
       .filter(r => r.visible || r.mem >= (atlas.forgotten_below || 0.05));
-    if (!rooms.length) { svg.removeAttribute("data-drawn"); return; }
+    if (!all.length) { svg.removeAttribute("data-drawn"); return; }
+    const here0 = all.find(r => r.here) || all[0];
+    // H7: the dug rooms hanging off the Mudroom fold into its cell (a count, click
+    // to open) unless you stand in one of them or have opened them.
+    const mud = all.find(r => /^the mudroom$/i.test(r.name || ""));
+    const offMud = mud ? new Set(Object.values(mud.exits || {}).filter(id => { const t = all.find(r => r.id === id); return t && t.dug_by; })) : new Set();
+    const inDug = here0.dug_by && [...offMud].includes(here0.id);
+    const folded = mud && offMud.size > 1 && !inDug && !atlasUnfold;
+    const rooms = folded ? all.filter(r => !offMud.has(r.id)) : all;
     const here = rooms.find(r => r.here) || rooms[0];
     const byId = new Map(rooms.map(r => [r.id, r]));
     // Bigger cells with whole names once the panel has the room for them.
@@ -1510,6 +1523,12 @@
         const label = cellLabel(r.name, CELL);
         label.forEach((line, i) => g.append(Object.assign(el("text", { x: px(r), y: py(r) + 3 + (i - (label.length - 1) / 2) * 11, class: "name", "text-anchor": "middle" }), { textContent: line })));
         if (stairs.length) g.append(Object.assign(el("text", { x: px(r) + half - 1, y: py(r) - half + 7, class: "stair", "text-anchor": "end" }), { textContent: (stairs.some(t => t.z > z) ? "\u25b2" : "") + (stairs.some(t => t.z < z) ? "\u25bc" : "") }));
+        if (mud && r.id === mud.id && offMud.size > 1) {
+          const badge = Object.assign(el("text", { x: px(r) - half + 3, y: py(r) + half - 3, class: "stair fold" }), { textContent: folded ? "+" + offMud.size + " dug" : "fold" });
+          badge.append(Object.assign(el("title", {}), { textContent: folded ? offMud.size + " dug rooms off the Mudroom; click to show them" : "click to fold the dug rooms under the Mudroom" }));
+          badge.addEventListener("click", ev => { ev.stopPropagation(); atlasUnfold = !atlasUnfold; drawAtlas(); });
+          g.append(badge);
+        }
         if (steps) g.addEventListener("click", () => walkTo(r.id));
         frag.append(g);
       }
@@ -2165,8 +2184,26 @@
     if (e.seq) { const a = document.createElement("a"); a.className = "pl"; a.href = "/record/?ev=" + e.seq; a.target = "_blank"; a.title = "a link to this moment in the public record"; a.textContent = "\u00b6"; d.append(" ", a); }
     box.prepend(d); while (box.children.length > 30) box.lastChild.remove();
   }
+  // H7: the first minute. A name under an hour old sees three buttons for the
+  // three ways from the door, until it has taken one.
+  let doorTaken = false;
+  function doorPanel(me) {
+    const d = $("door"); if (!d) return;
+    const cz = me && me.components["disremembered.citizen"] || {};
+    const young = cz.named_at && (Date.now() - skew - cz.named_at) < 3600000;
+    if (!me || !young || doorTaken) { d.replaceChildren(); d.hidden = true; return; }
+    if (d.childElementCount) return;
+    d.hidden = false;
+    const h = document.createElement("div"); h.className = "lead"; h.textContent = "Your first minute. Three ways from the door; one is enough to start."; d.append(h);
+    for (const [label, hint, line] of [["east: the fog", "wisps are fought and remembered there", "travel east"], ["north: the lanterns", "the world is read there", "travel north"], ["west: the mud", "rooms are dug there", "travel west"]]) {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.title = hint;
+      b.addEventListener("click", () => { doorTaken = true; d.hidden = true; chain = after(() => run("travel", [line.split(" ")[1]])); });
+      d.append(b);
+    }
+  }
   // Your greeting, and the quiet clock.
   function greetPanel(me) {
+    doorPanel(me);
     const g = $("greet"); g.replaceChildren();
     if (!me) return;
     const cz = me.components["disremembered.citizen"] || {};

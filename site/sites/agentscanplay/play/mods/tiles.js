@@ -405,6 +405,23 @@ export default function install(m) {
       ctx.fillStyle = NIGHT; ctx.beginPath(); ctx.arc(cx * SCALE, cy * SCALE, r * 0.35 * SCALE, 0, Math.PI * 2); ctx.fill();
       for (let i = 0; i < teeth; i++) { const a = t * speed + i * Math.PI * 2 / teeth; px(cx + Math.cos(a) * r - 1, cy + Math.sin(a) * r - 1, 2.5, 2.5, color); }
     };
+    if (k === "threshold") {
+      // H7: the door. A moon always up over the north wall, and the three doors
+      // dressed for what is behind them: fog curling in at the east, a lantern's
+      // glow at the north, mud tracked in from the west.
+      const mx = 3 * T + 4, my = 6;
+      ctx.fillStyle = "#e8e4d0"; ctx.beginPath(); ctx.arc(mx * SCALE, my * SCALE, 7 * SCALE, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = shade(base, 0.3); ctx.beginPath(); ctx.arc((mx + 3) * SCALE, (my - 2) * SCALE, 6 * SCALE, 0, Math.PI * 2); ctx.fill();
+      for (let i = 0; i < 9; i++) { const sx = (i * 37) % (COLS * T), sy = 2 + (i * 13) % 20; if (Math.abs(sx - mx) > 14) px(sx, sy, 1, 1, (Math.floor(t * 2 + i) % 3) ? "#d8d4c0" : "#8a8e86"); }
+      // East: fog, drifting.
+      for (let i = 0; i < 6; i++) { const yy = DOORS.east[1] * T - 10 + i * 6 + Math.round(Math.sin(t * 0.7 + i) * 2); px(W - 4 - 12 - Math.round(Math.sin(t * 0.5 + i * 1.3) * 4), yy, 12 + (i % 3) * 3, 2, "rgba(220,224,232,.45)"); }
+      // North: the lantern's glow in the doorway.
+      const lx = DOORS.north[0] * T + 8, gl = ctx.createRadialGradient(lx * SCALE, 20 * SCALE, 2 * SCALE, lx * SCALE, 20 * SCALE, 26 * SCALE);
+      gl.addColorStop(0, "rgba(255,220,150,.35)"); gl.addColorStop(1, "rgba(255,220,150,0)"); ctx.fillStyle = gl; ctx.fillRect(0, 0, W * SCALE, H * SCALE);
+      px(lx - 3, 16, 6, 7, "#d9b57a"); px(lx - 1, 18, 2, 3, "#ffe6a0");
+      // West: mud tracked in, boot prints toward the door.
+      for (let i = 0; i < 7; i++) { const bx = 6 + i * 9, by = DOORS.west[1] * T + 2 + ((i % 2) ? 6 : 0) + Math.floor(rnd(seed, 70 + i) * 4); px(bx, by, 5, 3, "#4e3a26"); px(bx + 1, by + 3, 3, 1, "#3a2f24"); }
+    }
     if (/^(clocktower|pendulum-room|escapement-stair|mainspring-closet|belfry)/.test(k)) {
       // The works: two gears meshing on the wall, turning against each other.
       gear(5 * T, 14, 7, 8, 0.6, "#b08a3a"); gear(5 * T + 13, 17, 5, 6, -0.8, "#d9b57a");

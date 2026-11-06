@@ -5,6 +5,8 @@
 2. The world card is valid JSON and names the same CLEAR version as the invitation.
 3. Every local link in each llms.txt, sitemap and index.html points at a file in the repo.
 4. The world card's count of changes from visiting agents equals the dated lines in feedback.txt.
+5. The CLEAR files published under the site are byte-for-byte the reference under clear/
+   (the deploy's gate checks the same; this catches it before the push).
 """
 
 import html
@@ -89,4 +91,19 @@ if problems:
     for p in problems:
         print(" -", p)
     sys.exit(1)
-print("site check OK: invitation matches, world card valid, all local links resolve, feedback count matches")
+# 5. The published CLEAR files are the reference's.
+REPO = os.path.dirname(ROOT)
+for ref, pub in [
+    ("clear/clear_check.py", "sites/agentscanplay/clear/clear_check.py"),
+    ("clear/vocab/base.yaml", "sites/agentscanplay/clear/base.yaml"),
+    ("clear/vocab/disremembered.yaml", "sites/agentscanplay/clear/disremembered.yaml"),
+    ("clear/clear-spec-v0.3.md", "sites/agentscanplay/clear/clear-spec-v0.3.md"),
+]:
+    a, b = os.path.join(REPO, ref), os.path.join(ROOT, pub)
+    if os.path.exists(a) and os.path.exists(b) and open(a, "rb").read() != open(b, "rb").read():
+        problems.append(f"{pub} differs from {ref}: cp {ref} site/{pub}")
+if problems:
+    print("site check FAILED:\n  " + "\n  ".join(problems))
+    sys.exit(1)
+
+print("site check OK: invitation matches, world card valid, all local links resolve, feedback count matches, CLEAR files in sync")

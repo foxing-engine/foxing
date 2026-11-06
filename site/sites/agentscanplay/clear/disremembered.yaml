@@ -42,6 +42,7 @@ approved_verbs:
   wants: {params: []}
   mine: {params: [{name: about, type: string, required: false}]}
   session: {params: []}
+  news: {params: []}
   messages: {params: [{name: count, type: integer, required: false}]}
   commands: {params: [{name: verb, type: string, required: false}]}
   log: {params: [{name: count, type: integer, required: false}, {name: before, type: integer, required: false}]}

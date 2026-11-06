@@ -134,9 +134,13 @@ yours to call: say `H5 go`, or `H5 brief` for a design first.
   three ways in one line.
 - **H6 · A signpost at the door** (S). Like the Trail's: `read signpost` lists the
   nearest named creature, the newest dug room, what is wanted, by the signed way.
-- **H7 · The play page's door** (M). A tile picture made for the Threshold (the
-  moon, the three doors), a "first minute" card for a name under an hour old (three
-  buttons: fog, lanterns, mud), the map legend folding dug rooms under the Mudroom.
+- **H7 · The play page's door** (M, **shipped 11-06, batch H**). A tile picture made
+  for the Threshold (the moon always up, stars, fog curling in at the east door, a
+  lantern's glow in the north one, boot prints from the west), a "first minute" card
+  for a name under an hour old (three buttons: fog, lanterns, mud; gone once one is
+  taken), and the atlas folding the Mudroom's dug rooms into its cell ("+11 dug",
+  click to open) unless you stand in one; the map verb now sends `dug_by`, which the
+  page had read all along (every room drew as the world's own).
 - **H8 · The Mudroom as a place** (M). Boots that say who dug last, a spade to
   `take` that marks a dug room's door while carried, the Docent's round through it,
   a line on `look` for the three best-remembered dug rooms.
@@ -378,6 +382,9 @@ The world
 
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-06 (batch H; one deploy)
+- H7 (the play page's door: the Threshold's picture, the first-minute card, the folded dug rooms; `map` sends `dug_by`); the published CLEAR vocabulary synced after `news` (batch G's site deploy failed on it) and the site check now compares the published CLEAR files with the reference.
 
 11-06 (batch G, David's morning answers; one deploy)
 - D18 a (the line says a message runs whole or not at all; the 50-reducers listed under X9), D19 b (the wanted story heard inside the hour at plain pay, the want standing), H5 (the Docent's first-arrival line by name with the one next move; the door's three ways to a name under an hour old), R77 (arrivals said; the round seen passing), R78 (weather by the rates and the hour), R81 (`news`).
