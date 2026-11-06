@@ -5102,7 +5102,7 @@ fn the_lower_stacks_lie_under_the_archive_and_their_creatures_have_tricks() {
         "{}",
         out.summary
     );
-    // It keeps the wound ten minutes, then is whole again.
+    // It keeps the wound twenty minutes (R70), then is whole again.
     assert!(
         combat::creatures_in(&w, sump)
             .iter()
@@ -5111,7 +5111,7 @@ fn the_lower_stacks_lie_under_the_archive_and_their_creatures_have_tricks() {
         combat::creatures_in(&w, sump)
     );
     let was = w.fixed_now;
-    w.fixed_now = Some(w.now().plus(Duration::seconds(601)));
+    w.fixed_now = Some(w.now().plus(Duration::seconds(1201)));
     w.tick();
     assert!(
         combat::creatures_in(&w, sump)
@@ -7754,9 +7754,9 @@ fn only_the_stacks_own_kinds_are_whole_again_when_a_fight_ends() {
     let lamprey = combat::creatures_in(&w, sump)[0].0;
     combat::set_creature_hp(&mut w, lamprey, 2.0).unwrap();
     combat::mend(&mut w, lamprey).unwrap();
-    // Not at once: the wound keeps ten minutes, then it is whole.
+    // Not at once: the wound keeps twenty minutes (R70), then it is whole.
     assert_eq!(super::plain_num(&w, lamprey, CREATURE, "hp"), Some(2.0));
-    w.fixed_now = Some(w.now().plus(Duration::seconds(601)));
+    w.fixed_now = Some(w.now().plus(Duration::seconds(1201)));
     w.tick();
     let max = super::plain_num(&w, lamprey, CREATURE, "max_hp").unwrap();
     assert_eq!(super::plain_num(&w, lamprey, CREATURE, "hp"), Some(max));

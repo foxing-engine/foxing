@@ -761,8 +761,9 @@ pub(crate) fn mend(world: &mut World, _creature: EntityId) -> Result<(), StoreEr
 }
 
 /// How long a Stacks creature takes to mend from nothing to whole at rate 1.0; the
-/// ground floor's kinds take twice that.
-pub const STACKS_MEND_MS: i64 = 10 * 60 * 1000;
+/// ground floor's kinds take the same. (R70: ten minutes in the Stacks made the two-stand
+/// censor unwinnable, since a body is whole from nothing in twelve.)
+pub const STACKS_MEND_MS: i64 = 20 * 60 * 1000;
 pub const GROUND_MEND_MS: i64 = 20 * 60 * 1000;
 /// The old one-shot mend, kept so a job already in the log replays without complaint.
 pub const JOB_MEND: &str = "disremembered.mend";
@@ -2092,7 +2093,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.retreat", "Break off the fight. The creature gets one free strike as you go. A ground-floor creature keeps the wound you gave it; one of the Stacks or the Exergue keeps it ten minutes, then is whole; venom follows you out. You mend only out of the room."),
+        CommandSpec::new("disremembered.retreat", "Break off the fight. The creature gets one free strike as you go. A creature keeps the wound you gave it twenty minutes, then is whole (the Conclave's officers sooner); venom follows you out. You mend only out of the room. The reply says in rounds what a second stand would take."),
         Box::new(|w: &mut World, ctx, _| {
             let f = me(w, ctx)?;
             let Some(creature) = engaged_with(w, f.citizen) else {
@@ -2121,7 +2122,7 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             let mended = match super::stacks::trick_of(w, creature) {
                 Some(super::stacks::Trick::Enter) | Some(super::stacks::Trick::Below) => " It will be whole again by the time you come back; the Conclave keeps its order.",
-                Some(_) => " It keeps the wound a while: whole again in ten minutes, if nobody takes it up before.",
+                Some(_) => " It keeps the wound a while: whole again in twenty minutes, if nobody takes it up before.",
                 None => " It keeps the wound; it is yours to finish when you come back.",
             };
             // Venom follows you out of the room: said, with what it will cost, since
@@ -2145,7 +2146,29 @@ pub fn register(world: &mut World, curves: Curves) {
             } else {
                 String::new()
             };
-            Ok(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}. You have {:.0}/{:.0}.{mended}{venom}", hp_said(w, f.citizen), super::MAX_HP), json!({"died": false, "hp": hp(w, f.citizen), "venom_left": venom_left})))
+            // R70: what a second stand would take, in rounds, against what you have
+            // and what you will have when you are whole.
+            let second = {
+                let chp = plain_num(w, creature, CREATURE, "hp").unwrap_or(0.0);
+                let level = super::memory::level(w, f.window);
+                let mine = attack_for_level(level) + 1.0;
+                let its = plain_num(w, creature, CREATURE, "attack").unwrap_or(1.0) + 1.0;
+                let hit = to_hit(w, f.citizen);
+                let rounds_to_fell = (chp / (mine * hit)).ceil().max(1.0);
+                let in_me_now = (hp(w, f.citizen) / its).floor().max(0.0);
+                let in_me_whole = (super::MAX_HP / its).floor();
+                let whole_in = super::combat::human(((super::MAX_HP - hp(w, f.citizen)) / super::HP_PER_SECOND * 1000.0) as i64);
+                if chp > 0.0 {
+                    format!(
+                        " A second stand: about {rounds_to_fell:.0} more round{} to fell it as it is now; you have {in_me_now:.0} in you, {in_me_whole:.0} when whole (whole in {whole_in}){}.",
+                        if rounds_to_fell == 1.0 { "" } else { "s" },
+                        if in_me_whole < rounds_to_fell { "; it is not a fight for one name at this level" } else { "" }
+                    )
+                } else {
+                    String::new()
+                }
+            };
+            Ok(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}. You have {:.0}/{:.0}.{mended}{venom}{second}", hp_said(w, f.citizen), super::MAX_HP), json!({"died": false, "hp": hp(w, f.citizen), "venom_left": venom_left})))
         }),
     );
 

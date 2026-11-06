@@ -56,15 +56,14 @@ Schema and framing
 
 Each is designed and needs no decision. Say `R<n> hold` to keep one back.
 
-- **R10** (M) The arithmetic of forgetting, audited: which curve each line reads
-  (`chunks` said "halves every 1h 2m at vividity 0" while a carried chunk read "6h
-  12m"; "five times slower" measured 1.6x; per-chunk half-lives did not move after the
-  strike). A report, then the fixes. -- Hazelquill
 
 Away from Moondial and Entropic (the engine's and the game's old names): done in the
 tree 11-06 (R16–R20); the box's half is Y1. The `MOONDIAL_*` fallbacks in the driver
 and the tools go in a release after Y1 has run.
 - **R26** (M; was B6, pulled 11-04) Unreproduced: a `travel <room name>` walk that stops short; "You again" on `leave` (rare); `board` at ~4 s.
+Left from batch E:
+- **R76b** (M) An Under-Docent at the Stacks' stair: a second figure for the Lower Stacks.
+- **R10b** (S) The "five times slower" measured 1.6x: the shelf is a power law (half in 5x at first, a quarter at 15x), so an interval measure reads lower; the line now says so. Still to check: per-chunk half-lives after a strike (none should move: a strike makes a new chunk).
 Left from batch D (the play page's bigger pieces):
 - **R12b** (M) The transcript folded to a drawer with a "log" tab once bubbles carry the speech.
 - **R13b** (S) A sprite per thing a creature leaves (icons are by word now).
@@ -72,11 +71,9 @@ Left from batch D (the play page's bigger pieces):
 - **R25b** (M) A verb's argument from the scene (click `tell`, then a creature); a creature's own verbs on its figure; the palette on the plain page; the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll; admin on the play page; a `remember` that keeps a room on your map.
 From the Night's Watch of 11-05 (the Trail's first night):
 From the loop cohort of 11-05 (one tester per loop):
-- **R70** (M) The two-stand censor is unwinnable as the loop sells it: full heal takes 11 m, the wound lasts 10, and 67 hp at ~6 a round against ~10 back is not two stands at thirty hit points; lean: a wound kept twenty minutes in the Stacks, and `retreat` says in rounds what a second stand would take ("it would take you nine more rounds; you have four in you"). -- Gnibbleforge
 Pulled from the backlog 11-05 ("B19 yes, B21 yes, B22 yes"), each in pieces the Watch can take a batch at a time:
 - **R74** (M; B19) Crafting, second tier: an usher's ribbon (a thing that lets you choose the room an usher shows you to) and a censor's lens (halves the ray) as recipes from Stacks drops; desires beyond rooms (a hand not met, a story told near it); a thing's past as a want; a sprite per tier on the page; `gather` reading the first cue ("a river of ink" gives ink).
 - **R75** (M; B21) The Exergue, next: a bar story's weight by its money words; the Assayer answering `tell` with your holding's assay; the Wardens' respawn lengthening each taking; the Purse's share as a statute; the sweater's bag and the clippers' filings as things; the Mintmark Hall stamping kept things with their hour; atlas frames for the eight; the slate in the tapster's voice.
-- **R76** (S; B22) The Docent, next: a second figure for the Lower Stacks (an Under-Docent at the stair); "what have you found?" listing the Lost and Found; a `thanks` that costs nothing; `recipes` not saying "You lack rag thread" the moment the thread was spent.
 From the Night's Watch of 11-04:
 - Kept on purpose: `nginx-moondial.conf` (moondial.ai redirects to foxing.dev), the
   `/clear/entropic.yaml` redirect, the postgres schema-lock constant, the host's name
@@ -339,6 +336,11 @@ The world
 
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-06 (batch E; one deploy)
+- **R70** a creature keeps its wound twenty minutes in the Stacks as on the ground; `retreat` says in rounds what a second stand would take, against what you have and will have.
+- **R76** (part) `tell docent "thanks"` costs nothing; "what have you found?" lists what its round carried to the door today; `recipes` says "spent on the bandage just now" rather than "you lack".
+- **R10** (audit) the lines read the right curves; the shelf's "halves in" now counts from now (a power law's halving lengthens as it ages); the `chunks` fade line gives the figures at the new stretch and says the shelf is a long tail.
 
 11-06 (batch D, the rename and the play page; one deploy)
 - **R11** nginx-play.conf: the driver listed twice as an upstream, a refused connection tried once more (the live edit is in Y1).

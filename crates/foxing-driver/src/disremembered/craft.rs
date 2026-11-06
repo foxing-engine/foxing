@@ -1910,6 +1910,21 @@ pub fn register(world: &mut World, curves: Curves) {
                 .filter_map(|t| t["name"].as_str().map(str::to_string))
                 .collect();
             let level = super::memory::level(w, f.window);
+            // R76: what you spent on a thing in the last ten minutes is said as spent,
+            // not lacked ("You lack rag thread" the moment the thread became a bandage).
+            let now = w.now().0;
+            let spent_lately: Vec<(String, String)> = w
+                .recent_events(400)
+                .iter()
+                .filter(|e| e.kind == MADE && e.payload["by"] == ctx.actor && now - e.at.0 < 10 * 60_000)
+                .flat_map(|e| {
+                    let made = e.payload["name"].as_str().unwrap_or("something").to_string();
+                    e.payload["of"]
+                        .as_array()
+                        .map(|a| a.iter().filter_map(|m| m.as_str().map(|m| (m.to_string(), made.clone()))).collect::<Vec<_>>())
+                        .unwrap_or_default()
+                })
+                .collect();
             let mut lines = Vec::new();
             let mut list = Vec::new();
             for r in &all_recipes(w) {
@@ -1925,7 +1940,13 @@ pub fn register(world: &mut World, curves: Curves) {
                     r.of.join(" and "),
                     if r.chunk_at_least > 0.0 && r.fixed { format!(" and a chunk (any; one worth {asks:.0} or more makes it last longest){}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else if r.chunk_at_least > 0.0 { format!(" and a chunk worth {asks:.0} or more{}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else { String::new() },
                     r.does.trim_end_matches('.'),
-                    if can { " You could make this now.".to_string() } else if !missing.is_empty() { format!(" You lack {}.", missing.join(" and ")) } else { " You lack the memory to spend.".to_string() }
+                    if can { " You could make this now.".to_string() } else if !missing.is_empty() {
+                        let said: Vec<String> = missing.iter().map(|m| match spent_lately.iter().find(|(sm, _)| sm == m) {
+                            Some((_, made)) => format!("{m} (spent on {made} just now)"),
+                            None => m.to_string(),
+                        }).collect();
+                        format!(" You lack {}.", said.join(" and "))
+                    } else { " You lack the memory to spend.".to_string() }
                 ));
                 list.push(json!({"recipe": r.key, "name": r.name, "of": r.of, "chunk_at_least": asks, "vividity_at_least": r.vividity_at_least, "tier": r.tier, "does": r.does, "uses": r.uses, "fixed": r.fixed, "by": r.by, "could_make": can, "missing": missing}));
             }

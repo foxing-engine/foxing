@@ -520,6 +520,49 @@ pub fn ask(
             return Ok((line.to_string(), 0));
         }
     }
+    // R76: a thanks costs nothing and goes to no desk; "what have you found?" is
+    // answered from the record of its own round (the things it carried to the door).
+    let low = text.to_lowercase();
+    if low.starts_with("thank") || low.contains(" thank") || low.starts_with("cheers") {
+        let line = "The Docent inclines its head: \"Keep it for the room. I only find the page.\"";
+        super::combat::narrate(world, actor, line);
+        return Ok((line.to_string(), 0));
+    }
+    if (low.contains("what have you found")
+        || low.contains("lost and found")
+        || low.contains("what did you find")
+        || low.contains("what have you carried"))
+        && !low.contains("word")
+    {
+        let now = world.now().0;
+        let carried: Vec<String> = world
+            .recent_events(4000)
+            .iter()
+            .filter(|e| {
+                e.kind == TIDIED && e.payload["item"].is_u64() && e.payload["swept"] != true
+            })
+            .filter(|e| now - e.at.0 < 24 * 3_600_000)
+            .filter_map(|e| {
+                Some(format!(
+                    "{} from {}",
+                    e.payload["name"].as_str()?,
+                    e.payload["from_name"].as_str().unwrap_or("somewhere")
+                ))
+            })
+            .collect();
+        let line = if carried.is_empty() {
+            "The Docent: \"Nothing tonight. What is left lying I carry to the door; look at the floor here.\"".to_string()
+        } else {
+            let n = carried.len();
+            format!(
+                "The Docent: \"Found and carried to the door today, {n} thing{}: {}. What is still on the floor here is anyone's to take.\"",
+                if n == 1 { "" } else { "s" },
+                carried[n.saturating_sub(6)..].join("; ")
+            )
+        };
+        super::combat::narrate(world, actor, line.clone());
+        return Ok((line, 0));
+    }
     let (all, mine) = taken_this_hour(world, actor);
     if mine >= ASKS_EACH_PER_HOUR {
         return Err(CommandError::precondition(

@@ -127,13 +127,22 @@ fn chunk_rows(
             let f = |name: &str| world.store.read_field(e.id, CHUNK, name, now).ok();
             // Its own clock: the half-life (or the power law's scale) as it stands, so
             // a taxed gift shows its faster fade here and not only to observe.
+            // R10: an exponential halves every half-life from any moment; a power law
+            // (the shelf) halves from *now* in its scale plus the time it has already
+            // faded, which is the long tail ("halves in 1h 2m" was its first halving,
+            // read on a chunk hours old).
             let halves = world
                 .store
                 .timed_field(e.id, CHUNK, "value")
                 .ok()
                 .and_then(|t| match t.curve {
                     foxing_time::Curve::Exponential { half_life } => Some(half_life.0),
-                    foxing_time::Curve::PowerLaw { scale, .. } => Some(scale.0),
+                    foxing_time::Curve::PowerLaw { scale, exponent } => {
+                        let elapsed = (now.0 - t.waterline.at.0).max(0);
+                        // v(t) = v0/(1+t/s)^k: from t1, half at (1+t2/s) = 2^(1/k)(1+t1/s).
+                        let f = 2f64.powf(1.0 / exponent.max(1e-9));
+                        Some(((scale.0 as f64 + elapsed as f64) * f - scale.0 as f64 - elapsed as f64) as i64)
+                    }
                     _ => None,
                 });
             json!({"id": e.id.0, "source": f("source"), "tier": f("tier"), "size": f("size"), "vividity": f("vividity"), "value": f("value"), "halves_ms": halves, "taxed": f("taxed"), "provenance": f("provenance")})
@@ -173,9 +182,9 @@ fn rest_line(rows: &[Value]) -> Option<String> {
 /// The one line that says how fast the window fades, so nobody has to measure it.
 fn fade_rate(active_hl_ms: i64) -> String {
     format!(
-        "A chunk halves every {} at vividity 0 and every {} at vividity 1; shelved in the palace it fades about five times slower.",
-        super::combat::human(active_hl_ms),
-        super::combat::human(active_hl_ms * 3)
+        "A chunk halves every {} at vividity 0 and every {} at vividity 1; shelved in the palace it halves in about five times that at first, then slower each time (a long tail), which is what \"halves in\" counts from now.",
+        super::combat::human((active_hl_ms as f64 * super::Curves::stretch(0.0)) as i64),
+        super::combat::human((active_hl_ms as f64 * super::Curves::stretch(1.0)) as i64)
     )
 }
 
