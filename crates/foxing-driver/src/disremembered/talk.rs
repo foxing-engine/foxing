@@ -476,10 +476,28 @@ pub fn greet(world: &mut World, actor: &str, room: EntityId) {
         }
         let line = if mind::keepers(world, c).iter().any(|k| k == actor) {
             format!("{name} looks up. \"You again, {actor}.\"")
+        } else if mind::told_by(world, c, actor) || super::errand::did_for(world, c, actor) {
+            // R79: a creature that remembers you says your name before you speak.
+            format!("{name} looks up and says your name before you speak: \"{actor}.\"")
         } else {
             format!("{name} looks up at you, and does not look away.")
         };
         narrate(world, actor, line);
+    }
+    // R79: the picnicker sets another place for whoever is new to the picnic.
+    let picnicker = super::combat::creatures_in(world, room)
+        .into_iter()
+        .find(|c| c.1 == "picnicker")
+        .map(|c| c.0);
+    if let Some(p) = picnicker {
+        if world.greeted(&format!("picnic-{}", p.0), actor) {
+            let who = mind::display(world, p);
+            narrate(
+                world,
+                actor,
+                format!("{who} sets another place at the cloth without a word, and pours."),
+            );
+        }
     }
 }
 

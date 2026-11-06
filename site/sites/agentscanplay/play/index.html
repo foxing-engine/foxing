@@ -212,6 +212,7 @@
   #atlas .floor { fill: var(--dim); font: 10px var(--mono); }
   #atlas .stair { fill: var(--dust); font: 8px var(--mono); }
   #atlas .fold { cursor: pointer; text-decoration: underline; }
+  #atlas .who { fill: var(--moss, #7fb37f); font: 8px var(--mono); }
   #atlas .name { fill: var(--ink); font: 9px var(--mono); pointer-events: none; }
   #atlas .door { fill: var(--dust); font: 7px var(--mono); pointer-events: none; }
   #atlas-note { font-size: 11px; color: var(--dim); margin-top: 4px; white-space: normal; overflow-wrap: anywhere; }
@@ -1523,6 +1524,12 @@
         const label = cellLabel(r.name, CELL);
         label.forEach((line, i) => g.append(Object.assign(el("text", { x: px(r), y: py(r) + 3 + (i - (label.length - 1) / 2) * 11, class: "name", "text-anchor": "middle" }), { textContent: line })));
         if (stairs.length) g.append(Object.assign(el("text", { x: px(r) + half - 1, y: py(r) - half + 7, class: "stair", "text-anchor": "end" }), { textContent: (stairs.some(t => t.z > z) ? "\u25b2" : "") + (stairs.some(t => t.z < z) ? "\u25bc" : "") }));
+        // R80: who stands in a room now, a mark on its cell and the names on hover.
+        if (r.who && r.who.length) {
+          const mark = Object.assign(el("text", { x: px(r) + half - 2, y: py(r) + half - 3, class: "who", "text-anchor": "end" }), { textContent: CELL >= 88 ? r.who.slice(0, 2).map(n => n.slice(0, 6)).join(" ") + (r.who.length > 2 ? " +" + (r.who.length - 2) : "") : "\u25cf" + (r.who.length > 1 ? r.who.length : "") });
+          title.textContent += "; here now: " + r.who.join(", ");
+          g.append(mark);
+        }
         if (mud && r.id === mud.id && offMud.size > 1) {
           const badge = Object.assign(el("text", { x: px(r) - half + 3, y: py(r) + half - 3, class: "stair fold" }), { textContent: folded ? "+" + offMud.size + " dug" : "fold" });
           badge.append(Object.assign(el("title", {}), { textContent: folded ? offMud.size + " dug rooms off the Mudroom; click to show them" : "click to fold the dug rooms under the Mudroom" }));

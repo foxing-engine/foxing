@@ -140,6 +140,7 @@ pub fn lines(world: &World) -> Vec<String> {
                 "fog" => "the fog gave up more shapes",
                 "sighs" => "the meadow nearly said a name",
                 "bell" => "a bell was found",
+                "festival" => "the day's thing was left at the door",
                 k => k,
             };
             format!(

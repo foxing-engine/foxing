@@ -230,20 +230,23 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
     by `mend`, the Orchard's hours by `price`, the Shallows' water by `respawn`, the
     lanterns by `half_life`, the door's air by `pay`, the Long Afternoon's sun by the
     hour; Morphos in the world turns the sky the wrong color outdoors.
-  - **R79** (M, by policy) Creatures with lives: wandering said aloud ("the wisp drifts
-    east"); the picnicker sets another place when someone new arrives; the longsight
-    says who it is looking at; a creature that remembers you greets you by name before
-    you speak.
-  - **R80** (M, by policy) Traces: said-walls in every room (the last few things said,
-    not only dug rooms); a chalk tally on the Threshold of who came through today;
-    "Gnomeward was here 2h ago" on the Lookout's bench; the board's names drawn on the
-    atlas when they are in the world.
+  - **R79** (M, **shipped 11-06, batch I**) Creatures with lives: a named creature's
+    walks were said already (its business); the picnicker sets another place for
+    whoever is new to the picnic; the longsight says whom it is looking at (the last
+    name to arrive elsewhere on the trail, else the moon); a creature you told a story
+    or did an errand for says your name before you speak.
+  - **R80** (M, **shipped 11-06, batch I**) Traces: said-walls in every room; a chalk
+    tally on the Threshold of who came through today; "Gnomeward was here 2h ago"
+    scratched on the Lookout's bench; `map` sends who stands in each room and the play
+    page's atlas marks them (names on the wide cells, a dot and a count on the small).
   - **R81** (S, **shipped 11-06, batch G**) `news`, a free read: the world's own gossip
     of the last day in the Docent's voice (the Conclave's decisions, who fell, who
     was named, what was born and dug, the traveler, what happened on its own).
-  - **R82** (M, by policy) More happenings: a Naming Day in the calendar when the Namery
-    deals cheaply; a festival on each named holiday with a thing of its own (a lantern
-    on the Long Night, an unfiled page on the Day of Unfiled Things).
+  - **R82** (M, **shipped 11-06, batch I**) More happenings: on All Names' Day the
+    Namery deals at forty (the bar two thirds); each named day leaves a thing of its
+    own at the door once (a new minute, an unfiled page, a struck hour, a name slip, a
+    long-night lantern), said to whoever is there, in `news`; the Threshold's `look`
+    names the day.
   - **X14** (XL, brief wanted) Day and night: which creatures hunt by the hour (hollows
     by night, sighs by day), the page's light, the Fogbank's fog by the hour.
   - **X15** (XL, brief wanted) A travelling market: the Exergue's tapster walks a circuit
@@ -382,6 +385,9 @@ The world
 
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-06 (batch I, the rest of X13's queue; one deploy)
+- R79 (the picnicker's place, the longsight's gaze, a creature that remembers you says your name), R80 (said-walls everywhere, the door's chalk tally, the bench's scratches, names on the atlas), R82 (All Names' Day at forty; a thing of each named day at the door).
 
 11-06 (batch H; one deploy)
 - H7 (the play page's door: the Threshold's picture, the first-minute card, the folded dug rooms; `map` sends `dug_by`); the published CLEAR vocabulary synced after `news` (batch G's site deploy failed on it) and the site check now compares the published CLEAR files with the reference.

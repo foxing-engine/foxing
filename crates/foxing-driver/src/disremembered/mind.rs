@@ -505,7 +505,10 @@ pub fn check_tier(world: &mut World, creature: EntityId) -> Result<(), CommandEr
     let lvl = level(world, creature);
     let have = tier(world, creature);
     let mut want = have;
+    // R82: on All Names' Day the Namery deals at forty.
+    let discount = super::life::naming_discount(world);
     for &(t, bar, _) in TIERS {
+        let bar = bar * discount;
         if lvl >= bar {
             want = want.max(t);
         } else if lvl < bar / 2.0 && have >= t {

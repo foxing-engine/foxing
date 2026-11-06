@@ -377,6 +377,69 @@ fn bells(world: &mut World) -> Result<bool, String> {
     Ok(true)
 }
 
+/// R82: what each named day leaves at the door, once, for whoever takes it.
+pub const FESTIVAL_THINGS: &[(&str, &str, &str)] = &[
+    ("New Minute's Day", "a new minute", "The year's first minute lies on the stone, unspent; nobody has used it yet."),
+    ("the Day of Unfiled Things", "an unfiled page", "A page lies on the stone with no catalogue number, which today is allowed."),
+    ("the Midsummer Adjournment", "a struck hour", "An hour the Clocktower struck and nobody took lies on the stone, warm."),
+    ("All Names' Day", "a name slip", "A slip from the Namery lies on the stone, the name on it not yet dealt; today the Namery deals at forty."),
+    ("the Long Night", "a long-night lantern", "A lantern lit for the longest night stands on the stone, and will not go out before morning."),
+];
+
+/// On All Names' Day the Namery deals cheaply: the naming bar is two thirds (forty).
+pub fn naming_discount(world: &World) -> f64 {
+    if holiday(world) == Some("All Names' Day") {
+        2.0 / 3.0
+    } else {
+        1.0
+    }
+}
+
+/// The festival's thing, made at the door on a named day, once a day.
+fn festival(world: &mut World, curves: &super::Curves) -> Result<bool, String> {
+    let Some(day) = holiday(world) else {
+        return Ok(false);
+    };
+    let Some((_, name, said)) = FESTIVAL_THINGS.iter().find(|(d, _, _)| *d == day) else {
+        return Ok(false);
+    };
+    let Some(r) = super::rooms::arrival(world) else {
+        return Ok(false);
+    };
+    let today = world.now().0.div_euclid(86_400_000);
+    let done = world.recent_events(4000).iter().any(|e| {
+        e.kind == HAPPENED
+            && e.payload["kind"] == "festival"
+            && e.at.0.div_euclid(86_400_000) == today
+    });
+    if done {
+        return Ok(false);
+    }
+    let item = super::craft::make(
+        world,
+        curves,
+        Actor::Driver,
+        None,
+        r,
+        name,
+        "material",
+        &format!("left at the door on {day}"),
+        None,
+        &[],
+        0,
+        false,
+    )
+    .map_err(|e| e.to_string())?;
+    super::combat::narrate_room(world, item, &format!("Today is {day}. {said}"));
+    note_happening(
+        world,
+        "festival",
+        r,
+        json!({"item": item.0, "name": name, "day": day}),
+    );
+    Ok(true)
+}
+
 /// One happening, picked among those that can happen now; the bells at midnight.
 pub fn happen(world: &mut World) -> Result<(), String> {
     let curves = super::Curves::from_env();
@@ -385,6 +448,10 @@ pub fn happen(world: &mut World) -> Result<(), String> {
     let minute_of_day = (now.rem_euclid(86_400_000)) / 60_000;
     if minute_of_day < 30 {
         bells(world)?;
+    }
+    // R82: a named day's festival thing, before the day's other happenings.
+    if festival(world, &curves)? {
+        return wind_happening(world);
     }
     // Try in a rolled order until one takes.
     let mut order: Vec<u8> = (0..6).collect();

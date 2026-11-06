@@ -461,6 +461,14 @@ pub fn remembered_map(
             "here": Some(p.id) == here,
             "visible": is_visible,
             "dug_by": p.owner,
+            // R80: who stands there now (the board's names drawn on the atlas).
+            "who": world
+                .store
+                .children(p.id)
+                .filter(|e| e.kind == "citizen" && super::presence::is_here(world, e.id))
+                .filter_map(|e| plain_str(world, e.id, super::CITIZEN, "name").map(str::to_string))
+                .filter(|n| n != actor)
+                .collect::<Vec<_>>(),
         });
         // Exits only to rooms on this map: the rest you do not remember.
         v["exits"] = p

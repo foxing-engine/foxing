@@ -1327,6 +1327,41 @@ pub fn describe(
         text.push(' ');
         text.push_str(&ground);
     }
+    // R79: the longsight says whom it is looking at: the last name to arrive
+    // anywhere else on the trail, else the moon.
+    if let Some((ls, _, _, _)) = super::combat::creatures_in(world, room)
+        .into_iter()
+        .find(|c| c.1 == "longsight")
+    {
+        let who = super::mind::display(world, ls);
+        let looking = world
+            .recent_events(1500)
+            .iter()
+            .rev()
+            .filter(|e| e.kind == "store.entity_moved" && e.payload["parent"] != room.0)
+            .find_map(|e| {
+                let to = EntityId(e.payload["parent"].as_u64()?);
+                let key = super::plain_str(world, to, ROOM, "key")?;
+                if !key.starts_with("trail-") {
+                    return None;
+                }
+                let who = EntityId(e.payload["id"].as_u64()?);
+                let name = super::plain_str(world, who, super::CITIZEN, "name")?;
+                if name == actor {
+                    return None;
+                }
+                Some(format!(
+                    "{name} in {}",
+                    super::plain_str(world, to, ROOM, "name").unwrap_or("the trail")
+                ))
+            });
+        text.push_str(&format!(
+            " {who} is looking at {}.",
+            looking.unwrap_or_else(
+                || "the moon, which it has been looking at for some time".to_string()
+            )
+        ));
+    }
     // F14: the Stacks are where the map matters and nothing there said so; a name
     // without a lantern is told what one keeps, once a room.
     if let Some(f) = super::find_citizen(world, actor) {
@@ -1337,6 +1372,56 @@ pub fn describe(
                 .is_some_and(|t| world.now().0 - (t as i64) < super::kindle::GRACE_MS)
         {
             text.push_str(" Three ways from the door: east into the fog, where the mild things are fought and remembered; north under the lanterns, where the world is read; west into the mud, where rooms are dug. One is enough to start.");
+        }
+        // R82: the day, when it is a named one.
+        if key == ARRIVAL {
+            if let Some(day) = super::life::holiday(world) {
+                if day != super::life::SABBATH {
+                    text.push_str(&format!(
+                        " Today is {day}{}.",
+                        if day == "All Names' Day" {
+                            ": the Namery deals at forty"
+                        } else {
+                            "; the Conclave does not divide"
+                        }
+                    ));
+                }
+            }
+        }
+        // R80: a chalk tally on the Threshold of who came through today.
+        if key == ARRIVAL {
+            let day_ago = world.now().0 - 24 * 3_600_000;
+            let mut names: Vec<String> = Vec::new();
+            for e in world.recent_events(4000).iter().rev() {
+                if e.kind != "store.entity_moved"
+                    || e.payload["parent"] != room.0
+                    || e.at.0 < day_ago
+                {
+                    continue;
+                }
+                let Some(id) = e.payload["id"].as_u64() else {
+                    continue;
+                };
+                let Some(n) = super::plain_str(world, EntityId(id), super::CITIZEN, "name") else {
+                    continue;
+                };
+                if !names.iter().any(|m| m == n) {
+                    names.push(n.to_string());
+                }
+            }
+            if !names.is_empty() {
+                let shown: Vec<&str> = names.iter().take(6).map(String::as_str).collect();
+                text.push_str(&format!(
+                    " Chalked on the stone, today's tally: {} came through{}{}.",
+                    names.len(),
+                    if names.len() == 1 {
+                        ": "
+                    } else {
+                        ", among them "
+                    },
+                    shown.join(", ")
+                ));
+            }
         }
         if key == "lower-stacks" && super::craft::carries(world, f.citizen, "lantern").is_none() {
             text.push_str(" Twenty rooms below, and the map of them fades as you walk them; a lantern in the hand (craft lantern) keeps it twice as long. Nothing lives on this landing: `where lamprey`, `where usher`, `where censor` say where each kind does.");
@@ -1610,9 +1695,10 @@ pub fn describe(
         .iter()
         .map(|(n, t)| json!({"name": n, "trace": t}))
         .collect();
-    // A dug room keeps the last few things said in it on its walls a while: what a
-    // visitor says there is part of the room, and the next visitor hears it.
-    if world.store.entity(room).is_some_and(|e| e.owner.is_some()) {
+    // A room keeps the last few things said in it on its walls a while: what a
+    // visitor says there is part of the room, and the next visitor hears it (R80:
+    // every room, not only the dug).
+    {
         let day_ago = world.now().0 - 24 * 3_600_000;
         let said: Vec<String> = world
             .recent_events(3000)

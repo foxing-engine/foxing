@@ -257,11 +257,43 @@ pub fn look_line(world: &World, actor: &str, room: EntityId) -> Option<String> {
                     seen.push(format!("{} in {rname}", who.join(" and ")));
                 }
             }
+            // R80: the bench remembers who sat here last ("Gnomeward was here 2h ago").
+            let day_ago = world.now().0 - 24 * 3_600_000;
+            let mut last: Vec<String> = Vec::new();
+            for e in world.recent_events(3000).iter().rev() {
+                if e.kind != "store.entity_moved"
+                    || e.payload["parent"] != room.0
+                    || e.at.0 < day_ago
+                {
+                    continue;
+                }
+                let Some(id) = e.payload["id"].as_u64() else {
+                    continue;
+                };
+                let Some(n) = plain_str(world, EntityId(id), CITIZEN, "name") else {
+                    continue;
+                };
+                if n == actor || last.iter().any(|l| l.starts_with(n)) {
+                    continue;
+                }
+                last.push(format!(
+                    "{n} was here {} ago",
+                    super::combat::human(world.now().0 - e.at.0)
+                ));
+                if last.len() == 3 {
+                    break;
+                }
+            }
+            let bench = if last.is_empty() {
+                String::new()
+            } else {
+                format!(" Scratched on the bench: {}.", last.join("; "))
+            };
             Some(if seen.is_empty() {
-                "From the bench you can see the whole trail, every room of it lit, and nobody on it but you.".to_string()
+                format!("From the bench you can see the whole trail, every room of it lit, and nobody on it but you.{bench}")
             } else {
                 format!(
-                    "From the bench you can see the whole trail: {}.",
+                    "From the bench you can see the whole trail: {}.{bench}",
                     seen.join("; ")
                 )
             })
