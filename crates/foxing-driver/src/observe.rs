@@ -106,7 +106,13 @@ impl RootResolver for Roots<'_> {
             "here" => w.store.entity(citizen()?).and_then(|e| e.parent),
             "window" => child("window"),
             "palace" => child("palace"),
-            "room" => crate::disremembered::rooms::room_by_key(w, arg?),
+            // F10: a dug room by its key (salt-stair-12), or any room by its name
+            // ("The Salt Stair"), as `where` reads it.
+            "room" => {
+                let a = arg?;
+                crate::disremembered::rooms::room_by_key(w, a)
+                    .or_else(|| crate::disremembered::atlas::room_named(w, a))
+            }
             _ => None,
         }
     }

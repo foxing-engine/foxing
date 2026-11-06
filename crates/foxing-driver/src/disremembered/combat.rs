@@ -1895,7 +1895,13 @@ pub fn register(world: &mut World, curves: Curves) {
                         )
                     })
                     .unwrap_or_default();
-                let where_ = format!("{where_}{refill}");
+                // F24: an empty room of the Stacks points at `where <kind>`.
+                let stacks_hint = if plain_str(w, room, super::ROOM, "key").is_some_and(|k| super::stacks::KEYS.contains(&k)) && here.is_empty() {
+                    " Nothing lives in this room of the Stacks; `where lamprey`, `where usher` or `where censor` says where each kind does."
+                } else {
+                    ""
+                };
+                let where_ = format!("{where_}{refill}{stacks_hint}");
                 let officers: Vec<String> = here.iter().filter(|c| super::mind::name(w, c.0).is_none() && plain_str(w, c.0, CREATURE, "name").is_some_and(|k| OFFICERS.contains(&k))).map(|c| super::mind::display(w, c.0)).collect();
                 return Err(CommandError::precondition(if here.is_empty() { format!("There is nothing here to fight.{where_}") } else if args.str("creature").map_or(true, str::is_empty) && !officers.is_empty() {
                     format!("Nothing here is struck by accident: {} {} an officer of the house, named in `attack` or left alone.", officers.join(" and "), if officers.len() == 1 { "is" } else { "are" })
@@ -1919,6 +1925,16 @@ pub fn register(world: &mut World, curves: Curves) {
                 }));
             };
             let cname = plain_str(w, creature, CREATURE, "name").unwrap_or("?").to_string();
+            // F23: beside a twin of its kind the lines say which one ("wisp-6351"),
+            // as `look` names them; the kind itself stays the memory's source.
+            let csaid = {
+                let twins = here.iter().filter(|o| o.1 == cname).count();
+                if twins > 1 && super::mind::name(w, creature).is_none() {
+                    format!("{cname}-{}", creature.0)
+                } else {
+                    cname.clone()
+                }
+            };
             // The one you were fighting is gone (felled by another hand, or it drifted
             // off): said, so two rounds of damage do not vanish without a word.
             if let Some(was) = engaged_with(w, f.citizen).filter(|&e| e != creature) {
@@ -1966,10 +1982,10 @@ pub fn register(world: &mut World, curves: Curves) {
             let turned = args.str("creature").map_or(true, str::is_empty) && began.is_some();
             let unsteady = if shaken(w, f.citizen).is_some() { ", your hand unsteady from the Threshold" } else { "" };
             let mut lines = vec![match (landed, turned) {
-                (false, true) => format!("You turn on the {cname} and miss{unsteady}."),
-                (false, false) => format!("You swing at the {cname} and miss{unsteady}."),
-                (true, true) => format!("You turn on the {cname} and hit it for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" }),
-                (true, false) => format!("You hit the {cname} for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" }),
+                (false, true) => format!("You turn on the {csaid} and miss{unsteady}."),
+                (false, false) => format!("You swing at the {csaid} and miss{unsteady}."),
+                (true, true) => format!("You turn on the {csaid} and hit it for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" }),
+                (true, false) => format!("You hit the {csaid} for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" }),
             }];
             if let Some(r) = retargeted.take() {
                 lines.insert(0, r);
@@ -2060,7 +2076,7 @@ pub fn register(world: &mut World, curves: Curves) {
 
             // It strikes back.
             let (taken, dead) = creature_strikes(w, creature, f.citizen).map_err(internal)?;
-            lines.push(format!("The {cname} ({} left) {}.", left_said(chp), hit_said(taken)));
+            lines.push(format!("The {csaid} ({} left) {}.", left_said(chp), hit_said(taken)));
             if dead {
                 let d = die(w, &ctx.actor, &f, Some(creature))?;
                 lines.push(format!("You go down.{}", d.said()));

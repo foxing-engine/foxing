@@ -2423,9 +2423,14 @@ pub fn register(world: &mut World, curves: Curves) {
                 }
             }
             if text.is_empty() {
+                // F11: a plaque with nothing on it still has a record (made of
+                // what, by whom, where it stands).
+                let record = super::past::read(w, item)
+                    .map(|r| format!(" The record: {r}"))
+                    .unwrap_or_default();
                 return Ok(Outcome::new(
-                    format!("{called} (item-{}) has nothing written on it{}.", item.0, maker.as_deref().map(|m| format!("; {m} made it and said nothing")).unwrap_or_default()),
-                    json!({"item": item.0, "name": called, "text": ""}),
+                    format!("{called} (item-{}) has nothing written on it{}.{record}", item.0, maker.as_deref().map(|m| format!("; {m} made it and said nothing")).unwrap_or_default()),
+                    json!({"item": item.0, "name": called, "text": "", "past": super::past::recital(w, item)}),
                 ));
             }
             // A book's lines were joined with " | " and signed " — hand": one per line.

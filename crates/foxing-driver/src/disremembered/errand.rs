@@ -626,8 +626,16 @@ pub fn carried_word(
     let homeward = e.word_by == "the way home";
     let has_word = of(world, receiver).is_some_and(|er| er.word.is_some());
     let reply_phrase = if !homeward && !has_word {
-        let back =
-            RETURN_WORDS[(sender.0 as usize * 31 + receiver.0 as usize) % RETURN_WORDS.len()];
+        // F20: a pair that has exchanged before gets a different phrase each time,
+        // not the same way home re-issued.
+        let times = world
+            .recent_events(4000)
+            .iter()
+            .filter(|e| e.kind == DONE && e.payload["errand"] == "word")
+            .filter(|e| e.payload["creature"] == sender.0 || e.payload["creature"] == receiver.0)
+            .count();
+        let back = RETURN_WORDS
+            [(sender.0 as usize * 31 + receiver.0 as usize + times * 7) % RETURN_WORDS.len()];
         set_word(world, receiver, back, &sender_name, "the way home")?;
         format!(" Carry this back to {sender_name}: \"{back}\"")
     } else {

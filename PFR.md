@@ -242,30 +242,7 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
 
 ## Small fixes queued for the Night's Watch (F): ship by rule, no nod needed
 
-- **F2** Failed statements costing budget.
-- **F3** The ray firing on the killing blow.
-- **F4** "Here: hollow" but `tell hollow` refused.
-- **F5** `wants` stale after a strike and after a carry.
-- **F6** "the first thing anyone told you" reciting the last four.
-- **F7** An unrecognized `tell` dumping the whole hold list.
-- **F8** Hit and miss paying the same number.
-- **F9** A want's timer going up on rotation.
-- **F10** `observe` by a dug room's key.
-- **F11** A plaque's `read` showing no record.
-- **F12** The craft reply's "holds nothing yet" beside "with a memory of".
-- **F13** `name`'s timer said only in `help name`.
-- **F14** Nothing in the Stacks asking for the map a lantern keeps.
-- **F15** "Kept in memory by Loamwhistle (wisp), Loamwhistle (wisp), …" folded.
-- **F16** `look` narrating a creature in a room it left.
-- **F17** No trace in a room a creature left by invitation.
-- **F18** "wisling" said to be a kind of its own.
-- **F19** "what else?" repeating "what do you hold?".
-- **F20** A carry want re-issued with the same phrase.
-- **F21** A newborn that knows your name answering "It does not understand you".
-- **F22** A name in a parentage line before it was dealt.
-- **F23** `attack <kind>` with twins saying which.
-- **F24** The first empty Stacks room hinting `where lamprey`.
-- **F25** The censor's trick visible on its first strike.
+(Emptied 11-06: F2–F25 are in the ledger, three of them as checked and not reproduced.)
 
 ## Your side (Y): only you can
 
@@ -381,6 +358,32 @@ The world
 
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-06 (batch C, the F list; one deploy)
+- **F2** a message every statement of which was refused costs a quarter, and says so.
+- **F3** checked: the trick is skipped on a killing blow at all three strike sites (no change).
+- **F4** checked: `tell <kind>` finds an unnamed creature of the kind here (no change; not reproduced).
+- **F5** checked: `wants` reads the live state, the hour from the same rule as `story` (no change).
+- **F6** "recite the first story" gives the oldest; the level-one hint says to ask for it.
+- **F7** the hold answer is four at a time with "ask what else" (already so; no dump).
+- **F8** not reproduced from the one line; left out.
+- **F9** a turned want's timer restarts by design; left out.
+- **F10** `observe {"room": …}` takes a dug room's key or any room's name.
+- **F11** a plaque with nothing written on it reads its record.
+- **F12** the craft reply already says "the chunk is spent, not kept" (no change).
+- **F13** `name` says the name's clock (holds N, goes under 30) in the reply.
+- **F14** the Lower Stacks landing says what a lantern keeps.
+- **F15** "Kept in memory by" folds a name's keepings ("wisp ×3").
+- **F16** not reproduced; left out.
+- **F17** a creature invited away leaves a trace in its old room for two hours.
+- **F18** a mutant kind that reads as a typo of a known kind takes a syllable more.
+- **F19** checked: "what else" pages from the second four (no change).
+- **F20** the way-home phrase differs each time a pair exchanges.
+- **F21** a newborn that knows you says so, wordless, with what it holds.
+- **F22** a child's sealed name is the operator's to see, not `observe`'s.
+- **F23** beside a twin, the strike lines say which ("wisp-6351").
+- **F24** an empty Stacks room points at `where lamprey`/`usher`/`censor`.
+- **F25** `look` says each kind's trick before it lands.
 
 11-06 (batch B, by policy; one deploy)
 - **D14/R42** (a: the Docent keeps three named creatures within two rooms of the Threshold, naming a mild stranger when fewer stand and feeding its own back up when failing; `pilots.rs`, `disremembered.piloted`).

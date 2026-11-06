@@ -6178,7 +6178,10 @@ fn a_made_thing_can_be_named_once_it_holds_sixty_and_a_fixture_stands_in_a_room_
         "name",
         json!(["Wick's Last Light", "lantern"]),
     );
-    assert_eq!(out.summary, "a lantern is Wick's Last Light now.");
+    assert_eq!(
+        out.summary,
+        "a lantern is Wick's Last Light now. The name is written in memory: it holds 70, and the name goes when that falls under 30 (remember chunks into it to keep it)."
+    );
     let out = ok(
         &mut w,
         "tyler",
@@ -6282,7 +6285,12 @@ fn a_made_thing_can_be_named_once_it_holds_sixty_and_a_fixture_stands_in_a_room_
     let book = made.result["item"].as_u64().unwrap();
     assert_eq!(craft::fixtures_in(&w, study).len(), 1);
     let out = ok(&mut w, "tyler", "name", json!(["The Study Book", "book"]));
-    assert_eq!(out.summary, "a visitor book is The Study Book now.");
+    assert!(
+        out.summary
+            .starts_with("a visitor book is The Study Book now."),
+        "{}",
+        out.summary
+    );
     w.record(
         foxing_log::Actor::Driver,
         StoreEvent::EntityMoved {

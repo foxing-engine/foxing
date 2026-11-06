@@ -246,12 +246,41 @@ pub fn try_birth(
                 } else {
                     others[world.roll(others.len() as u32) as usize].clone()
                 };
+                // F18: the new kind is built from the sender's own first syllable
+                // and a syllable of the third, and must not read as a typo of a
+                // kind that exists ("wisling" beside "wispling"): a near miss takes
+                // the receiver's last syllable too.
                 let syl = syllables(&third);
                 let extra = syl[world.roll(syl.len() as u32) as usize].clone();
-                kind = format!(
-                    "{}{extra}",
-                    syllables(&kind).first().cloned().unwrap_or_default()
-                );
+                let head = syllables(&sk).first().cloned().unwrap_or_default();
+                let known: Vec<String> = CREATURES
+                    .iter()
+                    .map(|d| d.key.to_string())
+                    .chain(std::iter::once(kind.clone()))
+                    .chain(
+                        world
+                            .store
+                            .entities()
+                            .filter(|e| e.kind == "creature")
+                            .filter_map(|e| {
+                                plain_str(world, e.id, CREATURE, "name").map(str::to_string)
+                            }),
+                    )
+                    .collect();
+                let near = |a: &str, b: &str| {
+                    a == b
+                        || (a.len().abs_diff(b.len()) <= 1
+                            && a.chars().zip(b.chars()).filter(|(x, y)| x != y).count() <= 1
+                            && a.len().min(b.len()) >= 4
+                            && (a.starts_with(&b[..b.len().min(3)])
+                                || b.starts_with(&a[..a.len().min(3)])))
+                };
+                let mut made = format!("{head}{extra}");
+                if known.iter().any(|k| near(&made, k)) {
+                    let tail = syllables(&rk).last().cloned().unwrap_or_default();
+                    made = format!("{head}{extra}{tail}");
+                }
+                kind = made;
                 mutation = Some(format!(
                     "a kind of its own, with something of the {third} in it"
                 ));

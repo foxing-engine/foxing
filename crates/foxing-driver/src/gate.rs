@@ -854,6 +854,21 @@ pub fn pass(
         }
     }
     let acted = matches!(intent, "REQUEST" | "QUERY");
+    // F2: a message every statement of which the world refused (a precondition, not
+    // a rule) did nothing, and costs what a refused message costs, not a whole one.
+    if !compiled
+        && !reads_only
+        && passed
+        && intent == "REQUEST"
+        && !outcomes.is_empty()
+        && outcomes.iter().all(|o| !o.ok)
+    {
+        budget.charge_cost(actor, now, budget.fail_cost - 1.0);
+        report.fact(
+            "Nothing in this message ran, so it cost what a refused one costs, not a whole message",
+            "budget",
+        );
+    }
     if matches!(via, Via::Gate | Via::Http) && !compiled {
         let left = budget.remaining(actor, now);
         // R47: the hour is a rolling one from the first charged message, and the

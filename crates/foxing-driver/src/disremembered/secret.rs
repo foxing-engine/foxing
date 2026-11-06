@@ -288,7 +288,7 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
         _ if lent => format!("There is a word under the others, and I do not say it. It is not mine; it is one of this world's own words, the kind the Threshold and the Fogbank are made of{}.", if level > 1 { ", the next of three" } else { "" }),
         1 if from == "wanted" => "There is a word under the others, and I do not say it. It was in something I wanted before you came, and have not forgotten; ask me what I wanted once.".to_string(),
         1 if born => "There is a word under the others, and I do not say it. It is the one that made me; whoever carried it knows it, and the record of my birth has it.".to_string(),
-        1 => "There is a word under the others, and I do not say it. It was in the first thing anyone told me; ask me what I hold.".to_string(),
+        1 => "There is a word under the others, and I do not say it. It was in the first thing anyone told me; ask me to recite the first story.".to_string(),
         2 if from == "told" => "The first was found. The next was in the first thing anyone told me; ask me to recite it.".to_string(),
         2 => "The first was found. The next is in something I wanted once, and have not forgotten.".to_string(),
         _ => "The last is around me. Look at where I stand.".to_string(),

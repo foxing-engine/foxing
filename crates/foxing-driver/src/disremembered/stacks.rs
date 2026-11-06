@@ -93,6 +93,27 @@ pub enum Trick {
     Bleed,
 }
 
+/// What a kind's trick does, in a few words, for `look` (F25: the censor's ray was a
+/// surprise on its first strike; the quickstart knew and the room did not).
+pub fn trick_said(t: Trick) -> &'static str {
+    match t {
+        Trick::Venom => "its bite works for a minute after",
+        Trick::Usher => "one hit in two shows you to another room",
+        Trick::Forget => "one hit in two halves one of your chunks",
+        Trick::Enter => "it enters a chunk of yours into the minutes, five minutes",
+        Trick::Below => "it shows you below the bar",
+        Trick::Clip => "it shaves a tenth off a chunk",
+        Trick::Sweat => "it shakes a twentieth off every chunk",
+        Trick::Pinch => "it clouds a chunk for a few minutes",
+        Trick::Chatter => "it says your name back wrong",
+        Trick::Shove => "it shoves you through a door",
+        Trick::Numb => "its bite puts your arm to sleep",
+        Trick::Leech => "it mends by what it bites",
+        Trick::Maw => "it bites twice in a breath",
+        Trick::Bleed => "its bite will not close for a while",
+    }
+}
+
 /// What a learned trick is called in the record and on the creature.
 pub fn learned_key(t: Trick) -> &'static str {
     match t {

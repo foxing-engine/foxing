@@ -1187,14 +1187,38 @@ pub fn describe(
             }
         }
         if let Some(kept) = root["components"][ROOM]["kept"].as_array() {
-            let keepers: Vec<String> = kept
+            // F15: one name, however many times it kept the room: "Loamwhistle
+            // (wisp ×3, hollow)", not the name three times over.
+            let mut by_name: Vec<(String, Vec<(String, usize)>)> = Vec::new();
+            for k in kept {
+                let Some(by) = k["by"].as_str() else { continue };
+                let with = k["with"].as_str().unwrap_or("something").to_string();
+                let entry = match by_name.iter_mut().find(|(n, _)| n == by) {
+                    Some(e) => e,
+                    None => {
+                        by_name.push((by.to_string(), Vec::new()));
+                        by_name.last_mut().unwrap()
+                    }
+                };
+                match entry.1.iter_mut().find(|(w, _)| *w == with) {
+                    Some(w) => w.1 += 1,
+                    None => entry.1.push((with, 1)),
+                }
+            }
+            let keepers: Vec<String> = by_name
                 .iter()
-                .filter_map(|k| {
-                    Some(format!(
-                        "{} ({})",
-                        k["by"].as_str()?,
-                        k["with"].as_str().unwrap_or("something")
-                    ))
+                .map(|(n, withs)| {
+                    let w: Vec<String> = withs
+                        .iter()
+                        .map(|(w, c)| {
+                            if *c > 1 {
+                                format!("{w} \u{d7}{c}")
+                            } else {
+                                w.clone()
+                            }
+                        })
+                        .collect();
+                    format!("{n} ({})", w.join(", "))
                 })
                 .collect();
             if !keepers.is_empty() {
@@ -1284,6 +1308,42 @@ pub fn describe(
     if let Some(ground) = super::craft::ground_line(world, room) {
         text.push(' ');
         text.push_str(&ground);
+    }
+    // F14: the Stacks are where the map matters and nothing there said so; a name
+    // without a lantern is told what one keeps, once a room.
+    if let Some(f) = super::find_citizen(world, actor) {
+        let key = root["components"][ROOM]["key"].as_str().unwrap_or("");
+        if key == "lower-stacks" && super::craft::carries(world, f.citizen, "lantern").is_none() {
+            text.push_str(" Twenty rooms below, and the map of them fades as you walk them; a lantern in the hand (craft lantern) keeps it twice as long. Nothing lives on this landing: `where lamprey`, `where usher`, `where censor` say where each kind does.");
+        }
+    }
+    // F17: a creature invited away leaves a trace here for two hours.
+    {
+        let now = world.now().0;
+        let gone: Vec<String> = world
+            .recent_events(3000)
+            .iter()
+            .filter(|e| e.kind == super::building::INVITED && e.payload["from"] == room.0)
+            .filter(|e| now - e.at.0 < 2 * 3_600_000)
+            .filter_map(|e| {
+                let p = &e.payload;
+                let to = p["room"].as_u64().map(EntityId)?;
+                Some(format!(
+                    "{} the {} left here for {} at {}'s invitation, {} ago",
+                    p["name"].as_str()?,
+                    p["kind"].as_str()?,
+                    plain_str(world, to, ROOM, "name").unwrap_or("elsewhere"),
+                    p["by"].as_str()?,
+                    super::combat::human(now - e.at.0)
+                ))
+            })
+            .collect();
+        if !gone.is_empty() {
+            text.push_str(&format!(
+                " {}.",
+                gone[gone.len().saturating_sub(2)..].join("; ")
+            ));
+        }
     }
     // R9: the Docent's tidying leaves a line in the room for two hours, so a thing
     // set down and gone is not a mystery (it was carried to the Threshold).
@@ -1385,7 +1445,11 @@ pub fn describe(
                 };
                 let learned = match super::death::learned_all_said(world, cid) {
                     Some(l) => format!("; {l}"),
-                    None => String::new(),
+                    // F25: a kind's own trick, said before it lands.
+                    None => match super::stacks::trick_of(world, cid) {
+                        Some(t) => format!("; {}", super::stacks::trick_said(t)),
+                        None => String::new(),
+                    },
                 };
                 // Hit points to one decimal (a timed value is a long float), trimmed.
                 let hp_said = |v: &Value| -> String {

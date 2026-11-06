@@ -138,6 +138,14 @@ pub fn register(world: &mut World) {
                     None => reply(w, creature, &ctx.actor, &text),
                 };
                 let Some(answer) = answer else {
+                    // F21: a newborn that knows you (you carried the word that made
+                    // it, or are its parent's keeper) is not a stranger, only wordless.
+                    if mind::keepers(w, creature).iter().any(|k| k == &ctx.actor) {
+                        return Ok(Outcome::new(
+                            format!("You say to the {name}, \"{text}\" It turns toward your voice as if it knew it, which it does; it has no name yet, and no words until it has one. It holds {:.0}; at sixty it answers.", super::up(mind::level(w, creature))),
+                            json!({"to": name, "text": text, "answered": false, "knows_you": true}),
+                        ));
+                    }
                     // R43: how one gets a name, in the same breath.
                     return Ok(Outcome::new(
                         format!("You say to the {name}, \"{text}\" It does not understand you. It is only {}; it {}. Only a named creature answers: feed one to sixty (`remember <chunk> {name}`) and it has a name and an ear.", super::mind::an(&name), super::mind::goes_on(&name)),
@@ -673,23 +681,33 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
             .filter(|w| w.len() > 3)
             .map(str::to_string)
             .collect();
-        let pick = told
+        // F6: "the first thing anyone told you" is the oldest, asked for by "first".
+        let pick = if asked
             .iter()
-            .rev()
-            .find(|(_, t)| {
-                let lt = t.to_lowercase();
-                asked.iter().any(|w| {
-                    ![
-                        "recite", "whole", "story", "tell", "again", "word", "full", "read",
-                        "please",
-                    ]
-                    .contains(&w.as_str())
-                        && lt.contains(w.as_str())
+            .any(|w| w == "first" || w == "earliest" || w == "oldest")
+        {
+            told.first().cloned()
+        } else {
+            None
+        }
+        .or_else(|| {
+            told.iter()
+                .rev()
+                .find(|(_, t)| {
+                    let lt = t.to_lowercase();
+                    asked.iter().any(|w| {
+                        ![
+                            "recite", "whole", "story", "tell", "again", "word", "full", "read",
+                            "please",
+                        ]
+                        .contains(&w.as_str())
+                            && lt.contains(w.as_str())
+                    })
                 })
-            })
-            .or_else(|| told.last())
-            .cloned()
-            .unwrap();
+                .cloned()
+        })
+        .or_else(|| told.last().cloned())
+        .unwrap();
         return Some(format!(
             "I hold it whole. {} told me: \"{}\"{}",
             pick.0,

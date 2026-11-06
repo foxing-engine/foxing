@@ -1042,9 +1042,14 @@ pub fn register(world: &mut World, curves: super::Curves) {
                     super::combat::narrate_others(w, f.citizen, &format!("{} names {kind} here: it is {name} now.", ctx.actor), &ctx.actor);
                 }
                 w.notice(format!("**{}** named {kind}: **{name}**.", ctx.actor));
+                // F13: the name's clock, said here and not only in `help name`.
+                let holds = super::craft::held(w, item);
                 return Ok(Outcome::new(
-                    format!("{kind} is {name} now."),
-                    json!({"item": item.0, "name": name, "kind": kind}),
+                    format!(
+                        "{kind} is {name} now. The name is written in memory: it holds {holds:.0}, and the name goes when that falls under {:.0} (remember chunks into it to keep it).",
+                        super::craft::NAME_LOST_BELOW
+                    ),
+                    json!({"item": item.0, "name": name, "kind": kind, "holds": holds, "name_lost_below": super::craft::NAME_LOST_BELOW}),
                 ));
             }
             may_edit(w, ctx, here)?;
