@@ -558,7 +558,9 @@ pub const ROOMS: &[RoomDef] = &[
         name: "The Sighing Meadow",
         description: "Long grass to the waist, moving in a wind you cannot feel, and the sound it makes is not quite a sigh and not quite your name. Butterflies the color of old envelopes keep landing on your shoulders and taking off again when you look.",
         exits: &[("south", "trail-stile"), ("north", "trail-picnic"), ("east", "trail-hollow-way")],
-        spawn: Some(("sigh", 3, 45)),
+        // Back in three minutes (D16): at forty-five seconds the meadow was a mine,
+        // ~80 XP a minute against the Fogbank's 15–30; a stop, not a mine.
+        spawn: Some(("sigh", 3, 180)),
         former: &[],
         tint: "#a8b878",
     },

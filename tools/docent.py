@@ -227,7 +227,7 @@ def context(q):
             f"{h.get('kind')}: {', '.join(h.get('rooms') or [])}" for h in homes))
     cv = q.get("conclave") or {}
     if cv:
-        lines.append("The Conclave, as it stands (answer from this when asked about petitions, divisions, the minutes or the statutes): upon the table: " + ("; ".join(cv.get("petitions") or []) or "nothing") + ". Decided lately: " + ("; ".join(cv.get("decided") or []) or "nothing yet") + f". The next division is in {int((cv.get('next_division_in_s') or 0) // 60)} minutes; a petition moves one stage a division (read into the minutes, referred to committee, reported or tabled, decided). The last page of the minutes: " + " / ".join(cv.get("last_page") or []))
+        lines.append("The Conclave, as it stands (answer from this when asked about petitions, divisions, the minutes or the statutes; it divides at half past each hour and is slow on purpose: a petition is laid and come back to, not waited on, and it decides in a few hours and finds the petitioner wherever they are): upon the table: " + ("; ".join(cv.get("petitions") or []) or "nothing") + ". Decided lately: " + ("; ".join(cv.get("decided") or []) or "nothing yet") + f". The next division is in {int((cv.get('next_division_in_s') or 0) // 60)} minutes; a petition moves one stage a division (read into the minutes, referred to committee, reported or tabled, decided). The last page of the minutes: " + " / ".join(cv.get("last_page") or []))
     record = q.get("record") or []
     if record:
         lines.append("The asker's record up to the moment they asked, oldest first (answer from this, not from the room as it stands now):\n  " + "\n  ".join(record))

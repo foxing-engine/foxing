@@ -75,7 +75,7 @@ impl Curves {
     }
 
     /// How much longer a chunk lasts for its vividity: 1x at 0, 3x at 1.
-    fn stretch(vividity: f64) -> f64 {
+    pub fn stretch(vividity: f64) -> f64 {
         1.0 + 2.0 * vividity.clamp(0.0, 1.0)
     }
 

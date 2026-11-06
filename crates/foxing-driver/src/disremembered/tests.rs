@@ -251,13 +251,15 @@ fn a_fight_earns_a_chunk_whose_vividity_is_how_close_you_came() {
 
     // Attack follows the square root of level: a few hundred XP is a fighter, not
     // a one-hit killer of everything below the Archive.
-    assert_eq!(combat::attack_for_level(0.0), 3.0);
-    assert_eq!(combat::attack_for_level(100.0), 13.0);
-    assert_eq!(combat::attack_for_level(2000.0), 47.0);
-    assert_eq!(combat::attack_for_level(6000.0), 80.0);
+    // D11: from a lower base and slower (2 + 0.6√level), so two wisp chunks do not
+    // make a name that one-cycles every hollow.
+    assert_eq!(combat::attack_for_level(0.0), 2.0);
+    assert_eq!(combat::attack_for_level(100.0), 8.0);
+    assert_eq!(combat::attack_for_level(2000.0), 28.0);
+    assert_eq!(combat::attack_for_level(6000.0), 48.0);
     assert_eq!(
         ok(&mut w, "dave", "chunks", json!([])).result["attack"],
-        json!(6.0)
+        json!(4.0)
     );
 }
 
@@ -1942,6 +1944,8 @@ fn a_remembered_creature_earns_a_name_can_be_robbed_and_forgets_again() {
     assert_eq!(tiers[0].payload["to"], 1);
     // A stranger is told who it knows.
     login(&mut w, "mara", "test", PASS).unwrap();
+    // A robber with some level: at 2 + 0.6√level a fresh name cannot rob a ragpicker.
+    admin(&mut w, "mara", "earn", json!(["hollow", 120, 0.5]));
     ok(&mut w, "mara", "travel", json!(["east"]));
     ok(&mut w, "mara", "travel", json!(["south"]));
     let look = ok(&mut w, "mara", "look", json!([]));
@@ -6893,7 +6897,7 @@ fn a_creature_learns_from_its_kills_from_irritating_to_painful() {
         out.summary
     );
     assert!(
-        out.summary.contains("your arm still asleep") || out.summary.contains("hit it for"),
+        out.summary.contains("your arm still asleep") || out.summary.contains("hit it for") || out.summary.contains("miss"),
         "{}",
         out.summary
     );

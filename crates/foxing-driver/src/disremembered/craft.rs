@@ -1881,7 +1881,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     if r.fixed { " (a fixture)" } else { "" },
                     r.by.as_deref().map(|b| format!(" (a recipe {b} wrote)")).unwrap_or_default(),
                     r.of.join(" and "),
-                    if r.chunk_at_least > 0.0 { format!(" and a chunk worth {asks:.0} or more{}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else { String::new() },
+                    if r.chunk_at_least > 0.0 && r.fixed { format!(" and a chunk (any; one worth {asks:.0} or more makes it last longest){}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else if r.chunk_at_least > 0.0 { format!(" and a chunk worth {asks:.0} or more{}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else { String::new() },
                     r.does.trim_end_matches('.'),
                     if can { " You could make this now.".to_string() } else if !missing.is_empty() { format!(" You lack {}.", missing.join(" and ")) } else { " You lack the memory to spend.".to_string() }
                 ));
@@ -2141,7 +2141,10 @@ pub fn register(world: &mut World, curves: Curves) {
                     .and_then(|v| v.as_f64())
                     .unwrap_or(0.0);
                 let asks = r.chunk_at_least * super::economy::rate(w, "price");
-                if worth < asks {
+                // A fixture asks a chunk, not a chunk worth N (D12): what the chunk is
+                // worth sets how long the fixture is remembered instead, so a first
+                // session's best fight lights a lamp that lasts an evening.
+                if worth < asks && !r.fixed {
                     return Err(CommandError::precondition(format!(
                         "Chunk {} is worth {worth:.2}; {} takes {asks:.0} or more at today's prices.",
                         chunk.0, r.name
@@ -2179,12 +2182,24 @@ pub fn register(world: &mut World, curves: Curves) {
                 r.uses,
                 r.fixed,
             )?;
+            let mut life_line = String::new();
             if r.fixed {
                 // What was spent is what it holds at the start, so a book made of a
-                // sixty can be named at once.
+                // sixty can be named at once; and how long it stands: a chunk worth
+                // what the recipe asks (or more) lasts the longest the palace curve
+                // gives, a lesser one in proportion, a tenth at least (D12).
+                let asks = (r.chunk_at_least * super::economy::rate(w, "price")).max(1.0);
+                let life = (spent_worth / asks).clamp(0.1, 1.0);
                 let mut changes = BTreeMap::new();
                 changes.insert("held".into(), Field::Timed(TimedValue::new(spent_worth, w.now(), curves.palace(0.5))));
+                changes.insert("memory".into(), Field::Timed(TimedValue::new(1.0, w.now(), curves.palace(life))));
                 set_item_fields(w, Actor::Citizen(ctx.actor.clone()), item, changes)?;
+                let hl = curves.active_half_life.0 as f64 * 5.0 * super::Curves::stretch(life);
+                life_line = format!(
+                    " It will be remembered about {} before it is swept{}.",
+                    super::combat::human(hl as i64),
+                    if life < 1.0 { format!(" (a chunk worth {asks:.0} or more would have made it last longest)") } else { String::new() }
+                );
             }
             if r.effect != r.key {
                 let mut changes = BTreeMap::new();
@@ -2221,7 +2236,7 @@ pub fn register(world: &mut World, curves: Curves) {
                         Some(by) => format!("In {by}'s words, {}.", r.does.trim_end_matches('.')),
                         None => format!("It {}.", r.does.trim_end_matches('.')),
                     },
-                    if r.fixed { format!(" It stands here, holding {spent_worth:.0}; name it (name \"…\" item-{}) once it holds {NAME_AT:.0}, describe it, remember chunks into it so it lasts.", item.0) } else if tier_now >= 3 { String::new() } else if spent.is_some() { format!(" The chunk is spent, not kept: it holds nothing yet. Remember chunks into it (remember chunk-N item-{}) and at {NAME_AT:.0} it takes a name.", item.0) } else { format!(" It holds nothing yet; remember chunks into it (remember chunk-N item-{}) and at {NAME_AT:.0} it takes a name.", item.0) },
+                    if r.fixed { format!(" It stands here, holding {spent_worth:.0}; name it (name \"…\" item-{}) once it holds {NAME_AT:.0}, describe it, remember chunks into it so it lasts.{life_line}", item.0) } else if tier_now >= 3 { String::new() } else if spent.is_some() { format!(" The chunk is spent, not kept: it holds nothing yet. Remember chunks into it (remember chunk-N item-{}) and at {NAME_AT:.0} it takes a name.", item.0) } else { format!(" It holds nothing yet; remember chunks into it (remember chunk-N item-{}) and at {NAME_AT:.0} it takes a name.", item.0) },
                     raised.unwrap_or_default()
                 ),
                 json!({"item": item.0, "name": r.name, "recipe": r.key, "of": used_names, "spent": spent.map(|c| c.0), "tier": tier_now, "given_name": plain_str(w, item, ITEM, "given_name")}),

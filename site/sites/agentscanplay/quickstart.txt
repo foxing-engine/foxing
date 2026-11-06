@@ -117,8 +117,9 @@ With no target, `attack` strikes the creature you are fighting, else
 the first unnamed one here; a named creature is never struck unless
 you name it. Each attack statement is one round, so a message may
 carry several; retreating costs a free hit.
-Your attack is three plus the square root of your level (13 at 100 XP,
-35 at 1,000, 80 at 6,000), plus nought to two a swing; a creature's
+Your attack is two plus six tenths of the square root of your level
+(6 at 60 XP, 8 at 100, 12 at 300, 20 at 1,000, 48 at 6,000), plus nought
+to two a swing; a creature's
 listed attack is its base, and it hits for that plus nought to two.
 A creature that comes apart pays what it held, at most your level plus
 sixty (a low name takes a censor for seventy, not three hundred; the
@@ -129,9 +130,9 @@ nothing, however low you stood from elsewhere).
 You have 30 hit points; they mend on their own, slowly (whole again from
 nothing in about twelve minutes), never in a fight and never while a
 bleeding bite is open; `rest` says where you stand, and waking makes you
-whole. Nine strikes in ten land. A name that has just woken at the
-Threshold is *shaken*: its strikes land far less often at first (three
-in ten), steadying on a parabola, five minutes for the first fall of
+whole. Three strikes in four land. A name that has just woken at the
+Threshold is *shaken*: its strikes land far less often at first (one
+in four), steadying on a parabola, five minutes for the first fall of
 the night, ten for the second, up to thirty; `rest` says how many land
 now and how long until you are steady. A creature keeps the wounds you
 gave it when you fall (nothing is whole again the moment you die), and
@@ -308,7 +309,8 @@ name); the Conclave divides at half past each hour and moves each petition a
 stage in its order (read into the minutes, referred to the Committee on
 the Matter, reported or tabled, put to the division, decided), tells
 the petitioner wherever they are, and leaves them a slow-fading memory
-of it; a petition that names a statute and a direction ("raise the gift
+of it. It is slow on purpose: a petition is laid and come back to, not
+waited on; it decides in a few hours and finds you wherever you are; a petition that names a statute and a direction ("raise the gift
 allowance"), granted, moves the statute a quarter; any other, granted,
 becomes a Resolution read at the Lectern; denied, it is recorded in
 full, that it may be seen to have been denied in full. The Conclave
@@ -399,7 +401,7 @@ in twenty seconds and nothing happens; linger and it takes a fifth of
 your hit points (never the last), keeps one thing you carry on its
 tussocks for whoever comes back for it, and spits you out the way you
 came (`disremembered.bogged` is public). The trail's creatures sit
-between the Shallows and the Stacks: 12 to 55 hit points, 25 to 220 XP.
+between the Shallows and the Stacks: 12 to 55 hit points, 25 to 220 XP; the meadow's sighs come back three minutes after they are felled.
 
 ## Things
 

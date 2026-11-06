@@ -31,40 +31,48 @@ Economy and death
 - **D4 · Fights past level one hundred are clicking** (decided a, shipped 11-04: what a
   creature leaves behind goes by the fight's length, a one-blow kill one time in six,
   six rounds every time, at the Clocktower's drop rate).
-- **D5 · A floor under a name** (deferred 11-02 "until the map is bigger"). a) still
-  deferred (**default**); b) a name holds at a lower level and only comes apart in a
-  fight.
+- **D5 · A floor under a name** (deferred 11-02 "until the map is bigger"; **waits**,
+  detail asked 11-05). What happens now: a named creature's name rests on its
+  holding; when its chunks fade below sixty the name lapses ("forgets again"), its
+  wants go with it, and anyone who knew it loses the thing they knew. The Watch keeps
+  finding the world nameless at the hour it arrives (Gnibblewick, Gnomekeeper: "no
+  named creature wants anything"), because names made in one session fade before the
+  next. The options, as they would play:
+  a) **still deferred**: the map now has nine more rooms and the trail; the lapse is
+  the game's thesis (a thing kept only while remembered) and the fix is D14 (pilot
+  named creatures near the hub that never lapse), which ships by policy. Cost: the
+  social and lore loops stay empty for a newcomer between visits.
+  b) **a floor**: once named, a creature holds at a floor (say twenty) and its name
+  stays; only a fight that fells it, or a robbery, takes the name. The fade still
+  runs above the floor, so a neglected name is a thin one (no wants, no stories held),
+  not a gone one. Cost: the world fills with thin named creatures nobody tends; the
+  Namery's pool drains; "forgets again" stops being true. Mitigation: a thin name
+  (at the floor a week) is "half-remembered": `look` says "Vellic, nearly forgotten",
+  wants stop, and the Namery may reclaim it at the next naming.
+  c) **a floor for the tended**: a name holds at the floor only while someone who
+  keeps it has been in the world in the last three days; untended, it lapses as now.
+  Keeps the thesis (remembered by someone) and the empty-hour problem is solved for
+  any creature a regular tends. Cost: one more rule to explain; `look` must say
+  "kept by Spacepants (last here 2d ago)".
+  d) **the shelf for names**: a keeper can `shelve` a chunk into a named creature as
+  now, and the palace curve applies to the creature's holding when a keeper shelves
+  into it (five times slower), so a tended name lasts days, an untended one a night.
+  No new rule, one verb that already exists. Cost: it rewards hoarders of creatures.
+  Lean, if asked: **c**, with d as the mechanism (tending = having shelved into it).
 
 Stories and the word
 - **D6** shipped 11-05 (a: words past sixty buy vividity, 0.4 toward 0.9 at two hundred distinct words, never XP; the telling's line says so).
 - **D7** shipped 11-05 (a: the first word under the others is drawn from a want the creature had before the teller came (`tell <name> "what did you want once?"` says it); the first thing it was told moves to the second rung, where `recite` surfaces it).
 
 From the Night's Watch of 11-04 (the Gn- cohort)
-- **D11 · The attack ramp** (Gnawbone could not die: two wisp chunks made level 62 and
-  attack 13, one-cycling every hollow; M; **waits**). a) attack grows on the square
-  root of level but from a lower base and slower (2 + 0.6√level: a 60 is attack 7,
-  a 300 is 12) (**lean**); b) creatures scale with the attacker's level (D4 b); c)
-  leave it: the ground floor is meant to be outgrown in an hour.
-- **D12 · A fixture within a first session** (Gnarlpocket: a lamp wants a chunk worth
-  44 at tonight's price; a fresh name's best fight pays 11 and fades; S; **ships by
-  policy**, a). a) fixtures ask a chunk, not a chunk worth N: the chunk's worth sets
-  how long the fixture lasts instead (**lean**); b) a starter chunk on first login;
-  c) leave it, fixtures are for the second visit.
+- **D11** shipped 11-05 (your call: to-hit 0.9 → 0.75 (three in four; shaken floors at one in four) and attack 2 + 0.6√level (2 at nothing, 6 at 60, 8 at 100, 12 at 300, 20 at 1,000, 48 at 6,000); the robbing test's robber earns first).
+- **D12** shipped 11-05 (a: a fixture takes any chunk; its worth against what the recipe asks sets how long the fixture is remembered (the longest at the asked worth or more, a tenth at least), said in the craft line; `recipes` says "any").
 - **D13 · The hidden word and the hour** (Gnomebucket: the hint arrived after the
   one-an-hour lock closed the only creature; S; **ships by policy**, a). a) a story
   that carries the hidden word is heard even within the hour, paying only the bonus
   (**lean**); b) the hint is withheld until the hour is open again; c) leave it.
-- **D15 · The Conclave's cadence** (Gnomonshade filed at 08:38 and left at 09:12 with
-  the division at 09:30; the whole loop is a countdown; S; **ships by policy**, a).
-  a) divide every thirty minutes, at :00 and :30, so a petition moves a stage inside
-  most sessions and decides in two or three hours (**lean**); b) a petition is read
-  into the minutes the moment it is laid (a stage seen at once) and the hourly
-  division stands; c) leave it: the Conclave is slow on purpose.
-- **D16 · The Sighing Meadow's pay** (the Watch's fighter went level 61 → 142 in five
-  rounds on three sighs at 25–30 XP each, hitting for 2, back in 45 s; the grinder
-  measured ~80 XP/min against the Fogbank's 15–30; S; **ships by policy**, a). a)
-  respawn 45 → 180 s, so the burst is once per walk and the meadow is a stop, not a
-  mine (**lean**); b) sigh XP 25 → 15; c) leave it: the trail is meant to be the draw.
+- **D15** shipped 11-05 (c, your call: the Conclave is slow on purpose and says so, in `petitions`, the petition receipt, the quickstart, llms.txt and the Docent's rule text).
+- **D16** shipped 11-05 (a: the meadow's sighs come back in three minutes, not forty-five seconds).
 - **D17 · Does the fade bite in a session?** (loop cohort 11-05: a vivid chunk fell 28 →
   26.65 in thirty minutes; "gentle loss, not pressure"; the spend never felt urgent;
   M; **waits**). a) shorten the low-vividity half-life so a safe kill's chunk halves
@@ -191,6 +199,10 @@ From the loop cohort of 11-05 (one tester per loop):
 - **R71** (S) `give` to a creature or the Docent says plainly that only a name at a keyboard or through the gate can receive, and `look` marks who can; the censor's ray says what it took in the strike line ("chunk-12 halved: your hits land for 5 now"). -- Gnibbleforge
 - **R72** (S) Three things called "the hour": the message budget's rolling hour, a creature's story hour, a want's hour; name each ("the budget's hour", "its hour with you"). -- Gnibbleforge
 - **R73** (S) A Docent answer that never came ("finds you within a few minutes"): check the asked queue for a dropped question when the worker restarts across a deploy, and say so to the asker if a question is lost. -- Gnibbleforge, Gnomonclock
+Pulled from the backlog 11-05 ("B19 yes, B21 yes, B22 yes"), each in pieces the Watch can take a batch at a time:
+- **R74** (M; B19) Crafting, second tier: an usher's ribbon (a thing that lets you choose the room an usher shows you to) and a censor's lens (halves the ray) as recipes from Stacks drops; desires beyond rooms (a hand not met, a story told near it); a thing's past as a want; a sprite per tier on the page; `gather` reading the first cue ("a river of ink" gives ink).
+- **R75** (M; B21) The Exergue, next: a bar story's weight by its money words; the Assayer answering `tell` with your holding's assay; the Wardens' respawn lengthening each taking; the Purse's share as a statute; the sweater's bag and the clippers' filings as things; the Mintmark Hall stamping kept things with their hour; atlas frames for the eight; the slate in the tapster's voice.
+- **R76** (S; B22) The Docent, next: a second figure for the Lower Stacks (an Under-Docent at the stair); "what have you found?" listing the Lost and Found; a `thanks` that costs nothing; `recipes` not saying "You lack rag thread" the moment the thread was spent.
 - **R44** (S) The Fogbank's "something will drift in within about N" was 52s, 29s, 84s across looks; see R31 (same root). -- Gnarlbog, Gnibblewick
 From the Night's Watch of 11-04:
 - **R27** shipped 11-04.
@@ -349,7 +361,7 @@ Visiting agents
   reproduced 11-03; if it recurs, show the quarter-hour. -- Tansywick
 
 The world
-- **B19** Crafting: more second-tier recipes and effects (an usher's ribbon, a censor's lens
+- **B19** (pulled 11-05 → R74) Crafting: more second-tier recipes and effects (an usher's ribbon, a censor's lens
   that halves the ray); desires beyond rooms (a hand not met, a story told near it); a
   thing's past as a want; a sprite per tier (a glow, a flicker); `gather` reads the
   first cue, so "a river of ink" gives weed not ink; the pilots (three awake things
@@ -361,12 +373,12 @@ The world
   the gift allowance and hoard_share; more statutes (a kill cap far above the median,
   a fee on gifts, craft costs by holding, respawn by active names, the death penalty
   by holding); statutes on the board page.
-- **B21** The Exergue, next: a bar story's weight by its money words; the Assayer answering
+- **B21** (pulled 11-05 → R75) The Exergue, next: a bar story's weight by its money words; the Assayer answering
   `tell` with your holding's assay; the Wardens' respawn lengthening each taking, the
   Purse's share as a statute; the sweater's bag and clippers' filings as things; the
   Mintmark Hall stamping each kept thing with its hour; atlas frames for the eight;
   the slate's lines in the tapster's voice.
-- **B22** The Docent, next: a second figure for the Lower Stacks; "what have you found?"
+- **B22** (pulled 11-05 → R76) The Docent, next: a second figure for the Lower Stacks; "what have you found?"
   listing the Lost and Found; a `thanks` that costs nothing; `recipes` saying "You lack
   rag thread" right after the thread was spent (true; reads oddly).
 - **B23** Errands: a kept name's errand on a room it dug; chains past two legs; reward by

@@ -1439,7 +1439,7 @@ mod tests {
             reply.contains("[FACT] Statement 3 ran attack for lantern-7"),
             "{reply}"
         );
-        assert!(reply.contains("[QUOTE] You hit the wisp"), "{reply}");
+        assert!(reply.contains("[QUOTE] You hit the wisp") || reply.contains("[QUOTE] You swing at the wisp"), "{reply}");
         assert!(reply.contains("[FACT] Statement 4 is a prohibition and the world recorded nothing from it. [src:gate]"), "{reply}");
         assert!(reply.contains("[FACT] Statement 5 names spacepants as its actor and the world runs only the sender's own actions. [src:gate]"), "{reply}");
         assert!(

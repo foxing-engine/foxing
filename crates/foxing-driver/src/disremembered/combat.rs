@@ -262,13 +262,13 @@ pub const CREATURES: &[CreatureDef] = &[
 ];
 
 /// Base damage per round before the level bonus.
-const BASE_ATTACK: f64 = 3.0;
-/// Attack grows with the square root of level: 3 at nothing, 13 at 100, 20 at 300,
-/// 35 at 1,000, 48 at 2,000, 80 at 6,000. It was a tenth of level, and a name with a
-/// few hundred XP felled everything in the Lower Stacks in one hit; a hoard of six
-/// thousand would have hit for six hundred. The curve keeps the first hundred XP
-/// as they were and bends the rest.
-const ATTACK_PER_ROOT_LEVEL: f64 = 1.0;
+pub const BASE_ATTACK: f64 = 2.0;
+/// Attack grows with the square root of level, from a low base and slowly (D11): 2
+/// at nothing, 6 at 60, 8 at 100, 12 at 300, 20 at 1,000, 48 at 6,000. It was
+/// 3 + √level, and two wisp chunks made a level 62 that one-cycled every hollow
+/// and could not die. Before that it was a tenth of level, and a name with a few
+/// hundred XP felled everything in the Lower Stacks in one hit.
+pub const ATTACK_PER_ROOT_LEVEL: f64 = 0.6;
 /// On death, the share of the window that goes, on a curve of level: half of
 /// `level / (level + DEATH_SCALE)`, so a name holding ten loses almost nothing (a
 /// newcomer may zombie-rush a censor once), one holding three hundred loses a quarter,
@@ -776,12 +776,13 @@ pub const SUCCOR_BELOW: f64 = 0.5;
 /// succor or home: `{creature, name, from, to, via, why}`. Public.
 pub const SUCCORED: &str = "disremembered.succored";
 
-/// Striking: a strike lands [`HIT_BASE`] of the time, less while shaken.
-pub const HIT_BASE: f64 = 0.9;
+/// Striking: a strike lands [`HIT_BASE`] of the time, less while shaken. Three in
+/// four (D11; it was nine in ten).
+pub const HIT_BASE: f64 = 0.75;
 /// A name that just woke at the Threshold is shaken: its strikes land this much less
 /// often at the moment of waking, the penalty falling on a parabola to nothing
 /// as the shaking passes (half gone at three tenths of the time).
-pub const SHAKEN_PENALTY: f64 = 0.6;
+pub const SHAKEN_PENALTY: f64 = 0.5;
 /// How long the shaking lasts: this per fall of the night, so a name that keeps
 /// dying is shaken longer each time, up to [`SHAKEN_MAX_MS`].
 pub const SHAKEN_PER_FALL_MS: i64 = 5 * 60 * 1000;
@@ -1887,7 +1888,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 began = Some(clock_line(w, creature, &ctx.actor));
             }
 
-            // You strike: nine in ten land, fewer while you are shaken from a fall.
+            // You strike: three in four land, fewer while you are shaken from a fall.
             let level = super::memory::level(w, f.window);
             let hit_chance = to_hit(w, f.citizen);
             let landed = (w.roll(100) as f64) < hit_chance * 100.0;

@@ -756,7 +756,7 @@ fn file(
     };
     Ok(Outcome::new(
         format!(
-            "The machine gives out a ticket: number {ticket}. Your petition is received and lies upon the table: \"{text}\".{about}{standing} The Conclave divides at half past each hour (not the Clocktower's strike on the hour, which is another clock) and takes it up in its order, a stage at a time: {}; `petitions` says where it stands. The Conclave always decides, eventually, and will tell you wherever you are.",
+            "The machine gives out a ticket: number {ticket}. Your petition is received and lies upon the table: \"{text}\".{about}{standing} The Conclave divides at half past each hour (not the Clocktower's strike on the hour, which is another clock) and takes it up in its order, a stage at a time: {}; `petitions` says where it stands. It is slow on purpose: lay it, go about the world, and the Conclave will find you with its answer, in a few hours, wherever you are.",
             STAGES[1..].join(", then ")
         ),
         json!({"ticket": ticket, "text": text, "stage": 0, "next_division": next_division(world)}),
@@ -857,7 +857,7 @@ fn table(world: &World, actor: &str) -> Outcome {
         }
     }
     lines.push(format!(
-        "The Conclave divides {} (the division, at half past each hour; the Clocktower's strike on the hour is another clock) and sits at midnight. It always decides, eventually.",
+        "The Conclave divides {} (the division, at half past each hour; the Clocktower's strike on the hour is another clock) and sits at midnight. It is slow on purpose: a petition is a thing you lay and come back to, not a thing you wait on, and it always decides, eventually, and tells you wherever you are.",
         in_said(world, next_division(world))
     ));
     Outcome::new(
