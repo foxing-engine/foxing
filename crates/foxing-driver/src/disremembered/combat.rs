@@ -259,7 +259,30 @@ pub const CREATURES: &[CreatureDef] = &[
     CreatureDef { key: "picnicker", name: "picnicker", hp: 30.0, attack: 5.0, xp: 100.0, aggressive: false, strike_seconds: 10, ambush: "sets down the teapot. \"You're late,\" it says, with no mouth to say it with.", glyph: "p", tint: "#d8b890" },
     CreatureDef { key: "longsight", name: "longsight", hp: 40.0, attack: 6.0, xp: 160.0, aggressive: false, strike_seconds: 9, ambush: "unfolds a neck as long as the hill and looks at you from very close.", glyph: "L", tint: "#9ab0c8" },
     CreatureDef { key: "gardener", name: "gardener", hp: 55.0, attack: 7.0, xp: 220.0, aggressive: false, strike_seconds: 9, ambush: "straightens from the border with the shears, and the shadow of the stuck sun does not move.", glyph: "G", tint: "#6a8a4a" },
+    // X5 (11-06): the library's own, on the floors between the door and the Stacks.
+    // Each is as strong as what it holds (`rescale`), never as strong as you.
+    CreatureDef { key: "lanternfly", name: "lanternfly", hp: 5.0, attack: 1.0, xp: 10.0, aggressive: false, strike_seconds: 12, ambush: "comes off a lantern and bumps you, once, as if by mistake.", glyph: "l", tint: "#f0d890" },
+    CreatureDef { key: "bookworm", name: "bookworm", hp: 9.0, attack: 2.0, xp: 25.0, aggressive: false, strike_seconds: 11, ambush: "lifts its head out of a returned book, and the hole in the page is the shape of a sentence.", glyph: "w", tint: "#c8b890" },
+    CreatureDef { key: "silverfish", name: "silverfish", hp: 7.0, attack: 2.0, xp: 20.0, aggressive: false, strike_seconds: 8, ambush: "runs out from between two cards, and the cards are blank where it was.", glyph: "s", tint: "#c0c8d0" },
+    CreatureDef { key: "dust devil", name: "dust devil", hp: 12.0, attack: 3.0, xp: 35.0, aggressive: true, strike_seconds: 10, ambush: "comes up the stair as a column of grey and does not stop for you.", glyph: "D", tint: "#9a9280" },
+    CreatureDef { key: "shelf mouse", name: "shelf mouse", hp: 10.0, attack: 2.0, xp: 30.0, aggressive: false, strike_seconds: 9, ambush: "looks up from a glove it has been living in and says something that is nearly your name.", glyph: "m", tint: "#8a7a6a" },
+    CreatureDef { key: "custodian", name: "custodian", hp: 40.0, attack: 7.0, xp: 150.0, aggressive: true, strike_seconds: 9, ambush: "stands up from behind the counter with a ledger in one hand and the other hand empty, and the empty one is the one to watch.", glyph: "C", tint: "#5a5a6a" },
 ];
+
+/// A kind's plural: silverfish, shelf mice, lanternflies, wisps.
+pub fn plural(kind: &str) -> String {
+    if kind.ends_with("fish") {
+        kind.to_string()
+    } else if let Some(stem) = kind.strip_suffix("mouse") {
+        format!("{stem}mice")
+    } else if let Some(stem) = kind.strip_suffix("fly") {
+        format!("{stem}flies")
+    } else if kind.ends_with('s') || kind.ends_with("sh") || kind.ends_with("ch") {
+        format!("{kind}es")
+    } else {
+        format!("{kind}s")
+    }
+}
 
 /// Base damage per round before the level bonus.
 pub const BASE_ATTACK: f64 = 2.0;
@@ -428,7 +451,9 @@ pub fn fill(world: &mut World, room: EntityId) -> Result<usize, StoreError> {
         .iter()
         .filter(|c| super::mind::name(world, c.0).is_none())
         .count();
-    let count = if have < count && world.roll(6) == 0 {
+    // Not from empty: a boot fills every room to its figure exactly (the test worlds
+    // count on it), and the extra comes on a refill of a room partly cleared.
+    let count = if have > 0 && have < count && world.roll(6) == 0 {
         count + 1
     } else {
         count
@@ -473,6 +498,40 @@ pub fn fill(world: &mut World, room: EntityId) -> Result<usize, StoreError> {
     Ok(spawned)
 }
 
+/// X5: a creature is as strong as what it holds. Its hit points and attack grow
+/// with its own level (the memory in it), never with the visitor's: a wisp fed to
+/// its name is a harder fight than a wisp, and a richer kill. Hit points scale from
+/// the figure it was spawned with (kept as `base_hp`), by a half at 75 and double
+/// at 150; attack by one for every 75 held. The wound keeps its proportion.
+pub fn rescale(world: &mut World, creature: EntityId) -> Result<(), CommandError> {
+    let Some(kind) = plain_str(world, creature, CREATURE, "name").map(str::to_string) else {
+        return Ok(());
+    };
+    let Some(d) = def(&kind) else { return Ok(()) };
+    let level = super::mind::level(world, creature);
+    let old_max = plain_num(world, creature, CREATURE, "max_hp").unwrap_or(d.hp);
+    let base = plain_num(world, creature, CREATURE, "base_hp");
+    let base_hp = base.unwrap_or(old_max);
+    let new_max = (base_hp * (1.0 + level / 150.0)).round();
+    let new_attack = d.attack + (level / 75.0).floor();
+    let attack = plain_num(world, creature, CREATURE, "attack").unwrap_or(d.attack);
+    if base.is_some() && (new_max - old_max).abs() < 0.5 && (attack - new_attack).abs() < 0.5 {
+        return Ok(());
+    }
+    let hp = plain_num(world, creature, CREATURE, "hp").unwrap_or(old_max);
+    let new_hp = if old_max > 0.0 {
+        ((hp * new_max / old_max) * 10.0).round() / 10.0
+    } else {
+        new_max
+    };
+    let mut changes = BTreeMap::new();
+    changes.insert("base_hp".into(), Field::Plain(json!(base_hp)));
+    changes.insert("max_hp".into(), Field::Plain(json!(new_max)));
+    changes.insert("hp".into(), Field::Plain(json!(new_hp.min(new_max))));
+    changes.insert("attack".into(), Field::Plain(json!(new_attack)));
+    super::bindery::set_fields(world, Actor::Driver, creature, CREATURE, changes).map(|_| ())
+}
+
 /// One creature of this kind, here.
 pub(crate) fn spawn_one(
     world: &mut World,
@@ -500,6 +559,7 @@ pub(crate) fn spawn_one(
     fields.insert("name".into(), Field::Plain(json!(d.name)));
     fields.insert("hp".into(), Field::Plain(json!(hp)));
     fields.insert("max_hp".into(), Field::Plain(json!(hp)));
+    fields.insert("base_hp".into(), Field::Plain(json!(hp)));
     fields.insert("attack".into(), Field::Plain(json!(d.attack)));
     fields.insert("xp".into(), Field::Plain(json!(xp)));
     world.record(

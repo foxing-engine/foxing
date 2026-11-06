@@ -502,6 +502,8 @@ pub fn take(
 
 /// Gain a tier at its bar, lose it at half the bar.
 pub fn check_tier(world: &mut World, creature: EntityId) -> Result<(), CommandError> {
+    // X5: what it holds is what it is: hit points and attack follow its level.
+    super::combat::rescale(world, creature)?;
     let lvl = level(world, creature);
     let have = tier(world, creature);
     let mut want = have;

@@ -97,7 +97,7 @@ pub const ROOMS: &[RoomDef] = &[
         name: "Lantern Row",
         description: "A row of lanterns on iron hooks, each one lighting as you pass and going dark behind you. They remember being lit. They do not remember by whom. Nothing hunts here.",
         exits: &[("south", ARRIVAL), ("north", "archive"), ("down", "stairwell")],
-        spawn: None,
+        spawn: Some(("lanternfly", 2, 90)),
         former: &[],
         tint: "#c9a86a",
     },
@@ -115,7 +115,7 @@ pub const ROOMS: &[RoomDef] = &[
         name: "The Downward Stair",
         description: "A spiral stair cut into the rock, going down further than the hill is tall. Every landing has a door, and every door is bricked up from the other side.",
         exits: &[("up", "lantern-row"), ("down", "cistern")],
-        spawn: None,
+        spawn: Some(("dust devil", 1, 300)),
         former: &[],
         tint: "#5a5a5a",
     },
@@ -201,7 +201,7 @@ pub const ROOMS: &[RoomDef] = &[
         name: "The Card Catalogue",
         description: "Ten thousand small drawers, every card filed under a name no one has anymore. Say a word aloud and a drawer opens, never the one you said.",
         exits: &[("west", "lower-stacks"), ("east", "dark-reading-room")],
-        spawn: None,
+        spawn: Some(("silverfish", 2, 120)),
         former: &[],
         tint: "#4a4238",
     },
@@ -237,7 +237,7 @@ pub const ROOMS: &[RoomDef] = &[
         name: "The Overdue Desk",
         description: "A desk with a bell and a ledger of fines in a column that does not end. The bell rings itself at intervals. The fines go up.",
         exits: &[("east", "carrels"), ("south", "lower-stacks"), ("north", "lost-things")],
-        spawn: None,
+        spawn: Some(("bookworm", 2, 180)),
         former: &[],
         tint: "#3d3a44",
     },
@@ -282,7 +282,7 @@ pub const ROOMS: &[RoomDef] = &[
         name: "Lost and Found",
         description: "Shelves of umbrellas, gloves, spectacles, a single shoe, a name tag with your name on it. Nothing is claimed. Everything is kept.",
         exits: &[("east", "acid-room"), ("south", "overdue-desk"), ("north", "pulp-sump")],
-        spawn: None,
+        spawn: Some(("shelf mouse", 1, 240)),
         former: &[],
         tint: "#44403a",
     },
@@ -354,7 +354,7 @@ pub const ROOMS: &[RoomDef] = &[
         name: "The Strongroom of Unreturned Things",
         description: "A steel door left open. Inside, every book anyone meant to bring back and did not, each with its reader's name in the front, in their own hand.",
         exits: &[("west", "reserve"), ("east", "deep-reserve")],
-        spawn: None,
+        spawn: Some(("custodian", 1, 900)),
         former: &[],
         tint: "#2f3a40",
     },
@@ -1609,7 +1609,7 @@ pub fn describe(
             // R58: the Fogbank said nothing either way.
             let mut kinds: Vec<String> = creatures
                 .iter()
-                .filter_map(|c| c["name"].as_str().map(|k| format!("{k}s")))
+                .filter_map(|c| c["name"].as_str().map(super::combat::plural))
                 .collect();
             kinds.sort();
             kinds.dedup();

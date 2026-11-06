@@ -470,7 +470,10 @@ night lantern, a warden's charm, a surgeon's bandage, a jar of clipped
 silver) asks something only the Lower Stacks or the Exergue leave (a
 censor's lens, a warden's key, a lamprey's tooth, a clipped sliver)
 and a memory of vividity 0.6 or more, one of a fight you nearly lost.
-A creature mends from nothing to whole in twenty minutes, faster than
+Every creature is as strong as what it holds: hit points and attack
+grow with its own level (by half at seventy-five, double at a hundred
+and fifty), never with yours; the mildest things in the world are the
+lanternflies on Lantern Row, north of the door. A creature mends from nothing to whole in twenty minutes, faster than
 you do, so a second stand is taken against a mended creature; `retreat`
 says when each of you is whole and sizes the second stand in rounds, now
 and when you are whole, and says when to bring another name; a poultice (hollow water and moth

@@ -30,7 +30,7 @@ pub const REACH: usize = 2;
 /// What a pilot is fed to: the naming bar and a margin.
 const FED_TO: f64 = 75.0;
 /// The mild kinds the Docent will name, in order of preference.
-const MILD: &[&str] = &["wisp", "mothwing", "ragpicker", "inkling"];
+const MILD: &[&str] = &["wisp", "lanternfly", "mothwing", "ragpicker", "inkling"];
 /// What the world's own memories are of.
 const FORGOTTEN: &[&str] = &[
     "the way home",

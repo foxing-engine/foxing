@@ -177,6 +177,12 @@ pub const TRICKS: &[(&str, Trick)] = &[
     ("footpad", Trick::Clip),
     ("picnicker", Trick::Numb),
     ("gardener", Trick::Bleed),
+    // X5: the library's own.
+    ("bookworm", Trick::Leech),
+    ("silverfish", Trick::Clip),
+    ("dust devil", Trick::Shove),
+    ("shelf mouse", Trick::Chatter),
+    ("custodian", Trick::Maw),
 ];
 
 /// Venom: this many ticks, this far apart, this much each.

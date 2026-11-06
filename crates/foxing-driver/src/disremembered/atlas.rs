@@ -924,9 +924,9 @@ pub fn register(world: &mut World, curves: Curves) {
                     }
                 }
                 let said = match &best {
-                    Some((r, p, signed)) if p.is_empty() => format!("{kind}s live in {}, and come back when felled: here.", plain_str(w, *r, ROOM, "name").unwrap_or("?")),
-                    Some((r, p, signed)) => format!("{kind}s live in {}, and come back when felled; {} {}.", plain_str(w, *r, ROOM, "name").unwrap_or("?"), if *signed { "you have not walked it, but the signs say" } else { "the way from here, as you remember it, is" }, said_way(p)),
-                    None => format!("{kind}s live in {}, and come back when felled.", homes.join(" and ")),
+                    Some((r, p, signed)) if p.is_empty() => format!("{} live in {}, and come back when felled: here.", super::combat::plural(&kind), plain_str(w, *r, ROOM, "name").unwrap_or("?")),
+                    Some((r, p, signed)) => format!("{} live in {}, and come back when felled; {} {}.", super::combat::plural(&kind), plain_str(w, *r, ROOM, "name").unwrap_or("?"), if *signed { "you have not walked it, but the signs say" } else { "the way from here, as you remember it, is" }, said_way(p)),
+                    None => format!("{} live in {}, and come back when felled.", super::combat::plural(&kind), homes.join(" and ")),
                 };
                 return Ok(Outcome::new(said, json!({"who": kind, "homes": homes, "room": best.as_ref().map(|b| b.0 .0), "way": best.as_ref().map(|b| b.1.clone()), "signed": best.as_ref().is_some_and(|b| b.2)})));
             } else {

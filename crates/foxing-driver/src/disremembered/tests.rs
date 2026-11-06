@@ -5743,8 +5743,17 @@ fn the_named_confide_in_the_unnamed_when_names_are_few() {
     // world's chunks halve in ten seconds, so some seconds on the ragpicker is under
     // forty-five and still named (above thirty).
     let look = ok(&mut w, "tyler", "look", json!([]));
+    // X5: what it holds is what it is: a wisp holding forty has more hit points than
+    // its eight (by half at seventy-five), and still hits 2–4 under seventy-five.
+    let wisp_hp = look
+        .summary
+        .split("wisp (")
+        .nth(1)
+        .and_then(|t| t.split('/').next())
+        .and_then(|n| n.parse::<f64>().ok())
+        .unwrap_or(0.0);
     assert!(
-        look.summary.contains("wisp (9/9, hits 2–4, holding "),
+        wisp_hp >= 10.0 && look.summary.contains("hits 2–4, holding "),
         "{}",
         look.summary
     );

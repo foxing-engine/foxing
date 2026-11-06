@@ -458,6 +458,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("name", FieldKind::Plain, Visibility::Public)
             .field("hp", FieldKind::Plain, Visibility::Public)
             .field("max_hp", FieldKind::Plain, Visibility::Public)
+            // X5: the figure it was spawned with; max_hp and attack grow from it with
+            // the creature's own level.
+            .field("base_hp", FieldKind::Plain, Visibility::Public)
             .field("attack", FieldKind::Plain, Visibility::Public)
             .field("xp", FieldKind::Plain, Visibility::Public)
             // A hybrid's temperament and ambush line, and what it was born of; a seed

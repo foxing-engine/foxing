@@ -168,10 +168,23 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   session, the same three subscriptions, the room as a scene with the atlas's frames
   as sprites in depth; nothing the world does not already send. First cut: one room,
   one creature, one door, in the browser.
-- **X5 · Creature expansion.** More kinds with tricks past the Stacks; creatures that
-  scale with the visitor (D4); aging, epithets, retirement, last words; creatures that
-  move between rooms on their own business; a creature's `felled` and what it learned
-  told as a story.
+- **X5 · Creature expansion.** David's rule (11-06): ship more creatures; **a creature
+  never scales with the player; it scales with its own level.** First cut **shipped
+  11-06 (batch J)**: (1) the rule: a creature's hit points and attack grow with what it
+  holds (max hp from its spawned figure, by half at 75 and double at 150; a point of
+  attack per 75 held; the wound keeps its proportion; recomputed with every tier
+  check), so a creature fed to its name is a harder fight and a richer kill, and the
+  door's pilots at 75 are 12-hp wisps hitting 3–5; (2) six kinds on the library's own
+  floors, each with a trick the Stacks already know: lanternflies on Lantern Row (5
+  hp, the mildest thing in the world, and a kind the Docent may name), bookworms at
+  the Overdue Desk (Leech), silverfish in the Card Catalogue (Clip), a dust devil on
+  the Downward Stair (hunts; Shove), a shelf mouse in Lost and Found (Chatter), a
+  custodian in the Strongroom (hunts; Maw); `plural()` for the new names. Next cuts,
+  by brief: aging (a named creature's level drifts up a little a day it is kept),
+  epithets (earned from what felled it or what it fell), retirement (a creature past a
+  level walks to a room of its own and stops fighting), last words (a felled named
+  creature says one line from what it held), a creature's `felled` told as a story;
+  pixel sprites for the six (the page draws their glyph for now).
 - **X6 · The Court of Lethe** (the judicial branch; the Conclave writes, the Clocktower
   moves, the Court decides between names). Brief wanted: who may bring a case (a
   wronged name, a room's owner, the Docent), what a judgment can do (restore a chunk,
@@ -385,6 +398,9 @@ The world
 
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-06 (batch J, X5's first cut; one deploy)
+- Creatures scale with their own level, never the player's (`combat::rescale`, `base_hp`); six new kinds on the library's floors with homes and tricks; a boot fills a room to its figure exactly (the one-in-six extra comes on a refill of a room partly cleared); `plural()`; llms.txt and the quickstart say the rule and the kinds.
 
 11-06 (batch I, the rest of X13's queue; one deploy)
 - R79 (the picnicker's place, the longsight's gaze, a creature that remembers you says your name), R80 (said-walls everywhere, the door's chalk tally, the bench's scratches, names on the atlas), R82 (All Names' Day at forty; a thing of each named day at the door).
