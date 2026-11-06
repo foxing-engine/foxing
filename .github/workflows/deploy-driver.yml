@@ -110,15 +110,14 @@ jobs:
           # Release layout: the binary, deploy/ (server scripts + nginx snippets), analytics/.
           mkdir -p stage/deploy stage/analytics
           install -m 755 out/foxing-driver stage/foxing-driver
-          ln -s foxing-driver stage/moondial-driver
           cp deploy/server/* stage/deploy/
           cp -r site/deploy/nginx-snippets stage/deploy/
           cp site/deploy/setup-analytics.sh stage/deploy/
           cp site/analytics/*.py stage/analytics/
           # The operator's tools ride along (tools/trace.py reads the public record).
           mkdir -p stage/tools && cp tools/*.py stage/tools/
-          # /srv/foxing once migrate-to-foxing.sh has run on the host; /srv/moondial before.
-          APP_DIR=$(ssh game 'test -d /srv/foxing && echo /srv/foxing || echo /srv/moondial')
+          # The host migrated to /srv/foxing on 11-01 (migrate-to-foxing.sh).
+          APP_DIR=/srv/foxing
           echo "APP_DIR=$APP_DIR" >> "$GITHUB_ENV"
           ssh game "mkdir -p $APP_DIR/releases/$REL"
           rsync -az stage/ "game:$APP_DIR/releases/$REL/"

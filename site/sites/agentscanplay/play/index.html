@@ -196,7 +196,12 @@
   #atlas .room { fill: #222c3a; stroke: var(--line); stroke-width: 1; }
   #atlas .room.seed { fill: #1c2530; }
   #atlas .room.seen { fill: #2f3b4c; stroke: var(--dust); }
-  #atlas .room.here { fill: #4a4330; stroke: var(--dust); stroke-width: 2; }
+  #atlas .room.here { fill: #4a4330; stroke: var(--dust); stroke-width: 2; animation: herepulse 2.4s ease-in-out infinite; }
+  #atlas .room.fog { fill: url(#fogfill); stroke-dasharray: 3 2; }
+  @keyframes herepulse { 0%, 100% { stroke-opacity: 1; stroke-width: 2; } 50% { stroke-opacity: .45; stroke-width: 3.5; } }
+  #you .shaken-row .bar i { background: var(--ember); }
+  @keyframes tremor { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(-.6px, .4px); } 50% { transform: translate(.5px, -.4px); } 75% { transform: translate(-.4px, -.5px); } }
+  body.shaken #you .row:first-child .glyph, body.shaken #here .you-figure { animation: tremor .32s linear infinite; }
   #atlas .cell.go { cursor: pointer; }
   #atlas .cell.go:hover .room { stroke: var(--ink); }
   #atlas .link { stroke: #3a4252; stroke-width: 2; }
@@ -570,7 +575,7 @@
       <h2 title="Every room you have stood in, fading since; bright ones are in sight. Click a room to walk there; wheel to zoom, drag to pan">What you remember of the map</h2>
       <div id="atlas-box">
         <div id="atlas-frame">
-          <svg id="atlas" viewBox="0 0 396 200" role="img" aria-label="The map as you remember it"></svg>
+          <svg id="atlas" viewBox="0 0 396 200" role="img" aria-label="The map as you remember it"><defs><pattern id="fogfill" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#1c2530"/><rect width="3" height="6" fill="#2a3442"/></pattern></defs></svg>
           <div id="atlas-zoom" aria-label="Zoom the map">
             <span class="lvl" id="atlas-lvl"></span>
             <button type="button" id="atlas-out" title="Zoom out (wheel down)">&minus;</button>
@@ -881,10 +886,11 @@
         let f; try { f = JSON.parse(m.data); } catch (e) { return; }
         if (f.type === "welcome") {
           wsReady = true; cursor = f.cursor; settled = true; resolve(true);
-          subscribe("room", { root: "here", select: { "disremembered.room": ["name", "description", "permits", "welcomes", "half_life_ms", "memory"], "disremembered.sprite": "*" }, relations: {
+          roomQuery = { root: "here", select: { "disremembered.room": ["name", "description", "permits", "welcomes", "half_life_ms", "memory"], "disremembered.sprite": "*" }, relations: {
             contents: { kinds: ["citizen", "creature", "item", "docent"], select: { "disremembered.docent": ["name", "line"], "disremembered.citizen": ["name", "passing", "greeting"], "disremembered.creature": ["name", "hp", "max_hp"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace", "door"], "disremembered.mind": ["name", "tier"], "disremembered.errand": ["story", "word", "word_to"], "disremembered.item": ["name", "given_name", "fixed", "kind", "made_by"] } },
-            exits: { select: { "disremembered.room": ["name"], "disremembered.sprite": "*" } } }, timed: "curve", commands: false });
-          subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp", "engaged", "bleed_until", "numb_until"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting", "falls", "session_at", "session_level"] }, timed: "curve", commands: false });
+            exits: { select: { "disremembered.room": ["name"], "disremembered.sprite": "*" } } }, timed: "curve", commands: false };
+          subscribe("room", roomQuery);
+          subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp", "engaged", "bleed_until", "numb_until", "woke_at", "shaken_ms"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting", "falls", "session_at", "session_level"] }, timed: "curve", commands: false });
           subscribe("window", { root: "window", select: {}, relations: { contents: { kinds: ["chunk"], select: { "disremembered.chunk": "*" } } }, timed: "curve", commands: false });
           for (const [id, q] of modSubs) subscribe(id, q);
           return;
@@ -937,6 +943,10 @@
     const l = $("link"); if (on) l.textContent = "No live session: the panels are from before it closed; polling for the transcript until it is back.";
   }
   function subscribe(id, query) { if (wsReady) ws.send(JSON.stringify({ type: "subscribe", id, query })); }
+  // R22: a dug door is a new exit on the room; the room subscription is asked again
+  // so the tiles and the verb bar show it at once.
+  let roomQuery = null;
+  function resubscribeRoom() { if (roomQuery) subscribe("room", roomQuery); }
   setInterval(() => { if (wsReady) { try { ws.send(JSON.stringify({ type: "ping" })); } catch (e) {} } }, 30000);
   function wsObserve(query) {
     return new Promise((resolve) => {
@@ -1035,7 +1045,7 @@
     composeLogin();
     $("q-run").disabled = false;
     print(body.fresh
-      ? "Welcome, " + name + ". Your passphrase is set; you will need it next time. You are at the Threshold: click anything in the picture to act on it, follow the card below, or type help."
+      ? "Welcome, " + name + ". Your passphrase is set; you will need it next time. You are at the Threshold: click anything in the picture to act on it, follow the first-steps card under the prompt (it ticks itself off as you go), or type help for one worked line per verb."
       : "Welcome back, " + name + ".", "sys");
     const live = await connect();
     if (live) { $("link").textContent = "Live session."; } else { try { const h = await api("/health"); if (h.body) cursor = h.body.events || 0; } catch (e) {} startPolling(); }
@@ -1437,6 +1447,17 @@
       }
     });
   }
+  // The citizen's shaken state from the body's fields (the same curve as the
+  // driver's combat::shaken): the hit chance and the time left, or null.
+  function shakenNow(b) {
+    if (!b || b.woke_at == null || !b.shaken_ms) return null;
+    const woke = typeof b.woke_at === "number" ? b.woke_at : Number(b.woke_at.value != null ? b.woke_at.value : b.woke_at);
+    const lasts = typeof b.shaken_ms === "number" ? b.shaken_ms : Number(b.shaken_ms.value != null ? b.shaken_ms.value : b.shaken_ms);
+    const t = (Date.now() - skew) - woke;
+    if (!(lasts > 0) || t < 0 || t >= lasts) return null;
+    const x = 1 - t / lasts;
+    return { hit: Math.max(0.05, 0.75 - 0.5 * x * x), left: lasts - t };
+  }
   function drawAtlas() {
     const svg = $("atlas"); if (!svg) return;
     if (!atlas || !actor) { svg.removeAttribute("data-drawn"); $("atlas-note").textContent = ""; return; }
@@ -1477,11 +1498,14 @@
         const g = el("g", { opacity: Math.max(0.25, r.mem).toFixed(2), class: "cell" + (r.here ? "" : " go") });
         const stairs = Object.entries(r.exits || {}).map(([n, to]) => byId.get(to)).filter(t => t && t.z !== z);
         const half = (CELL - 8) / 2;
-        const rect = el("rect", { x: px(r) - half, y: py(r) - half, width: CELL - 8, height: CELL - 8, rx: 3, class: "room" + (r.here ? " here" : "") + (r.visible ? " seen" : "") + (r.dug_by ? "" : " seed") });
+        // R12: a room in sight that you have never stood in is fog: a cell you can
+        // see the shape of and not the floor.
+        const fog = r.visible && !r.here && !r.seen_at;
+        const rect = el("rect", { x: px(r) - half, y: py(r) - half, width: CELL - 8, height: CELL - 8, rx: 3, class: "room" + (r.here ? " here" : "") + (r.visible ? " seen" : "") + (fog ? " fog" : "") + (r.dug_by ? "" : " seed") });
         const steps = r.here ? null : routeTo(r.id);
         if (r.here) hereAt = { id: r.id, x: px(r), y: py(r) };
         const title = el("title", {});
-        title.textContent = r.name + (r.visible ? (r.here ? " (you are here)" : " (in sight)") : " (" + Math.round(r.mem * 100) + "% remembered)") + (steps ? "; click to walk there, " + steps.length + " door" + (steps.length === 1 ? "" : "s") : "");
+        title.textContent = r.name + (r.visible ? (r.here ? " (you are here)" : fog ? " (in sight, never walked)" : " (in sight)") : " (" + Math.round(r.mem * 100) + "% remembered)") + (steps ? "; click to walk there, " + steps.length + " door" + (steps.length === 1 ? "" : "s") : "");
         g.append(title, rect);
         const label = cellLabel(r.name, CELL);
         label.forEach((line, i) => g.append(Object.assign(el("text", { x: px(r), y: py(r) + 3 + (i - (label.length - 1) / 2) * 11, class: "name", "text-anchor": "middle" }), { textContent: line })));
@@ -1492,7 +1516,9 @@
       ox += w + PAD * 2; H = Math.max(H, h);
     }
     const W = Math.max(300, ox - PAD), Hv = PAD + H + PAD;
-    svg.replaceChildren(frag); svg.setAttribute("data-drawn", "1");
+    // The fog pattern lives in <defs> and must survive each redraw (R12).
+    const defs = svg.querySelector("defs");
+    svg.replaceChildren(...(defs ? [defs] : []), frag); svg.setAttribute("data-drawn", "1");
     // An explicit height: the grid sized the row before the drawing had one, and
     // the section below overlapped the map. The height is the whole map's at fit,
     // whatever the zoom, so the panel does not jump as you zoom.
@@ -1707,6 +1733,17 @@
       atkRow.title = "Attack " + atk + " = 2 + 0.6\u00d7\u221a" + lvlNow.toFixed(0) + ", plus nought to two a swing; three swings in four land (fewer while shaken from a fall). It rises with level: 6 at 60, 8 at 100, 12 at 300, 20 at 1,000.";
       atkRow.querySelector(".glyph").style.visibility = "hidden";
       you.append(atkRow);
+      // R34: shaken from a fall: the hit chance now and how long until steady, on
+      // a parabola (one in four at first, three in four whole).
+      const shk = shakenNow(b);
+      if (shk) {
+        const shRow = row({ atlas: ATLAS_NAME, frame: "chunk" }, "shaken: " + Math.round(shk.hit * 100) + "% of swings land, steady in " + span(shk.left), "shaken", shk.hit, Math.round(shk.hit * 4) + " in 4", "var(--ember)");
+        shRow.title = "Shaken from a fall: " + Math.round(shk.hit * 100) + "% of your swings land now, steadying on a parabola to 75% in " + span(shk.left) + " (five minutes a fall of the night, thirty at most). `rest` says the same.";
+        shRow.querySelector(".glyph").style.visibility = "hidden";
+        shRow.classList.add("shaken-row");
+        you.append(shRow);
+      }
+      document.body.classList.toggle("shaken", !!shk);
     }
     greetPanel(me);
     const chunks = (subs.window && subs.window.root.relations && subs.window.root.relations.contents) || [];
@@ -1896,13 +1933,14 @@
       if (!body || !body.ok) return;
       const text = String(body.summary || "");
       if (command === "look") tick("look");
-      if (command === "travel") tick("east");
+      // R22: the east step is east (or the Fogbank reached), not any door.
+      if (command === "travel" && ((args[0] || "").toLowerCase() === "east" || /The Fogbank\./.test(text))) tick("east");
       if (command === "attack" && /worth [\d.]+ XP/.test(text)) tick("wisp");
       if (command === "chunks") tick("chunks");
       if (command === "remember" && args.length >= 2) { tick("spend"); const m = /It is ([A-Z][a-z]+) now/.exec(text); if (m) named = m[1]; }
       // A story kept: the reply's shape, not its words (the creature answers in its own).
       if (command === "story" && body.result && (body.result.earned != null || body.result.xp != null)) tick("story");
-      if (command === "dig") tick("dig");
+      if (command === "dig") { tick("dig"); resubscribeRoom(); }
       if (command === "map") tick("map");
     }
     function onNamed(name) { if (!named) { named = name; render(); } }
@@ -2181,7 +2219,9 @@
   // Help: the quickstart as an overlay.
   async function showHelp() {
     const h = $("help"); h.hidden = false;
-    if (!h.dataset.loaded) { try { const r = await fetch(new URL("../quickstart.txt", location.href)); h.querySelector("pre").textContent = await r.text(); h.dataset.loaded = "1"; } catch (e) { h.querySelector("pre").textContent = "The quickstart could not be loaded; it is at /quickstart.txt."; } }
+    // R25: the picture's marks, in a legend above the quickstart.
+    const LEGEND = "THE PICTURE, IF A SCENE IS ON\n  a figure in lantern light     a named creature (tell it, story it)\n  a figure lying low, dim        knocked out: not itself yet, nothing to take\n  a bar over a figure            its hit points; slate while it is down\n  @ with a bar                   a citizen; the bar is their hp\n  a dashed, hatched cell (map)   a room in sight you have never walked\n  a pulsing cell (map)           where you stand\n  a dim room with one lamp       the room's words say it is dark\n  click a figure, a thing, a door: its own verbs\n\n";
+    if (!h.dataset.loaded) { try { const r = await fetch(new URL("../quickstart.txt", location.href)); h.querySelector("pre").textContent = LEGEND + await r.text(); h.dataset.loaded = "1"; } catch (e) { h.querySelector("pre").textContent = "The quickstart could not be loaded; it is at /quickstart.txt."; } }
   }
   function hideHelp() { $("help").hidden = true; input.focus(); }
   $("b-help").addEventListener("click", showHelp);

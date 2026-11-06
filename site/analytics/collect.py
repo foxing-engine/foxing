@@ -37,9 +37,12 @@ from datetime import datetime, timezone, timedelta
 from urllib.parse import urlsplit
 
 LOG = os.environ.get("ANALYTICS_LOG", "/var/log/nginx/analytics.jsonl")
-# The driver's operator side channel (MOONDIAL_OPS_LOG): every MCP call and arrival, with
+# The driver's operator side channel (FOXING_OPS_LOG): every MCP call and arrival, with
 # the address and whether it came from the lab. Absent on the static-site VPS.
-OPS_LOG = os.environ.get("ANALYTICS_OPS_LOG", "/srv/moondial/shared/data/ops.jsonl")
+OPS_LOG = os.environ.get("ANALYTICS_OPS_LOG", os.environ.get("FOXING_OPS_LOG", "/srv/foxing/shared/data/ops.jsonl"))
+# Until the host's rename (deploy/server/rename-env.sh) the file is where it was.
+if not os.path.exists(OPS_LOG) and os.path.exists("/srv/moondial/shared/data/ops.jsonl"):
+    OPS_LOG = "/srv/moondial/shared/data/ops.jsonl"
 DB = os.environ.get("ANALYTICS_DB", "/srv/agentscanplay/shared/analytics/analytics.db")
 RAW_RETENTION_DAYS = 2  # salts older than this are deleted; raw logs rotate separately
 RETENTION_DAYS = int(os.environ.get("ANALYTICS_RETENTION_DAYS", "90"))  # request rows, with their IPs

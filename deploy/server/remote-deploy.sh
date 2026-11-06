@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
-# Runs ON moondial-1 as the deploy user; the GitHub workflow pipes it over SSH:
+# Runs ON the game server as the deploy user; the GitHub workflow pipes it over SSH:
 #   ssh game "bash -s -- <release>" < deploy/server/remote-deploy.sh
 # The release folder holds the static `foxing-driver` binary and deploy/. Switch the
 # `current` symlink, restart the service, wait for /health, roll back if it does not come up.
 set -euo pipefail
 
-# /srv/foxing once migrate-to-foxing.sh has run on this host; /srv/moondial before.
-APP_DIR=$([ -d /srv/foxing ] && echo /srv/foxing || echo /srv/moondial)
-UNIT=$([ -f /etc/systemd/system/foxing.service ] && echo foxing || echo moondial)
+# The host migrated to /srv/foxing and foxing.service on 11-01 (migrate-to-foxing.sh).
+APP_DIR=/srv/foxing
+UNIT=foxing
 KEEP_RELEASES=5
 REL_NAME="${1:?release name required}"
 REL="$APP_DIR/releases/$REL_NAME"
 
 log() { printf '\n==> %s\n' "$*"; }
 
-# The binary is foxing-driver since the rename; the release also carries a foxing-driver
-# symlink so a unit file from before the rename keeps starting it (see migrate-to-foxing.sh).
 [ -x "$REL/foxing-driver" ] || { echo "No executable foxing-driver in release, aborting"; exit 1; }
 "$REL/foxing-driver" --version >/dev/null 2>&1 || echo "(binary does not answer --version; continuing)"
 

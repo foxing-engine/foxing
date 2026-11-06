@@ -883,7 +883,7 @@ fn a_log_from_other_modules_is_refused_with_directions() {
                 kind: "store.component_set".into(),
                 actor: foxing_log::Actor::Driver,
                 cause: None,
-                payload: json!({"op": "component_set", "id": 1, "component": "entropic.room",
+                payload: json!({"op": "component_set", "id": 1, "component": "otherworld.room",
                     "fields": {"name": {"kind": "plain", "value": "x"}}}),
             },
         )
@@ -896,8 +896,8 @@ fn a_log_from_other_modules_is_refused_with_directions() {
     )
     .err()
     .expect("a foreign log must not open");
-    assert!(err.contains("entropic.room"), "{err}");
-    assert!(err.contains("MOONDIAL_WORLD"), "{err}");
+    assert!(err.contains("otherworld.room"), "{err}");
+    assert!(err.contains("FOXING_WORLD"), "{err}");
 }
 
 /// The vocabulary's verb signatures are the registry's: every registered command is an

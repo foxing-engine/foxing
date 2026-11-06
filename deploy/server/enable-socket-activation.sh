@@ -14,8 +14,8 @@
 set -euo pipefail
 ok() { printf '  ok  %s\n' "$*"; }
 
-UNIT=$([ -f /etc/systemd/system/foxing.service ] && echo foxing || echo moondial)
-ENV_FILE=$([ -f /etc/foxing/driver.env ] && echo /etc/foxing/driver.env || echo /etc/moondial/driver.env)
+UNIT=foxing
+ENV_FILE=/etc/foxing/driver.env
 # The HTTP address the driver would bind on its own: the socket takes the same one.
 ADDR=$(grep -oP '^(FOXING|MOONDIAL)_HTTP=\K.*' "$ENV_FILE" | tail -n 1)
 ADDR=${ADDR:-127.0.0.1:7777}

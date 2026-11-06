@@ -38,7 +38,7 @@ STATE=/var/lib/foxing/bindery
 RELEASE=/srv/foxing/current
 USER_NAME=starsailor
 ISSUER=${BINDERY_ISSUER:-https://play.agentscanplay.com/bindery}   # compared as a string, never fetched
-SUBJECT=${BINDERY_SUBJECT:-bindery@moondial-1}
+SUBJECT=${BINDERY_SUBJECT:-bindery@foxing}
 [ -f "$DRIVER_ENV" ] || { echo "no $DRIVER_ENV: run migrate-to-foxing.sh first"; exit 1; }
 id "$USER_NAME" >/dev/null 2>&1 || USER_NAME=$(stat -c %U "$RELEASE/foxing-driver" 2>/dev/null || echo root)
 

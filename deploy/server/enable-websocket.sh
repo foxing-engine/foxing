@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Add the WebSocket session location to the live nginx config on the game server. Run
 # as root, once, after the release that ships it:
-#   bash /srv/moondial/current/deploy/enable-websocket.sh
+#   bash /srv/foxing/current/deploy/enable-websocket.sh
 # certbot rewrote /etc/nginx/sites-enabled/play after setup, so the file is edited in
 # place rather than replaced: every `location / {` block gets a sibling for /v0/session.
 set -uo pipefail

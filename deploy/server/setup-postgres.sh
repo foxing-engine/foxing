@@ -1,23 +1,22 @@
 #!/usr/bin/env bash
 # Move the driver's event log to PostgreSQL on this server. Run as root, once:
-#   sudo bash /srv/moondial/current/deploy/setup-postgres.sh
+#   sudo bash /srv/foxing/current/deploy/setup-postgres.sh
 # Installs PostgreSQL if missing, creates a role and database with a generated
 # password, copies the current file log in (refusing if the database already has the
-# world), writes MOONDIAL_LOG_URL into /etc/moondial/driver.env, and restarts the
+# world), writes FOXING_LOG_URL into /etc/foxing/driver.env, and restarts the
 # driver. The file log is left where it was, as the backup it now is.
 set -euo pipefail
 
-# /srv/foxing and /etc/foxing once migrate-to-foxing.sh has run on this host.
-APP_DIR=${APP_DIR:-$([ -d /srv/foxing ] && echo /srv/foxing || echo /srv/moondial)}
-ENV_FILE=$([ -f /etc/foxing/driver.env ] && echo /etc/foxing/driver.env || echo /etc/moondial/driver.env)
-UNIT=$([ -f /etc/systemd/system/foxing.service ] && echo foxing || echo moondial)
+APP_DIR=${APP_DIR:-/srv/foxing}
+ENV_FILE=/etc/foxing/driver.env
+UNIT=foxing
 DB=${DB:-foxing}
 ROLE=${ROLE:-foxing}
 
 ok() { printf '  OK  %s\n' "$*"; }
 die() { printf '  !!  %s\n' "$*" >&2; exit 1; }
 [ "$(id -u)" = 0 ] || die "run as root"
-[ -f "$ENV_FILE" ] || die "$ENV_FILE is missing; run setup-moondial-1.sh first"
+[ -f "$ENV_FILE" ] || die "$ENV_FILE is missing; run setup-server.sh first"
 
 echo "######## PostgreSQL"
 if ! command -v psql >/dev/null; then
@@ -47,14 +46,15 @@ URL="postgres://$ROLE:$PASS@127.0.0.1:5432/$DB"
 echo; echo "######## Import the file log"
 # shellcheck disable=SC1090
 set -a; . "$ENV_FILE"; set +a
-WORLD=${MOONDIAL_WORLD:-disremembered}
-DATA=${MOONDIAL_DATA:-$APP_DIR/shared/data}
+# The env file's keys are FOXING_* (rename-env.sh), MOONDIAL_* before it.
+WORLD=${FOXING_WORLD:-${MOONDIAL_WORLD:-disremembered}}
+DATA=${FOXING_DATA:-${MOONDIAL_DATA:-$APP_DIR/shared/data}}
 BIN="$APP_DIR/current/foxing-driver"
 [ -x "$BIN" ] || die "$BIN is not there; deploy the driver first"
 systemctl stop "$UNIT"
 ok "driver stopped"
 if [ -f "$DATA/$WORLD.events.jsonl" ]; then
-  if MOONDIAL_LOG_URL="$URL" MOONDIAL_WORLD="$WORLD" "$BIN" import "$DATA"; then
+  if FOXING_LOG_URL="$URL" FOXING_WORLD="$WORLD" "$BIN" import "$DATA"; then
     ok "file log imported; $DATA/$WORLD.events.jsonl stays as the backup"
   else
     echo "  !!  import refused or failed (see above); the file log is untouched"
@@ -65,12 +65,12 @@ else
 fi
 
 echo; echo "######## Driver environment"
-if grep -q '^MOONDIAL_LOG_URL=' "$ENV_FILE"; then
-  sed -i "s|^MOONDIAL_LOG_URL=.*|MOONDIAL_LOG_URL=$URL|" "$ENV_FILE"
+if grep -qE '^(FOXING|MOONDIAL)_LOG_URL=' "$ENV_FILE"; then
+  sed -i -E "s|^(FOXING\|MOONDIAL)_LOG_URL=.*|FOXING_LOG_URL=$URL|" "$ENV_FILE"
 else
-  printf 'MOONDIAL_LOG_URL=%s\n' "$URL" >> "$ENV_FILE"
+  printf 'FOXING_LOG_URL=%s\n' "$URL" >> "$ENV_FILE"
 fi
-ok "MOONDIAL_LOG_URL written to $ENV_FILE (the password is in there; it is root:foxing 640)"
+ok "FOXING_LOG_URL written to $ENV_FILE (the password is in there; it is root:foxing 640)"
 
 systemctl start "$UNIT"
 sleep 2

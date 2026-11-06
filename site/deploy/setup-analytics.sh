@@ -2,9 +2,9 @@
 # One-time analytics setup on a server. Run as root, after the server setup and one deploy.
 # From Windows PowerShell, in site/:
 #   cmd /c 'ssh root@5.78.104.64 "tr -d \"\r\" | ADMIN_USER=david ADMIN_PASS=... bash -s" < deploy\setup-analytics.sh > setup-analytics.log'
-# On the game server (moondial-1) the release ships this script, so run it there from a
+# On the game server the release ships this script, so run it there from a
 # root shell (ssh root@5.78.210.32), which avoids Windows quoting of the variables:
-#   APP_DIR=/srv/moondial SITES=play SERVER_NAME_RE=play.agentscanplay.com ADMIN_USER=david ADMIN_PASS=... bash /srv/moondial/current/deploy/setup-analytics.sh
+#   APP_DIR=/srv/foxing SITES=play SERVER_NAME_RE=play.agentscanplay.com ADMIN_USER=david ADMIN_PASS=... bash /srv/foxing/current/deploy/setup-analytics.sh
 #
 # - installs the JSON log format (http context) and makes both public server blocks
 #   include the analytics snippet (access_log + the /_admin/ page)
@@ -54,13 +54,18 @@ done
 
 echo; echo "######## basic auth for /_admin/"
 HASH=$(openssl passwd -apr1 "$ADMIN_PASS")
-touch /etc/nginx/.htpasswd-moondial
-if grep -q "^$ADMIN_USER:" /etc/nginx/.htpasswd-moondial; then
-  sed -i "s|^$ADMIN_USER:.*|$ADMIN_USER:$HASH|" /etc/nginx/.htpasswd-moondial
-else
-  echo "$ADMIN_USER:$HASH" >> /etc/nginx/.htpasswd-moondial
+HTPASSWD=/etc/nginx/.htpasswd-foxing
+# The file was .htpasswd-moondial before the engine's rename: carried over once.
+if [ ! -f "$HTPASSWD" ] && [ -f /etc/nginx/.htpasswd-moondial ]; then
+  mv /etc/nginx/.htpasswd-moondial "$HTPASSWD" && ok "renamed .htpasswd-moondial to .htpasswd-foxing"
 fi
-chmod 640 /etc/nginx/.htpasswd-moondial; chown root:www-data /etc/nginx/.htpasswd-moondial
+touch "$HTPASSWD"
+if grep -q "^$ADMIN_USER:" "$HTPASSWD"; then
+  sed -i "s|^$ADMIN_USER:.*|$ADMIN_USER:$HASH|" "$HTPASSWD"
+else
+  echo "$ADMIN_USER:$HASH" >> "$HTPASSWD"
+fi
+chmod 640 "$HTPASSWD"; chown root:www-data "$HTPASSWD"
 ok "admin user $ADMIN_USER set"
 
 nginx -t && systemctl reload nginx && ok "nginx reloaded" || { fail "nginx config test failed"; exit 1; }
@@ -123,6 +128,7 @@ UNIT
 install -d /etc/systemd/system/analytics-render.service.d
 cat > /etc/systemd/system/analytics-render.service.d/driver-env.conf <<UNIT
 [Service]
+EnvironmentFile=-/etc/foxing/driver.env
 EnvironmentFile=-/etc/foxing/driver.env
 EnvironmentFile=-/etc/moondial/driver.env
 UNIT

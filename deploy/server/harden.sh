@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Harden the game server. Run as root, once; safe to re-run:
-#   sudo bash /srv/moondial/current/deploy/harden.sh
+#   sudo bash /srv/foxing/current/deploy/harden.sh
 #
 # - nginx rate limits on the endpoints that cost CPU or guess passphrases
 #   (/v0/login, /v0/gate, /v0/check, /mcp), and a connection cap per address
@@ -13,16 +13,16 @@
 set -euo pipefail
 
 # /srv/foxing and /etc/foxing once migrate-to-foxing.sh has run on this host.
-APP_DIR=${APP_DIR:-$([ -d /srv/foxing ] && echo /srv/foxing || echo /srv/moondial)}
-ENV_FILE=$([ -f /etc/foxing/driver.env ] && echo /etc/foxing/driver.env || echo /etc/moondial/driver.env)
-UNIT=$([ -f /etc/systemd/system/foxing.service ] && echo foxing || echo moondial)
+APP_DIR=${APP_DIR:-/srv/foxing}
+ENV_FILE=/etc/foxing/driver.env
+UNIT=foxing
 NGINX_SITE=${NGINX_SITE:-/etc/nginx/sites-available/play}
 RUN_USER=${RUN_USER:-starsailor}
 
 ok() { printf '  OK  %s\n' "$*"; }
 die() { printf '  !!  %s\n' "$*" >&2; exit 1; }
 [ "$(id -u)" = 0 ] || die "run as root"
-[ -f "$ENV_FILE" ] || die "$ENV_FILE is missing; run setup-moondial-1.sh first"
+[ -f "$ENV_FILE" ] || die "$ENV_FILE is missing; run setup-server.sh first"
 [ -f "$NGINX_SITE" ] || die "$NGINX_SITE not found; pass NGINX_SITE=/etc/nginx/sites-available/<site>"
 
 echo "######## nginx rate limits"
@@ -78,12 +78,13 @@ nginx -t && systemctl reload nginx
 ok "nginx reloaded"
 
 echo; echo "######## Text port on localhost only"
-if grep -q '^MOONDIAL_TCP=0.0.0.0:' "$ENV_FILE"; then
-  sed -i 's|^MOONDIAL_TCP=0.0.0.0:|MOONDIAL_TCP=127.0.0.1:|' "$ENV_FILE"
+# The env file's keys are FOXING_* (rename-env.sh), MOONDIAL_* before it.
+if grep -qE '^(FOXING|MOONDIAL)_TCP=0.0.0.0:' "$ENV_FILE"; then
+  sed -i -E 's|^(FOXING|MOONDIAL)_TCP=0.0.0.0:|\1_TCP=127.0.0.1:|' "$ENV_FILE"
   systemctl restart "$UNIT"
-  ok "MOONDIAL_TCP now 127.0.0.1:7778; driver restarted (close 7778 in the Hetzner firewall too)"
+  ok "the text port is now 127.0.0.1:7778; driver restarted (close 7778 in the Hetzner firewall too)"
 else
-  ok "text port already $(grep '^MOONDIAL_TCP=' "$ENV_FILE" | cut -d= -f2)"
+  ok "text port already $(grep -E '^(FOXING|MOONDIAL)_TCP=' "$ENV_FILE" | tail -n 1 | cut -d= -f2)"
 fi
 
 echo; echo "######## Unattended security upgrades"
@@ -111,7 +112,7 @@ systemctl restart fail2ban
 ok "fail2ban watching sshd"
 
 echo; echo "######## Nightly pg_dump"
-if grep -q '^MOONDIAL_LOG_URL=' "$ENV_FILE"; then
+if grep -qE '^(FOXING|MOONDIAL)_LOG_URL=' "$ENV_FILE"; then
   BK="$APP_DIR/shared/backups"
   install -d -m 750 -o postgres -g "$RUN_USER" "$BK"
   cat > /etc/cron.d/foxing-backup <<CRON
@@ -122,7 +123,7 @@ CRON
   su postgres -c "pg_dump -Fc foxing > $BK/foxing-$(date +%F).dump"
   ok "first dump written to $BK; restore with: pg_restore -d foxing <file>"
 else
-  ok "no MOONDIAL_LOG_URL in $ENV_FILE (file log); nothing to dump"
+  ok "no FOXING_LOG_URL in $ENV_FILE (file log); nothing to dump"
 fi
 
 echo; echo "######## Secrets"

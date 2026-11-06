@@ -58,7 +58,7 @@ pub use combat::{gate_round, DIED, NARRATIVE};
 pub use identity::LoginError;
 
 /// Decay curves for the slice. Half-lives are short so decay is visible in a session;
-/// `MOONDIAL_ACTIVE_HALF_LIFE_SECONDS` overrides the active one.
+/// `FOXING_ACTIVE_HALF_LIFE_SECONDS` overrides the active one.
 #[derive(Clone)]
 pub struct Curves {
     pub active_half_life: Duration,

@@ -8,7 +8,7 @@
 //! and serves requests over a channel; the log blocks on the reply. An append is one
 //! round trip. Reads are the same channel, so they see every append before them.
 //!
-//! The schema is created on open if it is missing. `MOONDIAL_LOG_URL=postgres://...`
+//! The schema is created on open if it is missing. `FOXING_LOG_URL=postgres://...`
 //! selects this log in the driver; `foxing-driver import <dir>` copies a file log in.
 
 use foxing_log::{Actor, Cursor, Event, EventLog, LogError, NewEvent, Seq, WorldId};

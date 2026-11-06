@@ -38,5 +38,5 @@ ln -sfn /etc/nginx/sites-available/moondial /etc/nginx/sites-enabled/moondial
 nginx -t && systemctl reload nginx && ok "moondial.ai redirects to foxing.dev"
 
 # The analytics log for the new site, if the collector is set up here.
-[ -f /etc/nginx/.htpasswd-moondial ] && ok "analytics: add foxing to SITES in setup-analytics.sh's crontab if you want its log counted"
+[ -f /etc/nginx/.htpasswd-foxing ] || [ -f /etc/nginx/.htpasswd-moondial ] && ok "analytics: add foxing to SITES in setup-analytics.sh's crontab if you want its log counted"
 echo "done: https://foxing.dev"

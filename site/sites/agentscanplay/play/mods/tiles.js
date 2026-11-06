@@ -381,6 +381,20 @@ export default function install(m) {
     drawMotif(motif, base, seed, now);
     drawKeyProps(base, seed, now);
     drawWordProps(base, seed, now);
+    drawDark(base, now);
+  }
+  // R13: a room whose words say it is dark (the Dark Reading Room, "unlit", "no
+  // light") is dim past one lamp on the wall, and the lamp's pool is the light.
+  function drawDark(base, now) {
+    const text = ((scene.key || "") + " " + (scene.name || "") + " " + (scene.description || "")).toLowerCase();
+    if (!/\bdark\b|\bunlit\b|no light|pitch|lightless|\bdim\b/.test(text)) return;
+    const lx = (DOORS.north[0] + 4 < COLS - 2 ? DOORS.north[0] + 4 : DOORS.north[0] - 4) * T + 8;
+    const t = now / 1000, flick = 0.85 + Math.sin(t * 9) * 0.05 + Math.sin(t * 23) * 0.03;
+    ctx.fillStyle = "rgba(6,8,14,.55)"; ctx.fillRect(0, 0, W * SCALE, H * SCALE);
+    const g = ctx.createRadialGradient(lx * SCALE, 14 * SCALE, 2 * SCALE, lx * SCALE, 14 * SCALE, 70 * flick * SCALE);
+    g.addColorStop(0, "rgba(255,230,160,.42)"); g.addColorStop(1, "rgba(255,230,160,0)");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W * SCALE, H * SCALE);
+    px(lx - 1, 2, 2, 10, "#3a3028"); px(lx - 4, 8, 8, 8, "#d9b57a"); px(lx - 2, 10, 4, 4, "#ffe6a0");
   }
   // What a room's key calls for beyond its motif: the house's furniture, by room.
   function drawKeyProps(base, seed, now) {
@@ -412,6 +426,38 @@ export default function install(m) {
       // The long slate, ruled in two columns.
       px(2 * T, 3, 16 * T, 26, "#2a2e2a"); px(2 * T, 3, 16 * T, 1, "#5a5a4a"); px(10 * T, 3, 1, 26, "#5a5a4a");
       for (let i = 0; i < 3; i++) px(2 * T + 4, 8 + i * 7, 5 * T + Math.floor(rnd(seed, 30 + i) * 20), 1, "#8a8e86");
+    }
+    // R13: the Exergue's rooms beyond the mint's presses, each its own furniture.
+    if (k === "die-room") {
+      // A die the size of a table on the floor, one face up, lit from the seam.
+      px(7 * T, 5 * T, 3 * T, 3 * T, "#5a5a64"); px(7 * T + 3, 5 * T + 3, 3 * T - 6, 3 * T - 6, "#7a7a86");
+      for (const [dx, dy] of [[8, 8], [3 * T - 12, 8], [8, 3 * T - 12], [3 * T - 12, 3 * T - 12], [3 * T / 2 - 2, 3 * T / 2 - 2]]) px(7 * T + dx, 5 * T + dy, 4, 4, "#1a1a22");
+      px(7 * T, 5 * T, 3 * T, 1, "#b08a3a");
+    }
+    if (k === "striking-floor") {
+      // The drop hammer, falling on the beat; sparks where it lands.
+      const beat = (t * 1.5) % 1, drop = beat < 0.2 ? beat / 0.2 : beat < 0.3 ? 1 : 1 - (beat - 0.3) / 0.7;
+      px(9 * T, 2, 2 * T, 6, "#3a3a44"); px(9 * T + 10, 8, 12, Math.round(6 + drop * 18), "#5a5a64"); px(9 * T + 4, Math.round(14 + drop * 18), 24, 8, "#8a8a94");
+      px(9 * T + 6, 3 * T + 4, 20, 4, "#2a2a30"); if (beat > 0.2 && beat < 0.32) for (let i = 0; i < 5; i++) px(9 * T + 2 + i * 6, 3 * T + 2 - i % 3, 2, 2, "#ffcf7a");
+    }
+    if (k === "assay-office") {
+      // The balance on its post, swinging a little, a weight in one pan.
+      const sway = Math.sin(t * 0.9) * 3;
+      px(9 * T + 7, 4, 2, 3 * T, "#6a5a3a"); px(9 * T + 1, 6 + Math.round(sway), 14, 1, "#b08a3a"); px(9 * T - 1, 6 + Math.round(sway), 2, 10, "#8a7a4a"); px(9 * T + 15, 6 - Math.round(sway), 2, 10, "#8a7a4a");
+      px(9 * T - 4, 16 + Math.round(sway), 8, 2, "#d9b57a"); px(9 * T + 12, 16 - Math.round(sway), 8, 2, "#d9b57a"); px(9 * T - 2, 13 + Math.round(sway), 3, 3, "#ece5d3");
+    }
+    if (k === "mintmark-hall") {
+      // A wall of stamps, each with its hour; the newest lit.
+      for (let x = 1; x < COLS - 1; x++) { if (Math.abs(x - DOORS.north[0]) < 1) continue; for (let r = 0; r < 3; r++) { px(x * T + 2, 2 + r * 9, 12, 7, "#2a2a30"); px(x * T + 4, 4 + r * 9, 8, 3, (x * 3 + r) % 7 === Math.floor(t / 4) % 7 ? "#ffcf7a" : "#8a7a4a"); } }
+    }
+    if (k === "exergue") {
+      // The plaque the length of the wall, ruled for dates.
+      px(T, 3, 18 * T, 26, "#3a3a2a"); px(T, 3, 18 * T, 1, "#b08a3a"); px(T, 28, 18 * T, 1, "#b08a3a");
+      for (let i = 0; i < 6; i++) px(T + 4 + i * 3 * T, 8, 2 * T + Math.floor(rnd(seed, 40 + i) * 8), 1, "#ece5d3"), px(T + 4 + i * 3 * T, 14, 2 * T - Math.floor(rnd(seed, 50 + i) * 8), 1, "#8a8e86");
+    }
+    if (k === "exergue-stair") {
+      // Steps stamped with dates, running down.
+      for (let i = 0; i < 5; i++) { px(4 * T + i * 20, 3 * T + i * 10, 40, 8, shade(base, 0.7 - i * 0.06)); px(4 * T + i * 20 + 4, 3 * T + i * 10 + 3, 10 + (i * 7) % 12, 1, "#8a8e86"); }
     }
     if (k === "petition-gallery") {
       // The brass ticket machine by the entrance, its little window lit.

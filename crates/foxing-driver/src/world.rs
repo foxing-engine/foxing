@@ -82,7 +82,7 @@ pub struct World {
     came_from: std::collections::HashMap<String, Vec<foxing_store::EntityId>>,
 }
 
-/// An address or a prefix of them, as `MOONDIAL_LAB_NETS` lists them: `203.0.113.7`,
+/// An address or a prefix of them, as `FOXING_LAB_NETS` lists them: `203.0.113.7`,
 /// `203.0.113.0/24`, `2001:db8::/32`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Net {
@@ -137,7 +137,7 @@ pub fn lab_nets_from(spec: &str) -> Vec<Net> {
         .filter_map(|s| {
             let n = Net::parse(s);
             if n.is_none() {
-                eprintln!("MOONDIAL_LAB_NETS: cannot read {s:?} as an address or CIDR; skipped");
+                eprintln!("FOXING_LAB_NETS: cannot read {s:?} as an address or CIDR; skipped");
             }
             n
         })
@@ -211,7 +211,7 @@ impl World {
                     } => format!(
                         "the log for world {} was written by modules this driver does not have: \
                          event #{} uses component {c}. Move that log aside, or run this driver \
-                         under a different MOONDIAL_WORLD, or run the modules that wrote it.",
+                         under a different FOXING_WORLD, or run the modules that wrote it.",
                         world.id.0, at.0
                     ),
                     e => e.to_string(),

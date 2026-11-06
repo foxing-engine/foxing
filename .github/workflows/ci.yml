@@ -14,17 +14,17 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: moondial
-          POSTGRES_PASSWORD: moondial
-          POSTGRES_DB: moondial_test
+          POSTGRES_USER: foxing
+          POSTGRES_PASSWORD: foxing
+          POSTGRES_DB: foxing_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U moondial"
+          --health-cmd "pg_isready -U foxing"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      MOONDIAL_TEST_PG: postgres://moondial:moondial@127.0.0.1:5432/moondial_test
+      FOXING_TEST_PG: postgres://foxing:foxing@127.0.0.1:5432/foxing_test
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.97.0

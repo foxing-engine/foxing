@@ -23,29 +23,38 @@ from datetime import datetime, timezone, timedelta
 
 DB = os.environ.get("ANALYTICS_DB", "/srv/agentscanplay/shared/analytics/analytics.db")
 # The lab: the operator's own addresses or CIDRs, comma-separated, the same list the
-# driver reads as MOONDIAL_LAB_NETS. A request from anywhere else is organic.
-LAB_NETS = os.environ.get("ANALYTICS_LAB_NETS", os.environ.get("MOONDIAL_LAB_NETS", ""))
+# driver reads as FOXING_LAB_NETS. A request from anywhere else is organic.
+LAB_NETS = os.environ.get("ANALYTICS_LAB_NETS", os.environ.get("FOXING_LAB_NETS", os.environ.get("MOONDIAL_LAB_NETS", "")))
 
 
-def env_from_driver(key: str) -> str:
-    """A value from the driver's env file, when the timer's own environment lacks it."""
-    try:
-        with open(os.environ.get("FOXING_DRIVER_ENV", os.environ.get("MOONDIAL_DRIVER_ENV", "/etc/moondial/driver.env")), encoding="utf-8") as fh:
-            for line in fh:
-                if line.startswith(key + "="):
-                    return line.split("=", 1)[1].strip().strip('"')
-    except OSError:
-        pass
+def driver_env_paths() -> list[str]:
+    """Where the driver's env file is: the new name first, the old second."""
+    named = os.environ.get("FOXING_DRIVER_ENV") or os.environ.get("MOONDIAL_DRIVER_ENV")
+    paths = [named] if named else []
+    return paths + ["/etc/foxing/driver.env", "/etc/moondial/driver.env"]
+
+
+def env_from_driver(*keys: str) -> str:
+    """A value from the driver's env file, when the timer's own environment lacks it:
+    the first of `keys` found, in the first file that exists."""
+    for path in driver_env_paths():
+        try:
+            with open(path, encoding="utf-8") as fh:
+                for line in fh:
+                    for key in keys:
+                        if line.startswith(key + "="):
+                            return line.split("=", 1)[1].strip().strip('"')
+        except OSError:
+            continue
     return ""
 
 
 if not LAB_NETS:
-    LAB_NETS = env_from_driver("MOONDIAL_LAB_NETS")
+    LAB_NETS = env_from_driver("FOXING_LAB_NETS", "MOONDIAL_LAB_NETS")
 HTML_DIR = os.environ.get("ANALYTICS_HTML", "/srv/agentscanplay/shared/analytics/html")
 
 # The game driver, for the citizens report: who came, by what door, and what they did.
-DRIVER = os.environ.get("MOONDIAL_HTTP_URL", "http://127.0.0.1:7777")
-DRIVER_ENV = os.environ.get("FOXING_DRIVER_ENV", os.environ.get("MOONDIAL_DRIVER_ENV", "/etc/moondial/driver.env"))
+DRIVER = os.environ.get("FOXING_HTTP_URL", os.environ.get("MOONDIAL_HTTP_URL", "http://127.0.0.1:7777"))
 
 KEY_PATHS = ["/", "/invitation.txt", "/llms.txt", "/.well-known/world-card.json", "/clear/clear-spec-v0.3.md",
              "/clear/disremembered.yaml", "/clear/clear_check.py", "/robots.txt",
@@ -146,27 +155,18 @@ def funnel(db, since: str) -> list[list]:
 
 
 def admin_token() -> str | None:
-    tok = os.environ.get("MOONDIAL_ADMIN_TOKEN") or os.environ.get("FOXING_ADMIN_TOKEN")
+    tok = os.environ.get("FOXING_ADMIN_TOKEN") or os.environ.get("MOONDIAL_ADMIN_TOKEN")
     if tok:
         return tok
     # The driver's env file: where the engine's name put it, then where it was.
-    for path in (DRIVER_ENV, "/etc/foxing/driver.env", "/etc/moondial/driver.env"):
-        try:
-            with open(path, encoding="utf-8") as fh:
-                for line in fh:
-                    for key in ("MOONDIAL_ADMIN_TOKEN=", "FOXING_ADMIN_TOKEN="):
-                        if line.startswith(key):
-                            return line.split("=", 1)[1].strip()
-        except OSError:
-            continue
-    return None
+    return env_from_driver("FOXING_ADMIN_TOKEN", "MOONDIAL_ADMIN_TOKEN") or None
 
 
 def citizens(days: int) -> tuple[list[dict], str]:
     """The driver's citizens report, or an empty list and why."""
     tok = admin_token()
     if not tok:
-        return [], "no admin token (set MOONDIAL_ADMIN_TOKEN or make the driver env readable)"
+        return [], "no admin token (set FOXING_ADMIN_TOKEN or make the driver env readable)"
     since_ms = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp() * 1000)
     req = urllib.request.Request(f"{DRIVER}/v0/citizens?since={since_ms}", headers={"X-Foxing-Admin": tok})
     try:
@@ -273,7 +273,7 @@ def page(r: dict) -> str:
     sections = [
         ("Organic agent visits: not from the lab, and in the game, cloaked at least", table(
             ["address", "", "first seen", "last seen", "requests", "mcp calls", "cloaks", "gates", "names taken", "classes", "hosts"], r["organic"])
-            + f"<p class=\"sub\">{r['crawlers']} other addresses only initialized: directory crawlers, not listed. Lab nets come from MOONDIAL_LAB_NETS at render time, so a net added later relabels the past.</p>"),
+            + f"<p class=\"sub\">{r['crawlers']} other addresses only initialized: directory crawlers, not listed. Lab nets come from FOXING_LAB_NETS at render time, so a net added later relabels the past.</p>"),
         ("The door, per day", table(["day", "", "initialized", "cloaked", "checked", "gate", "names arrived"], r["funnel"])),
         ("Networks: every address in the window", table(
             ["address", "", "first seen", "last seen", "requests", "mcp calls", "cloaks", "gates", "names taken", "classes", "hosts"], r["networks"])),
@@ -314,7 +314,7 @@ def main() -> int:
     ap.add_argument("--html", action="store_true", help="also write the admin page")
     args = ap.parse_args()
     if not os.path.exists(DB):
-        print(f"no analytics store at {DB}; set ANALYTICS_DB (on the game server: /srv/moondial/shared/analytics/analytics.db)")
+        print(f"no analytics store at {DB}; set ANALYTICS_DB (on the game server: /srv/agentscanplay/shared/analytics/analytics.db)")
         return 1
     db = sqlite3.connect(DB)
     r = report(db, args.days)

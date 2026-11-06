@@ -1,5 +1,5 @@
-//! Runs against a real PostgreSQL when `MOONDIAL_TEST_PG` names it; otherwise skips.
-//! CI provides one as a service; locally: `MOONDIAL_TEST_PG=postgres://user@host/db`.
+//! Runs against a real PostgreSQL when `FOXING_TEST_PG` names it; otherwise skips.
+//! CI provides one as a service; locally: `FOXING_TEST_PG=postgres://user@host/db`.
 
 use foxing_log::{Actor, Cursor, EventLog, FileLog, LogError, NewEvent, Seq, WorldId};
 use foxing_log_postgres::{copy_world, PostgresLog};
@@ -37,7 +37,7 @@ fn ev(at: i64, kind: &str, n: u64) -> NewEvent {
 #[test]
 fn appends_read_back_in_order_with_dense_sequences() {
     let Some(url) = url() else {
-        eprintln!("MOONDIAL_TEST_PG not set; skipping");
+        eprintln!("FOXING_TEST_PG not set; skipping");
         return;
     };
     let mut log = PostgresLog::open(&url)

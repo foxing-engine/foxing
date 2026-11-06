@@ -42,7 +42,7 @@ pub struct Shared {
     pub hour_budget: Arc<Mutex<crate::gate::HourBudget>>,
     /// Fires after anything changes the world, so sessions push what is new.
     pub changed: tokio::sync::broadcast::Sender<()>,
-    /// Origins the browser client may call from (`MOONDIAL_CORS_ORIGINS`, comma-separated).
+    /// Origins the browser client may call from (`FOXING_CORS_ORIGINS`, comma-separated).
     pub cors_origins: Vec<String>,
     /// Where the event log lives: `PostgreSQL`, `memory`, or a directory.
     pub log_where: String,
@@ -385,7 +385,7 @@ fn lock(s: &Shared) -> Result<std::sync::MutexGuard<'_, World>, (StatusCode, Jso
 
 /// `GET /v0/whoami`: the caller's own address as the server sees it (nginx's
 /// `X-Forwarded-For`), and whether it counts as the lab. For an operator setting
-/// `MOONDIAL_LAB_NETS` from the machine that will be in it; it tells no one about
+/// `FOXING_LAB_NETS` from the machine that will be in it; it tells no one about
 /// anyone else.
 async fn whoami(State(s): State<Shared>, headers: HeaderMap) -> Reply {
     let ip = client_ip(&headers);

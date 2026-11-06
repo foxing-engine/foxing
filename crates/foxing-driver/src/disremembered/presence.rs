@@ -7,7 +7,7 @@
 //! back into the same room, as far as anything that hunts there is concerned.
 //!
 //! Names fade too. From the moment a citizen goes quiet their name is remembered at 1,
-//! halving every [`name_half_life`] (ten days unless `MOONDIAL_NAME_HALF_LIFE_DAYS` says
+//! halving every [`name_half_life`] (ten days unless `FOXING_NAME_HALF_LIFE_DAYS` says
 //! otherwise); below [`NAME_FORGOTTEN`], thirty days without a word, the world forgets
 //! them: the citizen and everything under them (window, palace, chunks, words waiting
 //! for them) are removed, the record says so, and the name is free for whoever takes it

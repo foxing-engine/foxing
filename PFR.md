@@ -60,40 +60,16 @@ Each is designed and needs no decision. Say `R<n> hold` to keep one back.
   (`chunks` said "halves every 1h 2m at vividity 0" while a carried chunk read "6h
   12m"; "five times slower" measured 1.6x; per-chunk half-lives did not move after the
   strike). A report, then the fixes. -- Hazelquill
-- **R11** (S) nginx retries the upstream once on a connection error
-  (`proxy_next_upstream`) so a deploy drops no message in flight.
-- **R12** (M) Play page: fog of war on the minimap for rooms not walked, a "you are
-  here" pulse; the transcript folded to a drawer with a "log" tab once bubbles carry
-  the speech.
-- **R13** (S) Play page: motifs for the Exergue's rooms beyond the mint; a lamp motif
-  where a room's words say "dark"; a sprite per thing a creature leaves (icons are by
-  word now).
 
-Away from Moondial and Entropic (the engine's and the game's old names; 184 mentions
-in the tree on 11-03, most of them fallbacks that stay for a while):
-- **R16** (S) Code and tool docs say `FOXING_*` (world.rs, net.rs, presence.rs, mod.rs,
-  the postgres crate's comments, tools/*.py docstrings); the `MOONDIAL_*` fallbacks
-  stay in code until R20 is done on the box. The test fixture's `entropic.room` and
-  its `MOONDIAL_WORLD` message read `FOXING_WORLD`.
-- **R17** (S) site/analytics: defaults to `/srv/foxing`, `/etc/foxing/driver.env`,
-  `FOXING_HTTP_URL`, `FOXING_LAB_NETS`, `FOXING_OPS_LOG`, the "no admin token" line;
-  the old names read second.
-- **R18** (S) CI: the PostgreSQL service user, password and database named `foxing`;
-  `FOXING_TEST_PG`. deploy-driver.yml drops the `moondial-driver` symlink and the
-  `/srv/moondial` fallback (the host migrated 11-01).
-- **R19** (M) deploy/server: `setup-moondial-1.sh` becomes `setup-server.sh` writing
-  `FOXING_*` to `/etc/foxing/driver.env`, `foxing.service` "(Disremembered)", sudoers
-  `foxing`, `.htpasswd-foxing`; harden.sh, setup-postgres.sh, enable-*.sh,
-  setup-bindery.sh and setup-analytics.sh read the new names first; the old-path
-  fallbacks go after R20. `migrate-to-foxing.sh` stays as history until then.
-- **R20** (S, then Y1) `deploy/server/rename-env.sh`: on the box, renames the
-  `MOONDIAL_*` keys in `/etc/foxing/driver.env` to `FOXING_*`, the unit's Description
-  to "Foxing driver (Disremembered)", `.htpasswd-moondial` to `.htpasswd-foxing` with
-  the nginx snippet, and restarts; idempotent; prints its diff first. Claude writes it,
-  you run it (read line by line, as always).
-- **R22** (M; was B2, pulled 11-04) The strip room-aware (retarget the spend step when the creature is gone; tick "travel east" only on east); "Type help" pointing at the strip; the verb bar refreshing after `dig`; one `help` voice (the page's list and the world's line).
-- **R25** (M; was B5, pulled 11-04) A verb's argument from the scene (click `tell`, then a creature); a creature's own verbs on its figure; the palette on the plain page; marks for named creatures and citizens, a legend in `?`, the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll; admin on the play page; a `remember` that keeps a room on your map; the favicon on the apex site's other pages.
+Away from Moondial and Entropic (the engine's and the game's old names): done in the
+tree 11-06 (R16–R20); the box's half is Y1. The `MOONDIAL_*` fallbacks in the driver
+and the tools go in a release after Y1 has run.
 - **R26** (M; was B6, pulled 11-04) Unreproduced: a `travel <room name>` walk that stops short; "You again" on `leave` (rare); `board` at ~4 s.
+Left from batch D (the play page's bigger pieces):
+- **R12b** (M) The transcript folded to a drawer with a "log" tab once bubbles carry the speech.
+- **R13b** (S) A sprite per thing a creature leaves (icons are by word now).
+- **R22b** (S) One `help` voice (the page's list and the world's line).
+- **R25b** (M) A verb's argument from the scene (click `tell`, then a creature); a creature's own verbs on its figure; the palette on the plain page; the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll; admin on the play page; a `remember` that keeps a room on your map.
 From the Night's Watch of 11-05 (the Trail's first night):
 From the loop cohort of 11-05 (one tester per loop):
 - **R70** (M) The two-stand censor is unwinnable as the loop sells it: full heal takes 11 m, the wound lasts 10, and 67 hp at ~6 a round against ~10 back is not two stands at thirty hit points; lean: a wound kept twenty minutes in the Stacks, and `retreat` says in rounds what a second stand would take ("it would take you nine more rounds; you have four in you"). -- Gnibbleforge
@@ -102,8 +78,6 @@ Pulled from the backlog 11-05 ("B19 yes, B21 yes, B22 yes"), each in pieces the 
 - **R75** (M; B21) The Exergue, next: a bar story's weight by its money words; the Assayer answering `tell` with your holding's assay; the Wardens' respawn lengthening each taking; the Purse's share as a statute; the sweater's bag and the clippers' filings as things; the Mintmark Hall stamping kept things with their hour; atlas frames for the eight; the slate in the tapster's voice.
 - **R76** (S; B22) The Docent, next: a second figure for the Lower Stacks (an Under-Docent at the stair); "what have you found?" listing the Lost and Found; a `thanks` that costs nothing; `recipes` not saying "You lack rag thread" the moment the thread was spent.
 From the Night's Watch of 11-04:
-- **R34** (S) The play page's shaken state: the hit-chance in the status bar and a
-  tremor on the figure while shaken. -- Gnatwhistle
 - Kept on purpose: `nginx-moondial.conf` (moondial.ai redirects to foxing.dev), the
   `/clear/entropic.yaml` redirect, the postgres schema-lock constant, the host's name
   moondial-1, TRADEMARK.md's history line, the repo's local folder name.
@@ -246,8 +220,15 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
 
 ## Your side (Y): only you can
 
-- **Y1** Rename the env file's `MOONDIAL_*` names and `/etc/nginx/.htpasswd-moondial` when
-  convenient (the driver reads both): R20's script does it; run it when it lands.
+- **Y1** The rename's last step on the box, when convenient (the driver reads both names):
+  `sudo bash /srv/foxing/current/deploy/rename-env.sh` (R20; it prints its diff and asks;
+  `DRY_RUN=1` to only look). Read it line by line first: deploy/server/rename-env.sh.
+  Then R11 by hand in `/etc/nginx/sites-available/play` (certbot's 443 block lives in
+  the live file, so the repo's `deploy/server/nginx-play.conf` is not copied over it):
+  add the `upstream foxing_driver { … }` block from the repo's file above the first
+  `server {`, change both `proxy_pass http://127.0.0.1:7777;` lines to
+  `proxy_pass http://foxing_driver;`, add the three `proxy_*` lines in `location /`,
+  then `nginx -t && systemctl reload nginx`.
 - **Y2** Apex VPS: starsailorart.com/kaleidostoop links a demo video that was never in the
   repo (add it or drop it); the probe snippet on moondial-1's play site.
 - **Y3** Issues: none open. Tyler's #6, #8, #9, #11 (D1, D2, D1, D6) closed 11-05 with
@@ -358,6 +339,19 @@ The world
 
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-06 (batch D, the rename and the play page; one deploy)
+- **R11** nginx-play.conf: the driver listed twice as an upstream, a refused connection tried once more (the live edit is in Y1).
+- **R12** (part) fog of war: a room in sight never walked is a hatched cell; the here cell pulses.
+- **R13** (part) the Exergue's rooms each with their own furniture (die, hammer, balance, stamps, plaque, dated stair); a dark room is dim past one lamp.
+- **R16** code and tool docs say `FOXING_*`; the fixture test reads `FOXING_WORLD`.
+- **R17** site/analytics defaults to the new paths and names, the old read second.
+- **R18** CI's PostgreSQL named foxing, `FOXING_TEST_PG`; deploy-driver.yml and remote-deploy.sh drop the symlink and the `/srv/moondial` fallback.
+- **R19** `setup-server.sh` (was setup-moondial-1.sh) writes `FOXING_*` to `/etc/foxing`, `foxing.service`, sudoers `foxing`; harden.sh, setup-postgres.sh, enable-*.sh, setup-analytics.sh read the new names first; `.htpasswd-foxing`.
+- **R20** `deploy/server/rename-env.sh` written and dry-run against a sample (Y1 runs it).
+- **R22** (part) the strip's east step ticks on east or the Fogbank only; the room is asked again after `dig`; the welcome line points at the card.
+- **R25** (part) a legend of the picture's marks at the top of `?`; the favicon on the board and record pages.
+- **R34** the shaken state on the page: a row with the hit chance and the time to steady, and a tremor on the figure.
 
 11-06 (batch C, the F list; one deploy)
 - **F2** a message every statement of which was refused costs a quarter, and says so.
