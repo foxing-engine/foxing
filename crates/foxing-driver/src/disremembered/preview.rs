@@ -114,7 +114,9 @@ pub fn run_checked(
         std::collections::BTreeMap<String, EntityId>,
     > = Default::default();
     let mut dug_names: std::collections::BTreeMap<EntityId, String> = Default::default();
-    let mut came_from: Option<EntityId> = world.came_from(actor);
+    // The trail as the world keeps it (R1): a stack, popped by `back`, pushed by a
+    // step forward; a dug room's way out is a door like any other (R84).
+    let mut trail: Vec<EntityId> = world.came_from(actor).into_iter().collect();
     let mut next_virtual = u64::MAX - 1;
     let ctx = CallContext {
         actor: actor.to_string(),
@@ -307,37 +309,46 @@ pub fn run_checked(
                     }
                 }
                 "travel" => match room.map(|r| exits_now_in(&dug, &dug_names, r)) {
-                    Some(exits) => match exits.get(&arg(0)).or_else(|| {
-                        (arg(0) == "back")
-                            .then_some(came_from)
-                            .flatten()
-                            .and_then(|from| exits.values().find(|&&to| to == from))
-                    }) {
-                        Some(&to) => {
-                            came_from = room;
-                            room = Some(to);
-                            (
-                                true,
+                    Some(exits) => {
+                        let retrace = arg(0) == "back"
+                            && trail
+                                .last()
+                                .is_some_and(|from| exits.values().any(|to| to == from));
+                        match if retrace {
+                            trail.last().copied()
+                        } else {
+                            exits.get(&arg(0)).copied()
+                        } {
+                            Some(to) => {
+                                if retrace {
+                                    trail.pop();
+                                } else if let Some(r) = room {
+                                    trail.push(r);
+                                }
+                                room = Some(to);
+                                (
+                                    true,
+                                    format!(
+                                        "{} to {}",
+                                        rooms::went(&arg(0))
+                                            .trim_end_matches('.')
+                                            .replacen("You go", "goes", 1)
+                                            .replacen("You take", "takes", 1),
+                                        room_name_in(&dug_names, Some(to))
+                                    ),
+                                )
+                            }
+                            None => (
+                                false,
                                 format!(
-                                    "{} to {}",
-                                    rooms::went(&arg(0))
-                                        .trim_end_matches('.')
-                                        .replacen("You go", "goes", 1)
-                                        .replacen("You take", "takes", 1),
-                                    room_name_in(&dug_names, Some(to))
+                                    "refused: no exit {} from {}; exits: {}",
+                                    arg(0),
+                                    room_name_in(&dug_names, room),
+                                    exits.keys().cloned().collect::<Vec<_>>().join(", ")
                                 ),
-                            )
-                        }
-                        None => (
-                            false,
-                            format!(
-                                "refused: no exit {} from {}; exits: {}",
-                                arg(0),
-                                room_name_in(&dug_names, room),
-                                exits.keys().cloned().collect::<Vec<_>>().join(", ")
                             ),
-                        ),
-                    },
+                        }
+                    }
                     None => (false, "refused: no room to leave".into()),
                 },
                 "story" | "tell" | "attack" | "remember"

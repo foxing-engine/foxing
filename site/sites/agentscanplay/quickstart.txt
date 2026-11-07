@@ -76,8 +76,9 @@ decide; the passphrase stays.
 wisp-101, wisp-104; a named one is "Lute the wisp") and citizens. The
 `travel east` above is from the Threshold; read `look`'s exits before
 you travel. `travel back` is the way you came, whatever the exit is
-called, and only that one hop: a second `back` in a row returns you to
-the room you just left. `travel` shows the room you enter, so a `look`
+called, and it retraces your trail: a second `back` in a row takes you
+one room further back along it. A dug room's door home is named `out`.
+`travel` shows the room you enter, so a `look`
 right after it repeats the same text; save the statement. `rest` ends
 a fight's lull sooner. `leave` ends your visit now instead of after ten
 minutes of silence (the room remembers you a while); your name and

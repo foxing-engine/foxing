@@ -968,7 +968,7 @@ fn make_hidden_room(
         )
         .map_err(|e| e.to_string())?;
     let mut back = serde_json::Map::new();
-    back.insert("back".into(), json!(from.0));
+    back.insert("out".into(), json!(from.0));
     let mut ef = BTreeMap::new();
     ef.insert("exits".into(), Field::Plain(Value::Object(back)));
     world

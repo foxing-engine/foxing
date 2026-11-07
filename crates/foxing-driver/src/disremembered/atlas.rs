@@ -655,7 +655,7 @@ pub fn remembered_map(
                         // walked thirteen of the Threshold's doors and found none of
                         // them next door.
                         for (via, to) in rooms::exits_of(world, EntityId(id)) {
-                            if via == "back" {
+                            if via == "back" || via == "out" {
                                 continue;
                             }
                             if let Some(n) = on_floor

@@ -4178,7 +4178,7 @@ fn the_map_is_laid_out_from_the_threshold_and_you_remember_only_where_you_stood(
         &w,
         rooms::room_of(&w, super::find_citizen(&w, "dave").unwrap().citizen).unwrap(),
     );
-    assert!(back.contains_key("back"), "{back:?}");
+    assert!(back.contains_key("out"), "{back:?}");
     // Toward a neighboring cell that is taken (north is -y): beside the Mudroom's
     // door the Teapot sits by the hub rooms, so one of the four is.
     let taken: Vec<(i64, i64)> = l
@@ -4245,7 +4245,7 @@ fn the_map_is_laid_out_from_the_threshold_and_you_remember_only_where_you_stood(
     );
     assert!(
         m["summary"].as_str().unwrap().starts_with(&format!(
-            "You are in The Teapot; you can see 2 ways out: back (Mudroom), {want} (Shove). Beyond what you can see, the map is blank"
+            "You are in The Teapot; you can see 2 ways out: {want} (Shove), out (Mudroom). Beyond what you can see, the map is blank"
         )),
         "{}",
         m["summary"]
@@ -9425,7 +9425,7 @@ fn the_door_is_cleared_at_boot_and_its_dug_rooms_hang_off_the_mudroom() {
     let m = rooms::exits_of(&w, mudroom);
     assert_eq!(m.get("nook2"), Some(&nook), "{m:?}");
     assert_eq!(m.get("south"), Some(&south), "{m:?}");
-    assert_eq!(rooms::exits_of(&w, nook).get("back"), Some(&mudroom));
+    assert_eq!(rooms::exits_of(&w, nook).get("out"), Some(&mudroom));
     assert_eq!(rooms::exits_of(&w, south).get("north"), Some(&mudroom));
     assert!(!rooms::exits_of(&w, south).values().any(|&r| r == threshold));
     assert!(w.store.entity(test).is_none(), "the test room is razed");
@@ -9590,7 +9590,7 @@ fn a_razed_room_s_children_are_rejoined_and_orphans_come_back_at_boot() {
     assert!(w.store.entity(bench).is_none());
     let exits = rooms::exits_of(&w, threshold);
     assert_eq!(exits.get("cloak"), Some(&cloak), "{exits:?}");
-    assert_eq!(rooms::exits_of(&w, cloak).get("back"), Some(&threshold));
+    assert_eq!(rooms::exits_of(&w, cloak).get("out"), Some(&threshold));
     assert_eq!(rooms::exits_of(&w, cloak).get("sleeve"), Some(&sleeve));
     ok(&mut w, "dave", "travel", json!(["cloak"]));
     ok(&mut w, "dave", "travel", json!(["sleeve"]));

@@ -75,7 +75,7 @@ Left from batch D (the play page's bigger pieces):
 - **R22b** (S) One `help` voice (the page's list and the world's line).
 - **R25b** (M) A verb's argument from the scene (click `tell`, then a creature); a creature's own verbs on its figure; the palette on the plain page; the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll; admin on the play page; a `remember` that keeps a room on your map.
 From the Night's Watch of 11-06 (the Mudroom's first night; the obvious fixes are in the ledger as batch F):
-- **R84** (S) A dug room's way out is an exit named `back` (every word-named door digs one), so `Exits: back (Mudroom)` reads as the keyword; the keyword now retraces first (batch F), which closes the trap, and the door's name should still change: `out` for new digs, the old ones migrated on boot (the ancestor walk, the mend walk, the atlas and Morphos's doors all read `back`; one deploy, alone).
+- **R84** (S, **shipped 11-07, batch M**; a word door's way home is `out`; every `back` door renamed on boot where the room has no `out`; the walks, the atlas, Morphos's doors and the Namery read `out`; `dig out` refused in a dug room; the preview keeps a trail like the world's) A dug room's way out is an exit named `back` (every word-named door digs one), so `Exits: back (Mudroom)` reads as the keyword; the keyword now retraces first (batch F), which closes the trap, and the door's name should still change: `out` for new digs, the old ones migrated on boot (the ancestor walk, the mend walk, the atlas and Morphos's doors all read `back`; one deploy, alone).
 - **R85** (S, **shipped 11-07, batch L**; the compass first, in its own order, then the dug doors by name) The Mudroom's exit list came in dig order on one `look` and alphabetical on the next (two code paths); one order, the compass first.
 - **R86** (S, **shipped 11-07, batch L**; the bog says the trail forgets it) After the bog spits you out, `back` pops past the bog as if you had walked out of it; the bog's line says so ("the trail forgets the bog").
 - **R87** (S, **shipped 11-07, batch L**; "Oakmoss (with wisp)", and the fold says it is the memory of a creature of theirs) "Dug by Oakmoss … Kept in memory by Oakmoss (wisp)" reads as the digger being a wisp; the fold says "Oakmoss (a wisp of theirs)" or names the creature.
@@ -398,6 +398,9 @@ The world
 
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-07 (batch M, R84 alone; one deploy)
+- A dug room's way home is named `out`, never `back`; the old doors renamed on boot; the quickstart says `back` retraces the trail.
 
 11-07 (batch L, the Watch of 11-06's R list by policy; one deploy)
 - R85–R100, R102–R106 as marked in the R list (R92, R96 checked and closed; R101 left open with a hypothesis). R84 ships alone next.

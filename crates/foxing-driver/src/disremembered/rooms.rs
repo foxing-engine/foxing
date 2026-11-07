@@ -478,7 +478,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "namery",
         name: "The Namery",
         description: "A narrow office of pigeonholes, floor to ceiling, each with a slip of paper in it and a name on the slip, waiting for something to earn it. A few holes are empty and their slips are gone. The pigeonholes are refilled at night, by a hand that writes in a very old register. Nothing hunts here; the names are not yet anyone's.",
-        exits: &[("back", "archive")],
+        exits: &[("out", "archive")],
         spawn: None,
         former: &[],
         tint: "#4a4638",

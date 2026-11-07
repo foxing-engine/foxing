@@ -162,8 +162,52 @@ fn opposite(exit: &str) -> &'static str {
         "down" => "up",
         "in" => "out",
         "out" => "in",
-        _ => "back",
+        // R84: a word door's way out is `out`, never `back`, which is the keyword
+        // (the Mudroom and the Moss Bed traded a walker forever on it).
+        _ => "out",
     }
+}
+
+/// The way out of a dug room: its `out` exit, or the `back` the old digs left
+/// (renamed on boot by `rename_back_doors`, read here in case one is missed).
+pub fn way_out(exits: &BTreeMap<String, EntityId>) -> Option<EntityId> {
+    exits.get("out").or_else(|| exits.get("back")).copied()
+}
+
+/// R84, on boot: every exit named `back` becomes `out` where the room has no `out`
+/// (a dug room's way home, Morphos's doors, the old Namery's). Returns how many.
+pub fn rename_back_doors(world: &mut World) -> Result<usize, String> {
+    let rooms: Vec<EntityId> = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "room")
+        .map(|e| e.id)
+        .collect();
+    let mut n = 0;
+    for r in rooms {
+        let exits = exits_of(world, r);
+        let Some(&to) = exits.get("back") else {
+            continue;
+        };
+        if exits.contains_key("out") {
+            continue;
+        }
+        let mut m: serde_json::Map<String, Value> = exits
+            .iter()
+            .filter(|(k, _)| k.as_str() != "back")
+            .map(|(k, v)| (k.clone(), json!(v.0)))
+            .collect();
+        m.insert("out".into(), json!(to.0));
+        set_exits(world, r, m)?;
+        n += 1;
+    }
+    if n > 0 {
+        world.notice(format!(
+            "{n} door{} named back renamed out (R84).",
+            if n == 1 { "" } else { "s" }
+        ));
+    }
+    Ok(n)
 }
 
 /// A room key from a name and an id: `salt-stair-12`.
@@ -546,6 +590,11 @@ pub fn register(world: &mut World, curves: super::Curves) {
                     "'back' is the way you came, not a door; name the exit something else.",
                 ));
             }
+            if exit == "out" && !exits_of(w, here).contains_key("in") && w.store.entity(here).is_some_and(|e| e.owner.is_some()) {
+                return Err(CommandError::precondition(
+                    "'out' is a dug room's way home; name the exit something else.",
+                ));
+            }
             if let Some(word) = crate::gate::world_checker().collision(&exit) {
                 return Err(CommandError::precondition(format!(
                     "'{word}' is a word CLEAR reserves; an exit may not be it."
@@ -596,7 +645,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
                     if w.store.entity(anchor).is_some_and(|e| e.owner.is_none()) {
                         break;
                     }
-                    match exits_of(w, anchor).get("back").copied() {
+                    match way_out(&exits_of(w, anchor)) {
                         Some(b) => {
                             anchor = b;
                             hops += 1;
@@ -1536,7 +1585,7 @@ pub fn rejoin(
     if exits.values().any(|v| v.as_u64() == Some(room.0)) {
         return Ok(());
     }
-    let base = if via.is_empty() || via == "back" {
+    let base = if via.is_empty() || via == "back" || via == "out" {
         door_word(plain_str(world, room, ROOM, "key").unwrap_or("room"))
     } else {
         via.to_string()
@@ -1649,7 +1698,7 @@ pub fn rejoin_orphans(world: &mut World) -> Result<usize, String> {
         .collect();
     for r in rooms {
         let exits = exits_of(world, r);
-        let Some(&to) = exits.get("back") else {
+        let Some(to) = way_out(&exits) else {
             continue;
         };
         // Forward: the room it opens onto was dug from this one.
@@ -1660,7 +1709,7 @@ pub fn rejoin_orphans(world: &mut World) -> Result<usize, String> {
         let word = door_word(plain_str(world, to, ROOM, "key").unwrap_or("room"));
         let mut m: serde_json::Map<String, Value> = exits
             .iter()
-            .filter(|(k, _)| k.as_str() != "back")
+            .filter(|(k, _)| k.as_str() != "back" && k.as_str() != "out")
             .map(|(k, v)| (k.clone(), json!(v.0)))
             .collect();
         let mut name = word.clone();

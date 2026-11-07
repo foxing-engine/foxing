@@ -1179,7 +1179,7 @@ fn walk(
 ) -> Result<(), String> {
     let name = super::mind::display(world, creature);
     let from_where = match super::building::opposite_of(via) {
-        "back" => format!("through {via}"),
+        "back" | "out" if !matches!(via, "in" | "out") => format!("through {via}"),
         opp => format!("from the {opp}"),
     };
     let (leave, arrive) = if why == "home" {
