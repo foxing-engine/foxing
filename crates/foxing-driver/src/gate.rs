@@ -470,18 +470,36 @@ fn since_last_message(world: &World, actor: &str) -> Vec<String> {
         .rev()
         .find(|e| {
             // After the previous reply: what the previous message itself caused (a
-            // creature's answer to your tell) was in that reply already.
-            (e.kind == "gate.reply" && e.payload["to"] == actor)
-                || (e.kind == crate::world::ARRIVED && e.payload["actor"] == actor)
+            // creature's answer to your tell) was in that reply already. An arrival
+            // is not a boundary: a name quiet an hour in the Conclave's rooms came
+            // back to find the division's line dropped between its session and the
+            // next (the Watch of 11-07); what was said while they were away comes
+            // under "Meanwhile", a day of it at most, eight lines and a count.
+            e.kind == "gate.reply" && e.payload["to"] == actor
         })
         .map(|e| e.seq.0)
         .unwrap_or(0);
-    recent
+    let day_ago = world.now().0 - 24 * 3_600_000;
+    let lines: Vec<String> = recent
         .iter()
-        .filter(|e| e.seq.0 > last)
+        .filter(|e| e.seq.0 > last && e.at.0 >= day_ago)
         .filter(|e| e.kind == crate::disremembered::NARRATIVE && e.payload["to"] == actor)
         .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
-        .collect()
+        .collect();
+    if lines.len() > 8 {
+        let n = lines.len() - 8;
+        let mut kept: Vec<String> = lines[n..].to_vec();
+        kept.insert(
+            0,
+            format!(
+                "({n} earlier line{} are in `messages`.)",
+                if n == 1 { "" } else { "s" }
+            ),
+        );
+        kept
+    } else {
+        lines
+    }
 }
 
 /// Whether `actor` went down since their last message through the Gate: a death on

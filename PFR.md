@@ -23,6 +23,9 @@ The gate and the hour (from the Watch of 11-06; S, each with a lean, so by polic
 - **D19 · A want-match inside the hour.** Decided b (11-06), **shipped 11-06 (batch G)**: the wanted story is heard inside the hour at plain pay, and the want stands (told again when the hour turns, it pays double); the refusal says what is heard inside the hour.
 - **D20 · A refused guess and the hint.** The hint narrows on heard misses only; four guesses refused inside the hour narrowed nothing (batch F puts the hint in the refusal). a) **lean**: as now. b) a refused in-hour guess counts as a miss (narrows the lent-word pool to five after two refusals). The Watch of 11-07 (Gnatterwick) climbed two rungs in two minutes and stalled on the third for the same reason, and asked for b, with the declined word struck from the shown pool.
 
+The house's clock (from the Watch of 11-07)
+- **D23 · A visitor sees one division an hour.** The Conclave divides at half past; a name arriving at :25 has one usable division in an hour's visit, and a quiet wait for it is most of the visit. a) **lean**: as is, and `time`/`petitions` say plainly when the next is and that a quiet name finds it under "Meanwhile" on its next message (batch R makes that true); b) divide every quarter hour on the Watch's nights only (an env rate); c) divide every half hour always. S for a.
+
 The library's floors (from the Watch of 11-07)
 - **D21 · Where the six live.** Four of the six new kinds (bookworm, silverfish, shelf mouse, custodian) are in Lower Stacks rooms behind the level-100 stair; a new name meets only the lanternfly and the dust devil. Every ground-floor room already spawns a kind of its own (one SPAWN a room). a) **lean**: leave the four below (they are the Stacks' own, and the stair is the stair) and say so in llms.txt; b) a second spawn per room (`SPAWN` takes a list) and seed bookworms in the Unfiled Archive beside the inklings, silverfish in the Cistern; c) move the four to the trail. S for a; M for b.
 - **D22 · A creature's spawned hit points vary by a quarter** (6.5–8.2 on wisps), more than one feeding's growth, so "hp grows with what it holds" is muddied by the roll. a) **lean**: narrow the jitter to a tenth; b) show base and bonus apart in the row ("8+3/11"); c) as is.
@@ -86,6 +89,8 @@ From the Night's Watch of 11-07 (after batches F–N; the obvious fixes are in t
 - **R111** (S) The second-rung hint counts the wanted story (heard, no word) as a miss ("You have missed once" with no guess made); say "a story that carried none" rather than "missed", or count guesses only.
 - **R112** (S) The similarity penalty ("one much like it in its hour; this one pays half") fired on three shared words out of fourteen; say which words, or raise the bar.
 - **R113** (S) Fed creatures mend faster (Wyndle at 8/11 "whole in 5m 27s", an unfed wisp "whole in 18m 25s"): the mend runs on max_hp over twenty minutes, so a bigger body mends more a minute; say so, or mend by the fraction.
+- **R115** (S) The Tally Room has no book (a brass tube and a scale); the Tally Book is four rooms on, in the Division Lobby, and `where tally book` is refused: `where` answers for the world's own fixtures by name ("the Tally Book is in the Division Lobby: …"), and the Tally Room's text says where the book is.
+- **R116** (S) `session` after a long silence says "Here 29s … Nothing yet; the room is waiting", erasing the hour before it in the house; say "back after 58m quiet; before that: …" with the earlier session's figures.
 - **R114** (M) The Docent's late answer "No one is at the desk tonight to find that one" after "That one has a card. Wait for me": a shrug after a wait; when the model declines, answer from `help` mechanically instead.
 From the Night's Watch of 11-06 (the Mudroom's first night; the obvious fixes are in the ledger as batch F):
 - **R84** (S, **shipped 11-07, batch M**; a word door's way home is `out`; every `back` door renamed on boot where the room has no `out`; the walks, the atlas, Morphos's doors and the Namery read `out`; `dig out` refused in a dug room; the preview keeps a trail like the world's) A dug room's way out is an exit named `back` (every word-named door digs one), so `Exits: back (Mudroom)` reads as the keyword; the keyword now retraces first (batch F), which closes the trap, and the door's name should still change: `out` for new digs, the old ones migrated on boot (the ancestor walk, the mend walk, the atlas and Morphos's doors all read `back`; one deploy, alone).
@@ -411,6 +416,9 @@ The world
 
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-07 (batch R, Gnomonwhistle's; one deploy)
+- "Meanwhile" is cut at the last reply, not at an arrival: a name quiet an hour in the house came back to find the division's line only in `messages` (a day of lines at most, eight and a count); the petitioner no longer hears their own petition twice at a division; the Tally Book keeps its entries across a boot (F's seed-text refresh wiped them every boot from F to Q; the head alone follows the code now) and re-enters the last twenty divisions from the record where it holds none.
 
 11-07 (batch Q; one deploy)
 - The atlas's layout cache is one a thread in the test binary again (process-wide since F): two tests' worlds read each other's "before", and a room with room was shoved (a CI flake on P; the driver had deployed).

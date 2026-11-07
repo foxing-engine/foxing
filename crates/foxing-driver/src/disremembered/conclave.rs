@@ -240,8 +240,63 @@ pub fn ensure(world: &mut World) -> Result<(), String> {
     if entity(world).is_none() {
         write(world, BTreeMap::new())?;
     }
+    rebuild_tally_book(world)?;
     wind(world)?;
     wind_division(world)
+}
+
+/// The Tally Book's entries, back from the record: a boot from F to Q (11-06 to
+/// 11-07) refreshed the book's whole text and wiped every division's line. When the
+/// book holds no entry and the log holds decisions, the last twenty are re-entered.
+fn rebuild_tally_book(world: &mut World) -> Result<(), String> {
+    let Some(lobby) = super::rooms::room_by_key(world, "division-lobby") else {
+        return Ok(());
+    };
+    let has_entries = super::craft::fixtures_in(world, lobby)
+        .iter()
+        .find(|v| v["given_name"].as_str() == Some("the Tally Book"))
+        .and_then(|v| v["text"].as_str())
+        .is_some_and(|t| t.contains(" | "));
+    if has_entries {
+        return Ok(());
+    }
+    let decided: Vec<(i64, u64, String, String, bool)> = world
+        .recent_events(60_000)
+        .iter()
+        .filter(|e| e.kind == DECIDED && e.payload["ticket"].is_number())
+        .filter_map(|e| {
+            Some((
+                e.at.0,
+                e.payload["ticket"].as_u64()?,
+                e.payload["by"].as_str()?.to_string(),
+                e.payload["text"].as_str().unwrap_or("").to_string(),
+                e.payload["granted"] == true,
+            ))
+        })
+        .collect();
+    let n = decided.len();
+    for (at, ticket, by, text, granted) in decided.into_iter().skip(n.saturating_sub(20)) {
+        super::craft::world_writes(
+            world,
+            "division-lobby",
+            "the Tally Book",
+            "the Clerk",
+            &format!(
+                "{}: ticket {ticket}, the petition of {by}, {}; the {} have it",
+                crate::gate::iso_second(foxing_time::Timestamp(at))[..16].replace('T', " "),
+                short_text(&text),
+                if granted { "Ayes" } else { "Noes" }
+            ),
+        )?;
+    }
+    if n > 0 {
+        world.notice(format!(
+            "The Tally Book re-entered from the record: {} division{}.",
+            n.min(20),
+            if n == 1 { "" } else { "s" }
+        ));
+    }
+    Ok(())
 }
 
 fn wind(world: &mut World) -> Result<(), String> {
@@ -1217,6 +1272,11 @@ pub fn divide(world: &mut World) -> Result<(), String> {
     minute(world, "division", lines.clone())?;
     for actor in present(world, Some(true)) {
         for line in &lines {
+            // The petitioner heard their own under "Upon your petition": the house's
+            // "Petition N, of them" is the same sentence twice (the Watch of 11-07).
+            if line.starts_with("Petition ") && line.contains(&format!(", of {actor},")) {
+                continue;
+            }
             super::combat::narrate(world, &actor, line.clone());
         }
     }

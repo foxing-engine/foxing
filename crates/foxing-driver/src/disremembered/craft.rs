@@ -1610,10 +1610,17 @@ pub fn ensure_fixtures(world: &mut World, curves: &Curves) -> Result<(), String>
         if let Some((id, text_now)) = already {
             // The world's own words on its own books follow the code: the Tally
             // Book said "Nothing has been entered" above seven entries (the Watch
-            // of 11-06).
-            if text_now.as_deref() != Some(text) {
+            // of 11-06). The head only: the entries follow it after " | ", and a
+            // whole-field refresh wiped the Tally Book's every division on each
+            // boot from F to Q (the Watch of 11-07).
+            let now = text_now.unwrap_or_default();
+            let (head, tail) = match now.find(" | ") {
+                Some(i) => (&now[..i], &now[i..]),
+                None => (now.as_str(), ""),
+            };
+            if head != *text {
                 let mut changes = BTreeMap::new();
-                changes.insert("text".into(), Field::Plain(json!(text)));
+                changes.insert("text".into(), Field::Plain(json!(format!("{text}{tail}"))));
                 set_item_fields(world, Actor::Driver, id, changes).map_err(|e| e.to_string())?;
             }
             continue;
