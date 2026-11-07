@@ -1459,35 +1459,50 @@ pub fn describe(
     // set down and gone is not a mystery (it was carried to the Threshold).
     {
         let now = world.now().0;
-        let carried: Vec<(i64, String, bool)> = world
+        // Taken from here, or set down here: the latest of either, so the clock does
+        // not say "42m ago" at the moment the Docent sets something down (the Watch
+        // of 11-07).
+        let touched: Vec<(i64, String, &str)> = world
             .recent_events(3000)
             .iter()
-            .filter(|e| e.kind == super::docent::TIDIED && e.payload["from"] == room.0)
+            .filter(|e| e.kind == super::docent::TIDIED)
             .filter(|e| now - e.at.0 < 2 * 3_600_000)
             .filter_map(|e| {
-                Some((
-                    e.at.0,
-                    e.payload["name"].as_str()?.to_string(),
-                    e.payload["swept"] == true,
-                ))
+                let name = e.payload["name"].as_str()?.to_string();
+                if e.payload["from"] == room.0 {
+                    Some((
+                        e.at.0,
+                        name,
+                        if e.payload["swept"] == true {
+                            "swept"
+                        } else {
+                            "carried"
+                        },
+                    ))
+                } else if e.payload["to"] == room.0 {
+                    Some((e.at.0, name, "set down"))
+                } else {
+                    None
+                }
             })
             .collect();
-        if let Some((at, _, swept)) = carried.last() {
-            let names: Vec<&str> = carried
+        if let Some((at, _, what)) = touched.last() {
+            let names: Vec<&str> = touched
                 .iter()
                 .rev()
+                .take_while(|(_, _, w)| w == what)
                 .take(3)
                 .map(|(_, n, _)| n.as_str())
                 .collect();
             text.push_str(&format!(
                 " The Docent came through {} ago and {} {}{}.",
                 super::combat::human(now - at),
-                if *swept { "swept" } else { "carried" },
+                what,
                 names.join(", "),
-                if *swept {
-                    " into the Midden"
-                } else {
-                    " to the Threshold"
+                match *what {
+                    "swept" => " into the Midden",
+                    "carried" => " to the Threshold",
+                    _ => " here",
                 }
             ));
         }

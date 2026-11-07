@@ -471,7 +471,20 @@ pub fn greet(world: &mut World, actor: &str, room: EntityId) {
         // Once an hour per visitor, like a citizen's greeting: said on every step
         // through the room, "You again" twelve seconds later read as a tic.
         let name = mind::display(world, c);
-        if !world.greeted(&format!("creature-{}", c.0), actor) {
+        // Keyed by whether it knows you: the hour's one greeting was spent on the
+        // first arrival as a stranger, and the story's payoff (your name, said first)
+        // never came (the Watch of 11-07).
+        let knows = mind::keepers(world, c).iter().any(|k| k == actor)
+            || mind::told_by(world, c, actor)
+            || super::errand::did_for(world, c, actor);
+        if !world.greeted(
+            &format!(
+                "creature-{}-{}",
+                c.0,
+                if knows { "known" } else { "stranger" }
+            ),
+            actor,
+        ) {
             continue;
         }
         let line = if mind::keepers(world, c).iter().any(|k| k == actor) {

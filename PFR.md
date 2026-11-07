@@ -412,6 +412,9 @@ The world
 
 ## Shipped (ledger): moved out of the sections above when they went live
 
+11-07 (batch P, Gnomeclatter's; one deploy)
+- A named creature that comes to know you greets you by name on your next arrival (the hour's one greeting was spent on the first arrival as a stranger); the Docent's "came through" clock counts what it set down here, not only what it took; set-downs are said once a pass, folded ("moth dust ×3").
+
 11-07 (batch O, the Watch of 11-07's obvious fixes; one deploy)
 - (Gnibblewort) the Docent's first-arrival move and the first-moves example say "a dozen different words" and the double's rule (a newcomer's first story bounced at eleven on a repeated "a").
 - (Gnatterwick) "it listens for room, and did not hear it" for a one-word want; the miss grace said right ("The hour is not spent on a first miss; a second spends it" / "That is the second miss; the hour is spent": the code allowed two free misses while the text said once); the bonus-alone pay in words ("half again of what a story pays"); the third rung's hint names `look`. D20's evidence noted.

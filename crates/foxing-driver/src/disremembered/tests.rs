@@ -5844,7 +5844,8 @@ fn a_memory_taken_from_a_creature_is_minted_at_what_it_is_worth_now() {
     assert!((worth - held).abs() < 1.5, "worth {worth}, held {held}");
     assert_eq!(out.result["was"], 40.0);
     assert!(
-        out.summary.contains(&format!("worth {worth:.1} XP, halves every"))
+        out.summary
+            .contains(&format!("worth {worth:.1} XP, halves every"))
             && out.summary.contains("It was worth 40 when the wisp got it"),
         "{}",
         out.summary

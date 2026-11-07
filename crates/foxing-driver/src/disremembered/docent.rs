@@ -863,6 +863,7 @@ pub fn tidy(world: &mut World) -> Result<usize, String> {
     }
     let mut carried = 0;
     let mut next_seen = serde_json::Map::new();
+    let mut set_down: BTreeMap<(String, String), usize> = BTreeMap::new();
     for (item, from) in lying {
         let key = item.0.to_string();
         let times = seen.get(&key).and_then(Value::as_u64).unwrap_or(0) + 1;
@@ -885,11 +886,11 @@ pub fn tidy(world: &mut World) -> Result<usize, String> {
                 TIDIED,
                 json!({"item": item.0, "name": name, "from": from.0, "from_name": from_name, "to": threshold.0}),
             );
-            super::combat::narrate_room(
-                world,
-                docent,
-                &format!("The Docent sets down {name}, found lying in {from_name}: \"Whoever's it was.\""),
-            );
+            // Said once a pass, folded ("moth dust ×3, found lying in the Orchard"):
+            // three identical lines in one reply read as noise (the Watch of 11-07).
+            *set_down
+                .entry((name.clone(), from_name.clone()))
+                .or_insert(0) += 1;
             carried += 1;
         } else {
             next_seen.insert(key, json!(times));
@@ -956,6 +957,26 @@ pub fn tidy(world: &mut World) -> Result<usize, String> {
                 );
             }
         }
+    }
+    if !set_down.is_empty() {
+        let said: Vec<String> = set_down
+            .iter()
+            .map(|((n, from), c)| {
+                if *c > 1 {
+                    format!("{n} \u{d7}{c}, found lying in {from}")
+                } else {
+                    format!("{n}, found lying in {from}")
+                }
+            })
+            .collect();
+        super::combat::narrate_room(
+            world,
+            docent,
+            &format!(
+                "The Docent sets down {}: \"Whoever's it was.\"",
+                said.join("; ")
+            ),
+        );
     }
     let carried = carried + swept;
     // R77: the round seen passing, by whoever stands at the door when it brought
