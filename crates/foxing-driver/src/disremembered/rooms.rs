@@ -1404,25 +1404,11 @@ pub fn describe(
         }
         // R80: a chalk tally on the Threshold of who came through today.
         if key == ARRIVAL {
-            let day_ago = world.now().0 - 24 * 3_600_000;
-            let mut names: Vec<String> = Vec::new();
-            for e in world.recent_events(4000).iter().rev() {
-                if e.kind != "store.entity_moved"
-                    || e.payload["parent"] != room.0
-                    || e.at.0 < day_ago
-                {
-                    continue;
-                }
-                let Some(id) = e.payload["id"].as_u64() else {
-                    continue;
-                };
-                let Some(n) = super::plain_str(world, EntityId(id), super::CITIZEN, "name") else {
-                    continue;
-                };
-                if !names.iter().any(|m| m == n) {
-                    names.push(n.to_string());
-                }
-            }
+            let names: Vec<String> =
+                super::building::came_through_within(world, room, 24 * 3_600_000)
+                    .into_iter()
+                    .map(|(n, _)| n)
+                    .collect();
             if !names.is_empty() {
                 let shown: Vec<&str> = names.iter().take(6).map(String::as_str).collect();
                 text.push_str(&format!(
@@ -1789,7 +1775,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.travel",
-            "Take an exit. `back` is the way you came, whatever the exit is called. You cannot travel while something is fighting you; retreat first.",
+            "Take an exit. `back` retraces your trail one room at a time, whatever the doors were called: the rooms you walked since the Threshold, loops cut out (a step onto a room already on the trail cuts it back to there), and it refuses at the trail's end. A dug room's door home is `out`. You cannot travel while something is fighting you; retreat first.",
         )
         .param("exit", ParamType::String, true, "an exit name from look, or back")
         .param("word", ParamType::String, false, "the word a warded door asks for, quoted"),
@@ -1819,7 +1805,6 @@ pub fn register(world: &mut World) {
             // room you left on the trail, and `back` from its parent walked you in
             // again, forever (the Watch of 11-06). The door named back is for a
             // walker with no trail: a login in a dug room.
-            let mut retracing = false;
             if exit == "back" {
                 let trail = w.came_from(&ctx.actor).and_then(|from| {
                     exits.iter().find(|(_, &to)| to == from).map(|(via, _)| via.clone())
@@ -1827,7 +1812,6 @@ pub fn register(world: &mut World) {
                 match trail {
                     Some(via) => {
                         exit = via;
-                        retracing = true;
                     }
                     None if exits.contains_key("back") => {}
                     None => {
@@ -1925,13 +1909,15 @@ pub fn register(world: &mut World) {
             // took it (`out` of a dug room, the compass back the way you came): as a
             // step forward it put the room you left on the trail, and `back` then
             // walked you into it again (found live, 11-07).
-            if retracing || w.came_from(&ctx.actor) == Some(to) {
-                w.pop_came_from(&ctx.actor);
-            } else {
+            // A step onto any room already on the trail cuts it back to before that
+            // room: a loop walked (Meadow, Hollow Way, Bog, Stile) is not retraced
+            // (the Watch of 11-07); `back` itself is the same step one up.
+            if !w.cut_trail_to(&ctx.actor, to) {
                 w.set_came_from(&ctx.actor, room);
             }
             super::combat::on_arrival(w, &ctx.actor, f.citizen, to).map_err(internal)?;
             super::building::visited(w, to).map_err(internal)?;
+            super::building::came_through(w, to, &ctx.actor).map_err(internal)?;
             super::talk::greet(w, &ctx.actor, to);
             // The Docent greets whoever comes to the Threshold, once a night.
             super::docent::on_arrival(w, &ctx.actor).map_err(internal)?;

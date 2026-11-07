@@ -73,7 +73,7 @@ SYSTEM = (
     "now (an answer once said 'the Fogbank, where you stand' to someone in the Shallows). "
     "'Nearest' means fewest steps: the routes are listed nearest first, so name the first one "
     "that fits, never a longer one. `rest` says how you mend; waking "
-    "whole is what a fall does. `observe` is a tool outside the world, not a verb: `look` "
+    "whole is what a fall does. `observe` is a tool outside the world, not a verb, and it takes a JSON query, never a name (do not say `observe Fallis`): `look` "
     "says what a creature has learned. If you do not know, say what the room or `help` "
     "knows instead, in one sentence. Never mention being a model, a program, or anything "
     "outside the world; never give a URL. Reply with the answer only."

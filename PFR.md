@@ -21,7 +21,11 @@ went by policy, with ids.
 The gate and the hour (from the Watch of 11-06; S, each with a lean, so by policy)
 - **D18 · A message scored 50 that ran nothing.** Decided a (11-06, "CLEAR is binary, all or nothing"), **shipped 11-06 (batch G)**: the line says "a message runs whole or not at all". The fixes that reduce the chance of a 50 (what the gate can mend before checking: inner quotes curled, a missing period, a `look` after `travel`, an unknown verb's nearest) go into **X9 · CLEAR 0.5** as its change list.
 - **D19 · A want-match inside the hour.** Decided b (11-06), **shipped 11-06 (batch G)**: the wanted story is heard inside the hour at plain pay, and the want stands (told again when the hour turns, it pays double); the refusal says what is heard inside the hour.
-- **D20 · A refused guess and the hint.** The hint narrows on heard misses only; four guesses refused inside the hour narrowed nothing (batch F puts the hint in the refusal). a) **lean**: as now. b) a refused in-hour guess counts as a miss (narrows the lent-word pool to five after two refusals).
+- **D20 · A refused guess and the hint.** The hint narrows on heard misses only; four guesses refused inside the hour narrowed nothing (batch F puts the hint in the refusal). a) **lean**: as now. b) a refused in-hour guess counts as a miss (narrows the lent-word pool to five after two refusals). The Watch of 11-07 (Gnatterwick) climbed two rungs in two minutes and stalled on the third for the same reason, and asked for b, with the declined word struck from the shown pool.
+
+The library's floors (from the Watch of 11-07)
+- **D21 · Where the six live.** Four of the six new kinds (bookworm, silverfish, shelf mouse, custodian) are in Lower Stacks rooms behind the level-100 stair; a new name meets only the lanternfly and the dust devil. Every ground-floor room already spawns a kind of its own (one SPAWN a room). a) **lean**: leave the four below (they are the Stacks' own, and the stair is the stair) and say so in llms.txt; b) a second spawn per room (`SPAWN` takes a list) and seed bookworms in the Unfiled Archive beside the inklings, silverfish in the Cistern; c) move the four to the trail. S for a; M for b.
+- **D22 · A creature's spawned hit points vary by a quarter** (6.5–8.2 on wisps), more than one feeding's growth, so "hp grows with what it holds" is muddied by the roll. a) **lean**: narrow the jitter to a tenth; b) show base and bonus apart in the row ("8+3/11"); c) as is.
 
 Economy and death
 - **D5 · A floor under a name** (deferred 11-02 "until the map is bigger"; **waits**,
@@ -74,6 +78,15 @@ Left from batch D (the play page's bigger pieces):
 - **R13b** (S) A sprite per thing a creature leaves (icons are by word now).
 - **R22b** (S) One `help` voice (the page's list and the world's line).
 - **R25b** (M) A verb's argument from the scene (click `tell`, then a creature); a creature's own verbs on its figure; the palette on the plain page; the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll; admin on the play page; a `remember` that keeps a room on your map.
+From the Night's Watch of 11-07 (after batches F–N; the obvious fixes are in the ledger as batch O):
+- **R107** (S) A creature's holding is not in `observe` (`disremembered.creature.level` is "unknown field"); the mind's level is computed; expose it as a read field (`holding`) beside hp and attack, and the hits range.
+- **R108** (S) Creature rows carry contradictory flags at once ("not itself yet, its old name back"; "its name failing, not itself yet, named by the Namery"): one state word, the rest in `tell`.
+- **R109** (S) `map`'s "You remember the way to …" list is in no order; the exits under the grid are alphabetical where `look` puts the compass first; one order everywhere.
+- **R110** (S) A voided message of reads costs a quarter and the next reply still says "a message of reads alone is free, as this one was"; say the quarter.
+- **R111** (S) The second-rung hint counts the wanted story (heard, no word) as a miss ("You have missed once" with no guess made); say "a story that carried none" rather than "missed", or count guesses only.
+- **R112** (S) The similarity penalty ("one much like it in its hour; this one pays half") fired on three shared words out of fourteen; say which words, or raise the bar.
+- **R113** (S) Fed creatures mend faster (Wyndle at 8/11 "whole in 5m 27s", an unfed wisp "whole in 18m 25s"): the mend runs on max_hp over twenty minutes, so a bigger body mends more a minute; say so, or mend by the fraction.
+- **R114** (M) The Docent's late answer "No one is at the desk tonight to find that one" after "That one has a card. Wait for me": a shrug after a wait; when the model declines, answer from `help` mechanically instead.
 From the Night's Watch of 11-06 (the Mudroom's first night; the obvious fixes are in the ledger as batch F):
 - **R84** (S, **shipped 11-07, batch M**; a word door's way home is `out`; every `back` door renamed on boot where the room has no `out`; the walks, the atlas, Morphos's doors and the Namery read `out`; `dig out` refused in a dug room; the preview keeps a trail like the world's) A dug room's way out is an exit named `back` (every word-named door digs one), so `Exits: back (Mudroom)` reads as the keyword; the keyword now retraces first (batch F), which closes the trap, and the door's name should still change: `out` for new digs, the old ones migrated on boot (the ancestor walk, the mend walk, the atlas and Morphos's doors all read `back`; one deploy, alone).
 - **R85** (S, **shipped 11-07, batch L**; the compass first, in its own order, then the dug doors by name) The Mudroom's exit list came in dig order on one `look` and alphabetical on the next (two code paths); one order, the compass first.
@@ -398,6 +411,14 @@ The world
 
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-07 (batch O, the Watch of 11-07's obvious fixes; one deploy)
+- (Gnibblewort) the Docent's first-arrival move and the first-moves example say "a dozen different words" and the double's rule (a newcomer's first story bounced at eleven on a repeated "a").
+- (Gnatterwick) "it listens for room, and did not hear it" for a one-word want; the miss grace said right ("The hour is not spent on a first miss; a second spends it" / "That is the second miss; the hour is spent": the code allowed two free misses while the text said once); the bonus-alone pay in words ("half again of what a story pays"); the third rung's hint names `look`. D20's evidence noted.
+- (Gnashpocket) the hunters' line says a name in its first hour is left alone (every Watch name is, which was last night's "hunts but never attacks" too); the kill line's "halves every" did not show (the chunk's clock is read after the curve is set now); the retreat's rounds say "your hand unsteady" when shaken.
+- (Gnudgeknob) `where` and the Docent's routes say "(the stair down asks a level of one hundred)" when the way runs through it; a room's refill counts its own kind only (a born stranger held the dust devil's slot); D21 filed for the four below.
+- (Gnashlantern) the remember reply says the next bar ("at 75 it hits a point harder"); `help attack`'s figures are ranges and say the rule; the Docent is told `observe` takes JSON, never a name.
+- (Gnarlbrook) `back` cuts loops: a step onto any room on the trail cuts it back to there; `help travel` describes the trail; the Threshold's tally and the Lookout's bench read a came-through record kept on the room (the log scan reached an hour, not a day, so both were empty).
 
 11-07 (batch N; one deploy)
 - A step onto the room at the top of the trail is a retrace whatever door took it (`out` of a dug room, the compass back the way you came): as a step forward it put the room you left on the trail, and `back` walked you into it again (found live after M). The bog keeps the room you stepped in from with its clock, so "spat out the way you came" is that room, not the trail's.

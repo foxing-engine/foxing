@@ -320,10 +320,13 @@ pub fn run_checked(
                             exits.get(&arg(0)).copied()
                         } {
                             Some(to) => {
-                                if retrace {
-                                    trail.pop();
-                                } else if let Some(r) = room {
-                                    trail.push(r);
+                                match trail.iter().rposition(|r| *r == to) {
+                                    Some(i) => trail.truncate(i),
+                                    None => {
+                                        if let Some(r) = room {
+                                            trail.push(r);
+                                        }
+                                    }
                                 }
                                 room = Some(to);
                                 (

@@ -434,6 +434,21 @@ impl World {
         }
     }
 
+    /// The actor stepped onto a room already on their trail: the trail is cut back to
+    /// before it (a loop walked is not retraced), and `true` says so.
+    pub fn cut_trail_to(&mut self, actor: &str, room: foxing_store::EntityId) -> bool {
+        let Some(trail) = self.came_from.get_mut(actor) else {
+            return false;
+        };
+        match trail.iter().rposition(|r| *r == room) {
+            Some(i) => {
+                trail.truncate(i);
+                true
+            }
+            None => false,
+        }
+    }
+
     /// The actor went back: the latest room leaves the trail, so the next `back`
     /// goes a room further.
     pub fn pop_came_from(&mut self, actor: &str) -> Option<foxing_store::EntityId> {

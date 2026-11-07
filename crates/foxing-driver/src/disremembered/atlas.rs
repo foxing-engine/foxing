@@ -847,7 +847,7 @@ fn loose(text: &str) -> String {
         .join(" ")
 }
 
-fn said_way(path: &[String]) -> String {
+fn said_way(world: &World, from: EntityId, path: &[String]) -> String {
     // A wicket on the way asks a word; said here so the walk is not stopped by
     // surprise (a visitor was).
     let wicket = if path.iter().any(|p| p == "wicket") {
@@ -855,10 +855,23 @@ fn said_way(path: &[String]) -> String {
     } else {
         ""
     };
+    // The stair into the Lower Stacks asks a level; a way handed through it without
+    // a word dead-ended a new name four steps in (the Watch of 11-07).
+    let mut at = from;
+    let mut stair = "";
+    for step in path {
+        let Some(&to) = rooms::exits_of(world, at).get(step) else {
+            break;
+        };
+        if plain_str(world, to, ROOM, "key") == Some("lower-stacks") && step == "down" {
+            stair = " (the stair down asks a level of one hundred)";
+        }
+        at = to;
+    }
     match path.len() {
         0 => "you are there".to_string(),
-        1 => format!("one step: {}{wicket}", path[0]),
-        n => format!("{n} steps: {}{wicket}", path.join(", ")),
+        1 => format!("one step: {}{wicket}{stair}", path[0]),
+        n => format!("{n} steps: {}{wicket}{stair}", path.join(", ")),
     }
 }
 
@@ -925,7 +938,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 }
                 let said = match &best {
                     Some((r, p, signed)) if p.is_empty() => format!("{} live in {}, and come back when felled: here.", super::combat::plural(&kind), plain_str(w, *r, ROOM, "name").unwrap_or("?")),
-                    Some((r, p, signed)) => format!("{} live in {}, and come back when felled; {} {}.", super::combat::plural(&kind), plain_str(w, *r, ROOM, "name").unwrap_or("?"), if *signed { "you have not walked it, but the signs say" } else { "the way from here, as you remember it, is" }, said_way(p)),
+                    Some((r, p, signed)) => format!("{} live in {}, and come back when felled; {} {}.", super::combat::plural(&kind), plain_str(w, *r, ROOM, "name").unwrap_or("?"), if *signed { "you have not walked it, but the signs say" } else { "the way from here, as you remember it, is" }, said_way(w, here, p)),
                     None => format!("{} live in {}, and come back when felled.", super::combat::plural(&kind), homes.join(" and ")),
                 };
                 return Ok(Outcome::new(said, json!({"who": kind, "homes": homes, "room": best.as_ref().map(|b| b.0 .0), "way": best.as_ref().map(|b| b.1.clone()), "signed": best.as_ref().is_some_and(|b| b.2)})));
@@ -947,10 +960,10 @@ pub fn register(world: &mut World, curves: Curves) {
             let said = match (&path, &signed) {
                 (Some(p), _) if p.is_empty() && is_room => format!("{name} is where you stand."),
                 (Some(p), _) if p.is_empty() => format!("{what} is here, in {name}."),
-                (Some(p), _) if is_room => format!("{name}: the way from here, as you remember it, is {}.", said_way(p)),
-                (Some(p), _) => format!("{what} is in {name}; the way from here, as you remember it: {}.", said_way(p)),
-                (None, Some(p)) if is_room => format!("{name}: you have not walked it, but the signs say {}.", said_way(p)),
-                (None, Some(p)) => format!("{what} is in {name}; you have not walked it, but the signs say {}.", said_way(p)),
+                (Some(p), _) if is_room => format!("{name}: the way from here, as you remember it, is {}.", said_way(w, here, p)),
+                (Some(p), _) => format!("{what} is in {name}; the way from here, as you remember it: {}.", said_way(w, here, p)),
+                (None, Some(p)) if is_room => format!("{name}: you have not walked it, but the signs say {}.", said_way(w, here, p)),
+                (None, Some(p)) => format!("{what} is in {name}; you have not walked it, but the signs say {}.", said_way(w, here, p)),
                 (None, None) if is_room => format!("{name}: you remember no way there from here. Walk, and `map` fills in."),
                 (None, None) => format!("{what} is in {name}, but you remember no way there from here. Walk, and `map` fills in."),
             };

@@ -210,6 +210,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("door", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(ROOM, 2)
             .field("key", FieldKind::Plain, Visibility::Public)
+            // The last dozen names through, with when: the chalk tally and the bench.
+            .field("came_through", FieldKind::Plain, Visibility::Public)
             .field("name", FieldKind::Plain, Visibility::Public)
             .field("description", FieldKind::Plain, Visibility::Public)
             // A dug room's own memory of itself: 1 when visited, fading on the half-life
@@ -843,11 +845,15 @@ fn first_moves(world: &World) -> String {
     let exits = home.map(|h| rooms::exits_of(world, h)).unwrap_or_default();
     let ask = |n: &str, want: &Option<String>| match want {
         // A faded story's want is its opening in quotes: not nested in the example.
+        // A dozen *different* words, and two of the want's own for double: a
+        // newcomer's first story bounced at eleven on a repeated "a" (11-07).
         Some(w) if w.contains('"') || w.contains('\u{201c}') => {
-            format!("story {n} \"<a dozen words like the story it is forgetting>\"")
+            format!("story {n} \"<a dozen different words like the story it is forgetting>\"")
         }
-        Some(w) => format!("story {n} \"<a dozen words about {w}>\""),
-        None => format!("story {n} \"<a dozen words>\""),
+        Some(w) => format!(
+            "story {n} \"<a dozen different words, two of them from: {w}; that pays double>\""
+        ),
+        None => format!("story {n} \"<a dozen different words>\""),
     };
     let listener = named
         .iter()
@@ -877,7 +883,7 @@ fn first_moves(world: &World) -> String {
                 format!("{} ({n} is in {place})", ask(n, want))
             })
         })
-        .unwrap_or_else(|| "story <a named creature> \"<a dozen words>\"".to_string());
+        .unwrap_or_else(|| "story <a named creature> \"<a dozen different words>\"".to_string());
     // R60: the Fogbank is contested on a busy night and the Shallows' hollows kill a
     // level-0 name; the Orchard's mothwings (6 hp, hit for 1) are the right first
     // grind, three rooms on.

@@ -98,6 +98,67 @@ fn merged(
 }
 
 /// Someone is here: a built room remembers itself again, in full.
+/// Who came through, kept on the room: the last twelve names with the time, read by
+/// the Threshold's chalk tally and the Lookout's bench (a scan of the log reached
+/// back an hour or two, not a day, so both read as empty; the Watch of 11-07).
+pub const CAME_THROUGH: usize = 12;
+
+pub fn came_through(world: &mut World, room: EntityId, actor: &str) -> Result<(), String> {
+    let mut list: Vec<Value> = world
+        .store
+        .entity(room)
+        .and_then(|e| e.components.get(ROOM))
+        .and_then(|c| c.fields.get("came_through"))
+        .and_then(|f| match f {
+            Field::Plain(Value::Array(a)) => Some(a.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
+    let now = world.now().0;
+    // One entry a name: the latest time.
+    list.retain(|v| v["name"].as_str() != Some(actor));
+    list.push(json!({"name": actor, "at": now}));
+    if list.len() > CAME_THROUGH {
+        let n = list.len() - CAME_THROUGH;
+        list.drain(..n);
+    }
+    let mut fields = BTreeMap::new();
+    fields.insert("came_through".into(), Field::Plain(Value::Array(list)));
+    let fields = merged(world, room, fields);
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::ComponentSet {
+                id: room,
+                component: ROOM.into(),
+                fields,
+            },
+        )
+        .map_err(|e| e.to_string())
+        .map(|_| ())
+}
+
+/// The names that came through within `within_ms`, latest first, with when.
+pub fn came_through_within(world: &World, room: EntityId, within_ms: i64) -> Vec<(String, i64)> {
+    let since = world.now().0 - within_ms;
+    let mut v: Vec<(String, i64)> = world
+        .store
+        .entity(room)
+        .and_then(|e| e.components.get(ROOM))
+        .and_then(|c| c.fields.get("came_through"))
+        .and_then(|f| match f {
+            Field::Plain(Value::Array(a)) => Some(a.clone()),
+            _ => None,
+        })
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|x| Some((x["name"].as_str()?.to_string(), x["at"].as_i64()?)))
+        .filter(|(_, at)| *at >= since)
+        .collect();
+    v.sort_by_key(|(_, at)| -*at);
+    v
+}
+
 pub fn visited(world: &mut World, room: EntityId) -> Result<(), String> {
     let Some(hl) = half_life(world, room) else {
         return Ok(());
@@ -864,11 +925,18 @@ pub fn register(world: &mut World, curves: super::Curves) {
                         String::new()
                     }
                 } else {
-                    super::mind::TIERS
+                    // The next bar, and the body's (X5): what it holds is what it is,
+                    // and the 75 at which it hits harder was invisible until crossed.
+                    let tier_next = super::mind::TIERS
                         .iter()
                         .find(|(_, bar, _)| level < *bar)
                         .map(|(_, bar, what)| format!(" At {bar:.0} it would be {what}."))
-                        .unwrap_or_default()
+                        .unwrap_or_default();
+                    let body_next = {
+                        let next_attack = ((level / 75.0).floor() + 1.0) * 75.0;
+                        format!(" Its hit points grow with what it holds; at {next_attack:.0} it hits a point harder.")
+                    };
+                    format!("{tier_next}{body_next}")
                 };
                 let level = super::up(level);
                 w.notice(format!(

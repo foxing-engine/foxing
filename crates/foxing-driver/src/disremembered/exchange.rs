@@ -342,6 +342,26 @@ pub fn register(world: &mut World, curves: Curves) {
                 };
             let gist = gist(&text);
             let missed = if wanted { None } else { super::errand::why_missed(w, creature, &text) };
+            // The grace, said right: the first miss of the hour spends nothing; the
+            // second spends it ("once" on both read as a lie, the Watch of 11-07).
+            let missed = missed.map(|m| {
+                let prior = w
+                    .recent_events(2000)
+                    .iter()
+                    .filter(|e| {
+                        e.kind == STORY
+                            && e.payload["from"] == ctx.actor
+                            && e.payload["creature"] == creature.0
+                            && e.payload["missed"] == true
+                            && w.now().since(e.at).0 < STORY_COOLDOWN_MS
+                    })
+                    .count();
+                if prior == 0 {
+                    format!("{m} The hour is not spent on a first miss; a second spends it.")
+                } else {
+                    format!("{m} That is the second miss; the hour is spent.")
+                }
+            });
             // The word under the others: a story that carries it pays the level's bonus.
             let struck = super::secret::strike(w, &ctx.actor, creature, &text)?;
             let paid = match &struck {
@@ -396,7 +416,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 format!(
                     "You tell {display} a story of {words} words, and it answers.{}{}{heard_line} You remember the telling: chunk-{} worth {paid:.0} XP{}.{}",
                     if wanted_early { " It was the story it wanted, heard inside its hour with you at plain pay; the want stands, and told again when its hour turns it pays double." } else if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
-                    struck.as_ref().map(|(b, _, l)| format!(" It carried the word under the others, the {} of three: {}, and vivid.", ["first", "second", "third"][(*l as usize).clamp(1, 3) - 1], if bonus_only { format!("heard within its hour with you, so the bonus alone, {:.1} times the pay less the pay", b) } else { format!("{b:.1} times the pay") })).unwrap_or_default(),
+                    struck.as_ref().map(|(b, _, l)| format!(" It carried the word under the others, the {} of three: {}, and vivid.", ["first", "second", "third"][(*l as usize).clamp(1, 3) - 1], if bonus_only { format!("heard inside its hour with you, so the bonus alone: {} of what a story pays", match (b * 10.0).round() as i64 { 15 => "half again".to_string(), 20 => "as much again".to_string(), 25 => "one and a half times again".to_string(), _ => format!("{:.1} times", b - 1.0) }) } else { format!("{b:.1} times the pay") })).unwrap_or_default(),
                     earned.0,
                     if vivid > 0.4 { format!(", vividity {vivid:.2}{}", if long > 0.0 && struck.is_none() { " (length buys vividity, to 0.90 at two hundred words)" } else { "" }) } else { String::new() },
                     missed.as_deref().map(|m| format!(" {m}")).unwrap_or_default()

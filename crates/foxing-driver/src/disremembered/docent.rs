@@ -1540,7 +1540,7 @@ pub fn first_arrival(world: &World, actor: &str) -> String {
     });
     let next = match named {
         Some((r, who)) if Some(r) == home => {
-            format!("{who} is here; tell it a dozen words it does not know, and it keeps them")
+            format!("{who} is here; `story` it a dozen different words in sentences, two of them about what it wants (`wants` says), and it keeps them and pays double")
         }
         Some((r, who)) => {
             let place = super::plain_str(world, r, super::ROOM, "name").unwrap_or("the next room");
@@ -1552,7 +1552,7 @@ pub fn first_arrival(world: &World, actor: &str) -> String {
                 })
                 .map(|(e, _)| format!("`travel {e}`"))
                 .unwrap_or_else(|| format!("`where {}`", who.split(' ').next().unwrap_or("it")));
-            format!("{who} is in {place}, {via}; tell it a dozen words it does not know, and it keeps them")
+            format!("{who} is in {place}, {via}; `story` it a dozen different words in sentences, two of them about what it wants (`wants` says), and it keeps them and pays double")
         }
         None => {
             "east is the fog, and a wisp in it; strike one, or tell it a story once it has a name"

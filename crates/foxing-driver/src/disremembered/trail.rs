@@ -289,32 +289,18 @@ pub fn look_line(world: &World, actor: &str, room: EntityId) -> Option<String> {
                 }
             }
             // R80: the bench remembers who sat here last ("Gnomeward was here 2h ago").
-            let day_ago = world.now().0 - 24 * 3_600_000;
-            let mut last: Vec<String> = Vec::new();
-            for e in world.recent_events(3000).iter().rev() {
-                if e.kind != "store.entity_moved"
-                    || e.payload["parent"] != room.0
-                    || e.at.0 < day_ago
-                {
-                    continue;
-                }
-                let Some(id) = e.payload["id"].as_u64() else {
-                    continue;
-                };
-                let Some(n) = plain_str(world, EntityId(id), CITIZEN, "name") else {
-                    continue;
-                };
-                if n == actor || last.iter().any(|l| l.starts_with(n)) {
-                    continue;
-                }
-                last.push(format!(
-                    "{n} was here {} ago",
-                    super::combat::human(world.now().0 - e.at.0)
-                ));
-                if last.len() == 3 {
-                    break;
-                }
-            }
+            let last: Vec<String> =
+                super::building::came_through_within(world, room, 24 * 3_600_000)
+                    .into_iter()
+                    .filter(|(n, _)| n != actor)
+                    .take(3)
+                    .map(|(n, at)| {
+                        format!(
+                            "{n} was here {} ago",
+                            super::combat::human(world.now().0 - at)
+                        )
+                    })
+                    .collect();
             let bench = if last.is_empty() {
                 String::new()
             } else {

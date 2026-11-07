@@ -237,6 +237,8 @@ fn a_fight_earns_a_chunk_whose_vividity_is_how_close_you_came() {
     assert_eq!(level(&mut w, "dave"), 0.0);
     let win = fight(&mut w, "dave");
     assert_eq!(win.result["killed"], json!(true));
+    // R98: the chunk's clock is on the kill line.
+    assert!(win.summary.contains("halves every"), "{}", win.summary);
     let hp = win.result["hp"].as_f64().unwrap();
     let vividity = win.result["vividity"].as_f64().unwrap();
     assert!((vividity - (1.0 - hp / MAX_HP)).abs() < 1e-9);
@@ -5842,9 +5844,8 @@ fn a_memory_taken_from_a_creature_is_minted_at_what_it_is_worth_now() {
     assert!((worth - held).abs() < 1.5, "worth {worth}, held {held}");
     assert_eq!(out.result["was"], 40.0);
     assert!(
-        out.summary.contains(&format!(
-            "worth {worth:.1} XP. It was worth 40 when the wisp got it"
-        )),
+        out.summary.contains(&format!("worth {worth:.1} XP, halves every"))
+            && out.summary.contains("It was worth 40 when the wisp got it"),
         "{}",
         out.summary
     );

@@ -514,9 +514,32 @@ pub fn why_missed(world: &World, creature: EntityId, text: &str) -> Option<Strin
         .cloned()
         .collect::<Vec<_>>()
         .join(", ");
+    // One word listened for reads as one ("listens for room, and did not hear it"),
+    // not a list of one (the Watch of 11-07).
+    let single = e.keywords.len() == 1;
     Some(format!(
-        "Not the one it wanted: it listens for {listens}, and heard {}; {need} of those would do. The hour is not spent on a miss, once.",
-        if heard.is_empty() { "none of them".to_string() } else { heard.iter().map(|h| h.as_str()).collect::<Vec<_>>().join(" and ") }
+        "Not the one it wanted: it listens for {listens}, and {}{}.",
+        if heard.is_empty() {
+            if single {
+                "did not hear it".to_string()
+            } else {
+                "heard none of them".to_string()
+            }
+        } else {
+            format!(
+                "heard {}",
+                heard
+                    .iter()
+                    .map(|h| h.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" and ")
+            )
+        },
+        if single {
+            String::new()
+        } else {
+            format!("; {need} of those would do")
+        }
     ))
 }
 

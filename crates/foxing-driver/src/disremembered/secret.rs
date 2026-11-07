@@ -302,7 +302,7 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
         1 => "There is a word under the others, and I do not say it. It was in the first thing anyone told me; ask me to recite the first story.".to_string(),
         2 if from == "told" => "The first was found. The next was in the first thing anyone told me; ask me to recite it.".to_string(),
         2 => "The first was found. The next is in something I wanted once, and have not forgotten.".to_string(),
-        _ => "The last is around me. Look at where I stand.".to_string(),
+        _ => "The last is around me: a word of the room I stand in, as `look` says it.".to_string(),
     };
     let who = if struck.is_empty() {
         String::new()

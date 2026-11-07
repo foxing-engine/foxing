@@ -447,9 +447,11 @@ pub fn fill(world: &mut World, room: EntityId) -> Result<usize, StoreError> {
     // A named creature is someone's, not the room's stock (the Watch of 11-06 found
     // the fog's two wisps both named by the Docent and nothing to strike): only the
     // unnamed count toward the figure, so a room with pilots in it still refills.
+    // Its own kind, unnamed: a stranger that wandered in (a born "ragg" on the
+    // Downward Stair) held the dust devil's one slot for a night.
     let have = creatures_in(world, room)
         .iter()
-        .filter(|c| super::mind::name(world, c.0).is_none())
+        .filter(|c| c.1 == key && super::mind::name(world, c.0).is_none())
         .count();
     // Not from empty: a boot fills every room to its figure exactly (the test worlds
     // count on it), and the extra comes on a refill of a room partly cleared.
@@ -1904,7 +1906,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the closer you came to dying, the longer the memory lasts. While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour. A new name's first grind: the Orchard's mothwings (6 hp, a hit of 1; east, north, north) or the Fogbank's wisps (8 hp, a hit of 2; east); the Shallows' hollows between them hunt and hit for 4.")
+        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the closer you came to dying, the longer the memory lasts. While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour. A new name's first grind: Lantern Row's lanternflies (5 hp, hits 1–3; north), the Orchard's mothwings (6 hp, hits 1–3; east, north, north) or the Fogbank's wisps (8 hp, hits 2–4; east); the Shallows' hollows between them hunt and hit 4–6. A creature's figures grow with what it holds, never with your level.")
             .param("creature", ParamType::Entity, false, "a creature name from look; defaults to the one you are fighting, else an unnamed one here. A named creature is never struck by default."),
         Box::new(move |w: &mut World, ctx, args| {
             let f = me(w, ctx)?;
@@ -2157,8 +2159,11 @@ pub fn register(world: &mut World, curves: Curves) {
                     } else {
                         String::new()
                     };
+                    let halves = super::memory::halving_ms(w, chunk)
+                        .map(|ms| format!(", halves every {}", human(ms)))
+                        .unwrap_or_default();
                     lines.push(format!(
-                        "{who} goes down, and you take its memory of {source}: chunk-{} worth {worth:.1} XP.{faded} It gets up again, holding {left:.0}, and will not be itself for {}.",
+                        "{who} goes down, and you take its memory of {source}: chunk-{} worth {worth:.1} XP{halves}.{faded} It gets up again, holding {left:.0}, and will not be itself for {}.",
                         chunk.0,
                         super::mind::shaken_for(w, creature).map(human).unwrap_or_else(|| "a while".into())
                     ));
@@ -2336,8 +2341,11 @@ pub fn register(world: &mut World, curves: Curves) {
                 let in_me_whole = (super::MAX_HP / its).floor();
                 if chp > 0.0 {
                     format!(
-                        " A second stand now: about {rounds_now:.0} round{} to fell it, and you have {in_me_now:.0} in you. When you are whole: about {rounds_then:.0} round{} against its {chp_then:.0}, and you have {in_me_whole:.0}{}{}.",
+                        " A second stand now: about {rounds_now:.0} round{}{} to fell it, and you have {in_me_now:.0} in you. When you are whole: about {rounds_then:.0} round{} against its {chp_then:.0}, and you have {in_me_whole:.0}{}{}.",
                         if rounds_now == 1.0 { "" } else { "s" },
+                        // The rounds count misses: a shaken hand at one in four lands
+                        // reads as "3 rounds for 10 hp with a hit of 7" (the Watch of 11-07).
+                        if hit < 0.7 { " (your hand unsteady: fewer of your swings land)" } else { "" },
                         if rounds_then == 1.0 { "" } else { "s" },
                         // R94: the level fades while you rest, and a point of attack with it.
                         if me_whole_in_ms > 3 * 60_000 { " (a round more, maybe, as your level fades while you rest)" } else { "" },
