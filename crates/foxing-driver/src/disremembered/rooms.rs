@@ -1921,7 +1921,11 @@ pub fn register(world: &mut World) {
             )
             .map_err(internal)?;
             // R1: `back` retraces the trail a room per step; any other door adds to it.
-            if retracing {
+            // A step onto the room at the top of the trail is a retrace whatever door
+            // took it (`out` of a dug room, the compass back the way you came): as a
+            // step forward it put the room you left on the trail, and `back` then
+            // walked you into it again (found live, 11-07).
+            if retracing || w.came_from(&ctx.actor) == Some(to) {
                 w.pop_came_from(&ctx.actor);
             } else {
                 w.set_came_from(&ctx.actor, room);
@@ -1934,7 +1938,7 @@ pub fn register(world: &mut World) {
             // Morphos, if it stands here, asks whoever comes in.
             super::morphos::on_arrival(w, &ctx.actor, to).map_err(internal)?;
             // The Bog of Second Thoughts starts its clock on whoever steps in.
-            super::trail::on_arrival(w, &ctx.actor, f.citizen, to).map_err(internal)?;
+            super::trail::on_arrival(w, &ctx.actor, f.citizen, to, Some(room)).map_err(internal)?;
             // A bell standing here rings for whoever comes in; the rooms next door hear.
             if super::craft::fixture_of(w, to, "bell").is_some() {
                 let here_name = plain_str(w, to, ROOM, "name").unwrap_or("a room").to_string();

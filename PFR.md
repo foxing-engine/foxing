@@ -399,6 +399,9 @@ The world
 
 ## Shipped (ledger): moved out of the sections above when they went live
 
+11-07 (batch N; one deploy)
+- A step onto the room at the top of the trail is a retrace whatever door took it (`out` of a dug room, the compass back the way you came): as a step forward it put the room you left on the trail, and `back` walked you into it again (found live after M). The bog keeps the room you stepped in from with its clock, so "spat out the way you came" is that room, not the trail's.
+
 11-07 (batch M, R84 alone; one deploy)
 - A dug room's way home is named `out`, never `back`; the old doors renamed on boot; the quickstart says `back` retraces the trail.
 

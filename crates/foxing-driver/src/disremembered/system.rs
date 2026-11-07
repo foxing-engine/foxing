@@ -233,7 +233,7 @@ fn move_citizen(
     )
     .map_err(internal)?;
     super::combat::on_arrival(w, name, citizen, room).map_err(internal)?;
-    super::trail::on_arrival(w, name, citizen, room).map_err(internal)?;
+    super::trail::on_arrival(w, name, citizen, room, None).map_err(internal)?;
     super::building::visited(w, room).map_err(internal)?;
     let rname = super::plain_str(w, room, super::ROOM, "name")
         .unwrap_or("?")

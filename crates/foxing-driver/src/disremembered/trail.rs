@@ -85,6 +85,7 @@ pub fn on_arrival(
     actor: &str,
     citizen: EntityId,
     room: EntityId,
+    from: Option<EntityId>,
 ) -> Result<(), String> {
     world.cancel(JOB_BOG, |p| p["citizen"] == citizen.0)?;
     if key_of(world, room) != Some(BOG) {
@@ -93,10 +94,13 @@ pub fn on_arrival(
     let due = world
         .now()
         .plus(foxing_time::Duration::seconds(BOG_SECONDS));
+    // The room they stepped in from, kept with the clock: "the way you came" is
+    // that room, whatever the trail says (the trail is `back`'s, and a step onto
+    // the room at its top retraces).
     world.schedule_once(
         JOB_BOG,
         due,
-        json!({"citizen": citizen.0, "actor": actor}),
+        json!({"citizen": citizen.0, "actor": actor, "from": from.map(|r| r.0)}),
         |p| p["citizen"] == citizen.0,
     )?;
     Ok(())
@@ -109,6 +113,7 @@ pub fn on_arrival(
 fn bog(world: &mut World, payload: &Value) -> Result<(), String> {
     let citizen = EntityId(payload["citizen"].as_u64().unwrap_or(0));
     let actor = payload["actor"].as_str().unwrap_or("").to_string();
+    let from = payload["from"].as_u64().map(EntityId);
     let Some(room) = world.store.entity(citizen).and_then(|e| e.parent) else {
         return Ok(());
     };
@@ -158,8 +163,8 @@ fn bog(world: &mut World, payload: &Value) -> Result<(), String> {
         .and_then(|k| plain_str(world, k, ITEM, "name"))
         .map(str::to_string);
     // Spat out the way they came, or over the stile if the bog cannot remember.
-    let back = world
-        .came_from(&actor)
+    let back = from
+        .or_else(|| world.came_from(&actor))
         .filter(|r| *r != room && world.store.entity(*r).is_some())
         .or_else(|| super::rooms::room_by_key(world, STILE));
     let Some(to) = back else {
