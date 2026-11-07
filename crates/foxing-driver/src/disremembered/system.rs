@@ -795,7 +795,7 @@ fn register_rest(world: &mut World) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.time", "The world's clock, your clock, how long the driver has been up, and the two bells: the Clocktower strikes on the hour and moves the rates (what a creature is worth, what a story pays, how fast memory fades, how long rooms take to refill) a step toward the band it keeps; the Conclave divides at half past and moves each petition a stage. Both are said to everyone present when they fire (present: acting within the last ten minutes; a room forgets a quiet name, and a bell is then found in `messages`); a holiday skips the division."),
+        CommandSpec::new("disremembered.time", "The world's clock, your clock, how long the driver has been up, and the two bells: the Clocktower strikes on the hour and moves the rates (what a creature is worth, what a story pays, how fast memory fades, how long rooms take to refill) a step toward the band it keeps; the Conclave divides at half past and moves each petition a stage. Both are said to everyone present when they fire (present: acting within the last ten minutes; the division reaches a name in the Conclave's rooms however quiet, while the room still remembers them, and a bell missed is in `messages`); a holiday skips the division."),
         Box::new(|w: &mut World, ctx, _| {
             let now = w.now();
             let world_paused = w.store.clock(&ClockId::from(WORLD_CLOCK)).is_some_and(|c| c.is_paused_at(now));

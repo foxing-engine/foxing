@@ -187,7 +187,8 @@ fn the_map_is_built_once_and_travel_follows_exits() {
     login(&mut w, "dave", "test", PASS).unwrap();
     let look = ok(&mut w, "dave", "look", json!([]));
     assert_eq!(look.result["room"], json!("The Threshold"));
-    assert_eq!(look.result["exits"], json!(["east", "north", "west"]));
+    // R85: the compass first, in its own order.
+    assert_eq!(look.result["exits"], json!(["north", "east", "west"]));
     assert!(matches!(
         call(
             &mut w,
@@ -1161,7 +1162,7 @@ fn players_dig_rooms_that_fade_but_stay() {
     let faded = describe_room(&mut w, "dave", room);
     assert!(faded.contains(building::HALF_REMEMBERED), "{faded}");
     assert!(
-        faded.contains("Exits: up (Mudroom), east ("),
+        faded.contains("Exits: east (") && faded.contains("up (Mudroom)"),
         "the exits survive: {faded}"
     );
     // A visit remembers it whole again.
@@ -1496,7 +1497,7 @@ fn remembering_a_room_costs_a_chunk_and_makes_it_last() {
     );
     let look = ok(&mut w, "tyler", "look", json!([]));
     assert!(
-        look.summary.contains("Kept in memory by tyler (wisp)."),
+        look.summary.contains("Kept in memory by tyler (with wisp)"),
         "{}",
         look.summary
     );
@@ -5842,7 +5843,7 @@ fn a_memory_taken_from_a_creature_is_minted_at_what_it_is_worth_now() {
     assert_eq!(out.result["was"], 40.0);
     assert!(
         out.summary.contains(&format!(
-            "worth {worth:.0} XP. It was worth 40 when the wisp got it"
+            "worth {worth:.1} XP. It was worth 40 when the wisp got it"
         )),
         "{}",
         out.summary

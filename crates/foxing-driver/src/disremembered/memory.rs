@@ -136,20 +136,7 @@ fn chunk_rows(
                 .timed_field(e.id, CHUNK, "value")
                 .ok()
                 .is_some_and(|t| matches!(t.curve, foxing_time::Curve::PowerLaw { .. }));
-            let halves = world
-                .store
-                .timed_field(e.id, CHUNK, "value")
-                .ok()
-                .and_then(|t| match t.curve {
-                    foxing_time::Curve::Exponential { half_life } => Some(half_life.0),
-                    foxing_time::Curve::PowerLaw { scale, exponent } => {
-                        let elapsed = (now.0 - t.waterline.at.0).max(0);
-                        // v(t) = v0/(1+t/s)^k: from t1, half at (1+t2/s) = 2^(1/k)(1+t1/s).
-                        let f = 2f64.powf(1.0 / exponent.max(1e-9));
-                        Some(((scale.0 as f64 + elapsed as f64) * f - scale.0 as f64 - elapsed as f64) as i64)
-                    }
-                    _ => None,
-                });
+            let halves = halving_ms(world, e.id);
             json!({"id": e.id.0, "source": f("source"), "tier": f("tier"), "size": f("size"), "vividity": f("vividity"), "value": f("value"), "halves_ms": halves, "shelved": shelved, "taxed": f("taxed"), "provenance": f("provenance")})
         })
         .collect();
@@ -191,6 +178,29 @@ fn fade_rate(active_hl_ms: i64) -> String {
         super::combat::human((active_hl_ms as f64 * super::Curves::stretch(0.0)) as i64),
         super::combat::human((active_hl_ms as f64 * super::Curves::stretch(1.0)) as i64)
     )
+}
+
+/// How long a chunk takes to halve, from now: a half-life for an exponential (the
+/// same from any moment), the next halving for the shelf's power law.
+pub fn halving_ms(world: &World, chunk: EntityId) -> Option<i64> {
+    let now = world.now();
+    world
+        .store
+        .timed_field(chunk, CHUNK, "value")
+        .ok()
+        .and_then(|t| match t.curve {
+            foxing_time::Curve::Exponential { half_life } => Some(half_life.0),
+            foxing_time::Curve::PowerLaw { scale, exponent } => {
+                let elapsed = (now.0 - t.waterline.at.0).max(0);
+                // v(t) = v0/(1+t/s)^k: from t1, half at (1+t2/s) = 2^(1/k)(1+t1/s).
+                let f = 2f64.powf(1.0 / exponent.max(1e-9));
+                Some(
+                    ((scale.0 as f64 + elapsed as f64) * f - scale.0 as f64 - elapsed as f64)
+                        as i64,
+                )
+            }
+            _ => None,
+        })
 }
 
 fn rows_text(rows: &[Value]) -> Vec<String> {

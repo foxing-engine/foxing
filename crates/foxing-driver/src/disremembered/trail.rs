@@ -189,7 +189,7 @@ fn bog(world: &mut World, payload: &Value) -> Result<(), String> {
         json!({"citizen": citizen.0, "actor": actor, "hp_taken": taken, "kept": kept.map(|k| k.0), "spat_to": to.0}),
     );
     let said = format!(
-        "The bog takes a liking to you. It has you to the waist before you notice, then to the chest, and then it loses interest and spits you out at {to_name}, {taken:.0} hit points the poorer{}. The tussocks are the path; cross, do not linger.",
+        "The bog takes a liking to you. It has you to the waist before you notice, then to the chest, and then it loses interest and spits you out at {to_name}, {taken:.0} hit points the poorer{}. The tussocks are the path; cross, do not linger. The trail forgets the bog: `back` from here is the way you came before it.",
         kept_name
             .map(|n| format!(", and it has kept your {n}"))
             .unwrap_or_default()
@@ -223,6 +223,32 @@ pub fn look_line(world: &World, actor: &str, room: EntityId) -> Option<String> {
                 "You are on a tussock, and the bog has noticed: it takes a liking to you in {}.",
                 super::combat::human(left)
             ))
+        }
+        // R95: the Stile says what is ahead, which the signpost will not.
+        STILE => {
+            let exits = super::rooms::exits_of(world, room);
+            let name_of =
+                |r: EntityId| plain_str(world, r, ROOM, "name").unwrap_or("?").to_string();
+            let mut arms: Vec<String> = Vec::new();
+            for dir in ["north", "east"] {
+                let Some(&next) = exits.get(dir) else {
+                    continue;
+                };
+                let beyond = super::rooms::exits_of(world, next)
+                    .into_iter()
+                    .find(|(d, to)| d == dir && *to != room)
+                    .map(|(_, to)| format!(", and past it {}", name_of(to)))
+                    .unwrap_or_default();
+                arms.push(format!("{dir}, {}{beyond}", name_of(next)));
+            }
+            if arms.is_empty() {
+                None
+            } else {
+                Some(format!(
+                    "Cut into the top step by someone who did not trust the signpost: {}.",
+                    arms.join("; ")
+                ))
+            }
         }
         LOOKOUT => {
             let mut seen: Vec<String> = Vec::new();

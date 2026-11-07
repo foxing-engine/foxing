@@ -421,7 +421,19 @@ pub fn describe(world: &World, creature: EntityId) -> Option<String> {
         } else {
             String::new()
         };
-        parts.push(format!("{n} wants a story about {want}{left}."));
+        // R89: a want that turned lately says so here as in `wants`, so two creatures
+        // whose wants moved do not read as having swapped them.
+        let turned =
+            if rotatable(&e.story_by) && e.story_at > 0 && world.now().0 - e.story_at < 30 * 60_000
+            {
+                format!(
+                    " (turned {} ago)",
+                    super::combat::human(world.now().0 - e.story_at)
+                )
+            } else {
+                String::new()
+            };
+        parts.push(format!("{n} wants a story about {want}{left}{turned}."));
     }
     if let (Some(phrase), Some(to)) = (&e.word, &e.word_to) {
         let there = mind::find_named(world, to).and_then(|(_, r)| r);

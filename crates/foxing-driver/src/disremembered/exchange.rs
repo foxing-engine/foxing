@@ -377,7 +377,7 @@ pub fn register(world: &mut World, curves: Curves) {
             // creatures once thanked a teller in exactly the same words.
             let own = super::talk::line_of_its_own(w, creature, kept);
             let under = match &struck {
-                Some((_, word, lvl)) => format!(" You said the word under the others: {word}.{}", if *lvl < super::secret::LEVELS { " There is another under that." } else { " There is none under that; you have them all." }),
+                Some((_, word, lvl)) => format!(" You said the word under the others: {word}.{}{}", if *lvl < super::secret::LEVELS { " There is another under that." } else { " There is none under that; you have them all." }, if bonus_only { " It was heard inside your hour with it, for the word; the next from you that carries none waits for the hour." } else { "" }),
                 None => String::new(),
             };
             let answer = if wanted {

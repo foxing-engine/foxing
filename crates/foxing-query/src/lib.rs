@@ -390,10 +390,17 @@ fn check_select(store: &Store, select: Option<&Select>) -> Result<(), QueryError
         if let FieldSelect::Some(names) = fields {
             for f in names {
                 if schema.get(f).is_none() {
+                    // The field may be another component's (`room.exits` is
+                    // `disremembered.exits.exits`): say so before the nearest name.
+                    let elsewhere = registry
+                        .schemas()
+                        .find(|s| s.name != *component && s.get(f).is_some())
+                        .map(|s| format!("{}.{f}", s.name));
                     return Err(QueryError::UnknownField {
                         component: component.clone(),
                         field: f.clone(),
-                        nearest: nearest(f, schema.fields.iter().map(|x| x.name.as_str())),
+                        nearest: elsewhere
+                            .or_else(|| nearest(f, schema.fields.iter().map(|x| x.name.as_str()))),
                     });
                 }
             }

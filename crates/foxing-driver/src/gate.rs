@@ -696,8 +696,15 @@ pub fn pass(
     // What happened to the sender since they last wrote, for the channels that have
     // no other way to hear it: an ambush, a strike, words left for them. The text port
     // prints these itself and the session pushes them.
-    if matches!(via, Via::Gate | Via::Http) {
-        for line in since_last_message(world, actor) {
+    // R93: said after the reply's own lines, not before (the Docent's nod rode on
+    // top of every reply at the door); a death is the exception, handled above.
+    let mut pending: Vec<String> = if matches!(via, Via::Gate | Via::Http) {
+        since_last_message(world, actor)
+    } else {
+        Vec::new()
+    };
+    if !pending.is_empty() && died_since_last_message(world, actor) {
+        for line in pending.drain(..) {
             report.quote(line, "narrator");
         }
     }
@@ -945,6 +952,15 @@ pub fn pass(
             if !already {
                 report.quote(line, "narrator");
             }
+        }
+    }
+    if !pending.is_empty() {
+        report.quote(
+            "Meanwhile, since your last message:".to_string(),
+            "narrator",
+        );
+        for line in pending {
+            report.quote(line, "narrator");
         }
     }
     finish(

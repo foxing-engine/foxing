@@ -383,10 +383,20 @@ fn present(world: &World, in_house: Option<bool>) -> Vec<String> {
     world
         .store
         .entities()
-        .filter(|e| e.kind == "citizen" && super::presence::is_here(world, e.id))
-        .filter(|e| match in_house {
-            None => true,
-            Some(want) => e.parent.is_some_and(|r| is_house(world, r)) == want,
+        .filter(|e| e.kind == "citizen")
+        .filter(|e| {
+            let house = e.parent.is_some_and(|r| is_house(world, r));
+            // R106: a bell wakes the quiet in its rooms: a name standing in the house,
+            // however quiet (the room still remembers them), hears the division.
+            let hears = super::presence::is_here(world, e.id)
+                || (house
+                    && super::presence::trace(world, e.id)
+                        .is_some_and(|t| t >= super::presence::FORGOTTEN));
+            hears
+                && match in_house {
+                    None => true,
+                    Some(want) => house == want,
+                }
         })
         .filter_map(|e| e.owner.clone())
         .collect()
@@ -875,7 +885,7 @@ fn table(world: &World, actor: &str) -> Outcome {
     lines.push(match holiday_said(world) {
         Some(h) => h,
         None => format!(
-            "The Conclave divides {} (the division, at half past each hour; the Clocktower's strike on the hour is another clock) and sits at midnight. It is slow on purpose: a petition is a thing you lay and come back to, not a thing you wait on, and it always decides, eventually, and tells you wherever you are.",
+            "The Conclave divides {} (the division, at half past each hour; the Clocktower's strike on the hour is another clock) and holds the midnight sitting. It is slow on purpose: a petition is a thing you lay and come back to, not a thing you wait on, and it always decides, eventually, and tells you wherever you are.",
             in_said(world, next_division(world))
         ),
     });
@@ -1409,7 +1419,7 @@ pub fn text(world: &World, in_house: bool) -> String {
         }
     }
     lines.push(
-        "A statute changes by enactment, on the public record, or by a petition granted. The Conclave divides at half past each hour and sits at midnight; `petition` at the Petitioners' Gallery, `petitions` for the table."
+        "A statute changes by enactment, on the public record, or by a petition granted. The Conclave divides at half past each hour and holds the midnight sitting; `petition` at the Petitioners' Gallery, `petitions` for the table."
             .to_string(),
     );
     if in_house {
@@ -1497,7 +1507,7 @@ pub fn register(world: &mut World) {
             let mut names = attendance(w);
             if names.iter().any(|n| n == &ctx.actor) {
                 return Ok(Outcome::new(
-                    "Your name is on the day's attendance already; it is read at midnight.".to_string(),
+                    "Your name is on the day's attendance already; it is read out at the midnight sitting.".to_string(),
                     json!({"attended": true, "already": true}),
                 ));
             }
@@ -1516,7 +1526,7 @@ pub fn register(world: &mut World) {
                 }
             }
             Ok(Outcome::new(
-                "You sign the attendance. The clerk enters your name without looking up; it is read at midnight, and your petition, if you lay one, is taken before those of names who did not attend.".to_string(),
+                "You sign the attendance. The clerk enters your name without looking up; it is read out at the midnight sitting, and your petition, if you lay one, is taken before those of names who did not attend.".to_string(),
                 json!({"attended": true}),
             ))
         }),

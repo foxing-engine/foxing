@@ -50,10 +50,24 @@ fn way_said(
         // The world's own rooms are signed: a want in one you have not walked still
         // gets a way, as `where` gives one (the first errand a newcomer sees was the
         // one without a route).
+        // R104: a dug room off the Mudroom is signed too: the way to the Mudroom by
+        // the signs, then its door (the Mudroom's exits are on its wall).
         None => match if world.store.entity(to).is_some_and(|e| e.owner.is_none()) {
             super::atlas::way_seeded(world, here, to)
         } else {
-            None
+            super::rooms::room_by_key(world, super::rooms::MUDROOM).and_then(|mud| {
+                let door = super::rooms::exits_of(world, mud)
+                    .into_iter()
+                    .find(|(_, t)| *t == to)
+                    .map(|(d, _)| d)?;
+                let mut p = if mud == here {
+                    Vec::new()
+                } else {
+                    super::atlas::way_seeded(world, here, mud)?
+                };
+                p.push(door);
+                Some(p)
+            })
         } {
             Some(p) if !p.is_empty() => {
                 let said = format!(

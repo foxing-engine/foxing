@@ -717,10 +717,12 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
             .map(str::to_string)
             .collect();
         // F6: "the first thing anyone told you" is the oldest, asked for by "first".
-        let pick = if asked
+        // R88: the oldest still held whole, said so (older ones fold into sheaves,
+        // which are not recited).
+        let first_asked = asked
             .iter()
-            .any(|w| w == "first" || w == "earliest" || w == "oldest")
-        {
+            .any(|w| w == "first" || w == "earliest" || w == "oldest");
+        let pick = if first_asked {
             told.first().cloned()
         } else {
             None
@@ -744,7 +746,12 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
         .or_else(|| told.last().cloned())
         .unwrap();
         return Some(format!(
-            "I hold it whole. {} told me: \"{}\"{}",
+            "I hold it whole{}. {} told me: \"{}\"{}",
+            if first_asked {
+                ", the oldest I still hold whole (older ones have folded into sheaves, which I cannot say)"
+            } else {
+                ""
+            },
             pick.0,
             pick.1,
             if told.len() > 1 {

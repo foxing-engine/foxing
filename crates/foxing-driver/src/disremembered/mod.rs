@@ -428,7 +428,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("session_level", FieldKind::Plain, Visibility::Owner)
             .field("session_seq", FieldKind::Plain, Visibility::Owner)
             // R49: the session the drop rule was last said in full.
-            .field("drop_rule_said", FieldKind::Plain, Visibility::Owner),
+            .field("drop_rule_said", FieldKind::Plain, Visibility::Owner)
+            .field("cap_rule_said", FieldKind::Plain, Visibility::Owner)
+            .field("vivid_rule_said", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(ACCOUNT, 1).field(
             "passphrase_hash",
             FieldKind::Plain,

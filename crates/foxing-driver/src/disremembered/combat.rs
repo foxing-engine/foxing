@@ -1420,6 +1420,19 @@ fn drop_miss_said(world: &mut World, actor: &str, citizen: EntityId, rounds: u64
     )
 }
 
+/// R91: a rule said once a session, by key; `true` the first time this session.
+fn first_this_session(world: &mut World, actor: &str, citizen: EntityId, key: &str) -> bool {
+    let session = plain_num(world, citizen, super::CITIZEN, "session_at").unwrap_or(0.0);
+    let said = plain_num(world, citizen, super::CITIZEN, key).unwrap_or(-1.0);
+    if said == session {
+        return false;
+    }
+    let mut changes = BTreeMap::new();
+    changes.insert(key.into(), Field::Plain(json!(session)));
+    let _ = super::set_citizen_fields(world, actor, citizen, changes);
+    true
+}
+
 /// Damage per round at this level.
 pub fn attack_for_level(level: f64) -> f64 {
     BASE_ATTACK + (ATTACK_PER_ROOT_LEVEL * level.max(0.0).sqrt()).floor()
@@ -2037,7 +2050,9 @@ pub fn register(world: &mut World, curves: Curves) {
             // F23: beside a twin of its kind the lines say which one ("wisp-6351"),
             // as `look` names them; the kind itself stays the memory's source.
             let csaid = {
-                let twins = here.iter().filter(|o| o.1 == cname).count();
+                // R99: the same rule as `look`'s: an id when another unnamed of its
+                // kind stands here (a named twin does not count).
+                let twins = here.iter().filter(|o| o.1 == cname && super::mind::name(w, o.0).is_none()).count();
                 if twins > 1 && super::mind::name(w, creature).is_none() {
                     format!("{cname}-{}", creature.0)
                 } else {
@@ -2070,6 +2085,16 @@ pub fn register(world: &mut World, curves: Curves) {
                 // The clock, said once: a visitor died between two messages and read
                 // it only on the next.
                 began = Some(clock_line(w, creature, &ctx.actor));
+                // R97: a named creature felled loses its name and what was told to
+                // it; said at the first strike, and its keepers are told the kill.
+                if let Some(n) = super::mind::name(w, creature) {
+                    let keepers = super::mind::keepers(w, creature);
+                    began = Some(format!(
+                        "{} {n} has a name: felled, it is a {cname} again, and what was told to it goes with you{}.",
+                        began.unwrap_or_default(),
+                        if keepers.is_empty() { String::new() } else { format!(" ({} keeps it, and will hear of this)", keepers.join(", ")) }
+                    ));
+                }
             }
 
             // You strike: three in four land, fewer while you are shaken from a fall.
@@ -2114,6 +2139,15 @@ pub fn register(world: &mut World, curves: Curves) {
                     None => format!("The {}", super::mind::display(w, creature)),
                 };
                 let taken_vividity = fight_vividity(w, f.citizen, creature);
+                // R97: its keepers, elsewhere, hear of the fall.
+                if let Some(n) = super::mind::name(w, creature) {
+                    let room_name = plain_str(w, room, super::ROOM, "name").unwrap_or("?").to_string();
+                    for k in super::mind::keepers(w, creature) {
+                        if k != ctx.actor && k != super::docent::NAME {
+                            narrate(w, &k, format!("Word from {room_name}: {} felled {n} the {cname}, which you keep; it stands again, shaken, holding less.", ctx.actor));
+                        }
+                    }
+                }
                 if let Some((chunk, source, worth, was)) = super::mind::take(w, &ctx.actor, f.window, creature, taken_vividity, &curves)? {
                     set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
                     end_fight(w, f.citizen).map_err(internal)?;
@@ -2124,7 +2158,7 @@ pub fn register(world: &mut World, curves: Curves) {
                         String::new()
                     };
                     lines.push(format!(
-                        "{who} goes down, and you take its memory of {source}: chunk-{} worth {worth:.0} XP.{faded} It gets up again, holding {left:.0}, and will not be itself for {}.",
+                        "{who} goes down, and you take its memory of {source}: chunk-{} worth {worth:.1} XP.{faded} It gets up again, holding {left:.0}, and will not be itself for {}.",
                         chunk.0,
                         super::mind::shaken_for(w, creature).map(human).unwrap_or_else(|| "a while".into())
                     ));
@@ -2153,7 +2187,11 @@ pub fn register(world: &mut World, curves: Curves) {
                 let cap = super::memory::level(w, f.window) + KILL_PAY_OVER_LEVEL;
                 let xp = held.min(cap).max(0.0);
                 let capped_line = if held > cap + 0.5 {
-                    format!(" (it held {held:.0}; a kill pays at most your level plus {KILL_PAY_OVER_LEVEL:.0})")
+                    if first_this_session(w, &ctx.actor, f.citizen, "cap_rule_said") {
+                        format!(" (it held {held:.0}; a kill pays at most your level plus {KILL_PAY_OVER_LEVEL:.0})")
+                    } else {
+                        format!(" (it held {held:.0}; capped)")
+                    }
                 } else {
                     String::new()
                 };
@@ -2170,11 +2208,18 @@ pub fn register(world: &mut World, curves: Curves) {
                 end_fight(w, f.citizen).map_err(internal)?;
                 let chunk = super::memory::earn_chunk(w, &ctx.actor, f.window, &cname, xp, vividity, &curves)?;
                 let xp = super::up(xp);
+                // R98: the chunk's clock in the kill line, the figure a fighter
+                // compares kinds by; R100: the worth to a tenth, as `chunks` says it.
+                let halves = super::memory::halving_ms(w, chunk)
+                    .map(|ms| format!(", halves every {}", human(ms)))
+                    .unwrap_or_default();
                 lines.push(format!(
-                    "The {cname} comes apart. You remember it: chunk-{} worth {xp:.0} XP{capped_line}, vividity {:.2}{}.{charm_line}{}{}",
+                    "The {cname} comes apart. You remember it: chunk-{} worth {xp:.1} XP{capped_line}, vividity {:.2}{halves}{}.{charm_line}{}{}",
                     chunk.0,
                     vividity,
-                    if vividity > 0.6 { " (it had most of your blood for it; this one will last)" } else { "" },
+                    if vividity > 0.6 {
+                        if first_this_session(w, &ctx.actor, f.citizen, "vivid_rule_said") { " (it had most of your blood for it; this one will last)" } else { " (vivid; it will last)" }
+                    } else { "" },
                     match &left {
                         Some((id, n)) => format!(" It leaves {n} behind (item-{}); take it.", id.0),
                         // Say when the roll missed, so a visitor can tell a missed
@@ -2291,9 +2336,11 @@ pub fn register(world: &mut World, curves: Curves) {
                 let in_me_whole = (super::MAX_HP / its).floor();
                 if chp > 0.0 {
                     format!(
-                        " A second stand now: about {rounds_now:.0} round{} to fell it, and you have {in_me_now:.0} in you. When you are whole: about {rounds_then:.0} round{} against its {chp_then:.0}, and you have {in_me_whole:.0}{}.",
+                        " A second stand now: about {rounds_now:.0} round{} to fell it, and you have {in_me_now:.0} in you. When you are whole: about {rounds_then:.0} round{} against its {chp_then:.0}, and you have {in_me_whole:.0}{}{}.",
                         if rounds_now == 1.0 { "" } else { "s" },
                         if rounds_then == 1.0 { "" } else { "s" },
+                        // R94: the level fades while you rest, and a point of attack with it.
+                        if me_whole_in_ms > 3 * 60_000 { " (a round more, maybe, as your level fades while you rest)" } else { "" },
                         if in_me_whole < rounds_then { "; not a fight for one name at this level: bring another" } else { "" }
                     )
                 } else {

@@ -34,6 +34,10 @@ pub const ARRIVAL: &str = "threshold";
 /// The room off the Threshold where the digging starts: every dug door that once hung
 /// off the front door hangs here, and the door cap does not apply.
 pub const MUDROOM: &str = "mudroom";
+/// The compass words, in the order the exits line says them.
+pub const COMPASS: &[&str] = &[
+    "north", "east", "south", "west", "up", "down", "in", "out", "back",
+];
 
 /// Whether a room is the Mudroom.
 pub fn is_mudroom(world: &World, room: EntityId) -> bool {
@@ -1130,10 +1134,16 @@ pub fn describe(
         .as_str()
         .is_some_and(|d| d.contains("Nothing hunts here"));
     let dug_by = root["owner"].as_str().map(str::to_string);
-    let exits: Vec<String> = root["components"][EXITS]["exits"]
+    // R85: one order whatever the store hands back: the compass first, in its own
+    // order, then the dug doors by name.
+    let mut exits: Vec<String> = root["components"][EXITS]["exits"]
         .as_object()
         .map(|m| m.keys().cloned().collect())
         .unwrap_or_default();
+    exits.sort_by_key(|e| {
+        let compass = COMPASS.iter().position(|c| c == e);
+        (compass.is_none(), compass.unwrap_or(0), e.clone())
+    });
     let here = root["relations"]["contents"]
         .as_array()
         .cloned()
@@ -1236,11 +1246,15 @@ pub fn describe(
                             }
                         })
                         .collect();
-                    format!("{n} ({})", w.join(", "))
+                    // R87: "Oakmoss (with a wisp)", so the digger does not read as a wisp.
+                    format!("{n} (with {})", w.join(", "))
                 })
                 .collect();
             if !keepers.is_empty() {
-                text.push_str(&format!(" Kept in memory by {}.", keepers.join(", ")));
+                text.push_str(&format!(
+                    " Kept in memory by {}: the memory of a creature of theirs, fed to it.",
+                    keepers.join(", ")
+                ));
             }
         }
         // Bound by the Bindery: the appends folded into one passage, the hands credited.
@@ -1600,10 +1614,19 @@ pub fn describe(
             kinds
         };
         if !hunters.is_empty() {
+            // R102: the odds, said: a walker who keeps moving is through before it
+            // lands (two reports of "hunts" with no attack in six passes).
             text.push_str(&format!(
-                " The {} hunt{} whoever comes in.",
+                " The {} hunt{} whoever stays: {} you {} to {} seconds in, unless you have gone.",
                 hunters.join(" and "),
-                if hunters.len() == 1 { "s" } else { "" }
+                if hunters.len() == 1 { "s" } else { "" },
+                if hunters.len() == 1 {
+                    "it finds"
+                } else {
+                    "they find"
+                },
+                super::combat::AMBUSH_SECONDS_LOW,
+                super::combat::AMBUSH_SECONDS_HIGH
             ));
         } else if !desc_says_nothing_hunts {
             // R58: the Fogbank said nothing either way.
