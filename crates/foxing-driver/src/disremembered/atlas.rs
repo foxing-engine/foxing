@@ -116,7 +116,23 @@ pub fn layout(world: &World) -> Layout {
     // threads, and a room dug between two `map`s was laid from a different "before"
     // on each, so the Moss Bed stood under the Mudroom on one map and under the
     // Fogbank on the next (the Watch of 11-06).
+    // In the test binary, one a thread: many worlds share a process there, and a
+    // layout laid from another test's "before" shoved a room that had room (a CI
+    // flake, 11-07).
+    #[cfg(not(test))]
     static CACHE: std::sync::Mutex<Option<(u64, Layout)>> = std::sync::Mutex::new(None);
+    #[cfg(test)]
+    thread_local! {
+        static CACHE: std::sync::Mutex<Option<(u64, Layout)>> = const { std::sync::Mutex::new(None) };
+    }
+    #[cfg(not(test))]
+    fn with_cache<R>(f: impl FnOnce(&std::sync::Mutex<Option<(u64, Layout)>>) -> R) -> R {
+        f(&CACHE)
+    }
+    #[cfg(test)]
+    fn with_cache<R>(f: impl FnOnce(&std::sync::Mutex<Option<(u64, Layout)>>) -> R) -> R {
+        CACHE.with(|c| f(c))
+    }
     // A fingerprint of the topology: rooms, exits, and where they lead.
     let mut fp: u64 = 1469598103934665603;
     let mut mix = |x: u64| {
@@ -132,14 +148,14 @@ pub fn layout(world: &World) -> Layout {
             }
         }
     }
-    let (hit, prev) = {
-        let b = CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    let (hit, prev) = with_cache(|c| {
+        let b = c.lock().unwrap_or_else(|e| e.into_inner());
         match b.as_ref() {
             Some((k, l)) if *k == fp => (Some(l.clone()), None),
             Some((_, l)) => (None, Some(l.clone())),
             None => (None, None),
         }
-    };
+    });
     if let Some(l) = hit {
         return l;
     }
@@ -147,7 +163,7 @@ pub fn layout(world: &World) -> Layout {
     // HashMap's, so two `map`s in the same room disagreed on every number. Rooms
     // already placed keep their cells; only the new take free ones.
     let l = layout_uncached(world, prev.as_ref());
-    *CACHE.lock().unwrap_or_else(|e| e.into_inner()) = Some((fp, l.clone()));
+    with_cache(|c| *c.lock().unwrap_or_else(|e| e.into_inner()) = Some((fp, l.clone())));
     l
 }
 

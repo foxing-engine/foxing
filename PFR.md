@@ -412,6 +412,9 @@ The world
 
 ## Shipped (ledger): moved out of the sections above when they went live
 
+11-07 (batch Q; one deploy)
+- The atlas's layout cache is one a thread in the test binary again (process-wide since F): two tests' worlds read each other's "before", and a room with room was shoved (a CI flake on P; the driver had deployed).
+
 11-07 (batch P, Gnomeclatter's; one deploy)
 - A named creature that comes to know you greets you by name on your next arrival (the hour's one greeting was spent on the first arrival as a stranger); the Docent's "came through" clock counts what it set down here, not only what it took; set-downs are said once a pass, folded ("moth dust ×3").
 
