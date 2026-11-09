@@ -54,24 +54,39 @@ pub fn heard_this_hour(world: &World, creature: EntityId) -> usize {
 /// paid story (none when nothing is on the clock).
 pub fn ready_in(world: &World, actor: &str, creature: EntityId) -> Option<i64> {
     let now = world.now();
-    world
-        .recent_events(2000)
-        .iter()
-        .filter(|e| {
-            e.kind == STORY
-                && e.payload["from"] == actor
-                && e.payload["creature"] == creature.0
-                && e.payload["missed"] != true
-                && e.payload["struck"] != true
-                && now.since(e.at).0 < STORY_COOLDOWN_MS
-        })
-        .map(|e| STORY_COOLDOWN_MS - now.since(e.at).0)
-        .max()
+    let events = world.recent_events(2000);
+    let mine = events.iter().filter(|e| {
+        e.kind == STORY
+            && e.payload["from"] == actor
+            && e.payload["creature"] == creature.0
+            && e.payload["struck"] != true
+            && e.payload["early"] != true
+            && now.since(e.at).0 < STORY_COOLDOWN_MS
+    });
+    let mut heard: Option<i64> = None;
+    let mut misses: Vec<i64> = Vec::new();
+    for e in mine {
+        let left = STORY_COOLDOWN_MS - now.since(e.at).0;
+        if e.payload["missed"] == true {
+            misses.push(left);
+        } else {
+            heard = Some(heard.map_or(left, |h: i64| h.max(left)));
+        }
+    }
+    // R119: the hour spent by two misses turns too, when the older of them falls out
+    // of the window (`wants` said "after the hour" of one creature and a countdown of
+    // the next in the same list).
+    misses.sort_unstable();
+    heard.or_else(|| misses.len().checked_sub(2).map(|i| misses[i]))
 }
 
 /// Whether `actor` told `creature` a story within the hour: the cooldown. A story
 /// that missed the creature's standing want does not spend the hour, once: the
 /// reply said why, and the teller may try again (a second miss does).
+///
+/// R118: the hour runs from the story that opened it. One heard inside it for the
+/// word (`struck`) or for the want at plain pay (`early`, D19 b) is left out, so the
+/// hour does not slide forward with every telling.
 pub fn told_this_hour(world: &World, actor: &str, creature: EntityId) -> bool {
     let now = world.now();
     let mut misses = 0;
@@ -81,17 +96,30 @@ pub fn told_this_hour(world: &World, actor: &str, creature: EntityId) -> bool {
             && e.payload["creature"] == creature.0
             && now.since(e.at).0 < STORY_COOLDOWN_MS
     }) {
-        if e.payload["missed"] == true {
-            misses += 1;
-        } else if e.payload["struck"] == true {
+        if e.payload["struck"] == true || e.payload["early"] == true {
             // A story that struck the word under the others opens the next word: the
             // ladder is three, and an hour between rungs put the top out of a visit.
             continue;
+        } else if e.payload["missed"] == true {
+            misses += 1;
         } else {
             return true;
         }
     }
     misses >= 2
+}
+
+/// Whether `actor` has already been heard by `creature` inside this hour for the
+/// story it wanted, at plain pay (D19 b): once an hour, or the want is a farm (D24).
+pub fn heard_early_this_hour(world: &World, actor: &str, creature: EntityId) -> bool {
+    let now = world.now();
+    world.recent_events(2000).iter().any(|e| {
+        e.kind == STORY
+            && e.payload["from"] == actor
+            && e.payload["creature"] == creature.0
+            && e.payload["early"] == true
+            && now.since(e.at).0 < STORY_COOLDOWN_MS
+    })
 }
 
 pub fn register(world: &mut World, curves: Curves) {
@@ -232,7 +260,7 @@ pub fn register(world: &mut World, curves: Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.story",
-            "Tell a named creature here a story, at least a dozen words. It keeps the story as a memory of its own, and you come away with one: the way to earn without striking anything. One story an hour per creature; a creature without a name does not understand you.",
+            "Tell a named creature here a story, at least a dozen words. It keeps the story as a memory of its own, and you come away with one: the way to earn without striking anything. One story an hour per creature, from the story that opened the hour; inside it, the one it wants is still heard once at plain pay (double when the hour turns), and one that carries its hidden word is heard for the word's bonus alone. A first miss of what it wants spends nothing; a second spends the hour. A creature without a name does not understand you.",
         )
         .param("creature", ParamType::Entity, true, "a named creature here")
         .param("text", ParamType::Text, true, "the story, quoted"),
@@ -298,11 +326,32 @@ pub fn register(world: &mut World, curves: Curves) {
             // D19 (b): the story it wants is heard inside the hour too, at base pay,
             // not double.
             let wanted_early = within_hour && !bonus_only && super::errand::wants_story(w, creature, &text);
-            if within_hour && !bonus_only && !wanted_early {
+            // D24 (lean a): the want is heard early once an hour; a second wanted
+            // story inside it waits with the rest.
+            if wanted_early && heard_early_this_hour(w, &ctx.actor, creature) {
                 return Err(CommandError::precondition(format!(
-                    "{name} is still turning your last story over: one an hour (its hour with you; `wants` says when it turns). A story that carries the word under the others is heard even now, for the bonus alone, and the one it wants is heard at plain pay; that one was neither.{}",
+                    "{name} has heard the story it wanted from you inside this hour already, at plain pay; another waits for the hour to turn, when it pays double. `wants` says when."
+                )));
+            }
+            if within_hour && !bonus_only && !wanted_early {
+                let word_left = super::secret::would_strike_any(w, &ctx.actor, creature);
+                // R117: a story that carried a word of the pool, and was not it, is
+                // told so by the word, so the guess counts for something.
+                let carried = super::secret::carried_of_pool(w, creature, &text);
+                let not_it = match carried.len() {
+                    0 => String::new(),
+                    1 => format!(" It carried {}; that is not the word.", carried[0]),
+                    _ => format!(" It carried {}; none of those is the word.", carried.join(", ")),
+                };
+                return Err(CommandError::precondition(format!(
+                    "{name} is still turning your last story over: one an hour (its hour with you; `wants` says when it turns). {}{not_it}{}",
+                    if word_left {
+                        "A story that carries the word under the others is heard even now, for the bonus alone, and the one it wants is heard at plain pay; that one was neither."
+                    } else {
+                        "The one it wants is heard at plain pay even now; that one was not it, and you have its words already."
+                    },
                     super::secret::hint(w, &ctx.actor, creature)
-                        .filter(|_| super::secret::would_strike_any(w, &ctx.actor, creature))
+                        .filter(|_| word_left)
                         .map(|h| format!(" {h}"))
                         .unwrap_or_default()
                 )));
@@ -342,9 +391,16 @@ pub fn register(world: &mut World, curves: Curves) {
                 };
             let gist = gist(&text);
             let missed = if wanted { None } else { super::errand::why_missed(w, creature, &text) };
+            // The word under the others: a story that carries it pays the level's bonus.
+            let struck = super::secret::strike(w, &ctx.actor, creature, &text)?;
             // The grace, said right: the first miss of the hour spends nothing; the
-            // second spends it ("once" on both read as a lie, the Watch of 11-07).
+            // second spends it ("once" on both read as a lie, the Watch of 11-07). A
+            // story heard for the word spends no hour at all, and is not a miss on the
+            // record (R118: "That is the second miss" closed every strike reply).
             let missed = missed.map(|m| {
+                if struck.is_some() {
+                    return format!("{m} A story that carries the word under the others spends no hour.");
+                }
                 let prior = w
                     .recent_events(2000)
                     .iter()
@@ -353,6 +409,7 @@ pub fn register(world: &mut World, curves: Curves) {
                             && e.payload["from"] == ctx.actor
                             && e.payload["creature"] == creature.0
                             && e.payload["missed"] == true
+                            && e.payload["struck"] != true
                             && w.now().since(e.at).0 < STORY_COOLDOWN_MS
                     })
                     .count();
@@ -362,8 +419,6 @@ pub fn register(world: &mut World, curves: Curves) {
                     format!("{m} That is the second miss; the hour is spent.")
                 }
             });
-            // The word under the others: a story that carries it pays the level's bonus.
-            let struck = super::secret::strike(w, &ctx.actor, creature, &text)?;
             let paid = match &struck {
                 // Within the hour, the bonus alone (D13): what the word adds, not the pay.
                 Some((bonus, _, _)) if bonus_only => (paid * (bonus - 1.0)).round(),
@@ -396,7 +451,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 STORY,
-                json!({"from": ctx.actor, "creature": creature.0, "kind": kind, "name": name, "words": words, "earned": earned.0, "kept": kept.0, "level": level, "keywords": story_words(&text), "repeats": repeats, "missed": missed.is_some(), "struck": struck.is_some()}),
+                json!({"from": ctx.actor, "creature": creature.0, "kind": kind, "name": name, "words": words, "earned": earned.0, "kept": kept.0, "level": level, "keywords": story_words(&text), "repeats": repeats, "missed": missed.is_some() && struck.is_none(), "struck": struck.is_some(), "early": wanted_early}),
             );
             // A line of its own, drawn from what it holds beside the new story: four
             // creatures once thanked a teller in exactly the same words.
@@ -419,8 +474,8 @@ pub fn register(world: &mut World, curves: Curves) {
                 // The creature's answer reaches the teller as it reaches the room, a
                 // narrator line, so the outcome does not repeat it.
                 format!(
-                    "You tell {display} a story of {words} words, and it answers.{}{}{heard_line} You remember the telling: chunk-{} worth {paid:.0} XP{}.{}",
-                    if wanted_early { " It was the story it wanted, heard inside its hour with you at plain pay; the want stands, and told again when its hour turns it pays double." } else if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
+                    "You tell {display} a story of {words} words, and it answers.{}{}{heard_line} You remember the telling: chunk-{} worth {paid:.1} XP{}.{}",
+                    if wanted_early { " It was the story it wanted, heard inside its hour with you at plain pay (once an hour); the want stands, and told again when its hour turns it pays double." } else if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
                     struck.as_ref().map(|(b, _, l)| format!(" It carried the word under the others, the {} of three: {}, and vivid.", ["first", "second", "third"][(*l as usize).clamp(1, 3) - 1], if bonus_only { format!("heard inside its hour with you, so the bonus alone: {} of what a story pays", match (b * 10.0).round() as i64 { 15 => "half again".to_string(), 20 => "as much again".to_string(), 25 => "one and a half times again".to_string(), _ => format!("{:.1} times", b - 1.0) }) } else { format!("{b:.1} times the pay") })).unwrap_or_default(),
                     earned.0,
                     if vivid > 0.4 { format!(", vividity {vivid:.2}{}", if long > 0.0 && struck.is_none() { " (length buys vividity, to 0.90 at two hundred words)" } else { "" }) } else { String::new() },

@@ -844,7 +844,7 @@ pub fn room_named(world: &World, text: &str) -> Option<EntityId> {
     if want.is_empty() {
         return None;
     }
-    world
+    let exact = world
         .store
         .entities()
         .filter(|e| e.kind == "room")
@@ -854,7 +854,22 @@ pub fn room_named(world: &World, text: &str) -> Option<EntityId> {
                 || plain_str(world, e.id, ROOM, "key")
                     .is_some_and(|k| k.eq_ignore_ascii_case(text.trim().trim_matches('"')))
         })
-        .map(|e| e.id)
+        .map(|e| e.id);
+    if exact.is_some() {
+        return exact;
+    }
+    // R134: a word of the name, when it names one room alone ("where picnic" was
+    // refused while "where lookout" answered).
+    let mut by_word = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "room")
+        .filter(|e| {
+            let name = loose(plain_str(world, e.id, ROOM, "name").unwrap_or_default());
+            name.split(' ').any(|w| w == want) || name.starts_with(&format!("{want} "))
+        });
+    let first = by_word.next()?;
+    by_word.next().is_none().then_some(first.id)
 }
 
 /// A room name with its punctuation and small words gone, lowercased.
@@ -958,12 +973,29 @@ pub fn register(world: &mut World, curves: Curves) {
                         }
                     }
                 }
+                // R126: "here" of a room that holds none tonight sent a fighter to
+                // attack what was not there (and pay a quarter for it).
+                let standing_here = super::combat::creatures_in(w, here).iter().any(|c| c.1 == kind);
                 let said = match &best {
+                    Some((r, p, signed)) if p.is_empty() && !standing_here => format!("{} live in {}, and come back when felled: here, but none stands here now; one comes back in a while, or walks in from the next room.", super::combat::plural(&kind), plain_str(w, *r, ROOM, "name").unwrap_or("?")),
                     Some((r, p, signed)) if p.is_empty() => format!("{} live in {}, and come back when felled: here.", super::combat::plural(&kind), plain_str(w, *r, ROOM, "name").unwrap_or("?")),
                     Some((r, p, signed)) => format!("{} live in {}, and come back when felled; {} {}.", super::combat::plural(&kind), plain_str(w, *r, ROOM, "name").unwrap_or("?"), if *signed { "you have not walked it, but the signs say" } else { "the way from here, as you remember it, is" }, said_way(w, here, p)),
                     None => format!("{} live in {}, and come back when felled.", super::combat::plural(&kind), homes.join(" and ")),
                 };
                 return Ok(Outcome::new(said, json!({"who": kind, "homes": homes, "room": best.as_ref().map(|b| b.0 .0), "way": best.as_ref().map(|b| b.1.clone()), "signed": best.as_ref().is_some_and(|b| b.2)})));
+            } else if let Some(r) = {
+                // R126: a kind with no home of its own (a kindled ragg) is found where
+                // one stands tonight.
+                let k = who.trim().trim_start_matches("the ").trim_end_matches('s').to_lowercase();
+                w.store
+                    .entities()
+                    .filter(|e| e.kind == "creature")
+                    .filter(|e| plain_str(w, e.id, super::CREATURE, "name").is_some_and(|n| n == k || n.trim_end_matches('s') == k))
+                    .filter_map(|e| e.parent)
+                    .min_by_key(|r| way(w, f.citizen, here, *r, hl).map(|p| p.len()).unwrap_or(usize::MAX))
+            } {
+                let k = who.trim().trim_start_matches("the ").trim_end_matches('s').to_lowercase();
+                (format!("A {k} (kindled: no room of its own, and none comes back when it is felled)"), Some(r))
             } else if let Some((room_key, _, fixture, _, _)) = super::craft::SEED_FIXTURES.iter().find(|(_, _, n, _, _)| {
                 let a = who.trim().trim_start_matches("the ").to_lowercase();
                 n.trim_start_matches("the ").to_lowercase() == a
@@ -974,10 +1006,18 @@ pub fn register(world: &mut World, curves: Curves) {
                     return Err(CommandError::precondition(format!("{fixture} is nowhere tonight.")));
                 };
                 let rname = plain_str(w, r, ROOM, "name").unwrap_or("?").to_string();
-                (format!("{fixture} is in {rname}"), Some(r))
+                let _ = rname;
+                // R129: the name alone; the sentence below says where ("the Tally
+                // Book is in The Division Lobby is in The Division Lobby").
+                let mut c = fixture.chars();
+                let said = match c.next() {
+                    Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+                    None => String::new(),
+                };
+                (said, Some(r))
             } else {
                 return Err(CommandError::precondition(format!(
-                    "Nothing called {who} that you could go to: a creature's given name, a citizen here now, a room's name, a kind of creature (where ragpicker), or one of the world's own books."
+                    "Nothing called {who} that you could go to: a creature's given name, a citizen in the world now, a room's name (or one word of it), a kind of creature (where ragpicker), or one of the world's own books."
                 )));
             };
             let Some(room) = room else {

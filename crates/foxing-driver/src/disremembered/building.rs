@@ -231,6 +231,28 @@ fn opposite(exit: &str) -> &'static str {
 
 /// The way out of a dug room: its `out` exit, or the `back` the old digs left
 /// (renamed on boot by `rename_back_doors`, read here in case one is missed).
+/// R132: a dug room's door home, by name, whatever it is called: `out` where there
+/// is one, else the door onto the oldest room it opens on (the one it was dug from;
+/// a room dug on a compass door has a compass door home).
+pub fn way_home(
+    world: &World,
+    room: EntityId,
+    exits: &BTreeMap<String, EntityId>,
+) -> Option<String> {
+    if exits.contains_key("out") {
+        return Some("out".to_string());
+    }
+    exits
+        .iter()
+        .filter(|(_, to)| to.0 < room.0)
+        .min_by_key(|(_, to)| to.0)
+        .map(|(d, _)| d.clone())
+        .or_else(|| {
+            let _ = world;
+            None
+        })
+}
+
 pub fn way_out(exits: &BTreeMap<String, EntityId>) -> Option<EntityId> {
     exits.get("out").or_else(|| exits.get("back")).copied()
 }

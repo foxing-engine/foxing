@@ -403,7 +403,7 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: "tally-room",
         name: "The Tally Room",
-        description: "A brass tube comes down through the ceiling from the Clocktower and ends over a slanted desk. Once an hour a curl of paper drops out of it, figures on one side, and it is weighed on a small scale before anyone reads it. The scale is kept very clean. The Tally Book is not here, whatever the room is called; the Clerk keeps it in the Division Lobby, north, north, west.",
+        description: "A brass tube comes down through the ceiling from the Clocktower and ends over a slanted desk. Once an hour a curl of paper drops out of it, figures on one side, and it is weighed on a small scale before anyone reads it. The scale is kept very clean. The Tally Book is not here, whatever the room is called; the Clerk keeps it in the Division Lobby, north, west, north, west (`where tally book` says the way from wherever you stand).",
         exits: &[("west", "petition-gallery"), ("north", "roll-hall")],
         spawn: Some(("engrosser", 1, 600)),
         former: &[],
@@ -642,7 +642,7 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: "trail-lookout",
         name: "The Lookout",
-        description: "The top of the trail, a bald hill with a bench and a brass plate that names the view. From here you can see every place you have ever lingered, small and clear and lit as if for the last time, and whoever is standing in them.",
+        description: "The top of the trail, a bald hill with a bench and a brass plate that names the view. From here you can see the whole trail, the nine rooms from the Stile up, small and clear and lit as if for the last time, and whoever is standing in them; the house and the fog below are out of its sight.",
         exits: &[("west", "trail-bog"), ("north", "trail-hush")],
         spawn: Some(("longsight", 1, 300)),
         former: &[],
@@ -1437,7 +1437,8 @@ pub fn describe(
                 text.push_str(&format!(
                     " Chalked on the stone, today's tally: {} came through{}{}.",
                     names.len(),
-                    if names.len() == 1 {
+                    // R131: "among them" only when the chalk shows fewer than came.
+                    if names.len() <= shown.len() {
                         ": "
                     } else {
                         ", among them "
@@ -1640,8 +1641,13 @@ pub fn describe(
         if !hunters.is_empty() {
             // R102: the odds, said: a walker who keeps moving is through before it
             // lands (two reports of "hunts" with no attack in six passes).
+            // R123: a name in its first hour is left alone, and told so (a Watch
+            // stood seventy seconds in the Shallows and read the line as a lie).
+            let new_name = super::find_citizen(world, actor)
+                .and_then(|f| super::plain_num(world, f.citizen, super::CITIZEN, "named_at"))
+                .is_some_and(|t| world.now().0 - (t as i64) < super::kindle::GRACE_MS);
             text.push_str(&format!(
-                " The {} hunt{} whoever stays: {} you {} to {} seconds in, unless you have gone.",
+                " The {} hunt{} whoever stays: {} you {} to {} seconds in, unless you have gone{}.",
                 hunters.join(" and "),
                 if hunters.len() == 1 { "s" } else { "" },
                 if hunters.len() == 1 {
@@ -1650,7 +1656,12 @@ pub fn describe(
                     "they find"
                 },
                 super::combat::AMBUSH_SECONDS_LOW,
-                super::combat::AMBUSH_SECONDS_HIGH
+                super::combat::AMBUSH_SECONDS_HIGH,
+                if new_name {
+                    "; not you yet: a name in its first hour is left alone"
+                } else {
+                    ""
+                }
             ));
         } else if !desc_says_nothing_hunts {
             // R58: the Fogbank said nothing either way.
@@ -1813,7 +1824,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.travel",
-            "Take an exit. `back` retraces your trail one room at a time, whatever the doors were called: the rooms you walked since the Threshold, loops cut out (a step onto a room already on the trail cuts it back to there), and it refuses at the trail's end. A dug room's door home is `out`. You cannot travel while something is fighting you; retreat first.",
+            "Take an exit. `back` retraces your trail one room at a time, whatever the doors were called: the rooms you walked since the Threshold, loops cut out (a step onto a room already on the trail cuts it back to there), and it refuses at the trail's end. A dug room's door home answers to `out`, whatever it is called. You cannot travel while something is fighting you; retreat first.",
         )
         .param("exit", ParamType::String, true, "an exit name from look, or back")
         .param("word", ParamType::String, false, "the word a warded door asks for, quoted"),
@@ -1907,15 +1918,31 @@ pub fn register(world: &mut World) {
                     }
                 }
             }
+            // R132: `out` is every dug room's way home, whatever its door is called
+            // (`help travel` said so; the Scout's Lamp, dug on a compass door,
+            // answered only to `north`).
+            let exit = if exit == "out"
+                && !exits.contains_key("out")
+                && w.store.entity(room).is_some_and(|e| e.owner.is_some())
+            {
+                super::building::way_home(w, room, &exits).unwrap_or(exit)
+            } else {
+                exit
+            };
             let Some(&to) = exits.get(&exit) else {
-                let names: Vec<&String> = exits.keys().collect();
+                // R133: the exits as `look` says them, compass first and named.
+                let mut order: Vec<(&String, &EntityId)> = exits.iter().collect();
+                order.sort_by_key(|(e, _)| {
+                    let compass = COMPASS.iter().position(|c| c == *e);
+                    (compass.is_none(), compass.unwrap_or(0), (*e).clone())
+                });
+                let said: Vec<String> = order
+                    .iter()
+                    .map(|(d, to)| format!("{d} ({})", plain_str(w, **to, ROOM, "name").unwrap_or("?")))
+                    .collect();
                 return Err(foxing_registry::CommandError::precondition(format!(
                     "There is no exit '{exit}'. Exits: {}.",
-                    names
-                        .iter()
-                        .map(|s| s.as_str())
-                        .collect::<Vec<_>>()
-                        .join(", ")
+                    said.join(", ")
                 )));
             };
             // The stair into the Lower Stacks asks a level (D3): a censor's nine to

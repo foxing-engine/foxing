@@ -339,6 +339,11 @@ pub fn returned(world: &mut World, actor: &str) -> Result<(), String> {
     if let Some(room) = world.store.entity(f.citizen).and_then(|e| e.parent) {
         super::combat::on_arrival(world, actor, f.citizen, room)?;
         super::building::visited(world, room)?;
+        // R127: the chalk tally counts a name that arrives through the gate as
+        // one that walks in (the Watch's own names were missing from it).
+        if !paused {
+            super::building::came_through(world, room, actor)?;
+        }
         super::talk::greet(world, actor, room);
     }
     Ok(())

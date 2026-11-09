@@ -978,9 +978,9 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
         return Some("Nothing is taken from me that fading would not take.".into());
     }
     Some(if knows_you {
-        format!("I hold what I am given, {actor}. Ask me what I remember, where this is, or who has been here.")
+        format!("I hold what I am given, {actor}. Ask me what I remember, where this is, who has been here, or what my word is.")
     } else {
-        "I hold what I am given. Ask me what I remember, where this is, or who has been here."
+        "I hold what I am given. Ask me what I remember, where this is, who has been here, or what my word is."
             .into()
     })
 }

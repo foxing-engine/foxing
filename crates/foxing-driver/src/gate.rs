@@ -974,6 +974,18 @@ pub fn pass(
             }
         }
     }
+    // R136: the header only over lines (a new name's first message carried the
+    // header and nothing under it).
+    let pending: Vec<String> = pending
+        .into_iter()
+        .filter(|l| !l.trim().is_empty())
+        .filter(|l| {
+            !report.lines.iter().any(|r| match r {
+                Line::Quote { text, .. } => text.trim() == l.trim(),
+                Line::Fact { .. } => false,
+            })
+        })
+        .collect();
     if !pending.is_empty() {
         report.quote(
             "Meanwhile, since your last message:".to_string(),

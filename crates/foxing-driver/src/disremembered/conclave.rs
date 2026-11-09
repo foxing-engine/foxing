@@ -940,7 +940,7 @@ fn table(world: &World, actor: &str) -> Outcome {
     lines.push(match holiday_said(world) {
         Some(h) => h,
         None => format!(
-            "The Conclave divides {} (the division, at half past each hour; the Clocktower's strike on the hour is another clock) and holds the midnight sitting. It is slow on purpose: a petition is a thing you lay and come back to, not a thing you wait on, and it always decides, eventually, and tells you wherever you are: under \"Meanwhile\" on your next message if you were quiet, and in `messages` after.",
+            "The Conclave divides {} (the division, at half past each hour; the Clocktower's strike on the hour is another clock); at midnight it holds a sitting besides. It is slow on purpose: a petition is a thing you lay and come back to, not a thing you wait on, and it always decides, eventually, and tells you wherever you are: under \"Meanwhile\" on your next message if you were quiet, and in `messages` after.",
             in_said(world, next_division(world))
         ),
     });
@@ -1108,7 +1108,17 @@ pub fn divide(world: &mut World) -> Result<(), String> {
     for p in list.iter_mut() {
         let ticket = p["ticket"].as_u64().unwrap_or(0);
         let by = p["by"].as_str().unwrap_or("?").to_string();
-        let text = p["text"].as_str().unwrap_or("").to_string();
+        // R130: the petition's own full stop stays out of the Clerk's sentence
+        // ("things.. Entered upon the Book"), and "that That silence" reads once.
+        let text = p["text"]
+            .as_str()
+            .unwrap_or("")
+            .trim_end_matches(['.', ' '])
+            .to_string();
+        let that_text = match text.strip_prefix("That ") {
+            Some(rest) => format!("that {rest}"),
+            None => format!("that {text}"),
+        };
         let stage = p["stage"].as_u64().unwrap_or(0);
         let tabled = p["tabled"].as_u64().unwrap_or(0);
         let (said, next, now_tabled) = match stage {
@@ -1156,7 +1166,7 @@ pub fn divide(world: &mut World) -> Result<(), String> {
                     (format!("The petition of {by} is not granted. The Conclave records it in full, that it may be seen to have been denied in full: \"{text}\"."), "none".to_string())
                 };
                 let said = format!(
-                    "The question is put upon petition {ticket}: that {text}. Division. The Ayes to the right, the Noes to the left; behind the paint they are one door. The {} have it. {ruling}",
+                    "The question is put upon petition {ticket}: {that_text}. Division. The Ayes to the right, the Noes to the left; behind the paint they are one door. The {} have it. {ruling}",
                     if granted { "Ayes" } else { "Noes" }
                 );
                 decided_now.push((by.clone(), ticket, granted, ruling, effect));
@@ -1174,10 +1184,23 @@ pub fn divide(world: &mut World) -> Result<(), String> {
             super::combat::narrate(
                 world,
                 &by,
+                // R129: the standing clause kept its subject ("who attended, taken
+                // before the rest, is read into the minutes" had none).
                 format!(
                     "Upon your petition {ticket}: {}",
-                    said.trim_start_matches(&format!("Petition {ticket}, of {by}, "))
-                        .trim_start_matches(&format!("Petition {ticket} "))
+                    if stage == 0 {
+                        format!(
+                            "{}read into the minutes: \"{text}\". The Conclave hears it in full and makes no sign.",
+                            match p["standing"].as_str() {
+                                Some("regular") => "yours, a regular's, is taken first and ",
+                                Some("attended") => "yours, who attended, is taken before the rest and ",
+                                _ => "",
+                            }
+                        )
+                    } else {
+                        said.trim_start_matches(&format!("Petition {ticket} "))
+                            .to_string()
+                    }
                 ),
             );
         }

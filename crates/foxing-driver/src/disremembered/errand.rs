@@ -413,11 +413,18 @@ pub fn describe(world: &World, creature: EntityId) -> Option<String> {
                 e.story_at + ROTATION_MS
             };
             let ms = (until - world.now().0).max(0);
-            let h = (ms + 3_599_999) / 3_600_000;
-            format!(
-                " (for about {h} hour{} more)",
-                if h == 1 { "" } else { "s" }
-            )
+            if ms < 3_600_000 {
+                // R120: "about 1 hour more" with eight minutes left sent a teller
+                // away to come back to a turned want.
+                let m = ((ms + 299_999) / 300_000 * 5).max(5);
+                format!(" (for about {m} minutes more)")
+            } else {
+                let h = (ms + 3_599_999) / 3_600_000;
+                format!(
+                    " (for about {h} hour{} more)",
+                    if h == 1 { "" } else { "s" }
+                )
+            }
         } else {
             String::new()
         };

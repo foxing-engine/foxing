@@ -13,6 +13,7 @@
 
 use super::{plain_num, CITIZEN};
 use crate::world::World;
+use foxing_log::Actor;
 use foxing_registry::{ActorKind, Args, CommandError, CommandSpec, Outcome, ParamType};
 use foxing_store::Field;
 use serde_json::{json, Value};
@@ -22,6 +23,8 @@ use std::collections::BTreeMap;
 const MESSAGES_SPAN: usize = 8000;
 const MESSAGES_DEFAULT: usize = 12;
 const MESSAGES_MAX: usize = 40;
+/// A silence of your own inside a session long enough to say (R135).
+const QUIET_SAID_MS: i64 = 10 * 60_000;
 
 /// A session begins: kept on the citizen for `session` to read against.
 pub fn begin(world: &mut World, actor: &str) -> Result<(), String> {
@@ -83,8 +86,25 @@ pub fn summary(world: &World, actor: &str) -> Result<Outcome, CommandError> {
     let window = f.window.0;
     let mut n = BTreeMap::new();
     let mut bump = |k: &str| *n.entry(k.to_string()).or_insert(0usize) += 1;
+    // R135: the longest silence of your own inside the session, said (a name quiet
+    // 34 minutes for a division read "Here 37m" and nothing of the wait).
+    let mut last_own: Option<i64> = Some(at);
+    let mut quiet: Option<(i64, i64)> = None;
     for e in &events {
         let p = &e.payload;
+        let mine = matches!(&e.actor, Actor::Citizen(a) if a == actor)
+            || p["from"] == actor
+            || p["by"] == actor
+            || p["actor"] == actor;
+        if mine {
+            if let Some(prev) = last_own {
+                let gap = e.at.0 - prev;
+                if gap >= QUIET_SAID_MS && !quiet.is_some_and(|(g, _)| gap <= g) {
+                    quiet = Some((gap, e.at.0));
+                }
+            }
+            last_own = Some(e.at.0);
+        }
         match e.kind.as_str() {
             "store.entity_created" if p["kind"] == "chunk" && p["parent"] == window => {
                 bump("earned")
@@ -112,6 +132,11 @@ pub fn summary(world: &World, actor: &str) -> Result<Outcome, CommandError> {
             k if k == super::speech::SAY && p["to"] == actor => bump("heard"),
             k if k == super::talk::TELL && p["to"] == actor => bump("heard"),
             k if k == super::docent::ASKED && p["from"] == actor => bump("asked"),
+            // R135: the house's business counts too.
+            k if k == super::conclave::PETITION && p["by"] == actor => bump("petitioned"),
+            "disremembered.attended" if p["by"] == actor => bump("attended"),
+            k if k == super::conclave::PETITION_MOVED && p["by"] == actor => bump("moved"),
+            k if k == super::conclave::DECIDED && p["by"] == actor => bump("decided"),
             _ => {}
         }
     }
@@ -186,6 +211,30 @@ pub fn summary(world: &World, actor: &str) -> Result<Outcome, CommandError> {
     if c("asked") > 0 {
         parts.push(format!("{} asked of the Docent", c("asked")));
     }
+    if c("petitioned") > 0 {
+        parts.push(format!(
+            "{} {} laid",
+            c("petitioned"),
+            plural(c("petitioned"), "petition", "petitions")
+        ));
+    }
+    if c("attended") > 0 {
+        parts.push("the attendance signed".to_string());
+    }
+    if c("moved") > 0 {
+        parts.push(format!(
+            "your petition moved {} {}",
+            c("moved"),
+            plural(c("moved"), "stage", "stages")
+        ));
+    }
+    if c("decided") > 0 {
+        parts.push(format!(
+            "{} {} decided",
+            c("decided"),
+            plural(c("decided"), "petition", "petitions")
+        ));
+    }
     let delta = level - level0;
     let before = match (
         super::plain_num(world, f.citizen, super::CITIZEN, "prev_session_at"),
@@ -199,8 +248,17 @@ pub fn summary(world: &World, actor: &str) -> Result<Outcome, CommandError> {
         ),
         _ => String::new(),
     };
+    let quiet_said = quiet
+        .map(|(gap, end)| {
+            format!(
+                " Quiet {} of that, until {}.",
+                super::combat::human(gap),
+                ago(world, end)
+            )
+        })
+        .unwrap_or_default();
     let text = format!(
-        "Here {} (since {}).{before} Level {:.1} \u{2192} {:.1} ({}{:.1}). {}",
+        "Here {} (since {}).{before}{quiet_said} Level {:.1} \u{2192} {:.1} ({}{:.1}). {}",
         super::combat::human((world.now().0 - at).max(0)),
         // The clock time, not the same span twice ("Here 2m 45s (since 2m 45s ago)").
         crate::gate::iso_second(foxing_time::Timestamp(at)),

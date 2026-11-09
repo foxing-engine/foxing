@@ -727,6 +727,29 @@ pub fn greeting_refusal(line: &str, have: &[String]) -> Option<String> {
     {
         return Some("cites a chunk, a thing or a question the visitor never had".into());
     }
+    // R137: nor a state the newcomer is not in ("a bite that will not close holds
+    // back your mending" greeted a name a minute old and whole).
+    const STATE_OF_YOU: &[&str] = &[
+        "your mending",
+        "holds back your",
+        "you are bleeding",
+        "your wound",
+        "your bite",
+        "you are hurt",
+        "you are fighting",
+        "you went down",
+        "you fell",
+        "your satchel",
+        "you carry",
+        "you hold ",
+        "your level",
+        "your hit points",
+        "you have earned",
+        "you have dug",
+    ];
+    if STATE_OF_YOU.iter().any(|a| low.contains(a)) {
+        return Some("presumes a state the visitor is not in".into());
+    }
     if have.iter().any(|h| h.eq_ignore_ascii_case(t)) {
         return Some("already in the book".into());
     }

@@ -191,7 +191,17 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
             .iter()
             .map(|a| {
                 let where_ = match (a["carried_by"].as_str(), a["room_name"].as_str()) {
-                    (Some(c), Some(r)) => format!("in {c}'s hand, in {r}"),
+                    // R128: a carrier who has gone is said to have ("in X's hand, in
+                    // The Threshold" beside "No other citizen is here").
+                    (Some(c), Some(r)) => {
+                        let away = super::find_citizen(world, c)
+                            .is_some_and(|f| !super::presence::is_here(world, f.citizen));
+                        if away {
+                            format!("in {c}'s hand; {c} is away, last in {r}")
+                        } else {
+                            format!("in {c}'s hand, in {r}")
+                        }
+                    }
                     (None, Some(r)) => format!("lying in {r}"),
                     _ => "nowhere anyone can see".to_string(),
                 };

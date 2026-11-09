@@ -196,6 +196,27 @@ fn misses(world: &World, actor: &str, creature: EntityId) -> usize {
         .count()
 }
 
+/// The words of the lent pool that `text` carries, when the creature's word is a lent
+/// one: said back on a refusal, so a guess from the pool is not a blind one (R117).
+pub fn carried_of_pool(world: &World, creature: EntityId, text: &str) -> Vec<String> {
+    let Some(v) = field(world, creature) else {
+        return Vec::new();
+    };
+    if v["from"].as_str() != Some("lore") {
+        return Vec::new();
+    }
+    let stems: std::collections::BTreeSet<String> = text
+        .split(|c: char| !c.is_alphanumeric() && c != '\'')
+        .map(|w| w.trim_matches('\'').to_lowercase())
+        .filter(|w| !w.is_empty())
+        .map(|w| super::errand::stem(&w))
+        .collect();
+    LORE.iter()
+        .filter(|w| stems.contains(&super::errand::stem(w)))
+        .map(|w| w.to_string())
+        .collect()
+}
+
 /// Whether `text` carries the creature's current word, without recording anything
 /// (D13: within the hour, a story that carries it is still heard).
 pub fn would_strike(world: &World, actor: &str, creature: EntityId, text: &str) -> bool {
@@ -304,6 +325,14 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
         2 => "The first was found. The next is in something I wanted once, and have not forgotten.".to_string(),
         _ => "The last is around me: a word of the room I stand in, as `look` says it.".to_string(),
     };
+    // R118: at the top of the ladder the word stays for new tellers; the one who
+    // found it is told so, not "Gnatterbell found one before you" to Gnatterbell.
+    if struck.iter().any(|s| s == actor) {
+        return Some(
+            "You found the last; there is none under it. Another name may still say it."
+                .to_string(),
+        );
+    }
     let who = if struck.is_empty() {
         String::new()
     } else {

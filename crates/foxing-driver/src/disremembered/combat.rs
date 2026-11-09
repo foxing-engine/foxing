@@ -485,13 +485,12 @@ pub fn fill(world: &mut World, room: EntityId) -> Result<usize, StoreError> {
                 if spawned == 1 { "" } else { "s" }
             ),
             (k, Some(place)) => format!(
-                "Something comes in from {place}: {} {k}{}.",
+                "Something comes in from {place}: {}.",
                 if spawned == 1 {
-                    "a".to_string()
+                    format!("a {k}")
                 } else {
-                    spawned.to_string()
-                },
-                if spawned == 1 { "" } else { "s" }
+                    format!("{spawned} {}", plural(k))
+                }
             ),
             (k, None) => format!("Something arrives: a {k}."),
         };
@@ -1029,7 +1028,9 @@ pub fn regen(world: &mut World, elapsed_ms: i64) -> Result<usize, String> {
                     id: creature,
                     component: CREATURE.into(),
                     field: "hp".into(),
-                    value: json!(((after) * 10.0).round() / 10.0),
+                    // R122: rounded to a tenth, then held under the maximum (a
+                    // kindled ragg of 12.85 stood at "12.9/12.8").
+                    value: json!(((after * 10.0).round() / 10.0).min(max)),
                 },
             )
             .map_err(|e| e.to_string())?;
@@ -1534,8 +1535,15 @@ thread_local! {
 /// "hits you for 4: 28 → 24 of 30", from the last strike.
 pub(crate) fn hit_said(taken: f64) -> String {
     let (before, after) = LAST_HIT.with(|c| c.get());
+    // R121: the figure is the one the two ends show, so A − N = B always; a
+    // fractional blow (a kindled creature's) said "for 2" and the meter fell by 3.
+    let shown = if before > after {
+        before - after
+    } else {
+        taken.round()
+    };
     format!(
-        "hits you for {taken:.0}: {before:.0} \u{2192} {after:.0} of {:.0}",
+        "hits you for {shown:.0}: {before:.0} \u{2192} {after:.0} of {:.0}",
         super::MAX_HP
     )
 }
@@ -1917,7 +1925,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the closer you came to dying, the longer the memory lasts. While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour. A new name's first grind: Lantern Row's lanternflies (5 hp, hits 1–3; north), the Orchard's mothwings (6 hp, hits 1–3; east, north, north) or the Fogbank's wisps (8 hp, hits 2–4; east); the Shallows' hollows between them hunt and hit 4–6. A creature's figures grow with what it holds, never with your level.")
+        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the more of your blood that fight took, the more vivid the memory and the longer it lasts (a one-blow kill is barely remembered). While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour. A new name's first grind: Lantern Row's lanternflies (5 hp, hits 1–3; north), the Orchard's mothwings (6 hp, hits 1–3; east, north, north) or the Fogbank's wisps (8 hp, hits 2–4; east); the Shallows' hollows between them hunt and hit 4–6. A creature's figures grow with what it holds, never with your level.")
             .param("creature", ParamType::Entity, false, "a creature name from look; defaults to the one you are fighting, else an unnamed one here. A named creature is never struck by default."),
         Box::new(move |w: &mut World, ctx, args| {
             let f = me(w, ctx)?;
@@ -2066,10 +2074,19 @@ pub fn register(world: &mut World, curves: Curves) {
                 // R99: the same rule as `look`'s: an id when another unnamed of its
                 // kind stands here (a named twin does not count).
                 let twins = here.iter().filter(|o| o.1 == cname && super::mind::name(w, o.0).is_none()).count();
-                if twins > 1 && super::mind::name(w, creature).is_none() {
-                    format!("{cname}-{}", creature.0)
-                } else {
-                    cname.clone()
+                match super::mind::name(w, creature) {
+                    // R125: a named one is hit by its name ("You hit the wisp for 4"
+                    // beside "Wyndle has a name" read as two creatures).
+                    Some(n) => format!("{n} the {cname}"),
+                    None if twins > 1 => format!("the {cname}-{}", creature.0),
+                    None => format!("the {cname}"),
+                }
+            };
+            let csaid_cap = {
+                let mut c = csaid.chars();
+                match c.next() {
+                    Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+                    None => String::new(),
                 }
             };
             // The one you were fighting is gone (felled by another hand, or it drifted
@@ -2105,7 +2122,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     began = Some(format!(
                         "{} {n} has a name: felled, it is a {cname} again, and what was told to it goes with you{}.",
                         began.unwrap_or_default(),
-                        if keepers.is_empty() { String::new() } else { format!(" ({} keeps it, and will hear of this)", keepers.join(", ")) }
+                        match keepers.len() { 0 => String::new(), 1 => format!(" ({} keeps what it was told, and will hear of this)", keepers[0]), n => format!(" ({} and {} keep what they were told, and will hear of this)", keepers[..n - 1].join(", "), keepers[n - 1]) }
                     ));
                 }
             }
@@ -2129,10 +2146,10 @@ pub fn register(world: &mut World, curves: Curves) {
             let turned = args.str("creature").map_or(true, str::is_empty) && began.is_some();
             let unsteady = if shaken(w, f.citizen).is_some() { ", your hand unsteady from the Threshold" } else { "" };
             let mut lines = vec![match (landed, turned) {
-                (false, true) => format!("You turn on the {csaid} and miss{unsteady}."),
-                (false, false) => format!("You swing at the {csaid} and miss{unsteady}."),
-                (true, true) => format!("You turn on the {csaid} and hit it for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" }),
-                (true, false) => format!("You hit the {csaid} for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" }),
+                (false, true) => format!("You turn on {csaid} and miss{unsteady}."),
+                (false, false) => format!("You swing at {csaid} and miss{unsteady}."),
+                (true, true) => format!("You turn on {csaid} and hit it for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" }),
+                (true, false) => format!("You hit {csaid} for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" }),
             }];
             if let Some(r) = retargeted.take() {
                 lines.insert(0, r);
@@ -2174,7 +2191,7 @@ pub fn register(world: &mut World, curves: Curves) {
                         .map(|ms| format!(", halves every {}", human(ms)))
                         .unwrap_or_default();
                     lines.push(format!(
-                        "{who} goes down, and you take its memory of {source}: chunk-{} worth {worth:.1} XP{halves}.{faded} It gets up again, holding {left:.0}, and will not be itself for {}.",
+                        "{who} goes down, and you take its memory of {source}: chunk-{} worth {worth:.1} XP, vividity {taken_vividity:.2}{halves}.{faded} It gets up again, holding {left:.0}, and will not be itself for {}.",
                         chunk.0,
                         super::mind::shaken_for(w, creature).map(human).unwrap_or_else(|| "a while".into())
                     ));
@@ -2223,9 +2240,10 @@ pub fn register(world: &mut World, curves: Curves) {
                 set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
                 end_fight(w, f.citizen).map_err(internal)?;
                 let chunk = super::memory::earn_chunk(w, &ctx.actor, f.window, &cname, xp, vividity, &curves)?;
-                let xp = super::up(xp);
                 // R98: the chunk's clock in the kill line, the figure a fighter
-                // compares kinds by; R100: the worth to a tenth, as `chunks` says it.
+                // compares kinds by; R100/R124: the worth to a tenth, the figure
+                // `chunks` lists ("worth 27.0" over a ledger of 26.8).
+                let xp = (xp * 10.0).round() / 10.0;
                 let halves = super::memory::halving_ms(w, chunk)
                     .map(|ms| format!(", halves every {}", human(ms)))
                     .unwrap_or_default();
@@ -2250,7 +2268,7 @@ pub fn register(world: &mut World, curves: Curves) {
 
             // It strikes back.
             let (taken, dead) = creature_strikes(w, creature, f.citizen).map_err(internal)?;
-            lines.push(format!("The {csaid} ({} left) {}.", left_said(chp), hit_said(taken)));
+            lines.push(format!("{csaid_cap} ({} left) {}.", left_said(chp), hit_said(taken)));
             if dead {
                 let d = die(w, &ctx.actor, &f, Some(creature))?;
                 lines.push(format!("You go down.{}", d.said()));
@@ -2266,7 +2284,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.retreat", "Break off the fight. The creature gets one free strike as you go. A creature mends on the world's clock, whole from nothing in twenty minutes, faster than you (the Conclave's officers sooner); venom follows you out. You mend only out of the room. The reply says when each of you is whole and in rounds what a second stand would take, now and then."),
+        CommandSpec::new("disremembered.retreat", "Break off the fight. The creature gets one free strike as you go. A creature mends on the world's clock, whole from nothing in twenty minutes, faster than you (the Conclave's officers sooner); venom follows you out. Nothing mends in a fight; out of it you mend wherever you stand, and so does it. The reply says when each of you is whole and in rounds what a second stand would take, now and then."),
         Box::new(|w: &mut World, ctx, _| {
             let f = me(w, ctx)?;
             let Some(creature) = engaged_with(w, f.citizen) else {

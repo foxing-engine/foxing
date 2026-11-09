@@ -307,7 +307,7 @@ pub fn look_line(world: &World, actor: &str, room: EntityId) -> Option<String> {
                 format!(" Scratched on the bench: {}.", last.join("; "))
             };
             Some(if seen.is_empty() {
-                format!("From the bench you can see the whole trail, every room of it lit, and nobody on it but you.{bench}")
+                format!("From the bench you can see the whole trail, every room of it lit, and nobody on it but you (`where <name>` finds a name below it).{bench}")
             } else {
                 format!(
                     "From the bench you can see the whole trail: {}.{bench}",
