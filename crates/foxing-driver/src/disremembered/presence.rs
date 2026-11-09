@@ -241,6 +241,15 @@ fn set_with_door(
             )),
         );
         fields.insert("gone_at".into(), Field::Plain(json!(now.0)));
+        // The last act before the room forgot them: `session` says "back after N
+        // quiet" from it (R116).
+        fields.insert(
+            "last_act_at".into(),
+            Field::Plain(json!(world
+                .last_active(actor)
+                .map(|t| t.0)
+                .unwrap_or(now.0))),
+        );
     }
     world
         .record(

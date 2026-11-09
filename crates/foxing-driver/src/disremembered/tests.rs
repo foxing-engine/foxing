@@ -5590,7 +5590,8 @@ fn a_story_a_creature_has_heard_this_hour_pays_by_halves() {
     assert!(
         second
             .summary
-            .contains("It has heard one much like it in its hour; this one pays half."),
+            .contains("It has heard one much like it in its hour (")
+            && second.summary.contains(" again); this one pays half."),
         "{}",
         second.summary
     );
@@ -5600,7 +5601,8 @@ fn a_story_a_creature_has_heard_this_hour_pays_by_halves() {
     assert!(
         third
             .summary
-            .contains("It has heard 2 much like it in its hour; this one pays a 4 part."),
+            .contains("It has heard 2 much like it in its hour (")
+            && third.summary.contains(" again); this one pays a 4 part."),
         "{}",
         third.summary
     );

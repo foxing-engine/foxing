@@ -403,7 +403,7 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: "tally-room",
         name: "The Tally Room",
-        description: "A brass tube comes down through the ceiling from the Clocktower and ends over a slanted desk. Once an hour a curl of paper drops out of it, figures on one side, and it is weighed on a small scale before anyone reads it. The scale is kept very clean.",
+        description: "A brass tube comes down through the ceiling from the Clocktower and ends over a slanted desk. Once an hour a curl of paper drops out of it, figures on one side, and it is weighed on a small scale before anyone reads it. The scale is kept very clean. The Tally Book is not here, whatever the room is called; the Clerk keeps it in the Division Lobby, north, north, west.",
         exits: &[("west", "petition-gallery"), ("north", "roll-hall")],
         spawn: Some(("engrosser", 1, 600)),
         former: &[],
@@ -816,7 +816,30 @@ pub fn ensure_rooms(world: &mut World) -> Result<(), String> {
                     .map(|e| e.id)
             });
         let id = match existing {
-            Some(id) if plain_str(world, id, ROOM, "key") == Some(def.key) => id,
+            Some(id) if plain_str(world, id, ROOM, "key") == Some(def.key) => {
+                // The world's own words follow the code: a seeded room's text and
+                // name are the def's (the Tally Room's new sentence would otherwise
+                // never reach the box).
+                if plain_str(world, id, ROOM, "description") != Some(def.description)
+                    || plain_str(world, id, ROOM, "name") != Some(def.name)
+                {
+                    let mut changes = BTreeMap::new();
+                    changes.insert("description".into(), Field::Plain(json!(def.description)));
+                    changes.insert("name".into(), Field::Plain(json!(def.name)));
+                    let fields = super::building::merged(world, id, changes);
+                    world
+                        .record(
+                            Actor::Driver,
+                            StoreEvent::ComponentSet {
+                                id,
+                                component: ROOM.into(),
+                                fields,
+                            },
+                        )
+                        .map_err(|e| e.to_string())?;
+                }
+                id
+            }
             Some(id) => {
                 world
                     .record(
@@ -1522,10 +1545,14 @@ pub fn describe(
                     None if twins > 1 => format!("{kind}-{}", c["id"]),
                     None => kind.to_string(),
                 };
+                // R108: one state word a row, the worse first: shaken over failing
+                // ("not itself yet, its name failing, its old name back" was three).
+                let shaken_now = c["mind"]["shaken"] == true;
+                let failing = c["mind"]["level"].as_f64().map(super::up).is_some_and(|l| {
+                    l >= 0.5 && c["mind"]["name"].is_string() && l < mind::FAILING_BELOW
+                });
                 let holds = match c["mind"]["level"].as_f64().map(super::up) {
-                    Some(l)
-                        if l >= 0.5 && c["mind"]["name"].is_string() && l < mind::FAILING_BELOW =>
-                    {
+                    Some(l) if l >= 0.5 && !shaken_now && failing => {
                         format!(", holding {l:.0}, its name failing")
                     }
                     Some(l) if l >= 0.5 => format!(", holding {l:.0}"),
@@ -1548,11 +1575,7 @@ pub fn describe(
                     ),
                     _ => String::new(),
                 };
-                let shaken = if c["mind"]["shaken"] == true {
-                    ", not itself yet"
-                } else {
-                    ""
-                };
+                let shaken = if shaken_now { ", not itself yet" } else { "" };
                 let named = match c["mind"]["named"].as_str() {
                     Some(p) => format!(", {p}"),
                     None => String::new(),

@@ -396,6 +396,7 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("here", FieldKind::Plain, Visibility::Public)
             .field("trace", FieldKind::Timed, Visibility::Public)
             .field("gone_at", FieldKind::Plain, Visibility::Public)
+            .field("last_act_at", FieldKind::Plain, Visibility::Owner)
             // The door they last came by: session, terminal (a keyboard), http, gate, mcp.
             .field("door", FieldKind::Plain, Visibility::Public)
             // The log position up to which words left for them have been delivered.
@@ -430,6 +431,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("session_level", FieldKind::Plain, Visibility::Owner)
             .field("session_seq", FieldKind::Plain, Visibility::Owner)
             // R49: the session the drop rule was last said in full.
+            .field("prev_session_at", FieldKind::Plain, Visibility::Owner)
+            .field("prev_session_end", FieldKind::Plain, Visibility::Owner)
             .field("drop_rule_said", FieldKind::Plain, Visibility::Owner)
             .field("cap_rule_said", FieldKind::Plain, Visibility::Owner)
             .field("vivid_rule_said", FieldKind::Plain, Visibility::Owner),
@@ -465,6 +468,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // X5: the figure it was spawned with; max_hp and attack grow from it with
             // the creature's own level.
             .field("base_hp", FieldKind::Plain, Visibility::Public)
+            // R107: what it holds (its level, rounded), kept with the body's figures.
+            .field("holding", FieldKind::Plain, Visibility::Public)
             .field("attack", FieldKind::Plain, Visibility::Public)
             .field("xp", FieldKind::Plain, Visibility::Public)
             // A hybrid's temperament and ambush line, and what it was born of; a seed

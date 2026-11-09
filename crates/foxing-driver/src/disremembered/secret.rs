@@ -326,7 +326,7 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
                 .unwrap_or_default();
             if n == 1 {
                 format!(
-                    " You have missed once, so: it is one of these: {}.",
+                    " One story from you since has carried none, so: it is one of these: {}.",
                     LORE.join(", ")
                 )
             } else {
@@ -337,7 +337,7 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
                 five.truncate(4);
                 five.insert(seed % 5, &word);
                 format!(
-                    " You have missed {n} times, so: it is one of these five: {}.",
+                    " {n} stories from you since have carried none, so: it is one of these five: {}.",
                     five.join(", ")
                 )
             }
@@ -346,7 +346,7 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
         (1, Some(text)) => {
             let shown: String = text.chars().take(160).collect();
             format!(
-                " You have missed once, so: it is in this: \"{shown}{}\"",
+                " One story from you since has carried none, so: it is in this: \"{shown}{}\"",
                 if text.chars().count() > 160 {
                     "…"
                 } else {
@@ -369,7 +369,7 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
                 .unwrap_or(text.as_str())
                 .to_string();
             format!(
-                " You have missed {n} times, so: it is in this sentence, one of the longer words: \"{sentence}\"",
+                " {n} stories from you since have carried none, so: it is in this sentence, one of the longer words: \"{sentence}\"",
             )
         }
     };

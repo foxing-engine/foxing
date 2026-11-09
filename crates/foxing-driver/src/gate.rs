@@ -919,7 +919,9 @@ pub fn pass(
                 },
                 budget.per_hour,
                 if reads_only {
-                    "; a message of reads alone is free, as this one was"
+                    // R110: the quarter a refused or voided message costs, said beside
+                    // the free read (the counter fell with no message charged).
+                    "; reads alone are free, as here; refusals cost a quarter"
                 } else {
                     "; a message of reads alone (look, chunks, rest, wants) is free"
                 },

@@ -940,7 +940,7 @@ fn table(world: &World, actor: &str) -> Outcome {
     lines.push(match holiday_said(world) {
         Some(h) => h,
         None => format!(
-            "The Conclave divides {} (the division, at half past each hour; the Clocktower's strike on the hour is another clock) and holds the midnight sitting. It is slow on purpose: a petition is a thing you lay and come back to, not a thing you wait on, and it always decides, eventually, and tells you wherever you are.",
+            "The Conclave divides {} (the division, at half past each hour; the Clocktower's strike on the hour is another clock) and holds the midnight sitting. It is slow on purpose: a petition is a thing you lay and come back to, not a thing you wait on, and it always decides, eventually, and tells you wherever you are: under \"Meanwhile\" on your next message if you were quiet, and in `messages` after.",
             in_said(world, next_division(world))
         ),
     });

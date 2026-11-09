@@ -329,7 +329,7 @@ pub fn register(world: &mut World, curves: Curves) {
             // told to it in the last hour by anyone that shares half its words with
             // this one halves the pay. (A ring of fresh names told one creature the
             // same story six times in a minute, each name on its own cooldown.)
-            let repeats = heard_lately(w, creature, &text);
+            let (repeats, alike) = heard_lately_with(w, creature, &text);
             let paid = (super::jitter(w, distinct.min(MAX_WORDS_PAID) as f64 * XP_PER_WORD, 0.8, 1.2)
                 * super::economy::rate(w, "pay")
                 * 0.5f64.powi(repeats as i32))
@@ -370,10 +370,15 @@ pub fn register(world: &mut World, curves: Curves) {
                 Some((bonus, _, _)) => paid * bonus,
                 None => paid,
             };
+            let alike_said = if alike.is_empty() {
+                String::new()
+            } else {
+                format!(" ({} again)", alike.iter().take(4).cloned().collect::<Vec<_>>().join(", "))
+            };
             let heard_line = match repeats {
                 0 => String::new(),
-                1 => " It has heard one much like it in its hour; this one pays half.".to_string(),
-                n => format!(" It has heard {n} much like it in its hour; this one pays a {} part.", 1u32 << n.min(20)),
+                1 => format!(" It has heard one much like it in its hour{alike_said}; this one pays half."),
+                n => format!(" It has heard {n} much like it in its hour{alike_said}; this one pays a {} part.", 1u32 << n.min(20)),
             };
             let kind = super::plain_str(w, creature, super::CREATURE, "name").unwrap_or("?").to_string();
             // It keeps the story; you keep the telling.
@@ -484,25 +489,46 @@ pub fn story_words(text: &str) -> Vec<String> {
 /// different answers to the same want share the want's own words (lantern, nobody,
 /// remember, lighting) and must not read as one.
 pub fn heard_lately(world: &World, creature: foxing_store::EntityId, text: &str) -> usize {
+    heard_lately_with(world, creature, text).0
+}
+
+/// How many stories much like this one it heard in the hour, and the words the
+/// likest shared (R112: said, so the halving is not invisible).
+pub fn heard_lately_with(
+    world: &World,
+    creature: foxing_store::EntityId,
+    text: &str,
+) -> (usize, Vec<String>) {
     let mine = story_words(text);
     if mine.is_empty() {
-        return 0;
+        return (0, Vec::new());
     }
     let hour_ago = world.now().0 - STORY_COOLDOWN_MS;
-    world
+    let mut count = 0;
+    let mut best: Vec<String> = Vec::new();
+    for e in world
         .recent_events(2000)
         .iter()
         .filter(|e| e.kind == STORY && e.at.0 >= hour_ago && e.payload["creature"] == creature.0)
-        .filter(|e| {
-            let theirs: Vec<&str> = e.payload["keywords"]
-                .as_array()
-                .map(|a| a.iter().filter_map(|v| v.as_str()).collect())
-                .unwrap_or_default();
-            if theirs.is_empty() {
-                return false;
+    {
+        let theirs: Vec<&str> = e.payload["keywords"]
+            .as_array()
+            .map(|a| a.iter().filter_map(|v| v.as_str()).collect())
+            .unwrap_or_default();
+        if theirs.is_empty() {
+            continue;
+        }
+        let shared: Vec<String> = mine
+            .iter()
+            .filter(|w| theirs.contains(&w.as_str()))
+            .cloned()
+            .collect();
+        if shared.len() * 3 >= mine.len() * 2 {
+            count += 1;
+            if shared.len() > best.len() {
+                best = shared;
             }
-            let shared = mine.iter().filter(|w| theirs.contains(&w.as_str())).count();
-            shared * 3 >= mine.len() * 2
-        })
-        .count()
+        }
+    }
+    (count, best)
 }

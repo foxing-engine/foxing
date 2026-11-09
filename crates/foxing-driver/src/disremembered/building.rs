@@ -82,7 +82,7 @@ fn half_life(world: &World, room: EntityId) -> Option<Duration> {
 
 /// A room's fields with these changed: a component is set whole, so a change to one
 /// field carries the others along.
-fn merged(
+pub fn merged(
     world: &World,
     room: EntityId,
     changes: BTreeMap<String, Field>,

@@ -525,7 +525,11 @@ pub fn remembered_map(
     let ways: Vec<String> = here
         .map(|h| {
             let mut v: Vec<(String, EntityId)> = rooms::exits_of(world, h).into_iter().collect();
-            v.sort();
+            // R109: the compass first, as `look` has it.
+            v.sort_by_key(|(e, _)| {
+                let c = rooms::COMPASS.iter().position(|x| x == e);
+                (c.is_none(), c.unwrap_or(0), e.clone())
+            });
             v.into_iter()
                 .map(|(n, to)| {
                     format!(
@@ -552,6 +556,8 @@ pub fn remembered_map(
         summary.push_str(" Beyond what you can see, the map is blank: you remember no other room.");
     } else {
         if !clear.is_empty() {
+            let mut clear = clear.clone();
+            clear.sort();
             summary.push_str(&format!(" You remember the way to {}.", clear.join(", ")));
         }
         if !dim.is_empty() {
@@ -958,9 +964,20 @@ pub fn register(world: &mut World, curves: Curves) {
                     None => format!("{} live in {}, and come back when felled.", super::combat::plural(&kind), homes.join(" and ")),
                 };
                 return Ok(Outcome::new(said, json!({"who": kind, "homes": homes, "room": best.as_ref().map(|b| b.0 .0), "way": best.as_ref().map(|b| b.1.clone()), "signed": best.as_ref().is_some_and(|b| b.2)})));
+            } else if let Some((room_key, _, fixture, _, _)) = super::craft::SEED_FIXTURES.iter().find(|(_, _, n, _, _)| {
+                let a = who.trim().trim_start_matches("the ").to_lowercase();
+                n.trim_start_matches("the ").to_lowercase() == a
+            }) {
+                // R115: the world's own fixtures by name ("where tally book"), since the
+                // Tally Room has no book and the book is four rooms on.
+                let Some(r) = rooms::room_by_key(w, room_key) else {
+                    return Err(CommandError::precondition(format!("{fixture} is nowhere tonight.")));
+                };
+                let rname = plain_str(w, r, ROOM, "name").unwrap_or("?").to_string();
+                (format!("{fixture} is in {rname}"), Some(r))
             } else {
                 return Err(CommandError::precondition(format!(
-                    "Nothing called {who} that you could go to: a creature's given name, a citizen here now, a room's name, or a kind of creature (where ragpicker)."
+                    "Nothing called {who} that you could go to: a creature's given name, a citizen here now, a room's name, a kind of creature (where ragpicker), or one of the world's own books."
                 )));
             };
             let Some(room) = room else {

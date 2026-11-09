@@ -1473,12 +1473,21 @@ pub fn register(world: &mut World) {
             changes.insert("asked".into(), json!(list));
             write(w, changes)?;
             let short = short_question(&question);
+            // R114: when the desk does not answer, the Docent answers from what it
+            // keeps by heart: the verb whose help shares the most words with the
+            // question (a wait that ended in a shrug was the Watch's one dead end).
+            let by_heart = by_heart(w, &question);
             super::combat::narrate(
                 w,
                 &to,
-                format!(
-                    "The Docent comes back without the page, on \"{short}\": \"No one is at the desk tonight to find that one. `help` has what I keep by heart; the room knows the rest.\""
-                ),
+                match by_heart {
+                    Some((verb, text)) => format!(
+                        "The Docent comes back without the page, on \"{short}\": \"No one is at the desk tonight to find that one. By heart, then, from `help {verb}`: {text}\""
+                    ),
+                    None => format!(
+                        "The Docent comes back without the page, on \"{short}\": \"No one is at the desk tonight to find that one. `help` has what I keep by heart; the room knows the rest.\""
+                    ),
+                },
             );
             Ok(())
         }),
@@ -1583,4 +1592,28 @@ pub fn first_arrival(world: &World, actor: &str) -> String {
     format!(
         "The Docent looks up from the page: \"{actor}. New, then. One thing first: {next}. The rest finds you.\""
     )
+}
+
+/// The verb whose help shares the most words with the question, if any shares two.
+fn by_heart(world: &World, question: &str) -> Option<(String, String)> {
+    let words: Vec<String> = question
+        .to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| w.len() > 3)
+        .map(str::to_string)
+        .collect();
+    let mut best: Option<(usize, String, String)> = None;
+    for spec in world.commands_for(foxing_registry::ActorKind::Citizen) {
+        let verb = spec.verb().to_string();
+        let text = spec.description.to_string();
+        let lower = text.to_lowercase();
+        let mut score = words.iter().filter(|w| lower.contains(w.as_str())).count();
+        if words.contains(&verb) {
+            score += 3;
+        }
+        if score >= 2 && !best.as_ref().is_some_and(|b| score <= b.0) {
+            best = Some((score, verb, text));
+        }
+    }
+    best.map(|(_, v, t)| (v, t))
 }

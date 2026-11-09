@@ -36,6 +36,19 @@ pub fn begin(world: &mut World, actor: &str) -> Result<(), String> {
         .map(|s| s.0)
         .unwrap_or(0);
     let mut changes = BTreeMap::new();
+    // R116: the session before this one, kept, so `session` after a long quiet does
+    // not erase the hour spent in the house before it.
+    if let Some(prev_at) = super::plain_num(world, f.citizen, super::CITIZEN, "session_at") {
+        let quiet_since =
+            super::plain_num(world, f.citizen, super::presence::PRESENCE, "last_act_at")
+                .or_else(|| {
+                    super::plain_num(world, f.citizen, super::presence::PRESENCE, "gone_at")
+                })
+                .map(|t| t as i64)
+                .unwrap_or(world.now().0);
+        changes.insert("prev_session_at".into(), Field::Plain(json!(prev_at)));
+        changes.insert("prev_session_end".into(), Field::Plain(json!(quiet_since)));
+    }
     changes.insert("session_at".into(), Field::Plain(json!(world.now().0)));
     changes.insert(
         "session_level".into(),
@@ -174,8 +187,20 @@ pub fn summary(world: &World, actor: &str) -> Result<Outcome, CommandError> {
         parts.push(format!("{} asked of the Docent", c("asked")));
     }
     let delta = level - level0;
+    let before = match (
+        super::plain_num(world, f.citizen, super::CITIZEN, "prev_session_at"),
+        super::plain_num(world, f.citizen, super::CITIZEN, "prev_session_end"),
+    ) {
+        (Some(p0), Some(p1)) if (world.now().0 - p1 as i64) < 24 * 3_600_000 && p1 > p0 => format!(
+            " Back after {} quiet; before that, here {} (from {}).",
+            super::combat::human((at - p1 as i64).max(0)),
+            super::combat::human((p1 - p0).max(0.0) as i64),
+            crate::gate::iso_second(foxing_time::Timestamp(p0 as i64))
+        ),
+        _ => String::new(),
+    };
     let text = format!(
-        "Here {} (since {}). Level {:.1} \u{2192} {:.1} ({}{:.1}). {}",
+        "Here {} (since {}).{before} Level {:.1} \u{2192} {:.1} ({}{:.1}). {}",
         super::combat::human((world.now().0 - at).max(0)),
         // The clock time, not the same span twice ("Here 2m 45s (since 2m 45s ago)").
         crate::gate::iso_second(foxing_time::Timestamp(at)),

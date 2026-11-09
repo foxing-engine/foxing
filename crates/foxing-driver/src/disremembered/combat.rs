@@ -517,7 +517,15 @@ pub fn rescale(world: &mut World, creature: EntityId) -> Result<(), CommandError
     let new_max = (base_hp * (1.0 + level / 150.0)).round();
     let new_attack = d.attack + (level / 75.0).floor();
     let attack = plain_num(world, creature, CREATURE, "attack").unwrap_or(d.attack);
-    if base.is_some() && (new_max - old_max).abs() < 0.5 && (attack - new_attack).abs() < 0.5 {
+    // R107: what it holds, as a read field beside hp and attack (the level is
+    // computed; `observe` had no way to it).
+    let holding_now = plain_num(world, creature, CREATURE, "holding").unwrap_or(-1.0);
+    let holding = level.round();
+    if base.is_some()
+        && (new_max - old_max).abs() < 0.5
+        && (attack - new_attack).abs() < 0.5
+        && (holding_now - holding).abs() < 0.5
+    {
         return Ok(());
     }
     let hp = plain_num(world, creature, CREATURE, "hp").unwrap_or(old_max);
@@ -531,6 +539,7 @@ pub fn rescale(world: &mut World, creature: EntityId) -> Result<(), CommandError
     changes.insert("max_hp".into(), Field::Plain(json!(new_max)));
     changes.insert("hp".into(), Field::Plain(json!(new_hp.min(new_max))));
     changes.insert("attack".into(), Field::Plain(json!(new_attack)));
+    changes.insert("holding".into(), Field::Plain(json!(holding)));
     super::bindery::set_fields(world, Actor::Driver, creature, CREATURE, changes).map(|_| ())
 }
 
@@ -554,7 +563,9 @@ pub(crate) fn spawn_one(
     // No two of a kind are quite alike: hit points within a fifth of the figure,
     // worth within a quarter. `look` shows the hit points, so a careful fighter can
     // pick the weaker one; the worth is found out at the end.
-    let hp = (super::jitter(world, d.hp, 0.8, 1.2) * 10.0).round() / 10.0;
+    // D22 (a): a tenth either way, so what it holds, not the roll, is what the hit
+    // points say.
+    let hp = (super::jitter(world, d.hp, 0.95, 1.05) * 10.0).round() / 10.0;
     let xp =
         (super::jitter(world, d.xp, 0.75, 1.25) * super::economy::rate(world, "worth")).round();
     let mut fields = BTreeMap::new();
