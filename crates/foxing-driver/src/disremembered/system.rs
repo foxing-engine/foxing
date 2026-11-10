@@ -815,17 +815,19 @@ fn register_rest(world: &mut World) {
                 .unwrap_or_default();
             Ok(Outcome::new(
                 format!(
-                    "{:02}:{:02} UTC (t={}).{next} World {} · your clock {} · driver up {}s · the Clocktower's rates: {} · {}",
+                    // R143: the rates and the last read were printed here as a row of
+                    // figures and read as a leak of tuning; `time` says the hour and the
+                    // bells in words, and the figures stay in the result (`rates`,
+                    // `last_read`) and at /v0/economy, where they are public.
+                    "{:02}:{:02} UTC (t={}).{next} World {} · your clock {} · driver up {}s. What the Clocktower set at its last strike is public: /v0/economy has the rates, and the Tally Room's paper reads them out.",
                     h,
                     m,
                     now.0,
                     if world_paused { "frozen" } else { "running" },
                     if mine_paused { "paused (PTO)" } else { "running" },
-                    up,
-                    super::economy::rates_line(&rates),
-                    super::economy::last_read_line(w)
+                    up
                 ),
-                json!({"now": now.0, "world_frozen": world_paused, "on_pto": mine_paused, "uptime_seconds": up, "rates": rates}),
+                json!({"now": now.0, "world_frozen": world_paused, "on_pto": mine_paused, "uptime_seconds": up, "rates": rates, "rates_line": super::economy::rates_line(&rates), "last_read": super::economy::last_read_line(w)}),
             ))
         }),
     );

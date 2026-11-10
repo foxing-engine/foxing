@@ -1419,16 +1419,18 @@ fn drop_miss_said(world: &mut World, actor: &str, citizen: EntityId, rounds: u64
     changes.insert("drop_rule_said".into(), Field::Plain(json!(session)));
     let _ = super::set_citizen_fields(world, actor, citizen, changes);
     let n = rounds.clamp(1, super::craft::DROP_SURE_ROUNDS);
+    // R150: "3 rounds, one chance in two; sure at six" was opaque; said as a rule
+    // and then as what happened.
     let chance = match n {
-        1 => "one chance in six",
-        2 => "one chance in three",
-        3 => "one chance in two",
-        4 => "two chances in three",
-        5 => "five chances in six",
-        _ => "sure",
+        1 => "one time in six",
+        2 => "one time in three",
+        3 => "one time in two",
+        4 => "two times in three",
+        5 => "five times in six",
+        _ => "every time",
     };
     format!(
-        " Nothing of it is left behind: {} round{}, {chance}; sure at six.",
+        " A thing is left behind {chance} after {} round{}, always after six; this time, none.",
         n,
         if n == 1 { "" } else { "s" }
     )
@@ -1925,7 +1927,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the more of your blood that fight took, the more vivid the memory and the longer it lasts (a one-blow kill is barely remembered). While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour. A new name's first grind: Lantern Row's lanternflies (5 hp, hits 1–3; north), the Orchard's mothwings (6 hp, hits 1–3; east, north, north) or the Fogbank's wisps (8 hp, hits 2–4; east); the Shallows' hollows between them hunt and hit 4–6. A creature's figures grow with what it holds, never with your level.")
+        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the more of your blood that fight took, the more vivid the memory and the longer it lasts (a one-blow kill is barely remembered). While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour. A new name's first grind: Lantern Row's lanternflies (5 hp, hits 1–3; north), the Orchard's mothwings (6 hp, hits 1–3; east, north, north) or the Fogbank's wisps (8 hp, hits 2–4; east); the Shallows' hollows between them hunt and hit 4–6. A creature's figures grow with what it holds, never with your level. Two of a kind in a room are written with their ids (wisp-80, wisp-81) so either can be named; alone, it is just the wisp.")
             .param("creature", ParamType::Entity, false, "a creature name from look; defaults to the one you are fighting, else an unnamed one here. A named creature is never struck by default."),
         Box::new(move |w: &mut World, ctx, args| {
             let f = me(w, ctx)?;

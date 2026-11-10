@@ -946,7 +946,10 @@ pub fn fixtures_line(world: &World, room: EntityId) -> Option<String> {
                 ""
             };
             let held = super::up(v["held"].as_f64().unwrap_or(0.0));
-            let held = if held >= 0.5 {
+            // R141: a book's "holding" is unexplained in a row; a thing with pages
+            // is said by its entries.
+            let is_book = v["text"].as_str().is_some_and(|t| t.contains(" | "));
+            let held = if held >= 0.5 && !is_book {
                 format!(", holding {held:.0}")
             } else {
                 String::new()
@@ -965,12 +968,22 @@ fn text_said(t: &str) -> String {
         return String::new();
     }
     let lines: Vec<&str> = t.split(" | ").collect();
+    // R141: an entry is a line with a hand to it; the head (the description) is not
+    // one, and "6 lines" of a book with five entries read as a miscount.
+    let entries = lines.iter().filter(|l| l.contains(" \u{2014} ")).count();
     if lines.len() == 1 {
         format!(": \"{t}\"")
-    } else {
+    } else if entries == 0 {
         format!(
             ": {} lines, the last \"{}\"; read it for the rest",
             lines.len(),
+            lines[lines.len() - 1]
+        )
+    } else {
+        format!(
+            ": {} entr{}, the last \"{}\"; read it for the rest",
+            entries,
+            if entries == 1 { "y" } else { "ies" },
             lines[lines.len() - 1]
         )
     }

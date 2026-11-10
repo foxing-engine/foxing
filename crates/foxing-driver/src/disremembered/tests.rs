@@ -3645,6 +3645,54 @@ fn the_dry_run_and_the_gate_agree_on_verbs_preconditions_and_asks() {
 }
 
 #[test]
+fn a_room_stood_in_within_the_hour_is_said_short_on_arrival() {
+    // D25 a: the page on the first step in, the short of it on the way back, the
+    // page again from `look`, and the page again once the hour has passed.
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let first = ok(&mut w, "dave", "travel", json!(["east"]));
+    assert!(
+        first.summary.contains("Fog rolls off the stone"),
+        "{}",
+        first.summary
+    );
+    assert!(first.result["brief"].is_null());
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    let again = ok(&mut w, "dave", "travel", json!(["east"]));
+    assert!(
+        again.summary.contains("The Fogbank, as you left it"),
+        "{}",
+        again.summary
+    );
+    assert!(
+        !again.summary.contains("Fog rolls off the stone"),
+        "{}",
+        again.summary
+    );
+    assert!(
+        again.summary.contains("Exits: ") && again.summary.contains("Here: "),
+        "{}",
+        again.summary
+    );
+    assert_eq!(again.result["brief"], json!(true));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("Fog rolls off the stone"),
+        "{}",
+        look.summary
+    );
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    w.fixed_now = Some(Timestamp(t0.0 + 61 * 60 * 1000));
+    let later = ok(&mut w, "dave", "travel", json!(["east"]));
+    assert!(
+        later.summary.contains("Fog rolls off the stone"),
+        "{}",
+        later.summary
+    );
+}
+
+#[test]
 fn travel_back_is_the_way_you_came() {
     let t0 = Timestamp(1_000_000);
     let mut w = open(tempfile::tempdir().unwrap().path(), t0);
@@ -3662,7 +3710,7 @@ fn travel_back_is_the_way_you_came() {
     ok(&mut w, "dave", "travel", json!(["south"]));
     let out = ok(&mut w, "dave", "travel", json!(["back"]));
     assert!(
-        out.summary.starts_with("You go north. The Fogbank."),
+        out.summary.starts_with("You go north. The Fogbank"),
         "{}",
         out.summary
     );
@@ -4677,8 +4725,10 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
     assert_eq!(economy::dashboard(&w)["last_hour"]["median_wage"], 5.0);
     let time = ok(&mut w, "dave", "time", json!([]));
     assert!(
-        time.summary
-            .contains("the Clocktower's rates: drop 1.00 · half_life 1.00"),
+        time.result["rates_line"]
+            .as_str()
+            .is_some_and(|l| l.contains("drop 1.00 · half_life 1.00"))
+            && !time.summary.contains("median wage"),
         "{}",
         time.summary
     );
@@ -4727,8 +4777,9 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
     );
     let time = ok(&mut w, "dave", "time", json!([]));
     assert!(
-        time.summary
-            .contains("last read: median wage 5 among 2 earners (poor)"),
+        time.result["last_read"]
+            .as_str()
+            .is_some_and(|l| l.contains("last read: median wage 5 among 2 earners (poor)")),
         "{}",
         time.summary
     );
@@ -6066,7 +6117,7 @@ fn a_made_thing_can_be_named_once_it_holds_sixty_and_a_fixture_stands_in_a_room_
     assert_eq!(read.result["lines"].as_array().unwrap().len(), 3);
     let look = ok(&mut w, "tyler", "look", json!([]));
     assert!(
-        look.summary.contains("3 lines, the last \"tyler owes nothing, and says so. \u{2014} tyler\"; read it for the rest"),
+        look.summary.contains("2 entries, the last \"tyler owes nothing, and says so. \u{2014} tyler\"; read it for the rest"),
         "{}",
         look.summary
     );
@@ -6827,7 +6878,7 @@ fn where_finds_a_way_you_remember_and_travel_takes_a_room_name() {
         json!("Toward The Midden: then south.")
     );
     let out = ok(&mut w, "dave", "travel", json!(["midden"]));
-    assert!(out.summary.contains("The Midden."), "{}", out.summary);
+    assert!(out.summary.contains("The Midden"), "{}", out.summary);
     assert!(out.result["onward"].is_null());
     // help is a verb now, a read.
     let out = ok(&mut w, "dave", "help", json!([]));

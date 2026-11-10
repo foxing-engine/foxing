@@ -1129,6 +1129,20 @@ pub fn describe(
     ctx: &foxing_registry::CallContext,
     room: EntityId,
 ) -> Result<Outcome, foxing_registry::CommandError> {
+    describe_as(world, actor, ctx, room, false)
+}
+
+/// The room as `look` says it, or short (D25 a): the name, the exits, who and what
+/// is here, what hunts. `travel` says a room short when you stood in it within the
+/// hour (a walker on the back-trail read the Fogbank's page three times); `look`
+/// always has the page.
+pub fn describe_as(
+    world: &mut World,
+    actor: &str,
+    ctx: &foxing_registry::CallContext,
+    room: EntityId,
+    brief: bool,
+) -> Result<Outcome, foxing_registry::CommandError> {
     // Standing here is remembering it: the mini-map is what you have seen.
     super::atlas::mark_seen(world, actor, room)?;
     let obs = super::observe_as(world, ctx, look_query(room))?;
@@ -1204,7 +1218,14 @@ pub fn describe(
             None => String::new(),
         }
     };
-    let mut text = format!("{name}. {desc}");
+    let mut text = if brief {
+        format!("{name}, as you left it (`look` has the page).")
+    } else {
+        format!("{name}. {desc}")
+    };
+    // Short, the stretches between the kept parts are written and then dropped: the
+    // text is cut back to where each began.
+    let cut_a = text.len();
     // R78: the weather, by the Clocktower's rates and the hour.
     if dug_by.is_none() {
         if let Some(wx) = super::weather::line(
@@ -1293,6 +1314,9 @@ pub fn describe(
             ));
         }
     }
+    if brief {
+        text.truncate(cut_a);
+    }
     if !exits.is_empty() {
         // Each exit says where it leads: three visitors in one night asked, because a
         // dug exit is named by its digger and tells a stranger nothing.
@@ -1310,6 +1334,10 @@ pub fn describe(
             })
             .collect();
         text.push_str(&format!(" Exits: {}.", shown.join(", ")));
+    }
+    let cut_b = text.len();
+    if !exits.is_empty() {
+        let by_name = exits_of(world, room);
         // A world's own room with doors dug off it says how many it has left and
         // which are newest (R14): a digger at a full Threshold was refused by surprise.
         if dug_by.is_none() {
@@ -1345,6 +1373,9 @@ pub fn describe(
             }
         }
     }
+    if brief {
+        text.truncate(cut_b);
+    }
     // A door only you can see, while you hold the memory of what is behind it.
     if let Some(f) = super::find_citizen(world, actor) {
         for (door, to) in super::morphos::private_doors(world, f.window, room) {
@@ -1364,6 +1395,7 @@ pub fn describe(
         text.push(' ');
         text.push_str(&ground);
     }
+    let cut_c = text.len();
     // R79: the longsight says whom it is looking at: the last name to arrive
     // anywhere else on the trail, else the moon.
     if let Some((ls, _, _, _)) = super::combat::creatures_in(world, room)
@@ -1530,6 +1562,9 @@ pub fn describe(
                 }
             ));
         }
+    }
+    if brief {
+        text.truncate(cut_c);
     }
     if !creatures.is_empty() {
         let list: Vec<String> = creatures
@@ -1824,7 +1859,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.travel",
-            "Take an exit. `back` retraces your trail one room at a time, whatever the doors were called: the rooms you walked since the Threshold, loops cut out (a step onto a room already on the trail cuts it back to there), and it refuses at the trail's end. A dug room's door home answers to `out`, whatever it is called. You cannot travel while something is fighting you; retreat first.",
+            "Take an exit. `back` retraces your trail one room at a time, whatever the doors were called: the rooms you walked since the Threshold, loops cut out (a step onto a room already on the trail cuts it back to there), and it refuses at the trail's end. A dug room's door home answers to `out`, whatever it is called. You cannot travel while something is fighting you; retreat first. A room you stood in within the hour is said short on arrival (its name, the exits, who and what is here, what hunts); `look` has the page.",
         )
         .param("exit", ParamType::String, true, "an exit name from look, or back")
         .param("word", ParamType::String, false, "the word a warded door asks for, quoted"),
@@ -2009,7 +2044,12 @@ pub fn register(world: &mut World) {
             let first_time = !super::atlas::has_seen(w, f.citizen, to);
             let away = super::atlas::last_seen_at(w, f.citizen, to).map_or(true, |t| w.now().0 - t > AWAY_MS);
             let reaction = reaction(w, &ctx.actor, to, first_time, away);
-            let mut out = describe(w, &ctx.actor, ctx, to)?;
+            // D25 a: a room you stood in within the hour is said short on arrival.
+            let brief = super::atlas::last_seen_at(w, f.citizen, to).is_some_and(|t| w.now().0 - t < 3_600_000);
+            let mut out = describe_as(w, &ctx.actor, ctx, to, brief)?;
+            if brief {
+                out.result["brief"] = json!(true);
+            }
             if let Some(r) = &reaction {
                 out.summary.push(' ');
                 out.summary.push_str(r);

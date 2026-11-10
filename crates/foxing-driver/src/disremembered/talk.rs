@@ -923,7 +923,28 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
         return Some(if seen.is_empty() {
             "No one, since I started counting. I started counting when I got my name.".into()
         } else {
-            format!("Since I had a name: {}.", seen.join("; "))
+            // R145: the names first (a visitor asked who had been here and was read
+            // their own last four lines); then what was said.
+            let (mut came, mut said): (Vec<String>, Vec<String>) = (Vec::new(), Vec::new());
+            for l in seen {
+                match l.strip_suffix(" came") {
+                    Some(n) => came.push(n.to_string()),
+                    None => said.push(l),
+                }
+            }
+            let who = if came.is_empty() {
+                "I saw no one come in".to_string()
+            } else {
+                format!("{} came through", list(&came))
+            };
+            if said.is_empty() {
+                format!("Since I had a name: {who}.")
+            } else {
+                format!(
+                    "Since I had a name: {who}. What I heard: {}.",
+                    said.join("; ")
+                )
+            }
         });
     }
     if has(&["fade", "forget", "die", "afraid", "last"]) {
@@ -1071,13 +1092,17 @@ fn recent(world: &World, creature: EntityId, room: Option<EntityId>) -> Vec<Stri
         plain_str(world, id, CITIZEN, "name").map(str::to_string)
     };
     let mut out: Vec<String> = Vec::new();
+    // R145: the names and the words are counted apart, so four lines from one
+    // visitor do not crowd out everyone who came.
+    let (mut came, mut said) = (0, 0);
     let mut seen_names: BTreeMap<String, ()> = BTreeMap::new();
     for e in all.iter().filter(|e| e.seq.0 > named_at).rev() {
-        if out.len() >= 4 {
+        if came >= 5 && said >= 2 {
             break;
         }
         if let Some(n) = citizens_here(e) {
-            if seen_names.insert(n.clone(), ()).is_none() {
+            if came < 5 && seen_names.insert(n.clone(), ()).is_none() {
+                came += 1;
                 out.push(format!("{n} came"));
             }
         } else if e.kind == SAY
@@ -1111,8 +1136,15 @@ fn recent(world: &World, creature: EntityId, room: Option<EntityId>) -> Vec<Stri
             } else {
                 text.to_string()
             };
-            out.push(format!("{from} said, \"{text}\""));
-        } else if e.kind == super::building::REMEMBERED && e.payload["creature"] == creature.0 {
+            if said < 2 {
+                said += 1;
+                out.push(format!("{from} said, \"{text}\""));
+            }
+        } else if said < 2
+            && e.kind == super::building::REMEMBERED
+            && e.payload["creature"] == creature.0
+        {
+            said += 1;
             out.push(format!(
                 "{} gave me the memory of {}",
                 e.payload["by"].as_str().unwrap_or("someone"),

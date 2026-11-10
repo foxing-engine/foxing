@@ -1339,7 +1339,7 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
                 "The newest volume, dated tomorrow, is written out in full in a careful hand, and every line of it is a blank. Nothing has come before the Conclave yet; `petition` at the Petitioners' Gallery gives it a line.".to_string()
             } else {
                 let mut out = vec![format!(
-                    "The newest volume, dated tomorrow, holds {} page{} in a careful hand; the last of them:",
+                    "The newest volume, dated tomorrow, holds {} page{} in a careful hand; the last three, the oldest of them first:",
                     all.len(),
                     if all.len() == 1 { "" } else { "s" }
                 )];
@@ -1352,8 +1352,10 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
                     .rev()
                 {
                     let at = page["at"].as_i64().unwrap_or(0);
+                    // R139: two midnight sittings told apart by their day.
+                    let (_, mo, d, _) = super::life::civil(at);
                     out.push(format!(
-                        "— the {} of {} UTC —",
+                        "— the {} of {mo:02}-{d:02}, {} UTC —",
                         if page["kind"] == "sitting" {
                             "sitting"
                         } else {
@@ -1375,7 +1377,7 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
         }
         "book-lectern" if named(&["book", "statute", "lectern"]) => {
             format!(
-                "The Book is open. The Conclave permits you to read it.\n{}",
+                "The Book is open. The Conclave permits you to read it. A statute moves a rate or bars a thing; a resolution is the house's opinion, entered and read out, and changes nothing it names.\n{}",
                 text(world, true)
             )
         }
