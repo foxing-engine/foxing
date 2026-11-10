@@ -8073,7 +8073,11 @@ fn the_conclave_takes_petitions_and_always_decides_eventually() {
         json!(["that there be a second one at once"]),
     )
     .unwrap_err();
-    assert!(err.to_string().contains("still before the Conclave, upon the table (stage 1 of"), "{err}");
+    assert!(
+        err.to_string()
+            .contains("still before the Conclave, upon the table (stage 1 of"),
+        "{err}"
+    );
     // A statute petition is read as one.
     let out = ok(
         &mut w,

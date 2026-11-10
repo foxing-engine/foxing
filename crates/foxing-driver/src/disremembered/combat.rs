@@ -695,7 +695,9 @@ pub fn left_said(hp: f64) -> String {
     if hp > 0.0 && hp < 1.0 {
         format!("{hp:.1}")
     } else {
-        format!("{hp:.0}")
+        // Halves go up: "{:.0}" rounds a half to the even number, so 19.5 read
+        // "20 left" and 12.5 "12 left" in one fight.
+        format!("{:.0}", (hp + 0.5).floor())
     }
 }
 
@@ -2122,7 +2124,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 if let Some(n) = super::mind::name(w, creature) {
                     let keepers = super::mind::keepers(w, creature);
                     began = Some(format!(
-                        "{} {n} has a name: felled, it is a {cname} again, and what was told to it goes with you{}.",
+                        "{} {n} has a name: if it falls, it is a {cname} again, and what was told to it goes with you{}.",
                         began.unwrap_or_default(),
                         match keepers.len() { 0 => String::new(), 1 => format!(" ({} keeps what it was told, and will hear of this)", keepers[0]), n => format!(" ({} and {} keep what they were told, and will hear of this)", keepers[..n - 1].join(", "), keepers[n - 1]) }
                     ));
