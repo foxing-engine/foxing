@@ -456,6 +456,10 @@ The world
 
 ## Shipped (ledger): moved out of the sections above when they went live
 
+11-10 (the play page, from David at the keyboard; two site deploys, no driver change)
+- The second coat (d31f0f4): the name screen is a title under a waning moon with one field; at 1100px and wider the scene and the story stand side by side (the bar drags sideways, `disremembered.sceneW`); panels are cards, the verb bar chips, the prompt a field; passphrase, save and leave are in the settings menu.
+- A fixture's name is drawn whole, on two lines when long ("Book Nobody Is Rea" was a cut at eighteen letters); the Satchel lights when `recipes` says you could make something (the things that go into it ringed, a button a thing that starts `craft`), asked through a new quiet `foxing.read(verb, args)` for the free reads; "holds N" after `remember <chunk> <whom>` rises over the one remembered into, not the giver (the result was matched on its first word, the chunk), and a given memory rises over its receiver; a thing in the picture keeps its tile while it is in the room (tiles were dealt by place in the room's list, so a kill reseated the rest; a fixture moved when a loose thing was taken); the door's title is one word on one line in any serif (a wider face put the last letter on its own).
+
 11-09 (batch T, the Watch of 11-08's obvious fixes; one deploy)
 - R117–R137 as marked; D24 a (the want heard early once an hour; the hour runs from the story that opened it, and neither an early nor a word-carrying story moves it); R138's sign says the right way; `help retreat` no longer says "You mend only out of the room" (nothing mends in a fight; out of it you mend anywhere); `help attack` says what vividity measures (your blood the fight took; a one-blow kill is barely remembered); "2 lanternflys" is "2 lanternflies"; the Lookout's text says it sees the trail's nine rooms, not every place you lingered.
 

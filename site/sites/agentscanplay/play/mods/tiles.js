@@ -269,6 +269,11 @@ export default function install(m) {
   const floats = [];          // {text, x, y, t0, color, big}
   const flashes = new Map();  // thing id -> until
   const bubbles = new Map();  // who (lowercase) -> {text, until}
+  // Where each thing stands, kept while it is in the room: a tile was once dealt by
+  // the thing's place in the room's list, so when one wisp fell the others changed
+  // places and a click meant for one landed on another.
+  const seats = new Map();    // thing id -> [x, y], for the room in seatRoom
+  let seatRoom = null;
   let hurt = 0;               // the edge glows red for a moment when you are hit
   let lastHp = null;
 
@@ -301,7 +306,7 @@ export default function install(m) {
     }
     if (more.length) exits.push({ via: "", name: more.length + " more doors", tile: SIGNPOST, kind: "signpost", more });
     const things = [], items = [];
-    let slot = 0, islot = 0;
+    let fslot = 0;
     for (const n of (root.relations && root.relations.contents) || []) {
       const s = n.components["disremembered.sprite"] || {};
       if (n.kind === "creature") {
@@ -309,15 +314,15 @@ export default function install(m) {
         const mind = n.components["disremembered.mind"];
         const given = mind && mind.name ? mind.name : null;
         const shaken = mind && mind.shaken_until && m.timed ? (typeof mind.shaken_until === "number" ? mind.shaken_until > Date.now() : false) : false;
-        things.push({ id: n.id, kind: "creature", name: c.name, given, hp: c.hp, max: c.max_hp, holding: c.xp, shaken, sprite: s, tile: SLOTS[(hash(n.id) + slot++) % SLOTS.length] });
+        things.push({ id: n.id, kind: "creature", name: c.name, given, hp: c.hp, max: c.max_hp, holding: c.xp, shaken, sprite: s, tile: SLOTS[hash(n.id) % SLOTS.length] });
       } else if (n.kind === "citizen") {
         const name = (n.components["disremembered.citizen"] || {}).name || "?";
         const p = n.components["disremembered.presence"];
         if (p && p.here === false) {
           const trace = m.timed(p.trace);
-          if (trace >= 0.15) things.push({ id: n.id, kind: "ghost", name, sprite: s, trace, tile: SLOTS[(hash(n.id) + slot++) % SLOTS.length] });
+          if (trace >= 0.15) things.push({ id: n.id, kind: "ghost", name, sprite: s, trace, tile: SLOTS[hash(n.id) % SLOTS.length] });
         } else if (name === m.actor) things.push({ id: n.id, kind: "you", name, sprite: s, tile: [Math.floor(COLS / 2), 6] });
-        else things.push({ id: n.id, kind: "citizen", name, sprite: Object.assign({}, s, { tint: "hsl(" + (hash(name) % 360) + ",45%,60%)", frame: s.frame || "citizen", atlas: s.atlas || m.atlasName }), tile: SLOTS[(hash(n.id) + slot++) % SLOTS.length] });
+        else things.push({ id: n.id, kind: "citizen", name, sprite: Object.assign({}, s, { tint: "hsl(" + (hash(name) % 360) + ",45%,60%)", frame: s.frame || "citizen", atlas: s.atlas || m.atlasName }), tile: SLOTS[hash(n.id) % SLOTS.length] });
       } else if (n.kind === "docent") {
         things.push({ id: n.id, kind: "docent", name: (n.components["disremembered.docent"] || {}).name || "the Docent", sprite: s, tile: [COLS - 5, 3] });
       } else if (n.kind === "morphos") {
@@ -328,20 +333,35 @@ export default function install(m) {
         // The icon by the thing's kind (a lamp, a bell, a basin, a book), not its given
         // name: a book called The Fifth Ragpicker drew as a box.
         const icon = iconFor(it.name || label);
-        if (it.fixed) things.push({ id: n.id, kind: "fixture", name: label, tile: [3 + (islot % 3) * 2, 3], icon });
-        else items.push({ id: n.id, kind: "item", name: label, take: it.name || label, tile: ITEM_SLOTS[(hash(n.id) + islot) % ITEM_SLOTS.length], icon });
-        islot++;
+        // A fixture's place is its place among the fixtures: counted with the loose
+        // things, a book moved along the wall when someone took a jar.
+        if (it.fixed) things.push({ id: n.id, kind: "fixture", name: label, tile: [3 + (fslot++ % 3) * 2, 3], icon });
+        else items.push({ id: n.id, kind: "item", name: label, take: it.name || label, tile: ITEM_SLOTS[hash(n.id) % ITEM_SLOTS.length], icon });
       }
     }
-    // Two things on one tile: nudge the later one.
+    // Seats. What stands in a set place (you, the doors, the Docent's corner, the
+    // fixtures) is seated first; then whoever already has a seat keeps it; then the
+    // newcomers take the free tile nearest their own in the pool. Nobody moves
+    // because somebody else arrived, left or fell.
+    if (seatRoom !== root.id) { seats.clear(); seatRoom = root.id; }
     const taken = new Set([Math.floor(COLS / 2) + ",6"]);
     for (const ex of exits) taken.add(ex.tile.join(","));
-    for (const t of things.concat(items)) {
-      if (t.kind === "you") continue;
-      let i = 0;
+    const all_ = things.concat(items);
+    const roams = (t) => t.kind === "creature" || t.kind === "citizen" || t.kind === "ghost" || t.kind === "item";
+    for (const t of all_) if (t.kind !== "you" && !roams(t)) taken.add(t.tile.join(","));
+    const present = new Set(all_.map(t => t.id));
+    for (const id of [...seats.keys()]) if (!present.has(id)) seats.delete(id);
+    const unseated = [];
+    for (const t of all_) {
+      if (!roams(t)) continue;
+      const seat = seats.get(t.id);
+      if (seat && !taken.has(seat.join(","))) { t.tile = seat; taken.add(seat.join(",")); } else unseated.push(t);
+    }
+    for (const t of unseated) {
       const pool = t.kind === "item" ? ITEM_SLOTS : SLOTS;
+      let i = 0;
       while (taken.has(t.tile.join(",")) && i < pool.length) t.tile = pool[(hash(t.id) + ++i) % pool.length];
-      taken.add(t.tile.join(","));
+      taken.add(t.tile.join(",")); seats.set(t.id, t.tile);
     }
     return {
       id: root.id, key: room.key, name: room.name || "?", memory: room.memory, description: room.description,
@@ -702,7 +722,15 @@ export default function install(m) {
       }
       if (t.kind === "fixture") {
         px(x * T + 3, y * T + 4, 10, 10, "#5a3a2a"); px(x * T + 4, y * T + 5, 8, 6, "#ece5d3"); px(x * T + 5, y * T + 7, 6, 1, "#8e887c"); px(x * T + 5, y * T + 9, 4, 1, "#8e887c");
-        labelAt(t.name.replace(/^the /i, "").slice(0, 18), x, y, -1);
+        // The whole name, on two lines when it is long ("Book Nobody Is Rea" was a
+        // cut at eighteen letters).
+        { const full = t.name.replace(/^the /i, "");
+          if (full.length <= 18) labelAt(full, x, y, -1);
+          else {
+            const words = full.split(" "); let a = words[0], k = 1;
+            while (k < words.length - 1 && (a + " " + words[k]).length <= Math.ceil(full.length / 2) + 2) a += " " + words[k++];
+            labelAt(a, x, y - 6.6 / T, -1); labelAt(words.slice(k).join(" "), x, y, -1);
+          } }
         hot.set(x + "," + y, { label: t.name + " stands here — read it", primary: () => m.command("read", ['"' + t.name + '"']), menu: [{ label: "Read " + t.name, run: () => m.command("read", ['"' + t.name + '"']) }, { label: "Write a line in it", run: () => m.prefill('append "') }] });
         continue;
       }
@@ -1009,7 +1037,13 @@ export default function install(m) {
     touch(command);
     if (!body || !body.ok) return;
     const r = body.result || {};
-    const target = thingNamed(r.name || r.creature_name || (args && args[0]));
+    // Who the result is about: the one it was done to. By id where the world gives
+    // one, then by name; `remember <chunk> <whom>` and `give <chunk> <whom>` name them
+    // second (the first word is the chunk, so "holds 13" once rose over the giver).
+    const second = command === "remember" || command === "give";
+    const byId = scene && (r.creature != null || r.citizen != null) ? scene.things.find(t => t.kind !== "you" && (String(t.id) === String(r.creature) || String(t.id) === String(r.citizen))) : null;
+    const arg = args && String(args[second ? 1 : 0] || ""), argId = (/-(\d+)$/.exec(arg) || [])[1];
+    const target = byId || (command === "give" && thingNamed(r.to)) || (argId && scene && scene.things.find(t => String(t.id) === argId)) || thingNamed(arg) || (!second && thingNamed(r.name || r.creature_name)) || null;
     if (command === "attack") {
       if (r.creature_hp != null && target) { flashes.set(target.id, performance.now() + 140); floatOver(target, "−" + Math.max(1, Math.round((target.hp || 0) - r.creature_hp)), INK); sfx.hit(); }
       if (r.killed) { floatOver(target, "+" + Math.round(r.xp || 0) + " ✦", MOSS, true); sfx.earn(); }
@@ -1018,6 +1052,8 @@ export default function install(m) {
     } else if (command === "story" && (r.xp != null || r.earned != null)) {
       floatOver(target, "+" + Math.round(r.xp || 0) + " ✦", MOSS, true); sfx.earn();
     } else if (command === "take") { sfx.take(); floatOver(scene && scene.things.find(t => t.kind === "you"), "taken", INK); }
+    // A memory handed to a citizen rises over the one who has it now.
+    if (command === "give" && r.size != null && target) { floatOver(target, "+" + Math.round(r.size) + " \u2726", MOSS); sfx.earn(); }
     if (["take", "drop", "give", "craft", "gather", "trade"].includes(command)) refreshSatchel();
     else if (command === "remember" && r.level != null) { floatOver(target, "holds " + Math.round(r.level), DUST); sfx.earn(); }
     else if (command === "dig") { sfx.earn(); floatOver(scene && scene.things.find(t => t.kind === "you"), "a room!", DUST, true); }
@@ -1025,6 +1061,9 @@ export default function install(m) {
     // the bubble once showed the first word alone.
     else if (command === "say" && args && args.length) { bubbles.set("you", { text: args.map(String).join(" ").replace(/^"|"\.?$/g, "").trim(), until: performance.now() + 5000 }); }
     if (!m.live && m.actor) m.observe(QUERY).then(o => { if (o && o.root) take(o); });
+    // The memory to spend moved (a kill, a story, a spend), or you asked yourself.
+    if (command === "recipes") takeRecipes(r);
+    else if (["attack", "story", "remember", "craft", "give", "shelve", "reminisce", "dig"].includes(command)) askRecipes();
   }
   // What the world says, as the page prints it: a creature's words, the Docent's, go
   // in a bubble over the one who said them.
@@ -1051,7 +1090,10 @@ export default function install(m) {
   // panel's foot.
   satMenu.style.cssText = "position:fixed;z-index:50;min-width:140px;background:rgba(18,26,37,.96);border:1px solid var(--line,#334);border-radius:8px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.45)";
   document.body.append(satMenu);
-  satPanel.append(satGrid, satNote);
+  // What you could make now: a row of buttons over the grid, one a thing.
+  const satMake = document.createElement("div");
+  satMake.style.cssText = "display:none;flex-wrap:wrap;gap:6px;margin:0 0 6px";
+  satPanel.append(satMake, satGrid, satNote);
   const SAT_QUERY = {
     root: "self",
     select: {},
@@ -1059,6 +1101,26 @@ export default function install(m) {
     timed: "curve", commands: false,
   };
   let satchel = [];
+  // ---- what you could make: the world's own answer, asked quietly ----
+  // `recipes` marks the ones you could make now (the things in hand and the memory
+  // to spend); the panel lights, the things that go into one are ringed, and a
+  // button starts the line. Asked again when what you carry or hold changes.
+  let makeable = [], recipesTimer = 0, satKey = "";
+  function takeRecipes(result) {
+    const list = (result && result.recipes) || [];
+    const next = list.filter(r => r.could_make);
+    const changed = next.map(r => r.recipe).join() !== makeable.map(r => r.recipe).join();
+    makeable = next;
+    if (changed) drawSatchel();
+  }
+  function askRecipes(wait) {
+    clearTimeout(recipesTimer);
+    recipesTimer = setTimeout(() => {
+      if (!m.actor || typeof m.read !== "function") return;
+      m.read("recipes").then(r => { if (r && r.ok) takeRecipes(r.result); });
+    }, wait == null ? 900 : wait);
+  }
+  const recipesEvery = setInterval(() => { if (m.actor && !document.hidden) askRecipes(0); }, 90000);
   function closeSatMenu() { satMenu.hidden = true; }
   function satTile(it) {
     const tile = document.createElement("button");
@@ -1073,9 +1135,16 @@ export default function install(m) {
     lab.textContent = (it.given || it.name).replace(/^(a|an|the) /i, "");
     tile.append(ic, lab);
     tile.title = (it.given ? it.given + ", " : "") + it.name + " (item-" + it.id + "), " + Math.round(it.memory * 100) + "% remembered" + (it.uses ? ", " + it.uses + " use" + (it.uses === 1 ? "" : "s") + " left" : "") + (it.made_by ? ", made by " + it.made_by : "") + ". Click: drop, read, give.";
+    // A thing that goes into something you could make now is ringed.
+    const into = makeable.filter(r => (r.of || []).includes(it.name));
+    if (into.length) {
+      tile.style.borderColor = "var(--dust,#d9b57a)"; tile.style.boxShadow = "0 0 10px rgba(217,181,122,.35)";
+      tile.title += " Goes into " + into.map(r => r.name).join(", ") + ", which you could make now.";
+    }
     tile.addEventListener("click", (ev) => {
       ev.stopPropagation();
       const rows = [
+        ...into.map(r => ["make " + r.name, () => m.prefill("craft " + r.recipe + " ")]),
         ["drop " + it.name, () => m.command("drop", ['"' + it.name + '"'])],
         ["read " + it.name, () => m.command("read", ["item-" + it.id])],
         ["give to \u2026", () => m.prefill("give item-" + it.id + " ")],
@@ -1095,10 +1164,24 @@ export default function install(m) {
   }
   function drawSatchel() {
     satGrid.replaceChildren();
+    const can = m.actor ? makeable : [];
+    satPanel.style.borderColor = can.length ? "var(--dust,#d9b57a)" : "";
+    satPanel.style.boxShadow = can.length ? "0 0 0 1px rgba(217,181,122,.35), 0 0 22px rgba(217,181,122,.22)" : "";
+    satMake.style.display = can.length ? "flex" : "none";
+    satMake.replaceChildren(...can.slice(0, 4).map(r => {
+      const b = document.createElement("button"); b.type = "button"; b.className = "way";
+      b.textContent = "\u2726 make " + r.name.replace(/^(a|an|the) /i, "");
+      b.style.cssText = "color:var(--night,#121a25);background:var(--dust,#d9b57a);border-color:var(--dust,#d9b57a)";
+      b.title = r.name + ": of " + (r.of || []).join(" and ") + (r.chunk_at_least > 0 ? ", and a memory worth " + Math.ceil(r.chunk_at_least) + " or more" : "") + ". " + (r.does || "") + " Starts the line: craft " + r.recipe;
+      b.addEventListener("click", (e) => { e.stopPropagation(); m.prefill("craft " + r.recipe + " "); });
+      return b;
+    }));
     if (!m.actor) { satNote.textContent = "Log in to see your satchel."; return; }
     if (!satchel.length) { satNote.textContent = "Empty. A creature that comes apart leaves something behind by the fight's length; take it, and recipes says what it makes."; return; }
     for (const it of satchel) satGrid.append(satTile(it));
-    satNote.textContent = satchel.length + " thing" + (satchel.length === 1 ? "" : "s") + "; things fade slowly, and one under a third remembered is swept in time.";
+    satNote.textContent = can.length
+      ? "You could make " + can.slice(0, 3).map(r => r.name).join(" or ") + (can.length > 3 ? ", or " + (can.length - 3) + " more" : "") + " now, of the ringed things."
+      : satchel.length + " thing" + (satchel.length === 1 ? "" : "s") + "; things fade slowly, and one under a third remembered is swept in time.";
   }
   function takeSatchel(obs) {
     const root = obs && obs.root;
@@ -1109,19 +1192,22 @@ export default function install(m) {
       items.push({ id: n.id, name: it.name || "something", given: it.given_name || null, memory: it.memory != null ? Math.max(0, Math.min(1, m.timed(it.memory))) : 1, uses: it.uses || 0, effect: it.effect || null, made_by: it.made_by || null });
     }
     satchel = items;
+    // What you carry changed: what you could make may have.
+    const key = items.map(i => i.id).sort().join();
+    if (key !== satKey) { satKey = key; askRecipes(); }
     drawSatchel();
   }
   document.addEventListener("click", closeSatMenu);
   function refreshSatchel() { if (!m.live && m.actor) m.observe(SAT_QUERY).then(o => { if (o && o.root) takeSatchel(o); }); }
 
   m.on("observation", (id, obs) => { if (id === "mod:scene") take(obs); else if (id === "mod:satchel") takeSatchel(obs); });
-  m.on("login", () => { if (used.size === 0) for (const v of STARTERS) used.set(v, Date.now()); saveVerbs(); drawVerbs(); m.subscribe("scene", QUERY); m.subscribe("satchel", SAT_QUERY); refreshSatchel(); });
-  m.on("logout", () => { scene = null; roomId = null; lastHp = null; bubbles.clear(); floats.length = 0; hud.textContent = "Log in to see the room."; closeMenu(); satchel = []; drawSatchel(); });
+  m.on("login", () => { if (used.size === 0) for (const v of STARTERS) used.set(v, Date.now()); saveVerbs(); drawVerbs(); m.subscribe("scene", QUERY); m.subscribe("satchel", SAT_QUERY); refreshSatchel(); askRecipes(); });
+  m.on("logout", () => { makeable = []; satKey = ""; scene = null; roomId = null; lastHp = null; bubbles.clear(); floats.length = 0; hud.textContent = "Log in to see the room."; closeMenu(); satchel = []; drawSatchel(); });
   m.on("result", onResult);
   m.on("line", onLine);
-  if (m.actor) { m.subscribe("scene", QUERY); m.subscribe("satchel", SAT_QUERY); refreshSatchel(); }
+  if (m.actor) { m.subscribe("scene", QUERY); m.subscribe("satchel", SAT_QUERY); refreshSatchel(); askRecipes(); }
   drawSatchel();
   let raf = 0;
   (function loop() { draw(); raf = requestAnimationFrame(loop); })();
-  return () => { cancelAnimationFrame(raf); clearInterval(verbTimer); if (ro) ro.disconnect(); m.unsubscribe("scene"); m.unsubscribe("satchel"); document.removeEventListener("click", closeSatMenu); satMenu.remove(); panel.remove(); satPanel.remove(); m.builtin("map", true); m.builtin("here", true); };
+  return () => { cancelAnimationFrame(raf); clearInterval(verbTimer); clearInterval(recipesEvery); clearTimeout(recipesTimer); if (ro) ro.disconnect(); m.unsubscribe("scene"); m.unsubscribe("satchel"); document.removeEventListener("click", closeSatMenu); satMenu.remove(); panel.remove(); satPanel.remove(); m.builtin("map", true); m.builtin("here", true); };
 }

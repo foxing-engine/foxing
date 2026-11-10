@@ -709,8 +709,11 @@
   /* Back at the door after leaving: the title and the last few lines, not the night's
      transcript (it is still there, and returns with the next name). */
   body.at-door #log .line:not(.intro):not(:nth-last-child(-n+3)) { display: none; }
-  body.at-door .line.intro { max-width: 46ch; margin: 0 0 6px; font-size: 18px; color: #cfc8b6; }
-  body.at-door .line.intro .title { font-size: clamp(40px, 7vw, 64px); letter-spacing: -.015em; margin-bottom: 14px; color: var(--vellum); text-shadow: 0 0 40px rgba(217,181,122,.18); }
+  body.at-door .line.intro { max-width: min(46ch, 100%); margin: 0 0 6px; font-size: 18px; color: #cfc8b6; }
+  /* One word, never broken: a wider serif than the one this was drawn in once put
+     the last letter on a line of its own. It shrinks with the window instead. */
+  .line.intro .title { white-space: nowrap; overflow-wrap: normal; }
+  body.at-door .line.intro .title { font-size: clamp(32px, 9.5vw, 64px); margin-left: -1em; margin-right: -1em; letter-spacing: -.015em; margin-bottom: 14px; color: var(--vellum); text-shadow: 0 0 40px rgba(217,181,122,.18); }
   body.at-door .line.intro .how { font: italic 15px/1.5 var(--serif); margin-top: 16px; }
   body.at-door .line.you { align-self: center; }
   body.at-door form { max-width: 460px; padding-top: 6px; }
@@ -3251,6 +3254,16 @@
       return api("/v0/observe", { actor, passphrase, query }).then(r => r.body || { type: "error", error: "no answer" });
     },
     command(verb, args = []) { return run(verb, args); },
+    // One of the world's free reads, asked quietly: nothing is printed, the result
+    // comes back as the world gave it. For a mod that keeps something current (what
+    // you could make, what is wanted) without filling the transcript.
+    read(verb, args = []) {
+      const FREE = ["look", "chunks", "map", "time", "board", "statutes", "palace", "satchel", "recipes", "wants", "mine", "where", "session", "messages", "petitions", "news"];
+      if (!actor) return Promise.resolve({ ok: false, error: "log in first" });
+      if (!FREE.includes(verb)) return Promise.resolve({ ok: false, error: "read() is for the free reads: " + FREE.join(", ") });
+      if (wsReady) return wsCommand(verb, args);
+      return api("/v0/command", { actor, passphrase, command: verb, args }).then(r => r.body || { ok: false, error: "no answer" });
+    },
     subscribe(id, query) {
       const key = "mod:" + id;
       if (!modSubs.has(key) && modSubs.size >= MOD_SUBS_MAX) throw new Error("a mod may hold " + MOD_SUBS_MAX + " subscriptions");

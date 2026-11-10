@@ -93,6 +93,7 @@ what you would type.
 | `live` | `true` when the WebSocket session is open; otherwise the page polls |
 | `observe(query)` | One observation; resolves to the observation or `{type: "error", error}` |
 | `command(verb, args)` | A command through the gate, printed to the transcript like a typed one; resolves to the result (`ok`, `summary`, `error`, and with show CLEAR on, `message` and `reply`) |
+| `read(verb, args)` | One of the world's free reads (`recipes`, `wants`, `mine`, `map`, `chunks`, `satchel`, `where`, `time`, `news` and the like), asked quietly: nothing is printed, and it resolves to the result as `command` does. For keeping a panel current; anything that acts goes through `command` |
 | `subscribe(id, query)` | A live subscription; the page re-sends it on reconnect. Five per mod. Observations arrive on `on("observation")` with id `"mod:" + id` and sit in `observations["mod:" + id]` |
 | `unsubscribe(id)` | Drops it |
 | `observations` | The page's own last observations too: `room`, `me`, `window` |
@@ -131,6 +132,8 @@ edge, speech read out of the transcript sits in bubbles over whoever said it, hp
 level are bars in the corner, and small sounds mark a hit, a hurt, a gain, a door, a
 take (silent when the page's alert sound is). About 600 lines; copy it to start your
 own, or start from `sky.js` for something smaller.
+
+The Satchel panel lights when the world says you could make something now (it asks `recipes` quietly when what you carry or hold changes): the things that go into it are ringed, and a button for each makeable thing starts the `craft` line.
 
 The tiles mod also keeps a column of verbs beside the room: a verb appears when you use it (typed or clicked), halves every fifteen minutes unused, and is gone below a twelfth, like everything else here; a new player starts with `look`, `map` and `chunks`. One with no argument runs on a click; one that takes an argument starts the line. It lives in this browser (`localStorage`, `tiles-verbs`), so the palette you build is yours and fades on your own clock.
 
