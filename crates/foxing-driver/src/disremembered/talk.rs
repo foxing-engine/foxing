@@ -919,7 +919,7 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
         "what happened",
         "news",
     ]) {
-        let seen = recent(world, creature, room);
+        let seen = recent(world, creature, room, actor);
         return Some(if seen.is_empty() {
             "No one, since I started counting. I started counting when I got my name.".into()
         } else {
@@ -933,7 +933,7 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
                 }
             }
             let who = if came.is_empty() {
-                "I saw no one come in".to_string()
+                "I saw no one but you come in".to_string()
             } else {
                 format!("{} came through", list(&came))
             };
@@ -1071,7 +1071,7 @@ fn last_taken(world: &World, creature: EntityId) -> Option<(String, String)> {
 }
 
 /// What the creature has seen in its room since it was named: arrivals, speech, digs.
-fn recent(world: &World, creature: EntityId, room: Option<EntityId>) -> Vec<String> {
+fn recent(world: &World, creature: EntityId, room: Option<EntityId>, asker: &str) -> Vec<String> {
     let Some(room) = room else { return Vec::new() };
     let all = world.recent_events(2000);
     let named_at = all
@@ -1101,13 +1101,15 @@ fn recent(world: &World, creature: EntityId, room: Option<EntityId>) -> Vec<Stri
             break;
         }
         if let Some(n) = citizens_here(e) {
-            if came < 5 && seen_names.insert(n.clone(), ()).is_none() {
+            if n != asker && came < 5 && seen_names.insert(n.clone(), ()).is_none() {
                 came += 1;
                 out.push(format!("{n} came"));
             }
         } else if e.kind == SAY
             && e.payload["room"] == room.0
             && e.payload["creature"].is_null()
+            // Not the asker's own words (the Watch of 11-10 was read its own question).
+            && e.payload["from"].as_str() != Some(asker)
             // Said to the room, or to this creature: not what someone told another.
             && match e.payload["to"].as_str() {
                 None => true,

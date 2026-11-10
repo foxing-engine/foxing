@@ -1316,6 +1316,21 @@ pub fn describe_as(
     }
     if brief {
         text.truncate(cut_a);
+        // Short, a room of your own still says how much of it is left: the builder
+        // of the Watch of 11-10 walked in and out five times and learned it only
+        // from `look`.
+        if dug_by.as_deref() == Some(actor) {
+            if let (Some(mem), Some(hl)) = (
+                super::building::memory(world, room),
+                super::building::half_life_of(world, room),
+            ) {
+                text.push_str(&format!(
+                    " Yours: {:.0}% remembered, halving every {}.",
+                    mem * 100.0,
+                    super::combat::human(hl.0)
+                ));
+            }
+        }
     }
     if !exits.is_empty() {
         // Each exit says where it leads: three visitors in one night asked, because a
@@ -1359,8 +1374,9 @@ pub fn describe_as(
                     .join(", ");
                 if is_mudroom(world, room) {
                     text.push_str(&format!(
-                        " {} doors dug here, and room for any number; the newest: {newest}.",
-                        dug.len()
+                        " {} door{} dug here, and room for any number; the newest: {newest}.",
+                        dug.len(),
+                        if dug.len() == 1 { "" } else { "s" }
                     ));
                 } else {
                     let left = super::building::MAX_EXITS.saturating_sub(exits.len());

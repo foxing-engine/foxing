@@ -10515,7 +10515,7 @@ fn look_tells_a_digger_what_is_left_and_the_door_cap_refusal_points_nearest_firs
     let look = ok(&mut w, "dave", "look", json!([]));
     assert!(
         look.summary
-            .contains("1 doors dug here, and room for any number; the newest: cellar."),
+            .contains("1 door dug here, and room for any number; the newest: cellar."),
         "{}",
         look.summary
     );

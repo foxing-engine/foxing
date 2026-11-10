@@ -1033,8 +1033,10 @@ pub fn register(world: &mut World, curves: super::Curves) {
             Ok(Outcome::new(
                 format!(
                     "You give up the memory of {source}, and {name} keeps it. Its memory now halves every {} instead of {}; your name is kept with the room.",
-                    humane(hl),
-                    humane(old)
+                    // The figure as `look` says it ("2h 55m"): rounded here to "3 hours",
+                    // the two read as two answers.
+                    super::combat::human(hl.0),
+                    super::combat::human(old.0)
                 ),
                 json!({"room": here.0, "name": name, "spent": chunk.0, "with": source, "added_ms": added.0, "half_life_ms": hl.0}),
             ))

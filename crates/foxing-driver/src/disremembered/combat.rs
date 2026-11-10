@@ -1430,7 +1430,7 @@ fn drop_miss_said(world: &mut World, actor: &str, citizen: EntityId, rounds: u64
         _ => "every time",
     };
     format!(
-        " A thing is left behind {chance} after {} round{}, always after six; this time, none.",
+        " Nothing is left behind this time: a fight of {0} round{1} leaves a thing {chance}, a fight of six rounds or more every time.",
         n,
         if n == 1 { "" } else { "s" }
     )
