@@ -48,7 +48,7 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: ARRIVAL,
         name: "The Threshold",
-        description: "A threshold of pale stone under a moon that is always up. Everything you earn here will fade; what you do with it is yours. Nothing hunts here.",
+        description: "A threshold of pale stone under a moon that is always up, and three ways off it. East, into the fog: things to fight, and a fight won is the first memory you will hold. North, under the lanterns: things to read, and creatures that would sooner be told a story. West, into the mud: where anyone with a memory to spend digs a room of their own. A signpost by the door says what is at the end of each just now (`read signpost`). Everything you earn here will fade; what you do with it is yours. Nothing hunts here. If you do one thing first, go east.",
         exits: &[("east", "fogbank"), ("north", "lantern-row"), ("west", MUDROOM)],
         spawn: None,
         former: &["gate"],
@@ -57,7 +57,7 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: MUDROOM,
         name: "The Mudroom",
-        description: "A low room off the Threshold where the digging starts: boots by the door, a rack of spades worn to the handle, and mud on everything, tracked in from rooms that did not exist yesterday. Every door here was dug by someone. Nothing hunts here.",
+        description: "A low room off the Threshold where the digging starts: boots by the door that remember who dug last (`read boots`), a rack of spades worn to the handle (`take spade`; carried, it marks every dug door you pass), and mud on everything, tracked in from rooms that did not exist yesterday. Every door here was dug by someone, with a memory they could have kept (`dig <a word for the door> <chunk>`, and a name for the room after). Nothing hunts here.",
         exits: &[("east", ARRIVAL)],
         spawn: None,
         former: &[],
@@ -1336,14 +1336,39 @@ pub fn describe_as(
         // Each exit says where it leads: three visitors in one night asked, because a
         // dug exit is named by its digger and tells a stranger nothing.
         let by_name = exits_of(world, room);
+        // H4: the door's three ways say what each is for. H8: a spade from the
+        // Mudroom's rack, carried, marks a dug door with whose it is and how much
+        // of the room behind it is left.
+        let at_door = plain_str(world, room, ROOM, "key") == Some(ARRIVAL);
+        let spade = super::find_citizen(world, actor)
+            .is_some_and(|f| super::door::carries_spade(world, f.citizen));
         let shown: Vec<String> = exits
             .iter()
             .map(|e| {
-                match by_name
-                    .get(e)
-                    .and_then(|&to| super::plain_str(world, to, ROOM, "name"))
-                {
-                    Some(n) => format!("{e} ({})", n.trim_start_matches("The ")),
+                let to = by_name.get(e).copied();
+                match to.and_then(|to| super::plain_str(world, to, ROOM, "name")) {
+                    Some(n) => {
+                        let n = n.trim_start_matches("The ");
+                        let gloss = match to.and_then(|to| plain_str(world, to, ROOM, "key")) {
+                            Some("fogbank") if at_door => ": fight",
+                            Some("lantern-row") if at_door => ": read and tell",
+                            Some(MUDROOM) if at_door => ": dig",
+                            _ => "",
+                        };
+                        let owner = to
+                            .and_then(|to| world.store.entity(to))
+                            .and_then(|r| r.owner.clone());
+                        match (
+                            spade,
+                            owner,
+                            to.and_then(|to| super::building::memory(world, to)),
+                        ) {
+                            (true, Some(o), Some(m)) => {
+                                format!("{e} ({n}; dug by {o}, {:.0}% left)", m * 100.0)
+                            }
+                            _ => format!("{e} ({n}{gloss})"),
+                        }
+                    }
                     None => e.clone(),
                 }
             })
@@ -1385,6 +1410,30 @@ pub fn describe_as(
                         left,
                         super::building::MAX_EXITS,
                     ));
+                }
+                // H8: the Mudroom says which of its rooms are best remembered.
+                if is_mudroom(world, room) {
+                    let mut kept: Vec<(f64, String)> = by_name
+                        .iter()
+                        .filter_map(|(e, &to)| {
+                            world.store.entity(to)?.owner.as_ref()?;
+                            let m = super::building::memory(world, to)?;
+                            let n = plain_str(world, to, ROOM, "name")?;
+                            Some((
+                                m,
+                                format!(
+                                    "{e} ({}, {:.0}%)",
+                                    n.trim_start_matches("The "),
+                                    m * 100.0
+                                ),
+                            ))
+                        })
+                        .collect();
+                    kept.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+                    if kept.len() > 1 {
+                        let top: Vec<String> = kept.into_iter().take(3).map(|(_, s)| s).collect();
+                        text.push_str(&format!(" Best remembered of them: {}.", top.join(", ")));
+                    }
                 }
             }
         }
@@ -1451,13 +1500,7 @@ pub fn describe_as(
     // without a lantern is told what one keeps, once a room.
     if let Some(f) = super::find_citizen(world, actor) {
         let key = root["components"][ROOM]["key"].as_str().unwrap_or("");
-        // H5: the door, to a name under an hour old, carries the three ways in a line.
-        if key == ARRIVAL
-            && super::plain_num(world, f.citizen, super::CITIZEN, "named_at")
-                .is_some_and(|t| world.now().0 - (t as i64) < super::kindle::GRACE_MS)
-        {
-            text.push_str(" Three ways from the door: east into the fog, where the mild things are fought and remembered; north under the lanterns, where the world is read; west into the mud, where rooms are dug. One is enough to start.");
-        }
+        // (H5's line for a new name, the three ways, is the room's own text since H4.)
         // R82: the day, when it is a named one.
         if key == ARRIVAL {
             if let Some(day) = super::life::holiday(world) {

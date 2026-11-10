@@ -412,6 +412,8 @@ pub const OFFER_MS: i64 = 10 * 60 * 1000;
 
 /// What a room gives to the hand, by the words in its name and text.
 pub const GATHERABLE: &[(&[&str], &str)] = &[
+    // H8: the Mudroom's rack (first, so the Mudroom gives a spade and nothing else).
+    (&["rack of spades"], super::door::SPADE),
     (&["river", "weed", "tide", "drowned"], "river weed"),
     // Fog condenses in the hand: the Fogbank, where every maker is sent first,
     // gave nothing (Gnomeforge, 11-06).
@@ -1849,6 +1851,36 @@ pub fn register(world: &mut World, curves: Curves) {
             let f = me(w, ctx)?;
             let room =
                 rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
+            // H8: a spade off the Mudroom's rack is taken like a thing on the floor.
+            if rooms::is_mudroom(w, room)
+                && args.str("item").unwrap_or("").to_lowercase().contains("spade")
+                && resolve_item(w, args.str("item").unwrap_or(""), room).is_err()
+            {
+                if super::door::carries_spade(w, f.citizen) {
+                    return Err(CommandError::precondition(
+                        "You have a spade already; one is all a digger carries.",
+                    ));
+                }
+                let s = satchel(w, &ctx.actor, f.citizen)?;
+                let id = make(
+                    w,
+                    &super::Curves::from_env(),
+                    Actor::Citizen(ctx.actor.clone()),
+                    Some(ctx.actor.clone()),
+                    s,
+                    super::door::SPADE,
+                    "material",
+                    "gathered",
+                    None,
+                    &[],
+                    0,
+                    false,
+                )?;
+                return Ok(Outcome::new(
+                    format!("You take a spade from the rack: item-{}, in your satchel. While you carry it, the exits of any room say whose each dug door is and how much of the room behind it is left.", id.0),
+                    json!({"item": id.0, "name": super::door::SPADE, "from": "rack"}),
+                ));
+            }
             let item = resolve_item(w, args.str("item").unwrap_or(""), room)?;
             if is_fixed(w, item) {
                 // The Purse in the Strongroom is the one fixture that can be taken, and
@@ -2083,6 +2115,9 @@ pub fn register(world: &mut World, curves: Curves) {
                 plain_str(w, here, super::ROOM, "description").unwrap_or("")
             )
             .to_lowercase();
+            // The Threshold gives nothing (its text names the fog and the lanterns as
+            // ways to go, not things to take).
+            let text = if plain_str(w, here, super::ROOM, "key") == Some(rooms::ARRIVAL) { String::new() } else { text };
             let Some((cue, material)) = GATHERABLE.iter().find(|(cues, _)| cues.iter().any(|c| text.contains(c))).map(|(cues, m)| (cues.iter().find(|c| text.contains(*c)).copied().unwrap_or(""), *m)) else {
                 return Err(CommandError::precondition(
                     "Nothing here comes away in the hand. Rooms with water or fog, shelves or ink, moths or moss, rags, bones, a river, or a lantern give something; read the room.",
@@ -2422,6 +2457,9 @@ pub fn register(world: &mut World, curves: Curves) {
                 return Ok(out);
             }
             if let Some(out) = super::trail::read(w, &ctx.actor, here, &arg) {
+                return Ok(out);
+            }
+            if let Some(out) = super::door::read(w, here, &arg) {
                 return Ok(out);
             }
             // A named creature is not a page: say so and point at `tell` (a keeper

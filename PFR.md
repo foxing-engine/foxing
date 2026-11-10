@@ -31,7 +31,6 @@ From the Watch of 11-10 (six on a local copy of batch U; see T10)
 
 From the live Watch of 11-10 (four on the live world, by David's word; see T11)
 - **D26, D27, D28 read against the live world.** D26 (a talker's first move): not an issue live; Fallis and Tinsel stood named one room east and the storyteller told its first story at message 5 without a fight. Lean now b, or close. D27 (making spends what you fight with): milder live; rag thread came from `gather` in the Midden and `where ragpicker` pointed there; lean a still stands for `recipes`. D28 (a read that is an arrival): **did not reproduce.** Gnarlfoot_II left its room, sent nothing, and observed it at 118s and 246s: memory 0.98473 and 0.96846, the second an exact match to the half-life from the moment it left; `came_through` unchanged; no arrival in the log. Lean: close D28 (the local tester's reads were likely its own gate messages).
-- **D29 · Words pay faster than fights.** The live storyteller reached level 299 in four minutes on stories and carried words alone (six stories at 20 to 67 XP with the ladder's multipliers, five carryings at a flat 23); the newcomer reached 255 in 29 messages the same way; last night's fighter took an hour to reach 344. D17 a's nerf (one story an hour a creature, three an hour from others) is in, and four named creatures within three steps of the door make twelve an hour before the ladder. a) **lean**: watch it a day on the board before touching it (the hero metric is the day's average, which this does not move much); b) carrying a word pays once a creature a day; c) the ladder's multipliers come down. **Waits**: balance.
 - **D30 · A carried word nobody gave you.** `wants` prints the phrase an errand carries ("the fourth door is open"); two of the Watch read it there, walked to the receiver, said it, and were paid 23 without meeting the giver. a) **lean**: the errand is taken from the giver (a `tell` to it, or standing with it), and `wants` says who has a word, not the word; b) as is: `wants` is the notice board. S for a.
 - **D31 · The Docent's first kill.** Asked which creature to fight first, the Docent named "Fallis the wisp in The Fogbank… mild (8 hp, hits 2–4)": a named creature others are telling stories to, and felling it takes its name and stories. a) **lean**: the Docent's page says the unnamed of a kind are for fighting and the named for telling, and it does not offer a named one as a kill; b) as is: death is a weapon. S for a.
 
@@ -149,17 +148,146 @@ Your project (11-05): "an awesome front door for players". Asked in chat as T1�
 night (the cohort T's below are another list); kept here as H. Each later step is
 yours to call: say `H5 go`, or `H5 brief` for a design first.
 
-- **H4 · The Threshold's text as a front door** (S). Rewritten to present the three
-  ways as three invitations (fight in the fog, read under the lanterns, dig in the
-  mud) and name the one thing to do first; the Mudroom's text to match. The Watch of
-  11-06 (Gnomestead) asked for the same on the exits line itself: "east (Fogbank:
-  fight), west (Mudroom: dig), north (Lantern Row: read)"; the three doors map
-  exactly to the three ways, so the line should say so.
-- **H6 · A signpost at the door** (S). Like the Trail's: `read signpost` lists the
-  nearest named creature, the newest dug room, what is wanted, by the signed way.
-- **H8 · The Mudroom as a place** (M). Boots that say who dug last, a spade to
-  `take` that marks a dug room's door while carried, the Docent's round through it,
-  a line on `look` for the three best-remembered dug rooms.
+H4, H6 and H8 shipped 11-10 (batch W; in the ledger). The next batch, planned 11-10
+at David's ask ("make the room organization and pathways more intuitive and
+elegant"). Nothing below is built; say `H9 go`, or answer the lettered ones.
+
+What the map is now (63 seeded rooms, by the door they hang off):
+- West: the Mudroom, and every dug room as a door off it (digger's word for the door).
+- North: Lantern Row, then the Unfiled Archive (the Namery; the Lower Stacks, 20
+  rooms behind a level of 100) and the Downward Stair to the Cistern and the Undertow,
+  which surfaces in the Shallows.
+- East: the Fogbank (the Midden south of it), the Shallows, then two lines: the
+  Ossuary, the Gallery, the Oubliette; and the Orchard, off which hang the Wistful
+  Trail (9), and the Clocktower with the Conclave's house (11) and the Mint (8).
+
+What makes it hard to hold in the head (from the two Watches of 11-10 and the graph):
+1. The three largest places to read and wander (the Conclave, the Mint, the Trail,
+   28 rooms) are all behind the door marked "fight", four steps out through the
+   Shallows, where hollows hunt. Nothing at the door says they exist.
+2. Two stairs share a name's worth: "The Downward Stair" lets a level 0 into the
+   Cistern, and the Archive's "down (Lower Stacks)" is refused as "the stair down
+   asks a level of 100". "The Exergue Stair" is not "The Exergue".
+3. Doors are named three ways: compass (east), a thing (dive, wicket, vault), and a
+   place's own name used in both directions (escapement, exergue). A walker cannot
+   guess the way back from the way in.
+4. Every dug room is one flat list of doors on the Mudroom's wall, in the order of
+   the exits table, by words only their diggers chose (alcove, landing, nook).
+5. `map` draws by the order rooms came into view: a dug room lands far from its only
+   door, two floors share a row, and the list of ways leaves rooms out (R170, R189).
+6. `travel <room>` takes one step and `where` knows only rooms already walked, or a
+   whole name (R174, R185): the world has the route and makes the walker spell it.
+
+- **H9 · Districts, named and signed** (M). Each seeded room gets a district (the
+  Door, the Wilds, the Library, the Stacks, the Deep Water, the Clock Quarter, the
+  Conclave, the Mint, the Trail, the Diggings); `look` at a district's first room
+  says so once ("You are at the edge of the Stacks: twenty rooms, a level of 100
+  asked at this door"), `map` and the play page's minimap group and tint by it, and
+  `where <district>` gives the way to its door. No room moves. **Lean: go**; it is
+  the frame the rest hang on.
+- **H10 · A way to the Clock Quarter that is not a fight** (M; **waits**: it moves
+  a door). a) **lean**: a lane from Lantern Row east to the Orchard ("the Lamplighter's
+  Lane", one room, nothing hunts), so the door's "read and tell" way reaches the
+  Clocktower, the Conclave, the Mint and the Trail in three safe steps, and the
+  Shallows stay the fighter's road; b) a fourth arm on the signpost only ("the
+  Conclave sits: east, north, north, up"), no new room; c) as is.
+- **H11 · A signpost at every hub** (S). H6's post, reused: the Fogbank, Lantern Row,
+  the Orchard and the Clocktower each get one, saying what is at the end of each of
+  its own ways, the level a way asks, and what hunts on it. **Lean: go.**
+- **H12 · Stairs and doors that say where they go** (S; a rename each, so the names
+  are yours). a) **lean**: "The Downward Stair" becomes "The Cistern Stair"; the
+  Archive's `down` reads "down (the Stacks stair: a level of 100)" and its refusal
+  names it so; "The Exergue Stair" becomes "The Mint Stair"; b) keep the names, fix
+  only the refusal (R172). All checked against CLEAR's reserved words before any ships.
+- **H13 · Every door has a way back by the same word** (S). Where a door is a thing
+  (dive/surface, names/out, wicket, vault/out, hall/bar), `travel back` already
+  works; add `out` as a second name for the way you came in at each of them, and say
+  it on arrival ("the way back is `out`, or `surface`"). **Lean: go.**
+- **H14 · The Mudroom's wall in rows** (M). The exits line of the Mudroom groups its
+  dug doors: yours first, then the three newest, then the three best remembered
+  (H8), then "and N more, by digger: `read doors`"; `read doors` is the whole wall
+  with each room's digger, age and what is left of it. A door's word stays its
+  digger's. **Lean: go.** A second question, yours: b) past forty doors, new rooms
+  are dug off "rows" (the Mudroom's own side rooms, ten doors each) so no room has
+  an unbounded wall.
+- **H15 · `map` drawn from the door, by district** (M). The grid is laid out from
+  the Threshold by the exits themselves (east is right, down is a floor below), a
+  dug room sits beside the room its door opens on, each floor is its own block, and
+  the list under it has every room on the grid (R170, R189 close with it).
+- **H16 · Walk there** (S). `travel <room name>` takes every step of a remembered or
+  signed way in one message, stopping where something hunts, a door asks a word or a
+  level, or a fight begins; `where` takes one word of a room's name and says both
+  when two match (R174, R185, R26 close with it). **Lean: go**; it is the largest
+  saving for a player at the keyboard too (P4).
+
+Order I would build them in: H9, H11, H16, H13 (no decisions; one Watch each),
+then H12 and H10 on your word, then H14 and H15.
+
+## The keyboard (P): performance for a player at the keyboard
+
+Mapped 11-10 at David's ask. Measured on a local build in a headless browser at
+1440×900 (software drawing, so the idle figures are an upper bound), and from this
+session to the live server. Nothing here is built; say `P1 go`.
+
+What was measured:
+- Idle, standing in a room with nothing happening, the page keeps about a third of
+  one core busy. Two causes: the picture redraws all of itself sixty times a second
+  whether or not anything moved (`tiles.js`, and `sky.js` the same), and every panel
+  (You, the window, Here, the lane, the first-hours card) is torn down and rebuilt
+  four times a second: about 5,600 nodes and 820 listeners live, 64 layouts a second.
+- Load: seven requests; `index.html` is 265 KB in one file (styles and script
+  inline) and `tiles.js` 98 KB; the schema (18 KB) and vocabulary (16 KB) are fetched
+  on every load. The CLEAR checker is already loaded only when first used.
+- A command's round trip was 56 to 87 ms on a local debug build; a plain request to
+  the live server took 330 to 570 ms from this session, most of it a fresh
+  connection each time, so the live figure a player sees over the open socket is
+  not known yet (P7 measures it).
+- The transcript is never trimmed; lines are sent one after another, each waiting
+  for the last reply.
+- Keys that exist: Up/Down history, Ctrl+arrows to travel, arrows on an empty line
+  for west/east, `?` for help, Ctrl+L, Ctrl+U. There is no completion.
+
+- **P1 · Draw when something moves** (S/M). The picture redraws on a change (a push
+  from the world, a float, a hover, a walk) and at ten frames a second for the
+  ambient motion, not sixty; nothing at all while the tab is hidden; the room's floor
+  and walls are drawn once into a kept layer and only the figures on top each frame.
+  The same for the sky. Expect idle cost down by most of what the picture takes.
+- **P2 · Panels that update, not rebuild** (M). The quarter-second tick moves only
+  the numbers and the bars it has to (level, hit points, each memory's worth); rows
+  are built when the world pushes a change, keyed by id, with one click listener on
+  the panel, not one a row. Expect the layouts and most of the script time gone,
+  and no more hover or focus lost under the mouse four times a second.
+- **P3 · Type ahead** (S). A line is printed and queued the moment Enter is pressed,
+  marked as waiting; a second and third can be typed behind it and go out in order
+  over the socket without waiting to be drawn. A refusal stops the queue and says
+  what was not sent.
+- **P4 · Fewer keys for the common things** (S/M). Tab completes the verb, then what
+  is in the room (creatures, exits, things carried); Enter on an empty line repeats
+  the last attack while a fight is on; 1 to 9 with Alt pick the verb chips; Ctrl+
+  arrows already walk, and with H16 a room's name walks the whole way; `/` or any
+  letter focuses the line from anywhere; Esc closes whatever is open. A strip under
+  the line shows the keys once, then stays out of the way.
+- **P5 · A lighter door** (M). Styles and script out of `index.html` into two files
+  with a hash in their names, cached for a year, the page itself small and never
+  cached; `tiles.js` preloaded; the schema and vocabulary kept in the browser and
+  revalidated; the composer and observer tabs loaded when first opened. Check the
+  server compresses text (your side to confirm on the box: Y item below).
+- **P6 · Trim the transcript** (S). Keep the last five hundred lines in the page and
+  fold the rest behind "earlier" (still there to scroll to), so a long night does
+  not slow every new line.
+- **P7 · Measure it for real** (S). `?perf=1` shows frames a second, the cost of a
+  frame, and the round trip of the last twenty commands (median and worst); the
+  server stamps each reply with how long the command took, so the wire and the world
+  are told apart; the page reports the same figures to your own analytics, so the
+  admin page has a real player's numbers and not a test browser's.
+- **P8 · A quiet mode** (S). One setting: no ambient motion, no sky, no sound; for a
+  slow machine or a long session. It is P1's floor.
+
+Order: P7 first (so every later step has a before and an after), then P1 and P2
+(the measured cost), P3 and P4 (what the hands feel), P6, P5, P8.
+
+- **Y (yours)** On the VPS, confirm nginx serves the site's text compressed and with
+  cache headers for `/play/mods/*.js`; the repo has no copy of that config.
 
 ## XL (X): the scaffolding; each wants a brief before a first cut
 
@@ -377,6 +505,12 @@ The world
   `kind` on the first gate or `start` call, shown as "claimed" beside the score.
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-10 (batch W, by David's word: H4, H6, H8, and D29; one driver deploy)
+- H4: the Threshold's text is three invitations and one thing to do first ("East, into the fog: things to fight… North, under the lanterns… West, into the mud… If you do one thing first, go east"), its exits say what each is for ("east (Fogbank: fight), north (Lantern Row: read and tell), west (Mudroom: dig)"), and H5's line for a new name is folded into it; the Threshold gives nothing to `gather`.
+- H6: `read signpost` at the Threshold: the three nearest creatures with names, each by the signed way with what it wants, and the newest room anyone dug.
+- H8: the Mudroom's boots (`read boots`: who dug last, and how long ago), a rack of spades (`take spade`; carried, the exits of any room say whose each dug door is and how much of the room is left: "closet (Cartographer's Closet; dug by dave, 100% left)"), a line for its three best-remembered rooms, and text that says how to dig. The Docent's round already passed through it.
+- D29 (David: "make the second word harder and the third word significantly harder"): the second rung hears three of its source's words to a story and the third hears one (more, and none counts: "You said 2 of the words my word could be; I hear one to a story at this rung"); the third word moves to another of the room's each time it is found, so the record of the last strike does not open it; hints narrow after two and four misses at the second rung, four and eight at the third, and the third never quotes the room. The multipliers stand (1.5, 2, 2.5). Carried words' flat 23 is untouched: D30.
 
 11-10 (batch V, the Watch of 11-10's obvious fixes; one driver deploy)
 - The kill's tail read as a contradiction and is said the other way round ("Nothing is left behind this time: a fight of 1 round leaves a thing one time in six, a fight of six rounds or more every time"); "1 door dug here"; a memory fed to a room says its half-life as `look` does ("2h 55m", not "3 hours"); short, a room of your own still says "Yours: 100% remembered, halving every 2h 55m"; a creature asked who has been here does not quote the asker or count it among those who came (R145's first cut did); a second petition's refusal says the stage once, with its number ("still before the Conclave, upon the table (stage 1 of 5)", not "upon the table, upon the table"); the world's own books say no holding before their first entry; the first strike on a named creature says "if it falls, it is a wisp again" (it read "felled" of one still standing); a half point of hit points rounds up ("19.5" read "20 left" and "12.5" "12 left" in one fight).
@@ -702,6 +836,21 @@ The shipped items as they were written, moved out of the open sections 11-10 (th
     own at the door once (a new minute, an unfiled page, a struck hour, a name slip, a
     long-night lantern), said to whoever is there, in `news`; the Threshold's `look`
     names the day.
+
+H4, H6, H8 and D29 as they were written (shipped 11-10, batch W):
+
+- **H4 · The Threshold's text as a front door** (S). Rewritten to present the three
+  ways as three invitations (fight in the fog, read under the lanterns, dig in the
+  mud) and name the one thing to do first; the Mudroom's text to match. The Watch of
+  11-06 (Gnomestead) asked for the same on the exits line itself: "east (Fogbank:
+  fight), west (Mudroom: dig), north (Lantern Row: read)"; the three doors map
+  exactly to the three ways, so the line should say so.
+- **H6 · A signpost at the door** (S). Like the Trail's: `read signpost` lists the
+  nearest named creature, the newest dug room, what is wanted, by the signed way.
+- **H8 · The Mudroom as a place** (M). Boots that say who dug last, a spade to
+  `take` that marks a dug room's door while carried, the Docent's round through it,
+  a line on `look` for the three best-remembered dug rooms.
+- **D29 · Words pay faster than fights.** The live storyteller reached level 299 in four minutes on stories and carried words alone (six stories at 20 to 67 XP with the ladder's multipliers, five carryings at a flat 23); the newcomer reached 255 in 29 messages the same way; last night's fighter took an hour to reach 344. D17 a's nerf (one story an hour a creature, three an hour from others) is in, and four named creatures within three steps of the door make twelve an hour before the ladder. a) **lean**: watch it a day on the board before touching it (the hero metric is the day's average, which this does not move much); b) carrying a word pays once a creature a day; c) the ladder's multipliers come down. **Waits**: balance.
 
 ## What the cohorts taught (T): durable; read before briefing a cohort
 

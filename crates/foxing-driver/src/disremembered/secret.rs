@@ -29,6 +29,13 @@ pub const STRUCK: &str = "disremembered.word_struck";
 pub const LEVELS: u8 = 3;
 /// What a story that carries the word pays, by level, as a factor.
 pub const BONUS: [f64; 3] = [1.5, 2.0, 2.5];
+/// D29: how many of the words a rung's word could be one story may carry and still
+/// strike. The first rung takes any story; the second hears three guesses to a
+/// story; the third hears one. (Two visitors of 11-10 climbed four ladders in four
+/// minutes by putting a whole room's text in a story.)
+pub const GUESSES: [usize; 3] = [usize::MAX, 3, 1];
+/// How many misses before a hint narrows to the text, then to the sentence, by rung.
+const NARROWS: [(usize, usize); 3] = [(1, 2), (2, 4), (4, 8)];
 /// Words of the world, for a creature with nothing of its own to draw on.
 const LORE: &[&str] = &[
     "lantern", "tide", "hinge", "moth", "ashes", "salt", "bell", "thread", "hollow", "ember",
@@ -53,19 +60,96 @@ fn hash(s: &str) -> usize {
 }
 
 /// A content word of `text` picked by `seed`, five letters or more where there is one.
-fn word_of(text: &str, seed: usize) -> Option<String> {
+/// The words a text's word is drawn from: its longer keywords, or all of them.
+fn candidates(text: &str) -> Vec<String> {
     let words = super::errand::keywords(text);
-    let long: Vec<&String> = words.iter().filter(|w| w.chars().count() >= 5).collect();
-    let pool: Vec<&String> = if long.is_empty() {
-        words.iter().collect()
+    let long: Vec<String> = words
+        .iter()
+        .filter(|w| w.chars().count() >= 5)
+        .cloned()
+        .collect();
+    if long.is_empty() {
+        words
     } else {
         long
-    };
+    }
+}
+
+fn word_of(text: &str, seed: usize) -> Option<String> {
+    let pool = candidates(text);
     if pool.is_empty() {
         None
     } else {
         Some(pool[seed % pool.len()].clone())
     }
+}
+
+fn stems_of(text: &str) -> std::collections::BTreeSet<String> {
+    text.split(|c: char| !c.is_alphanumeric() && c != '\'')
+        .map(|w| w.trim_matches('\'').to_lowercase())
+        .filter(|w| !w.is_empty())
+        .map(|w| super::errand::stem(&w))
+        .collect()
+}
+
+/// D29: a story that carries more of the words the creature's word could be than
+/// its rung hears: `(carried, heard)`. Such a story does not strike, whether or not
+/// the word was among them.
+pub fn overreach(
+    world: &World,
+    actor: &str,
+    creature: EntityId,
+    text: &str,
+) -> Option<(usize, usize)> {
+    let v = field(world, creature)?;
+    if v["word"].as_str().unwrap_or("").is_empty()
+        || v["struck"]
+            .as_array()
+            .is_some_and(|a| a.iter().any(|s| s == actor))
+    {
+        return None;
+    }
+    let level = (v["level"].as_u64().unwrap_or(1) as u8).clamp(1, LEVELS);
+    let heard = GUESSES[(level - 1) as usize];
+    if heard == usize::MAX {
+        return None;
+    }
+    let from = v["from"].as_str().unwrap_or("");
+    let pool: std::collections::BTreeSet<String> = if from == "lore" {
+        LORE.iter().map(|w| super::errand::stem(w)).collect()
+    } else {
+        source_text(
+            world,
+            creature,
+            level,
+            if from == "kept" { "room" } else { from },
+        )
+        .map(|t| {
+            candidates(&t)
+                .iter()
+                .map(|w| super::errand::stem(w))
+                .collect()
+        })
+        .unwrap_or_default()
+    };
+    let carried = stems_of(text).intersection(&pool).count();
+    (carried > heard).then_some((carried, heard))
+}
+
+/// The third rung's word after it has been found `turn` times: another of the
+/// room's words, so the public record of the last strike does not open it.
+fn room_word(world: &World, creature: EntityId, turn: usize, not: &str) -> Option<String> {
+    let text = world
+        .store
+        .entity(creature)
+        .and_then(|e| e.parent)
+        .and_then(|r| plain_str(world, r, ROOM, "description"))?;
+    let pool: Vec<String> = candidates(text).into_iter().filter(|w| w != not).collect();
+    if pool.is_empty() {
+        return None;
+    }
+    let seed = hash(&format!("{}-{LEVELS}-turn-{turn}", creature.0));
+    Some(pool[seed % pool.len()].clone())
 }
 
 /// The word for a level: the first thing it was told (or the word that made it), a
@@ -232,9 +316,11 @@ pub fn would_strike(world: &World, actor: &str, creature: EntityId, text: &str) 
         return false;
     }
     let stem = super::errand::stem(word);
-    text.split(|c: char| !c.is_alphanumeric() && c != '\'')
-        .map(|w| w.trim_matches('\'').to_lowercase())
-        .any(|w| !w.is_empty() && super::errand::stem(&w) == stem)
+    overreach(world, actor, creature, text).is_none()
+        && text
+            .split(|c: char| !c.is_alphanumeric() && c != '\'')
+            .map(|w| w.trim_matches('\'').to_lowercase())
+            .any(|w| !w.is_empty() && super::errand::stem(&w) == stem)
 }
 
 /// Whether `actor` can still strike this creature's current word at all (it has
@@ -321,9 +407,9 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
         1 if from == "wanted" => "There is a word under the others, and I do not say it. It was in something I wanted before you came, and have not forgotten; ask me what I wanted once.".to_string(),
         1 if born => "There is a word under the others, and I do not say it. It is the one that made me; whoever carried it knows it, and the record of my birth has it.".to_string(),
         1 => "There is a word under the others, and I do not say it. It was in the first thing anyone told me; ask me to recite the first story.".to_string(),
-        2 if from == "told" => "The first was found. The next was in the first thing anyone told me; ask me to recite it.".to_string(),
-        2 => "The first was found. The next is in something I wanted once, and have not forgotten.".to_string(),
-        _ => "The last is around me: a word of the room I stand in, as `look` says it.".to_string(),
+        2 if from == "told" => "The first was found. The next was in the first thing anyone told me; ask me to recite it. I hear three of its words to a story now; say more of them and I cannot tell which you meant.".to_string(),
+        2 => "The first was found. The next is in something I wanted once, and have not forgotten. I hear three of its words to a story now; say more of them and I cannot tell which you meant.".to_string(),
+        _ => "The last is around me: a word of the room I stand in, as `look` says it. One of the room's words to a story and no more; say two and I cannot tell which you meant. And it moves on each time it is found.".to_string(),
     };
     // R118: at the top of the ladder the word stays for new tellers; the one who
     // found it is told so, not "Gnatterbell found one before you" to Gnatterbell.
@@ -372,10 +458,25 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
             }
         }
         (_, None) => String::new(),
-        (1, Some(text)) => {
+        // D29: the higher rungs narrow later (after two misses and four at the
+        // second, four and eight at the third), and the third never quotes the
+        // room: `look` has it.
+        (n, Some(_)) if n < NARROWS[(level.clamp(1, LEVELS) - 1) as usize].0 => format!(
+            " {n} stor{} from you since {} carried none; I say more after {}.",
+            if n == 1 { "y" } else { "ies" },
+            if n == 1 { "has" } else { "have" },
+            NARROWS[(level.clamp(1, LEVELS) - 1) as usize].0
+        ),
+        (n, Some(_)) if level >= LEVELS && n < NARROWS[(LEVELS - 1) as usize].1 => format!(
+            " {n} stories from you since have carried none, so: it is one of the longer words of this room, five letters or more; I say which sentence after {}.",
+            NARROWS[(LEVELS - 1) as usize].1
+        ),
+        (n, Some(text)) if n < NARROWS[(level.clamp(1, LEVELS) - 1) as usize].1 => {
             let shown: String = text.chars().take(160).collect();
             format!(
-                " One story from you since has carried none, so: it is in this: \"{shown}{}\"",
+                " {n} stor{} from you since {} carried none, so: it is in this: \"{shown}{}\"",
+                if n == 1 { "y" } else { "ies" },
+                if n == 1 { "has" } else { "have" },
                 if text.chars().count() > 160 {
                     "…"
                 } else {
@@ -425,7 +526,7 @@ pub fn strike(
         .split(|c: char| !c.is_alphanumeric() && c != '\'')
         .map(|w| w.trim_matches('\'').to_lowercase())
         .any(|w| !w.is_empty() && super::errand::stem(&w) == stem);
-    if !hit {
+    if !hit || overreach(world, actor, creature, text).is_some() {
         return Ok(None);
     }
     let bonus = BONUS[(level.clamp(1, LEVELS) - 1) as usize];
@@ -437,7 +538,12 @@ pub fn strike(
     let (next_word, next_from) = if level < LEVELS {
         word_for(world, creature, next_level)
     } else {
-        (word.clone(), "kept")
+        // D29: the last word moves on when it is found (another of the room's), so
+        // the next teller cannot read it off the record of this strike.
+        match room_word(world, creature, struck.len(), &word) {
+            Some(w) => (w, "room"),
+            None => (word.clone(), "kept"),
+        }
     };
     let mut changes = BTreeMap::new();
     changes.insert("secret".into(), Field::Plain(json!({"word": next_word, "level": next_level, "struck": if level < LEVELS { Vec::<String>::new() } else { struck.clone() }, "from": next_from})));

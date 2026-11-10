@@ -18,6 +18,7 @@ pub mod conclave;
 pub mod craft;
 pub mod death;
 pub mod docent;
+pub mod door;
 pub mod economy;
 pub mod errand;
 pub mod exchange;

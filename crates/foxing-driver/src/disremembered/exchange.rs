@@ -392,6 +392,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let gist = gist(&text);
             let missed = if wanted { None } else { super::errand::why_missed(w, creature, &text) };
             // The word under the others: a story that carries it pays the level's bonus.
+            let over = super::secret::overreach(w, &ctx.actor, creature, &text);
             let struck = super::secret::strike(w, &ctx.actor, creature, &text)?;
             // The grace, said right: the first miss of the hour spends nothing; the
             // second spends it ("once" on both read as a lie, the Watch of 11-07). A
@@ -458,7 +459,14 @@ pub fn register(world: &mut World, curves: Curves) {
             let own = super::talk::line_of_its_own(w, creature, kept);
             let under = match &struck {
                 Some((_, word, lvl)) => format!(" You said the word under the others: {word}.{}{}", if *lvl < super::secret::LEVELS { " There is another under that." } else { " There is none under that; you have them all." }, if bonus_only { " It was heard inside your hour with it, for the word; the next from you that carries none waits for the hour." } else { "" }),
-                None => String::new(),
+                // D29: too many guesses in one story at the higher rungs.
+                None => match over {
+                    Some((n, heard)) => format!(
+                        " You said {n} of the words my word could be; I hear {} to a story at this rung, so none of them counted.",
+                        if heard == 1 { "one".to_string() } else { heard.to_string() }
+                    ),
+                    None => String::new(),
+                },
             };
             let answer = if wanted {
                 format!("That is the one I wanted. I will keep that. \"{gist}\"{own}{under} I hold {level:.0} now.")

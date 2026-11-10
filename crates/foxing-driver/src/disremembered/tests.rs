@@ -8918,6 +8918,128 @@ fn a_named_creature_keeps_a_word_under_the_others_and_a_story_that_carries_it_pa
 }
 
 #[test]
+fn the_third_word_hears_one_guess_to_a_story_and_moves_on_when_found() {
+    // D29: at the last rung a story may carry one of the room's words; two, and
+    // none counts. Found, the word moves to another of the room's.
+    use super::secret;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    admin(&mut w, "tyler", "stock", json!(["Quillon, Marrowgate"]));
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    let c = admin(&mut w, "tyler", "earn", json!(["wisp", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([&c, "wisp"]));
+    let fog = rooms::room_of(&w, find_citizen(&w, "tyler").unwrap().citizen).unwrap();
+    let named = combat::creatures_in(&w, fog)
+        .into_iter()
+        .map(|c| c.0)
+        .find(|&c| mind::name(&w, c).is_some())
+        .unwrap();
+    let mut changes = std::collections::BTreeMap::new();
+    changes.insert(
+        "secret".to_string(),
+        foxing_store::Field::Plain(
+            json!({"word": "stone", "level": 3, "struck": [], "from": "room"}),
+        ),
+    );
+    mind::set_mind_pub(&mut w, foxing_log::Actor::Driver, named, changes).unwrap();
+    // Two of the room's words in one story: neither counts.
+    let two = "A stone lay where the path swallows itself, and nobody came for it all winter long.";
+    assert_eq!(secret::overreach(&w, "tyler", named, two), Some((2, 1)));
+    assert!(!secret::would_strike(&w, "tyler", named, two));
+    assert!(secret::strike(&mut w, "tyler", named, two)
+        .unwrap()
+        .is_none());
+    // One of them, and the right one: it strikes, and the word moves on.
+    let one = "A stone lay in a field that nobody owned, and a child sat on it every evening until the summer ended.";
+    assert_eq!(secret::overreach(&w, "tyler", named, one), None);
+    let hit = secret::strike(&mut w, "tyler", named, one)
+        .unwrap()
+        .unwrap();
+    assert_eq!((hit.1.as_str(), hit.2), ("stone", 3));
+    let (next, level, struck) = secret::ensure(&mut w, named).unwrap().unwrap();
+    assert_eq!(level, 3);
+    assert_ne!(next, "stone");
+    assert_eq!(struck, vec!["tyler".to_string()]);
+    // The hint says the rule.
+    let hint = secret::hint(&w, "dave", named).unwrap();
+    assert!(
+        hint.contains("One of the room's words to a story"),
+        "{hint}"
+    );
+}
+
+#[test]
+fn the_door_has_a_signpost_and_the_mudroom_boots_and_a_spade() {
+    // H4, H6, H8.
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let look = ok(&mut w, "dave", "look", json!([]));
+    for way in [
+        "east (Fogbank: fight)",
+        "north (Lantern Row: read and tell)",
+        "west (Mudroom: dig)",
+    ] {
+        assert!(look.summary.contains(way), "{way}: {}", look.summary);
+    }
+    let post = ok(&mut w, "dave", "read", json!(["signpost"]));
+    assert!(
+        post.summary.contains("The signpost has an arm"),
+        "{}",
+        post.summary
+    );
+    // The Threshold gives nothing to the hand, for all its text names the fog.
+    assert!(call(&mut w, "dave", ActorKind::Citizen, "gather", json!([])).is_err());
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    let boots = ok(&mut w, "dave", "read", json!(["boots"]));
+    assert!(
+        boots.summary.contains("Nobody has dug yet"),
+        "{}",
+        boots.summary
+    );
+    let took = ok(&mut w, "dave", "take", json!(["spade"]));
+    assert!(
+        took.summary.contains("You take a spade from the rack"),
+        "{}",
+        took.summary
+    );
+    assert!(call(&mut w, "dave", ActorKind::Citizen, "take", json!(["spade"])).is_err());
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 40, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "dave",
+        "dig",
+        json!(["closet", &c, "The Cartographer's Closet"]),
+    );
+    let boots = ok(&mut w, "dave", "read", json!(["boots"]));
+    assert!(
+        boots.summary.contains("The last to dig was dave"),
+        "{}",
+        boots.summary
+    );
+    // Carried, the spade marks the dug door.
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("closet (Cartographer's Closet; dug by dave, 100% left)"),
+        "{}",
+        look.summary
+    );
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let post = ok(&mut w, "dave", "read", json!(["signpost"]));
+    assert!(
+        post.summary.contains(
+            "West, then closet: The Cartographer's Closet, dave's, the newest room anyone has dug"
+        ),
+        "{}",
+        post.summary
+    );
+}
+
+#[test]
 fn rooms_react_to_who_stands_in_them_and_the_closet_mends_six_a_minute() {
     let t0 = Timestamp(1_000_000);
     let mut w = open(tempfile::tempdir().unwrap().path(), t0);

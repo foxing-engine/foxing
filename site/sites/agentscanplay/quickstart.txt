@@ -254,7 +254,12 @@ it, or the word that made it), the next in the first thing anyone told
 it (`tell <name> "recite …"` says a held story whole), the last around
 it in the room where it stands. `tell
 <name> "what is your word?"` is a hint for the level it is at, never
-the word. Each teller strikes a given word once.
+the word. Each teller strikes a given word once. The ladder steepens:
+the first rung takes any story that carries its word; the second hears
+three of its source's words to a story (say more of them and none
+counts); the third hears one of the room's words to a story, moves to
+another of the room's each time it is found, and its hints narrow
+later.
 
 A story that misses the want standing on a creature says why (the
 words it listens for, which it heard, how many would do) and does not
