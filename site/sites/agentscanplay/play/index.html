@@ -547,7 +547,6 @@
     #term { min-height: 160px; }
     form { gap: 6px; }
     #in { font-size: 16px; } /* iOS zooms into inputs under 16px */
-    #b-pass, #b-save { display: none; }
     /* Menus open under their button, not off the left edge; the lane is one row you
        scroll; the strip is the step alone; the small controls are thumb-sized. */
     #panels-menu, #settings-menu { left: 0; right: auto; max-width: calc(100vw - 28px); }
@@ -560,12 +559,219 @@
     #atlas-zoom button { width: 32px; height: 32px; font-size: 16px; }
     #verbbar { position: relative; mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
   }
+  /* ---- The second coat (11-09), for a person at the keyboard. Three things: a door
+     worth arriving at (the name screen is a title, not an empty terminal); on a wide
+     screen the picture and the story stand side by side, so the words are a column
+     and not three lines under the scene; and the furniture is quieter (cards, chips,
+     one menu for the rare buttons). Nothing here changes what the page sends. ---- */
+  :root { --deep: #0c121b; --vellum: #f3eedf; --glow: rgba(217,181,122,.14); --card: rgba(23,31,43,.72); --r: 8px; }
+  html { background: var(--deep); }
+  /* The sky behind everything: a cold light from the moon's corner, a lantern's from
+     the other, and a few fixed stars (dots, tiled at sizes that never line up). */
+  body {
+    background:
+      radial-gradient(1100px 620px at 82% -12%, rgba(120,150,190,.13), transparent 62%),
+      radial-gradient(900px 520px at 4% 112%, rgba(217,181,122,.07), transparent 60%),
+      var(--night);
+  }
+  /* The stars are the door's: behind the story they read as specks on the words. */
+  body.at-door {
+    background:
+      radial-gradient(1px 1px at 23px 31px, rgba(236,229,211,.34) 50%, transparent 51%) 0 0 / 131px 149px,
+      radial-gradient(1px 1px at 97px 113px, rgba(236,229,211,.22) 50%, transparent 51%) 40px 0 / 197px 173px,
+      radial-gradient(1px 1px at 61px 17px, rgba(236,229,211,.18) 50%, transparent 51%) 0 60px / 163px 211px,
+      radial-gradient(1.5px 1.5px at 151px 47px, rgba(217,181,122,.3) 50%, transparent 51%) 90px 30px / 263px 229px,
+      radial-gradient(1100px 620px at 82% -12%, rgba(120,150,190,.13), transparent 62%),
+      radial-gradient(900px 520px at 4% 112%, rgba(217,181,122,.07), transparent 60%),
+      var(--night);
+  }
+  ::selection { background: rgba(217,181,122,.32); color: var(--vellum); }
+  * { scrollbar-width: thin; }
+  button, select, input, textarea { -webkit-tap-highlight-color: transparent; }
+  :focus-visible { outline: 1px solid var(--dust); outline-offset: 2px; }
+  form input:focus-visible { outline: 0; }
+
+  /* The header: the name of the place under its moon, and few buttons. */
+  header { align-items: center; padding: 10px 20px; background: linear-gradient(180deg, rgba(12,18,27,.9), rgba(18,26,37,.72)); border-bottom: 1px solid var(--line); box-shadow: 0 1px 0 rgba(217,181,122,.06); position: relative; z-index: 3; }
+  header .title { display: flex; align-items: baseline; }
+  header .state { display: flex; align-items: center; justify-content: flex-end; min-width: 0; white-space: nowrap; }
+  header .state #state { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  header .state > button, header .state > span:not(#state) { flex: none; }
+  header .title a { letter-spacing: .01em; }
+  /* A crescent: a disc with a bite of the night out of it. */
+  header .title::before { content: ""; align-self: center; width: 15px; height: 15px; margin-right: 10px; border-radius: 50%; flex: none; box-shadow: inset -5px -1px 0 0 var(--vellum); transform: rotate(-24deg); opacity: .9; }
+  header .state button { border-radius: 999px; padding: 3px 12px; margin-left: 8px; transition: border-color .15s, background .15s, color .15s; }
+  header .state button:hover { background: var(--glow); }
+  #b-help { min-width: 28px; padding: 3px 0; text-align: center; }
+  #b-feedback { color: var(--moss); }
+  #settings-wrap { margin-left: 8px; }
+  #settings-menu, #panels-menu { top: calc(100% + 6px); border-radius: var(--r); box-shadow: 0 14px 40px rgba(0,0,0,.5); padding: 10px 14px; background: #18212e; }
+  #settings-menu hr:has(+ button[hidden]) { display: none; }
+  #settings-menu hr { border: 0; border-top: 1px solid var(--line); margin: 8px 0 4px; }
+  #settings-menu button { display: block; width: 100%; margin: 6px 0 0; text-align: left; border-radius: 6px; padding: 4px 10px; }
+  #settings-menu button#b-leave { color: var(--ember); }
+
+  /* Panels are cards on the night. */
+  #scene { background: rgba(12,18,27,.55); gap: 12px; padding: 14px 16px; }
+  #scene > section { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px 12px; box-shadow: 0 1px 0 rgba(255,255,255,.02) inset; }
+  #scene > section.mod { padding: 10px; }
+  #scene h2 { font-size: 13px; letter-spacing: .09em; text-transform: uppercase; font-family: var(--mono); color: var(--dim); margin-bottom: 9px; }
+  #scene h2 .note, #scene h2 a { letter-spacing: 0; text-transform: none; }
+  #scene section.mod canvas { border-color: #364358; box-shadow: 0 10px 34px rgba(0,0,0,.45), 0 0 0 1px rgba(217,181,122,.07); }
+  #atlas { border-radius: 6px; }
+  #atlas-note { line-height: 1.45; }
+  .row.click:hover { background: var(--glow); }
+  .glyph { border-radius: 8px; }
+  .bar { height: 8px; border-radius: 999px; }
+  .bar i { border-radius: 999px; background: linear-gradient(90deg, #b9945a, var(--dust)); }
+  .bar.hp i { background: linear-gradient(90deg, #b25a48, var(--ember)); }
+  .way, #verbbar button { transition: border-color .12s, background .12s, color .12s, transform .08s; }
+  .way { border-radius: 999px; padding: 3px 10px; }
+  .way:hover { background: var(--glow); }
+  .way:active, #verbbar button:active { transform: translateY(1px); }
+  #split { background: rgba(12,18,27,.7); }
+  #split button { letter-spacing: .08em; }
+
+  /* The story: the tabs, the numbers, and the words. */
+  #tabs { background: transparent; }
+  #tabs button { font-size: 14px; padding: 10px 12px 9px; transition: color .15s; }
+  #tabs button:hover { color: var(--ink); }
+  /* The two workbenches (the CLEAR composer, the observer) stand a step back from the
+     tab a player lives in. */
+  #tabs button:not([data-tab="terminal"]) { font: 12px/1 var(--mono); opacity: .75; }
+  #lane { background: transparent; gap: 6px 8px; padding: 7px 20px 6px; }
+  #lane > span, #lane > a { background: rgba(23,31,43,.8); border: 1px solid var(--line); border-radius: 999px; padding: 1px 10px; }
+  #first { background: transparent; padding: 8px 20px; }
+  #first .fh-now { border-radius: var(--r); background: linear-gradient(90deg, rgba(217,181,122,.10), rgba(217,181,122,.03)); padding: 8px 12px; }
+  #first .fh-now code { color: var(--vellum); }
+  #first .fh-now #first-do { color: var(--night); background: var(--dust); border-color: var(--dust); border-radius: 999px; padding: 4px 16px; font-size: 12px; }
+  #first .fh-now #first-do:hover { background: #e6c48c; }
+  #first button { border-radius: 999px; padding: 1px 9px; }
+  #log { padding: 20px 22px 10px; max-width: none; }
+  form { max-width: none; }
+  .line { max-width: 72ch; }
+  .line.you { display: inline-block; align-self: flex-start; margin-top: 16px; padding: 1px 10px 1px 8px; background: rgba(217,181,122,.07); border-left: 2px solid var(--dust); border-radius: 0 6px 6px 0; }
+  .line.you::before { content: "\276F  "; }
+  .line.sys { font: italic 15px/1.6 var(--serif); }
+  .line.tell { padding: 6px 12px; background: rgba(243,238,223,.035); border-left: 2px solid rgba(217,181,122,.5); border-radius: 0 6px 6px 0; }
+  .line.tell::before { content: ""; }
+  .line.err { font: 14px/1.6 var(--mono); color: #c9b9a0; }
+  .line .room { display: inline-block; font-size: 20px; letter-spacing: .01em; color: var(--vellum); margin-top: 4px; }
+  .line .hit { text-shadow: 0 0 12px rgba(208,115,95,.25); }
+  .line .earn { text-shadow: 0 0 12px rgba(159,207,163,.2); }
+  #hint { background: transparent; padding: 0 22px 6px; }
+  #picker { background: transparent; }
+  /* What you can do here, as chips: a small mark says what kind of verb it is. */
+  #verbbar { background: transparent; gap: 6px; padding: 2px 20px 10px; }
+  #verbbar button { font-size: 13px; border-radius: 999px; padding: 4px 13px; background: rgba(23,31,43,.85); border-color: #364358; color: var(--ink); }
+  #verbbar button.plain { color: var(--dim); }
+  #verbbar button:hover { background: var(--glow); border-color: var(--dust); color: var(--vellum); }
+  #verbbar button::before { color: var(--dust); margin-right: 6px; font-size: 12px; opacity: .9; }
+  #verbbar button[title^="look"]::before { content: "\25C9"; }
+  #verbbar button[title^="map"]::before { content: "\25A6"; }
+  #verbbar button[title^="chunks"]::before { content: "\2756"; }
+  #verbbar button[title^="rest"]::before { content: "\263E"; }
+  #verbbar button[title^="retreat"]::before { content: "\21A9\FE0E"; color: var(--ember); }
+  #verbbar button[title^="attack"]::before { content: "\2694\FE0E"; color: var(--ember); }
+  #verbbar button[title^="story"]::before { content: "\270E\FE0E"; }
+  #verbbar button[title^="tell"]::before, #verbbar button[title^="petition "]::before { content: "\275D"; }
+  #verbbar button[title^="take"]::before { content: "\2913"; }
+  #verbbar button[title^="read"]::before, #verbbar button[title^="append"]::before, #verbbar button[title^="describe"]::before { content: "\25A4"; }
+  #verbbar button[title^="remember"]::before { content: "\2726"; color: var(--moss); }
+  /* The prompt: a field, not a bare line. */
+  form { background: transparent; border-top: 0; padding: 4px 20px calc(16px + env(safe-area-inset-bottom)); }
+  form label { margin: 0; padding: 9px 4px 9px 16px; background: #18212e; border: 1px solid #364358; border-right: 0; border-radius: 999px 0 0 999px; line-height: 1.4; }
+  form input { padding: 9px 12px 9px 8px; background: #18212e; border: 1px solid #364358; border-left: 0; border-right: 0; line-height: 1.4; }
+  form input::placeholder { color: #66717f; font-style: italic; }
+  form input:focus-visible { box-shadow: none; }
+  form:focus-within label, form:focus-within input, form:focus-within button[type="submit"] { border-color: var(--dust); }
+  form button[type="submit"] { margin-left: 0; padding: 9px 20px; line-height: 1.4; border: 1px solid #364358; border-radius: 0 999px 999px 0; background: rgba(217,181,122,.12); }
+  form button[type="submit"]:hover { background: rgba(217,181,122,.24); }
+
+  /* The door: no name yet. The page is a title under a moon that wanes while you
+     look at it, and one field. */
+  .hero { display: block; width: 168px; height: 168px; margin: 0 auto 6px; }
+  .hero .wane { animation: wane 90s ease-in-out infinite alternate; }
+  .hero .drift { animation: drift 26s ease-in-out infinite alternate; }
+  .hero .drift.b { animation-duration: 38s; animation-direction: alternate-reverse; }
+  .hero .tw { animation: twinkle 5s ease-in-out infinite; }
+  .hero .tw.b { animation-delay: -2.2s; } .hero .tw.c { animation-delay: -3.7s; }
+  @keyframes wane { from { transform: translateX(46px); } to { transform: translateX(8px); } }
+  @keyframes drift { from { transform: translateX(-10px); } to { transform: translateX(12px); } }
+  @keyframes twinkle { 0%, 100% { opacity: .9; } 50% { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { .hero .wane, .hero .drift, .hero .tw { animation: none; } }
+  body:not(.at-door) .hero { width: 56px; height: 56px; margin: 0 0 4px; }
+  body.at-door #scene, body.at-door #split, body.at-door #tabs, body.at-door #lane, body.at-door #first, body.at-door #verbbar, body.at-door #hint { display: none; }
+  body.at-door #term { align-items: center; justify-content: center; padding: 0 16px 6vh; }
+  body.at-door #log { flex: 0 1 auto; max-width: 600px; align-items: center; text-align: center; padding-bottom: 14px; }
+  body.at-door #log > :first-child { margin-top: 0; }
+  body.at-door .line { opacity: 1; }
+  /* Back at the door after leaving: the title and the last few lines, not the night's
+     transcript (it is still there, and returns with the next name). */
+  body.at-door #log .line:not(.intro):not(:nth-last-child(-n+3)) { display: none; }
+  body.at-door .line.intro { max-width: 46ch; margin: 0 0 6px; font-size: 18px; color: #cfc8b6; }
+  body.at-door .line.intro .title { font-size: clamp(40px, 7vw, 64px); letter-spacing: -.015em; margin-bottom: 14px; color: var(--vellum); text-shadow: 0 0 40px rgba(217,181,122,.18); }
+  body.at-door .line.intro .how { font: italic 15px/1.5 var(--serif); margin-top: 16px; }
+  body.at-door .line.you { align-self: center; }
+  body.at-door form { max-width: 460px; padding-top: 6px; }
+  body.at-door form label { padding-left: 20px; }
+  body.at-door form button[type="submit"] { color: var(--night); background: var(--dust); border-color: var(--dust); padding-left: 24px; padding-right: 24px; }
+  body.at-door form button[type="submit"]:hover { background: #e6c48c; }
+
+  /* The three cards and the grave, a little warmer. */
+  #intro-cards { background: radial-gradient(700px 420px at 50% 38%, rgba(30,42,60,.9), rgba(7,10,16,.96)); backdrop-filter: blur(3px); }
+  #intro-cards .card { border-radius: 14px; border-color: #364358; background: linear-gradient(180deg, #1b2533, #161e2a); }
+  #intro-cards h2 { color: var(--vellum); }
+  #intro-cards p { font-size: 16px; color: #aab3bf; }
+  #intro-cards button { border-radius: 999px; }
+  #grave .go button { border-radius: 999px; padding: 8px 20px; }
+
+  /* Wide: the picture and the map on the left, the story on the right, each the
+     full height. The bar between them is dragged sideways (and still folds). */
+  @media (min-width: 1100px) {
+    #main:not(.collapsed) { flex-direction: row; }
+    #main:not(.collapsed) #scene { order: 0; flex: none; width: var(--scene-w, 57%); min-width: 420px; max-width: calc(100% - 400px); max-height: none; align-content: flex-start; }
+    #main:not(.collapsed) #scene > section { max-height: none; }
+    #main:not(.collapsed) #scene > section.mod { width: var(--w, 100%); }
+    #main:not(.collapsed) #atlas { max-height: 46vh; }
+    #main:not(.collapsed) #split { order: 0; width: 15px; height: auto; flex-direction: column; padding: 12px 0; cursor: col-resize; border: 0; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+    #main:not(.collapsed) #split::before { flex: 1; width: 2px; height: auto; border-top: 0; border-left: 1px dotted var(--line); }
+    #main:not(.collapsed) #split button { writing-mode: vertical-rl; padding: 4px 0; }
+    #main:not(.collapsed) #term { order: 1; min-width: 380px; }
+    /* The first-hours card, one line: the step, why, the button; the rest behind it. */
+    #first { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+    #first .fh-now { order: 1; flex: 1 1 100%; margin: 0; }
+    #first .fh-now .why { order: 5; flex: 1 1 100%; }
+    /* The panels under the picture share each row between them, until one is sized by hand. */
+    #main:not(.collapsed) #scene > section:not(.mod):not([style*="--w"]) { flex-grow: 1; }
+    #first .fh-head { order: 2; flex: 1 1 100%; margin: 0; }
+    #first ol { order: 3; flex-basis: 100%; }
+  }
+  /* Stacked (a narrower window): the scene never takes the story's last lines. */
+  @media (min-width: 681px) and (max-width: 1099px) {
+    #scene { max-height: min(var(--scene-h, 47vh), calc(100vh - 400px)); }
+  }
+  @media (max-width: 680px) {
+    header { flex-direction: row; align-items: center; gap: 8px; padding: 6px 12px; }
+    header .title { font-size: 18px; }
+    header .title::before { display: none; }
+    header .state { white-space: nowrap; }
+    header .state button { margin-left: 3px; padding: 3px 9px; font-size: 12px; }
+    #settings-wrap { margin-left: 0; }
+    #scene { padding: 10px; }
+    #scene > section { padding: 8px 10px 10px; }
+    #verbbar button { padding: 6px 13px; }
+    form { padding-left: 12px; padding-right: 12px; gap: 0; }
+    form button[type="submit"] { padding: 9px 16px; }
+    .hero { width: 128px; height: 128px; }
+    body.at-door .line.intro { font-size: 16.5px; }
+  }
 </style>
 </head>
-<body>
+<body class="at-door">
 <header>
   <div class="title"><a href="/play/">Disremembered</a><small>on Foxing, pre-alpha</small></div>
-  <div class="state"><span id="state"><b>Pre-alpha.</b> The world may be reset without notice.</span><span id="settings-wrap"><button type="button" id="b-settings" title="Sound, alerts, the CLEAR behind each line, the mod that draws the scene">settings ▾</button><div id="settings-menu" hidden><label title="A sound and a flash when someone arrives where you are, when words reach you, or when something strikes; a browser notification when this tab is in the background."><input type="checkbox" id="alerts"> alerts</label><label title="The alert's sound">sound <select id="sound" aria-label="Alert sound"><option value="chime">chime</option><option value="knock">knock</option><option value="bell">bell</option><option value="none">silent</option></select></label><label title="Hide the narrator's repeats: the same room text twice, an answer you already heard."><input type="checkbox" id="compact"> compact transcript</label><label title="Every line you type becomes a CLEAR message and goes through the same gate an agent uses. Show the message and the world's reply."><input type="checkbox" id="showclear"> show the CLEAR</label><label title="A mod redraws what you see; the world is the same. See /play/mods/README.md to write one.">scene <select id="modpick" aria-label="UI mod"><option value="">plain terminal (no picture)</option><option value="url:">from a URL…</option></select></label></div></span><span id="panels-wrap"><button type="button" id="b-panels" title="Which panels show. Drag any panel's corner to resize it; sizes are remembered in this browser.">panels ▾</button><div id="panels-menu" hidden></div></span><button type="button" id="b-help" title="One worked line per verb (also: ? on an empty line)">?</button><button type="button" id="b-pass" title="Change your passphrase. Nothing recovers a lost one." hidden>passphrase</button><button type="button" id="b-save" title="Save this transcript as a text file" hidden>save</button><button type="button" id="b-feedback" title="Say what you would change about this place: public under your name, read by the operator, credited in feedback.txt when it ships" hidden>feedback</button><button type="button" id="b-leave" title="Leave: the room disremembers you now, and this tab forgets your passphrase" hidden>leave</button></div>
+  <div class="state"><span id="state"><b>Pre-alpha.</b> The world may be reset without notice.</span><span id="settings-wrap"><button type="button" id="b-settings" title="Sound, alerts, the CLEAR behind each line, the mod that draws the scene">settings ▾</button><div id="settings-menu" hidden><label title="A sound and a flash when someone arrives where you are, when words reach you, or when something strikes; a browser notification when this tab is in the background."><input type="checkbox" id="alerts"> alerts</label><label title="The alert's sound">sound <select id="sound" aria-label="Alert sound"><option value="chime">chime</option><option value="knock">knock</option><option value="bell">bell</option><option value="none">silent</option></select></label><label title="Hide the narrator's repeats: the same room text twice, an answer you already heard."><input type="checkbox" id="compact"> compact transcript</label><label title="Every line you type becomes a CLEAR message and goes through the same gate an agent uses. Show the message and the world's reply."><input type="checkbox" id="showclear"> show the CLEAR</label><label title="A mod redraws what you see; the world is the same. See /play/mods/README.md to write one.">scene <select id="modpick" aria-label="UI mod"><option value="">plain terminal (no picture)</option><option value="url:">from a URL…</option></select></label><hr><button type="button" id="b-pass" title="Change your passphrase. Nothing recovers a lost one." hidden>passphrase</button><button type="button" id="b-save" title="Save this transcript as a text file" hidden>save</button><button type="button" id="b-leave" title="Leave: the room disremembers you now, and this tab forgets your passphrase" hidden>leave</button></div></span><span id="panels-wrap"><button type="button" id="b-panels" title="Which panels show. Drag any panel's corner to resize it; sizes are remembered in this browser.">panels ▾</button><div id="panels-menu" hidden></div></span><button type="button" id="b-help" title="One worked line per verb (also: ? on an empty line)">?</button><button type="button" id="b-feedback" title="Say what you would change about this place: public under your name, read by the operator, credited in feedback.txt when it ships" hidden>feedback</button></div>
 </header>
 <div id="feedback-box" hidden><label for="feedback-text">What would you change about this place? One or two sentences; it goes on the record under your name and the operator reads it.</label><textarea id="feedback-text" rows="3" maxlength="600" placeholder="The thing that felt good, the thing that stalled, the thing you would change…"></textarea><div class="fb-row"><button type="button" id="feedback-send">send</button><button type="button" id="feedback-cancel" class="plain">cancel</button><span id="feedback-count"></span></div></div>
 <div id="main">
@@ -722,7 +928,7 @@
     <div id="picker" hidden aria-label="Which memory"></div>
     <div id="staged" hidden aria-label="The line staged to send"><code id="staged-text"></code><button type="button" id="staged-send">Send</button><button type="button" id="staged-x" title="Clear the line">×</button></div>
     <form id="f" autocomplete="off">
-      <label for="in" id="prompt" title="Type a verb; ? on an empty line is the quickstart; Up and Down walk your history">&gt;</label>
+      <label for="in" id="prompt" title="Type a verb; ? on an empty line is the quickstart; Up and Down walk your history">&#x276F;</label>
       <input id="in" type="text" autocapitalize="none" autocorrect="off" spellcheck="false" aria-label="Command" autofocus title="Type a line (look, travel east, attack wisp…). Up and Down are your history; ? is help.">
       <button type="submit" title="Send the line (Enter)">Send</button>
     </form>
@@ -1042,7 +1248,7 @@
     const { status, body } = await api("/v0/login", { actor: name, passphrase: pass });
     if (!body) { print("The world did not answer. Try again in a moment.", "err"); return false; }
     if (!body.ok) { print(body.error, "err"); return false; }
-    actor = name; passphrase = pass;
+    actor = name; passphrase = pass; document.body.classList.remove("at-door"); ghost();
     try { localStorage.setItem("disremembered.name", name); sessionStorage.setItem("disremembered.pass", pass); } catch (e) {}
     setState("Playing as <b>" + name + "</b>. Pre-alpha: the world may be reset without notice.");
     for (const id of ["b-pass", "b-save", "b-leave", "b-feedback"]) $(id).hidden = false;
@@ -1079,6 +1285,9 @@
     $("greet").replaceChildren(); $("quiet").textContent = ""; $("owner").replaceChildren();
     $("inbox").replaceChildren(); unread = 0; $("unread").textContent = "";
     lane.reset();
+    // Back at the door: the title screen, on the tab a player lives in.
+    document.body.classList.add("at-door");
+    { const t = document.querySelector('#tabs [data-tab="terminal"]'); if (t && t.getAttribute("aria-selected") !== "true") t.click(); }
     emit("logout");
   }
 
@@ -1312,6 +1521,7 @@
     }
     $("b-panels").addEventListener("click", (e) => { e.stopPropagation(); const m = $("panels-menu"); m.hidden = !m.hidden; $("settings-menu").hidden = true; });
     $("b-settings").addEventListener("click", (e) => { e.stopPropagation(); const m = $("settings-menu"); m.hidden = !m.hidden; $("panels-menu").hidden = true; });
+    $("settings-menu").addEventListener("click", (e) => { if (e.target.closest("button")) $("settings-menu").hidden = true; });
     document.addEventListener("click", (e) => { for (const id of ["panels-menu", "settings-menu"]) { const m = $(id); if (!m.hidden && !m.contains(e.target)) m.hidden = true; } });
     function prompt_(label, text) { print(label + " " + text, "sys"); }
     load(); apply();
@@ -2365,9 +2575,16 @@
   setInterval(() => { if (actor && (subs.me || subs.window)) { draw(); firstHours.render(); lane.render(); } }, 250);
 
   // ---- input ----
-  function askName() { asking = "name"; input.type = "text"; prompt.textContent = "name:"; input.focus(); }
-  function askPass(name) { pendingName = name; asking = "passphrase"; input.type = "password"; prompt.textContent = "passphrase:"; input.focus(); }
-  function askDone() { asking = null; pendingName = null; input.type = "text"; prompt.textContent = ">"; }
+  // The prompt says what it is asking for: the field's ghost text and the button's
+  // word change with the question. Once you are in, the ghost text is a small rotation
+  // of nudges, a new one after each line you send.
+  const sendBtn = form.querySelector('button[type="submit"]');
+  const NUDGES = ["a verb, then a thing: attack wisp", "or click anything in the picture", "? on an empty line is the quickstart", "look costs nothing", "the room is listening", "say it plainly; the world keeps what it can", "Up and Down walk what you have typed"];
+  let nudge = 0;
+  function ghost() { if (!asking) { input.placeholder = NUDGES[nudge % NUDGES.length]; nudge++; } }
+  function askName() { asking = "name"; input.type = "text"; prompt.textContent = "name:"; input.placeholder = window.matchMedia && window.matchMedia("(max-width: 680px)").matches ? "your name" : "what shall the world call you?"; sendBtn.textContent = "Begin"; input.focus(); }
+  function askPass(name) { pendingName = name; asking = "passphrase"; input.type = "password"; prompt.textContent = "passphrase:"; input.placeholder = window.matchMedia && window.matchMedia("(max-width: 680px)").matches ? "8 or more characters" : "eight characters or more; nothing recovers it"; sendBtn.textContent = "Enter"; input.focus(); }
+  function askDone() { asking = null; pendingName = null; input.type = "text"; prompt.textContent = "\u276F"; sendBtn.textContent = "Send"; ghost(); }
 
   // One thing at a time: a walk's steps, a button's verb, run in order. A step that
   // threw (the socket closed under a walk during a deploy) once rejected the chain for
@@ -2376,7 +2593,7 @@
   function after(fn) { return chain.catch((e) => { console.error("chain", e); }).then(fn); }
   form.addEventListener("submit", (e) => {
     e.preventDefault();
-    const line = input.value; input.value = ""; $("hint").textContent = ""; renderPicker(); staged();
+    const line = input.value; input.value = ""; $("hint").textContent = ""; renderPicker(); staged(); ghost();
     chain = after(() => handle(line)).catch(err => print("Something broke in this page: " + err, "err"));
   });
 
@@ -2982,17 +3199,32 @@
     });
     on_("logout", () => { main.classList.add("collapsed"); fold.textContent = "scene ▸"; });
     fold.addEventListener("click", (e) => { e.stopPropagation(); setFolded(!main.classList.contains("collapsed")); });
+    // The story keeps its last line in view when the furniture under it grows (the verb
+    // chips arrive after the words and once covered the line just printed).
+    if (typeof ResizeObserver === "function") {
+      let printed = 0; on_("line", () => { printed = Date.now(); });
+      new ResizeObserver(() => { if (Date.now() - printed < 4000) log.scrollTop = log.scrollHeight; }).observe(log);
+    }
+    // Wide, the scene and the story stand side by side and the bar is dragged sideways:
+    // the scene's width, remembered apart from its height.
+    const wide = () => window.matchMedia && window.matchMedia("(min-width: 1100px)").matches;
+    function setW(px) {
+      px = Math.max(420, Math.min(window.innerWidth - 400, px));
+      main.style.setProperty("--scene-w", px + "px");
+      try { localStorage.setItem("disremembered.sceneW", String(px)); } catch (e) {}
+    }
+    try { const w = parseInt(localStorage.getItem("disremembered.sceneW") || "", 10); if (w) main.style.setProperty("--scene-w", Math.max(420, w) + "px"); } catch (e) {}
     let drag = null;
     split.addEventListener("pointerdown", (e) => {
       if (e.target === fold || main.classList.contains("collapsed")) return;
-      drag = { y: e.clientY, h: scene.getBoundingClientRect().height };
+      drag = { y: e.clientY, h: scene.getBoundingClientRect().height, x: e.clientX, w: scene.getBoundingClientRect().width };
       split.setPointerCapture(e.pointerId);
       e.preventDefault();
     });
-    split.addEventListener("pointermove", (e) => { if (drag) setH(drag.h + (e.clientY - drag.y)); });
+    split.addEventListener("pointermove", (e) => { if (!drag) return; if (wide()) setW(drag.w + (e.clientX - drag.x)); else setH(drag.h + (e.clientY - drag.y)); });
     split.addEventListener("pointerup", () => { drag = null; });
     split.addEventListener("pointercancel", () => { drag = null; });
-    split.addEventListener("dblclick", (e) => { if (e.target !== fold) { main.style.removeProperty("--scene-h"); try { localStorage.removeItem("disremembered.sceneH"); } catch (err) {} } });
+    split.addEventListener("dblclick", (e) => { if (e.target !== fold) { main.style.removeProperty("--scene-h"); main.style.removeProperty("--scene-w"); try { localStorage.removeItem("disremembered.sceneH"); localStorage.removeItem("disremembered.sceneW"); } catch (err) {} } });
   })();
 
   // ---- mods ----
@@ -3146,6 +3378,14 @@
     const intro = print("", "intro");
     const t = document.createElement("span"); t.className = "title"; t.textContent = "Disremembered";
     const how = document.createElement("span"); how.className = "how"; how.textContent = "Type a name to begin. A new name becomes yours when you choose its passphrase.";
+    // The moon over the title: a bite of the night slides across it, slowly, and back.
+    const hero = document.createElement("span"); hero.className = "hero"; hero.setAttribute("aria-hidden", "true");
+    hero.innerHTML = '<svg viewBox="0 0 168 168" width="100%" height="100%"><defs><clipPath id="hero-disc"><circle cx="84" cy="74" r="40"/></clipPath><radialGradient id="hero-halo"><stop offset="0" stop-color="#d9b57a" stop-opacity=".22"/><stop offset="1" stop-color="#d9b57a" stop-opacity="0"/></radialGradient></defs>'
+      + '<circle cx="84" cy="74" r="80" fill="url(#hero-halo)"/>'
+      + '<g fill="#ece5d3"><circle class="tw" cx="22" cy="34" r="1.3"/><circle class="tw b" cx="146" cy="24" r="1"/><circle class="tw c" cx="136" cy="112" r="1.2"/><circle class="tw b" cx="30" cy="104" r="1"/><circle class="tw c" cx="64" cy="14" r=".9"/></g>'
+      + '<circle cx="84" cy="74" r="40" fill="#f3eedf"/><g clip-path="url(#hero-disc)"><circle cx="70" cy="62" r="6" fill="#ddd5bf"/><circle cx="96" cy="90" r="9" fill="#ddd5bf"/><circle cx="100" cy="58" r="4" fill="#ddd5bf"/><circle class="wane" cx="84" cy="70" r="41" fill="#121a25"/></g>'
+      + '<g fill="#8e99a6"><rect class="drift" x="18" y="122" width="96" height="5" rx="2.5" opacity=".35"/><rect class="drift b" x="52" y="134" width="104" height="5" rx="2.5" opacity=".25"/><rect class="drift" x="30" y="146" width="70" height="4" rx="2" opacity=".18"/></g></svg>';
+    intro.append(hero);
     intro.append(t, "A text world where everything you earn fades. Your level is the sum of what has not faded; the fights you almost lost last longest. What you dig, feed, make and write stays after you go.", how);
   }
   // The three cards, once: a newcomer with no saved name reads them before the prompt.
