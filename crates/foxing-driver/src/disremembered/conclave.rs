@@ -760,9 +760,11 @@ fn file(
     let mut list = petitions(world);
     if let Some(p) = list.iter().find(|p| p["by"] == ctx.actor.as_str()) {
         return Err(CommandError::precondition(format!(
-            "Your petition {} is still upon the table, {}: \"{}\". One at a time; the Conclave always decides, eventually.",
+            // "still upon the table, upon the table" at the first stage: the stage is
+            // said once, with its number, as `petitions` says it.
+            "Your petition {} is still before the Conclave, {}: \"{}\". One at a time; the Conclave always decides, eventually.",
             p["ticket"],
-            stage_name(p["stage"].as_u64().unwrap_or(0)),
+            stage_said(p["stage"].as_u64().unwrap_or(0)),
             p["text"].as_str().unwrap_or("")
         )));
     }

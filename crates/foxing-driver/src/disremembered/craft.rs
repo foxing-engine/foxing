@@ -948,7 +948,11 @@ pub fn fixtures_line(world: &World, room: EntityId) -> Option<String> {
             let held = super::up(v["held"].as_f64().unwrap_or(0.0));
             // R141: a book's "holding" is unexplained in a row; a thing with pages
             // is said by its entries.
-            let is_book = v["text"].as_str().is_some_and(|t| t.contains(" | "));
+            // (The world's own books too, before their first entry: the Tally Book
+            // on a fresh night still said "holding 60".)
+            let is_book = v["text"].as_str().is_some_and(|t| t.contains(" | "))
+                || (v["made_by"].is_null()
+                    && v["name"].as_str().is_some_and(|n| n.contains("book")));
             let held = if held >= 0.5 && !is_book {
                 format!(", holding {held:.0}")
             } else {
