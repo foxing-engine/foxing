@@ -261,8 +261,32 @@ fn source_text(world: &World, creature: EntityId, level: u8, from: &str) -> Opti
     }
 }
 
+/// D20 b: a story refused inside the creature's hour that guessed at the word:
+/// `{creature, from, carried}`. It counts as a miss, and the pool words it carried
+/// are struck from the pool the hint shows that teller. Private.
+pub const DECLINED: &str = "disremembered.word_declined";
+
+/// Records a refused in-hour guess (D20 b).
+pub fn declined(
+    world: &mut World,
+    actor: &str,
+    creature: EntityId,
+    text: &str,
+) -> Result<(), CommandError> {
+    let carried = carried_of_pool(world, creature, text);
+    world
+        .note(
+            Actor::Citizen(actor.to_string()),
+            DECLINED,
+            json!({"creature": creature.0, "from": actor, "carried": carried}),
+        )
+        .map_err(|e| CommandError::internal(e.to_string()))?;
+    Ok(())
+}
+
 /// How many stories `actor` has told this creature since its word was last struck
-/// (or ever, at the first rung) that did not carry the word: the misses.
+/// (or ever, at the first rung) that did not carry the word: the misses. A story
+/// refused inside the hour counts as one (D20 b).
 fn misses(world: &World, actor: &str, creature: EntityId) -> usize {
     let events = world.recent_events(4000);
     let last_struck = events
@@ -272,12 +296,44 @@ fn misses(world: &World, actor: &str, creature: EntityId) -> usize {
         .iter()
         .skip(last_struck.map(|i| i + 1).unwrap_or(0))
         .filter(|e| {
-            e.kind == super::exchange::STORY
+            (e.kind == super::exchange::STORY
                 && e.payload["from"] == actor
                 && e.payload["creature"] == creature.0
-                && e.payload["struck"] != true
+                && e.payload["struck"] != true)
+                || (e.kind == DECLINED
+                    && e.payload["from"] == actor
+                    && e.payload["creature"] == creature.0)
         })
         .count()
+}
+
+/// The pool words `actor` has guessed at this creature since its word was last
+/// struck, in refused stories: not it, and struck from the pool the hint shows.
+fn tried(world: &World, actor: &str, creature: EntityId) -> Vec<String> {
+    let events = world.recent_events(4000);
+    let last_struck = events
+        .iter()
+        .rposition(|e| e.kind == STRUCK && e.payload["creature"] == creature.0);
+    let mut out: Vec<String> = events
+        .iter()
+        .skip(last_struck.map(|i| i + 1).unwrap_or(0))
+        .filter(|e| {
+            e.kind == DECLINED && e.payload["from"] == actor && e.payload["creature"] == creature.0
+        })
+        .flat_map(|e| {
+            e.payload["carried"]
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|w| w.as_str().map(str::to_string))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        })
+        .collect();
+    out.sort();
+    out.dedup();
+    out
 }
 
 /// The words of the lent pool that `text` carries, when the creature's word is a lent
@@ -439,14 +495,28 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
             let word = field(world, creature)
                 .and_then(|v| v["word"].as_str().map(str::to_string))
                 .unwrap_or_default();
+            // D20 b: what this teller guessed in refused stories is not it, and is
+            // struck from what is shown.
+            let not_it: Vec<String> = tried(world, actor, creature)
+                .into_iter()
+                .filter(|w| *w != word)
+                .collect();
             if n == 1 {
                 format!(
                     " One story from you since has carried none, so: it is one of these: {}.",
-                    LORE.join(", ")
+                    LORE.iter()
+                        .copied()
+                        .filter(|w| !not_it.iter().any(|t| t == w))
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 )
             } else {
                 let seed = hash(&format!("{}-{level}-five", creature.0));
-                let mut five: Vec<&str> = LORE.iter().copied().filter(|w| *w != word).collect();
+                let mut five: Vec<&str> = LORE
+                    .iter()
+                    .copied()
+                    .filter(|w| *w != word && !not_it.iter().any(|t| t == w))
+                    .collect();
                 let len = five.len();
                 five.rotate_left(seed % len);
                 five.truncate(4);

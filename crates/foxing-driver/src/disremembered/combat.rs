@@ -1014,7 +1014,7 @@ pub fn regen(world: &mut World, elapsed_ms: i64) -> Result<usize, String> {
                 if super::plain_str(world, r, super::ROOM, "name") == Some(CLOSET) {
                     CLOSET_HP_PER_SECOND / super::MAX_HP
                 } else if super::craft::fixture_of(world, r, "basin").is_some() {
-                    super::HP_PER_SECOND * 2.0 / super::MAX_HP
+                    super::HP_PER_SECOND * BASIN_PACE / super::MAX_HP
                 } else {
                     0.0
                 }
@@ -1309,9 +1309,9 @@ pub fn mending_rate(world: &World, citizen: EntityId) -> f64 {
     {
         return CLOSET_HP_PER_SECOND;
     }
-    // A basin standing in the room: twice the pace.
+    // A basin standing in the room: three times the pace (D27; it was twice).
     if room.is_some_and(|r| super::craft::fixture_of(world, r, "basin").is_some()) {
-        return super::HP_PER_SECOND * 2.0;
+        return super::HP_PER_SECOND * BASIN_PACE;
     }
     super::HP_PER_SECOND
 }
@@ -1439,7 +1439,12 @@ fn drop_miss_said(world: &mut World, actor: &str, citizen: EntityId, rounds: u64
 }
 
 /// R91: a rule said once a session, by key; `true` the first time this session.
-fn first_this_session(world: &mut World, actor: &str, citizen: EntityId, key: &str) -> bool {
+pub(crate) fn first_this_session(
+    world: &mut World,
+    actor: &str,
+    citizen: EntityId,
+    key: &str,
+) -> bool {
     let session = plain_num(world, citizen, super::CITIZEN, "session_at").unwrap_or(0.0);
     let said = plain_num(world, citizen, super::CITIZEN, key).unwrap_or(-1.0);
     if said == session {
@@ -1452,6 +1457,9 @@ fn first_this_session(world: &mut World, actor: &str, citizen: EntityId, key: &s
 }
 
 /// Damage per round at this level.
+/// How much faster a name mends beside a basin (D27: three times; it was twice).
+pub const BASIN_PACE: f64 = 3.0;
+
 pub fn attack_for_level(level: f64) -> f64 {
     BASE_ATTACK + (ATTACK_PER_ROOT_LEVEL * level.max(0.0).sqrt()).floor()
 }
@@ -2208,7 +2216,8 @@ pub fn register(world: &mut World, curves: Curves) {
                 let mut charm_line = String::new();
                 if let Some(charm) = super::craft::carries(w, f.citizen, "charm") {
                     // A second-tier charm (a warden's) gives half again.
-                    vividity = (vividity + if super::past::tier(w, charm) >= 2 { 0.45 } else { 0.3 }).min(1.0);
+                    // D27: half again and more (it was 0.3 and 0.45).
+                    vividity = (vividity + if super::past::tier(w, charm) >= 2 { 0.7 } else { 0.5 }).min(1.0);
                     let uses_left = plain_num(w, charm, super::craft::ITEM, "uses").unwrap_or(1.0);
                     let name = super::craft::spend(w, &ctx.actor, charm, &format!("Made the memory of a {} vivid", plain_str(w, creature, CREATURE, "name").unwrap_or("fight")))?;
                     charm_line = if uses_left > 1.5 {
@@ -2303,6 +2312,18 @@ pub fn register(world: &mut World, curves: Curves) {
                 return Err(CommandError::precondition("You are not fighting anything."));
             };
             let cname = plain_str(w, creature, CREATURE, "name").unwrap_or("?").to_string();
+            // D27: a jar of fog, opened as you turn: no parting blow, and the jar is
+            // spent. (It did nothing before.)
+            if let Some(jar) = super::craft::carries(w, f.citizen, "jar") {
+                let jname = super::craft::spend(w, &ctx.actor, jar, &format!("Covered a retreat from a {cname}"))?;
+                mend(w, creature).map_err(internal)?;
+                set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
+                end_fight(w, f.citizen).map_err(internal)?;
+                return Ok(Outcome::new(
+                    format!("You open {jname} as you turn. The {cname} strikes at where the fog says you are, and you are not there. The jar is spent; you are away with {:.0}/{:.0}.", hp_said(w, f.citizen), super::MAX_HP),
+                    json!({"retreated": true, "jar": true, "taken": 0, "hp": hp(w, f.citizen)}),
+                ));
+            }
             let (taken, dead) = creature_strikes(w, creature, f.citizen).map_err(internal)?;
             mend(w, creature).map_err(internal)?;
             set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
@@ -2417,9 +2438,14 @@ pub fn register(world: &mut World, curves: Curves) {
                         StoreEvent::FieldSet { id: f.citizen, component: BODY.into(), field: "bleed_until".into(), value: json!(0) },
                     )
                     .map_err(internal)?;
+                    // D27: it mends as well as closes: ten hit points at once, a
+                    // surgeon's twenty.
+                    let gives = if super::past::tier(w, bandage) >= 2 { 20.0 } else { 10.0 };
+                    let to = (hp(w, f.citizen) + gives).min(super::MAX_HP);
+                    commit_hp(w, f.citizen, to).map_err(internal)?;
                     recurve_mending(w, f.citizen).map_err(internal)?;
                     bleeding = None;
-                    bandaged = "Your bandage closes the bite, and is spent. ".to_string();
+                    bandaged = format!("Your bandage closes the bite and mends {gives:.0}, and is spent. ");
                 }
             }
             let shaken_line = shaken_said(w, f.citizen).map(|l| format!(" {l}")).unwrap_or_default();

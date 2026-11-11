@@ -370,7 +370,7 @@ lose, or go light.
 Under the Stopped Clocktower (`travel exergue`) are eight rooms, one
 for each coin from the farthing to the sovereign, and every one of
 them reads the economy as it stands tonight (`read` in each): the
-Exergue Stair's dates; the Counting Bar's slate; the Die Room's rack,
+Mint Stair's dates; the Counting Bar's slate; the Die Room's rack,
 which is every chunk in the world grouped by what struck it (the coin of
 the fight, of the story, of the road, of the house, the weighted coin,
 the sovereign); the Striking Floor's plate, the hour's rates; the Assay
@@ -450,11 +450,15 @@ water. `look` says what lies on the ground; `take` it into your
 satchel, where it fades slowly unless it is made into something.
 `recipes` says what can be made of what and for what memory; `craft`
 makes it, spending the materials and a chunk of yours, and the thing
-remembers who made it. A made thing works while carried: a lantern
-keeps the map in your memory twice as long; a moth charm makes your
-next fight's memory more vivid, once; a bandage (rag thread, no chunk)
-takes a bite that would not close as it lands, or closes one on `rest`,
-and is spent. `drop` leaves a thing where you
+remembers who made it (`recipes` also says where each making is
+found). A made thing works while carried, and is worth the memory it
+costs: a lantern keeps the map in your memory three times as long; a
+moth charm makes your next fight's memory much more vivid (half the
+scale, so it lasts hours and not minutes), once; a bandage (rag
+thread, no chunk) takes a bite that would not close as it lands, or
+closes one on `rest` and mends ten hit points besides, and is spent; a
+jar of fog covers a retreat (`retreat` opens it, the parting blow
+misses, the jar is spent). `drop` leaves a thing where you
 stand for whoever comes next. Everything made, taken and dropped is on
 the record.
 
@@ -510,7 +514,7 @@ it); a lamp (a wisp ember and hollow water) lights the room's text so
 it is read whole, undimmed, however faded the room; a bell (a small key
 and rag thread) rings in the rooms next door when someone arrives; a
 basin (hollow water, river weed and grave dust) mends whoever stands in
-the room twice as fast. If your room's text promises a note, a sign or
+the room three times as fast. If your room's text promises a note, a sign or
 a book, the room itself will tell you, when you come home or ask
 `mine`, that `welcome all` and `craft book` make it so; the world's own books (the Ledger of Fines at the Overdue Desk)
 are open to any hand, and its closed ones take none. `look` shows what
@@ -693,8 +697,18 @@ any of it since you were last here.
 `where <name>` says where a named creature, a citizen or a room is, and
 the way there over the rooms you remember (for one of the world's own
 rooms you have not walked, the way the signs say); `where <kind>` (where
-ragpicker) says where that kind lives and the way; `travel <room name>`
-takes the first step of that way and says the rest. `help` lists the
+ragpicker) says where that kind lives and the way; `where <a district>`
+(the Wilds, the Library, the Stacks, the Clock Quarter, the Conclave,
+the Exergue District, the Wistful Trail, the Diggings) is the way to
+its door; one word that several rooms answer to (`where stair`) names
+them all. `travel <room name>` walks the whole of a way you remember or
+the signs give, in one message, each room a room passed through; it
+stops where a door asks a word or a level, where a fight begins, or
+where something has noticed you, and the same line again goes on.
+`out` is the way you came in, through any door. The Threshold, the
+Fogbank, Lantern Row, the Orchard and the Clocktower each have a
+signpost (`read signpost`), and the Lamplighter's Lane runs from
+Lantern Row to the Orchard with nothing hunting on it. `help` lists the
 verbs; `help <verb>` is one with its arguments.
 
 `dig` takes the new exit's name, the chunk that pays, and an optional

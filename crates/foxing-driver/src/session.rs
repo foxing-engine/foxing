@@ -195,7 +195,10 @@ async fn run(socket: WebSocket, s: Shared) {
                             continue;
                         };
                         let kind = if admin { ActorKind::Admin } else { ActorKind::Citizen };
-                        let reply = {
+                        // P7: how long the world took, apart from the wire (the wait
+                        // for the lock and the command itself), on every reply.
+                        let asked = std::time::Instant::now();
+                        let mut reply = {
                             let Ok(mut w) = s.world.lock() else { continue };
                             if command == "observe" {
                                 // A read, not speech: runs outside the gate.
@@ -213,6 +216,7 @@ async fn run(socket: WebSocket, s: Shared) {
                                 v
                             }
                         };
+                        reply["took_ms"] = json!((asked.elapsed().as_secs_f64() * 1000.0 * 10.0).round() / 10.0);
                         let _ = s.changed.send(());
                         send!(reply);
                     }

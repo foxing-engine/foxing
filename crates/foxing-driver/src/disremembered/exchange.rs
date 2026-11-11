@@ -335,6 +335,11 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             if within_hour && !bonus_only && !wanted_early {
                 let word_left = super::secret::would_strike_any(w, &ctx.actor, creature);
+                // D20 b: a refused guess is a miss on the record; the hint below
+                // has already narrowed by it.
+                if word_left {
+                    super::secret::declined(w, &ctx.actor, creature, &text)?;
+                }
                 // R117: a story that carried a word of the pool, and was not it, is
                 // told so by the word, so the guess counts for something.
                 let carried = super::secret::carried_of_pool(w, creature, &text);

@@ -436,6 +436,16 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("prev_session_end", FieldKind::Plain, Visibility::Owner)
             .field("drop_rule_said", FieldKind::Plain, Visibility::Owner)
             .field("cap_rule_said", FieldKind::Plain, Visibility::Owner)
+            // H9: a district's door has said its line this session.
+            .field("edge_mudroom", FieldKind::Plain, Visibility::Owner)
+            .field("edge_fogbank", FieldKind::Plain, Visibility::Owner)
+            .field("edge_lantern_row", FieldKind::Plain, Visibility::Owner)
+            .field("edge_stairwell", FieldKind::Plain, Visibility::Owner)
+            .field("edge_lower_stacks", FieldKind::Plain, Visibility::Owner)
+            .field("edge_orchard", FieldKind::Plain, Visibility::Owner)
+            .field("edge_escapement_stair", FieldKind::Plain, Visibility::Owner)
+            .field("edge_exergue_stair", FieldKind::Plain, Visibility::Owner)
+            .field("edge_trail_stile", FieldKind::Plain, Visibility::Owner)
             .field("vivid_rule_said", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(ACCOUNT, 1).field(
             "passphrase_hash",

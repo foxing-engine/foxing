@@ -174,7 +174,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a lantern",
         of: &["a wisp ember", "rag thread"],
         chunk_at_least: 10.0,
-        does: "keeps the map in your memory twice as long while carried",
+        does: "keeps the map in your memory three times as long while carried",
         uses: 0,
         fixed: false,
         takes_lines: false,
@@ -187,7 +187,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a moth charm",
         of: &["moth dust", "a dab of ink"],
         chunk_at_least: 5.0,
-        does: "makes your next fight's memory more vivid while carried, and is spent by it",
+        does: "makes your next fight's memory much more vivid (half the scale) while carried, so it lasts hours and not minutes, and is spent by it",
         uses: 1,
         fixed: false,
         takes_lines: false,
@@ -200,7 +200,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a bandage",
         of: &["rag thread"],
         chunk_at_least: 0.0,
-        does: "closes a bite that will not close: carried, it takes the bleeding bite as it lands and is spent; `rest` while bleeding uses one",
+        does: "closes a bite that will not close: carried, it takes the bleeding bite as it lands and is spent; `rest` while bleeding uses one and mends ten besides",
         uses: 1,
         fixed: false,
         takes_lines: false,
@@ -213,7 +213,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a poultice",
         of: &["hollow water", "moth dust"],
         chunk_at_least: 0.0,
-        does: "does what a bandage does, once: carried, it takes a bleeding bite as it lands, or closes one on `rest`. Made of what lies about the Threshold, for a name that has not found thread",
+        does: "does what a bandage does, once: carried, it takes a bleeding bite as it lands, or closes one on `rest` and mends ten. Made of what lies about the Threshold, for a name that has not found thread",
         uses: 1,
         fixed: false,
         takes_lines: false,
@@ -226,7 +226,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a jar of fog",
         of: &["hollow water", "river weed"],
         chunk_at_least: 0.0,
-        does: "does nothing yet; it is fog in a jar, and it keeps",
+        does: "covers a retreat: carried, `retreat` opens it and the parting blow misses; the jar is spent",
         uses: 0,
         fixed: false,
         takes_lines: false,
@@ -294,7 +294,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a basin",
         of: &["hollow water", "river weed", "grave dust"],
         chunk_at_least: 40.0,
-        does: "stands in a room of yours: whoever rests there mends twice as fast, and it fades unless remembered",
+        does: "stands in a room of yours: whoever rests there mends three times as fast, and it fades unless remembered",
         uses: 0,
         fixed: true,
         takes_lines: false,
@@ -309,7 +309,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a night lantern",
         of: &["a wisp ember", "a censor's lens", "rag thread"],
         chunk_at_least: 30.0,
-        does: "keeps the map in your memory three times as long while carried, and has a past",
+        does: "keeps the map in your memory five times as long while carried, and has a past",
         uses: 0,
         fixed: false,
         takes_lines: false,
@@ -322,7 +322,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a warden's charm",
         of: &["a warden's key", "moth dust"],
         chunk_at_least: 60.0,
-        does: "makes your next three fights' memories more vivid while carried, one each, and has a past",
+        does: "makes your next three fights' memories far more vivid (seven tenths of the scale) while carried, one each, and has a past",
         uses: 3,
         fixed: false,
         takes_lines: false,
@@ -335,7 +335,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a surgeon's bandage",
         of: &["a lamprey's tooth", "rag thread", "rag thread"],
         chunk_at_least: 30.0,
-        does: "closes a bite that will not close, twice, and has a past",
+        does: "closes a bite that will not close, twice, mending twenty each time on `rest`, and has a past",
         uses: 2,
         fixed: false,
         takes_lines: false,
@@ -348,7 +348,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a jar of clipped silver",
         of: &["a clipped sliver", "a pinch of coin sweat", "hollow water"],
         chunk_at_least: 20.0,
-        does: "does nothing but keep, and keeps a past; it is what the Exergue leaves, in a jar",
+        does: "covers a retreat as a jar of fog does, and keeps a past; it is what the Exergue leaves, in a jar",
         uses: 0,
         fixed: false,
         takes_lines: false,
@@ -397,6 +397,9 @@ impl From<&Recipe> for Rx {
 /// Recipes a kept name added (`recipe`): kept on the world's `recipes` entity as
 /// `{key, name, of, does, by, at}`. A thing made from one does nothing but keep, and
 /// keeps a past; what it is made of is what a creature leaves. Three a name.
+/// D27 a: where the materials are, said with the recipes (a maker of 11-10 never
+/// found rag thread, which the Midden gives to the hand).
+pub const FOUND: &str = "Where the makings are (`gather` takes one from a room that has it, once an hour; a felled creature may leave one): rag thread, the Midden (and its ragpickers); a wisp ember, Lantern Row (and the Fogbank's wisps); hollow water, the Fogbank, the Shallows and the Undertow; moth dust, the Orchard and the Stile (and the mothwings); river weed, the Cistern (and its drowned); a dab of ink, the Unfiled Archive; grave dust, the Ossuary (and its revenants); a sitter's patience, the Gallery's sitters; a small key, the Oubliette's keepers. The second tier's makings are left only in the Stacks and the Exergue District.";
 pub const RECIPES_COMPONENT: &str = "disremembered.recipes";
 pub const RECIPES_PER_NAME: usize = 3;
 pub const ADDED_CHUNK_AT_LEAST: f64 = 20.0;
@@ -2040,8 +2043,8 @@ pub fn register(world: &mut World, curves: Curves) {
                 list.push(json!({"recipe": r.key, "name": r.name, "of": r.of, "chunk_at_least": asks, "vividity_at_least": r.vividity_at_least, "tier": r.tier, "does": r.does, "uses": r.uses, "fixed": r.fixed, "by": r.by, "could_make": can, "missing": missing}));
             }
             Ok(Outcome::new(
-                format!("What can be made (craft <recipe> [<chunk>]; a kept name adds one with recipe):\n{}", lines.join("\n")),
-                json!({"recipes": list}),
+                format!("What can be made (craft <recipe> [<chunk>]; a kept name adds one with recipe):\n{}\n{FOUND}", lines.join("\n")),
+                json!({"recipes": list, "found": FOUND}),
             ))
         }),
     );
@@ -2081,7 +2084,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let r = add_recipe(w, &ctx.actor, &name, &of, &does)?;
             w.notice(format!("**{}** wrote a recipe: {} (of {}).", ctx.actor, r.name, r.of.join(" and ")));
             let effect_said = match r.effect.as_str() {
-                "lantern" => " It will light: the map keeps twice as long in the hand that carries it.",
+                "lantern" => " It will light: the map keeps three times as long in the hand that carries it.",
                 "bandage" => " It will mend: one bite closed, once, and it is spent.",
                 "charm" => " It will charm: the next fight's memory more vivid, once, and it is spent.",
                 _ => "",

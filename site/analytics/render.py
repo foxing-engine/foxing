@@ -195,6 +195,39 @@ def citizen_rows(cz: list[dict], days: int) -> list[list]:
     return rows
 
 
+def perf_rows(db, since: str) -> list[list]:
+    """P7: the play page's own figures, a row a day, lab apart from the rest.
+
+    Each report is one player's last twenty commands; the day's figure is the median
+    of the reports' medians (and of their 95th percentiles), so one slow visitor does
+    not set it.
+    """
+    if not has_table(db, "perf"):
+        return []
+    by: dict = {}
+    for day, ip, n, rt50, rt95, rtmax, srv, fps, frame, ws in q(
+        db, "SELECT day, ip, n, rt50, rt95, rtmax, srv, fps, frame, ws FROM perf WHERE day >= ? ORDER BY day DESC", (since,)
+    ):
+        by.setdefault((day, "lab" if is_lab(ip) else "organic"), []).append((ip, n, rt50, rt95, rtmax, srv, fps, frame, ws))
+
+    def med(vals):
+        vals = sorted(v for v in vals if v is not None)
+        return vals[len(vals) // 2] if vals else None
+
+    def show(v, unit=""):
+        return "" if v is None else f"{v:.0f}{unit}" if v >= 10 else f"{v:.1f}{unit}"
+
+    rows = []
+    for (day, who), rs in sorted(by.items(), key=lambda kv: (kv[0][0], kv[0][1]), reverse=True):
+        rows.append([
+            day, who, len({r[0] for r in rs}), sum(r[1] for r in rs),
+            show(med(r[2] for r in rs), " ms"), show(med(r[3] for r in rs), " ms"), show(max(r[4] for r in rs), " ms"),
+            show(med(r[5] for r in rs), " ms"), show(med(r[6] for r in rs)), show(med(r[7] for r in rs), " ms"),
+            f"{100 * sum(1 for r in rs if r[8]) // len(rs)}%",
+        ])
+    return rows
+
+
 def report(db: sqlite3.Connection, days: int) -> dict:
     since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
     w = "WHERE day >= ? AND status < 300"  # redirects (http->https) are not visits
@@ -207,6 +240,7 @@ def report(db: sqlite3.Connection, days: int) -> dict:
     out["referers"] = q(db, f"SELECT referer_host, COUNT(*) FROM requests {w} AND referer_host != '' AND referer_host NOT IN ('agentscanplay.com','www.agentscanplay.com','foxing.dev','www.foxing.dev','moondial.ai','www.moondial.ai') GROUP BY referer_host ORDER BY 2 DESC LIMIT 25", (since,))
     out["daily"] = q(db, f"SELECT day, host, COUNT(*), COUNT(DISTINCT visitor) FROM requests {w} GROUP BY day, host ORDER BY day DESC, host", (since,))
     out["errors"] = q(db, "SELECT host, path, status, COUNT(*) FROM requests WHERE day >= ? AND status >= 400 GROUP BY host, path, status ORDER BY 4 DESC LIMIT 20", (since,))
+    out["perf"] = perf_rows(db, since)
     cz, why = citizens(days)
     out["citizens"] = citizen_rows(cz, days)
     out["citizens_note"] = why
@@ -253,6 +287,9 @@ def text(r: dict) -> str:
     lines.append("\nNetworks (address, lab, first seen, last seen, requests, mcp, cloaks, gates, names, classes, hosts)")
     for row in r["networks"]:
         lines.append("  " + "  ".join(str(c) for c in row))
+    lines.append("\nPlay page performance (day, lab/organic, addresses, commands, round trip median, 95th, worst, world's share, frames a second, frame cost, on the socket)")
+    for row in r.get("perf", []):
+        lines.append("  " + "  ".join(str(c) for c in row))
     lines.append("\nCitizens (name, new, first door, first seen, last seen, arrivals, doors, messages, written, pass, via, rooms dug)")
     if r["citizens_note"]:
         lines.append(f"  {r['citizens_note']}")
@@ -277,6 +314,9 @@ def page(r: dict) -> str:
         ("The door, per day", table(["day", "", "initialized", "cloaked", "checked", "gate", "names arrived"], r["funnel"])),
         ("Networks: every address in the window", table(
             ["address", "", "first seen", "last seen", "requests", "mcp calls", "cloaks", "gates", "names taken", "classes", "hosts"], r["networks"])),
+        ("Play page performance: what a player at the keyboard waited", table(
+            ["day", "", "addresses", "commands", "round trip (median)", "95th", "worst", "world's share", "frames/s", "frame cost", "on the socket"], r.get("perf", []))
+            + "<p class=\"sub\">Each report is a player's last twenty commands, sent by the play page itself; the round trip is from Enter to the reply, and the world's share is how long the driver held it. `?perf=1` on the play page shows the same live.</p>"),
         ("Citizens: who came, by what door, and what they did", cz_note + table(
             ["name", "", "first door", "first seen", "last seen", "arrivals", "doors", "messages", "written", "pass", "via", "rooms dug"], r["citizens"])),
         ("Totals", table(["host", "requests", "unique visitors"], r["totals"])),

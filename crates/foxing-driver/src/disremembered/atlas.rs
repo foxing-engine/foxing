@@ -244,7 +244,22 @@ fn layout_uncached(world: &World, prev: Option<&Layout>) -> Layout {
                     }
                     let (want, kind) = match step(name) {
                         Some((dx, dy, dz)) => ((hx + dx, hy + dy, hz + dz), "compass"),
-                        None if pass == 1 => ((hx + 1, hy, hz), "beside"),
+                        // H15: a named door's room goes on the far side of the room
+                        // it opens from (away from the way that room was reached),
+                        // so the Mudroom's dug rooms gather west of it and not
+                        // wherever east had a gap.
+                        None if pass == 1 => {
+                            let (dx, dy) = out
+                                .rooms
+                                .iter()
+                                .find(|p| p.id == here)
+                                .and_then(|p| p.from.as_ref())
+                                .and_then(|(g, _)| at.get(g))
+                                .map(|&(gx, gy, _)| ((hx - gx).signum(), (hy - gy).signum()))
+                                .filter(|d| *d != (0, 0))
+                                .unwrap_or((1, 0));
+                            ((hx + dx, hy + dy, hz), "beside")
+                        }
                         None => continue,
                     };
                     let pos = nearest_free(&taken, want.0, want.1, want.2);
@@ -442,8 +457,8 @@ pub fn remembered_map(
     })?;
     // A lantern carried: the map stays twice as long; a night lantern, three times.
     let half_life_ms = match super::craft::carries(world, f.citizen, "lantern") {
-        Some(l) if super::past::tier(world, l) >= 2 => half_life_ms * 3.0,
-        Some(_) => half_life_ms * 2.0,
+        Some(l) if super::past::tier(world, l) >= 2 => half_life_ms * 5.0,
+        Some(_) => half_life_ms * 3.0,
         None => half_life_ms,
     };
     let here = rooms::room_of(world, f.citizen);
@@ -477,6 +492,8 @@ pub fn remembered_map(
             "here": Some(p.id) == here,
             "visible": is_visible,
             "dug_by": p.owner,
+            // H9: the part of the map it belongs to.
+            "district": rooms::district_of(world, p.id).map(|d| d.name),
             // R80: who stands there now (the board's names drawn on the atlas).
             "who": world
                 .store
@@ -555,14 +572,38 @@ pub fn remembered_map(
     if clear.is_empty() && dim.is_empty() {
         summary.push_str(" Beyond what you can see, the map is blank: you remember no other room.");
     } else {
-        if !clear.is_empty() {
-            let mut clear = clear.clone();
-            clear.sort();
-            summary.push_str(&format!(" You remember the way to {}.", clear.join(", ")));
+        // H9, H15: every room on your map, by district, the rooms in sight too (the
+        // Mudroom, one door away, was once left off the list); a dim one says so.
+        let mut by_district: Vec<(usize, &str, Vec<String>)> = Vec::new();
+        for r in &shown {
+            if r["here"] == true {
+                continue;
+            }
+            let d = r["district"].as_str().unwrap_or("off the map");
+            let order = rooms::DISTRICTS
+                .iter()
+                .position(|x| x.name == d)
+                .unwrap_or(99);
+            let name = r["name"].as_str().unwrap_or("?").trim_start_matches("The ");
+            let said = if r["visible"] != true && r["memory"].as_f64().unwrap_or(1.0) < 0.5 {
+                format!("{name} (dim)")
+            } else {
+                name.to_string()
+            };
+            match by_district.iter_mut().find(|(_, n, _)| *n == d) {
+                Some((_, _, v)) => v.push(said),
+                None => by_district.push((order, d, vec![said])),
+            }
         }
-        if !dim.is_empty() {
-            summary.push_str(&format!(" Half-remembered: {}.", dim.join(", ")));
-        }
+        by_district.sort_by_key(|(o, _, _)| *o);
+        let parts: Vec<String> = by_district
+            .into_iter()
+            .map(|(_, d, mut v)| {
+                v.sort();
+                format!("{d}: {}", v.join(", "))
+            })
+            .collect();
+        summary.push_str(&format!(" On your map, by district: {}.", parts.join("; ")));
     }
     let hours = half_life_ms / 3_600_000.0;
     summary.push_str(&format!(
@@ -707,6 +748,35 @@ pub fn remembered_map(
                         next_door.join("; ")
                     ));
                 }
+                // H15: the other floors you remember, each as its own block.
+                let mut floors: BTreeMap<i64, Vec<&str>> = BTreeMap::new();
+                for r in &shown {
+                    if let (Some(rz), Some(n)) = (r["z"].as_i64(), r["name"].as_str()) {
+                        if rz != z && rz > -1000 {
+                            floors
+                                .entry(rz - z)
+                                .or_default()
+                                .push(n.trim_start_matches("The "));
+                        }
+                    }
+                }
+                if !floors.is_empty() {
+                    let said: Vec<String> = floors
+                        .iter()
+                        .rev()
+                        .map(|(dz, names)| {
+                            let n = dz.abs();
+                            format!(
+                                "{} floor{} {}: {}",
+                                n,
+                                if n == 1 { "" } else { "s" },
+                                if *dz > 0 { "up" } else { "down" },
+                                names.join(", ")
+                            )
+                        })
+                        .collect();
+                    summary.push_str(&format!("\nOther floors: {}.", said.join("; ")));
+                }
             }
         }
     }
@@ -723,8 +793,8 @@ pub fn remembered_map(
 /// FORGOTTEN on the map's half-life) and what they can see from where they stand.
 fn known_rooms(world: &World, citizen: EntityId, half_life_ms: f64) -> HashSet<EntityId> {
     let half_life_ms = match super::craft::carries(world, citizen, "lantern") {
-        Some(l) if super::past::tier(world, l) >= 2 => half_life_ms * 3.0,
-        Some(_) => half_life_ms * 2.0,
+        Some(l) if super::past::tier(world, l) >= 2 => half_life_ms * 5.0,
+        Some(_) => half_life_ms * 3.0,
         None => half_life_ms,
     };
     let now = world.now().0;
@@ -872,6 +942,27 @@ pub fn room_named(world: &World, text: &str) -> Option<EntityId> {
     by_word.next().is_none().then_some(first.id)
 }
 
+/// Every room with `text` as a word of its name (H16: `where stair` names them all).
+pub fn rooms_matching(world: &World, text: &str) -> Vec<EntityId> {
+    let want = loose(text);
+    if want.is_empty() {
+        return Vec::new();
+    }
+    let mut v: Vec<EntityId> = world
+        .store
+        .entities()
+        .filter(|e| e.kind == "room")
+        .filter(|e| !super::plain_bool(world, e.id, ROOM, "hidden"))
+        .filter(|e| {
+            let name = loose(plain_str(world, e.id, ROOM, "name").unwrap_or_default());
+            name.split(' ').any(|w| w == want)
+        })
+        .map(|e| e.id)
+        .collect();
+    v.sort_by_key(|e| e.0);
+    v
+}
+
 /// A room name with its punctuation and small words gone, lowercased.
 fn loose(text: &str) -> String {
     const SMALL: &[&str] = &["the", "a", "an", "of", "to", "and", "in", "at", "on"];
@@ -952,6 +1043,16 @@ pub fn register(world: &mut World, curves: Curves) {
                     ));
                 }
                 (spelled, rooms::room_of(w, cz.citizen))
+            } else if let Some(d) = rooms::district_named(&who).filter(|_| {
+                // H9: a district by name, unless a room has exactly that name.
+                let want = loose(&who);
+                !w.store.entities().any(|e| e.kind == "room" && loose(plain_str(w, e.id, ROOM, "name").unwrap_or_default()) == want)
+            }) {
+                let mut name = d.name.trim_start_matches("the ").to_string();
+                if let Some(c) = name.get_mut(0..1) {
+                    c.make_ascii_uppercase();
+                }
+                (format!("The door of the {name} ({} of the world's rooms: {})", rooms::district_size(d), if d.blurb.is_empty() { "where everyone arrives" } else { d.blurb }), rooms::room_by_key(w, d.entry))
             } else if let Some(r) = room_named(w, &who) {
                 (plain_str(w, r, ROOM, "name").unwrap_or("?").to_string(), Some(r))
             } else if !rooms::homes_of(who.trim().trim_start_matches("the ").trim_end_matches('s')).is_empty() || !rooms::homes_of(who.trim().trim_start_matches("the ")).is_empty() {
@@ -1015,6 +1116,25 @@ pub fn register(world: &mut World, curves: Curves) {
                     None => String::new(),
                 };
                 (said, Some(r))
+            } else if rooms_matching(w, &who).len() > 1 {
+                // H16: one word that several rooms answer to: each, with its way.
+                let said: Vec<String> = rooms_matching(w, &who)
+                    .into_iter()
+                    .take(6)
+                    .map(|r| {
+                        let name = plain_str(w, r, ROOM, "name").unwrap_or("?").to_string();
+                        let p = way(w, f.citizen, here, r, hl).or_else(|| if w.store.entity(r).is_some_and(|e| e.owner.is_none()) { way_seeded(w, here, r) } else { None });
+                        match p {
+                            Some(p) if p.is_empty() => format!("{name} (here)"),
+                            Some(p) => format!("{name} ({})", p.join(", ")),
+                            None => format!("{name} (no way you remember)"),
+                        }
+                    })
+                    .collect();
+                return Ok(Outcome::new(
+                    format!("More than one room answers to {who}: {}. Say more of the name to pick one.", said.join("; ")),
+                    json!({"who": who, "matches": said}),
+                ));
             } else {
                 return Err(CommandError::precondition(format!(
                     "Nothing called {who} that you could go to: a creature's given name, a citizen in the world now, a room's name (or one word of it), a kind of creature (where ragpicker), or one of the world's own books."

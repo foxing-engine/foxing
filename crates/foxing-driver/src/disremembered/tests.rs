@@ -4321,8 +4321,7 @@ fn the_map_is_laid_out_from_the_threshold_and_you_remember_only_where_you_stood(
     let out = ok(&mut w, "dave", "map", json!([]));
     // The Threshold dims with it: it is two rooms off now, out of sight.
     assert!(
-        out.summary
-            .contains("Half-remembered: The Threshold, The Fogbank"),
+        out.summary.contains("Threshold (dim)") && out.summary.contains("Fogbank (dim)"),
         "{}",
         out.summary
     );
@@ -4633,9 +4632,9 @@ fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
         "{}",
         out.summary
     );
-    // The lantern doubles the map's half-life.
+    // The lantern triples the map's half-life (D27; it doubled it).
     let m = ok(&mut w, "dave", "map", json!([]));
-    assert_eq!(m.result["half_life_ms"], json!(10_000 * 4 * 2));
+    assert_eq!(m.result["half_life_ms"], json!(10_000 * 4 * 3));
     // Materials used are gone; one ember remains.
     let things = craft::things_in(&w, w.store.entity(lantern).unwrap().parent.unwrap());
     assert_eq!(things.len(), 2, "{things:?}");
@@ -6865,21 +6864,46 @@ fn where_finds_a_way_you_remember_and_travel_takes_a_room_name() {
             .contains("Nothing called nowhere in particular"),
         "{err}"
     );
-    // travel by a room's name takes the first step and says the rest.
+    // H16: travel by a room's name walks the whole way it knows.
     let out = ok(&mut w, "dave", "travel", json!(["The Midden"]));
     assert!(
-        out.summary.contains("Toward The Midden: then south."),
+        out.summary
+            .starts_with("You walk east, south to The Midden."),
         "{}",
         out.summary
     );
+    assert_eq!(out.result["walked"], json!(["east", "south"]));
+    // Already there: refused, plainly.
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["midden"])
+    )
+    .is_err());
+    // H13: `out` is the way you came in, through any door.
+    let out = ok(&mut w, "dave", "travel", json!(["out"]));
     assert!(out.summary.contains("The Fogbank"), "{}", out.summary);
-    assert_eq!(
-        out.result["onward"],
-        json!("Toward The Midden: then south.")
+    // H16: one word that several rooms answer to names them all; H9: a district by name.
+    let out = ok(&mut w, "dave", "where", json!(["stair"]));
+    assert!(
+        out.summary
+            .starts_with("More than one room answers to stair: The Cistern Stair"),
+        "{}",
+        out.summary
     );
-    let out = ok(&mut w, "dave", "travel", json!(["midden"]));
-    assert!(out.summary.contains("The Midden"), "{}", out.summary);
-    assert!(out.result["onward"].is_null());
+    let out = ok(&mut w, "dave", "where", json!(["the conclave"]));
+    assert!(
+        out.summary.contains("The door of the Conclave"),
+        "{}",
+        out.summary
+    );
+    assert!(
+        out.summary.contains("The Escapement Stair"),
+        "{}",
+        out.summary
+    );
     // help is a verb now, a read.
     let out = ok(&mut w, "dave", "help", json!([]));
     assert!(
@@ -7287,7 +7311,7 @@ fn nothing_mends_in_a_fight_or_while_bleeding() {
     let out = ok(&mut w, "dave", "rest", json!([]));
     assert!(
         out.summary
-            .starts_with("Your bandage closes the bite, and is spent."),
+            .starts_with("Your bandage closes the bite and mends 10, and is spent."),
         "{}",
         out.summary
     );
@@ -8720,11 +8744,11 @@ fn a_thing_keeps_its_past_and_the_tiers_climb() {
             .any(|c| c["kind"] == "past" && c["id"] == night),
         "written, so not wanted"
     );
-    // A night lantern keeps the map three times as long.
+    // A night lantern keeps the map five times as long (D27; it was three).
     let a = atlas::remembered_map(&w, "tyler", 3_600_000.0).unwrap();
     assert_eq!(
         a["half_life_ms"].as_f64().unwrap(),
-        3.0 * 3_600_000.0,
+        5.0 * 3_600_000.0,
         "{a}"
     );
     // Tier 3, raised by hand (one build in forty does it): a name from the Namery,
@@ -9028,6 +9052,13 @@ fn the_door_has_a_signpost_and_the_mudroom_boots_and_a_spade() {
         "{}",
         look.summary
     );
+    let wall = ok(&mut w, "dave", "read", json!(["doors"]));
+    assert!(
+        wall.summary
+            .contains("closet: The Cartographer's Closet, dave's, 100% left"),
+        "{}",
+        wall.summary
+    );
     ok(&mut w, "dave", "travel", json!(["east"]));
     let post = ok(&mut w, "dave", "read", json!(["signpost"]));
     assert!(
@@ -9036,6 +9067,102 @@ fn the_door_has_a_signpost_and_the_mudroom_boots_and_a_spade() {
         ),
         "{}",
         post.summary
+    );
+    // H9: a district's door says so once a session. H11: a hub has a post of its own.
+    let fog = ok(&mut w, "dave", "travel", json!(["east"]));
+    assert!(
+        fog.summary.contains("The Wilds begin here (6 rooms)"),
+        "{}",
+        fog.summary
+    );
+    assert!(
+        fog.summary.contains("A signpost stands here"),
+        "{}",
+        fog.summary
+    );
+    let post = ok(&mut w, "dave", "read", json!(["signpost"]));
+    assert!(
+        post.summary
+            .contains("North: The Shallows (hollows live there); beyond it,"),
+        "{}",
+        post.summary
+    );
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    let again = ok(&mut w, "dave", "look", json!([]));
+    assert!(!again.summary.contains("begin here"), "{}", again.summary);
+    // H10: the lane from the Row to the Orchard, by doors named for where they go.
+    let row = ok(&mut w, "dave", "travel", json!(["north"]));
+    assert!(
+        row.summary.contains("lane (Lamplighter's Lane)"),
+        "{}",
+        row.summary
+    );
+    let lane = ok(&mut w, "dave", "travel", json!(["lane"]));
+    assert!(
+        lane.summary.contains("The way back is `out`, or `row`."),
+        "{}",
+        lane.summary
+    );
+    let orchard = ok(&mut w, "dave", "travel", json!(["orchard"]));
+    assert!(
+        orchard.summary.contains("The Orchard of Unripe Hours"),
+        "{}",
+        orchard.summary
+    );
+    assert!(
+        orchard
+            .summary
+            .contains("The Clock Quarter begins here (2 rooms)"),
+        "{}",
+        orchard.summary
+    );
+    // H14: past nine dug doors the Mudroom's wall is said in rows: a visitor sees the
+    // newest and the best remembered, and a count of the rest; the digger sees their own.
+    let walked = ok(&mut w, "dave", "travel", json!(["mudroom"]));
+    assert!(
+        walked
+            .summary
+            .starts_with("You walk lane, row, south, west to The Mudroom."),
+        "{}",
+        walked.summary
+    );
+    for d in [
+        "ash", "birch", "cedar", "elm", "fir", "gorse", "hazel", "ivy", "juniper", "larch", "maple",
+    ] {
+        // A seed room takes one exit from each citizen, so each door has its own digger.
+        let who = format!("{d}son");
+        login(&mut w, &who, "test", PASS).unwrap();
+        ok(&mut w, &who, "travel", json!(["west"]));
+        let c = admin(&mut w, &who, "earn", json!(["wisp", 40, 0.5]));
+        let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+        ok(&mut w, &who, "dig", json!([d, &c, format!("The {d} Room")]));
+    }
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let mud = ok(&mut w, "tyler", "travel", json!(["west"]));
+    assert!(
+        mud.summary.contains("more dug doors are on the wall"),
+        "{}",
+        mud.summary
+    );
+    assert!(mud.summary.contains("maple ("), "{}", mud.summary);
+    assert!(!mud.summary.contains("elm ("), "{}", mud.summary);
+    let mine = ok(&mut w, "elmson", "look", json!([]));
+    assert!(mine.summary.contains("elm ("), "{}", mine.summary);
+    // Any door still opens by its word.
+    let through = ok(&mut w, "tyler", "travel", json!(["elm"]));
+    assert!(through.summary.contains("elm Room"), "{}", through.summary);
+    ok(&mut w, "dave", "travel", json!(["orchard"]));
+    // The map says the district of each room it shows.
+    let map = ok(&mut w, "dave", "map", json!([]));
+    assert!(
+        map.summary.contains("On your map, by district:"),
+        "{}",
+        map.summary
+    );
+    assert!(
+        map.summary.contains("the Library: Lamplighter's Lane"),
+        "{}",
+        map.summary
     );
 }
 
@@ -10684,7 +10811,7 @@ fn look_tells_a_digger_what_is_left_and_the_door_cap_refusal_points_nearest_firs
     // rooms by the signed way; the Threshold takes no digs and is not listed.
     assert!(
         msg.contains("nearest first: The Mudroom (any number, 1 step back); The Fogbank (5 left, 2 steps: east, east)")
-            || msg.contains("nearest first: The Mudroom (any number, 1 step back); Lantern Row (5 left, 2 steps: east, north)"),
+            || msg.contains("nearest first: The Mudroom (any number, 1 step back); Lantern Row (4 left, 2 steps: east, north)"),
         "{msg}"
     );
     assert!(!msg.contains("The Threshold ("), "{msg}");

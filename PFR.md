@@ -18,15 +18,11 @@ went by policy, with ids.
 
 ## Decisions (D): one letter each; **waits** means yours, the rest go by policy
 
-The gate and the hour (from the Watch of 11-06)
-- **D20 · A refused guess and the hint.** The hint narrows on heard misses only; four guesses refused inside the hour narrowed nothing (batch F puts the hint in the refusal). a) **lean**: as now. b) a refused in-hour guess counts as a miss (narrows the lent-word pool to five after two refusals). The Watch of 11-07 (Gnatterwick) climbed two rungs in two minutes and stalled on the third for the same reason, and asked for b, with the declined word struck from the shown pool. The Watch of 11-08 (Gnatterbell) asked a third time; R117 (batch T) has the refusal name the pool words the story carried as not it, which is what a refusal can say without a record of itself; b (a refused guess on the record, the pool narrowing) still waits on a.
-
 The library's floors (from the Watch of 11-07)
 - **D21 b · A second spawn per room** (M; open for a word). `SPAWN` takes a list, and bookworms are seeded in the Unfiled Archive beside the inklings, silverfish in the Cistern (a was shipped 11-08: the four stay below the stair).
 
 From the Watch of 11-10 (six on a local copy of batch U; see T10)
 - **D26 · A talker's first move.** On a fresh world no creature had a name for the first twenty minutes, so the storyteller (Gnimblequill) had to fight wisps and feed one to sixty before it could tell a story; `start` still said "a story to any named creature is welcome". The pilots at the door (D14) were not there on a fresh boot. a) **lean**: the pilots are named at boot, not on the Docent's first round, and `start`/`chunks` say who they are and the way; b) as is, and `start` says "none has a name just now; feed one to sixty". S for a if the pilots' job only needs to run at boot. Check first whether the live world ever has the same gap (after a reset it would).
-- **D27 · Making spends what you fight with.** The crafter (Gnuthatch) put every chunk into a poultice and a lamp, stood at level 0 and attack 2, and could not win the fight a third thing needed; rag thread (the lantern, the bandage, the bell) was only on the Midden's ragpickers, which it never found. a) **lean**: `recipes` says where each material is found ("rag thread: the Midden's ragpickers, south of the Fogbank"); b) a) and a strand of rag thread lying in the Mudroom each day; c) as is: making is a spend, and that is the game. S for a. **Waits** for a word on b.
 - **D28 · A read that is an arrival.** The builder (Gnarrowby) reports that a free `observe` under its name after `leave` logged "Gnarrowby arrived via mcp" and reset the waterline of its room's memory, so a room cannot be watched fading without refreshing it. Not reproduced by Claude; if true on the live world it also means a script polling `observe` keeps its rooms whole for nothing. a) **lean**: confirm, then a read never marks presence or refreshes a room (only a gate message does); b) as is. M. **Waits**: it changes what keeps a room.
 
 From the live Watch of 11-10 (four on the live world, by David's word; see T11)
@@ -71,7 +67,7 @@ Each is designed and needs no decision. Say `R<n> hold` to keep one back.
 Away from Moondial and Entropic (the engine's and the game's old names): done in the
 tree 11-06 (R16–R20); the box's half is Y1. The `MOONDIAL_*` fallbacks in the driver
 and the tools go in a release after Y1 has run.
-- **R26** (M; was B6, pulled 11-04) Unreproduced: a `travel <room name>` walk that stops short; "You again" on `leave` (rare); `board` at ~4 s.
+- **R26** (M; was B6, pulled 11-04) Unreproduced: "You again" on `leave` (rare); `board` at ~4 s. (The named walk that stopped short is H16's walk now, batch X.)
 Left from batch E:
 - **R76b** (M) An Under-Docent at the Stacks' stair: a second figure for the Lower Stacks.
 - **R10b** (S) The "five times slower" measured 1.6x: the shelf is a power law (half in 5x at first, a quarter at 15x), so an interval measure reads lower; the line now says so. Still to check: per-chunk half-lives after a strike (none should move: a strike makes a new chunk).
@@ -95,11 +91,10 @@ From the live Watch of 11-10 (four on the live world):
 - **R182** (S) "It holds 60 now." and then `name` refused: "a lantern holds 60; a name is written in memory, and it takes 60": the holding had faded under sixty between the lines and both print it rounded. Say the figure to a place when it is within one of the bar ("holds 59.8").
 - **R183** (S) A creature listed "not itself yet" (felled, getting up) reads as a target in `look` while `attack` says "Nothing unnamed is here to fight (the wisp is not itself for 49s…)": the row should say "not to be fought for 49s".
 - **R184** (S) Ten `attack` statements into an empty room return ten identical refusals, and the "drift in within about 42s" countdown is only seen by spending a message: after the first refusal in a message, the rest are said once ("and 9 more the same"); a held `attack` that waits for the next arrival is R174's cousin (M, a word first).
-- **R185** (S) `where stair` is refused though the help says "a room's name (or one word of it)"; `where Downward Stair` works. And the Lower Stacks' door is not the Downward Stair (R172): one word of a room's name should find it, and say both when two match.
 - **R186** (S) The quickstart says a shaken name's strikes land "one in four"; `rest` says "3 strikes in 10 land". One figure.
 - **R187** (S) `chunks` prints a value over its own first size ("10.23 of 10.2", "23.62 of 23.6"): the "of" is rounded to a place and the value to two; and creatures listed "holding 0" paid 20 to 30 XP a kill (bookworms), so the row's holding does not say what a kill is worth: say what it is worth.
 - **R188** (S) "Parrish, a warden's charm (item-5844, awake…)" on the ground reads as a person: "a warden's charm that answers to Parrish".
-- **R189** (S) `session` counts "1 line written" after a `describe` and an `append`, and "1 said" where nothing was said aloud (the story); `map`'s list of remembered ways leaves out the Mudroom while the grid has it, and draws a dug room far from the room its one door opens on.
+- **R189** (S) `session` counts "1 line written" after a `describe` and an `append`, and "1 said" where nothing was said aloud (the story). (The map half closed with H15, batch X.)
 - **R190** (S) Short, a room of your own says "Yours: 100% remembered" on arrival (batch V) the same after four seconds or four hours: say what the absence did ("it had faded to 97%; you bring it back whole"). The builder's one ask.
 - **R191** (S) `observe` with no argument fails the whole message at a quarter ("'observe' needs 1 argument (query)") and `help observe` shows no example; a `describe` aimed at a room that is not yours should be refused in a line that says whose it is.
 - R158 (a creature asked what it wants answers the stock line) was hit by all four creatures the storyteller asked: confirmed live, and the storyteller's one ask.
@@ -124,11 +119,9 @@ From the Night's Watch of 11-10 (on a local copy of batch U; the obvious fixes a
 - **R167** (S) The room text after a memory is fed to a dug room says "Kept in memory by Gnarrowby (with wisp, telling Loam a story): the memory of a creature of theirs, fed to it": the clause is the creature's, said of a room.
 - **R168** (S) "The fog gives up shapes: 2 wisps" with one wisp in `look` (a named one beside it was counted, or one had gone): count what arrives.
 - **R169** (S) A wisp drifts in at "0.3/8.3": a wounded one that left comes back unmended and reads as a new spawn; say "comes back, still hurt", or mend it away.
-- **R170** (S) The map of a floor reached by two stairs draws two rooms five cells apart on one row ("05· . . . . . . 45@") with nothing between; and its list says "Lantern Row" beside "The Assay Office" (the article kept on some names only).
+- **R170** (S) The map of a floor reached by two stairs draws two rooms five cells apart on one row ("05· . . . . . . 45@") with nothing between: H15 (batch X) gave the list an "Other floors" line and put a named door's room on the far side of its parent, but the grid of such a floor is not yet checked by a Watch. The list still says "Lantern Row" beside "The Assay Office" (the article kept on some names only).
 - **R171** (S) The Lookout says "the nine rooms from the Stile up" and the walker counted eight; the Long Afternoon's "(8 off)" is unexplained.
-- **R172** (S) The Archive's refusal says "The stair down asks a level of 100" of an exit called "down (Lower Stacks)" while the Downward Stair is another room that lets a level 0 in: name the door it is.
 - **R173** (S) A thing that lay in a room and is gone on the next short arrival leaves no line ("as you left it" over a room missing its charm): short, a room says what has changed since ("Charmkin is gone").
-- **R174** (S) `travel <room name>` goes one step and says the rest ("Toward The Mudroom: then south, west, west"): through the gate, where a wait costs a message, a named walk could take every step it remembers (R26 is the same walk stopping short).
 - **R175** (S) `messages` counts the Docent's welcome again on every read ("the last N of N"); `read` with no thing means the room's page in the Conclave's rooms and "Nothing here has writing on it" in the Bar: one meaning, said in `help read`.
 - **R176** (S) The budget's arithmetic is not sayable from the replies (a message of six with one refused cost 2.0; a free read after arrival left 58.75): the reply says what this message cost and why.
 
@@ -148,80 +141,22 @@ Your project (11-05): "an awesome front door for players". Asked in chat as T1�
 night (the cohort T's below are another list); kept here as H. Each later step is
 yours to call: say `H5 go`, or `H5 brief` for a design first.
 
-H4, H6 and H8 shipped 11-10 (batch W; in the ledger). The next batch, planned 11-10
-at David's ask ("make the room organization and pathways more intuitive and
-elegant"). Nothing below is built; say `H9 go`, or answer the lettered ones.
+H4, H6 and H8 shipped 11-10 (batch W) and H9 to H16 the same night (batch X; both in
+the ledger, the plan as written at the foot of it). Left of them, each yours to call:
 
-What the map is now (63 seeded rooms, by the door they hang off):
-- West: the Mudroom, and every dug room as a door off it (digger's word for the door).
-- North: Lantern Row, then the Unfiled Archive (the Namery; the Lower Stacks, 20
-  rooms behind a level of 100) and the Downward Stair to the Cistern and the Undertow,
-  which surfaces in the Shallows.
-- East: the Fogbank (the Midden south of it), the Shallows, then two lines: the
-  Ossuary, the Gallery, the Oubliette; and the Orchard, off which hang the Wistful
-  Trail (9), and the Clocktower with the Conclave's house (11) and the Mint (8).
-
-What makes it hard to hold in the head (from the two Watches of 11-10 and the graph):
-1. The three largest places to read and wander (the Conclave, the Mint, the Trail,
-   28 rooms) are all behind the door marked "fight", four steps out through the
-   Shallows, where hollows hunt. Nothing at the door says they exist.
-2. Two stairs share a name's worth: "The Downward Stair" lets a level 0 into the
-   Cistern, and the Archive's "down (Lower Stacks)" is refused as "the stair down
-   asks a level of 100". "The Exergue Stair" is not "The Exergue".
-3. Doors are named three ways: compass (east), a thing (dive, wicket, vault), and a
-   place's own name used in both directions (escapement, exergue). A walker cannot
-   guess the way back from the way in.
-4. Every dug room is one flat list of doors on the Mudroom's wall, in the order of
-   the exits table, by words only their diggers chose (alcove, landing, nook).
-5. `map` draws by the order rooms came into view: a dug room lands far from its only
-   door, two floors share a row, and the list of ways leaves rooms out (R170, R189).
-6. `travel <room>` takes one step and `where` knows only rooms already walked, or a
-   whole name (R174, R185): the world has the route and makes the walker spell it.
-
-- **H9 · Districts, named and signed** (M). Each seeded room gets a district (the
-  Door, the Wilds, the Library, the Stacks, the Deep Water, the Clock Quarter, the
-  Conclave, the Mint, the Trail, the Diggings); `look` at a district's first room
-  says so once ("You are at the edge of the Stacks: twenty rooms, a level of 100
-  asked at this door"), `map` and the play page's minimap group and tint by it, and
-  `where <district>` gives the way to its door. No room moves. **Lean: go**; it is
-  the frame the rest hang on.
-- **H10 · A way to the Clock Quarter that is not a fight** (M; **waits**: it moves
-  a door). a) **lean**: a lane from Lantern Row east to the Orchard ("the Lamplighter's
-  Lane", one room, nothing hunts), so the door's "read and tell" way reaches the
-  Clocktower, the Conclave, the Mint and the Trail in three safe steps, and the
-  Shallows stay the fighter's road; b) a fourth arm on the signpost only ("the
-  Conclave sits: east, north, north, up"), no new room; c) as is.
-- **H11 · A signpost at every hub** (S). H6's post, reused: the Fogbank, Lantern Row,
-  the Orchard and the Clocktower each get one, saying what is at the end of each of
-  its own ways, the level a way asks, and what hunts on it. **Lean: go.**
-- **H12 · Stairs and doors that say where they go** (S; a rename each, so the names
-  are yours). a) **lean**: "The Downward Stair" becomes "The Cistern Stair"; the
-  Archive's `down` reads "down (the Stacks stair: a level of 100)" and its refusal
-  names it so; "The Exergue Stair" becomes "The Mint Stair"; b) keep the names, fix
-  only the refusal (R172). All checked against CLEAR's reserved words before any ships.
-- **H13 · Every door has a way back by the same word** (S). Where a door is a thing
-  (dive/surface, names/out, wicket, vault/out, hall/bar), `travel back` already
-  works; add `out` as a second name for the way you came in at each of them, and say
-  it on arrival ("the way back is `out`, or `surface`"). **Lean: go.**
-- **H14 · The Mudroom's wall in rows** (M). The exits line of the Mudroom groups its
-  dug doors: yours first, then the three newest, then the three best remembered
-  (H8), then "and N more, by digger: `read doors`"; `read doors` is the whole wall
-  with each room's digger, age and what is left of it. A door's word stays its
-  digger's. **Lean: go.** A second question, yours: b) past forty doors, new rooms
-  are dug off "rows" (the Mudroom's own side rooms, ten doors each) so no room has
-  an unbounded wall.
-- **H15 · `map` drawn from the door, by district** (M). The grid is laid out from
-  the Threshold by the exits themselves (east is right, down is a floor below), a
-  dug room sits beside the room its door opens on, each floor is its own block, and
-  the list under it has every room on the grid (R170, R189 close with it).
-- **H16 · Walk there** (S). `travel <room name>` takes every step of a remembered or
-  signed way in one message, stopping where something hunts, a door asks a word or a
-  level, or a fight begins; `where` takes one word of a room's name and says both
-  when two match (R174, R185, R26 close with it). **Lean: go**; it is the largest
-  saving for a player at the keyboard too (P4).
-
-Order I would build them in: H9, H11, H16, H13 (no decisions; one Watch each),
-then H12 and H10 on your word, then H14 and H15.
+- **H17 · The minimap by district** (S). The `map` result carries each room's
+  district; the play page's atlas does not yet tint or group by it.
+- **H18 · Rows past forty doors** (M; **waits**, it was H14's second question). a)
+  **lean**: as built, the wall is one room and `look` shows a digest of it; b) past
+  forty doors, new rooms are dug off the Mudroom's own side rooms, ten doors each.
+- **H19 · Small ends** (S, by policy on the next Watch): `read doors` says a room's
+  digger and what is left of it but not its age; the cloak's (anonymous) view of the
+  Threshold has the exits without "fight / read and tell / dig"; the play page's own
+  "onward" walking is dead code now the world walks.
+- **H20 · One name for the mint** (S; **waits**, the names are yours). H12 as approved
+  made the stair "The Mint Stair"; the district it opens on is "the Exergue District",
+  your name for it. a) **lean**: the stair follows the district ("The Exergue Stair",
+  as it was, with its exit glossed "the mint"); b) as shipped.
 
 ## The keyboard (P): performance for a player at the keyboard
 
@@ -275,11 +210,7 @@ What was measured:
 - **P6 · Trim the transcript** (S). Keep the last five hundred lines in the page and
   fold the rest behind "earlier" (still there to scroll to), so a long night does
   not slow every new line.
-- **P7 · Measure it for real** (S). `?perf=1` shows frames a second, the cost of a
-  frame, and the round trip of the last twenty commands (median and worst); the
-  server stamps each reply with how long the command took, so the wire and the world
-  are told apart; the page reports the same figures to your own analytics, so the
-  admin page has a real player's numbers and not a test browser's.
+- **P7** shipped 11-10 (batch X): `?perf=1`, `took_ms` on every reply, and the "Play page performance" section of the analytics page. Read a few days of it before P1 and P2 are sized.
 - **P8 · A quiet mode** (S). One setting: no ambient motion, no sky, no sound; for a
   slow machine or a long session. It is P1's floor.
 
@@ -505,6 +436,20 @@ The world
   `kind` on the first gate or `start` call, shown as "claimed" beside the score.
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-10 (batch X, by David's word: H9–H16, P7, D20 b, D27 "buff the power of crafted items"; one driver deploy, one site deploy)
+- H9: ten districts (the Door, the Diggings, the Wilds, the Library, the Deep Water, the Stacks, the Clock Quarter, the Conclave, the Exergue District, the Wistful Trail). A district's first room says so once a session ("The Clock Quarter begins here (2 rooms): …"), `map` lists what you remember by district (dim rooms marked), and `where <district>` gives the way to its door.
+- H10 a: the Lamplighter's Lane, one room where nothing hunts, between Lantern Row (`lane`) and the Orchard (`lane`; back by `row` and `orchard`), so the Clocktower, the Conclave, the mint and the Trail are reached without the Shallows.
+- H11: a signpost at the Fogbank, Lantern Row, the Orchard and the Clocktower (`read signpost`): each way's room, its district, what lives or hunts there and what lies beyond; `look` says the post is there.
+- H12 a: "The Downward Stair" is "The Cistern Stair", "The Exergue Stair" is "The Mint Stair", the Archive's `down` is glossed "the Stacks stair, a level of 100", and its refusal says which stair it is and which it is not.
+- H13: `travel out` goes back the way you came through any door, and a first arrival through a door that is not a compass point says "The way back is `out`, or `surface`."
+- H14: past nine dug doors the Mudroom's exits show yours, the three newest and the three best remembered, with a count of the rest; every door still opens by its word, and `read doors` is the whole wall with each room's digger and what is left of it.
+- H15, smaller than planned (the grid was already laid from the Threshold by compass and floor): a room behind a named door is drawn on the far side of the room it opens on, the list is by district and has every room on the grid, and other floors are named in a line of their own.
+- H16: `travel <room name>` walks every step of the way it knows in one message and stops where something engages you, an ambush is set, a door refuses, or you fall ("You walk … toward The Mudroom and stop: …. Still to go: …"); `where` takes one word of a room's name and names every room that answers to it.
+- P7: every reply carries `took_ms` (the world's share); `/play/?perf=1` shows frames a second, the cost of a frame, and the median and worst round trip of the last twenty commands; the page reports the same every twenty commands to `/play/perf.txt`, which the site's own analytics reads into a "Play page performance" section (not counted as visits). `foxing.perfFrame(ms)` for mods.
+- D20 b: a guess refused inside the hour is on the record as a miss: it counts toward the hint's narrowing, and a declined word of the lent pool is struck from the pool the hint shows. (A refusal is free, so the narrowing can be bought with refusals; with D29's thresholds that is two and four at the second word, four and eight at the third.)
+- D27: crafted things do more. The lantern holds the map three times as long (the night lantern five); the charm adds +0.5 to vividity (the warden's +0.7; were 0.3 and 0.45); a bandage on `rest` closes the bite and mends 10 (the surgeon's 20); the basin mends at three times the pace; a jar carried covers a `retreat` (no parting blow, the jar spent). `recipes` says where each making is found ("rag thread: the Midden's ragpickers, south of the Fogbank"). No crafted thing lends attack.
+- R172, R174, R185 closed with these; R26, R170 and R189 trimmed to what is left.
 
 11-10 (batch W, by David's word: H4, H6, H8, and D29; one driver deploy)
 - H4: the Threshold's text is three invitations and one thing to do first ("East, into the fog: things to fight… North, under the lanterns… West, into the mud… If you do one thing first, go east"), its exits say what each is for ("east (Fogbank: fight), north (Lantern Row: read and tell), west (Mudroom: dig)"), and H5's line for a new name is folded into it; the Threshold gives nothing to `gather`.
@@ -836,6 +781,80 @@ The shipped items as they were written, moved out of the open sections 11-10 (th
     own at the door once (a new minute, an unfiled page, a struck hour, a name slip, a
     long-night lantern), said to whoever is there, in `news`; the Threshold's `look`
     names the day.
+
+H9–H16 as they were planned (shipped 11-10, batch X):
+
+
+What the map is now (63 seeded rooms, by the door they hang off):
+- West: the Mudroom, and every dug room as a door off it (digger's word for the door).
+- North: Lantern Row, then the Unfiled Archive (the Namery; the Lower Stacks, 20
+  rooms behind a level of 100) and the Downward Stair to the Cistern and the Undertow,
+  which surfaces in the Shallows.
+- East: the Fogbank (the Midden south of it), the Shallows, then two lines: the
+  Ossuary, the Gallery, the Oubliette; and the Orchard, off which hang the Wistful
+  Trail (9), and the Clocktower with the Conclave's house (11) and the Mint (8).
+
+What makes it hard to hold in the head (from the two Watches of 11-10 and the graph):
+1. The three largest places to read and wander (the Conclave, the Mint, the Trail,
+   28 rooms) are all behind the door marked "fight", four steps out through the
+   Shallows, where hollows hunt. Nothing at the door says they exist.
+2. Two stairs share a name's worth: "The Downward Stair" lets a level 0 into the
+   Cistern, and the Archive's "down (Lower Stacks)" is refused as "the stair down
+   asks a level of 100". "The Exergue Stair" is not "The Exergue".
+3. Doors are named three ways: compass (east), a thing (dive, wicket, vault), and a
+   place's own name used in both directions (escapement, exergue). A walker cannot
+   guess the way back from the way in.
+4. Every dug room is one flat list of doors on the Mudroom's wall, in the order of
+   the exits table, by words only their diggers chose (alcove, landing, nook).
+5. `map` draws by the order rooms came into view: a dug room lands far from its only
+   door, two floors share a row, and the list of ways leaves rooms out (R170, R189).
+6. `travel <room>` takes one step and `where` knows only rooms already walked, or a
+   whole name (R174, R185): the world has the route and makes the walker spell it.
+
+- **H9 · Districts, named and signed** (M). Each seeded room gets a district (the
+  Door, the Wilds, the Library, the Stacks, the Deep Water, the Clock Quarter, the
+  Conclave, the Mint, the Trail, the Diggings); `look` at a district's first room
+  says so once ("You are at the edge of the Stacks: twenty rooms, a level of 100
+  asked at this door"), `map` and the play page's minimap group and tint by it, and
+  `where <district>` gives the way to its door. No room moves. **Lean: go**; it is
+  the frame the rest hang on.
+- **H10 · A way to the Clock Quarter that is not a fight** (M; **waits**: it moves
+  a door). a) **lean**: a lane from Lantern Row east to the Orchard ("the Lamplighter's
+  Lane", one room, nothing hunts), so the door's "read and tell" way reaches the
+  Clocktower, the Conclave, the Mint and the Trail in three safe steps, and the
+  Shallows stay the fighter's road; b) a fourth arm on the signpost only ("the
+  Conclave sits: east, north, north, up"), no new room; c) as is.
+- **H11 · A signpost at every hub** (S). H6's post, reused: the Fogbank, Lantern Row,
+  the Orchard and the Clocktower each get one, saying what is at the end of each of
+  its own ways, the level a way asks, and what hunts on it. **Lean: go.**
+- **H12 · Stairs and doors that say where they go** (S; a rename each, so the names
+  are yours). a) **lean**: "The Downward Stair" becomes "The Cistern Stair"; the
+  Archive's `down` reads "down (the Stacks stair: a level of 100)" and its refusal
+  names it so; "The Exergue Stair" becomes "The Mint Stair"; b) keep the names, fix
+  only the refusal (R172). All checked against CLEAR's reserved words before any ships.
+- **H13 · Every door has a way back by the same word** (S). Where a door is a thing
+  (dive/surface, names/out, wicket, vault/out, hall/bar), `travel back` already
+  works; add `out` as a second name for the way you came in at each of them, and say
+  it on arrival ("the way back is `out`, or `surface`"). **Lean: go.**
+- **H14 · The Mudroom's wall in rows** (M). The exits line of the Mudroom groups its
+  dug doors: yours first, then the three newest, then the three best remembered
+  (H8), then "and N more, by digger: `read doors`"; `read doors` is the whole wall
+  with each room's digger, age and what is left of it. A door's word stays its
+  digger's. **Lean: go.** A second question, yours: b) past forty doors, new rooms
+  are dug off "rows" (the Mudroom's own side rooms, ten doors each) so no room has
+  an unbounded wall.
+- **H15 · `map` drawn from the door, by district** (M). The grid is laid out from
+  the Threshold by the exits themselves (east is right, down is a floor below), a
+  dug room sits beside the room its door opens on, each floor is its own block, and
+  the list under it has every room on the grid (R170, R189 close with it).
+- **H16 · Walk there** (S). `travel <room name>` takes every step of a remembered or
+  signed way in one message, stopping where something hunts, a door asks a word or a
+  level, or a fight begins; `where` takes one word of a room's name and says both
+  when two match (R174, R185, R26 close with it). **Lean: go**; it is the largest
+  saving for a player at the keyboard too (P4).
+
+Order I would build them in: H9, H11, H16, H13 (no decisions; one Watch each),
+then H12 and H10 on your word, then H14 and H15.
 
 H4, H6, H8 and D29 as they were written (shipped 11-10, batch W):
 

@@ -1230,6 +1230,45 @@
   function stopPolling() { if (polling) { clearInterval(polling); polling = null; } }
 
   // ---- commands ----
+  // ---- P7: measure it for real ----
+  // The round trip of each command (and how much of it the world took, which the
+  // reply says), the frames a second and what a frame costs. `?perf=1` shows them in a
+  // corner; every twenty commands, and on leaving, the page sends the figures (no
+  // name, no text) to its own site's log, where the admin page reads them.
+  const perf = (() => {
+    const rts = [], srv = [];
+    let frames = 0, frameMs = 0, fps = 0, frameCost = 0, sent = 0, last = performance.now();
+    const hud = new URLSearchParams(location.search).get("perf") === "1" ? document.createElement("div") : null;
+    if (hud) {
+      hud.id = "perf-hud";
+      hud.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:60;font:11px/1.5 ui-monospace,Menlo,Consolas,monospace;color:#ece5d3;background:rgba(12,18,27,.92);border:1px solid #364358;border-radius:6px;padding:4px 9px;pointer-events:none;white-space:pre";
+      document.body.append(hud);
+    }
+    const pct = (a, p) => { if (!a.length) return 0; const o = a.slice().sort((x, y) => x - y); return o[Math.min(o.length - 1, Math.floor(p * o.length))]; };
+    function show() {
+      if (!hud) return;
+      hud.textContent = fps + " frames a second \u00b7 " + frameCost.toFixed(1) + " ms a frame\n"
+        + (rts.length ? "round trip " + Math.round(pct(rts, .5)) + " ms median, " + Math.round(Math.max(...rts)) + " worst of the last " + rts.length + "\n"
+          + "the world took " + (srv.length ? pct(srv, .5).toFixed(1) : "?") + " ms of it \u00b7 over the " + (wsReady ? "socket" : "http door") : "no command sent yet");
+    }
+    setInterval(() => { const now = performance.now(), dt = now - last; fps = Math.round(frames * 1000 / dt); frameCost = frames ? frameMs / frames : 0; frames = 0; frameMs = 0; last = now; show(); }, 1000);
+    function report() {
+      if (rts.length < 5) return;
+      const q = new URLSearchParams({ n: rts.length, rt50: Math.round(pct(rts, .5)), rt95: Math.round(pct(rts, .95)), max: Math.round(Math.max(...rts)), srv: srv.length ? pct(srv, .5).toFixed(1) : "", fps, fr: frameCost.toFixed(1), ws: wsReady ? 1 : 0, w: innerWidth });
+      try { fetch("perf.txt?" + q, { keepalive: true, cache: "no-store" }).catch(() => {}); } catch (e) {}
+    }
+    addEventListener("pagehide", report);
+    return {
+      frame(ms) { frames++; frameMs += ms; },
+      trip(ms, took) {
+        rts.push(ms); if (rts.length > 20) rts.shift();
+        if (typeof took === "number") { srv.push(took); if (srv.length > 20) srv.shift(); }
+        if (++sent % 20 === 0) report();
+        show();
+      },
+    };
+  })();
+
   async function run(command, args) {
     if (!actor) { print("Log in first: login <name> <passphrase>, or just press Enter.", "err"); return; }
     lastAct = Date.now();
@@ -1237,10 +1276,13 @@
     const pending = setTimeout(() => { $("hint").textContent = "… the world is thinking"; }, 700);
     const clearPending = () => { clearTimeout(pending); if ($("hint").textContent === "… the world is thinking") $("hint").textContent = ""; };
     let body;
+    const asked = performance.now();
     if (wsReady) {
       body = await wsCommand(command, args);
+      perf.trip(performance.now() - asked, body && body.took_ms);
     } else {
       const r = await api("/v0/command", { actor, passphrase, command, args });
+      perf.trip(performance.now() - asked, r.body && r.body.took_ms);
       if (r.status === 401) { clearPending(); print(r.body.error, "err"); logout(); return; }
       body = r.body || { ok: false, error: "The world did not answer. Try again in a moment." };
       await poll();
@@ -3318,6 +3360,8 @@
       return api("/v0/observe", { actor, passphrase, query }).then(r => r.body || { type: "error", error: "no answer" });
     },
     command(verb, args = []) { return run(verb, args); },
+    // P7: a mod that draws says what a frame cost it (ms); the page counts them.
+    perfFrame(ms) { perf.frame(ms); },
     // One of the world's free reads, asked quietly: nothing is printed, the result
     // comes back as the world gave it. For a mod that keeps something current (what
     // you could make, what is wanted) without filling the transcript.

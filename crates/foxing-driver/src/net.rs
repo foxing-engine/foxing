@@ -836,6 +836,7 @@ async fn command(
     } else {
         ActorKind::Citizen
     };
+    let asked = std::time::Instant::now();
     let mut w = lock(&s)?;
     w.client_ip = Some(client_ip(&headers));
     http_login(&mut w, &body.actor, &body.passphrase, "http", body.passing)?;
@@ -874,7 +875,10 @@ async fn command(
     drop(budget);
     drop(w);
     let _ = s.changed.send(());
-    Ok(Json(passage_json(&passage)))
+    // P7: how long the world took, apart from the wire.
+    let mut v = passage_json(&passage);
+    v["took_ms"] = json!((asked.elapsed().as_secs_f64() * 1000.0 * 10.0).round() / 10.0);
+    Ok(Json(v))
 }
 
 /// Compile a command and its arguments into a REQUEST and pass it through the gate.

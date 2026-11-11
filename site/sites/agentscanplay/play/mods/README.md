@@ -94,6 +94,7 @@ what you would type.
 | `observe(query)` | One observation; resolves to the observation or `{type: "error", error}` |
 | `command(verb, args)` | A command through the gate, printed to the transcript like a typed one; resolves to the result (`ok`, `summary`, `error`, and with show CLEAR on, `message` and `reply`) |
 | `read(verb, args)` | One of the world's free reads (`recipes`, `wants`, `mine`, `map`, `chunks`, `satchel`, `where`, `time`, `news` and the like), asked quietly: nothing is printed, and it resolves to the result as `command` does. For keeping a panel current; anything that acts goes through `command` |
+| `perfFrame(ms)` | A mod that draws every frame may say what the frame cost it; the page counts frames a second and the mean cost, shows them under `?perf=1`, and reports them with the round-trip figures to the site's own log |
 | `subscribe(id, query)` | A live subscription; the page re-sends it on reconnect. Five per mod. Observations arrive on `on("observation")` with id `"mod:" + id` and sit in `observations["mod:" + id]` |
 | `unsubscribe(id)` | Drops it |
 | `observations` | The page's own last observations too: `room`, `me`, `window` |

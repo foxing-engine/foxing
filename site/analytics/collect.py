@@ -126,6 +126,13 @@ CREATE TABLE IF NOT EXISTS requests (
   referer_host TEXT NOT NULL, visitor TEXT NOT NULL, ip TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS salts (day TEXT PRIMARY KEY, salt TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS perf (
+  id INTEGER PRIMARY KEY,
+  ts TEXT NOT NULL, day TEXT NOT NULL, visitor TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '',
+  n INTEGER NOT NULL, rt50 REAL NOT NULL, rt95 REAL NOT NULL, rtmax REAL NOT NULL,
+  srv REAL, fps REAL, frame REAL, ws INTEGER NOT NULL DEFAULT 0, width INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS perf_day ON perf(day);
 CREATE TABLE IF NOT EXISTS doors (
   id INTEGER PRIMARY KEY,
   ts TEXT NOT NULL, day TEXT NOT NULL, ip TEXT NOT NULL, lab INTEGER NOT NULL,
@@ -156,6 +163,32 @@ def visitor_hash(salt: str, ip: str, ua: str) -> str:
     return hashlib.sha256(f"{salt}|{ip}|{ua}".encode()).hexdigest()[:16]
 
 
+PERF_PATH = "/play/perf.txt"
+
+
+def ingest_perf(db: sqlite3.Connection, r: dict, ts: str, day: str, ua: str) -> bool:
+    from urllib.parse import parse_qs
+
+    q = {k: v[0] for k, v in parse_qs(r.get("query", "") or "").items()}
+
+    def num(key, lo, hi):
+        try:
+            v = float(q.get(key, ""))
+        except ValueError:
+            return None
+        return v if lo <= v <= hi else None
+
+    n, rt50, rt95, rtmax = num("n", 1, 1000), num("rt50", 0, 120000), num("rt95", 0, 120000), num("max", 0, 120000)
+    if None in (n, rt50, rt95, rtmax):
+        return False
+    db.execute(
+        "INSERT INTO perf(ts, day, visitor, ip, n, rt50, rt95, rtmax, srv, fps, frame, ws, width) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (ts, day, visitor_hash(salt_for(db, day), r.get("ip", ""), ua), (r.get("ip", "") or "")[:45], int(n), rt50, rt95, rtmax,
+         num("srv", 0, 120000), num("fps", 0, 1000), num("fr", 0, 10000), int(num("ws", 0, 1) or 0), int(num("w", 0, 20000) or 0)),
+    )
+    return True
+
+
 def ingest_line(db: sqlite3.Connection, line: str) -> bool:
     try:
         r = json.loads(line)
@@ -166,6 +199,10 @@ def ingest_line(db: sqlite3.Connection, line: str) -> bool:
     if len(day) != 10:
         return False
     ua = r.get("ua", "") or ""
+    # P7: the play page's own figures (round trip, frames), sent as a query on a small
+    # file. Kept in a table of their own, and not counted as a visit.
+    if r.get("path", "") == PERF_PATH:
+        return ingest_perf(db, r, ts, day, ua)
     cls, name = classify(ua)
     db.execute(
         "INSERT INTO requests(ts, day, host, method, path, status, bytes, rt, accept_kind, ua_class, ua_name, ua, referer_host, visitor, ip)"

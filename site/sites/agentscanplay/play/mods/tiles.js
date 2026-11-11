@@ -1208,6 +1208,6 @@ export default function install(m) {
   if (m.actor) { m.subscribe("scene", QUERY); m.subscribe("satchel", SAT_QUERY); refreshSatchel(); askRecipes(); }
   drawSatchel();
   let raf = 0;
-  (function loop() { draw(); raf = requestAnimationFrame(loop); })();
+  (function loop() { const t = performance.now(); draw(); if (m.perfFrame) m.perfFrame(performance.now() - t); raf = requestAnimationFrame(loop); })();
   return () => { cancelAnimationFrame(raf); clearInterval(verbTimer); clearInterval(recipesEvery); clearTimeout(recipesTimer); if (ro) ro.disconnect(); m.unsubscribe("scene"); m.unsubscribe("satchel"); document.removeEventListener("click", closeSatMenu); satMenu.remove(); panel.remove(); satPanel.remove(); m.builtin("map", true); m.builtin("here", true); };
 }

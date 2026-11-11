@@ -153,6 +153,150 @@ fn boots(world: &World) -> String {
     }
 }
 
+/// H11: a hub's own post: each way off it, where it goes, what district that is,
+/// what lives there and whether it hunts, and what lies one room beyond.
+fn hub_post(world: &World, here: EntityId) -> String {
+    let exits = rooms::exits_of(world, here);
+    let mut order: Vec<(&String, &EntityId)> = exits.iter().collect();
+    order.sort_by_key(|(e, _)| {
+        let c = rooms::COMPASS.iter().position(|x| x == *e);
+        (c.is_none(), c.unwrap_or(0), (*e).clone())
+    });
+    let mine = rooms::district_of(world, here).map(|d| d.name);
+    let arms: Vec<String> = order
+        .into_iter()
+        .filter(|(_, to)| world.store.entity(**to).is_some_and(|e| e.owner.is_none()))
+        .map(|(via, &to)| {
+            let name = room_name(world, to);
+            let key = plain_str(world, to, ROOM, "key").unwrap_or("");
+            let district = rooms::district_of(world, to)
+                .map(|d| d.name)
+                .filter(|d| Some(*d) != mine)
+                .map(|d| format!(", in {d}"))
+                .unwrap_or_default();
+            let def = rooms::ROOMS.iter().find(|r| r.key == key);
+            let lives = match def {
+                Some(r) if r.description.contains("Nothing hunts here") => match r.spawn {
+                    Some((k, _, _)) => {
+                        format!("{} live there and nothing hunts", super::combat::plural(k))
+                    }
+                    None => "nothing hunts there".to_string(),
+                },
+                Some(r) => match r.spawn {
+                    Some((k, _, _)) => format!("{} live there", super::combat::plural(k)),
+                    None => "nothing lives there".to_string(),
+                },
+                None => String::new(),
+            };
+            let beyond: Vec<String> = rooms::exits_of(world, to)
+                .into_values()
+                .filter(|&b| b != here && world.store.entity(b).is_some_and(|e| e.owner.is_none()))
+                .map(|b| room_name(world, b).trim_start_matches("The ").to_string())
+                .collect();
+            let mut cap = via.clone();
+            if let Some(c) = cap.get_mut(0..1) {
+                c.make_ascii_uppercase();
+            }
+            format!(
+                "{cap}: {name}{district} ({lives}){}",
+                if beyond.is_empty() {
+                    "; it ends there".to_string()
+                } else {
+                    format!("; beyond it, {}", beyond.join(" and "))
+                }
+            )
+        })
+        .collect();
+    format!(
+        "The signpost here has an arm for each way off. {}. `where <a room or a district>` is the way to anywhere; `travel <its name>` walks it.",
+        arms.join(". ")
+    )
+}
+
+/// H14: the Mudroom's exits as rows. The world's own doors, then yours, the three
+/// newest dug and the three best remembered; the rest are counted. Nine dug doors
+/// or fewer are all said.
+pub fn rows(
+    world: &World,
+    actor: &str,
+    exits: &[String],
+    by_name: &std::collections::BTreeMap<String, EntityId>,
+) -> (Vec<String>, usize) {
+    let dug: Vec<(&String, EntityId, String)> = exits
+        .iter()
+        .filter_map(|e| {
+            let to = *by_name.get(e)?;
+            let owner = world.store.entity(to)?.owner.clone()?;
+            Some((e, to, owner))
+        })
+        .collect();
+    if dug.len() <= 9 {
+        return (exits.to_vec(), 0);
+    }
+    let mut chosen: Vec<String> = exits
+        .iter()
+        .filter(|e| !dug.iter().any(|(d, _, _)| d == e))
+        .cloned()
+        .collect();
+    let add = |e: &String, chosen: &mut Vec<String>| {
+        if !chosen.contains(e) {
+            chosen.push(e.clone());
+        }
+    };
+    for (e, _, o) in &dug {
+        if o == actor {
+            add(e, &mut chosen);
+        }
+    }
+    let mut newest: Vec<&(&String, EntityId, String)> = dug.iter().collect();
+    newest.sort_by_key(|(_, to, _)| std::cmp::Reverse(to.0));
+    for (e, _, _) in newest.into_iter().take(3) {
+        add(e, &mut chosen);
+    }
+    let mut kept: Vec<(f64, &String)> = dug
+        .iter()
+        .map(|(e, to, _)| (super::building::memory(world, *to).unwrap_or(0.0), *e))
+        .collect();
+    kept.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    for (_, e) in kept.into_iter().take(3) {
+        add(e, &mut chosen);
+    }
+    let shown_dug = chosen
+        .iter()
+        .filter(|e| dug.iter().any(|(d, _, _)| d == e))
+        .count();
+    (chosen, dug.len() - shown_dug)
+}
+
+/// H14: the whole wall, best remembered first.
+fn wall(world: &World, here: EntityId) -> String {
+    let mut doors: Vec<(f64, String)> = rooms::exits_of(world, here)
+        .into_iter()
+        .filter_map(|(e, to)| {
+            let owner = world.store.entity(to)?.owner.clone()?;
+            let m = super::building::memory(world, to).unwrap_or(0.0);
+            Some((
+                m,
+                format!(
+                    "{e}: {}, {owner}'s, {:.0}% left",
+                    room_name(world, to),
+                    m * 100.0
+                ),
+            ))
+        })
+        .collect();
+    if doors.is_empty() {
+        return "The wall is bare: nobody has dug a door here yet. `dig <a word for the door> <chunk>` makes the first.".to_string();
+    }
+    doors.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    let n = doors.len();
+    format!(
+        "The Mudroom's wall, {n} door{} dug, the best remembered first. {}. A door opens by its word (`travel <word>`), and a room nobody visits fades off the wall.",
+        if n == 1 { "" } else { "s" },
+        doors.into_iter().map(|(_, s)| s).collect::<Vec<_>>().join("; ")
+    )
+}
+
 /// The door's props answer `read`: the Threshold's signpost, the Mudroom's boots
 /// and its rack.
 pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
@@ -162,6 +306,8 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
     let text = match key {
         ARRIVAL if named(&["signpost", "sign", "post", "arm"]) => signpost(world, room),
         MUDROOM if named(&["boot"]) => boots(world),
+        MUDROOM if named(&["door", "wall", "row"]) => wall(world, room),
+        k if rooms::HUBS.contains(&k) && named(&["signpost", "sign", "post", "arm"]) => hub_post(world, room),
         MUDROOM if named(&["spade", "rack"]) => "The rack holds spades worn to the handle, more of them than there are diggers. `take spade` takes one. Carried, it knows a dug door when it passes one: the exits of any room say whose each dug door is and how much of the room behind it is left. A spade fades like anything else.".to_string(),
         _ => return None,
     };
