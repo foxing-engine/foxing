@@ -876,9 +876,41 @@ fn way_over(
     let mut prev: std::collections::HashMap<EntityId, (EntityId, String)> =
         std::collections::HashMap::new();
     let mut queue = std::collections::VecDeque::from([from]);
+    // Of two ways the same length, the one nothing hunts on, and the Bog last of all
+    // (the Watch of 11-11 was walked through the Bog of Second Thoughts beside the
+    // Meadow, and through the Shallows beside the Lane): doors are tried in that order.
+    let danger = |room: EntityId| -> u8 {
+        if plain_str(world, room, ROOM, "key") == Some("trail-bog") {
+            2
+        } else if super::combat::creatures_in(world, room)
+            .iter()
+            .any(|c| super::combat::is_aggressive(world, c.0))
+        {
+            1
+        } else {
+            0
+        }
+    };
+    // Breadth first, so the way is a shortest one; among shortest ways, the least
+    // danger summed over its rooms. A room a level deeper is not opened until every
+    // room of this level has been, so a better parent found later still counts.
+    let mut far: std::collections::HashMap<EntityId, (u32, u32)> =
+        std::collections::HashMap::from([(from, (0, 0))]);
     while let Some(r) = queue.pop_front() {
+        if r == to {
+            let mut path = Vec::new();
+            let mut at = to;
+            while at != from {
+                let (p, v) = &prev[&at];
+                path.push(v.clone());
+                at = *p;
+            }
+            path.reverse();
+            return Some(path);
+        }
+        let (steps, risk) = far[&r];
         for (via, next) in rooms::exits_of(world, r) {
-            if next == from || prev.contains_key(&next) {
+            if next == from {
                 continue;
             }
             // The last step may lead into a room not yet remembered (the one
@@ -886,19 +918,19 @@ fn way_over(
             if !known.contains(&next) && next != to {
                 continue;
             }
-            prev.insert(next, (r, via));
-            if next == to {
-                let mut path = Vec::new();
-                let mut at = to;
-                while at != from {
-                    let (p, v) = &prev[&at];
-                    path.push(v.clone());
-                    at = *p;
+            let here = (steps + 1, risk + danger(next) as u32);
+            match far.get(&next) {
+                Some(&(s, d)) if s < here.0 || (s == here.0 && d <= here.1) => {}
+                Some(_) => {
+                    far.insert(next, here);
+                    prev.insert(next, (r, via));
                 }
-                path.reverse();
-                return Some(path);
+                None => {
+                    far.insert(next, here);
+                    prev.insert(next, (r, via));
+                    queue.push_back(next);
+                }
             }
-            queue.push_back(next);
         }
     }
     None

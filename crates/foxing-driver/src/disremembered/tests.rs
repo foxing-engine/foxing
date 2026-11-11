@@ -11062,3 +11062,17 @@ fn a_cursor_by_time_finds_the_first_event_at_or_after_it() {
             .all(|e| e.at.0 < at));
     }
 }
+
+#[test]
+fn of_two_ways_the_same_length_the_signs_give_the_one_nothing_hunts_on() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    w.tick();
+    let door = rooms::room_by_key(&w, "threshold").unwrap();
+    let clock = rooms::room_by_key(&w, "clocktower").unwrap();
+    // East, north, north, up goes through the Shallows, where hollows hunt.
+    assert_eq!(
+        atlas::way_seeded(&w, door, clock).unwrap(),
+        vec!["north", "lane", "orchard", "up"]
+    );
+}

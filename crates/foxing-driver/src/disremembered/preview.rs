@@ -341,13 +341,45 @@ pub fn run_checked(
                                     ),
                                 )
                             }
+                            // H16: a room's name walks the way to it. The dry run
+                            // said "no exit Shallows" of a walk the gate would take.
+                            None if room.is_some()
+                                && super::atlas::room_named(world, &arg(0))
+                                    .filter(|t| Some(*t) != room)
+                                    .and_then(|t| super::errand::route(world, room?, t))
+                                    .is_some_and(|p| !p.is_empty()) =>
+                            {
+                                let target = super::atlas::room_named(world, &arg(0));
+                                let path = target
+                                    .and_then(|t| super::errand::route(world, room?, t))
+                                    .unwrap_or_default();
+                                if let Some(r) = room {
+                                    trail.push(r);
+                                }
+                                room = target;
+                                (
+                                    true,
+                                    format!(
+                                        "walks {} to {}, if the way is one you remember or the signs give, and nothing stops it (a hunter in a room on the way, a fight, a door that asks a word or a level)",
+                                        path.join(", "),
+                                        room_name_in(&dug_names, target)
+                                    ),
+                                )
+                            }
                             None => (
                                 false,
                                 format!(
                                     "refused: no exit {} from {}; exits: {}",
                                     arg(0),
                                     room_name_in(&dug_names, room),
-                                    exits.keys().cloned().collect::<Vec<_>>().join(", ")
+                                    exits
+                                        .iter()
+                                        .map(|(via, to)| format!(
+                                            "{via} ({})",
+                                            room_name_in(&dug_names, Some(*to))
+                                        ))
+                                        .collect::<Vec<_>>()
+                                        .join(", ")
                                 ),
                             ),
                         }
