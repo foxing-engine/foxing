@@ -2290,14 +2290,23 @@ fn walk(
                     break;
                 }
                 let me = citizen.0;
+                // Only a hunter in this room counts: one left behind in a room
+                // walked through still has its moment pending, and comes to nothing.
+                let here = w.store.entity(citizen).and_then(|c| c.parent);
+                let near: Vec<u64> = w
+                    .store
+                    .entities()
+                    .filter(|e| e.parent == here)
+                    .map(|e| e.id.0)
+                    .collect();
+                let noticed = w.jobs.has(super::combat::JOB_AMBUSH, |p| {
+                    p["citizen"] == me && p["creature"].as_u64().is_some_and(|c| near.contains(&c))
+                });
                 if died {
                     stopped = Some("you fell on the way".to_string());
                 } else if super::combat::engaged_with(w, citizen).is_some() {
                     stopped = Some("a fight has begun".to_string());
-                } else if w
-                    .jobs
-                    .has(super::combat::JOB_AMBUSH, |p| p["citizen"] == me)
-                {
+                } else if noticed {
                     stopped = Some("something here has noticed you".to_string());
                 }
                 if stopped.is_some() {

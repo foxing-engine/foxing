@@ -9118,6 +9118,9 @@ fn the_door_has_a_signpost_and_the_mudroom_boots_and_a_spade() {
     );
     // H14: past nine dug doors the Mudroom's wall is said in rows: a visitor sees the
     // newest and the best remembered, and a count of the rest; the digger sees their own.
+    // An hourhand that noticed him upstairs does not stop the walk two rooms on.
+    ok(&mut w, "dave", "travel", json!(["up"]));
+    ok(&mut w, "dave", "travel", json!(["down"]));
     let walked = ok(&mut w, "dave", "travel", json!(["mudroom"]));
     assert!(
         walked
