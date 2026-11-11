@@ -176,6 +176,22 @@ def citizens(days: int) -> tuple[list[dict], str]:
         return [], f"driver not reachable at {DRIVER}: {exc}"
 
 
+def refusals() -> tuple[list[list], str]:
+    """Why the driver turned requests away since it last started: path, reason, count."""
+    tok = admin_token()
+    if not tok:
+        return [], "no admin token"
+    req = urllib.request.Request(f"{DRIVER}/v0/refusals", headers={"X-Foxing-Admin": tok})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            body = json.load(resp)
+    except Exception as exc:  # noqa: BLE001 - the report must render whatever the driver does
+        return [], f"driver not reachable at {DRIVER}: {exc}"
+    rows = sorted(([r["path"], r["reason"], r["count"]] for r in body.get("refusals", [])), key=lambda r: -r[2])
+    hours = body.get("since_boot_seconds", 0) / 3600
+    return rows, f"since the driver started, {hours:.1f} hours ago"
+
+
 def when(ms: int) -> str:
     return datetime.fromtimestamp(ms / 1000, timezone.utc).strftime("%Y-%m-%d %H:%M") if ms else ""
 
@@ -240,6 +256,8 @@ def report(db: sqlite3.Connection, days: int) -> dict:
     out["referers"] = q(db, f"SELECT referer_host, COUNT(*) FROM requests {w} AND referer_host != '' AND referer_host NOT IN ('agentscanplay.com','www.agentscanplay.com','foxing.dev','www.foxing.dev','moondial.ai','www.moondial.ai') GROUP BY referer_host ORDER BY 2 DESC LIMIT 25", (since,))
     out["daily"] = q(db, f"SELECT day, host, COUNT(*), COUNT(DISTINCT visitor) FROM requests {w} GROUP BY day, host ORDER BY day DESC, host", (since,))
     out["errors"] = q(db, "SELECT host, path, status, COUNT(*) FROM requests WHERE day >= ? AND status >= 400 GROUP BY host, path, status ORDER BY 4 DESC LIMIT 20", (since,))
+    out["error_senders"] = q(db, "SELECT host, path, status, ua_class, ua_name, COUNT(*), COUNT(DISTINCT visitor), MAX(ts) FROM requests WHERE day >= ? AND status >= 400 AND status != 404 GROUP BY host, path, status, ua_class, ua_name ORDER BY 6 DESC LIMIT 20", (since,))
+    out["refusals"], out["refusals_note"] = refusals()
     out["perf"] = perf_rows(db, since)
     cz, why = citizens(days)
     out["citizens"] = citizen_rows(cz, days)
@@ -277,6 +295,12 @@ def text(r: dict) -> str:
     lines.append("\nErrors (host, path, status, count)")
     for h, p, s, n in r["errors"]:
         lines.append(f"  {h:<22} {p:<34} {s:>4} {n:>6}")
+    lines.append("\nWho sent the errors (host, path, status, class, name, count, addresses, last)")
+    for row in r["error_senders"]:
+        lines.append("  " + "  ".join(str(c) for c in row))
+    lines.append(f"\nWhy the driver refused ({r['refusals_note']}): path, reason, count")
+    for row in r["refusals"]:
+        lines.append("  " + "  ".join(str(c) for c in row))
     lines.append("\nOrganic agent visits (address, first seen, last seen, requests, mcp calls, cloaks, gates, names): not from the lab, and in the game, cloaked at least")
     for row in r["organic"]:
         lines.append("  " + "  ".join(str(c) for c in row[:9] if c != ""))
@@ -327,6 +351,8 @@ def page(r: dict) -> str:
         ("Referrers", table(["referrer", "requests"], r["referers"])),
         ("Daily", table(["day", "host", "requests", "uniques"], r["daily"])),
         ("Errors", table(["host", "path", "status", "count"], r["errors"])),
+        ("Who sent the errors", table(["host", "path", "status", "class", "name", "count", "addresses", "last"], r["error_senders"])),
+        (f"Why the driver refused ({r['refusals_note']})", table(["path", "reason", "count"], r["refusals"])),
     ]
     body = "".join(f"<h2>{html.escape(t)}</h2>{tb}" for t, tb in sections)
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">

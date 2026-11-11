@@ -130,14 +130,14 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
                 let ready = super::exchange::ready_in(world, actor, e.id)
                     .map(|ms| format!("ready in {}", super::combat::human(ms)))
                     .unwrap_or_else(|| "after the hour".to_string());
-                format!("a story about {s}{turned} (you told it one this hour; another from you pays {ready})")
+                format!("a story about {s}{turned} (you told it one this hour; it pays double again {ready}, and before then hears the wanted story once more, at plain pay)")
             } else if super::exchange::heard_this_hour(world, e.id)
                 >= super::exchange::STORIES_AN_HOUR
             {
                 // Full from others: said here, so the list does not send you to a
                 // creature that refuses (the Watch of 11-06).
                 format!(
-                    "a story about {s}{turned} (full for the hour: it has heard {} from others; a story that carries the word under the others is heard even so)",
+                    "a story about {s}{turned} (full for the hour: it has heard {} from others; only a story that carries a word of its you have not found is heard before then)",
                     super::exchange::STORIES_AN_HOUR
                 )
             } else {
@@ -630,7 +630,7 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
     let falls = super::death::recent_falls(world, f.citizen);
     if falls > 0 {
         lines.push(format!(
-            "You have fallen {} tonight; the next fall costs {} of the first.",
+            "You have fallen {} tonight; the next fall takes {} the share of your memory the first did (a share of what you carry then, so the figure moves with you).",
             match falls {
                 1 => "once".to_string(),
                 2 => "twice".to_string(),
@@ -640,7 +640,7 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
                 1 => "half",
                 2 => "a quarter",
                 3 => "an eighth",
-                _ => "almost nothing",
+                _ => "a small part of",
             }
         ));
     }

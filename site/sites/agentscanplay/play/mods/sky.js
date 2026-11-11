@@ -119,6 +119,13 @@ export default function install(m) {
     ctx.fillText("moon: memory " + (rates.half_life < 0.999 ? "thins" : rates.half_life > 1.001 ? "keeps" : "holds") + " · fog: worth " + rates.worth.toFixed(2) + " · stars: who is here", 8, H - 6);
   }
   let raf = 0;
-  (function loop() { draw(); raf = requestAnimationFrame(loop); })();
+  // P1: the sky drifts; twenty frames a second is all it needs, and none while hidden.
+  let lastDraw = 0;
+  (function loop() {
+    raf = requestAnimationFrame(loop);
+    const t = performance.now();
+    if (document.hidden || t - lastDraw < 50) return;
+    lastDraw = t; draw();
+  })();
   return () => { cancelAnimationFrame(raf); clearInterval(ratesTimer); panel.remove(); };
 }

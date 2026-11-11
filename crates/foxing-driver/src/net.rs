@@ -348,15 +348,136 @@ pub async fn serve_tcp(shared: Shared, addr: String) {
 
 #[derive(Deserialize)]
 struct CommandBody {
+    #[serde(alias = "name", alias = "from")]
     actor: String,
     #[serde(default)]
     passphrase: String,
     /// Take a passing name: forgotten an hour after it goes quiet, keeping nothing.
     #[serde(default)]
     passing: bool,
+    #[serde(alias = "verb")]
     command: String,
     #[serde(default)]
     args: Value,
+}
+
+/// Requests the door turned away since boot, counted by path and reason, so the
+/// operator's page can say why and not only how many (`GET /v0/refusals`).
+static REFUSALS: Mutex<std::collections::BTreeMap<(String, String), u64>> =
+    Mutex::new(std::collections::BTreeMap::new());
+
+pub(crate) fn refused(path: &str, reason: &str) {
+    if let Ok(mut m) = REFUSALS.lock() {
+        if m.len() < 500 || m.contains_key(&(path.to_string(), reason.to_string())) {
+            *m.entry((path.to_string(), reason.to_string())).or_insert(0) += 1;
+        }
+    }
+}
+
+/// What each POST body is, said back to whoever sent another shape.
+fn wants(path: &str) -> &'static str {
+    match path {
+        "/v0/command" => {
+            r#"{"actor": "<your name>", "passphrase": "<yours>", "command": "<a verb, as GET /v0/commands lists them>", "args": [..]}"#
+        }
+        "/v0/gate" => {
+            r#"{"actor": "<your name>", "passphrase": "<yours>", "message": "<a CLEAR message, FROM: your name>"}"#
+        }
+        "/v0/observe" => {
+            r#"{"actor": "<your name>", "passphrase": "<yours>", "query": {"root": "here"}}"#
+        }
+        "/v0/login" => {
+            r#"{"actor": "<your name>", "passphrase": "<8 or more characters, set on first use>"}"#
+        }
+        "/v0/check" => r#"{"message": "<the CLEAR message text>"}"#,
+        "/v0/passphrase" => {
+            r#"{"actor": "<your name>", "passphrase": "<the old one>", "new": "<the new one>"}"#
+        }
+        _ => "a JSON object",
+    }
+}
+
+/// A JSON body, read whatever the Content-Type says, and refused in the door's own
+/// voice: what was wrong, the shape this path takes, and where the whole API is
+/// written down. Axum's own refusal was a line of plain text naming a Rust type.
+pub(crate) struct Body<T>(pub T);
+
+impl<T, S> axum::extract::FromRequest<S> for Body<T>
+where
+    T: serde::de::DeserializeOwned,
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, Json<Value>);
+
+    async fn from_request(req: axum::extract::Request, state: &S) -> Result<Self, Self::Rejection> {
+        let path = req.uri().path().to_string();
+        let bytes = axum::body::Bytes::from_request(req, state)
+            .await
+            .map_err(|_| {
+                refused(&path, "body too large or unreadable");
+                err_json(
+                    StatusCode::PAYLOAD_TOO_LARGE,
+                    "The body could not be read, or is over 64 KB.",
+                )
+            })?;
+        let turn = |status: StatusCode, reason: &str, why: String| {
+            refused(&path, reason);
+            (
+                status,
+                Json(json!({
+                    "ok": false,
+                    "error": format!("{why} POST {path} takes {}. The whole API is at /v0/openapi.json.", wants(&path)),
+                    "detail": {"reason": reason, "wants": wants(&path), "openapi": "/v0/openapi.json"},
+                })),
+            )
+        };
+        let value: Value = if bytes.iter().all(|b| b.is_ascii_whitespace()) {
+            json!({})
+        } else {
+            serde_json::from_slice(&bytes).map_err(|e| {
+                turn(
+                    StatusCode::BAD_REQUEST,
+                    "not JSON",
+                    format!("The body is not JSON ({e})."),
+                )
+            })?
+        };
+        serde_json::from_value::<T>(value).map(Body).map_err(|e| {
+            let said = e.to_string();
+            let reason = match said.split('`').nth(1) {
+                Some(field) if said.starts_with("missing field") => {
+                    format!("missing field: {field}")
+                }
+                _ => "wrong shape".to_string(),
+            };
+            turn(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                &reason,
+                format!("The body is not the shape this path takes ({said})."),
+            )
+        })
+    }
+}
+
+async fn refusals(State(s): State<Shared>, headers: HeaderMap) -> Reply {
+    if !s.is_admin(admin_header(&headers)) {
+        return Err(err_json(StatusCode::FORBIDDEN, "admin token required"));
+    }
+    let rows: Vec<Value> = REFUSALS
+        .lock()
+        .map(|m| {
+            m.iter()
+                .map(|((path, reason), n)| json!({"path": path, "reason": reason, "count": n}))
+                .collect()
+        })
+        .unwrap_or_default();
+    let uptime = {
+        let w = lock(&s)?;
+        w.now().since(w.started).0 / 1000
+    };
+    Ok(Json(
+        json!({"since_boot_seconds": uptime, "refusals": rows}),
+    ))
 }
 
 fn err_json(status: StatusCode, msg: impl Into<String>) -> (StatusCode, Json<Value>) {
@@ -575,15 +696,46 @@ async fn map(State(s): State<Shared>) -> Reply {
 /// `GET /v0/board`: the leaderboard. Public: what each name holds now and what the
 /// record says it earned, kept, gave, told and carried.
 async fn board(State(s): State<Shared>) -> Reply {
-    let w = lock(&s)?;
-    Ok(Json(crate::disremembered::board::to_json(&w)))
+    kept(&BOARD_KEPT, 120, || {
+        let w = lock(&s)?;
+        Ok(crate::disremembered::board::to_json(&w))
+    })
+}
+
+/// A public read that is dear to make, kept for a while: asked for again inside
+/// `secs`, the kept answer goes out without the world's lock being taken at all.
+/// The board reads the whole log, and held every player's command for as long as
+/// that took, each time anyone opened the page.
+type Kept = Mutex<Option<(std::time::Instant, Value)>>;
+static BOARD_KEPT: Kept = Mutex::new(None);
+static ECONOMY_KEPT: Kept = Mutex::new(None);
+
+fn kept(
+    slot: &Kept,
+    secs: u64,
+    make: impl FnOnce() -> Result<Value, (StatusCode, Json<Value>)>,
+) -> Reply {
+    if let Ok(g) = slot.lock() {
+        if let Some((at, v)) = g.as_ref() {
+            if at.elapsed().as_secs() < secs {
+                return Ok(Json(v.clone()));
+            }
+        }
+    }
+    let v = make()?;
+    if let Ok(mut g) = slot.lock() {
+        *g = Some((std::time::Instant::now(), v.clone()));
+    }
+    Ok(Json(v))
 }
 
 /// `GET /v0/economy`: the rates, the dashboard the Clocktower reads, and its last
 /// strikes. Public.
 async fn economy(State(s): State<Shared>) -> Reply {
-    let w = lock(&s)?;
-    Ok(Json(crate::disremembered::economy::to_json(&w)))
+    kept(&ECONOMY_KEPT, 20, || {
+        let w = lock(&s)?;
+        Ok(crate::disremembered::economy::to_json(&w))
+    })
 }
 
 /// The admin token from the request: `X-Foxing-Admin`, or `X-Moondial-Admin` from a
@@ -689,6 +841,7 @@ pub(crate) fn schema_value(s: &Shared) -> Result<Value, (StatusCode, Json<Value>
 
 #[derive(Deserialize)]
 struct CheckBody {
+    #[serde(alias = "text")]
     message: String,
 }
 
@@ -701,7 +854,7 @@ pub const MAX_BODY_BYTES: usize = 64 * 1024;
 
 /// `POST /v0/check {message}`: the checker's verdict on a message, without sending it.
 /// What a browser without WebAssembly uses; the same result the editor computes locally.
-async fn check(State(s): State<Shared>, Json(body): Json<CheckBody>) -> Reply {
+async fn check(State(s): State<Shared>, Body(body): Body<CheckBody>) -> Reply {
     if body.message.len() > MAX_CHECK_BYTES {
         return Err(err_json(
             StatusCode::PAYLOAD_TOO_LARGE,
@@ -756,6 +909,7 @@ pub(crate) fn http_login(
 
 #[derive(Deserialize)]
 struct LoginBody {
+    #[serde(alias = "name")]
     actor: String,
     #[serde(default)]
     passphrase: String,
@@ -782,7 +936,7 @@ async fn cloak_get(State(s): State<Shared>) -> Reply {
         .map_err(|e| err_json(StatusCode::INTERNAL_SERVER_ERROR, e))
 }
 
-async fn cloak_post(State(s): State<Shared>, Json(body): Json<Value>) -> Reply {
+async fn cloak_post(State(s): State<Shared>, Body(body): Body<Value>) -> Reply {
     let w = lock(&s)?;
     disremembered::cloak::view(&w, body.get("query").cloned(), &s.limits)
         .map(Json)
@@ -791,7 +945,7 @@ async fn cloak_post(State(s): State<Shared>, Json(body): Json<Value>) -> Reply {
 
 /// `POST /v0/passphrase {actor, passphrase, new}`: change your passphrase. Not a gate
 /// verb, so nothing of it is in the log.
-async fn passphrase(State(s): State<Shared>, Json(body): Json<PassphraseBody>) -> Reply {
+async fn passphrase(State(s): State<Shared>, Body(body): Body<PassphraseBody>) -> Reply {
     let mut w = lock(&s)?;
     valid_name(&body.actor).map_err(|e| err_json(StatusCode::BAD_REQUEST, e))?;
     disremembered::change_passphrase(&mut w, &body.actor, &body.passphrase, &body.new).map_err(
@@ -816,7 +970,7 @@ async fn passphrase(State(s): State<Shared>, Json(body): Json<PassphraseBody>) -
 /// Check a name and passphrase (creating the citizen on first login) without running a
 /// command. The browser client calls this first so a bad passphrase is a clear message
 /// rather than a failed `look`.
-async fn login(State(s): State<Shared>, headers: HeaderMap, Json(body): Json<LoginBody>) -> Reply {
+async fn login(State(s): State<Shared>, headers: HeaderMap, Body(body): Body<LoginBody>) -> Reply {
     let mut w = lock(&s)?;
     w.client_ip = Some(client_ip(&headers));
     let fresh = http_login(&mut w, &body.actor, &body.passphrase, "http", body.passing)?;
@@ -828,7 +982,7 @@ async fn login(State(s): State<Shared>, headers: HeaderMap, Json(body): Json<Log
 async fn command(
     State(s): State<Shared>,
     headers: HeaderMap,
-    Json(body): Json<CommandBody>,
+    Body(body): Body<CommandBody>,
 ) -> Reply {
     let token = admin_header(&headers);
     let kind = if s.is_admin(token) {
@@ -852,10 +1006,13 @@ async fn command(
             Ok(out) => Ok(Json(
                 json!({"ok": true, "summary": out.summary, "result": out.result}),
             )),
-            Err(e) => Err((
-                StatusCode::UNPROCESSABLE_ENTITY,
-                Json(json!({"ok": false, "error": e.to_string(), "detail": e})),
-            )),
+            Err(e) => {
+                refused("/v0/command", "observe as a command, refused");
+                Err((
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    Json(json!({"ok": false, "error": e.to_string(), "detail": e})),
+                ))
+            }
         };
     }
     let mut budget = s
@@ -945,6 +1102,7 @@ pub(crate) fn passage_json(p: &crate::gate::Passage) -> Value {
 
 #[derive(Deserialize)]
 struct ObserveBody {
+    #[serde(alias = "name")]
     actor: String,
     #[serde(default)]
     passphrase: String,
@@ -956,7 +1114,7 @@ struct ObserveBody {
 async fn observe_http(
     State(s): State<Shared>,
     headers: HeaderMap,
-    Json(body): Json<ObserveBody>,
+    Body(body): Body<ObserveBody>,
 ) -> Reply {
     let token = admin_header(&headers);
     let admin = s.is_admin(token);
@@ -992,6 +1150,11 @@ async fn observe_http(
                 | foxing_query::QueryError::UnknownRoot { .. } => StatusCode::NOT_FOUND,
                 _ => StatusCode::UNPROCESSABLE_ENTITY,
             };
+            let reason = serde_json::to_value(&e)
+                .ok()
+                .and_then(|v| v["reason"].as_str().map(|r| format!("query: {r}")))
+                .unwrap_or_else(|| "query refused".to_string());
+            refused("/v0/observe", &reason);
             Err((
                 status,
                 Json(json!({"ok": false, "error": e.to_string(), "detail": e})),
@@ -1008,6 +1171,7 @@ struct GateBody {
     /// Take a passing name: forgotten an hour after it goes quiet, keeping nothing.
     #[serde(default)]
     passing: bool,
+    #[serde(alias = "text")]
     message: String,
 }
 
@@ -1017,7 +1181,7 @@ struct GateBody {
 async fn gate_http(
     State(s): State<Shared>,
     headers: HeaderMap,
-    Json(body): Json<GateBody>,
+    Body(body): Body<GateBody>,
 ) -> Reply {
     let mut w = lock(&s)?;
     w.client_ip = Some(client_ip(&headers));
@@ -1157,6 +1321,7 @@ pub fn router(shared: Shared) -> Router {
         .route("/v0/namery", get(namery))
         .route("/v0/docent", get(docent))
         .route("/v0/citizens", get(citizens))
+        .route("/v0/refusals", get(refusals))
         .route("/v0/openapi.json", get(openapi))
         .route(
             "/mcp",

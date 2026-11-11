@@ -274,6 +274,9 @@ export default function install(m) {
   // places and a click meant for one landed on another.
   const seats = new Map();    // thing id -> [x, y], for the room in seatRoom
   let seatRoom = null;
+  let busyUntil = 0, lastDraw = 0;  // P1: see the loop
+  const IDLE_FRAME_MS = 100;
+  function wake(ms) { busyUntil = Math.max(busyUntil, performance.now() + (ms || 1500)); }
   let hurt = 0;               // the edge glows red for a moment when you are hit
   let lastHp = null;
 
@@ -892,6 +895,7 @@ export default function install(m) {
     return { h: hot.get(x + "," + y) || hot.get(x + "," + (y + 1)) || null, x, y, px: ev.clientX - r.left, py: ev.clientY - r.top };
   }
   canvas.addEventListener("mousemove", (ev) => {
+    wake(600);
     const { h, x, y } = tileAt(ev);
     if (peek) return;
     const near = !h && scene && y >= WALL_TOP ? doorNear(x, y) : null;
@@ -907,6 +911,7 @@ export default function install(m) {
   canvas.style.touchAction = "pan-y pinch-zoom";
   canvas.addEventListener("pointerdown", (ev) => { if (ev.button !== 0 && ev.pointerType === "mouse") return; drag = { x: ev.clientX, y: ev.clientY }; dragged = false; });
   canvas.addEventListener("pointermove", (ev) => {
+    wake(600);
     if (!drag) return;
     if (!dragged && Math.hypot(ev.clientX - drag.x, ev.clientY - drag.y) < 8) return;
     if (!dragged) { dragged = true; try { canvas.setPointerCapture(ev.pointerId); } catch (e) {} }
@@ -963,6 +968,7 @@ export default function install(m) {
     return best;
   }
   canvas.addEventListener("click", (ev) => {
+    wake();
     const { h, x, y, px: cx, py: cy } = tileAt(ev);
     closeMenu();
     if (dragged) { dragged = false; return; }
@@ -1200,14 +1206,28 @@ export default function install(m) {
   document.addEventListener("click", closeSatMenu);
   function refreshSatchel() { if (!m.live && m.actor) m.observe(SAT_QUERY).then(o => { if (o && o.root) takeSatchel(o); }); }
 
-  m.on("observation", (id, obs) => { if (id === "mod:scene") take(obs); else if (id === "mod:satchel") takeSatchel(obs); });
+  m.on("observation", (id, obs) => { wake(); if (id === "mod:scene") take(obs); else if (id === "mod:satchel") takeSatchel(obs); });
   m.on("login", () => { if (used.size === 0) for (const v of STARTERS) used.set(v, Date.now()); saveVerbs(); drawVerbs(); m.subscribe("scene", QUERY); m.subscribe("satchel", SAT_QUERY); refreshSatchel(); askRecipes(); });
   m.on("logout", () => { makeable = []; satKey = ""; scene = null; roomId = null; lastHp = null; bubbles.clear(); floats.length = 0; hud.textContent = "Log in to see the room."; closeMenu(); satchel = []; drawSatchel(); });
-  m.on("result", onResult);
-  m.on("line", onLine);
+  m.on("result", (...a) => { wake(); onResult(...a); });
+  m.on("line", (...a) => { wake(2500); onLine(...a); });
   if (m.actor) { m.subscribe("scene", QUERY); m.subscribe("satchel", SAT_QUERY); refreshSatchel(); askRecipes(); }
   drawSatchel();
   let raf = 0;
-  (function loop() { const t = performance.now(); draw(); if (m.perfFrame) m.perfFrame(performance.now() - t); raf = requestAnimationFrame(loop); })();
+  // P1: the picture is drawn at full rate only while something moves (a push from the
+  // world, a float, the pointer, a line of speech), at ten frames a second for the
+  // ambient motion otherwise, and not at all while the tab is hidden. It was sixty a
+  // second, always: a third of a core for a still room.
+  (function loop() {
+    raf = requestAnimationFrame(loop);
+    if (document.hidden) return;
+    const t = performance.now();
+    for (const [id, until] of flashes) if (until < t) flashes.delete(id);
+    const lively = t < busyUntil || floats.length > 0 || flashes.size > 0 || hurt > t;
+    if (!lively && t - lastDraw < IDLE_FRAME_MS) return;
+    lastDraw = t;
+    draw();
+    if (m.perfFrame) m.perfFrame(performance.now() - t);
+  })();
   return () => { cancelAnimationFrame(raf); clearInterval(verbTimer); clearInterval(recipesEvery); clearTimeout(recipesTimer); if (ro) ro.disconnect(); m.unsubscribe("scene"); m.unsubscribe("satchel"); document.removeEventListener("click", closeSatMenu); satMenu.remove(); panel.remove(); satPanel.remove(); m.builtin("map", true); m.builtin("here", true); };
 }

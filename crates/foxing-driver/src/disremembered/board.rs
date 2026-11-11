@@ -207,7 +207,7 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
     let mut sums: HashMap<String, f64> = HashMap::new();
     for e in world
         .log
-        .read_all(&world.id, Cursor::START)
+        .read_all(&world.id, world.cursor_at(day_ago))
         .unwrap_or_default()
     {
         if e.kind != CENSUS || e.at.0 < day_ago {

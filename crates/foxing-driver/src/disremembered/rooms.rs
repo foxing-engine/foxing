@@ -1786,7 +1786,22 @@ pub fn describe_as(
                     ),
                     _ => String::new(),
                 };
-                let shaken = if shaken_now { ", not itself yet" } else { "" };
+                // R183: a downed creature read as a target; say it cannot be fought, and how long.
+                let shaken = if shaken_now {
+                    match c["id"]
+                        .as_u64()
+                        .and_then(|id| super::mind::shaken_for(world, EntityId(id)))
+                        .filter(|ms| *ms > 0)
+                    {
+                        Some(ms) => format!(
+                            ", not itself yet: not to be fought for {}",
+                            super::combat::human(ms)
+                        ),
+                        None => ", not itself yet".to_string(),
+                    }
+                } else {
+                    String::new()
+                };
                 let named = match c["mind"]["named"].as_str() {
                     Some(p) => format!(", {p}"),
                     None => String::new(),

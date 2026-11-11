@@ -924,8 +924,13 @@ pub fn shaken_said(world: &World, citizen: EntityId) -> Option<String> {
     let (_, left) = shaken(world, citizen)?;
     let hit = to_hit(world, citizen);
     Some(format!(
-        "Shaken from the Threshold: {} strikes in 10 land, steadying over {}.",
-        (hit * 10.0).round() as i64,
+        "Shaken from the Threshold: {}, steadying over {}.",
+        // R186: a quarter was said as "3 strikes in 10" beside the guide's "one in four".
+        if (hit * 4.0 - 1.0).abs() < 0.04 {
+            "1 strike in 4 lands".to_string()
+        } else {
+            format!("{} strikes in 10 land", (hit * 10.0).round() as i64)
+        },
         human(left)
     ))
 }
@@ -2042,9 +2047,14 @@ pub fn register(world: &mut World, curves: Curves) {
                     .unwrap_or_default();
                 // F24: an empty room of the Stacks points at `where <kind>`.
                 let stacks_hint = if plain_str(w, room, super::ROOM, "key").is_some_and(|k| super::stacks::KEYS.contains(&k)) && here.is_empty() {
-                    " Nothing lives in this room of the Stacks; `where lamprey`, `where usher` or `where censor` says where each kind does."
+                    // R179: a room with a kind of its own says so; it was told
+                    // "nothing lives here" a minute after its bookworms were fought.
+                    match plain_str(w, room, super::SPAWN, "creature") {
+                        Some(kind) => format!(" The {kind}s of this room are all down just now, and come back as the line above says."),
+                        None => " Nothing lives in this room of the Stacks; `where lamprey`, `where usher` or `where censor` says where each kind does.".to_string(),
+                    }
                 } else {
-                    ""
+                    String::new()
                 };
                 let where_ = format!("{where_}{refill}{stacks_hint}");
                 let officers: Vec<String> = here.iter().filter(|c| super::mind::name(w, c.0).is_none() && plain_str(w, c.0, CREATURE, "name").is_some_and(|k| OFFICERS.contains(&k))).map(|c| super::mind::display(w, c.0)).collect();

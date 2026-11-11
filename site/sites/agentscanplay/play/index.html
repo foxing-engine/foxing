@@ -198,6 +198,15 @@
   #atlas-zoom .lvl { font-size: 10px; color: var(--dim); align-self: center; padding: 0 3px; min-width: 2.6em; text-align: right; }
   #atlas .room { fill: #222c3a; stroke: var(--line); stroke-width: 1; }
   #atlas .room.seed { fill: #1c2530; }
+  #atlas .district { pointer-events: none; opacity: .9; }
+  #keystrip { font-size: 11.5px; color: var(--dim); margin: 6px 20px 0; line-height: 1.9; }
+  #keystrip b { color: var(--dust); font-weight: 600; margin-right: 4px; }
+  #keystrip kbd { font: inherit; font-size: 10.5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; margin: 0 3px 0 8px; color: var(--dust); }
+  #keystrip button { font: inherit; margin-left: 10px; background: none; border: 1px solid var(--line); border-radius: 999px; color: var(--dim); padding: 0 9px; cursor: pointer; }
+  #atlas-districts { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 6px 0 2px; }
+  .district-chip { font: inherit; font-size: 11px; color: var(--dim); background: none; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px 1px 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+  .district-chip:hover { color: var(--dust); border-color: var(--dust); }
+  .district-chip i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
   #atlas .room.seen { fill: #2f3b4c; stroke: var(--dust); }
   #atlas .room.here { fill: #4a4330; stroke: var(--dust); stroke-width: 2; animation: herepulse 2.4s ease-in-out infinite; }
   #atlas .room.fog { fill: url(#fogfill); stroke-dasharray: 3 2; }
@@ -1337,6 +1346,7 @@
     const live = await connect();
     if (live) { $("link").textContent = "Live session."; } else { try { const h = await api("/health"); if (h.body) cursor = h.body.events || 0; } catch (e) {} startPolling(); }
     emit("login", name, live);
+    keys.strip();
     firstHours.begin();
     await run("look", []);
     return true;
@@ -1617,6 +1627,8 @@
     }
     return lines.map(l => l.length > 14 ? l.slice(0, 13) + "\u2026" : l);
   }
+  // H17: the world's districts, each with a color for the map.
+  const DISTRICT_TINT = { "the Door": "#e8c27a", "the Diggings": "#a9825a", "the Wilds": "#7fae8c", "the Library": "#d9a15b", "the Deep Water": "#5b9bd9", "the Stacks": "#b58bd6", "the Clock Quarter": "#d98f8f", "the Conclave": "#c7c16a", "the Exergue District": "#8fd1cf", "the Wistful Trail": "#9fb3e8" };
   async function refreshAtlas(force) {
     if (!wsReady || !actor) return;
     const room = subs.room && subs.room.root;
@@ -1776,6 +1788,7 @@
     // and a click walks there by the doors you remember.
     const floors = [...new Set(rooms.map(r => r.z))].sort((a, b) => (a === here.z ? -1 : b === here.z ? 1 : b - a));
     const frag = document.createDocumentFragment();
+    const districtsDrawn = new Set();
     let ox = PAD, H = 0, hereAt = null;
     for (const z of floors) {
       const floor = rooms.filter(r => r.z === z);
@@ -1806,6 +1819,13 @@
         const title = el("title", {});
         title.textContent = r.name + (r.visible ? (r.here ? " (you are here)" : fog ? " (in sight, never walked)" : " (in sight)") : " (" + Math.round(r.mem * 100) + "% remembered)") + (steps ? "; click to walk there, " + steps.length + " door" + (steps.length === 1 ? "" : "s") : "");
         g.append(title, rect);
+        // H17: a bar in the district's color along the top of the cell; the legend
+        // under the map names each one that is on it.
+        if (r.district && DISTRICT_TINT[r.district]) {
+          title.textContent += "; " + r.district;
+          districtsDrawn.add(r.district);
+          g.append(el("rect", { x: px(r) - half + 1, y: py(r) - half + 1, width: CELL - 10, height: 3, rx: 1, fill: DISTRICT_TINT[r.district], class: "district" }));
+        }
         const label = cellLabel(r.name, CELL);
         label.forEach((line, i) => g.append(Object.assign(el("text", { x: px(r), y: py(r) + 3 + (i - (label.length - 1) / 2) * 11, class: "name", "text-anchor": "middle" }), { textContent: line })));
         if (stairs.length) g.append(Object.assign(el("text", { x: px(r) + half - 1, y: py(r) - half + 7, class: "stair", "text-anchor": "end" }), { textContent: (stairs.some(t => t.z > z) ? "\u25b2" : "") + (stairs.some(t => t.z < z) ? "\u25bc" : "") }));
@@ -1837,6 +1857,16 @@
     fit(); atlasFit = fit;
     atlasView.drawn(W, Hv, hereAt);
     const half = Math.round(hl / 360000) / 10;
+    {
+      let key = $("atlas-districts");
+      if (!key) { key = Object.assign(document.createElement("div"), { id: "atlas-districts" }); $("atlas-note").before(key); }
+      key.replaceChildren(...Object.keys(DISTRICT_TINT).filter(d => districtsDrawn.has(d)).map(d => {
+        const chip = Object.assign(document.createElement("button"), { type: "button", className: "district-chip", title: "where " + d + " (click): the way to its door" });
+        chip.append(Object.assign(document.createElement("i"), { style: "background:" + DISTRICT_TINT[d] }), d.replace(/^the /, ""));
+        chip.addEventListener("click", () => { print("where " + d, "you"); chain = after(() => run("where", [d])); });
+        return chip;
+      }));
+    }
     $("atlas-note").textContent = rooms.length + " room" + (rooms.length === 1 ? "" : "s") + " remembered; a room halves every " + half + " h since you stood in it. Bright: in sight. Click a room to walk there; a dashed link is a named door. Wheel or pinch to zoom, drag to pan.";
   }
   // ---- the atlas's zoom and pan: a window onto the drawing, kept across redraws ----
@@ -2702,11 +2732,14 @@
   function after(fn) { return chain.catch((e) => { console.error("chain", e); }).then(fn); }
   form.addEventListener("submit", (e) => {
     e.preventDefault();
+    // P4: Enter on an empty line strikes again while a fight is on.
+    if (!input.value.trim() && !asking && actor && keys.fighting()) input.value = keys.lastAttack();
     const line = input.value; input.value = ""; $("hint").textContent = ""; renderPicker(); staged(); ghost();
     chain = after(() => handle(line)).catch(err => print("Something broke in this page: " + err, "err"));
   });
 
   async function handle(line) {
+    keys.sent(line);
     if (asking === "name") {
       const name = line.trim();
       if (!/^[A-Za-z0-9_-]{1,32}$/.test(name)) { print("A name is letters, digits, - and _ only, up to 32.", "err"); return; }
@@ -2838,8 +2871,96 @@
     return atlas.rooms.find(r => !r.here && norm(r.name) === want) || null;
   }
 
+  // P4: fewer keys for the common things. Tab completes the verb, then what is in the
+  // room, on the way out, or carried (again for the next); Enter on an empty line
+  // strikes again in a fight; Alt+1 to 9 pick the verb chips; a letter typed anywhere
+  // lands in the line, and / goes to it; Esc closes whatever is open.
+  const keys = (() => {
+    const COMMON = ["look", "travel", "attack", "retreat", "rest", "story", "tell", "say", "take", "drop", "give", "read", "remember", "chunks", "map", "where", "wants", "mine", "satchel", "recipes", "craft", "gather", "dig", "describe", "append", "shelve", "recall", "time", "news", "help", "session", "messages", "leave", "keep", "name", "welcome", "invite", "feedback", "board", "petition", "petitions"];
+    let known = null, cyc = null, lastAtk = "attack";
+    const verbs = () => {
+      if (!known && C.vocab && C.vocab.approved_verbs && !Array.isArray(C.vocab.approved_verbs)) known = [...new Set([...COMMON, ...Object.keys(C.vocab.approved_verbs)])];
+      return known || COMMON;
+    };
+    const comp = (n, c) => (n.components && n.components[c]) || {};
+    function things(verb) {
+      const room = subs.room && subs.room.root; const out = [];
+      if (!room) return out;
+      const exits = (room.relations && room.relations.exits) || [];
+      const here = (room.relations && room.relations.contents) || [];
+      const ways = () => { for (const ex of exits) out.push(ex.via); const a = typeof atlas !== "undefined" && atlas; if (a && a.rooms) for (const r of a.rooms) if (!r.here) out.push(r.name.replace(/^The /, "")); };
+      const creatures = (named) => { for (const n of here) if (n.kind === "creature") { const nm = comp(n, "disremembered.mind").name, kind = comp(n, "disremembered.creature").name; if (named ? nm : true) out.push(nm || kind); } };
+      const items = () => { for (const n of here) if (n.kind === "item") { const it = comp(n, "disremembered.item"); out.push(it.given_name || it.name); } };
+      const folk = () => { for (const n of here) if (n.kind === "citizen" && n.owner && n.owner !== actor) out.push(n.owner); };
+      if (verb === "travel") ways();
+      else if (verb === "where") { ways(); out.push(...Object.keys(DISTRICT_TINT)); creatures(true); }
+      else if (verb === "attack") creatures(false);
+      else if (verb === "story") creatures(true);
+      else if (verb === "tell") { creatures(true); folk(); out.push("Docent"); }
+      else if (verb === "take" || verb === "read") { items(); if (verb === "read") out.push("signpost", "boots", "doors"); }
+      else if (verb === "help") out.push(...verbs());
+      else { creatures(false); items(); folk(); for (const ex of exits) out.push(ex.via); }
+      return [...new Set(out.filter(Boolean))];
+    }
+    function complete(back) {
+      const v = input.value, at = input.selectionStart == null ? v.length : input.selectionStart;
+      if (cyc && cyc.value === v) {
+        cyc.i = (cyc.i + (back ? -1 : 1) + cyc.list.length) % cyc.list.length;
+      } else {
+        const head = v.slice(0, at), m = /^(\s*)(\S*)$/.exec(head);
+        let stem, list, base;
+        if (m) { stem = m[2].toLowerCase(); base = m[1]; list = verbs().filter(x => x.startsWith(stem)); }
+        else {
+          const sp = head.search(/\S+\s+/), verb = head.trim().split(/\s+/)[0].toLowerCase();
+          const cut = head.indexOf(" ", sp < 0 ? 0 : sp) + 1; base = head.slice(0, cut).replace(/\s+$/, " "); stem = head.slice(cut).replace(/^\s+/, "").toLowerCase();
+          const all = things(verb);
+          list = all.filter(x => x.toLowerCase().startsWith(stem));
+          if (!list.length && stem) list = all.filter(x => x.toLowerCase().split(/[\s'-]+/).some(w => w.startsWith(stem)));
+        }
+        if (!list.length) return false;
+        cyc = { list, i: back ? list.length - 1 : 0, base, verbPart: !!m };
+      }
+      const pick = cyc.list[cyc.i];
+      const text = cyc.base + (/\s/.test(pick) && !cyc.verbPart ? '"' + pick + '"' : pick) + (cyc.verbPart ? " " : "");
+      input.value = text; cyc.value = text; input.setSelectionRange(text.length, text.length);
+      $("hint").textContent = cyc.list.length > 1 ? "Tab: " + cyc.list.slice(0, 12).map((x, i) => i === cyc.i ? "[" + x + "]" : x).join("  ") + (cyc.list.length > 12 ? "  \u2026" : "") : "";
+      renderPicker();
+      return true;
+    }
+    const strip = () => {
+      let seen = false; try { seen = localStorage.getItem("disremembered.keys") === "1"; } catch (e) {}
+      if (seen || $("keystrip")) return;
+      const d = Object.assign(document.createElement("div"), { id: "keystrip" });
+      d.innerHTML = "<b>Keys</b> <kbd>Tab</kbd> finishes a verb, then a name here <kbd>Enter</kbd> on an empty line strikes again in a fight <kbd>Ctrl</kbd>+arrows walk <kbd>Alt</kbd>+1\u20139 the chips above <kbd>/</kbd> to the line <kbd>Esc</kbd> closes <kbd>?</kbd> help ";
+      const x = Object.assign(document.createElement("button"), { type: "button", textContent: "got it", title: "Hide this; ? has it again" });
+      x.addEventListener("click", () => { d.remove(); try { localStorage.setItem("disremembered.keys", "1"); } catch (e) {} input.focus(); });
+      d.append(x); form.after(d);
+    };
+    return {
+      complete, strip,
+      reset() { cyc = null; },
+      fighting() { const me = subs.me && subs.me.root; return !!(me && comp(me, "disremembered.body").engaged); },
+      lastAttack() { return lastAtk; },
+      sent(line) { if (/^\s*attack\b/i.test(line)) lastAtk = line.trim(); },
+    };
+  })();
+  document.addEventListener("keydown", (e) => {
+    if (asking || !actor) return;
+    if (e.altKey && !e.ctrlKey && !e.metaKey && /^[1-9]$/.test(e.key)) {
+      const chips = $("verbbar").querySelectorAll("button"); const b = chips[Number(e.key) - 1];
+      if (b) { b.click(); e.preventDefault(); }
+      return;
+    }
+    if (e.key === "Escape") { document.body.click(); if (!$("help").hidden) return; input.focus(); return; }
+    const t = e.target; if (t && (t === input || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName) && e.key === " " || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "/") { input.focus(); e.preventDefault(); }
+    else if (e.key.length === 1 && /\S/.test(e.key)) input.focus();
+  });
   input.addEventListener("keydown", (e) => {
     if (asking) return;
+    if (e.key === "Tab" && !e.ctrlKey && !e.metaKey && !e.altKey && actor && input.value.trim()) { if (keys.complete(e.shiftKey)) e.preventDefault(); return; }
+    if (e.key !== "Shift") keys.reset();
     if (e.key === "?" && !input.value) { showHelp(); firstHours.unhide(); e.preventDefault(); return; }
     if (e.ctrlKey && /^Arrow(Up|Down|Left|Right)$/.test(e.key) && actor) { const dir = { ArrowUp: "north", ArrowDown: "south", ArrowLeft: "west", ArrowRight: "east" }[e.key]; chain = after(() => run("travel", [dir])); e.preventDefault(); return; }
     // Up and Down are the history, as in a shell (on an empty line they once walked

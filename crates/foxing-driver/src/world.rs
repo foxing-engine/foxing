@@ -597,6 +597,32 @@ impl World {
     }
 
     /// The last `n` events, oldest first.
+    /// A cursor just before the first event stamped at or after `at_ms`, found by
+    /// halving over the sequence (the log is in time order): a score of single-row
+    /// reads where a scan from the start read every event the world ever wrote. A
+    /// reader that wants the last day starts here.
+    pub fn cursor_at(&self, at_ms: i64) -> Cursor {
+        let head = self
+            .log
+            .head(&self.id)
+            .ok()
+            .flatten()
+            .map(|s| s.0)
+            .unwrap_or(0);
+        let (mut lo, mut hi) = (0u64, head);
+        // Invariant: every event at or before `lo` is older than `at_ms`; the first
+        // event after `hi` (if any) is not.
+        while lo < hi {
+            let mid = lo + (hi - lo) / 2;
+            match self.log.read(&self.id, Cursor { after: mid }, 1) {
+                Ok(v) if v.first().is_some_and(|e| e.at.0 < at_ms) => lo = v[0].seq.0.max(mid + 1),
+                Ok(_) => hi = mid,
+                Err(_) => return Cursor::START,
+            }
+        }
+        Cursor { after: lo }
+    }
+
     pub fn recent_events(&self, n: usize) -> Vec<Event> {
         let head = self
             .log

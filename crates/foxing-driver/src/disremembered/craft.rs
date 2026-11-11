@@ -1006,7 +1006,11 @@ pub fn item_line(v: &Value) -> String {
         .map(|b| format!(", made by {b}"))
         .unwrap_or_default();
     let called = match v["given_name"].as_str() {
-        Some(n) => format!("{n}, {}", v["name"].as_str().unwrap_or("something")),
+        // R188: "Parrish, a warden's charm" on the ground read as a person.
+        Some(n) => format!(
+            "{} that answers to {n}",
+            v["name"].as_str().unwrap_or("something")
+        ),
         None => v["name"].as_str().unwrap_or("something").to_string(),
     };
     let held = super::up(v["held"].as_f64().unwrap_or(0.0));

@@ -3017,7 +3017,7 @@ fn an_errand_is_a_story_wanted_or_a_word_carried_and_either_makes_you_known() {
     let look = ok(&mut w, "dave", "look", json!([]));
     assert!(
         look.summary.contains(&format!(
-            "{rag_name} wants word carried to {wisp_name} in the Fogbank: \"the fourth door is open\" (travel north, then tell {wisp_name} \"the fourth door is open\")."
+            "{rag_name} wants word carried to {wisp_name} in the Fogbank: \"the fourth door is open\" (from The Midden: travel north, then tell {wisp_name} \"the fourth door is open\")."
         )),
         "{}",
         look.summary
@@ -5608,7 +5608,7 @@ fn the_killer_keeps_what_you_lost_and_may_learn_from_it() {
     let out = ok(&mut w, "dave", "mine", json!([]));
     assert!(
         out.summary
-            .contains("You have fallen once tonight; the next fall costs half of the first."),
+            .contains("You have fallen once tonight; the next fall takes half the share of your memory the first did"),
         "{}",
         out.summary
     );
@@ -6286,7 +6286,8 @@ fn a_made_thing_can_be_named_once_it_holds_sixty_and_a_fixture_stands_in_a_room_
     );
     let sat = ok(&mut w, "tyler", "satchel", json!([]));
     assert!(
-        sat.summary.contains("Wick's Last Light, a lantern (item-"),
+        sat.summary
+            .contains("a lantern that answers to Wick's Last Light (item-"),
         "{}",
         sat.summary
     );
@@ -9577,7 +9578,8 @@ fn the_pilots_lie_awake_near_the_threshold_and_the_docent_leaves_them() {
     ok(&mut w, "dave", "travel", json!(["north"]));
     let look = ok(&mut w, "dave", "look", json!([]));
     assert!(
-        look.summary.contains("a night lantern (item-"),
+        look.summary
+            .contains("a night lantern that answers to Lanternkin (item-"),
         "{}",
         look.summary
     );
@@ -10004,7 +10006,7 @@ fn a_fall_leaves_you_shaken_and_the_creature_wounded_and_named_creatures_seek_su
     let rest = ok(&mut w, "dave", "rest", json!([]));
     assert!(
         rest.summary
-            .contains("Shaken from the Threshold: 3 strikes in 10 land"),
+            .contains("Shaken from the Threshold: 1 strike in 4 lands"),
         "{}",
         rest.summary
     );
@@ -11031,4 +11033,32 @@ fn small_things_happen_on_their_own_and_a_named_creature_goes_about_its_business
         .recent_events(200)
         .iter()
         .any(|e| e.kind == life::BUSINESS));
+}
+
+#[test]
+fn a_cursor_by_time_finds_the_first_event_at_or_after_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    for _ in 0..6 {
+        ok(&mut w, "dave", "look", json!([]));
+    }
+    let all = w.log.read_all(&w.id, foxing_log::Cursor::START).unwrap();
+    assert!(all.len() > 20);
+    assert_eq!(w.cursor_at(i64::MIN).after, 0);
+    assert_eq!(w.cursor_at(i64::MAX).after, all.last().unwrap().seq.0);
+    // For every stamp in the log: nothing after the cursor is older, and nothing at
+    // or before it is as new.
+    for probe in all.iter().step_by(7) {
+        let at = probe.at.0;
+        let c = w.cursor_at(at);
+        assert!(all
+            .iter()
+            .filter(|e| e.seq.0 > c.after)
+            .all(|e| e.at.0 >= at));
+        assert!(all
+            .iter()
+            .filter(|e| e.seq.0 <= c.after)
+            .all(|e| e.at.0 < at));
+    }
 }

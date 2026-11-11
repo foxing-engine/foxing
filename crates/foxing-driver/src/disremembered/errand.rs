@@ -460,8 +460,12 @@ pub fn describe(world: &World, creature: EntityId) -> Option<String> {
             (Some(a), Some(b)) => route(world, a, b)
                 .filter(|p| !p.is_empty())
                 .map(|p| {
+                    // R177: the way is from where the asker of the word stands, and
+                    // says so: `start` printed it to readers at the Threshold, who
+                    // took "north, then annex" from the door.
                     format!(
-                        " (travel {}, then tell {to} \"{phrase}\")",
+                        " (from {}: travel {}, then tell {to} \"{phrase}\")",
+                        plain_str(world, a, ROOM, "name").unwrap_or("where it stands"),
                         p.join(", then ")
                     )
                 })

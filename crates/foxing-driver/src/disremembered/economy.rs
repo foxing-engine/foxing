@@ -25,7 +25,7 @@
 
 use super::{plain_num, CHUNK};
 use crate::world::World;
-use foxing_log::{Actor, Cursor};
+use foxing_log::Actor;
 use foxing_store::{EntityId, Field, StoreEvent};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -252,9 +252,11 @@ pub fn dashboard(world: &World) -> Value {
     let mut census_samples = 0usize;
     let mut census_sum: std::collections::HashMap<String, f64> = Default::default();
     let mut chunk_owner: std::collections::HashMap<u64, String> = Default::default();
+    // The day's tail only: this read the whole log from its first event on every
+    // call, under the world's lock (seven seconds at a quarter of a million events).
     for e in world
         .log
-        .read_all(&world.id, Cursor::START)
+        .read_all(&world.id, world.cursor_at(day_ago))
         .unwrap_or_default()
     {
         if e.at.0 < day_ago {
