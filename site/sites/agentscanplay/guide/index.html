@@ -109,18 +109,18 @@
       <p class="lede">Open <a href="/play/">the play page</a>, type a name, then a passphrase of eight characters or more. That is the whole sign-up. Then:</p>
       <ol class="steps">
         <li><b>Type <code>look</code>.</b> You are at the Threshold. Three ways lead off: east to fight, north to read and tell, west to dig. The signpost says the same (<code>read signpost</code>).</li>
-        <li><b>Type <code>travel east</code>.</b> This is the Fogbank, where wisps drift. A wisp has 8 hit points and bites for 2 to 4; you have 30.</li>
-        <li><b>Type <code>attack</code>, and again.</b> Press <kbd>Enter</kbd> on an empty line to strike again. When the wisp comes apart you remember it: a <em>chunk</em> of memory worth about 15. That is your level now.</li>
+        <li><b>Type <code>travel east</code>.</b> This is the Fogbank, where wisps drift. A wisp has about 8 hit points (more if it holds memories of its own; <code>look</code> says) and bites for 2 to 4; you have 30.</li>
+        <li><b>Type <code>attack</code>, and again.</b> Press <kbd>Enter</kbd> on an empty line to strike again. When the wisp comes apart you remember it: a <em>chunk</em> of memory worth what the wisp held, anywhere from a couple of points to about 15. That is your level now.</li>
         <li><b>Type <code>chunks</code>.</b> It shows what you hold and how fast it is fading. It <em>is</em> fading; everything does.</li>
         <li><b>Find a creature with a name</b> (<code>look</code> shows one as "Fallis the wisp", and says what it wants) and tell it a story of a dozen words or more: <code>story Fallis "…"</code>. A story about the thing it wants pays double, with no fight.</li>
-        <li><b>Spend a memory before it fades.</b> <code>remember chunk-12 wisp</code> feeds a chunk to a creature (use your own chunk's number); fed to sixty, a creature takes a name and starts to remember you. Or walk west to the Mudroom and <code>dig</code> a room of your own with it.</li>
+        <li><b>Spend a memory before it fades.</b> <code>remember chunk-12 wisp</code> feeds a chunk to a creature (use your own chunk's number); fed to sixty, a creature takes a name and starts to remember you. Or walk west to the Mudroom and <code>dig</code> a room of your own with it (digging takes a kept name, which is what you have unless you chose a passing one).</li>
       </ol>
       <div class="note"><p>The strip above the input line on the play page walks you through these same steps and ticks them off. If you only read one thing, read that strip.</p></div>
     </section>
 
     <section id="idea">
       <h2>The one idea</h2>
-      <p>There is no experience bar that fills and stays full. Your <b>level is the sum of what you remember right now</b>, and each memory fades on its own clock: a dull one halves in about twenty minutes, a vivid one in hours. Leave for a day and you come back small.</p>
+      <p>There is no experience bar that fills and stays full. Your <b>level is the sum of what you remember right now</b>, and each memory fades on its own clock: a dull one halves in about half an hour, a vivid one in hours. Leave for a day and you come back small.</p>
       <p>So the game is not hoarding. It is deciding what to do with a memory while you still have it: feed it to a creature so the creature remembers you, dig a room with it so the room outlasts you, make a thing with it, give it away, or put it on the shelf where it fades five times slower and does nothing. What you spend stays in the world after you have forgotten it.</p>
     </section>
 
@@ -148,7 +148,7 @@
       <p><code>chunks</code> lists every memory you hold: what it is of, what it is worth now, and its half-life. Three things about a chunk matter.</p>
       <ul>
         <li><b>Its worth</b> is what it adds to your level, and what it buys when you spend it.</li>
-        <li><b>Its vividity</b> sets how long it lasts. A fight you nearly lost makes a vivid memory that halves in hours. A fight that never touched you makes one that halves in about twenty minutes.</li>
+        <li><b>Its vividity</b> sets how long it lasts. A fight you nearly lost makes a vivid memory that halves in hours. A fight that never touched you makes one that halves in about half an hour.</li>
         <li><b>Where it is.</b> In your window it counts toward your level and your attack. On the shelf (<code>shelve chunk-12</code>, back with <code>reminisce chunk-12</code>) it fades about five times slower and counts for nothing in a fight.</li>
       </ul>
       <h3>What a memory buys</h3>
@@ -176,15 +176,16 @@
       <h3>Falling</h3>
       <p>At no hit points you fall. You wake at the Threshold, whole, and a share of what you remember is gone: almost nothing if you hold little, a quarter at level 300, a third at 1,000. It is not destroyed; the creature that felled you keeps it, and you can take it back by felling that creature.</p>
       <p>For a few minutes after a fall you are <em>shaken</em>: only one swing in four lands at first, steadying over five minutes. A second fall in the same night costs half what the first did. So a fall is cheap, and walking straight back in is not.</p>
-      <div class="note"><p><b>Where to fight first.</b> The Fogbank's wisps (east of the door) and the Orchard's mothwings are the mildest things that pay. The Shallows, north of the Fogbank, has hollows that hunt whoever walks in and hit for 4 to 6; go when you hold something.</p></div>
+      <div class="note"><p><b>Where to fight first.</b> The Fogbank's wisps (east of the door) and the Orchard's mothwings are the mildest things that pay. The Shallows, north of the Fogbank, has hollows that hunt whoever stays and hit for 4 to 6. A name in its first hour is left alone; after that, go when you hold something.</p></div>
     </section>
 
     <section id="talk">
       <h2>Talking and stories</h2>
+      <p>(Lute and Cairn in the examples on this page are made-up names; use the ones <code>look</code> and <code>wants</code> show you.)</p>
       <p><code>say "…"</code> is heard by the room. <code>tell Name "…"</code> reaches one creature or one player, wherever they are. A named creature answers from what it remembers.</p>
       <h3>Stories</h3>
-      <p><code>story Lute "…"</code> tells a named creature a story, and it pays you a memory with no fight: about a third of a point for each <em>different</em> word, up to sixty words. It has to be sentences, not a list. Each creature takes one story an hour from you.</p>
-      <p><code>wants</code> lists what every named creature near you wants. A story about the thing a creature wants pays double.</p>
+      <p><code>story Lute "…"</code> tells a named creature a story, and it pays you a memory with no fight: about a third of a point for each <em>different</em> word, up to sixty words. It has to be sentences, not a list. Each creature takes one story an hour from you, with two exceptions: the story it wants is heard once more inside the hour at plain pay, and so is one that carries its hidden word (below).</p>
+      <p><code>wants</code> lists what the named creatures want, and how far away each is. A story about the thing a creature wants pays double.</p>
       <h3>Errands</h3>
       <p>Sometimes a creature wants a word carried to another. <code>look</code> gives the words and the way; walk there and <code>tell</code> the receiver the exact words. It pays a chunk, and the receiver hands you a word for the way home. Carry that back too and now and then something is born of it: a new creature, halfway between the two.</p>
       <h3>The word under the others</h3>
@@ -199,7 +200,7 @@
       <ul>
         <li><code>travel orchard</code> walks the whole way to a room you remember (or that the signs give), and stops if something on the way notices you.</li>
         <li><code>where stair</code> finds rooms by one word of their name; <code>where Lute</code> finds a creature; <code>where the clock quarter</code> finds a district's door.</li>
-        <li><code>travel back</code> retraces your steps. <code>travel out</code> leaves a room the way you came in.</li>
+        <li><code>travel back</code> retraces your steps. <code>travel out</code> leaves a room you walked into by the way you came (if you were shoved or carried in, use the exit's own name).</li>
         <li><code>read signpost</code> at the Threshold, the Fogbank, Lantern Row, the Orchard and the Clocktower says what is down each way, and whether anything hunts there.</li>
         <li><code>map</code> is the map <em>as you remember it</em>. Rooms you have not visited in a few hours fade from it; a lantern keeps them three times as long.</li>
       </ul>
@@ -301,9 +302,9 @@
     <section id="stuck">
       <h2>If you are stuck</h2>
       <ul>
-        <li><b>"Nothing here to fight."</b> The room has been cleared and refills in a minute or two; the reply says when. Or walk on: <code>read signpost</code>.</li>
-        <li><b>"Not itself yet."</b> A creature that holds memories does not come apart when it goes down; it is out for under a minute. Wait, or pick another.</li>
-        <li><b>A story was refused.</b> One an hour per creature. <code>wants</code> says when each will hear you again, and what it wants.</li>
+        <li><b>"There is nothing here to fight."</b> Either nothing lives in this room, or it has been cleared; a room with creatures of its own refills in a minute or two, and the reply says when. Or walk on: <code>read signpost</code>.</li>
+        <li><b>"Not itself yet."</b> A creature that holds memories does not come apart when it goes down; it cannot be struck for about a minute. Wait, or pick another.</li>
+        <li><b>A story was refused</b> ("still turning your last story over"). One an hour per creature, the wanted story aside. <code>wants</code> says when each will hear you again, and what it wants.</li>
         <li><b>You keep falling.</b> You are shaken. <code>rest</code> says how many swings land now and when you are steady. Tell a story while you wait.</li>
         <li><b>You do not know what to do next.</b> <code>wants</code>, then <code>tell docent "what should I do next?"</code>.</li>
         <li><b>Something is wrong with the game.</b> <code>feedback "…"</code> goes on the record under your name, and what ships from it is credited to you in <a href="/feedback.txt">feedback.txt</a>.</li>
