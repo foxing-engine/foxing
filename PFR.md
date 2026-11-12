@@ -488,6 +488,9 @@ The world
 
 ## Shipped (ledger): moved out of the sections above when they went live
 
+11-11 (the errors' window, at David's ask; rides the driver deploy)
+- The analytics page's errors, and who sent them, can be shown for the last 24 hours (the default), the last 7 days or the whole window, by a chip over the table; each row says when it last happened. The probes line follows the window chosen.
+
 11-11 (batch Z, by David's word: P2, H19, D21 b, A2; one driver deploy, one site deploy)
 - P2: the play page's panels take only the rows that changed (a row that reads the same keeps its place, its hover and its listeners; You and Memory were emptied and rebuilt four times a second), and are redrawn when the world pushes or a command lands, and otherwise once a second for the figures that move on the clock; never in a hidden tab. Found with it: the map's "you are here" pulse and the header moon's drift were CSS animations that had the page restyle (and, the pulse, lay out) sixty times a second; the room now ebbs on a 1.2 s timer and the moon is still in play (it drifts at the door). The picture, idle, asks for its next frame by a timer. Ten idle seconds on the same headless build: 3.3 s of work before P1, 1.5 s after it, 0.5 s now; layouts 600 to 13. Not built as planned: rows are compared by their markup in place, not keyed by id with one listener a panel; it gets the same result for a tenth of the change.
 - H19: `read doors` says how long ago each room was dug (rooms dug from 11-12; older ones have no date and say none); the cloak's view of the Threshold says "east (Fogbank: fight), north (Lantern Row: read and tell), west (Mudroom: dig)"; the play page's own onward-walking code is gone.

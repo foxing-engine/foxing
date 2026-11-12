@@ -259,7 +259,7 @@ def is_probe(path: str, status: int) -> bool:
     return status in (400, 403, 404, 405) and bool(PROBE.search(path or ""))
 
 
-def error_rows(db, since: str, reasons: list[list]) -> tuple[list[list], dict]:
+def error_rows(db, since: str, reasons: list[list], since_ts: str | None = None) -> tuple[list[list], dict]:
     """A4: errors with the lab apart from everyone else, scanners' probes folded into
     one row, and beside a 422 the reason the driver most often gave on that path."""
     top_reason: dict = {}
@@ -268,20 +268,23 @@ def error_rows(db, since: str, reasons: list[list]) -> tuple[list[list], dict]:
             top_reason[path] = (reason, n)
     by: dict = {}
     probes = {"organic": 0, "lab": 0, "paths": set()}
-    for host, path, status, ip, n in q(
-        db, "SELECT host, path, status, ip, COUNT(*) FROM requests WHERE day >= ? AND status >= 400 GROUP BY host, path, status, ip", (since,)
+    # `since_ts` narrows a day's rows to the hours wanted (the last 24).
+    for host, path, status, ip, n, last in q(
+        db, "SELECT host, path, status, ip, COUNT(*), MAX(ts) FROM requests WHERE day >= ? AND ts >= ? AND status >= 400 GROUP BY host, path, status, ip",
+        (since, since_ts or ""),
     ):
         who = "lab" if is_lab(ip) else "organic"
         if is_probe(path, status):
             probes[who] += n
             probes["paths"].add(path)
             continue
-        row = by.setdefault((host, path, status), {"organic": 0, "lab": 0})
+        row = by.setdefault((host, path, status), {"organic": 0, "lab": 0, "last": ""})
         row[who] += n
+        row["last"] = max(row["last"], last or "")
     rows = []
     for (host, path, status), c in sorted(by.items(), key=lambda kv: (-kv[1]["organic"], -kv[1]["lab"]))[:40]:
         why = top_reason.get(path, ("", 0))[0] if status == 422 else ""
-        rows.append([host, path, status, c["organic"], c["lab"], why])
+        rows.append([host, path, status, c["organic"], c["lab"], c["last"], why])
     return rows, {"organic": probes["organic"], "lab": probes["lab"], "paths": len(probes["paths"])}
 
 
@@ -369,6 +372,17 @@ def report(db: sqlite3.Connection, days: int) -> dict:
     out["error_senders"] = q(db, "SELECT host, path, status, ua_class, ua_name, COUNT(*), COUNT(DISTINCT visitor), MAX(ts) FROM requests WHERE day >= ? AND status >= 400 AND status != 404 GROUP BY host, path, status, ua_class, ua_name ORDER BY 6 DESC LIMIT 20", (since,))
     out["refusals"], out["refusals_note"] = refusals()
     out["errors"], out["probes"] = error_rows(db, since, out["refusals"])
+    # The same table for the last day and the last week, for the page's filter: a
+    # month's errors bury last night's.
+    now = datetime.now(timezone.utc)
+    out["errors_by"] = []
+    for label, key, delta in (("the last 24 hours", "24h", timedelta(hours=24)), ("the last 7 days", "7d", timedelta(days=7))):
+        start = now - delta
+        rows, probes = error_rows(db, start.strftime("%Y-%m-%d"), out["refusals"], start.strftime("%Y-%m-%dT%H:%M:%S") if key == "24h" else None)
+        senders = q(db, "SELECT host, path, status, ua_class, ua_name, COUNT(*), COUNT(DISTINCT visitor), MAX(ts) FROM requests WHERE day >= ? AND ts >= ? AND status >= 400 AND status != 404 GROUP BY host, path, status, ua_class, ua_name ORDER BY 6 DESC LIMIT 20",
+                    (start.strftime("%Y-%m-%d"), start.strftime("%Y-%m-%dT%H:%M:%S") if key == "24h" else ""))
+        out["errors_by"].append((label, key, rows, probes, senders))
+    out["errors_by"].append((f"the last {days} days", "all", out["errors"], out["probes"], out["error_senders"]))
     out["headline"] = headline(db)
     out["collected"], out["stale"] = collected(db)
     out["perf"] = perf_rows(db, since)
@@ -410,9 +424,10 @@ def text(r: dict) -> str:
     lines.append("\nReferrers")
     for ref, n in r["referers"]:
         lines.append(f"  {ref:<40} {n:>7}")
-    lines.append("\nErrors (host, path, status, organic, lab, the driver's most given reason)")
-    for h, p, s, n, lab, why in r["errors"]:
-        lines.append(f"  {h:<22} {p:<34} {s:>4} {n:>6} {lab:>6}  {why}")
+    for label, _key, rows, _probes, _senders in r["errors_by"]:
+        lines.append(f"\nErrors, {label} (host, path, status, organic, lab, last, the driver's most given reason)")
+        for h, p, s, n, lab, last, why in rows:
+            lines.append(f"  {h:<22} {p:<34} {s:>4} {n:>6} {lab:>6}  {last}  {why}")
     pr = r["probes"]
     lines.append(f"  probes: {pr['organic']:,} requests for {pr['paths']:,} paths this site has never had (scanners), {pr['lab']:,} from the lab; not in the rate")
     lines.append("\nWho sent the errors (host, path, status, class, name, count, addresses, last)")
@@ -497,6 +512,23 @@ def table(headers, rows, row_class=None) -> str:
     return whole(rows[:FOLD]) + f"<details><summary>{len(rows) - FOLD:,} more rows</summary>{whole(rows[FOLD:])}</details>"
 
 
+def errors_panes(windows) -> str:
+    """The errors and who sent them, once for each window, with chips to choose: the
+    last 24 hours (shown first), the last 7 days, the whole window."""
+    chips, panes = [], []
+    for i, (label, key, rows, pr, senders) in enumerate(windows):
+        chips.append(f"<button type=button data-pane=\"err-{key}\"{' class=on' if i == 0 else ''}>{html.escape(label)}</button>")
+        panes.append(
+            f"<div id=\"err-{key}\"{'' if i == 0 else ' hidden'}>"
+            + table(["host", "path", "status", "organic", "lab", "last", "the driver's most given reason"], rows)
+            + f"<p class=\"sub\">Not in the table or the rate: {pr['organic']:,} requests for {pr['paths']:,} paths this site has never had (scanners trying doors: <code>.php</code>, <code>.env</code>, <code>/wp-</code>), and {pr['lab']:,} of the same from the lab.</p>"
+            + "<h3>Who sent them</h3>"
+            + table(["host", "path", "status", "class", "name", "count", "addresses", "last"], senders)
+            + "</div>"
+        )
+    return f"<p class=\"chips\" data-panes>{''.join(chips)}</p>{''.join(panes)}"
+
+
 def class_filter(rows) -> str:
     """A2: chips over the visitors table, one a class; a click shows that class alone."""
     classes = sorted({str(r[0]) for r in rows})
@@ -505,6 +537,12 @@ def class_filter(rows) -> str:
 
 
 FILTER_JS = """<script>
+for (const bar of document.querySelectorAll("[data-panes]")) {
+  bar.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    for (const o of bar.querySelectorAll("button")) { o.classList.toggle("on", o === b); document.getElementById(o.dataset.pane).hidden = o !== b; }
+  });
+}
 for (const bar of document.querySelectorAll("[data-filter]")) {
   const scope = [];
   for (let n = bar.nextElementSibling; n && n.tagName !== "H3" && n.tagName !== "H2"; n = n.nextElementSibling) scope.push(n);
@@ -568,9 +606,7 @@ def page(r: dict) -> str:
                 + "<p class=\"sub\">Each report is a player's last twenty commands, sent by the play page itself; the round trip is from Enter to the reply, and the world's share is how long the driver held it. <code>?perf=1</code> on the play page shows the same live.</p>"),
         ]),
         ("What broke", "what-broke", [
-            ("Errors, the lab apart", table(["host", "path", "status", "organic", "lab", "the driver's most given reason"], r["errors"])
-                + f"<p class=\"sub\">Not in the table or the rate: {pr['organic']:,} requests for {pr['paths']:,} paths this site has never had (scanners trying doors: <code>.php</code>, <code>.env</code>, <code>/wp-</code>), and {pr['lab']:,} of the same from the lab.</p>"),
-            ("Who sent them", table(["host", "path", "status", "class", "name", "count", "addresses", "last"], r["error_senders"])),
+            ("Errors, the lab apart", errors_panes(r["errors_by"])),
             (f"Why the driver refused ({r['refusals_note']})", table(["path", "reason", "count"], r["refusals"])),
         ]),
     ]
