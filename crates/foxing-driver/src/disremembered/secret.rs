@@ -266,7 +266,50 @@ fn source_text(world: &World, creature: EntityId, level: u8, from: &str) -> Opti
 /// are struck from the pool the hint shows that teller. Private.
 pub const DECLINED: &str = "disremembered.word_declined";
 
-/// Records a refused in-hour guess (D20 b).
+/// D32 a: at the third rung a creature weighs one guess at its word from a name
+/// every ten minutes. Guesses inside the hour cost no hour, twenty fit a message,
+/// and the live teller of 11-11 had three third words in five minutes.
+pub const GUESS_EVERY_MS: i64 = 10 * 60 * 1000;
+
+/// The rung the creature's word is on (1 when it has none yet).
+pub fn level_of(world: &World, creature: EntityId) -> u8 {
+    field(world, creature)
+        .and_then(|v| v["level"].as_u64())
+        .unwrap_or(1) as u8
+}
+
+/// D32 a: how long until this creature weighs another guess at its third word from
+/// `actor`; `None` when it would weigh one now (or its word is on a lower rung).
+pub fn next_guess_in(world: &World, actor: &str, creature: EntityId) -> Option<i64> {
+    if level_of(world, creature) < LEVELS {
+        return None;
+    }
+    let now = world.now();
+    world
+        .recent_events(4000)
+        .iter()
+        .rev()
+        .take_while(|e| now.since(e.at).0 < GUESS_EVERY_MS)
+        .find(|e| {
+            e.payload["from"] == actor
+                && e.payload["creature"] == creature.0
+                && (e.kind == DECLINED
+                    || (e.kind == super::exchange::STORY
+                        && e.payload["wanted"] != true
+                        && e.payload["early"] != true))
+        })
+        .map(|e| GUESS_EVERY_MS - now.since(e.at).0)
+        .filter(|ms| *ms > 0)
+}
+
+/// A guess as the record keeps it: its words' stems, sorted, so the same story
+/// sent again is the same guess.
+fn said(text: &str) -> String {
+    stems_of(text).into_iter().collect::<Vec<_>>().join(" ")
+}
+
+/// Records a refused in-hour guess (D20 b). The same guess sent again is not a new
+/// miss (D32 a): the teller of 11-11 raised a tally from five to eight by resending.
 pub fn declined(
     world: &mut World,
     actor: &str,
@@ -274,11 +317,30 @@ pub fn declined(
     text: &str,
 ) -> Result<(), CommandError> {
     let carried = carried_of_pool(world, creature, text);
+    let said = said(text);
+    {
+        let events = world.recent_events(4000);
+        let last_struck = events
+            .iter()
+            .rposition(|e| e.kind == STRUCK && e.payload["creature"] == creature.0);
+        if events
+            .iter()
+            .skip(last_struck.map(|i| i + 1).unwrap_or(0))
+            .any(|e| {
+                e.kind == DECLINED
+                    && e.payload["from"] == actor
+                    && e.payload["creature"] == creature.0
+                    && e.payload["said"] == said.as_str()
+            })
+        {
+            return Ok(());
+        }
+    }
     world
         .note(
             Actor::Citizen(actor.to_string()),
             DECLINED,
-            json!({"creature": creature.0, "from": actor, "carried": carried}),
+            json!({"creature": creature.0, "from": actor, "carried": carried, "said": said}),
         )
         .map_err(|e| CommandError::internal(e.to_string()))?;
     Ok(())
@@ -296,10 +358,13 @@ fn misses(world: &World, actor: &str, creature: EntityId) -> usize {
         .iter()
         .skip(last_struck.map(|i| i + 1).unwrap_or(0))
         .filter(|e| {
+            // D32 a: the story it wanted is not a guess at its word, and no miss.
             (e.kind == super::exchange::STORY
                 && e.payload["from"] == actor
                 && e.payload["creature"] == creature.0
-                && e.payload["struck"] != true)
+                && e.payload["struck"] != true
+                && e.payload["wanted"] != true
+                && e.payload["early"] != true)
                 || (e.kind == DECLINED
                     && e.payload["from"] == actor
                     && e.payload["creature"] == creature.0)
@@ -465,7 +530,7 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
         1 => "There is a word under the others, and I do not say it. It was in the first thing anyone told me; ask me to recite the first story.".to_string(),
         2 if from == "told" => "The first was found. The next was in the first thing anyone told me; ask me to recite it. I hear three of its words to a story now; say more of them and I cannot tell which you meant.".to_string(),
         2 => "The first was found. The next is in something I wanted once, and have not forgotten. I hear three of its words to a story now; say more of them and I cannot tell which you meant.".to_string(),
-        _ => "The last is around me: a word of the room I stand in, as `look` says it. One of the room's words to a story and no more; say two and I cannot tell which you meant. And it moves on each time it is found.".to_string(),
+        _ => "The last is around me: a word of the room I stand in, as `look` says it. One of the room's words to a story and no more; say two and I cannot tell which you meant. And it moves on each time it is found. I weigh one guess at it from a name every ten minutes; a story sent sooner I do not weigh at all.".to_string(),
     };
     // R118: at the top of the ladder the word stays for new tellers; the one who
     // found it is told so, not "Gnatterbell found one before you" to Gnatterbell.

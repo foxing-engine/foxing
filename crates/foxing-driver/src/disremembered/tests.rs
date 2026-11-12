@@ -8993,6 +8993,55 @@ fn the_third_word_hears_one_guess_to_a_story_and_moves_on_when_found() {
         hint.contains("One of the room's words to a story"),
         "{hint}"
     );
+    // D32 a: at the third rung one guess is weighed every ten minutes. Dave's story
+    // of the hour is his first; the next is not weighed, and is no miss.
+    login(&mut w, "dave", "test", PASS).unwrap();
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let who = mind::name(&w, named).unwrap();
+    let plain = "A kettle sang on a quiet morning while the baker counted loaves and hummed a tune from home.";
+    ok(&mut w, "dave", "story", json!([&who, plain]));
+    assert!(secret::next_guess_in(&w, "dave", named).is_some());
+    let soon = call(&mut w, "dave", ActorKind::Citizen, "story", json!([&who, "A lantern burned beside the quiet baker until morning came and the kettle went cold again."]))
+        .unwrap_err()
+        .to_string();
+    assert!(
+        soon.contains("weighs one guess at its third word"),
+        "{soon}"
+    );
+    // Ten minutes on it weighs one (and refuses it as a story inside the hour); the
+    // same guess sent again later is not a second miss.
+    w.fixed_now = Some(w.now().plus(Duration(secret::GUESS_EVERY_MS + 1000)));
+    let guess = "A ferry crossed at dusk with one passenger who never said where the far bank was.";
+    let weighed = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "story",
+        json!([&who, guess]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(
+        weighed.contains("still turning your last story over"),
+        "{weighed}"
+    );
+    let declined = |w: &World| {
+        w.recent_events(4000)
+            .iter()
+            .filter(|e| e.kind == secret::DECLINED && e.payload["from"] == "dave")
+            .count()
+    };
+    assert_eq!(declined(&w), 1);
+    w.fixed_now = Some(w.now().plus(Duration(secret::GUESS_EVERY_MS + 1000)));
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "story",
+        json!([&who, guess])
+    )
+    .is_err());
+    assert_eq!(declined(&w), 1);
 }
 
 #[test]

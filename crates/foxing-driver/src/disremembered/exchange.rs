@@ -322,6 +322,7 @@ pub fn register(world: &mut World, curves: Curves) {
             // others is still heard, paying the bonus alone (the hint once arrived
             // after the hour had closed the only creature).
             let within_hour = told_this_hour(w, &ctx.actor, creature);
+            let was_wanted = super::errand::wants_story(w, creature, &text);
             let bonus_only = within_hour && super::secret::would_strike(w, &ctx.actor, creature, &text);
             // D19 (b): the story it wants is heard inside the hour too, at base pay,
             // not double.
@@ -332,6 +333,16 @@ pub fn register(world: &mut World, curves: Curves) {
                 return Err(CommandError::precondition(format!(
                     "{name} has heard the story it wanted from you inside this hour already, at plain pay; another waits for the hour to turn, when it pays double. `wants` says when."
                 )));
+            }
+            // D32 a: at the third rung, one guess at the word every ten minutes. A
+            // story sent sooner is not weighed at all: no strike, no miss, no hint.
+            if within_hour && !wanted_early && super::secret::would_strike_any(w, &ctx.actor, creature) {
+                if let Some(ms) = super::secret::next_guess_in(w, &ctx.actor, creature) {
+                    return Err(CommandError::precondition(format!(
+                        "{name} weighs one guess at its third word from a name every ten minutes, and yours was weighed just now; it will weigh another in {}. That story was not weighed: it is neither a miss nor the word. (The story it wants is still heard, at plain pay.)",
+                        super::combat::human(ms)
+                    )));
+                }
             }
             if within_hour && !bonus_only && !wanted_early {
                 let word_left = super::secret::would_strike_any(w, &ctx.actor, creature);
@@ -457,7 +468,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 STORY,
-                json!({"from": ctx.actor, "creature": creature.0, "kind": kind, "name": name, "words": words, "earned": earned.0, "kept": kept.0, "level": level, "keywords": story_words(&text), "repeats": repeats, "missed": missed.is_some() && struck.is_none(), "struck": struck.is_some(), "early": wanted_early}),
+                json!({"from": ctx.actor, "creature": creature.0, "kind": kind, "name": name, "words": words, "earned": earned.0, "kept": kept.0, "level": level, "keywords": story_words(&text), "repeats": repeats, "missed": missed.is_some() && struck.is_none(), "struck": struck.is_some(), "early": wanted_early, "wanted": was_wanted}),
             );
             // A line of its own, drawn from what it holds beside the new story: four
             // creatures once thanked a teller in exactly the same words.

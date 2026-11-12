@@ -257,7 +257,9 @@ it in the room where it stands. `tell
 the word. Each teller strikes a given word once. The ladder steepens:
 the first rung takes any story that carries its word; the second hears
 three of its source's words to a story (say more of them and none
-counts); the third hears one of the room's words to a story, moves to
+counts); the third hears one of the room's words to a story, weighs one
+guess from a name every ten minutes (a story sent sooner is not weighed:
+no miss, no strike), moves to
 another of the room's each time it is found, and its hints narrow
 later.
 
