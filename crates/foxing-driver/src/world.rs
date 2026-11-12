@@ -27,6 +27,11 @@ pub struct World {
     pub id: WorldId,
     pub store: Store,
     pub log: Box<dyn EventLog + Send>,
+    /// S1: running folds over the log, by name: a reader that needs the whole history
+    /// (the board) keeps what it has folded and where it stopped, and reads on from
+    /// there. In this process only; a restart folds again from the start, once.
+    pub folds:
+        std::sync::Mutex<std::collections::HashMap<&'static str, Box<dyn std::any::Any + Send>>>,
     /// The command registry. Shared so a handler running inside [`World::call`] can
     /// still ask what commands exist (an observation lists the legal ones).
     pub registry: Arc<Registry<World>>,
@@ -164,14 +169,19 @@ impl World {
     /// Open a world, replaying its log into a fresh store.
     pub fn open(id: WorldId, store: Store, backing: LogBacking) -> Result<Self, String> {
         let log: Box<dyn EventLog + Send> = match backing {
-            LogBacking::Memory => Box::new(MemoryLog::new()),
-            LogBacking::File(dir) => Box::new(FileLog::open(dir).map_err(|e| e.to_string())?),
-            LogBacking::Postgres(url) => {
-                Box::new(foxing_log_postgres::PostgresLog::open(&url).map_err(|e| e.to_string())?)
-            }
+            // S1: every backing under a kept tail, so "the last few thousand events"
+            // (asked dozens of times a command) is memory, not a round trip each.
+            LogBacking::Memory => Box::new(foxing_log::Tail::new(MemoryLog::new())),
+            LogBacking::File(dir) => Box::new(foxing_log::Tail::new(
+                FileLog::open(dir).map_err(|e| e.to_string())?,
+            )),
+            LogBacking::Postgres(url) => Box::new(foxing_log::Tail::new(
+                foxing_log_postgres::PostgresLog::open(&url).map_err(|e| e.to_string())?,
+            )),
         };
         let started = now_ms();
         let mut world = World {
+            folds: Default::default(),
             id,
             store,
             log,
@@ -623,18 +633,11 @@ impl World {
         Cursor { after: lo }
     }
 
-    pub fn recent_events(&self, n: usize) -> Vec<Event> {
-        let head = self
-            .log
-            .head(&self.id)
-            .ok()
-            .flatten()
-            .map(|s| s.0)
-            .unwrap_or(0);
-        let after = head.saturating_sub(n as u64);
-        self.log
-            .read_all(&self.id, Cursor { after })
-            .unwrap_or_default()
+    pub fn recent_events(&self, n: usize) -> Vec<Arc<Event>> {
+        // S1: shared out of the log's kept tail, not read and not copied: a command
+        // asks this a dozen times, and each was a round trip to the database and
+        // then a copy of every event.
+        self.log.newest(&self.id, n).unwrap_or_default()
     }
 
     /// Run a command through the registry. The handler borrows the world mutably while

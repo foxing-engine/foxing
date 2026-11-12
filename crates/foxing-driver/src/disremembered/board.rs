@@ -75,18 +75,40 @@ pub struct Line {
     pub per_action: f64,
 }
 
+/// What the board has folded out of the log so far, and the last event it read (S1:
+/// it read the whole log on every asking, fourteen seconds at a quarter of a
+/// million events; now it reads on from where it stopped).
+#[derive(Default)]
+struct Fold {
+    after: u64,
+    lines: BTreeMap<String, Line>,
+    // Chunks by id, so a chunk's first size is credited to whoever it was made for.
+    chunk_owner: HashMap<u64, String>,
+    sized: HashMap<u64, ()>,
+    forgotten_names: std::collections::BTreeSet<String>,
+}
+
 /// The board, from the log and the store.
 pub fn board(world: &World) -> (Vec<Line>, u64) {
-    let mut lines: BTreeMap<String, Line> = BTreeMap::new();
-    // Chunks by id, so a chunk's first size is credited to whoever it was made for.
-    let mut chunk_owner: HashMap<u64, String> = HashMap::new();
-    let mut sized: HashMap<u64, ()> = HashMap::new();
-    let mut forgotten_names: std::collections::BTreeSet<String> = Default::default();
+    let mut folds = world.folds.lock().unwrap_or_else(|e| e.into_inner());
+    let fold = folds
+        .entry("board")
+        .or_insert_with(|| Box::new(Fold::default()))
+        .downcast_mut::<Fold>()
+        .expect("the board's fold");
+    let Fold {
+        after,
+        lines,
+        chunk_owner,
+        sized,
+        forgotten_names,
+    } = fold;
     for e in world
         .log
-        .read_all(&world.id, Cursor::START)
+        .read_all(&world.id, Cursor { after: *after })
         .unwrap_or_default()
     {
+        *after = e.seq.0;
         let p = &e.payload;
         match e.kind.as_str() {
             // A dug room: the room's creation under its digger's name (the public
@@ -192,6 +214,9 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
             _ => {}
         }
     }
+    let lines = lines.clone();
+    let mut forgotten_names = forgotten_names.clone();
+    drop(folds);
     // The present: who is still a citizen, what they hold, who knows them.
     let mut known: HashMap<String, u64> = HashMap::new();
     for e in world.store.entities().filter(|e| e.kind == "creature") {

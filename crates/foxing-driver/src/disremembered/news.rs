@@ -27,7 +27,11 @@ pub fn lines(world: &World) -> Vec<String> {
         .filter(|e| e.at.0 >= since)
         .collect();
     let latest = |kind: &str| -> Vec<&foxing_log::Event> {
-        let mut v: Vec<&foxing_log::Event> = events.iter().filter(|e| e.kind == kind).collect();
+        let mut v: Vec<&foxing_log::Event> = events
+            .iter()
+            .map(|e| &**e)
+            .filter(|e| e.kind == kind)
+            .collect();
         v.reverse();
         v.truncate(EACH);
         v

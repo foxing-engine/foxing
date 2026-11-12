@@ -556,7 +556,7 @@ async fn citizens(
 
 /// The citizens report, from the log.
 pub(crate) fn citizens_report(w: &World, since: i64) -> Vec<Value> {
-    #[derive(Default)]
+    #[derive(Default, Clone)]
     struct Row {
         origin: String,
         first_seen: i64,
@@ -570,29 +570,27 @@ pub(crate) fn citizens_report(w: &World, since: i64) -> Vec<Value> {
         last_message_at: i64,
         rooms_dug: u64,
     }
-    let mut rows: std::collections::BTreeMap<String, Row> = Default::default();
-    for e in w.store.entities() {
-        if e.kind == "citizen" {
-            if let Some(owner) = &e.owner {
-                let r = rows.entry(owner.clone()).or_default();
-                r.origin = e
-                    .components
-                    .get(crate::disremembered::CITIZEN)
-                    .and_then(|c| c.fields.get("origin"))
-                    .and_then(|f| match f {
-                        foxing_store::Field::Plain(Value::String(s)) => Some(s.clone()),
-                        _ => None,
-                    })
-                    .unwrap_or_default();
-            }
-        }
-        if e.kind == "room" {
-            if let Some(owner) = &e.owner {
-                rows.entry(owner.clone()).or_default().rooms_dug += 1;
-            }
-        }
+    // S1: the log's part is a running fold, read on from where it stopped: this read
+    // every event the world ever wrote, with the world held, each time the
+    // operator's page was rendered.
+    #[derive(Default)]
+    struct Fold {
+        after: u64,
+        rows: std::collections::BTreeMap<String, Row>,
     }
-    for e in w.log.read_all(&w.id, Cursor::START).unwrap_or_default() {
+    let mut folds = w.folds.lock().unwrap_or_else(|e| e.into_inner());
+    let fold = folds
+        .entry("citizens")
+        .or_insert_with(|| Box::new(Fold::default()))
+        .downcast_mut::<Fold>()
+        .expect("the citizens fold");
+    let Fold { after, rows } = fold;
+    for e in w
+        .log
+        .read_all(&w.id, Cursor { after: *after })
+        .unwrap_or_default()
+    {
+        *after = e.seq.0;
         match e.kind.as_str() {
             "store.entity_created" if e.payload["kind"] == "citizen" => {
                 if let Some(owner) = e.payload["owner"].as_str() {
@@ -631,6 +629,30 @@ pub(crate) fn citizens_report(w: &World, since: i64) -> Vec<Value> {
                 }
             }
             _ => {}
+        }
+    }
+    let mut rows = rows.clone();
+    drop(folds);
+    // The present, from the store, over a copy: where each came in, what each has dug.
+    for e in w.store.entities() {
+        if e.kind == "citizen" {
+            if let Some(owner) = &e.owner {
+                let r = rows.entry(owner.clone()).or_default();
+                r.origin = e
+                    .components
+                    .get(crate::disremembered::CITIZEN)
+                    .and_then(|c| c.fields.get("origin"))
+                    .and_then(|f| match f {
+                        foxing_store::Field::Plain(Value::String(s)) => Some(s.clone()),
+                        _ => None,
+                    })
+                    .unwrap_or_default();
+            }
+        }
+        if e.kind == "room" {
+            if let Some(owner) = &e.owner {
+                rows.entry(owner.clone()).or_default().rooms_dug += 1;
+            }
         }
     }
     let mut out: Vec<(i64, Value)> = rows
@@ -696,7 +718,7 @@ async fn map(State(s): State<Shared>) -> Reply {
 /// `GET /v0/board`: the leaderboard. Public: what each name holds now and what the
 /// record says it earned, kept, gave, told and carried.
 async fn board(State(s): State<Shared>) -> Reply {
-    kept(&BOARD_KEPT, 120, || {
+    kept(&BOARD_KEPT, 15, || {
         let w = lock(&s)?;
         Ok(crate::disremembered::board::to_json(&w))
     })

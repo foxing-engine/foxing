@@ -172,6 +172,19 @@ pub trait EventLog {
     /// The last sequence in a world's log, or `None` if it is empty.
     fn head(&self, world: &WorldId) -> Result<Option<Seq>, LogError>;
 
+    /// The newest `n` events, oldest first, shared and not copied where the log can
+    /// (see [`Tail`]): for a reader that looks back over the last few thousand
+    /// events many times a command.
+    fn newest(&self, world: &WorldId, n: usize) -> Result<Vec<std::sync::Arc<Event>>, LogError> {
+        let head = self.head(world)?.map(|s| s.0).unwrap_or(0);
+        let after = head.saturating_sub(n as u64);
+        Ok(self
+            .read_all(world, Cursor { after })?
+            .into_iter()
+            .map(std::sync::Arc::new)
+            .collect())
+    }
+
     /// Read every event after the cursor.
     fn read_all(&self, world: &WorldId, cursor: Cursor) -> Result<Vec<Event>, LogError> {
         let mut out = Vec::new();
@@ -183,6 +196,143 @@ pub trait EventLog {
             }
             cur = Cursor::after(batch.last().expect("non-empty").seq);
             out.extend(batch);
+        }
+    }
+}
+
+/// How many of a world's newest events [`Tail`] keeps in memory.
+pub const TAIL: usize = 12_000;
+
+/// A log with its newest events kept in memory.
+///
+/// A driver asks its log "the last few thousand events" many times in one command
+/// (who told whom a story this hour, what was said in this room), and against a
+/// database each ask was a head query and several reads over the network: the floor
+/// under every command. `Tail` wraps any log, keeps the newest [`TAIL`] events of
+/// each world as they are appended, and answers from memory any read that starts
+/// inside what it holds; an older read goes to the log underneath and comes back
+/// into the kept part by itself as its cursor advances. Appends go to the log
+/// underneath first, so the kept part is never ahead of what is durable.
+///
+/// It assumes it is the only writer to the worlds it has read: a second process
+/// appending to the same world would not be seen.
+pub struct Tail<L> {
+    inner: L,
+    kept: std::sync::Mutex<
+        std::collections::HashMap<WorldId, std::collections::VecDeque<std::sync::Arc<Event>>>,
+    >,
+}
+
+impl<L: EventLog> Tail<L> {
+    /// Wrap a log.
+    pub fn new(inner: L) -> Self {
+        Tail {
+            inner,
+            kept: Default::default(),
+        }
+    }
+
+    /// The kept events of a world, loaded from the log underneath the first time.
+    fn with<T>(
+        &self,
+        world: &WorldId,
+        f: impl FnOnce(&mut std::collections::VecDeque<std::sync::Arc<Event>>) -> T,
+    ) -> Result<T, LogError> {
+        let mut kept = self.kept.lock().unwrap_or_else(|e| e.into_inner());
+        if !kept.contains_key(world) {
+            let head = self.inner.head(world)?.map(|s| s.0).unwrap_or(0);
+            let after = head.saturating_sub(TAIL as u64);
+            let events = self.inner.read_all(world, Cursor { after })?;
+            kept.insert(
+                world.clone(),
+                events.into_iter().map(std::sync::Arc::new).collect(),
+            );
+        }
+        Ok(f(kept.get_mut(world).expect("just inserted")))
+    }
+}
+
+impl<L: EventLog> EventLog for Tail<L> {
+    fn append(&mut self, world: &WorldId, event: NewEvent) -> Result<Event, LogError> {
+        // Load before appending, so the kept part and the new event are in order.
+        self.with(world, |_| ())?;
+        let e = self.inner.append(world, event)?;
+        let kept = self.kept.get_mut().unwrap_or_else(|e| e.into_inner());
+        if let Some(q) = kept.get_mut(world) {
+            // Only the very next in sequence: anything else (another writer got in
+            // between), and the kept part is dropped and read again on the next ask,
+            // so it can never hold a gap.
+            if q.back()
+                .map_or(e.seq.0 == 1, |last| last.seq.0 + 1 == e.seq.0)
+            {
+                q.push_back(std::sync::Arc::new(e.clone()));
+                while q.len() > TAIL {
+                    q.pop_front();
+                }
+            } else {
+                kept.remove(world);
+            }
+        }
+        Ok(e)
+    }
+
+    fn read(&self, world: &WorldId, cursor: Cursor, limit: usize) -> Result<Vec<Event>, LogError> {
+        let hit = self.with(world, |q| {
+            let first = q.front().map(|e| e.seq.0)?;
+            // The kept part answers only what it wholly holds: a cursor at or after
+            // the event before its first.
+            if cursor.after + 1 < first {
+                return None;
+            }
+            let from = q.partition_point(|e| e.seq.0 <= cursor.after);
+            Some(
+                q.iter()
+                    .skip(from)
+                    .take(limit)
+                    .map(|e| (**e).clone())
+                    .collect::<Vec<_>>(),
+            )
+        })?;
+        match hit {
+            Some(v) => Ok(v),
+            None => self.inner.read(world, cursor, limit),
+        }
+    }
+
+    fn newest(&self, world: &WorldId, n: usize) -> Result<Vec<std::sync::Arc<Event>>, LogError> {
+        // Shared, not copied, when the kept part holds that many (or the whole log).
+        let hit = self.with(world, |q| {
+            let whole = q.front().map_or(true, |e| e.seq.0 <= 1);
+            (n <= q.len() || whole).then(|| {
+                q.iter()
+                    .skip(q.len().saturating_sub(n))
+                    .cloned()
+                    .collect::<Vec<_>>()
+            })
+        })?;
+        match hit {
+            Some(v) => Ok(v),
+            None => {
+                let head = self.inner.head(world)?.map(|s| s.0).unwrap_or(0);
+                Ok(self
+                    .inner
+                    .read_all(
+                        world,
+                        Cursor {
+                            after: head.saturating_sub(n as u64),
+                        },
+                    )?
+                    .into_iter()
+                    .map(std::sync::Arc::new)
+                    .collect())
+            }
+        }
+    }
+
+    fn head(&self, world: &WorldId) -> Result<Option<Seq>, LogError> {
+        match self.with(world, |q| q.back().map(|e| e.seq))? {
+            Some(s) => Ok(Some(s)),
+            None => self.inner.head(world),
         }
     }
 }
@@ -401,6 +551,80 @@ mod tests {
 
     fn ev(at: i64, kind: &str) -> NewEvent {
         NewEvent::new(Timestamp(at), kind, Actor::Driver, json!({"k": kind}))
+    }
+
+    #[test]
+    fn a_kept_tail_reads_exactly_as_the_log_under_it() {
+        let w = WorldId::from("a");
+        let other = WorldId::from("b");
+        let mut plain = MemoryLog::new();
+        let mut under = MemoryLog::new();
+        for i in 0..(TAIL as i64 + 50) {
+            plain.append(&w, ev(i, "old")).unwrap();
+            under.append(&w, ev(i, "old")).unwrap();
+        }
+        let mut tail = Tail::new(under);
+        let same = |tail: &Tail<MemoryLog>, plain: &MemoryLog| {
+            let head = plain.head(&w).unwrap().unwrap().0;
+            assert_eq!(tail.head(&w).unwrap(), Some(Seq(head)));
+            for n in [0, 1, 30, 4000, TAIL, TAIL + 20] {
+                let got: Vec<Event> = tail
+                    .newest(&w, n)
+                    .unwrap()
+                    .iter()
+                    .map(|e| (**e).clone())
+                    .collect();
+                let want: Vec<Event> = plain
+                    .newest(&w, n)
+                    .unwrap()
+                    .iter()
+                    .map(|e| (**e).clone())
+                    .collect();
+                assert_eq!(got, want, "newest {n}");
+            }
+            for after in [
+                0,
+                1,
+                49,
+                50,
+                51,
+                52,
+                700,
+                head - 4000,
+                head - 2,
+                head - 1,
+                head,
+                head + 5,
+            ] {
+                for limit in [1, 3, 1024] {
+                    let c = Cursor { after };
+                    assert_eq!(
+                        tail.read(&w, c, limit).unwrap(),
+                        plain.read(&w, c, limit).unwrap(),
+                        "after {after}, limit {limit}"
+                    );
+                }
+                let c = Cursor { after };
+                assert_eq!(
+                    tail.read_all(&w, c).unwrap(),
+                    plain.read_all(&w, c).unwrap(),
+                    "all after {after}"
+                );
+            }
+        };
+        same(&tail, &plain);
+        // Appends are seen at once, the kept part slides, and another world is its own.
+        for i in 0..300 {
+            assert_eq!(
+                tail.append(&w, ev(90_000 + i, "new")).unwrap(),
+                plain.append(&w, ev(90_000 + i, "new")).unwrap()
+            );
+        }
+        same(&tail, &plain);
+        assert_eq!(tail.head(&other).unwrap(), None);
+        assert_eq!(tail.append(&other, ev(1, "x")).unwrap().seq, Seq(1));
+        assert_eq!(tail.read_all(&other, Cursor::START).unwrap().len(), 1);
+        same(&tail, &plain);
     }
 
     #[test]

@@ -236,13 +236,13 @@ world ever wrote, each time, while holding it. Cost grows with the log, not with
 is here: at ten times the events the board is two minutes and `wants` ten seconds
 with nobody new in the room.
 
-- **S1 · Find every whole-log read and fold it** (M; first, and most of the win). (S0, in the ledger, was the stopgap: the economy reads a day, and the board and economy answers are kept; the board's first read is still whole-log, about 8 s once every two minutes at most while someone looks.)
-  About a dozen `read_all` calls in the driver; the board, the citizens report, `session`,
-  the Docent's asks and `wants`' hour counts are the ones on a player's path. Each
-  becomes a running fold kept in memory (built once at boot in the replay that
-  already happens, updated as events append), or a read from a time cursor. Target:
-  no read on a command's path touches more than the last hour. Expect the 145 ms
-  floor to fall toward the local figure; A5 says whether it did.
+- **S1b · Warm the folds at boot** (S; **waits**, it trades one cost for another). The
+  board and the citizens report now read the whole log once after each start (about
+  seven seconds each on the live log, with the world held), the first time anyone
+  asks: a player opening the board, or the hourly analytics render. a) **lean**: read
+  them at boot before the door opens, in the pass the boot already makes over the log
+  for its jobs (no extra read; a small hook in `World::open`); b) at boot as two more
+  reads (simplest; a restart takes about fourteen seconds longer); c) as is.
 - **S2 · Know where the floor is** (S; with S1). `took_ms` split in the ops read
   into waiting for the lock, the handler, the log append and the pushes to sessions.
   If the append is the floor (a commit to PostgreSQL per event), batch a command's
@@ -269,7 +269,7 @@ with nobody new in the room.
   already empty the Fogbank; ten times the names want spawn counts that follow who is
   in the room, more first rooms (R151), and the Mudroom's wall (H18). These are the
   limits a player meets before the server's.
-- Order: S1 with S2 (and A5 to see it), S6, S3, S5, S4.
+- Order now: S2 (what the floor is on PostgreSQL, now that reads are memory), S1b, S6, S3, S5, S4.
 
 ## XL (X): the scaffolding; each wants a brief before a first cut
 
@@ -487,6 +487,13 @@ The world
   `kind` on the first gate or `start` call, shown as "claimed" beside the score.
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-11 (S1, by David's word; one driver deploy)
+- What the floor was. Sampling the driver under one repeated verb found three costs on every command, none of them the verb: (1) the passphrase was verified with Argon2 on every command over HTTP and MCP, with the world held (twenty milliseconds on a fast machine); (2) "the last few thousand events", asked a dozen times a command, was a head query and several reads against the database each time; (3) each of those asks then copied every event it returned.
+- The log keeps its newest 12,000 events in memory (`foxing_log::Tail`, around any backing): a read that starts inside them is answered there, an older one goes to the log underneath, an append goes underneath first. `recent_events` shares those events and no longer copies them. Checked against the plain log for every cursor and limit around the edges.
+- A passphrase verified once in this process is known afterward by a quick keyed digest (Argon2id at its smallest, under a key drawn at start), kept beside the stored hash it passed: a wrong one still gets the full check and the lockout count, a changed one is a new stored hash and the old digest answers nothing. Held in memory only.
+- The board and the citizens report keep what they have folded out of the log and read on from where they stopped (`World::folds`); each reads the whole log once after a start (S1b). The board's kept answer is 15 seconds, down from two minutes.
+- Measured on a local file-backed world of 14,000 to 20,000 events, release build, the world's own share of a reply: `satchel` 24 ms to 1.6; `look` 24 to 2.1; `wants` 25 to 2.7; `travel` 27 to 2.4; `say` 24 to 2.1. `board` (the verb) is 63 ms and `session` 32: both do real work over the store and are next (S3). The live figures follow in the next entry once the deploy has run.
 
 11-11 (the errors' window, at David's ask; rides the driver deploy)
 - The analytics page's errors, and who sent them, can be shown for the last 24 hours (the default), the last 7 days or the whole window, by a chip over the table; each row says when it last happened. The probes line follows the window chosen.

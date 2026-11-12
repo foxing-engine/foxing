@@ -120,6 +120,7 @@ pub fn view(
         .filter(|e| {
             !e.kind.starts_with("store.") && !e.kind.starts_with("job.") && e.kind != "gate.reply"
         })
+        .map(|e| (*e).clone())
         .collect();
     let timed =
         |e: &foxing_log::Event| format!("{} UTC: {}", system::clock(e.at.0), system::line_for(e));

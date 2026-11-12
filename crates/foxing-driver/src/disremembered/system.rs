@@ -768,7 +768,7 @@ fn register_rest(world: &mut World) {
                         || ctx.kind == ActorKind::Admin
                         || e.payload["to"].as_str() == Some(ctx.actor.as_str())
                 })
-                .map(|e| crate::observe::redacted(w, &viewer, e))
+                .map(|e| crate::observe::redacted(w, &viewer, (*e).clone()))
                 .collect();
             let events: Vec<foxing_log::Event> = events
                 .into_iter()

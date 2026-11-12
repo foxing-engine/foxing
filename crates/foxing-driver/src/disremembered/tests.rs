@@ -11150,3 +11150,53 @@ fn a_room_may_keep_a_second_kind_beside_its_own() {
         assert_eq!(combat::fill(&mut w, r).unwrap(), 1);
     }
 }
+
+#[test]
+fn a_passphrase_once_verified_is_known_quickly_and_a_wrong_or_old_one_never_is() {
+    // S1: the quick digest lets the right passphrase through without the full
+    // check, and nothing else.
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "dave", "test", PASS).unwrap();
+    assert!(login(&mut w, "dave", "test", "not-the-passphrase").is_err());
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // Changed: the old one, verified a moment ago, is refused; the new one passes.
+    change_passphrase(&mut w, "dave", PASS, "a-new-passphrase-9").unwrap();
+    assert!(login(&mut w, "dave", "test", PASS).is_err());
+    login(&mut w, "dave", "test", "a-new-passphrase-9").unwrap();
+    login(&mut w, "dave", "test", "a-new-passphrase-9").unwrap();
+    // Another name with the same passphrase has its own stored hash, and its own check.
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    assert!(login(&mut w, "tyler", "test", "a-new-passphrase-9").is_err());
+}
+
+#[test]
+fn the_board_and_the_citizens_report_fold_on_and_read_as_a_fresh_fold_does() {
+    // S1: both keep what they have read of the log and read on from there. Asked
+    // twice with play between, they must say what a world opened fresh on the same
+    // log says.
+    let dir = tempfile::tempdir().unwrap();
+    let t0 = Timestamp(1_000_000);
+    let said = {
+        let mut w = open(dir.path(), t0);
+        login(&mut w, "dave", "test", PASS).unwrap();
+        ok(&mut w, "dave", "travel", json!(["east"]));
+        admin(&mut w, "dave", "earn", json!(["wisp", 40, 0.5]));
+        let _ = board::board(&w);
+        let _ = crate::net::citizens_report(&w, 0);
+        login(&mut w, "tyler", "test", PASS).unwrap();
+        ok(&mut w, "tyler", "look", json!([]));
+        admin(&mut w, "tyler", "earn", json!(["wisp", 25, 0.5]));
+        ok(&mut w, "dave", "say", json!(["a word in the fog"]));
+        (
+            format!("{:?}", board::board(&w)),
+            format!("{:?}", crate::net::citizens_report(&w, 0)),
+        )
+    };
+    let w = open(dir.path(), t0);
+    assert_eq!(format!("{:?}", board::board(&w)), said.0);
+    assert_eq!(format!("{:?}", crate::net::citizens_report(&w, 0)), said.1);
+    // And asked again with nothing new, the same again.
+    assert_eq!(format!("{:?}", board::board(&w)), said.0);
+}

@@ -84,11 +84,58 @@ pub fn check(world: &World, citizen: EntityId, passphrase: &str) -> Result<(), L
         // the name. The pre-alpha world is reset before anyone else can.
         return Ok(());
     };
+    // S1: a passphrase this process has already verified against this stored hash is
+    // known by a quick keyed digest. The full check is twenty milliseconds of work
+    // on a fast machine (more on the world's own), it ran on every command that
+    // came over HTTP or MCP, and it ran with the world held.
+    let quick = quick_digest(passphrase);
+    if let (Some(d), Ok(seen)) = (quick, VERIFIED.lock()) {
+        if seen.get(stored).is_some_and(|k| same(k, &d)) {
+            return Ok(());
+        }
+    }
     let parsed = PasswordHash::new(stored).map_err(|e| LoginError::Internal(e.to_string()))?;
     Argon2::default()
         .verify_password(passphrase.as_bytes(), &parsed)
         .map_err(|_| LoginError::WrongPassphrase {
             passing: super::is_passing(world, citizen),
             name,
-        })
+        })?;
+    if let (Some(d), Ok(mut seen)) = (quick, VERIFIED.lock()) {
+        // Keyed by the stored hash, so a changed passphrase is a new key and the old
+        // digest answers nothing. Bounded: past ten thousand, start again.
+        if seen.len() > 10_000 {
+            seen.clear();
+        }
+        seen.insert(stored.to_string(), d);
+    }
+    Ok(())
+}
+
+/// Passphrases verified in this process: the stored hash, and a quick digest of the
+/// passphrase that passed it. In memory only, and keyed with a secret drawn at start,
+/// so the digests mean nothing outside this process.
+static VERIFIED: std::sync::Mutex<std::collections::BTreeMap<String, [u8; 32]>> =
+    std::sync::Mutex::new(std::collections::BTreeMap::new());
+
+/// A digest of a passphrase under this process's own key: Argon2id at its smallest
+/// (eight kibibytes, one pass), which is BLAKE2b underneath and takes microseconds.
+fn quick_digest(passphrase: &str) -> Option<[u8; 32]> {
+    static KEY: std::sync::OnceLock<[u8; 16]> = std::sync::OnceLock::new();
+    let key = KEY.get_or_init(|| {
+        let mut k = [0u8; 16];
+        rand_core::RngCore::fill_bytes(&mut OsRng, &mut k);
+        k
+    });
+    let params = argon2::Params::new(8, 1, 1, Some(32)).ok()?;
+    let mut out = [0u8; 32];
+    Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, params)
+        .hash_password_into(passphrase.as_bytes(), key, &mut out)
+        .ok()?;
+    Some(out)
+}
+
+/// Equal, in time that does not depend on where they differ.
+fn same(a: &[u8; 32], b: &[u8; 32]) -> bool {
+    a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
