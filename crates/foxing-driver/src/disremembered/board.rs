@@ -17,7 +17,7 @@
 
 use super::{errand, exchange, kindle, memory, mind, CHUNK};
 use crate::world::World;
-use foxing_log::{Actor, Cursor};
+use foxing_log::Actor;
 use foxing_registry::{ActorKind, CommandError, CommandSpec, Outcome};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashMap};
@@ -79,7 +79,7 @@ pub struct Line {
 /// it read the whole log on every asking, fourteen seconds at a quarter of a
 /// million events; now it reads on from where it stopped).
 #[derive(Default)]
-struct Fold {
+pub(crate) struct Fold {
     after: u64,
     lines: BTreeMap<String, Line>,
     // Chunks by id, so a chunk's first size is credited to whoever it was made for.
@@ -88,27 +88,20 @@ struct Fold {
     forgotten_names: std::collections::BTreeSet<String>,
 }
 
-/// The board, from the log and the store.
-pub fn board(world: &World) -> (Vec<Line>, u64) {
-    let mut folds = world.folds.lock().unwrap_or_else(|e| e.into_inner());
-    let fold = folds
-        .entry("board")
-        .or_insert_with(|| Box::new(Fold::default()))
-        .downcast_mut::<Fold>()
-        .expect("the board's fold");
-    let Fold {
-        after,
-        lines,
-        chunk_owner,
-        sized,
-        forgotten_names,
-    } = fold;
-    for e in world
-        .log
-        .read_all(&world.id, Cursor { after: *after })
-        .unwrap_or_default()
-    {
-        *after = e.seq.0;
+impl crate::world::LogFold for Fold {
+    fn after(&self) -> u64 {
+        self.after
+    }
+
+    fn take(&mut self, e: &foxing_log::Event) {
+        self.after = e.seq.0;
+        let Fold {
+            lines,
+            chunk_owner,
+            sized,
+            forgotten_names,
+            ..
+        } = self;
         let p = &e.payload;
         match e.kind.as_str() {
             // A dug room: the room's creation under its digger's name (the public
@@ -126,9 +119,9 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
                 }
             }
             "store.component_set" if p["component"] == CHUNK => {
-                let Some(id) = p["id"].as_u64() else { continue };
+                let Some(id) = p["id"].as_u64() else { return };
                 if sized.contains_key(&id) {
-                    continue;
+                    return;
                 }
                 let size = p["fields"]["size"]
                     .as_f64()
@@ -214,9 +207,13 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
             _ => {}
         }
     }
-    let lines = lines.clone();
-    let mut forgotten_names = forgotten_names.clone();
-    drop(folds);
+}
+
+/// The board, from the log and the store.
+pub fn board(world: &World) -> (Vec<Line>, u64) {
+    let (lines, mut forgotten_names) = world.folded("board", |f: &Fold| {
+        (f.lines.clone(), f.forgotten_names.clone())
+    });
     // The present: who is still a citizen, what they hold, who knows them.
     let mut known: HashMap<String, u64> = HashMap::new();
     for e in world.store.entities().filter(|e| e.kind == "creature") {

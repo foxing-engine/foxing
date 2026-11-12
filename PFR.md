@@ -236,13 +236,6 @@ world ever wrote, each time, while holding it. Cost grows with the log, not with
 is here: at ten times the events the board is two minutes and `wants` ten seconds
 with nobody new in the room.
 
-- **S1b · Warm the folds at boot** (S; **waits**, it trades one cost for another). The
-  board and the citizens report now read the whole log once after each start (about
-  seven seconds each on the live log, with the world held), the first time anyone
-  asks: a player opening the board, or the hourly analytics render. a) **lean**: read
-  them at boot before the door opens, in the pass the boot already makes over the log
-  for its jobs (no extra read; a small hook in `World::open`); b) at boot as two more
-  reads (simplest; a restart takes about fourteen seconds longer); c) as is.
 - **S2 · Know where the floor is** (S; with S1). `took_ms` split in the ops read
   into waiting for the lock, the handler, the log append and the pushes to sessions.
   If the append is the floor (a commit to PostgreSQL per event), batch a command's
@@ -269,7 +262,7 @@ with nobody new in the room.
   already empty the Fogbank; ten times the names want spawn counts that follow who is
   in the room, more first rooms (R151), and the Mudroom's wall (H18). These are the
   limits a player meets before the server's.
-- Order now: S2 (what the floor is on PostgreSQL, now that reads are memory), S1b, S6, S3, S5, S4.
+- Order now: S2 (what the floor is on PostgreSQL, now that reads are memory), S6, S3, S5, S4.
 
 ## XL (X): the scaffolding; each wants a brief before a first cut
 
@@ -492,8 +485,9 @@ The world
 - What the floor was. Sampling the driver under one repeated verb found three costs on every command, none of them the verb: (1) the passphrase was verified with Argon2 on every command over HTTP and MCP, with the world held (twenty milliseconds on a fast machine); (2) "the last few thousand events", asked a dozen times a command, was a head query and several reads against the database each time; (3) each of those asks then copied every event it returned.
 - The log keeps its newest 12,000 events in memory (`foxing_log::Tail`, around any backing): a read that starts inside them is answered there, an older one goes to the log underneath, an append goes underneath first. `recent_events` shares those events and no longer copies them. Checked against the plain log for every cursor and limit around the edges.
 - A passphrase verified once in this process is known afterward by a quick keyed digest (Argon2id at its smallest, under a key drawn at start), kept beside the stored hash it passed: a wrong one still gets the full check and the lockout count, a changed one is a new stored hash and the old digest answers nothing. Held in memory only.
-- The board and the citizens report keep what they have folded out of the log and read on from where they stopped (`World::folds`); each reads the whole log once after a start (S1b). The board's kept answer is 15 seconds, down from two minutes.
-- Measured on a local file-backed world of 14,000 to 20,000 events, release build, the world's own share of a reply: `satchel` 24 ms to 1.6; `look` 24 to 2.1; `wants` 25 to 2.7; `travel` 27 to 2.4; `say` 24 to 2.1. `board` (the verb) is 63 ms and `session` 32: both do real work over the store and are next (S3). The live figures follow in the next entry once the deploy has run.
+- The board, the citizens report and the words left for a name keep what they have folded out of the log and read on from where they stopped (`World::folded`, the `LogFold` trait), and all three are brought up to date in the pass the boot already makes over the log (`World::open_seeing`), so none reads it again with players waiting. The board's kept answer is 15 seconds, down from two minutes.
+- Found on the live world after the first deploy of this: a new name's first login took 7.6 s, every time, with the world held. The arrival hook that delivers words left for a name read the log from that name's last hearing, which for a new name is the first event ever written. It is the third fold above.
+- Measured on a local file-backed world of 14,000 to 20,000 events, release build, the world's own share of a reply: `satchel` 24 ms to 1.6; `look` 24 to 2.1; `wants` 25 to 2.7; `travel` 27 to 2.4; `say` 24 to 2.1. `board` (the verb) is 63 ms and `session` 32: both do real work over the store and are next (S3). Live, at 281,000 events, measured from Claude's session before and after: `say`, `satchel`, `map`, `where` 145 to 160 ms became 4 to 7; `look` 430 to 470 became 7 to 10; `wants` 1,020 to 1,130 became 5 to 8; `travel` 420 to 1,270 became 5 to 18.
 
 11-11 (the errors' window, at David's ask; rides the driver deploy)
 - The analytics page's errors, and who sent them, can be shown for the last 24 hours (the default), the last 7 days or the whole window, by a chip over the table; each row says when it last happened. The probes line follows the window chosen.

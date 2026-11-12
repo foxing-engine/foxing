@@ -14,7 +14,7 @@ use super::combat::narrate;
 use super::speech::SAY;
 use super::{internal, me, mind, plain_str, presence, rooms, CHUNK, CITIZEN, ROOM};
 use crate::world::World;
-use foxing_log::{Actor, Cursor};
+use foxing_log::Actor;
 use foxing_registry::{Args, CommandError, CommandSpec, Outcome, ParamType};
 use foxing_store::{EntityId, Field};
 use serde_json::{json, Value};
@@ -342,6 +342,32 @@ fn mark_heard(world: &mut World, citizen: EntityId) -> Result<(), CommandError> 
         .map_err(internal)
 }
 
+/// Every word left for anyone, by who it was for: `(seq, from, text)`, in order.
+#[derive(Default)]
+pub(crate) struct Tells {
+    after: u64,
+    by_to: std::collections::HashMap<String, Vec<(u64, String, String)>>,
+}
+
+impl crate::world::LogFold for Tells {
+    fn after(&self) -> u64 {
+        self.after
+    }
+
+    fn take(&mut self, e: &foxing_log::Event) {
+        self.after = e.seq.0;
+        if e.kind == TELL {
+            if let Some(to) = e.payload["to"].as_str() {
+                self.by_to.entry(to.to_string()).or_default().push((
+                    e.seq.0,
+                    e.payload["from"].as_str().unwrap_or("?").to_string(),
+                    e.payload["text"].as_str().unwrap_or("").to_string(),
+                ));
+            }
+        }
+    }
+}
+
 /// Words waiting for a citizen who just arrived.
 pub fn deliver(world: &mut World, actor: &str) -> Result<(), String> {
     let Some(f) = super::find_citizen(world, actor) else {
@@ -365,19 +391,20 @@ pub fn deliver(world: &mut World, actor: &str) -> Result<(), String> {
     if head <= heard {
         return Ok(());
     }
-    let waiting: Vec<(String, String)> = world
-        .log
-        .read_all(&world.id, Cursor { after: heard })
-        .map_err(|e| e.to_string())?
-        .into_iter()
-        .filter(|e| e.kind == TELL && e.payload["to"] == actor)
-        .map(|e| {
-            (
-                e.payload["from"].as_str().unwrap_or("?").to_string(),
-                e.payload["text"].as_str().unwrap_or("").to_string(),
-            )
-        })
-        .collect();
+    // S1: from the kept fold of every word left for anyone. This read the log from
+    // the name's last hearing, which for a new name is its first event: seven
+    // seconds, with the world held, each time someone new arrived.
+    let waiting: Vec<(String, String)> = world.folded("tells", |t: &Tells| {
+        t.by_to
+            .get(actor)
+            .map(|v| {
+                v.iter()
+                    .filter(|(seq, _, _)| *seq > heard)
+                    .map(|(_, from, text)| (from.clone(), text.clone()))
+                    .collect()
+            })
+            .unwrap_or_default()
+    });
     for (from, text) in &waiting {
         narrate(
             world,

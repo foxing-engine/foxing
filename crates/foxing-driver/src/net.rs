@@ -554,43 +554,39 @@ async fn citizens(
     Ok(Json(json!({"citizens": citizens_report(&w, since)})))
 }
 
-/// The citizens report, from the log.
-pub(crate) fn citizens_report(w: &World, since: i64) -> Vec<Value> {
-    #[derive(Default, Clone)]
-    struct Row {
-        origin: String,
-        first_seen: i64,
-        last_seen: i64,
-        arrivals: u64,
-        origins: std::collections::BTreeMap<String, u64>,
-        messages: u64,
-        passed: u64,
-        via: std::collections::BTreeMap<String, u64>,
-        compiled: u64,
-        last_message_at: i64,
-        rooms_dug: u64,
+/// One name's line of the citizens report: the log's part, and (filled in at each
+/// asking) the store's.
+#[derive(Default, Clone)]
+pub(crate) struct CitizenRow {
+    origin: String,
+    first_seen: i64,
+    last_seen: i64,
+    arrivals: u64,
+    origins: std::collections::BTreeMap<String, u64>,
+    messages: u64,
+    passed: u64,
+    via: std::collections::BTreeMap<String, u64>,
+    compiled: u64,
+    last_message_at: i64,
+    rooms_dug: u64,
+}
+
+/// S1: the citizens report's fold over the log. It read every event the world ever
+/// wrote, with the world held, each time the operator's page was rendered.
+#[derive(Default)]
+pub(crate) struct CitizensFold {
+    after: u64,
+    rows: std::collections::BTreeMap<String, CitizenRow>,
+}
+
+impl crate::world::LogFold for CitizensFold {
+    fn after(&self) -> u64 {
+        self.after
     }
-    // S1: the log's part is a running fold, read on from where it stopped: this read
-    // every event the world ever wrote, with the world held, each time the
-    // operator's page was rendered.
-    #[derive(Default)]
-    struct Fold {
-        after: u64,
-        rows: std::collections::BTreeMap<String, Row>,
-    }
-    let mut folds = w.folds.lock().unwrap_or_else(|e| e.into_inner());
-    let fold = folds
-        .entry("citizens")
-        .or_insert_with(|| Box::new(Fold::default()))
-        .downcast_mut::<Fold>()
-        .expect("the citizens fold");
-    let Fold { after, rows } = fold;
-    for e in w
-        .log
-        .read_all(&w.id, Cursor { after: *after })
-        .unwrap_or_default()
-    {
-        *after = e.seq.0;
+
+    fn take(&mut self, e: &foxing_log::Event) {
+        self.after = e.seq.0;
+        let rows = &mut self.rows;
         match e.kind.as_str() {
             "store.entity_created" if e.payload["kind"] == "citizen" => {
                 if let Some(owner) = e.payload["owner"].as_str() {
@@ -631,8 +627,11 @@ pub(crate) fn citizens_report(w: &World, since: i64) -> Vec<Value> {
             _ => {}
         }
     }
-    let mut rows = rows.clone();
-    drop(folds);
+}
+
+/// The citizens report, from the log.
+pub(crate) fn citizens_report(w: &World, since: i64) -> Vec<Value> {
+    let mut rows = w.folded("citizens", |f: &CitizensFold| f.rows.clone());
     // The present, from the store, over a copy: where each came in, what each has dug.
     for e in w.store.entities() {
         if e.kind == "citizen" {

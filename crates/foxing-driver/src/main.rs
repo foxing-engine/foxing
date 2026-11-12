@@ -99,12 +99,29 @@ fn main() {
         LogBacking::File(d) => d.display().to_string(),
     };
 
-    let mut world = match World::open(
+    // S1: the readers that fold the whole history are brought up to date in the
+    // pass the boot makes over the log anyway, so none of them reads it again with
+    // players waiting.
+    let mut board = disremembered::board::Fold::default();
+    let mut citizens = net::CitizensFold::default();
+    let mut tells = disremembered::talk::Tells::default();
+    let mut world = match World::open_seeing(
         WorldId(world_name.clone()),
         Store::new(disremembered::registry()),
         backing,
+        &mut |e| {
+            use world::LogFold;
+            board.take(e);
+            citizens.take(e);
+            tells.take(e);
+        },
     ) {
-        Ok(w) => w,
+        Ok(mut w) => {
+            w.warm("board", board);
+            w.warm("citizens", citizens);
+            w.warm("tells", tells);
+            w
+        }
         Err(e) => {
             eprintln!("cannot open world {world_name}: {e}");
             std::process::exit(1);

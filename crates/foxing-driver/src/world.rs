@@ -22,6 +22,14 @@ pub enum LogBacking {
     Postgres(String),
 }
 
+/// A reader that needs the whole history, kept as what it has folded so far.
+pub trait LogFold: Default + Send + 'static {
+    /// The last event taken.
+    fn after(&self) -> u64;
+    /// Take the next event (in sequence; `after` moves to it).
+    fn take(&mut self, e: &Event);
+}
+
 /// The driver's world.
 pub struct World {
     pub id: WorldId,
@@ -167,7 +175,20 @@ pub const ARRIVED: &str = "citizen.arrived";
 
 impl World {
     /// Open a world, replaying its log into a fresh store.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn open(id: WorldId, store: Store, backing: LogBacking) -> Result<Self, String> {
+        Self::open_seeing(id, store, backing, &mut |_| {})
+    }
+
+    /// [`World::open`], showing each event of the log to `seen` in the pass the
+    /// boot already makes over it: a reader that folds the whole history (the board)
+    /// is warmed here, before the door opens, and costs the boot no read of its own.
+    pub fn open_seeing(
+        id: WorldId,
+        store: Store,
+        backing: LogBacking,
+        seen: &mut dyn FnMut(&Event),
+    ) -> Result<Self, String> {
         let log: Box<dyn EventLog + Send> = match backing {
             // S1: every backing under a kept tail, so "the last few thousand events"
             // (asked dozens of times a command) is memory, not a round trip each.
@@ -236,6 +257,7 @@ impl World {
                 if e.kind.starts_with("job.") {
                     world.jobs.apply(&e.kind, e.seq.0, &e.payload);
                 }
+                seen(&e);
             }
         }
         Ok(world)
@@ -631,6 +653,39 @@ impl World {
             }
         }
         Cursor { after: lo }
+    }
+
+    /// A running fold over the log, kept by name: brought up to the log's head (it
+    /// reads on from where it stopped; from the start, once, if it was not warmed at
+    /// boot), then shown to `f`.
+    pub fn folded<T: LogFold, R>(&self, name: &'static str, f: impl FnOnce(&T) -> R) -> R {
+        let mut folds = self.folds.lock().unwrap_or_else(|e| e.into_inner());
+        let fold = folds
+            .entry(name)
+            .or_insert_with(|| Box::new(T::default()))
+            .downcast_mut::<T>()
+            .expect("one type to a fold's name");
+        for e in self
+            .log
+            .read_all(
+                &self.id,
+                Cursor {
+                    after: fold.after(),
+                },
+            )
+            .unwrap_or_default()
+        {
+            fold.take(&e);
+        }
+        f(fold)
+    }
+
+    /// Set down a fold already brought up to the head (at boot, by `open_seeing`).
+    pub fn warm<T: LogFold>(&mut self, name: &'static str, fold: T) {
+        self.folds
+            .get_mut()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(name, Box::new(fold));
     }
 
     pub fn recent_events(&self, n: usize) -> Vec<Arc<Event>> {
