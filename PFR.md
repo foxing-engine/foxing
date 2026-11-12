@@ -140,8 +140,7 @@ Your project (11-05): "an awesome front door for players". Asked in chat as T1�
 night (the cohort T's below are another list); kept here as H. Each later step is
 yours to call: say `H5 go`, or `H5 brief` for a design first.
 
-H4, H6 and H8 shipped 11-10 (batch W) and H9 to H16 the same night (batch X; both in
-the ledger, the plan as written at the foot of it). Left of them, each yours to call:
+What is left of the front door, each yours to call (H1 to H17 are in the ledger):
 
 - **H18 · Rows past forty doors** (M; **waits**, it was H14's second question). a)
   **lean**: as built, the wall is one room and `look` shows a digest of it; b) past
@@ -149,9 +148,7 @@ the ledger, the plan as written at the foot of it). Left of them, each yours to 
 - **H19 · Small ends** (S, by policy on the next Watch): `read doors` says a room's
   digger and what is left of it but not its age; the cloak's (anonymous) view of the
   Threshold has the exits without "fight / read and tell / dig"; the play page's own
-  "onward" walking is dead code now the world walks; a named walk takes the first of
-  two ways of equal length, which to the Clocktower is the Shallows and not the Lane
-  (a tie should go to the way nothing hunts on).
+  "onward" walking is dead code now the world walks.
 - **H20 · One name for the mint** (S; **waits**, the names are yours). H12 as approved
   made the stair "The Mint Stair"; the district it opens on is "the Exergue District",
   your name for it. a) **lean**: the stair follows the district ("The Exergue Stair",
@@ -181,11 +178,9 @@ What was measured:
 - Keys that exist: Up/Down history, Ctrl+arrows to travel, arrows on an empty line
   for west/east, `?` for help, Ctrl+L, Ctrl+U. There is no completion.
 
-- **P1** shipped 11-11 (batch Y), its larger half: the picture draws at full rate only
-  while something moves (a push, a float, the pointer, speech), at ten frames a second
-  otherwise, and not at all in a hidden tab; the sky at twenty. Measured on the same
-  headless build: 3.3 s of work in ten idle seconds became 1.5 s. **P1b** (S/M, open):
-  the floor and walls kept as a drawn layer, so an ambient frame draws figures only.
+- **P1b · The room as a kept layer** (S/M). The floor and walls drawn once and kept, so
+  an ambient frame draws figures only (P1's first half is live: the picture draws on
+  change, ten frames a second idle).
 - **P2 · Panels that update, not rebuild** (M). The quarter-second tick moves only
   the numbers and the bars it has to (level, hit points, each memory's worth); rows
   are built when the world pushes a change, keyed by id, with one click listener on
@@ -195,12 +190,6 @@ What was measured:
   marked as waiting; a second and third can be typed behind it and go out in order
   over the socket without waiting to be drawn. A refusal stops the queue and says
   what was not sent.
-- **P4** shipped 11-11 (batch Y): Tab finishes the verb, then a name that fits it
-  (exits and remembered rooms after `travel`, creatures after `attack`, the named
-  after `story`, districts after `where`), Tab again for the next; Enter on an empty
-  line strikes again while a fight is on; Alt+1 to 9 pick the chips above the line;
-  a letter typed anywhere lands in the line and `/` goes to it; Esc closes what is
-  open; a strip of the keys shows once, until "got it".
 - **P5 · A lighter door** (M). Styles and script out of `index.html` into two files
   with a hash in their names, cached for a year, the page itself small and never
   cached; `tiles.js` preloaded; the schema and vocabulary kept in the browser and
@@ -209,7 +198,6 @@ What was measured:
 - **P6 · Trim the transcript** (S). Keep the last five hundred lines in the page and
   fold the rest behind "earlier" (still there to scroll to), so a long night does
   not slow every new line.
-- **P7** shipped 11-10 (batch X): `?perf=1`, `took_ms` on every reply, and the "Play page performance" section of the analytics page. Read a few days of it before P1 and P2 are sized.
 - **P8 · A quiet mode** (S). One setting: no ambient motion, no sky, no sound; for a
   slow machine or a long session. It is P1's floor.
 
@@ -224,13 +212,9 @@ The page is sixteen tables in the order they were added, thirty days each, with 
 operator's questions ("is anyone here, did they get in, is it fast, is anything
 broken") answered only by reading all of them. Claude cannot open the page from its
 session (the site host is not reachable from there), so this is planned from
-`site/analytics/render.py`; say `A1 go`, or send a screenshot and the plan gets
-sharper. Nothing here is built except the two tables batch Y added under Errors.
+`site/analytics/render.py` and checked against a made-up store; send a screenshot of
+the real page and the rest gets sharper.
 
-- **A1 · A top line** (S). Four figures with yesterday and the week beside them:
-  people and agents who came (not crawlers), names that got through the gate, the
-  median command round trip (P7's figure), and errors per thousand requests. Each
-  links to its section.
 - **A2 · Four sections, not sixteen** (M). *Who came* (totals, classes, referrers,
   agents and crawlers folded into one table with a class filter); *The door* (the
   funnel per day, organic visits, citizens); *How it felt* (play page performance,
@@ -240,21 +224,13 @@ sharper. Nothing here is built except the two tables batch Y added under Errors.
 - **A3 · A window you can change** (S). 24 hours, 7 days, 30 days as links (three
   renders by the same cron, or a query string read by a small script); today the
   window is thirty days, so a spike last night is a thirtieth of every number.
-- **A4 · Errors that say what to do** (S). 404s for paths that never existed (probes:
-  `/wp-login.php`, `/.env`) counted in one row called "probes" and left out of the
-  rate; errors split lab and organic like the door is; a 422 row carries its top
-  reason from `/v0/refusals` beside it.
 - **A5 · The driver's side** (M). One admin read (`/v0/ops`): requests by path with
   median and worst `took_ms`, time the world's lock was held, the log's size and the
   slowest reads since boot. The page shows it under *How it felt*. It is S1's
   before-and-after.
-- **A6 · Small things** (S). Numbers right-aligned and thousands-separated; the day
-  as "Tue 11-10"; a table over twenty rows folds; the lab's own traffic dimmed, not
-  mixed in; the note line says when the collector last ran (a stale page looks like a
-  quiet night).
-- Order: A4 and A6 with A1 (one sitting), then A2, A3, A5.
+- Order: A2, A3, A5. (A1, A4 and A6 are live: the ledger of 11-11.)
 
-## Ten times the players (S): planned 11-11 at David's ask; S0 shipped the same night
+## Ten times the players (S): planned 11-11 at David's ask
 
 Measured from Claude's session against the live world on 11-11, at about 264,000
 events in the log, with P7's `took_ms` (the world's own share of a reply):
@@ -276,11 +252,7 @@ world ever wrote, each time, while holding it. Cost grows with the log, not with
 is here: at ten times the events the board is two minutes and `wants` ten seconds
 with nobody new in the room.
 
-- **S0 (shipped 11-11, batch Y)**: `/v0/economy` reads the last day of the log, found
-  by halving over the sequence, not from the start; `/v0/economy` (20 s) and
-  `/v0/board` (2 min) answers are kept and served without the lock. The board's own
-  first read is still whole-log, once every two minutes at most while someone looks.
-- **S1 · Find every whole-log read and fold it** (M; first, and most of the win).
+- **S1 · Find every whole-log read and fold it** (M; first, and most of the win). (S0, in the ledger, was the stopgap: the economy reads a day, and the board and economy answers are kept; the board's first read is still whole-log, about 8 s once every two minutes at most while someone looks.)
   About a dozen `read_all` calls in the driver; the board, the citizens report, `session`,
   the Docent's asks and `wants`' hour counts are the ones on a player's path. Each
   becomes a running fold kept in memory (built once at boot in the replay that
@@ -531,6 +503,12 @@ The world
   `kind` on the first gate or `start` call, shown as "claimed" beside the score.
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-11 (A1, A4, A6, by David's word; one site deploy)
+- A1: four figures head the analytics page, each for the last full day (UTC) with today so far, the day before and the week's daily mean, the lab left out: people and agents who came (addresses; crawlers out), new names through the gate, a command's median round trip at the keyboard, errors per thousand requests. An arrow says which way the day moved and whether that is good; each tile goes to its section.
+- A4: errors show organic and lab apart, sorted by organic; requests for things the site has never had (`.php`, `.env`, `/wp-`, `/.git`, `/admin` and the like: scanners) are one line under the table and out of the rate; a 422 carries the reason the driver most often gave on that path.
+- A6: counts right-aligned with their thousands apart; a day reads "Tue 11-10"; a table past twenty rows folds; lab rows dimmed; wide tables scroll in place; the top says when the collector last took a request in, in red when that is over 45 minutes ago.
+- Not seen on the real store: Claude cannot open the page, so this was checked against a made-up one. The probe list is a pattern and will want a path or two added once real rows are seen.
 
 11-11 (D32 a, by David's word; one driver deploy)
 - At the third rung a creature weighs one guess at its word from a name every ten minutes; a story sent sooner is refused unweighed ("…it will weigh another in 9m 12s. That story was not weighed: it is neither a miss nor the word."), the wanted story still heard. The same guess sent again is not a new miss, at any rung. The story it wanted is no longer counted as a miss toward the hint. The third word's own hint says the rule. (Striking the second word starts the ten minutes, so the first guess at the third waits them out.) D33 and D34 filed from the same conversation.

@@ -17,6 +17,7 @@ import argparse
 import html
 import json
 import os
+import re
 import sqlite3
 import urllib.request
 from datetime import datetime, timezone, timedelta
@@ -244,6 +245,114 @@ def perf_rows(db, since: str) -> list[list]:
     return rows
 
 
+# A4: requests for things this site has never had: scanners trying doors. Counted in
+# one row and left out of the error rate, so a night of probing is not a bad night.
+PROBE = re.compile(
+    r"(?i)(\.(php\d?|aspx?|jsp|cgi|env|sql|bak|old|ini|zip|tar|gz|rar|7z|pem|key|log|swp|DS_Store)(\b|$)"
+    r"|/\.(git|svn|hg|aws|ssh|vscode|idea)\b|/\.env|/wp-|/wordpress|/xmlrpc|/phpmyadmin|/pma\b|/cgi-bin|/vendor/"
+    r"|/actuator|/boaform|/hnap1|/owa\b|/autodiscover|/telescope|/_ignition|/solr|/jenkins|/manager/html"
+    r"|/admin\b|/administrator|/login\b|/console\b|/config\.|/backup|/shell|/eval-stdin|/setup\.|/sdk\b|/druid)"
+)
+
+
+def is_probe(path: str, status: int) -> bool:
+    return status in (400, 403, 404, 405) and bool(PROBE.search(path or ""))
+
+
+def error_rows(db, since: str, reasons: list[list]) -> tuple[list[list], dict]:
+    """A4: errors with the lab apart from everyone else, scanners' probes folded into
+    one row, and beside a 422 the reason the driver most often gave on that path."""
+    top_reason: dict = {}
+    for path, reason, n in reasons:
+        if path not in top_reason or n > top_reason[path][1]:
+            top_reason[path] = (reason, n)
+    by: dict = {}
+    probes = {"organic": 0, "lab": 0, "paths": set()}
+    for host, path, status, ip, n in q(
+        db, "SELECT host, path, status, ip, COUNT(*) FROM requests WHERE day >= ? AND status >= 400 GROUP BY host, path, status, ip", (since,)
+    ):
+        who = "lab" if is_lab(ip) else "organic"
+        if is_probe(path, status):
+            probes[who] += n
+            probes["paths"].add(path)
+            continue
+        row = by.setdefault((host, path, status), {"organic": 0, "lab": 0})
+        row[who] += n
+    rows = []
+    for (host, path, status), c in sorted(by.items(), key=lambda kv: (-kv[1]["organic"], -kv[1]["lab"]))[:40]:
+        why = top_reason.get(path, ("", 0))[0] if status == 422 else ""
+        rows.append([host, path, status, c["organic"], c["lab"], why])
+    return rows, {"organic": probes["organic"], "lab": probes["lab"], "paths": len(probes["paths"])}
+
+
+def headline(db) -> list[dict]:
+    """A1: the four figures the operator opens the page for, each for the last full
+    day (UTC), with today so far, the day before and the week's daily mean beside it.
+    The lab is left out of all four."""
+    today = datetime.now(timezone.utc).date()
+    days = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(0, 9)]
+    since = days[-1]
+    came = {d: set() for d in days}
+    total = {d: 0 for d in days}
+    bad = {d: 0 for d in days}
+    for day, ip, cls, path, status, n in q(
+        db, "SELECT day, ip, ua_class, path, status, COUNT(*) FROM requests WHERE day >= ? GROUP BY day, ip, ua_class, path, status", (since,)
+    ):
+        if day not in total or is_lab(ip):
+            continue
+        if status < 300 and cls in ("browser", "agent", "tool"):
+            came[day].add(ip)
+        if not is_probe(path, status):
+            total[day] += n
+            if status >= 400:
+                bad[day] += n
+    names = {d: 0 for d in days}
+    if has_table(db, "doors"):
+        for day, n in q(db, "SELECT day, COUNT(DISTINCT actor) FROM doors WHERE day >= ? AND lab = 0 AND kind = 'arrive' AND fresh = 1 GROUP BY day", (since,)):
+            if day in names:
+                names[day] = n
+    trips: dict = {d: [] for d in days}
+    if has_table(db, "perf"):
+        for day, ip, rt50 in q(db, "SELECT day, ip, rt50 FROM perf WHERE day >= ?", (since,)):
+            if day in trips and not is_lab(ip):
+                trips[day].append(rt50)
+
+    def med(vals):
+        vals = sorted(vals)
+        return vals[len(vals) // 2] if vals else None
+
+    def series(f):
+        vals = [f(d) for d in days]
+        week = [v for v in vals[1:8] if v is not None]
+        return {"today": vals[0], "yesterday": vals[1], "before": vals[2], "week": (sum(week) / len(week)) if week else None}
+
+    return [
+        {"title": "People and agents who came", "note": "addresses, crawlers and the lab left out", "to": "#who-came", "unit": "", **series(lambda d: len(came[d]))},
+        {"title": "Names through the gate", "note": "new names that arrived", "to": "#the-door-per-day", "unit": "", **series(lambda d: names[d])},
+        {"title": "A command's round trip", "note": "median, Enter to reply, at the keyboard", "to": "#how-it-felt", "unit": " ms", "low_is_good": True, **series(lambda d: med(trips[d]))},
+        {"title": "Errors per thousand requests", "note": "scanners' probes left out", "to": "#what-broke", "unit": "", "low_is_good": True,
+         **series(lambda d: (1000 * bad[d] / total[d]) if total[d] else None)},
+    ]
+
+
+def collected(db) -> tuple[str, bool]:
+    """A6: when the collector last took a request in, and whether that is stale: a
+    page with a stopped collector looks like a quiet night."""
+    row = q(db, "SELECT MAX(ts) FROM requests")
+    last = row[0][0] if row and row[0][0] else None
+    if not last:
+        return "nothing collected yet", True
+    try:
+        at = datetime.fromisoformat(str(last).replace("Z", "+00:00"))
+        if at.tzinfo is None:
+            at = at.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return f"last request collected {last}", False
+    mins = int((datetime.now(timezone.utc) - at).total_seconds() // 60)
+    ago = f"{mins} min ago" if mins < 120 else f"{mins // 60} hours ago"
+    return f"last request collected {at.strftime('%a %m-%d %H:%M')} UTC ({ago})", mins > 45
+
+
 def report(db: sqlite3.Connection, days: int) -> dict:
     since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
     w = "WHERE day >= ? AND status < 300"  # redirects (http->https) are not visits
@@ -255,9 +364,11 @@ def report(db: sqlite3.Connection, days: int) -> dict:
     out["agents"] = q(db, f"SELECT ua_class, ua_name, COUNT(*), COUNT(DISTINCT visitor), MAX(ts) FROM requests {w} AND ua_class IN ('ai-crawler','tool','agent') GROUP BY ua_class, ua_name ORDER BY 3 DESC LIMIT 40", (since,))
     out["referers"] = q(db, f"SELECT referer_host, COUNT(*) FROM requests {w} AND referer_host != '' AND referer_host NOT IN ('agentscanplay.com','www.agentscanplay.com','foxing.dev','www.foxing.dev','moondial.ai','www.moondial.ai') GROUP BY referer_host ORDER BY 2 DESC LIMIT 25", (since,))
     out["daily"] = q(db, f"SELECT day, host, COUNT(*), COUNT(DISTINCT visitor) FROM requests {w} GROUP BY day, host ORDER BY day DESC, host", (since,))
-    out["errors"] = q(db, "SELECT host, path, status, COUNT(*) FROM requests WHERE day >= ? AND status >= 400 GROUP BY host, path, status ORDER BY 4 DESC LIMIT 20", (since,))
     out["error_senders"] = q(db, "SELECT host, path, status, ua_class, ua_name, COUNT(*), COUNT(DISTINCT visitor), MAX(ts) FROM requests WHERE day >= ? AND status >= 400 AND status != 404 GROUP BY host, path, status, ua_class, ua_name ORDER BY 6 DESC LIMIT 20", (since,))
     out["refusals"], out["refusals_note"] = refusals()
+    out["errors"], out["probes"] = error_rows(db, since, out["refusals"])
+    out["headline"] = headline(db)
+    out["collected"], out["stale"] = collected(db)
     out["perf"] = perf_rows(db, since)
     cz, why = citizens(days)
     out["citizens"] = citizen_rows(cz, days)
@@ -273,7 +384,12 @@ def report(db: sqlite3.Connection, days: int) -> dict:
 
 
 def text(r: dict) -> str:
-    lines = [f"Analytics since {r['since']} ({r['days']} days), 2xx requests only unless noted (redirects excluded)", ""]
+    lines = [f"Analytics since {r['since']} ({r['days']} days), 2xx requests only unless noted (redirects excluded)",
+             f"{'STALE: ' if r['stale'] else ''}{r['collected']}", "",
+             "The last full day (UTC), with today so far, the day before, and the week's daily mean; the lab left out"]
+    for h in r["headline"]:
+        lines.append(f"  {h['title']:<32} {fig(h['yesterday'], h['unit']):>9}   today {fig(h['today'], h['unit'])}, before {fig(h['before'], h['unit'])}, week {fig(h['week'], h['unit'])}")
+    lines.append("")
     lines.append("Totals (host, requests, unique visitors)")
     for h, n, v in r["totals"]:
         lines.append(f"  {h:<22} {n:>7} {v:>7}")
@@ -292,9 +408,11 @@ def text(r: dict) -> str:
     lines.append("\nReferrers")
     for ref, n in r["referers"]:
         lines.append(f"  {ref:<40} {n:>7}")
-    lines.append("\nErrors (host, path, status, count)")
-    for h, p, s, n in r["errors"]:
-        lines.append(f"  {h:<22} {p:<34} {s:>4} {n:>6}")
+    lines.append("\nErrors (host, path, status, organic, lab, the driver's most given reason)")
+    for h, p, s, n, lab, why in r["errors"]:
+        lines.append(f"  {h:<22} {p:<34} {s:>4} {n:>6} {lab:>6}  {why}")
+    pr = r["probes"]
+    lines.append(f"  probes: {pr['organic']:,} requests for {pr['paths']:,} paths this site has never had (scanners), {pr['lab']:,} from the lab; not in the rate")
     lines.append("\nWho sent the errors (host, path, status, class, name, count, addresses, last)")
     for row in r["error_senders"]:
         lines.append("  " + "  ".join(str(c) for c in row))
@@ -322,23 +440,94 @@ def text(r: dict) -> str:
     return "\n".join(lines)
 
 
+def fig(v, unit: str = "") -> str:
+    """A number as the page says it: thousands separated, one decimal under ten."""
+    if v is None:
+        return "no data"
+    if isinstance(v, float) and v != int(v) and abs(v) < 10:
+        return f"{v:.1f}{unit}"
+    return f"{round(v):,}{unit}"
+
+
+DAY = re.compile(r"^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2})(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?$")
+FOLD = 20
+
+
+def cell(c) -> tuple[str, bool]:
+    """A6: a cell as shown, and whether it is a number (right-aligned). A day reads
+    "Tue 11-10"; a count has its thousands apart."""
+    if isinstance(c, bool):
+        return str(c), False
+    if isinstance(c, int):
+        return f"{c:,}", True
+    if isinstance(c, float):
+        return fig(c), True
+    text = str(c)
+    m = DAY.match(text)
+    if m:
+        try:
+            d = datetime.strptime(m.group(1), "%Y-%m-%d")
+            return d.strftime("%a %m-%d") + (f" {m.group(2)}" if m.group(2) else ""), False
+        except ValueError:
+            pass
+    return text, bool(re.fullmatch(r"-?[\d,.]+ ?(ms|%|s)?", text)) and text != ""
+
+
 def table(headers, rows) -> str:
+    """A table whose numbers sit right, whose lab rows are dimmed, and which folds
+    after twenty rows (A6)."""
     th = "".join(f"<th>{html.escape(str(h))}</th>" for h in headers)
-    body = "".join("<tr>" + "".join(f"<td>{html.escape(str(c))}</td>" for c in row) + "</tr>" for row in rows)
-    return f"<table><thead><tr>{th}</tr></thead><tbody>{body or '<tr><td colspan=9>nothing yet</td></tr>'}</tbody></table>"
+
+    def tr(row) -> str:
+        cells = [cell(c) for c in row]
+        lab = ' class="lab"' if len(row) > 1 and row[1] == "lab" else ""
+        return f"<tr{lab}>" + "".join(f"<td{' class=n' if num else ''}>{html.escape(t)}</td>" for t, num in cells) + "</tr>"
+
+    def whole(rs) -> str:
+        return f"<div class=scroll><table><thead><tr>{th}</tr></thead><tbody>{''.join(tr(r) for r in rs)}</tbody></table></div>"
+
+    rows = list(rows)
+    if not rows:
+        return f"<table><thead><tr>{th}</tr></thead><tbody><tr><td colspan={len(headers)} class=none>nothing yet</td></tr></tbody></table>"
+    if len(rows) <= FOLD + 3:
+        return whole(rows)
+    return whole(rows[:FOLD]) + f"<details><summary>{len(rows) - FOLD:,} more rows</summary>{whole(rows[FOLD:])}</details>"
+
+
+def tiles(heads: list[dict]) -> str:
+    """A1: the top line."""
+    out = []
+    for h in heads:
+        y, b = h["yesterday"], h["before"]
+        trend = ""
+        if y is not None and b is not None and y != b:
+            up = y > b
+            good = (not up) if h.get("low_is_good") else up
+            trend = f"<span class=\"{'good' if good else 'bad'}\">{'&#9650;' if up else '&#9660;'}</span>"
+        out.append(
+            f"<a class=tile href=\"{h['to']}\"><span class=k>{html.escape(h['title'])}</span>"
+            f"<span class=v>{html.escape(fig(y, h['unit']))} {trend}</span>"
+            f"<span class=s>yesterday &middot; today so far {html.escape(fig(h['today'], h['unit']))} &middot; the day before {html.escape(fig(b, h['unit']))} &middot; the week's mean {html.escape(fig(h['week'], h['unit']))}</span>"
+            f"<span class=s>{html.escape(h['note'])}</span></a>"
+        )
+    return f"<div class=tiles>{''.join(out)}</div>"
+
+
+def slug(title: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", title.lower().split(":")[0].split("(")[0]).strip("-")
 
 
 def page(r: dict) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     cz_note = f"<p class=\"sub\">{html.escape(r['citizens_note'])}</p>" if r["citizens_note"] else ""
     sections = [
-        ("Organic agent visits: not from the lab, and in the game, cloaked at least", table(
+        ("Who came: organic agent visits, not from the lab, and in the game, cloaked at least", table(
             ["address", "", "first seen", "last seen", "requests", "mcp calls", "cloaks", "gates", "names taken", "classes", "hosts"], r["organic"])
             + f"<p class=\"sub\">{r['crawlers']} other addresses only initialized: directory crawlers, not listed. Lab nets come from FOXING_LAB_NETS at render time, so a net added later relabels the past.</p>"),
         ("The door, per day", table(["day", "", "initialized", "cloaked", "checked", "gate", "names arrived"], r["funnel"])),
         ("Networks: every address in the window", table(
             ["address", "", "first seen", "last seen", "requests", "mcp calls", "cloaks", "gates", "names taken", "classes", "hosts"], r["networks"])),
-        ("Play page performance: what a player at the keyboard waited", table(
+        ("How it felt: what a player at the keyboard waited", table(
             ["day", "", "addresses", "commands", "round trip (median)", "95th", "worst", "world's share", "frames/s", "frame cost", "on the socket"], r.get("perf", []))
             + "<p class=\"sub\">Each report is a player's last twenty commands, sent by the play page itself; the round trip is from Enter to the reply, and the world's share is how long the driver held it. `?perf=1` on the play page shows the same live.</p>"),
         ("Citizens: who came, by what door, and what they did", cz_note + table(
@@ -350,11 +539,13 @@ def page(r: dict) -> str:
         ("Agents, AI crawlers, tools", table(["class", "name", "requests", "uniques", "last seen"], r["agents"])),
         ("Referrers", table(["referrer", "requests"], r["referers"])),
         ("Daily", table(["day", "host", "requests", "uniques"], r["daily"])),
-        ("Errors", table(["host", "path", "status", "count"], r["errors"])),
+        ("What broke: errors, the lab apart", table(["host", "path", "status", "organic", "lab", "the driver's most given reason"], r["errors"])
+            + f"<p class=\"sub\">Not in the table or the rate: {r['probes']['organic']:,} requests for {r['probes']['paths']:,} paths this site has never had (scanners trying doors: <code>.php</code>, <code>.env</code>, <code>/wp-</code>), and {r['probes']['lab']:,} of the same from the lab.</p>"),
         ("Who sent the errors", table(["host", "path", "status", "class", "name", "count", "addresses", "last"], r["error_senders"])),
         (f"Why the driver refused ({r['refusals_note']})", table(["path", "reason", "count"], r["refusals"])),
     ]
-    body = "".join(f"<h2>{html.escape(t)}</h2>{tb}" for t, tb in sections)
+    body = "".join(f"<h2 id=\"{slug(t)}\">{html.escape(t)}</h2>{tb}" for t, tb in sections)
+    stale = " class=\"stale\"" if r["stale"] else ""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow"><title>Foxing analytics</title>
 <style>
@@ -365,11 +556,24 @@ h1 {{ font-weight: 400; font-size: 32px; margin: 0 0 4px; }} .sub {{ color: var(
 h2 {{ font-weight: 400; font-size: 20px; color: var(--dust); margin: 32px 0 8px; }}
 table {{ border-collapse: collapse; width: 100%; font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; }}
 th, td {{ text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); }} th {{ color: var(--dim); font-weight: 400; }}
-td:nth-child(n+3) {{ text-align: right; }} tr:hover td {{ background: var(--panel); }}
-td:nth-child(2) {{ color: var(--dust); }}
+td.n {{ text-align: right; font-variant-numeric: tabular-nums; }} td.none {{ color: var(--dim); }} tr:hover td {{ background: var(--panel); }}
+td:nth-child(2) {{ color: var(--dust); }} tr.lab td {{ color: var(--dim); opacity: .6; }}
+.scroll {{ overflow-x: auto; }} td, th {{ white-space: nowrap; }} td:last-child {{ white-space: normal; }}
+details {{ margin: 0; }} summary {{ cursor: pointer; color: var(--dim); font: 13px/2.2 ui-monospace, Menlo, Consolas, monospace; padding-left: 10px; }}
+code {{ font: 12.5px ui-monospace, Menlo, Consolas, monospace; color: var(--dust); }}
+.tiles {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 8px 0 8px; }}
+.tile {{ display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: inherit; text-decoration: none; }}
+.tile:hover {{ border-color: var(--dust); }}
+.tile .k {{ color: var(--dust); font-size: 14px; }} .tile .v {{ font-size: 34px; line-height: 1.15; font-variant-numeric: tabular-nums; }}
+.tile .s {{ color: var(--dim); font-size: 12px; line-height: 1.45; }}
+.good {{ color: #8fc79a; font-size: 16px; }} .bad {{ color: #d98f8f; font-size: 16px; }}
+.stale {{ color: #d98f8f; }}
+html {{ scroll-behavior: smooth; }} h2 {{ scroll-margin-top: 12px; }}
 </style></head><body><main>
 <h1>Foxing analytics</h1>
-<p class="sub">Since {html.escape(r['since'])} ({r['days']} days) · rendered {now} · 2xx requests unless noted · addresses kept {html.escape(os.environ.get("ANALYTICS_RETENTION_DAYS", "90"))} days, operator-only · lab = {html.escape(LAB_NETS or "no lab nets set")}</p>
+<p class="sub"><span{stale}>{'Stale: ' if r['stale'] else ''}{html.escape(r['collected'])}</span> · rendered {now}</p>
+{tiles(r['headline'])}
+<p class="sub">Below: since {html.escape(r['since'])} ({r['days']} days) · 2xx requests unless noted · addresses kept {html.escape(os.environ.get("ANALYTICS_RETENTION_DAYS", "90"))} days, operator-only · lab = {html.escape(LAB_NETS or "no lab nets set")}</p>
 {body}
 </main></body></html>"""
 
