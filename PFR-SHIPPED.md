@@ -5,6 +5,12 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-12 (after the Watch of 11-12; one driver deploy, one site deploy)
+- A bandage's `rest` gives the figures after its mending: it said "mends 10, and is spent. You have 8/30. You are whole." of a name at 18 of 30 (D27's own fault).
+- The dry run of a named walk gives the way the gate takes (the least hunted of the shortest): it said "east, north, north, up" of a walk that went north, lane, orchard, up.
+- The player's guide, corrected by its first reader the night it was written: a wisp's hit points and a first chunk's worth vary with what it holds (it said 8 and 15; the reader met 7.7 to 12, and 10.4 and 2.0); a dull memory halves in half an hour, not twenty minutes; the hour between stories has two exceptions; Lute and Cairn are examples, not creatures; a first-hour name is left alone in the Shallows; a bandage does nothing for a wound that is not bleeding.
+- What the Watch confirmed: D32 a holds (eight guesses in one message, one weighed, the rest refused unweighed with the wait said; a guess sent twice counts once; the wanted story is no miss). The bandage takes a bite as it lands and closes one on `rest`; the charm's line gives its figure and the half-life agrees with it; the jar, the lantern, the bookworm (it mends by what it bites, and says so) and the silverfish (it clips a tenth, and says so) all do what they say; a bare `append` writes on the Exergue's plaque, stamped. `where wickmaker`, the walk by the Lane, and the cloak's exits are as shipped. Every gate call came back in about half a second, wall clock.
+
 11-12 (the nightly deploy: R items by policy, from the Watch of 11-11; one driver deploy)
 - R193: a named walk no longer stops "something here has noticed you" for a hunter that leaves a first-hour name alone (the Cistern Stair, the Clocktower).
 - R192: `where wickmaker` finds the Wickmaker's Bench (a possessive answers to its stem).

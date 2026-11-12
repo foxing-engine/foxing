@@ -7316,6 +7316,16 @@ fn nothing_mends_in_a_fight_or_while_bleeding() {
         "{}",
         out.summary
     );
+    // The figure after it is the mended one, and a name short of whole is not told
+    // it is whole (the Watch of 11-12: "mends 10 … You have 8/30. You are whole.").
+    let hp_now = combat::hp(&w, dave);
+    assert!(
+        out.summary
+            .contains(&format!("You have {:.0}/30", hp_now.ceil()))
+            && (hp_now > 29.5 || !out.summary.contains("You are whole")),
+        "{hp_now}: {}",
+        out.summary
+    );
     assert!(craft::carries(&w, dave, "bandage").is_none());
 }
 

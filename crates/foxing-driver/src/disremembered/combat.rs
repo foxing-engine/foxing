@@ -2476,12 +2476,14 @@ pub fn register(world: &mut World, curves: Curves) {
             let f = me(w, ctx)?;
             let now = w.now();
             // The same figure the hit lines say (ceiled), so lines agree (F1).
-            let current = hp_said(w, f.citizen);
-            let eta = w
-                .store
-                .timed_field(f.citizen, BODY, "hp")
-                .ok()
-                .and_then(|t| t.active_time_to_reach(super::MAX_HP, now, &w.store.scopes_for(f.citizen).unwrap_or_default()));
+            let mut current = hp_said(w, f.citizen);
+            let time_to_whole = |w: &World| {
+                w.store
+                    .timed_field(f.citizen, BODY, "hp")
+                    .ok()
+                    .and_then(|t| t.active_time_to_reach(super::MAX_HP, now, &w.store.scopes_for(f.citizen).unwrap_or_default()))
+            };
+            let mut eta = time_to_whole(w);
             let mut bleeding = plain_num(w, f.citizen, BODY, "bleed_until").filter(|&u| u > now.0 as f64);
             // A bandage carried closes the bite now, and is spent.
             let mut bandaged = String::new();
@@ -2503,6 +2505,10 @@ pub fn register(world: &mut World, curves: Curves) {
                     recurve_mending(w, f.citizen).map_err(internal)?;
                     bleeding = None;
                     bandaged = format!("Your bandage closes the bite and mends {gives:.0}, and is spent. ");
+                    // The figures after the mending, not before it: the Watch of
+                    // 11-12 was told "mends 10 … You have 8/30. You are whole."
+                    current = hp_said(w, f.citizen);
+                    eta = time_to_whole(w);
                 }
             }
             let shaken_line = shaken_said(w, f.citizen).map(|l| format!(" {l}")).unwrap_or_default();

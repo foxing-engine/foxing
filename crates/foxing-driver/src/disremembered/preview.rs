@@ -346,12 +346,26 @@ pub fn run_checked(
                             None if room.is_some()
                                 && super::atlas::room_named(world, &arg(0))
                                     .filter(|t| Some(*t) != room)
-                                    .and_then(|t| super::errand::route(world, room?, t))
+                                    .and_then(|t| {
+                                        // The way the gate would walk it: the least
+                                        // hunted of the shortest (the dry run said
+                                        // "east, north, north, up" of a walk that
+                                        // went by the Lane).
+                                        super::atlas::way_seeded(world, room?, t)
+                                            .or_else(|| super::errand::route(world, room?, t))
+                                    })
                                     .is_some_and(|p| !p.is_empty()) =>
                             {
                                 let target = super::atlas::room_named(world, &arg(0));
                                 let path = target
-                                    .and_then(|t| super::errand::route(world, room?, t))
+                                    .and_then(|t| {
+                                        // The way the gate would walk it: the least
+                                        // hunted of the shortest (the dry run said
+                                        // "east, north, north, up" of a walk that
+                                        // went by the Lane).
+                                        super::atlas::way_seeded(world, room?, t)
+                                            .or_else(|| super::errand::route(world, room?, t))
+                                    })
                                     .unwrap_or_default();
                                 if let Some(r) = room {
                                     trail.push(r);
