@@ -1096,8 +1096,41 @@ pub fn register(world: &mut World, curves: super::Curves) {
         Box::new(|w: &mut World, ctx, args: &Args| {
             let f = me(w, ctx)?;
             let here = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
-            if let Some(obj) = args.str("object").filter(|s| !s.trim().is_empty()) {
-                let item = super::craft::resolve_object(w, &ctx.actor, f.citizen, obj)?;
+            // With nothing named, in a room that is not the writer's to add to, the
+            // line goes in the one thing standing here that takes their hand (the
+            // Exergue's plaque, a visitor book): `append "…"` alone, as the play
+            // page starts it, was refused as an edit of the world's own room.
+            let named = args.str("object").filter(|s| !s.trim().is_empty()).map(str::to_string);
+            let standing = if named.is_none() && may_append(w, ctx, here).is_err() {
+                let takes: Vec<EntityId> = w
+                    .store
+                    .children(here)
+                    .filter(|e| e.kind == "item")
+                    .map(|e| e.id)
+                    .filter(|&i| super::craft::is_fixed(w, i) && super::craft::append_check(w, ctx, i).is_ok())
+                    .collect();
+                match takes.as_slice() {
+                    [] => None,
+                    [one] => Some(*one),
+                    many => {
+                        return Err(CommandError::precondition(format!(
+                            "More than one thing here takes a line; say which: {}.",
+                            many.iter()
+                                .map(|&i| format!("`append \"…\" item-{}` ({})", i.0, super::craft::display(w, i)))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        )));
+                    }
+                }
+            } else {
+                None
+            };
+            if named.is_some() || standing.is_some() {
+                let item = match (&named, standing) {
+                    (Some(obj), _) => super::craft::resolve_object(w, &ctx.actor, f.citizen, obj)?,
+                    (None, Some(i)) => i,
+                    (None, None) => unreachable!(),
+                };
                 let more = args.str("text").unwrap_or("").to_string();
                 let joined = super::craft::append_object(w, ctx, item, &more)?;
                 let called = super::craft::display(w, item);

@@ -11200,3 +11200,60 @@ fn the_board_and_the_citizens_report_fold_on_and_read_as_a_fresh_fold_does() {
     // And asked again with nothing new, the same again.
     assert_eq!(format!("{:?}", board::board(&w)), said.0);
 }
+
+#[test]
+fn a_bare_append_in_the_exergue_writes_on_its_plaque() {
+    // `append "…"` with nothing named, in a room of the world's own, goes in the one
+    // thing standing there that takes a hand; it was refused as an edit of the room.
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(1_000_000));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let me = find_citizen(&w, "dave").unwrap().citizen;
+    let exergue = rooms::room_by_key(&w, "exergue").unwrap();
+    w.record(
+        foxing_log::Actor::Driver,
+        foxing_store::StoreEvent::EntityMoved {
+            id: me,
+            parent: Some(exergue),
+        },
+    )
+    .unwrap();
+    let wrote = ok(
+        &mut w,
+        "dave",
+        "append",
+        json!(["Struck at midnight, and nobody heard."]),
+    );
+    assert!(
+        wrote.summary.starts_with("the Exergue now reads:"),
+        "{}",
+        wrote.summary
+    );
+    assert!(
+        wrote
+            .summary
+            .contains("Struck at midnight, and nobody heard."),
+        "{}",
+        wrote.summary
+    );
+    // The room itself is still not a visitor's to change, where nothing takes a line.
+    let door = rooms::room_by_key(&w, "threshold").unwrap();
+    w.record(
+        foxing_log::Actor::Driver,
+        foxing_store::StoreEvent::EntityMoved {
+            id: me,
+            parent: Some(door),
+        },
+    )
+    .unwrap();
+    let no = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "append",
+        json!(["A line on the door."]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(no.contains("This room is the world's"), "{no}");
+}

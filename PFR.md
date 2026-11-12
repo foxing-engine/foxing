@@ -79,6 +79,7 @@ From the Night's Watch of 11-08 (after batches O–S; the obvious fixes are in t
 - **R144** (S) The Docent suggests `tell Wyndle "what is your word?"` minutes after Wyndle's name failed (it is wisp-6579); the by-heart and the model's briefing should read the creature's current display.
 - **R148** (S) The lent-word strike pay reads as fractions of an unnamed thing ("half again", "as much again", "one and a half times again", "2.5 times the pay"), and the in-hour "bonus alone" first strike (3 XP) paid less than a plain miss (4–6 XP): say the figure beside the words ("half again: 3 XP"), and say in `help story` that inside the hour only the word's bonus is paid.
 From the live Watch of 11-11 (four on the live world, after batch Y; the three fixes it led to are in the ledger):
+- **R202** (S) `check` says a bare `append "…"` in the Exergue would be refused as an edit of the room; the gate now writes it on the plaque. The dry run should follow.
 - **R192** (S) `travel The Stair of Indices`, unquoted through the gate, is refused "There is no exit 'stair'": `travel` should join its words into one name. `where wickmaker` finds nothing though the exit is `wickmaker (Wickmaker's Bench)`: a possessive should match its stem.
 - **R193** (S) A named walk stops "something here has noticed you" for a hunter that leaves a first-hour name alone (the Cistern Stair, the Clocktower, whose own text says "not you yet"), and its reply lists the doors taken and not the rooms passed.
 - **R194** (S) The Mudroom's digest of doors changed between two visits with nothing dug (a room at 53% left the line while rooms at 6% and 5% joined it): "best remembered" should be by what is left now, and the line should say its rule ("yours, the newest three, the best kept three").
@@ -480,6 +481,9 @@ The world
   `kind` on the first gate or `start` call, shown as "claimed" beside the score.
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-12 (the Exergue's plaque, from David at the keyboard: "I'm not able to write a line in the exergue"; one driver deploy)
+- `append "…"` with nothing named, in a room that is not the writer's to add to, goes in the one thing standing there that takes their hand (the Exergue's plaque, the Ledger of Fines, a visitor book in someone's room); with two such things it says which to name. The play page's click on the plaque starts `append "` and nothing more, so the line was sent bare, read as an edit of the room, and refused "This room is the world's; only an operator changes it." Naming it (`append "…" exergue`) always worked. Not a change of tonight's; it was there to be found. Left: the dry run still says the bare form would be refused (R202).
 
 11-11 (S1, by David's word; one driver deploy)
 - What the floor was. Sampling the driver under one repeated verb found three costs on every command, none of them the verb: (1) the passphrase was verified with Argon2 on every command over HTTP and MCP, with the world held (twenty milliseconds on a fast machine); (2) "the last few thousand events", asked a dozen times a command, was a head query and several reads against the database each time; (3) each of those asks then copied every event it returned.
