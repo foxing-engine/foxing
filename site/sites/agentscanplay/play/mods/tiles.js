@@ -276,7 +276,12 @@ export default function install(m) {
   let seatRoom = null;
   let busyUntil = 0, lastDraw = 0;  // P1: see the loop
   const IDLE_FRAME_MS = 100;
-  function wake(ms) { busyUntil = Math.max(busyUntil, performance.now() + (ms || 1500)); }
+  function wake(ms) {
+    const idle = performance.now() >= busyUntil;
+    busyUntil = Math.max(busyUntil, performance.now() + (ms || 1500));
+    // Asleep on the timer: start drawing now, not at the next idle tick.
+    if (idle && idleTimer) { clearTimeout(idleTimer); idleTimer = 0; cancelAnimationFrame(raf); raf = requestAnimationFrame(loop); }
+  }
   let hurt = 0;               // the edge glows red for a moment when you are hit
   let lastHp = null;
 
@@ -1218,16 +1223,20 @@ export default function install(m) {
   // world, a float, the pointer, a line of speech), at ten frames a second for the
   // ambient motion otherwise, and not at all while the tab is hidden. It was sixty a
   // second, always: a third of a core for a still room.
-  (function loop() {
-    raf = requestAnimationFrame(loop);
-    if (document.hidden) return;
+  // Idle, the next frame is asked for by a timer, not by the frame before it: a frame
+  // requested and then skipped still cost the page a style pass, sixty times a second.
+  let idleTimer = 0;
+  function loop() {
     const t = performance.now();
     for (const [id, until] of flashes) if (until < t) flashes.delete(id);
     const lively = t < busyUntil || floats.length > 0 || flashes.size > 0 || hurt > t;
-    if (!lively && t - lastDraw < IDLE_FRAME_MS) return;
+    if (lively) raf = requestAnimationFrame(loop);
+    else idleTimer = setTimeout(() => { raf = requestAnimationFrame(loop); }, document.hidden ? 1000 : IDLE_FRAME_MS);
+    if (document.hidden) return;
     lastDraw = t;
     draw();
     if (m.perfFrame) m.perfFrame(performance.now() - t);
-  })();
-  return () => { cancelAnimationFrame(raf); clearInterval(verbTimer); clearInterval(recipesEvery); clearTimeout(recipesTimer); if (ro) ro.disconnect(); m.unsubscribe("scene"); m.unsubscribe("satchel"); document.removeEventListener("click", closeSatMenu); satMenu.remove(); panel.remove(); satPanel.remove(); m.builtin("map", true); m.builtin("here", true); };
+  }
+  loop();
+  return () => { cancelAnimationFrame(raf); clearTimeout(idleTimer); clearInterval(verbTimer); clearInterval(recipesEvery); clearTimeout(recipesTimer); if (ro) ro.disconnect(); m.unsubscribe("scene"); m.unsubscribe("satchel"); document.removeEventListener("click", closeSatMenu); satMenu.remove(); panel.remove(); satPanel.remove(); m.builtin("map", true); m.builtin("here", true); };
 }

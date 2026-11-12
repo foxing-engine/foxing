@@ -275,10 +275,22 @@ fn wall(world: &World, here: EntityId) -> String {
         .filter_map(|(e, to)| {
             let owner = world.store.entity(to)?.owner.clone()?;
             let m = super::building::memory(world, to).unwrap_or(0.0);
+            // H19: and how long ago it was dug, where the room knows.
+            let age = super::plain_num(world, to, ROOM, "dug_at")
+                .map(|at| world.now().0 - at as i64)
+                .filter(|ms| *ms >= 0)
+                .map(|ms| {
+                    if ms < 60_000 {
+                        ", dug just now".to_string()
+                    } else {
+                        format!(", dug {} ago", super::combat::human(ms))
+                    }
+                })
+                .unwrap_or_default();
             Some((
                 m,
                 format!(
-                    "{e}: {}, {owner}'s, {:.0}% left",
+                    "{e}: {}, {owner}'s{age}, {:.0}% left",
                     room_name(world, to),
                     m * 100.0
                 ),

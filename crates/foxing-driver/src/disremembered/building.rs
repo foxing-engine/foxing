@@ -832,6 +832,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
             fields.insert("welcomes".into(), Field::Plain(json!({})));
             fields.insert("origin".into(), Field::Plain(json!(here.0)));
             fields.insert("dug_with".into(), Field::Plain(json!(source)));
+            fields.insert("dug_at".into(), Field::Plain(json!(w.now().0)));
             set_room_fields(w, &ctx.actor, id, fields)?;
             let mut back = serde_json::Map::new();
             back.insert(opposite(&exit).to_string(), json!(here.0));

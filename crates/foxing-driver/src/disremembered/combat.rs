@@ -433,12 +433,57 @@ pub fn creatures_in(world: &World, room: EntityId) -> Vec<(EntityId, String, f64
         .collect()
 }
 
-/// Fill the room to its count now. Respawn jobs call this; nothing else does.
+/// D21 b: a second kind that lives in a room beside its own: `(room key, creature,
+/// how many)`. It refills on the room's own respawn. The Stacks' small kinds, met
+/// above the stair where a name under a hundred can learn what they do.
+pub const ALSO: &[(&str, &str, usize)] =
+    &[("archive", "bookworm", 1), ("cistern", "silverfish", 1)];
+
+/// Every kind the room keeps, with its figure: its own, then any second.
+pub fn kinds_of(world: &World, room: EntityId) -> Vec<(String, usize)> {
+    let mut out = Vec::new();
+    if let Some(key) = plain_str(world, room, SPAWN, "creature") {
+        out.push((
+            key.to_string(),
+            plain_num(world, room, SPAWN, "count").unwrap_or(0.0) as usize,
+        ));
+    }
+    let rkey = plain_str(world, room, super::ROOM, "key").unwrap_or("");
+    for (r, kind, n) in ALSO {
+        if *r == rkey {
+            out.push((kind.to_string(), *n));
+        }
+    }
+    out
+}
+
+/// Whether the room is below its figure for any kind it keeps (the unnamed count).
+fn short(world: &World, room: EntityId) -> bool {
+    let here = creatures_in(world, room);
+    kinds_of(world, room).iter().any(|(key, count)| {
+        here.iter()
+            .filter(|c| &c.1 == key && super::mind::name(world, c.0).is_none())
+            .count()
+            < *count
+    })
+}
+
+/// Fill the room to its count now, each kind it keeps. Respawn jobs call this;
+/// nothing else does.
 pub fn fill(world: &mut World, room: EntityId) -> Result<usize, StoreError> {
-    let Some(key) = plain_str(world, room, SPAWN, "creature").map(str::to_string) else {
-        return Ok(0);
-    };
-    let count = plain_num(world, room, SPAWN, "count").unwrap_or(0.0) as usize;
+    let mut spawned = 0;
+    for (key, count) in kinds_of(world, room) {
+        spawned += fill_kind(world, room, key, count)?;
+    }
+    Ok(spawned)
+}
+
+fn fill_kind(
+    world: &mut World,
+    room: EntityId,
+    key: String,
+    count: usize,
+) -> Result<usize, StoreError> {
     let Some(d) = def(&key) else { return Ok(0) };
     // One refill in six brings one more than the room's figure: the fog has two
     // wisps, mostly, and now and then three. (Never fewer: a room below its figure
@@ -622,8 +667,7 @@ pub fn ensure_spawns(world: &mut World) -> Result<(), String> {
         .map(|e| e.id)
         .collect();
     for room in rooms {
-        let count = plain_num(world, room, SPAWN, "count").unwrap_or(0.0) as usize;
-        if creatures_in(world, room).len() < count {
+        if short(world, room) {
             let now = world.now();
             world.schedule_once(JOB_RESPAWN, now, json!({"room": room.0}), |p| {
                 p["room"] == room.0

@@ -19,7 +19,6 @@ went by policy, with ids.
 ## Decisions (D): one letter each; **waits** means yours, the rest go by policy
 
 The library's floors (from the Watch of 11-07)
-- **D21 b · A second spawn per room** (M; open for a word). `SPAWN` takes a list, and bookworms are seeded in the Unfiled Archive beside the inklings, silverfish in the Cistern (a was shipped 11-08: the four stay below the stair).
 
 From the live Watch of 11-10 (four on the live world, by David's word; see T11)
 - **D26, D27, D28 read against the live world.** D26 (a talker's first move): not an issue live; Fallis and Tinsel stood named one room east and the storyteller told its first story at message 5 without a fight. Lean now b, or close. D27 (making spends what you fight with): milder live; rag thread came from `gather` in the Midden and `where ragpicker` pointed there; lean a still stands for `recipes`. D28 (a read that is an arrival): **did not reproduce.** Gnarlfoot_II left its room, sent nothing, and observed it at 118s and 246s: memory 0.98473 and 0.96846, the second an exact match to the half-life from the moment it left; `came_through` unchanged; no arrival in the log. Lean: close D28 (the local tester's reads were likely its own gate messages).
@@ -145,10 +144,6 @@ What is left of the front door, each yours to call (H1 to H17 are in the ledger)
 - **H18 · Rows past forty doors** (M; **waits**, it was H14's second question). a)
   **lean**: as built, the wall is one room and `look` shows a digest of it; b) past
   forty doors, new rooms are dug off the Mudroom's own side rooms, ten doors each.
-- **H19 · Small ends** (S, by policy on the next Watch): `read doors` says a room's
-  digger and what is left of it but not its age; the cloak's (anonymous) view of the
-  Threshold has the exits without "fight / read and tell / dig"; the play page's own
-  "onward" walking is dead code now the world walks.
 - **H20 · One name for the mint** (S; **waits**, the names are yours). H12 as approved
   made the stair "The Mint Stair"; the district it opens on is "the Exergue District",
   your name for it. a) **lean**: the stair follows the district ("The Exergue Stair",
@@ -181,11 +176,6 @@ What was measured:
 - **P1b · The room as a kept layer** (S/M). The floor and walls drawn once and kept, so
   an ambient frame draws figures only (P1's first half is live: the picture draws on
   change, ten frames a second idle).
-- **P2 · Panels that update, not rebuild** (M). The quarter-second tick moves only
-  the numbers and the bars it has to (level, hit points, each memory's worth); rows
-  are built when the world pushes a change, keyed by id, with one click listener on
-  the panel, not one a row. Expect the layouts and most of the script time gone,
-  and no more hover or focus lost under the mouse four times a second.
 - **P3 · Type ahead** (S). A line is printed and queued the moment Enter is pressed,
   marked as waiting; a second and third can be typed behind it and go out in order
   over the socket without waiting to be drawn. A refusal stops the queue and says
@@ -201,7 +191,7 @@ What was measured:
 - **P8 · A quiet mode** (S). One setting: no ambient motion, no sky, no sound; for a
   slow machine or a long session. It is P1's floor.
 
-Order now: P2 (what is left of the idle cost is the panels), P3, P6, P1b, P5, P8.
+Order now: P3, P6, P5, P8, P1b (idle is 0.5 s of work in ten seconds since batch Z; what is left is the picture's ten frames).
 
 - **Y (yours)** On the VPS, confirm nginx serves the site's text compressed and with
   cache headers for `/play/mods/*.js`; the repo has no copy of that config.
@@ -215,12 +205,6 @@ session (the site host is not reachable from there), so this is planned from
 `site/analytics/render.py` and checked against a made-up store; send a screenshot of
 the real page and the rest gets sharper.
 
-- **A2 · Four sections, not sixteen** (M). *Who came* (totals, classes, referrers,
-  agents and crawlers folded into one table with a class filter); *The door* (the
-  funnel per day, organic visits, citizens); *How it felt* (play page performance,
-  and the driver's own timings from A5); *What broke* (errors, who sent them, why the
-  driver refused). Networks and Root-served-as move under a "more" fold: they are
-  for a question once a month.
 - **A3 · A window you can change** (S). 24 hours, 7 days, 30 days as links (three
   renders by the same cron, or a query string read by a small script); today the
   window is thirty days, so a spike last night is a thirtieth of every number.
@@ -228,7 +212,7 @@ the real page and the rest gets sharper.
   median and worst `took_ms`, time the world's lock was held, the log's size and the
   slowest reads since boot. The page shows it under *How it felt*. It is S1's
   before-and-after.
-- Order: A2, A3, A5. (A1, A4 and A6 are live: the ledger of 11-11.)
+- Order: A3, A5. (A1, A2, A4 and A6 are live: the ledger of 11-11.)
 
 ## Ten times the players (S): planned 11-11 at David's ask
 
@@ -503,6 +487,12 @@ The world
   `kind` on the first gate or `start` call, shown as "claimed" beside the score.
 
 ## Shipped (ledger): moved out of the sections above when they went live
+
+11-11 (batch Z, by David's word: P2, H19, D21 b, A2; one driver deploy, one site deploy)
+- P2: the play page's panels take only the rows that changed (a row that reads the same keeps its place, its hover and its listeners; You and Memory were emptied and rebuilt four times a second), and are redrawn when the world pushes or a command lands, and otherwise once a second for the figures that move on the clock; never in a hidden tab. Found with it: the map's "you are here" pulse and the header moon's drift were CSS animations that had the page restyle (and, the pulse, lay out) sixty times a second; the room now ebbs on a 1.2 s timer and the moon is still in play (it drifts at the door). The picture, idle, asks for its next frame by a timer. Ten idle seconds on the same headless build: 3.3 s of work before P1, 1.5 s after it, 0.5 s now; layouts 600 to 13. Not built as planned: rows are compared by their markup in place, not keyed by id with one listener a panel; it gets the same result for a tenth of the change.
+- H19: `read doors` says how long ago each room was dug (rooms dug from 11-12; older ones have no date and say none); the cloak's view of the Threshold says "east (Fogbank: fight), north (Lantern Row: read and tell), west (Mudroom: dig)"; the play page's own onward-walking code is gone.
+- D21 b: a room may keep a second kind beside its own, refilled on the room's own respawn: one bookworm in the Unfiled Archive beside the inklings, one silverfish in the Cistern beside the drowned. The four small kinds of the Stacks otherwise stay below the stair.
+- A2: the analytics page is four sections under the top line (Who came, The door, How it felt, What broke) with a line of links to each, and a fold, More, for the five tables asked of once a month (daily, key paths, how the root was served, hosts by class, every address). Visitors of every class are one table with a chip per class to show it alone.
 
 11-11 (A1, A4, A6, by David's word; one site deploy)
 - A1: four figures head the analytics page, each for the last full day (UTC) with today so far, the day before and the week's daily mean, the lab left out: people and agents who came (addresses; crawlers out), new names through the gate, a command's median round trip at the keyboard, errors per thousand requests. An arrow says which way the day moved and whether that is good; each tile goes to its section.

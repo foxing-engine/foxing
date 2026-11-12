@@ -208,9 +208,10 @@
   .district-chip:hover { color: var(--dust); border-color: var(--dust); }
   .district-chip i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
   #atlas .room.seen { fill: #2f3b4c; stroke: var(--dust); }
-  #atlas .room.here { fill: #4a4330; stroke: var(--dust); stroke-width: 2; animation: herepulse 2.4s ease-in-out infinite; }
+  #atlas .room.here { fill: #4a4330; stroke: var(--dust); stroke-width: 2; }
+  #atlas .room.here.ebb { stroke-opacity: .45; }
   #atlas .room.fog { fill: url(#fogfill); stroke-dasharray: 3 2; }
-  @keyframes herepulse { 0%, 100% { stroke-opacity: 1; stroke-width: 2; } 50% { stroke-opacity: .45; stroke-width: 3.5; } }
+  /* P2: the room you are in ebbs on a timer (see the atlas), not a CSS animation: a running animation, even a stepped one, had the page restyle sixty times a second. */
   #you .shaken-row .bar i { background: var(--ember); }
   @keyframes tremor { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(-.6px, .4px); } 50% { transform: translate(.5px, -.4px); } 75% { transform: translate(-.4px, -.5px); } }
   body.shaken #you .me-head .glyph, body.shaken #here .you-figure { animation: tremor .32s linear infinite; }
@@ -740,6 +741,8 @@
   @keyframes twinkle { 0%, 100% { opacity: .9; } 50% { opacity: .25; } }
   @media (prefers-reduced-motion: reduce) { .hero .wane, .hero .drift, .hero .tw { animation: none; } }
   body:not(.at-door) .hero { width: 56px; height: 56px; margin: 0 0 4px; }
+  /* P2: in play the moon is a thumbnail; its drift cost a style pass a frame. */
+  body:not(.at-door) .hero .wane, body:not(.at-door) .hero .drift, body:not(.at-door) .hero .tw { animation: none; }
   body.at-door #scene, body.at-door #split, body.at-door #tabs, body.at-door #lane, body.at-door #first, body.at-door #verbbar, body.at-door #hint { display: none; }
   body.at-door #term { align-items: center; justify-content: center; padding: 0 16px 6vh; }
   body.at-door #log { flex: 0 1 auto; max-width: 600px; align-items: center; text-align: center; padding-bottom: 14px; }
@@ -1300,19 +1303,6 @@
     if (body.ok) {
       print(body.summary);
       if (command === "quit") { print("The world goes on without you.", "sys"); logout(); }
-      // `travel <room name>` takes one step and says the rest ("Toward The Midden:
-      // then south."); the page walks the rest, stopping if anything refuses.
-      const onward = command === "travel" && body.result && typeof body.result.onward === "string" && /then (.+)\.$/.exec(body.result.onward);
-      if (onward) {
-        const steps = onward[1].split(",").map(x => x.trim()).filter(Boolean);
-        chain = after(async () => {
-          for (const via of steps) {
-            await new Promise(res => setTimeout(res, 300));
-            const r = await run("travel", [via]);
-            if (!r || !r.ok) return;
-          }
-        });
-      }
     } else {
       print(humanError(body.error) || "Refused.", "err");
     }
@@ -1475,10 +1465,21 @@
   }
   // Clickable panels are rebuilt only when what they show changes, so a click lands
   // and hover does not flicker; the bars that fade are redrawn every tick.
+  // P2: a panel takes only the rows that changed. Each child is compared with the one
+  // in its place by its markup; a row that reads the same stays as it is (with its
+  // hover, its focus and its listeners), and nothing is laid out for it. The panels
+  // were emptied and rebuilt whole four times a second.
+  const swapKeys = new WeakMap();
   function swap(el, frag) {
-    const key = Array.from(frag.childNodes, n => n.outerHTML || n.textContent).join("\u0000");
-    if (el.dataset.key === key) return;
-    el.dataset.key = key; el.replaceChildren(frag);
+    const next = Array.from(frag.childNodes);
+    const keys = next.map(n => n.outerHTML || n.textContent);
+    const had = swapKeys.get(el);
+    if (had && had.length === keys.length && el.childNodes.length === keys.length) {
+      for (let i = 0; i < keys.length; i++) if (had[i] !== keys[i]) el.replaceChild(next[i], el.childNodes[i]);
+    } else {
+      el.replaceChildren(...next);
+    }
+    swapKeys.set(el, keys);
   }
   // ---- the mini-map: what you remember of the map, fading on the atlas half-life ----
   // `map` is asked once per room change; between asks the rooms dim on the clock the
@@ -1627,6 +1628,8 @@
     }
     return lines.map(l => l.length > 14 ? l.slice(0, 13) + "\u2026" : l);
   }
+  // P2: "you are here" ebbs and returns, a class flipped every 1.2 s.
+  setInterval(() => { if (document.hidden) return; const r = document.querySelector("#atlas .room.here"); if (r) r.classList.toggle("ebb"); }, 1200);
   // H17: the world's districts, each with a color for the map.
   const DISTRICT_TINT = { "the Door": "#e8c27a", "the Diggings": "#a9825a", "the Wilds": "#7fae8c", "the Library": "#d9a15b", "the Deep Water": "#5b9bd9", "the Stacks": "#b58bd6", "the Clock Quarter": "#d98f8f", "the Conclave": "#c7c16a", "the Exergue District": "#8fd1cf", "the Wistful Trail": "#9fb3e8" };
   async function refreshAtlas(force) {
@@ -1947,13 +1950,14 @@
   })();
 
 
+  let drawnAt = 0;
   function draw() {
-    const map = document.createDocumentFragment(), here = document.createDocumentFragment(), you = $("you"), win = $("window");
+    const map = document.createDocumentFragment(), here = document.createDocumentFragment(), you = document.createDocumentFragment(), win = document.createDocumentFragment();
     refreshAtlas(false);
     const ways = document.createDocumentFragment();
-    you.replaceChildren(); win.replaceChildren();
+    drawnAt = performance.now();
     const room = subs.room && subs.room.root;
-    if (!room) { swap($("map"), map); swap($("ways"), ways); here.append(Object.assign(document.createElement("div"), { className: "empty", textContent: "Log in to see the room." })); swap($("here"), here); return; }
+    if (!room) { swap($("you"), you); swap($("window"), win); swap($("map"), map); swap($("ways"), ways); here.append(Object.assign(document.createElement("div"), { className: "empty", textContent: "Log in to see the room." })); swap($("here"), here); return; }
     const cells = Array.from({ length: 9 }, () => null);
     const sprite = (n) => (n.components && n.components["disremembered.sprite"]) || {};
     cells[4] = tile(room.components["disremembered.room"].name, "here", true, sprite(room));
@@ -2129,7 +2133,7 @@
     greetPanel(me);
     // ---- your window: each memory a row, the dearest first: what it is of, what it
     // is worth of what it was, and how fast it goes.
-    if (!held.length) win.innerHTML = '<div class="empty">Nothing remembered yet. A fight won, or a story a named creature takes, is the first.</div>';
+    if (!held.length) win.append(el("div", "empty", "Nothing remembered yet. A fight won, or a story a named creature takes, is the first."));
     held.sort((x, y) => y.v - x.v);
     for (const h of held) {
       const { n, c, v } = h;
@@ -2146,6 +2150,7 @@
     if (held.length) win.append(el("div", "mem-foot", held.length + " memor" + (held.length === 1 ? "y" : "ies") + " · click one to spend it in the line you are typing"));
     ownerPanel(room);
     renderPicker();
+    swap($("you"), you); swap($("window"), win);
   }
   // ---- what you can do here: the verbs the room offers, as buttons ----
   function verbBar(room, things) {
@@ -2711,7 +2716,13 @@
     return { render, reset };
   })();
   // Timed values move between pushes; redraw a few times a second while the scene shows.
-  setInterval(() => { if (actor && (subs.me || subs.window)) { draw(); firstHours.render(); lane.render(); } }, 250);
+  // P2: at once when the world pushes or a command lands (the callers of draw), and
+  // otherwise once a second for the figures that move on the clock; never in a hidden tab.
+  setInterval(() => {
+    if (!actor || !(subs.me || subs.window) || document.hidden) return;
+    if (performance.now() - drawnAt < 1000) return;
+    draw(); firstHours.render(); lane.render();
+  }, 250);
 
   // ---- input ----
   // The prompt says what it is asking for: the field's ghost text and the button's

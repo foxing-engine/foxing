@@ -352,7 +352,10 @@ The Unfiled Archive is north of Lantern Row, which is north of the
 Threshold; the Stopped Clocktower is up from the Orchard, north of the
 Shallows. Under the Unfiled Archive (`travel down`) are twenty rooms of the Lower
 Stacks, where the higher things live, each with a trick. The stair asks a
-level of one hundred (what lives below hits for nine and ten a round). A lamprey's
+level of one hundred (what lives below hits for nine and ten a round). Two
+of the Stacks' small kinds also live above the stair, one of each, where
+any name can learn their tricks: a bookworm in the Unfiled Archive
+beside the inklings, a silverfish in the Cistern. A lamprey's
 bite stays in you: venom works for a minute after. An usher shows you
 out: one hit in two moves you to another room of the Stacks, the fight
 over, whatever is there noticing you. A censor's stamp is a ray of

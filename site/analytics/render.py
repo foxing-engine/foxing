@@ -328,7 +328,7 @@ def headline(db) -> list[dict]:
 
     return [
         {"title": "People and agents who came", "note": "addresses, crawlers and the lab left out", "to": "#who-came", "unit": "", **series(lambda d: len(came[d]))},
-        {"title": "Names through the gate", "note": "new names that arrived", "to": "#the-door-per-day", "unit": "", **series(lambda d: names[d])},
+        {"title": "Names through the gate", "note": "new names that arrived", "to": "#the-door", "unit": "", **series(lambda d: names[d])},
         {"title": "A command's round trip", "note": "median, Enter to reply, at the keyboard", "to": "#how-it-felt", "unit": " ms", "low_is_good": True, **series(lambda d: med(trips[d]))},
         {"title": "Errors per thousand requests", "note": "scanners' probes left out", "to": "#what-broke", "unit": "", "low_is_good": True,
          **series(lambda d: (1000 * bad[d] / total[d]) if total[d] else None)},
@@ -362,6 +362,8 @@ def report(db: sqlite3.Connection, days: int) -> dict:
     out["root_split"] = q(db, f"SELECT host, accept_kind, ua_class, COUNT(*) FROM requests {w} AND path = '/' GROUP BY host, accept_kind, ua_class ORDER BY host, 4 DESC", (since,))
     out["key_paths"] = q(db, f"SELECT host, path, COUNT(*), COUNT(DISTINCT visitor) FROM requests {w} AND path IN ({','.join('?' * len(KEY_PATHS))}) GROUP BY host, path ORDER BY host, 3 DESC", (since, *KEY_PATHS))
     out["agents"] = q(db, f"SELECT ua_class, ua_name, COUNT(*), COUNT(DISTINCT visitor), MAX(ts) FROM requests {w} AND ua_class IN ('ai-crawler','tool','agent') GROUP BY ua_class, ua_name ORDER BY 3 DESC LIMIT 40", (since,))
+    # A2: every kind of visitor in one table, by class and name; the page filters it.
+    out["visitors"] = q(db, f"SELECT ua_class, ua_name, COUNT(*), COUNT(DISTINCT visitor), MAX(ts) FROM requests {w} GROUP BY ua_class, ua_name ORDER BY 3 DESC LIMIT 80", (since,))
     out["referers"] = q(db, f"SELECT referer_host, COUNT(*) FROM requests {w} AND referer_host != '' AND referer_host NOT IN ('agentscanplay.com','www.agentscanplay.com','foxing.dev','www.foxing.dev','moondial.ai','www.moondial.ai') GROUP BY referer_host ORDER BY 2 DESC LIMIT 25", (since,))
     out["daily"] = q(db, f"SELECT day, host, COUNT(*), COUNT(DISTINCT visitor) FROM requests {w} GROUP BY day, host ORDER BY day DESC, host", (since,))
     out["error_senders"] = q(db, "SELECT host, path, status, ua_class, ua_name, COUNT(*), COUNT(DISTINCT visitor), MAX(ts) FROM requests WHERE day >= ? AND status >= 400 AND status != 404 GROUP BY host, path, status, ua_class, ua_name ORDER BY 6 DESC LIMIT 20", (since,))
@@ -473,14 +475,15 @@ def cell(c) -> tuple[str, bool]:
     return text, bool(re.fullmatch(r"-?[\d,.]+ ?(ms|%|s)?", text)) and text != ""
 
 
-def table(headers, rows) -> str:
+def table(headers, rows, row_class=None) -> str:
     """A table whose numbers sit right, whose lab rows are dimmed, and which folds
     after twenty rows (A6)."""
     th = "".join(f"<th>{html.escape(str(h))}</th>" for h in headers)
 
     def tr(row) -> str:
         cells = [cell(c) for c in row]
-        lab = ' class="lab"' if len(row) > 1 and row[1] == "lab" else ""
+        names = (["lab"] if len(row) > 1 and row[1] == "lab" else []) + ([row_class(row)] if row_class else [])
+        lab = f' class="{" ".join(names)}"' if names else ""
         return f"<tr{lab}>" + "".join(f"<td{' class=n' if num else ''}>{html.escape(t)}</td>" for t, num in cells) + "</tr>"
 
     def whole(rs) -> str:
@@ -492,6 +495,27 @@ def table(headers, rows) -> str:
     if len(rows) <= FOLD + 3:
         return whole(rows)
     return whole(rows[:FOLD]) + f"<details><summary>{len(rows) - FOLD:,} more rows</summary>{whole(rows[FOLD:])}</details>"
+
+
+def class_filter(rows) -> str:
+    """A2: chips over the visitors table, one a class; a click shows that class alone."""
+    classes = sorted({str(r[0]) for r in rows})
+    chips = "".join(f"<button type=button data-c=\"c-{slug(c)}\">{html.escape(c)}</button>" for c in classes)
+    return f"<p class=\"chips\" data-filter><button type=button data-c=\"\" class=on>all</button>{chips}</p>"
+
+
+FILTER_JS = """<script>
+for (const bar of document.querySelectorAll("[data-filter]")) {
+  const scope = [];
+  for (let n = bar.nextElementSibling; n && n.tagName !== "H3" && n.tagName !== "H2"; n = n.nextElementSibling) scope.push(n);
+  bar.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    for (const o of bar.querySelectorAll("button")) o.classList.toggle("on", o === b);
+    for (const el of scope) for (const tr of el.querySelectorAll("tbody tr")) tr.hidden = !!b.dataset.c && !tr.classList.contains(b.dataset.c);
+    for (const el of scope) if (el.tagName === "DETAILS" && b.dataset.c) el.open = true;
+  });
+}
+</script>"""
 
 
 def tiles(heads: list[dict]) -> str:
@@ -520,31 +544,50 @@ def slug(title: str) -> str:
 def page(r: dict) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     cz_note = f"<p class=\"sub\">{html.escape(r['citizens_note'])}</p>" if r["citizens_note"] else ""
-    sections = [
-        ("Who came: organic agent visits, not from the lab, and in the game, cloaked at least", table(
-            ["address", "", "first seen", "last seen", "requests", "mcp calls", "cloaks", "gates", "names taken", "classes", "hosts"], r["organic"])
-            + f"<p class=\"sub\">{r['crawlers']} other addresses only initialized: directory crawlers, not listed. Lab nets come from FOXING_LAB_NETS at render time, so a net added later relabels the past.</p>"),
-        ("The door, per day", table(["day", "", "initialized", "cloaked", "checked", "gate", "names arrived"], r["funnel"])),
+    pr = r["probes"]
+    # A2: four sections that answer the operator's four questions, and a fold for the
+    # tables that answer one a month.
+    groups = [
+        ("Who came", "who-came", [
+            ("Hosts", table(["host", "requests", "unique visitors"], r["totals"])),
+            ("Visitors by class and name", class_filter(r["visitors"])
+                + table(["class", "name", "requests", "uniques", "last seen"], r["visitors"], row_class=lambda row: f"c-{slug(str(row[0]))}")),
+            ("Organic agent visits: not from the lab, and in the game, cloaked at least", table(
+                ["address", "", "first seen", "last seen", "requests", "mcp calls", "cloaks", "gates", "names taken", "classes", "hosts"], r["organic"])
+                + f"<p class=\"sub\">{r['crawlers']:,} other addresses only initialized: directory crawlers, not listed. Lab nets come from FOXING_LAB_NETS at render time, so a net added later relabels the past.</p>"),
+            ("Where the humans came from", table(["referrer", "requests"], r["referers"])),
+        ]),
+        ("The door", "the-door", [
+            ("Per day: how far each address got", table(["day", "", "initialized", "cloaked", "checked", "gate", "names arrived"], r["funnel"])),
+            ("Citizens: who came, by what door, and what they did", cz_note + table(
+                ["name", "", "first door", "first seen", "last seen", "arrivals", "doors", "messages", "written", "pass", "via", "rooms dug"], r["citizens"])),
+        ]),
+        ("How it felt", "how-it-felt", [
+            ("What a player at the keyboard waited", table(
+                ["day", "", "addresses", "commands", "round trip (median)", "95th", "worst", "world's share", "frames/s", "frame cost", "on the socket"], r.get("perf", []))
+                + "<p class=\"sub\">Each report is a player's last twenty commands, sent by the play page itself; the round trip is from Enter to the reply, and the world's share is how long the driver held it. <code>?perf=1</code> on the play page shows the same live.</p>"),
+        ]),
+        ("What broke", "what-broke", [
+            ("Errors, the lab apart", table(["host", "path", "status", "organic", "lab", "the driver's most given reason"], r["errors"])
+                + f"<p class=\"sub\">Not in the table or the rate: {pr['organic']:,} requests for {pr['paths']:,} paths this site has never had (scanners trying doors: <code>.php</code>, <code>.env</code>, <code>/wp-</code>), and {pr['lab']:,} of the same from the lab.</p>"),
+            ("Who sent them", table(["host", "path", "status", "class", "name", "count", "addresses", "last"], r["error_senders"])),
+            (f"Why the driver refused ({r['refusals_note']})", table(["path", "reason", "count"], r["refusals"])),
+        ]),
+    ]
+    more = [
+        ("Daily", table(["day", "host", "requests", "uniques"], r["daily"])),
+        ("Key paths", table(["host", "path", "requests", "uniques"], r["key_paths"])),
+        ("Root / served as: text is the CLEAR invitation, html the page", table(["host", "accept", "class", "requests"], r["root_split"])),
+        ("By host and class", table(["host", "class", "requests", "uniques"], r["by_class"])),
         ("Networks: every address in the window", table(
             ["address", "", "first seen", "last seen", "requests", "mcp calls", "cloaks", "gates", "names taken", "classes", "hosts"], r["networks"])),
-        ("How it felt: what a player at the keyboard waited", table(
-            ["day", "", "addresses", "commands", "round trip (median)", "95th", "worst", "world's share", "frames/s", "frame cost", "on the socket"], r.get("perf", []))
-            + "<p class=\"sub\">Each report is a player's last twenty commands, sent by the play page itself; the round trip is from Enter to the reply, and the world's share is how long the driver held it. `?perf=1` on the play page shows the same live.</p>"),
-        ("Citizens: who came, by what door, and what they did", cz_note + table(
-            ["name", "", "first door", "first seen", "last seen", "arrivals", "doors", "messages", "written", "pass", "via", "rooms dug"], r["citizens"])),
-        ("Totals", table(["host", "requests", "unique visitors"], r["totals"])),
-        ("By visitor class", table(["host", "class", "requests", "uniques"], r["by_class"])),
-        ("Root / served as", table(["host", "accept", "class", "requests"], r["root_split"])),
-        ("Key paths", table(["host", "path", "requests", "uniques"], r["key_paths"])),
-        ("Agents, AI crawlers, tools", table(["class", "name", "requests", "uniques", "last seen"], r["agents"])),
-        ("Referrers", table(["referrer", "requests"], r["referers"])),
-        ("Daily", table(["day", "host", "requests", "uniques"], r["daily"])),
-        ("What broke: errors, the lab apart", table(["host", "path", "status", "organic", "lab", "the driver's most given reason"], r["errors"])
-            + f"<p class=\"sub\">Not in the table or the rate: {r['probes']['organic']:,} requests for {r['probes']['paths']:,} paths this site has never had (scanners trying doors: <code>.php</code>, <code>.env</code>, <code>/wp-</code>), and {r['probes']['lab']:,} of the same from the lab.</p>"),
-        ("Who sent the errors", table(["host", "path", "status", "class", "name", "count", "addresses", "last"], r["error_senders"])),
-        (f"Why the driver refused ({r['refusals_note']})", table(["path", "reason", "count"], r["refusals"])),
     ]
-    body = "".join(f"<h2 id=\"{slug(t)}\">{html.escape(t)}</h2>{tb}" for t, tb in sections)
+    nav = " &middot; ".join(f"<a href=\"#{gid}\">{html.escape(t)}</a>" for t, gid, _ in groups) + " &middot; <a href=\"#more\">More</a>"
+    body = f"<p class=\"nav\">{nav}</p>" + "".join(
+        f"<section><h2 id=\"{gid}\">{html.escape(t)}</h2>" + "".join(f"<h3>{html.escape(st)}</h3>{tb}" for st, tb in subs) + "</section>"
+        for t, gid, subs in groups
+    ) + "<section><h2 id=\"more\">More</h2><details><summary>Five tables for a question once a month: daily, key paths, how the root was served, hosts by class, every address</summary>" + "".join(
+        f"<h3>{html.escape(st)}</h3>{tb}" for st, tb in more) + "</details></section>" + FILTER_JS
     stale = " class=\"stale\"" if r["stale"] else ""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow"><title>Foxing analytics</title>
@@ -557,7 +600,7 @@ h2 {{ font-weight: 400; font-size: 20px; color: var(--dust); margin: 32px 0 8px;
 table {{ border-collapse: collapse; width: 100%; font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; }}
 th, td {{ text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); }} th {{ color: var(--dim); font-weight: 400; }}
 td.n {{ text-align: right; font-variant-numeric: tabular-nums; }} td.none {{ color: var(--dim); }} tr:hover td {{ background: var(--panel); }}
-td:nth-child(2) {{ color: var(--dust); }} tr.lab td {{ color: var(--dim); opacity: .6; }}
+td:nth-child(2):not(.n) {{ color: var(--dust); }} tr.lab td {{ color: var(--dim); opacity: .6; }}
 .scroll {{ overflow-x: auto; }} td, th {{ white-space: nowrap; }} td:last-child {{ white-space: normal; }}
 details {{ margin: 0; }} summary {{ cursor: pointer; color: var(--dim); font: 13px/2.2 ui-monospace, Menlo, Consolas, monospace; padding-left: 10px; }}
 code {{ font: 12.5px ui-monospace, Menlo, Consolas, monospace; color: var(--dust); }}
@@ -568,6 +611,13 @@ code {{ font: 12.5px ui-monospace, Menlo, Consolas, monospace; color: var(--dust
 .tile .s {{ color: var(--dim); font-size: 12px; line-height: 1.45; }}
 .good {{ color: #8fc79a; font-size: 16px; }} .bad {{ color: #d98f8f; font-size: 16px; }}
 .stale {{ color: #d98f8f; }}
+h3 {{ font-weight: 400; font-size: 15px; color: var(--ink); margin: 22px 0 6px; }}
+section {{ border-top: 1px solid var(--line); margin-top: 36px; }} section h2 {{ font-size: 24px; margin-top: 22px; }}
+.nav {{ margin: 14px 0 0; }} a {{ color: var(--dust); }}
+.chips {{ margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 6px; }}
+.chips button {{ font: 12px ui-monospace, Menlo, Consolas, monospace; color: var(--dim); background: none; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; cursor: pointer; }}
+.chips button.on {{ color: var(--night); background: var(--dust); border-color: var(--dust); }}
+tr[hidden] {{ display: none; }}
 html {{ scroll-behavior: smooth; }} h2 {{ scroll-margin-top: 12px; }}
 </style></head><body><main>
 <h1>Foxing analytics</h1>

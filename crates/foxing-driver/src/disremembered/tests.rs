@@ -9105,7 +9105,7 @@ fn the_door_has_a_signpost_and_the_mudroom_boots_and_a_spade() {
     let wall = ok(&mut w, "dave", "read", json!(["doors"]));
     assert!(
         wall.summary
-            .contains("closet: The Cartographer's Closet, dave's, 100% left"),
+            .contains("closet: The Cartographer's Closet, dave's, dug just now, 100% left"),
         "{}",
         wall.summary
     );
@@ -11124,4 +11124,29 @@ fn of_two_ways_the_same_length_the_signs_give_the_one_nothing_hunts_on() {
         atlas::way_seeded(&w, door, clock).unwrap(),
         vec!["north", "lane", "orchard", "up"]
     );
+}
+
+#[test]
+fn a_room_may_keep_a_second_kind_beside_its_own() {
+    // D21 b: a bookworm in the Unfiled Archive beside the inklings, a silverfish in
+    // the Cistern; each comes back on the room's own refill.
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    w.tick();
+    for (room, kind, own) in [
+        ("archive", "bookworm", "inkling"),
+        ("cistern", "silverfish", "drowned"),
+    ] {
+        let r = rooms::room_by_key(&w, room).unwrap();
+        let here = combat::creatures_in(&w, r);
+        assert_eq!(here.iter().filter(|c| c.1 == kind).count(), 1, "{room}");
+        assert!(here.iter().any(|c| c.1 == own), "{room}");
+        let gone = here.iter().find(|c| c.1 == kind).unwrap().0;
+        w.record(
+            foxing_log::Actor::Driver,
+            foxing_store::StoreEvent::EntityRemoved { id: gone },
+        )
+        .unwrap();
+        assert_eq!(combat::fill(&mut w, r).unwrap(), 1);
+    }
 }

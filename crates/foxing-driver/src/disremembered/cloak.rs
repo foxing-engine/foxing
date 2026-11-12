@@ -94,10 +94,19 @@ pub fn view(
         .map(|a| {
             a.iter()
                 .filter_map(|n| {
+                    // H19: the door's three ways say what each is for, as a
+                    // named visitor's `look` does.
+                    let name = n["components"][ROOM]["name"].as_str().unwrap_or("?");
+                    let gloss = match name {
+                        "The Fogbank" => ": fight",
+                        "Lantern Row" => ": read and tell",
+                        "The Mudroom" => ": dig",
+                        _ => "",
+                    };
                     Some(format!(
-                        "{} ({})",
+                        "{} ({}{gloss})",
                         n["via"].as_str()?,
-                        n["components"][ROOM]["name"].as_str().unwrap_or("?")
+                        name.trim_start_matches("The ")
                     ))
                 })
                 .collect()

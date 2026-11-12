@@ -228,6 +228,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // The room it was dug from, and what memory paid for it.
             .field("origin", FieldKind::Plain, Visibility::Public)
             .field("dug_with", FieldKind::Plain, Visibility::Public)
+            // H19: when it was dug (ms), for the Mudroom's wall. Rooms dug before
+            // 11-12 have none.
+            .field("dug_at", FieldKind::Plain, Visibility::Public)
             // Who gave up a memory so this room would last: `[{by, with, half_life_ms}]`.
             .field("kept", FieldKind::Plain, Visibility::Public)
             // Sentences appended since the last binding, the hands that added them, and
