@@ -968,7 +968,11 @@ pub fn room_named(world: &World, text: &str) -> Option<EntityId> {
         .filter(|e| e.kind == "room")
         .filter(|e| {
             let name = loose(plain_str(world, e.id, ROOM, "name").unwrap_or_default());
-            name.split(' ').any(|w| w == want) || name.starts_with(&format!("{want} "))
+            // R192: a possessive answers to its stem ("wickmaker" finds the
+            // Wickmaker's Bench, whose door is `wickmaker`).
+            name.split(' ')
+                .any(|w| w == want || w.strip_suffix("'s").is_some_and(|stem| stem == want))
+                || name.starts_with(&format!("{want} "))
         });
     let first = by_word.next()?;
     by_word.next().is_none().then_some(first.id)
@@ -987,7 +991,10 @@ pub fn rooms_matching(world: &World, text: &str) -> Vec<EntityId> {
         .filter(|e| !super::plain_bool(world, e.id, ROOM, "hidden"))
         .filter(|e| {
             let name = loose(plain_str(world, e.id, ROOM, "name").unwrap_or_default());
-            name.split(' ').any(|w| w == want)
+            // R192: a possessive answers to its stem ("wickmaker" finds the
+            // Wickmaker's Bench, whose door is `wickmaker`).
+            name.split(' ')
+                .any(|w| w == want || w.strip_suffix("'s").is_some_and(|stem| stem == want))
         })
         .map(|e| e.id)
         .collect();

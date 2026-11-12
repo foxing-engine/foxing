@@ -174,7 +174,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a lantern",
         of: &["a wisp ember", "rag thread"],
         chunk_at_least: 10.0,
-        does: "keeps the map in your memory three times as long while carried",
+        does: "keeps the map in your memory three times as long while carried (`map` says the figure: a room's half-life on it)",
         uses: 0,
         fixed: false,
         takes_lines: false,

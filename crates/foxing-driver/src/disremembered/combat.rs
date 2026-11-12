@@ -2271,13 +2271,16 @@ pub fn register(world: &mut World, curves: Curves) {
                 if let Some(charm) = super::craft::carries(w, f.citizen, "charm") {
                     // A second-tier charm (a warden's) gives half again.
                     // D27: half again and more (it was 0.3 and 0.45).
-                    vividity = (vividity + if super::past::tier(w, charm) >= 2 { 0.7 } else { 0.5 }).min(1.0);
+                    let lift = if super::past::tier(w, charm) >= 2 { 0.7 } else { 0.5 };
+                    let before = vividity;
+                    vividity = (vividity + lift).min(1.0);
                     let uses_left = plain_num(w, charm, super::craft::ITEM, "uses").unwrap_or(1.0);
                     let name = super::craft::spend(w, &ctx.actor, charm, &format!("Made the memory of a {} vivid", plain_str(w, creature, CREATURE, "name").unwrap_or("fight")))?;
                     charm_line = if uses_left > 1.5 {
-                        format!(" The {} you carry gives one of its uses, and the memory is the more vivid for it.", name.trim_start_matches("a "))
+                        format!(" The {} you carry gives one of its uses, and the memory is the more vivid for it (vividity {before:.2} to {vividity:.2}).", name.trim_start_matches("a "))
                     } else {
-                        format!(" The {} you carried is spent, and the memory is the more vivid for it.", name.trim_start_matches("a "))
+                        // R197: the figure, so the charm can be told from a near loss.
+                        format!(" The {} you carried is spent, and the memory is the more vivid for it (vividity {before:.2} to {vividity:.2}).", name.trim_start_matches("a "))
                     };
                 }
                 // A kill pays what the creature held, at most the delver's level plus

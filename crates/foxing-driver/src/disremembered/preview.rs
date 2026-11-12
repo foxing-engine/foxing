@@ -539,12 +539,25 @@ pub fn run_checked(
                                 .find(|c| mind::name(world, c.0).is_none() && !mind::shaken(world, c.0));
                             match unnamed {
                                 Some(c) => (true, format!("strikes the {}", c.1)),
+                                // R201: say why, as `attack <kind>` does, when what
+                                // is here is only down for a moment.
                                 None => (
                                     false,
-                                    format!(
-                                        "refused: nothing unnamed to fight in {}",
-                                        room_name_in(&dug_names, room)
-                                    ),
+                                    match room.and_then(|r| {
+                                        super::combat::creatures_in(world, r)
+                                            .into_iter()
+                                            .find(|c| mind::name(world, c.0).is_none() && mind::shaken(world, c.0))
+                                    }) {
+                                        Some(c) => format!(
+                                            "refused: the {} here is not itself yet (it was just felled, and is out for under a minute); nothing else unnamed to fight in {}",
+                                            c.1,
+                                            room_name_in(&dug_names, room)
+                                        ),
+                                        None => format!(
+                                            "refused: nothing unnamed to fight in {}",
+                                            room_name_in(&dug_names, room)
+                                        ),
+                                    },
                                 ),
                             }
                         }

@@ -5,6 +5,15 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-12 (the nightly deploy: R items by policy, from the Watch of 11-11; one driver deploy)
+- R193: a named walk no longer stops "something here has noticed you" for a hunter that leaves a first-hour name alone (the Cistern Stair, the Clocktower).
+- R192: `where wickmaker` finds the Wickmaker's Bench (a possessive answers to its stem).
+- R195: a walk stopped at a level gate no longer ends "..".
+- R197: a charm's spending line gives the figure ("vividity 0.17 to 0.67"), so its lift can be told from a near loss; the lantern's recipe says where its figure is read.
+- R201: the dry run of a bare `attack` beside a downed creature says so ("the wisp here is not itself yet…") as `attack wisp` does.
+- R200: the Docent's page says the Shallows' hollows hunt and what they hit for, never to call that road safe, and the safe way to the Clocktower.
+- Left in R, trimmed: R192's unquoted names through the gate (with R198), R193's rooms passed, R195's Lookout and signpost, R197's `read`, R200's stale answers, R201's small ones; R194, R196, R199 and R202 whole.
+
 11-12 (by David's word: P3, A3, tooltips on the vitals, a player's guide, D26 to D28 closed, this page; one site deploy, one driver deploy for the analytics files)
 - P3: type ahead on the play page. A line sent while another is still out is printed at once, marked "… waiting", and goes in its turn; a refusal stops the lines behind it, strikes them through, says which were not sent, and leaves them on the up arrow.
 - Tooltips on the vitals: level, hit points, attack, the name line and every chip under them show a tip of the page's own on hover or a tap, at once (the browser's title took a second and never showed on a phone): what the figure is, what it is now (in the game's gold), and what moves it. The tip stays current while it shows (the card under it is redrawn every second) and goes on Esc, a scroll, or leaving the panel.

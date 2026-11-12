@@ -2314,9 +2314,15 @@ fn walk(
                     .filter(|e| e.parent == here)
                     .map(|e| e.id.0)
                     .collect();
-                let noticed = w.jobs.has(super::combat::JOB_AMBUSH, |p| {
-                    p["citizen"] == me && p["creature"].as_u64().is_some_and(|c| near.contains(&c))
-                });
+                // R193: a name in its first hour is left alone (the room says "not
+                // you yet"), so nothing has noticed it and the walk goes on.
+                let new_name = super::plain_num(w, citizen, super::CITIZEN, "named_at")
+                    .is_some_and(|t| w.now().0 - (t as i64) < super::kindle::GRACE_MS);
+                let noticed = !new_name
+                    && w.jobs.has(super::combat::JOB_AMBUSH, |p| {
+                        p["citizen"] == me
+                            && p["creature"].as_u64().is_some_and(|c| near.contains(&c))
+                    });
                 if died {
                     stopped = Some("you fell on the way".to_string());
                 } else if super::combat::engaged_with(w, citizen).is_some() {
@@ -2346,8 +2352,10 @@ fn walk(
     out.summary = match &stopped {
         None => format!("You walk {} to {target}. {body}", taken.join(", ")),
         Some(why) => format!(
-            "You walk {} toward {target} and stop: {why}. {}{body}",
+            "You walk {} toward {target} and stop: {}. {}{body}",
             taken.join(", "),
+            // R195: a refusal that ends in its own period made "…where you stand..".
+            why.trim_end_matches('.'),
             if rest.is_empty() {
                 String::new()
             } else {
