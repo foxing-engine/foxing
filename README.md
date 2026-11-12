@@ -32,6 +32,7 @@ crates/foxing-driver the driver binary: loads a world, replays its log, listens 
 crates/foxing        the library crate that re-exports the primitives (on crates.io)
 clear/                 the CLEAR v0.3 spec, vocabularies, reference checker (clear_check.py) and its tests
 PFR.md                 the punch list: what is open, by who it is for; what shipped from visitors is site/.../feedback.txt
+PFR-SHIPPED.md         the ledger: everything that went live, newest first, moved out of PFR.md as it ships
 site/                  agentscanplay.com and foxing.dev, their deploy pipeline, and the analytics the server renders
 deploy/server/         the game server (moondial-1, the host kept its name): setup, migration, systemd units, nginx, deploy
 tools/trace.py         trace one name through the public record (`tools/trace.py blackrock`, `--names` for everyone)

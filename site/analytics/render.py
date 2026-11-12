@@ -377,12 +377,14 @@ def report(db: sqlite3.Connection, days: int) -> dict:
     now = datetime.now(timezone.utc)
     out["errors_by"] = []
     for label, key, delta in (("the last 24 hours", "24h", timedelta(hours=24)), ("the last 7 days", "7d", timedelta(days=7))):
+        if delta >= timedelta(days=days):
+            continue  # not narrower than the page's own window
         start = now - delta
         rows, probes = error_rows(db, start.strftime("%Y-%m-%d"), out["refusals"], start.strftime("%Y-%m-%dT%H:%M:%S") if key == "24h" else None)
         senders = q(db, "SELECT host, path, status, ua_class, ua_name, COUNT(*), COUNT(DISTINCT visitor), MAX(ts) FROM requests WHERE day >= ? AND ts >= ? AND status >= 400 AND status != 404 GROUP BY host, path, status, ua_class, ua_name ORDER BY 6 DESC LIMIT 20",
                     (start.strftime("%Y-%m-%d"), start.strftime("%Y-%m-%dT%H:%M:%S") if key == "24h" else ""))
         out["errors_by"].append((label, key, rows, probes, senders))
-    out["errors_by"].append((f"the last {days} days", "all", out["errors"], out["probes"], out["error_senders"]))
+    out["errors_by"].append((f"the whole window ({window_label(days)})", "all", out["errors"], out["probes"], out["error_senders"]))
     out["headline"] = headline(db)
     out["collected"], out["stale"] = collected(db)
     out["perf"] = perf_rows(db, since)
@@ -625,6 +627,10 @@ def page(r: dict) -> str:
     ) + "<section><h2 id=\"more\">More</h2><details><summary>Five tables for a question once a month: daily, key paths, how the root was served, hosts by class, every address</summary>" + "".join(
         f"<h3>{html.escape(st)}</h3>{tb}" for st, tb in more) + "</details></section>" + FILTER_JS
     stale = " class=\"stale\"" if r["stale"] else ""
+    windows = " &middot; ".join(
+        f"<b>{html.escape(label)}</b>" if here else f"<a href=\"{html.escape(name)}\">{html.escape(label)}</a>"
+        for label, name, here in r.get("windows", [(window_label(r["days"]), "", True)])
+    )
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow"><title>Foxing analytics</title>
 <style>
@@ -649,7 +655,7 @@ code {{ font: 12.5px ui-monospace, Menlo, Consolas, monospace; color: var(--dust
 .stale {{ color: #d98f8f; }}
 h3 {{ font-weight: 400; font-size: 15px; color: var(--ink); margin: 22px 0 6px; }}
 section {{ border-top: 1px solid var(--line); margin-top: 36px; }} section h2 {{ font-size: 24px; margin-top: 22px; }}
-.nav {{ margin: 14px 0 0; }} a {{ color: var(--dust); }}
+.nav {{ margin: 14px 0 0; }} .window {{ margin: 18px 0 2px; color: var(--ink); }} .window b {{ color: var(--dust); font-weight: 400; border-bottom: 1px solid var(--dust); }} a {{ color: var(--dust); }}
 .chips {{ margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 6px; }}
 .chips button {{ font: 12px ui-monospace, Menlo, Consolas, monospace; color: var(--dim); background: none; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; cursor: pointer; }}
 .chips button.on {{ color: var(--night); background: var(--dust); border-color: var(--dust); }}
@@ -659,9 +665,14 @@ html {{ scroll-behavior: smooth; }} h2 {{ scroll-margin-top: 12px; }}
 <h1>Foxing analytics</h1>
 <p class="sub"><span{stale}>{'Stale: ' if r['stale'] else ''}{html.escape(r['collected'])}</span> · rendered {now}</p>
 {tiles(r['headline'])}
-<p class="sub">Below: since {html.escape(r['since'])} ({r['days']} days) · 2xx requests unless noted · addresses kept {html.escape(os.environ.get("ANALYTICS_RETENTION_DAYS", "90"))} days, operator-only · lab = {html.escape(LAB_NETS or "no lab nets set")}</p>
+<p class="sub window">Everything below is for: {windows}</p>
+<p class="sub">Since {html.escape(r['since'])} (UTC) · 2xx requests unless noted · addresses kept {html.escape(os.environ.get("ANALYTICS_RETENTION_DAYS", "90"))} days, operator-only · lab = {html.escape(LAB_NETS or "no lab nets set")}</p>
 {body}
 </main></body></html>"""
+
+
+def window_label(days: int) -> str:
+    return "yesterday and today" if days == 1 else f"{days} days"
 
 
 def main() -> int:
@@ -677,11 +688,18 @@ def main() -> int:
     print(text(r))
     if args.html:
         os.makedirs(HTML_DIR, exist_ok=True)
-        tmp = os.path.join(HTML_DIR, "index.html.tmp")
-        with open(tmp, "w", encoding="utf-8") as fh:
-            fh.write(page(r))
-        os.replace(tmp, os.path.join(HTML_DIR, "index.html"))
-        print(f"\nwrote {HTML_DIR}/index.html")
+        # A3: the same page for three windows, each a file beside the others with
+        # links between them: the one asked for is the index.
+        windows = [(args.days, "index.html")] + [(d, f"{d}.html") for d in (7, 1) if d != args.days]
+        windows.sort(key=lambda w: w[0])
+        for days, name in windows:
+            rr = r if days == args.days else report(db, days)
+            rr["windows"] = [(window_label(d), n, d == days) for d, n in windows]
+            tmp = os.path.join(HTML_DIR, name + ".tmp")
+            with open(tmp, "w", encoding="utf-8") as fh:
+                fh.write(page(rr))
+            os.replace(tmp, os.path.join(HTML_DIR, name))
+            print(f"\nwrote {HTML_DIR}/{name}")
     return 0
 
 

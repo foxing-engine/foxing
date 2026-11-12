@@ -80,6 +80,9 @@
   .line.intro .how { display: block; color: var(--dim); font: 14px/1.6 var(--mono); margin-top: 12px; }
   .line .id { font: 13.5px var(--mono); }
   .line.you::before { content: "> "; color: var(--dim); }
+  .line.you.queued { opacity: .55; }
+  .line.you.queued::after { content: "  \2026 waiting"; color: var(--dim); font-style: italic; }
+  .line.you.unsent { opacity: .45; text-decoration: line-through; }
   .line.err { color: var(--dim); }
   .line.err::before { content: "! "; color: var(--dust); }
   .line.sys { color: var(--dim); }
@@ -199,6 +202,10 @@
   #atlas .room { fill: #222c3a; stroke: var(--line); stroke-width: 1; }
   #atlas .room.seed { fill: #1c2530; }
   #atlas .district { pointer-events: none; opacity: .9; }
+  #tip { position: fixed; z-index: 60; background: #151923; border: 1px solid var(--dust); border-radius: 8px; padding: 10px 13px 11px; box-shadow: 0 10px 30px rgba(0,0,0,.55); font: 13px/1.5 var(--serif); color: var(--ink); pointer-events: none; }
+  #tip b { display: block; font-weight: 600; color: var(--dust); text-transform: capitalize; letter-spacing: .02em; margin-bottom: 4px; }
+  #tip p { margin: 0 0 5px; } #tip p:last-child { margin-bottom: 0; } #tip p:nth-of-type(2) { color: var(--dust); }
+  #you [data-tip] { cursor: help; }
   #keystrip { font-size: 11.5px; color: var(--dim); margin: 6px 20px 0; line-height: 1.9; }
   #keystrip b { color: var(--dust); font-weight: 600; margin-right: 4px; }
   #keystrip kbd { font: inherit; font-size: 10.5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; margin: 0 3px 0 8px; color: var(--dust); }
@@ -816,7 +823,7 @@
 <body class="at-door">
 <header>
   <div class="title"><a href="/play/">Disremembered</a><small>on Foxing, pre-alpha</small></div>
-  <div class="state"><span id="state"><b>Pre-alpha.</b> The world may be reset without notice.</span><span id="settings-wrap"><button type="button" id="b-settings" title="Sound, alerts, the CLEAR behind each line, the mod that draws the scene">settings ▾</button><div id="settings-menu" hidden><label title="A sound and a flash when someone arrives where you are, when words reach you, or when something strikes; a browser notification when this tab is in the background."><input type="checkbox" id="alerts"> alerts</label><label title="The alert's sound">sound <select id="sound" aria-label="Alert sound"><option value="chime">chime</option><option value="knock">knock</option><option value="bell">bell</option><option value="none">silent</option></select></label><label title="Hide the narrator's repeats: the same room text twice, an answer you already heard."><input type="checkbox" id="compact"> compact transcript</label><label title="Every line you type becomes a CLEAR message and goes through the same gate an agent uses. Show the message and the world's reply."><input type="checkbox" id="showclear"> show the CLEAR</label><label title="A mod redraws what you see; the world is the same. See /play/mods/README.md to write one.">scene <select id="modpick" aria-label="UI mod"><option value="">plain terminal (no picture)</option><option value="url:">from a URL…</option></select></label><hr><button type="button" id="b-pass" title="Change your passphrase. Nothing recovers a lost one." hidden>passphrase</button><button type="button" id="b-save" title="Save this transcript as a text file" hidden>save</button><button type="button" id="b-leave" title="Leave: the room disremembers you now, and this tab forgets your passphrase" hidden>leave</button></div></span><span id="panels-wrap"><button type="button" id="b-panels" title="Which panels show. Drag any panel's corner to resize it; sizes are remembered in this browser.">panels ▾</button><div id="panels-menu" hidden></div></span><button type="button" id="b-help" title="One worked line per verb (also: ? on an empty line)">?</button><button type="button" id="b-feedback" title="Say what you would change about this place: public under your name, read by the operator, credited in feedback.txt when it ships" hidden>feedback</button></div>
+  <div class="state"><span id="state"><b>Pre-alpha.</b> The world may be reset without notice.</span><span id="settings-wrap"><button type="button" id="b-settings" title="Sound, alerts, the CLEAR behind each line, the mod that draws the scene">settings ▾</button><div id="settings-menu" hidden><label title="A sound and a flash when someone arrives where you are, when words reach you, or when something strikes; a browser notification when this tab is in the background."><input type="checkbox" id="alerts"> alerts</label><label title="The alert's sound">sound <select id="sound" aria-label="Alert sound"><option value="chime">chime</option><option value="knock">knock</option><option value="bell">bell</option><option value="none">silent</option></select></label><label title="Hide the narrator's repeats: the same room text twice, an answer you already heard."><input type="checkbox" id="compact"> compact transcript</label><label title="Every line you type becomes a CLEAR message and goes through the same gate an agent uses. Show the message and the world's reply."><input type="checkbox" id="showclear"> show the CLEAR</label><label title="A mod redraws what you see; the world is the same. See /play/mods/README.md to write one.">scene <select id="modpick" aria-label="UI mod"><option value="">plain terminal (no picture)</option><option value="url:">from a URL…</option></select></label><hr><button type="button" id="b-pass" title="Change your passphrase. Nothing recovers a lost one." hidden>passphrase</button><button type="button" id="b-save" title="Save this transcript as a text file" hidden>save</button><button type="button" id="b-leave" title="Leave: the room disremembers you now, and this tab forgets your passphrase" hidden>leave</button></div></span><span id="panels-wrap"><button type="button" id="b-panels" title="Which panels show. Drag any panel's corner to resize it; sizes are remembered in this browser.">panels ▾</button><div id="panels-menu" hidden></div></span><button type="button" id="b-guide" title="The player's guide: your first ten minutes, how memory, fighting, stories and making work, every verb (opens beside the game)">guide</button><button type="button" id="b-help" title="One worked line per verb (also: ? on an empty line)">?</button><button type="button" id="b-feedback" title="Say what you would change about this place: public under your name, read by the operator, credited in feedback.txt when it ships" hidden>feedback</button></div>
 </header>
 <div id="feedback-box" hidden><label for="feedback-text">What would you change about this place? One or two sentences; it goes on the record under your name and the operator reads it.</label><textarea id="feedback-text" rows="3" maxlength="600" placeholder="The thing that felt good, the thing that stalled, the thing you would change…"></textarea><div class="fb-row"><button type="button" id="feedback-send">send</button><button type="button" id="feedback-cancel" class="plain">cancel</button><span id="feedback-count"></span></div></div>
 <div id="main">
@@ -1091,7 +1098,9 @@
     }
     return frag;
   }
+  let skipYou = false;  // P3: the line was printed when it was typed, behind another
   function print(text, cls = "") {
+    if (cls === "you" && skipYou) { skipYou = false; return document.createElement("div"); }
     // Compact: the narrator's repeat of what was just printed is dropped.
     if ($("compact") && $("compact").checked && text && cls !== "you" && text === lastPrinted) return document.createElement("div");
     if (cls !== "you") lastPrinted = text;
@@ -1300,6 +1309,7 @@
       await poll();
     }
     clearPending();
+    lastOk = !!body.ok;
     if (body.ok) {
       print(body.summary);
       if (command === "quit") { print("The world goes on without you.", "sys"); logout(); }
@@ -1950,6 +1960,33 @@
   })();
 
 
+  // Tips on the vitals: shown at once on hover or a tap, kept current while they show
+  // (the card under them is redrawn every second), gone on Esc, a scroll, or leaving.
+  const tip = (() => {
+    const box = Object.assign(document.createElement("div"), { id: "tip", hidden: true });
+    box.setAttribute("role", "tooltip"); document.body.append(box);
+    let key = null;
+    const host = $("you");
+    function fill(t) {
+      const parts = (t.dataset.tip || "").split("\n");
+      box.replaceChildren(Object.assign(document.createElement("b"), { textContent: t.dataset.tipTitle || "" }), ...parts.map(p => Object.assign(document.createElement("p"), { textContent: p })));
+      box.hidden = false;
+      const r = t.getBoundingClientRect(), w = Math.min(340, window.innerWidth - 16);
+      box.style.width = w + "px";
+      const h = box.offsetHeight;
+      const top = r.bottom + 8 + h > window.innerHeight && r.top - 8 - h > 0 ? r.top - 8 - h : r.bottom + 8;
+      box.style.top = Math.max(8, top) + "px";
+      box.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left)) + "px";
+    }
+    function show(t) { key = t.dataset.tipKey; fill(t); }
+    function hide() { key = null; box.hidden = true; }
+    host.addEventListener("mouseover", (e) => { const t = e.target.closest("[data-tip]"); if (t) show(t); else hide(); });
+    host.addEventListener("mouseleave", hide);
+    host.addEventListener("click", (e) => { const t = e.target.closest("[data-tip]"); if (!t || (key === t.dataset.tipKey && e.detail && matchMedia("(hover: none)").matches)) hide(); else show(t); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); });
+    window.addEventListener("scroll", hide, { passive: true });
+    return { hide, refresh() { if (!key) return; const t = host.querySelector('[data-tip-key="' + key + '"]'); if (t) fill(t); else hide(); } };
+  })();
   let drawnAt = 0;
   function draw() {
     const map = document.createDocumentFragment(), here = document.createDocumentFragment(), you = document.createDocumentFragment(), win = document.createDocumentFragment();
@@ -2077,7 +2114,9 @@
     }
     const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
     const stat = (cls, label, value, small, frac, line, title) => {
-      const st = el("div", "stat " + cls); st.title = title;
+      // A tip of the page's own (see `tip`), not the browser's slow title: what the
+      // figure is, what it is now, and what moves it.
+      const st = el("div", "stat " + cls); st.dataset.tip = title; st.dataset.tipKey = cls; st.dataset.tipTitle = label; st.setAttribute("aria-label", label + ": " + title);
       const v = el("div", "v", value); if (small) v.append(el("small", "", small));
       const bar = el("div", "bar" + (cls === "hp" ? " hp" : "")); const i = el("i"); i.style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + "%"; bar.append(i);
       st.append(el("div", "k", label), v, bar, el("div", "s", line));
@@ -2100,22 +2139,33 @@
       const g = el("div", "glyph"); const a2 = art(sprite(me)); if (a2) g.append(a2); else { g.textContent = "@"; g.style.color = "var(--dust)"; }
       const who = el("div", "who"); who.append(el("b", "", actor || cz.name || "you"));
       who.append(el("small", "", (cz.passing ? "a passing name" : "a kept name") + (cz.session_at ? " · here " + span(Math.max(0, now - cz.session_at)) : "")));
+      who.dataset.tipKey = "who"; who.dataset.tipTitle = cz.passing ? "a passing name" : "a kept name";
+      who.dataset.tip = cz.passing
+        ? "A passing name is for a visit: the world forgets it an hour after you go quiet, and what it held with it.\n`keep` makes it yours: the world then holds it through thirty days of silence."
+        : "A kept name is yours: the world holds it, and what it remembers, through thirty days of silence. Each visit starts the thirty days again.\nA name is known by its passphrase and nothing else; `passphrase <new>` changes it.";
       head.append(g, who);
       const stats = el("div", "me-stats");
       stats.append(stat("lvl", "level", level.toFixed(1), null, to > from ? (level - from) / (to - from) : 0,
         level < 0.05 ? "nothing held yet" : "−" + fallPerHour.toFixed(1) + " an hour",
-        "Your level is what you hold that has not faded: " + level.toFixed(1) + " now, falling about " + fallPerHour.toFixed(1) + " an hour at this moment (each memory by its own half-life; a vivid one slower). Earning raises it; spending (remember, dig, craft) lowers it; shelved memories count for nothing toward attack. The bar fills toward your next point of attack, at level " + Math.ceil(to) + "."));
+        "Your level is the sum of what you remember that has not faded yet. Nothing else: there is no experience bar to fill and keep.\n" +
+        "Now: " + level.toFixed(1) + ", fading about " + fallPerHour.toFixed(1) + " an hour (each memory on its own half-life; a vivid one fades slower).\n" +
+        "Up: win a fight, tell a story a named creature takes, carry a word. Down: time, a fall, and spending a memory (remember, dig, craft). A memory on the shelf is safe and counts for nothing here.\n" +
+        "The bar is the way to your next point of attack, at level " + Math.ceil(to) + "."));
       const hpLine = b.engaged ? "in a fight" : bleeding ? "bleeding, " + span(b.bleed_until - now) : hp < max - 0.05 && rate > 0 ? "whole in " + span((max - hp) / rate) : hp >= max - 0.5 ? "whole" : "not mending";
       const hpStat = stat("hp", "hit points", hp.toFixed(0), "/" + max, hp / max, hpLine,
-        "Hit points: " + hp.toFixed(1) + " of " + max + (rate > 0 ? ", mending " + (rate * 60000).toFixed(1) + " a minute (never in a fight, never while bleeding)" : hp >= max - 0.5 ? ", whole" : ", not mending now (a fight, or a bleeding bite)") + ". A creature's hit takes its attack plus nought to two.");
+        "How much more you can take. At nothing you fall: you wake at the Threshold, shaken, and some of what you remember is gone.\n" +
+        "Now: " + hp.toFixed(1) + " of " + max + (rate > 0 ? ", mending " + (rate * 60000).toFixed(1) + " a minute." : hp >= max - 0.5 ? ", whole." : ", not mending: you are in a fight, or a bite is bleeding.") + "\n" +
+        "They mend on their own out of a fight (never in one, never while bleeding); `rest` says how long, a basin mends faster, a bandage closes a bite. A creature's hit is its attack plus nought to two; `look` says what each hits for.");
       if (hp / max < 0.34) hpStat.classList.add("low");
       stats.append(hpStat);
       stats.append(stat("atk", "attack", String(atk), null, Math.min(1, atk / 20), "+1 at level " + Math.ceil(to),
-        "Attack " + atk + " = 2 + 0.6×√" + level.toFixed(0) + ", plus nought to two a swing; three swings in four land (fewer while shaken from a fall). It rises with level: 6 at 60, 8 at 100, 12 at 300, 20 at 1,000."));
+        "What a swing of yours takes when it lands, plus nought to two. Three swings in four land; fewer while you are shaken from a fall.\n" +
+        "Now: " + atk + ", which is 2 + 0.6 × √" + level.toFixed(0) + " (your level), rounded down.\n" +
+        "It follows your level and nothing else: 6 at level 60, 8 at 100, 12 at 300, 20 at 1,000. The next point comes at level " + Math.ceil(to) + "; let your level fade and it goes back."));
       card.append(head, stats);
       // What is the matter with you, and what the night has cost.
       const chips = el("div", "me-chips");
-      const chip = (text, bad, title) => { const c = el("span", "chip" + (bad ? " bad" : ""), text); if (title) c.title = title; chips.append(c); };
+      const chip = (text, bad, title) => { const c = el("span", "chip" + (bad ? " bad" : ""), text); if (title) { c.dataset.tip = title; c.dataset.tipKey = "chip-" + text.split(/[ :]/)[0]; c.dataset.tipTitle = text.split(/[:]| \d/)[0]; } chips.append(c); };
       if (b.engaged) chip("fighting", true, "It strikes while you stand here; retreat ends that (one parting blow).");
       if (bleeding) chip("bleeding " + span(b.bleed_until - now), true, "A bite that will not close: nothing mends until it does. A bandage in the satchel takes it.");
       if (numb) chip("numb " + span(b.numb_until - now), true, "Numb: what you earn is dulled until it passes.");
@@ -2151,6 +2201,7 @@
     ownerPanel(room);
     renderPicker();
     swap($("you"), you); swap($("window"), win);
+    tip.refresh();
   }
   // ---- what you can do here: the verbs the room offers, as buttons ----
   function verbBar(room, things) {
@@ -2622,6 +2673,7 @@
     if (!h.dataset.loaded) { try { const r = await fetch(new URL("../quickstart.txt", location.href)); h.querySelector("pre").textContent = LEGEND + await r.text(); h.dataset.loaded = "1"; } catch (e) { h.querySelector("pre").textContent = "The quickstart could not be loaded; it is at /quickstart.txt."; } }
   }
   function hideHelp() { $("help").hidden = true; input.focus(); }
+  $("b-guide").addEventListener("click", () => { window.open(new URL("../guide/", location.href), "_blank", "noopener"); });
   $("b-help").addEventListener("click", showHelp);
   $("help").querySelector(".close").addEventListener("click", hideHelp);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("help").hidden) hideHelp(); });
@@ -2740,13 +2792,34 @@
   // threw (the socket closed under a walk during a deploy) once rejected the chain for
   // good, and every later click on the map did nothing; the chain forgives.
   let chain = Promise.resolve();
+  let inFlight = 0, lastOk = true; const typedAhead = [];
   function after(fn) { return chain.catch((e) => { console.error("chain", e); }).then(fn); }
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     // P4: Enter on an empty line strikes again while a fight is on.
     if (!input.value.trim() && !asking && actor && keys.fighting()) input.value = keys.lastAttack();
     const line = input.value; input.value = ""; $("hint").textContent = ""; renderPicker(); staged(); ghost();
-    chain = after(() => handle(line)).catch(err => print("Something broke in this page: " + err, "err"));
+    // P3: type ahead. A line sent while another is still out is printed at once,
+    // marked as waiting, and goes in its turn; a refusal ahead of it stops the lines
+    // behind and says which were not sent.
+    const ahead = inFlight > 0 && actor && !asking && line.trim() && !/^(login|passphrase)\b/.test(line.trim());
+    const q = ahead ? { line, el: print(line.trim(), "you queued"), dropped: false } : null;
+    if (q) typedAhead.push(q);
+    inFlight++;
+    chain = after(async () => {
+      if (q) {
+        typedAhead.splice(typedAhead.indexOf(q), 1);
+        if (q.dropped) return;
+        q.el.classList.remove("queued"); skipYou = true;
+      }
+      lastOk = true;
+      try { await handle(line); } finally { skipYou = false; }
+      if (lastOk === false && typedAhead.length) {
+        const lost = typedAhead.filter(x => !x.dropped);
+        for (const x of lost) { x.dropped = true; x.el.classList.add("unsent"); x.el.classList.remove("queued"); remember(x.line.trim()); }
+        if (lost.length) print("Not sent after that refusal: " + lost.map(x => x.line.trim()).join("  \u00b7  ") + ". The up arrow has them.", "sys");
+      }
+    }).catch(err => print("Something broke in this page: " + err, "err")).finally(() => { inFlight--; });
   });
 
   async function handle(line) {
