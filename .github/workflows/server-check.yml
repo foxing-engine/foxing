@@ -1,18 +1,23 @@
 name: Server check (moondial-1)
 
 # A look at the game server over the deploy's own SSH: the driver, the analytics
-# timers and their last journal lines, the store's age. Read-only; run by hand.
+# timers and their last journal lines, the store's age; and `vitals`, the box's CPU,
+# memory and database sampled for some minutes (run beside a load test: tools/load.py).
+# Read-only; run by hand.
 on:
   workflow_dispatch:
     inputs:
       what:
-        description: "analytics | driver | all"
+        description: "analytics | driver | vitals | all"
         default: "all"
+      minutes:
+        description: "vitals only: how long to sample (1 to 25)"
+        default: "2"
 
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 30
     env:
       GAME_HOST: ${{ secrets.GAME_HOST }}
       GAME_USER: ${{ vars.VPS_USER || 'starsailor' }}
@@ -36,12 +41,16 @@ jobs:
       - name: Look
         env:
           WHAT: ${{ github.event.inputs.what }}
+          MINUTES: ${{ github.event.inputs.minutes }}
         # The script goes over as an argument, not on stdin: fed to `bash -s`, a
         # command on the box swallowed a stretch of it (the timers and units never
         # printed), so stdin is closed and nothing can eat the script.
         run: |
           SCRIPT=$(cat <<'REMOTE'
           what=${1:-all}
+          minutes=${2:-2}
+          case "$minutes" in ''|*[!0-9]*) minutes=2;; esac
+          [ "$minutes" -gt 25 ] && minutes=25; [ "$minutes" -lt 1 ] && minutes=1
           APP=/srv/foxing; [ -d $APP ] || APP=/srv/moondial
           echo "## host $(hostname), app $APP, $(date -u)"
           if [ "$what" = all ] || [ "$what" = driver ]; then
@@ -62,6 +71,43 @@ jobs:
             echo "## nginx snippet"; cat /etc/nginx/snippets/analytics.conf 2>&1 | head -30
             echo "## raw log"; ls -la /var/log/nginx/analytics.jsonl* 2>&1 | head -5
           fi
+          if [ "$what" = vitals ]; then
+            # Secrets are read on the box and never printed: the log's URL for psql,
+            # the operator's token for the driver's own report.
+            envf=""; for f in /etc/foxing/driver.env /etc/moondial/driver.env; do [ -r "$f" ] && envf=$f && break; done
+            val() { [ -n "$envf" ] && grep -h -m1 -E "^(export )?$1=" "$envf" | sed -E "s/^(export )?$1=//; s/^['\"]//; s/['\"]$//"; }
+            URL=$(val FOXING_LOG_URL); [ -z "$URL" ] && URL=$(val MOONDIAL_LOG_URL)
+            TOKEN=$(val FOXING_ADMIN_TOKEN); [ -z "$TOKEN" ] && TOKEN=$(val MOONDIAL_ADMIN_TOKEN)
+            echo "## box: $(nproc) cpus, $(awk '/MemTotal/{printf "%.0f MB", $2/1024}' /proc/meminfo), $(uptime -p); env file ${envf:-not readable}; log url $([ -n "$URL" ] && echo found || echo none); token $([ -n "$TOKEN" ] && echo found || echo none); psql $(command -v psql >/dev/null && echo present || echo missing)"
+            echo "## disk"; df -h / /srv 2>/dev/null | awk 'NR==1||!seen[$1]++'
+            q() { [ -n "$URL" ] && command -v psql >/dev/null && psql "$URL" -X -A -t -F ' | ' -c "$1" </dev/null 2>&1 | head -${2:-12}; }
+            db() {
+              echo "## db $1 $(date -u +%H:%M:%S)"
+              q "select 'size', pg_size_pretty(pg_database_size(current_database())), 'connections', (select count(*) from pg_stat_activity), 'active', (select count(*) from pg_stat_activity where state='active'), 'waiting', (select count(*) from pg_stat_activity where wait_event_type='Lock')"
+              q "select 'counters', xact_commit, xact_rollback, tup_inserted, tup_fetched, blks_read, blks_hit, temp_files, deadlocks from pg_stat_database where datname=current_database()"
+              q "select 'table', relname, pg_size_pretty(pg_total_relation_size(relid)), n_live_tup, n_dead_tup, coalesce(to_char(last_autovacuum,'MM-DD HH24:MI'),'never') from pg_stat_user_tables order by pg_total_relation_size(relid) desc" 4
+              q "select 'settings', string_agg(name||'='||setting, ' ') from pg_settings where name in ('shared_buffers','synchronous_commit','max_connections','wal_level','fsync','checkpoint_timeout','max_wal_size','work_mem')"
+              q "select 'wal', pg_current_wal_lsn()"
+            }
+            ops() {
+              echo "## ops $1 $(date -u +%H:%M:%S)"
+              [ -n "$TOKEN" ] && curl -s -m 10 -H "x-foxing-admin: $TOKEN" http://127.0.0.1:7777/v0/ops </dev/null | head -c 6000; echo
+            }
+            db before; ops before
+            echo "## samples, every 5 s: time | load 1m | cpu idle% iowait% | mem used/avail MB | swap used MB | %cpu and %mem by process (driver, postgres, nginx, other top)"
+            n=$((minutes * 12))
+            top -b -d 5 -n $((n + 1)) -w 200 </dev/null 2>/dev/null | awk '
+              function flush() { if (t != "" && it > 1) printf "%s | %s | idle %s wa %s | %s | swap %s | driver %.1f/%.1f postgres %.1f/%.1f nginx %.1f/%.1f | top: %s\n", t, load, idle, wa, mem, swap, c["foxing-driver"], m["foxing-driver"], c["postgres"], m["postgres"], c["nginx"], m["nginx"], other }
+              /^top - / { flush(); it++; t=$3; load=$0; sub(/.*load average: /,"",load); sub(/,.*/,"",load); delete c; delete m; other=""; rows=0; next }
+              /^%Cpu/ { idle=$0; sub(/.*ni, */,"",idle); sub(/ id.*/,"",idle); wa=$0; sub(/.*id, */,"",wa); sub(/ wa.*/,"",wa); next }
+              /^MiB Mem/ { used=$8; next }
+              /^MiB Swap/ { swap=$7; avail=$9; mem=sprintf("%.0f/%.0f", used, avail); next }
+              $1 ~ /^[0-9]+$/ { c[$12]+=$9; m[$12]+=$10; if (rows < 3 && $9+0 >= 1.0) { other=other $12 " " $9 "% "; rows++ } }
+              END { flush() }'
+            db after; ops after
+            echo "## driver journal during (last 15)"; journalctl -u foxing --since "-$((minutes + 1)) min" --no-pager </dev/null 2>&1 | tail -15 | cut -c1-220
+            echo "## nginx errors during (last 15)"; (sudo -n tail -n 400 /var/log/nginx/error.log 2>/dev/null || tail -n 400 /var/log/nginx/error.log 2>&1) | tail -15 | cut -c1-240
+          fi
           REMOTE
           )
-          ssh -o BatchMode=yes -o ConnectTimeout=15 game "bash -c $(printf '%q' "$SCRIPT") _ $(printf '%q' "$WHAT")" </dev/null
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 game "bash -c $(printf '%q' "$SCRIPT") _ $(printf '%q' "$WHAT") $(printf '%q' "$MINUTES")" </dev/null
