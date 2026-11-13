@@ -11700,3 +11700,58 @@ fn the_postern_is_a_second_door_and_a_name_wakes_at_its_home() {
     assert!(rooms::room_by_key(&w, rooms::POSTERN).is_none(), "razed");
     assert_eq!(rooms::landing(&w, Some(dave)), Some(threshold));
 }
+
+#[test]
+fn with_the_second_door_open_a_newcomer_wakes_at_the_emptier_door_and_is_told_where() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    rooms::SECOND_DOOR.with(|c| c.set(Some(true)));
+    let threshold = rooms::room_by_key(&w, rooms::ARRIVAL).unwrap();
+    let postern = rooms::room_by_key(&w, rooms::POSTERN).unwrap();
+    let told = |w: &World, who: &str| -> Vec<String> {
+        w.log
+            .read_all(&w.id, foxing_log::Cursor::START)
+            .unwrap()
+            .into_iter()
+            .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == who)
+            .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
+            .collect()
+    };
+    // Both doors empty: the Threshold, at a tie. Then the emptier one, and so on.
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "mira", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let room = |w: &World, n: &str| rooms::room_of(w, find_citizen(w, n).unwrap().citizen);
+    assert_eq!(room(&w, "dave"), Some(threshold));
+    assert_eq!(room(&w, "mira"), Some(postern));
+    assert_eq!(room(&w, "tyler"), Some(threshold));
+    let mira = find_citizen(&w, "mira").unwrap().citizen;
+    assert_eq!(plain_str(&w, mira, CITIZEN, "home"), Some("postern"));
+    // The one at the gate is told the gate's first moves, and finds the Docent's
+    // card; the ones at the door are told the door's, by the Docent itself.
+    let m = told(&w, "mira").join("\n");
+    assert!(
+        m.contains("You have woken at the Postern, the world's back gate")
+            && m.contains("story bench")
+            && m.contains("travel wall")
+            && m.contains("a card in the Docent's hand: \"mira. This is the back gate"),
+        "{m}"
+    );
+    assert!(!m.contains("travel east to the Fogbank"), "{m}");
+    assert!(!m.contains("The Docent looks up from the page"), "{m}");
+    let d = told(&w, "dave").join("\n");
+    assert!(
+        d.contains("Three safe first moves: look;") && d.contains("The Docent"),
+        "{d}"
+    );
+    assert!(!d.contains("Postern"), "{d}");
+    // `look` at the gate, first thing, has what the welcome promised.
+    let look = ok(&mut w, "mira", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("The Reading Bench hears one story from each name"),
+        "{}",
+        look.summary
+    );
+    rooms::SECOND_DOOR.with(|c| c.set(None));
+}

@@ -14,6 +14,12 @@ punch list). What shipped from a visitor's word is also a dated line in
 - R164: `describe "…" here` means the room. R182: a holding within one of the naming bar is said to a place ("holds 59.8"). R187: a chunk's first size is printed to the same two places as its value. R201: `rest` says the level to a place, as `chunks` does.
 - R207: the "newest dug" doors are the newest of what still stands. R202: the dry run writes a bare `append` on the one fixture that takes the hand, as the gate does. R191: `help observe` says a query cannot be written in a [DO] and gives the form for the `observe` tool (the first example, with escaped quotes, did not parse; the maker of the Watch found it within the hour, and that the dry run still refused `describe "…" here`; both corrected the same night).
 
+11-13 (C11's texts, by David's word: "do the texts"; nothing a player sees changes while the second door's switch is off)
+- A name that wakes at the Postern is told so, with the gate's own three first moves (the bench, the wall and its mothwings, the lane) and the way round to the Threshold, in place of "travel east to the Fogbank". It finds the Docent's card behind the lamp, once, in place of the Docent looking up from a page three rooms away.
+- The play page's first-minute buttons are the Postern's own for a name whose home is there: the bench (it starts the line `story bench "`), the wall, the lane.
+- The quickstart opens with the two doors and says its directions are from the Threshold; the cloak and the start tool say there is a second door.
+- Tried on a local build with the switch on: the first name woke at the Threshold, the second at the Postern, read the welcome and the card, pressed the bench's button and told its story.
+
 11-13 (C1, by David's word: "let's keep the bench")
 - The Reading Bench stands at the Postern: `story bench "…"`, a dozen different words about anything, is heard once from each name by a listener that asks no name and keeps nothing, and pays the words and five for a first story (a dozen words, 9). `look` at the Postern offers it until the name has used it; the dry run knows it; asked for anywhere else, the reply says where the bench is. It is on the record as `disremembered.bench`.
 

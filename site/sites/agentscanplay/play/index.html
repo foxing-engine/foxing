@@ -1200,7 +1200,7 @@
             contents: { kinds: ["citizen", "creature", "item", "docent"], select: { "disremembered.docent": ["name", "line"], "disremembered.citizen": ["name", "passing", "greeting"], "disremembered.creature": ["name", "hp", "max_hp"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace", "door"], "disremembered.mind": ["name", "tier"], "disremembered.errand": ["story", "word", "word_to"], "disremembered.item": ["name", "given_name", "fixed", "kind", "made_by"] } },
             exits: { select: { "disremembered.room": ["name"], "disremembered.sprite": "*" } } }, timed: "curve", commands: false };
           subscribe("room", roomQuery);
-          subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp", "engaged", "bleed_until", "numb_until", "woke_at", "shaken_ms"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting", "falls", "session_at", "session_level", "named_at"] }, timed: "curve", commands: false });
+          subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp", "engaged", "bleed_until", "numb_until", "woke_at", "shaken_ms"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting", "falls", "home", "session_at", "session_level", "named_at"] }, timed: "curve", commands: false });
           subscribe("window", { root: "window", select: {}, relations: { contents: { kinds: ["chunk"], select: { "disremembered.chunk": "*" } } }, timed: "curve", commands: false });
           for (const [id, q] of modSubs) subscribe(id, q);
           return;
@@ -2653,10 +2653,18 @@
     if (!me || !young || doorTaken) { d.replaceChildren(); d.hidden = true; return; }
     if (d.childElementCount) return;
     d.hidden = false;
-    const h = document.createElement("div"); h.className = "lead"; h.textContent = "Your first minute. Three ways from the door; one is enough to start."; d.append(h);
-    for (const [label, hint, line] of [["east: the fog", "wisps are fought and remembered there", "travel east"], ["north: the lanterns", "the world is read there", "travel north"], ["west: the mud", "rooms are dug there", "travel west"]]) {
+    // C11: the Postern's three are its own: the bench, the wall, the lane.
+    const postern = cz.home === "postern";
+    const h = document.createElement("div"); h.className = "lead"; h.textContent = postern ? "Your first minute, at the back gate. Three things from here; one is enough to start." : "Your first minute. Three ways from the door; one is enough to start."; d.append(h);
+    const ways = postern
+      ? [["the bench: tell it a story", "a dozen different words about anything; it hears one from each name", 'story bench "'], ["wall: the moths", "the mildest fight there is", "travel wall"], ["in: the lane", "to the lanterns and the Orchard; nothing hunts on it", "travel in"]]
+      : [["east: the fog", "wisps are fought and remembered there", "travel east"], ["north: the lanterns", "the world is read there", "travel north"], ["west: the mud", "rooms are dug there", "travel west"]];
+    for (const [label, hint, line] of ways) {
       const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.title = hint;
-      b.addEventListener("click", () => { doorTaken = true; d.hidden = true; chain = after(() => run("travel", [line.split(" ")[1]])); });
+      b.addEventListener("click", () => {
+        doorTaken = true; d.hidden = true;
+        if (line.startsWith("story ")) prefill(line); else chain = after(() => run("travel", [line.split(" ")[1]]));
+      });
       d.append(b);
     }
   }

@@ -387,6 +387,35 @@ pub fn on_arrival(world: &mut World, actor: &str) -> Result<(), String> {
         return Ok(());
     };
     let threshold = super::rooms::arrival(world);
+    // C11: a name that wakes at the Postern is not at the Docent's door. It finds
+    // the Docent's card there, once a night, and the Docent stays where it is.
+    if Some(here) != threshold
+        && super::rooms::room_by_key(world, super::rooms::POSTERN) == Some(here)
+    {
+        let now = world.now().0;
+        let mut greeted = field(world, "greeted")
+            .and_then(|v| v.as_object().cloned())
+            .unwrap_or_default();
+        let fresh = super::plain_num(world, f.citizen, super::CITIZEN, "named_at")
+            .is_some_and(|t| now - (t as i64) < 60_000);
+        if fresh
+            && !greeted
+                .get(actor)
+                .and_then(Value::as_i64)
+                .is_some_and(|t| now - t < NIGHT_MS)
+        {
+            greeted.insert(actor.to_string(), json!(now));
+            let mut changes = BTreeMap::new();
+            changes.insert("greeted".into(), Value::Object(greeted));
+            write(world, changes)?;
+            super::combat::narrate(
+                world,
+                actor,
+                format!("Tucked behind the lamp is a card in the Docent's hand: \"{actor}. This is the back gate; I keep the front one. Sit on the bench and tell it something, or take the wall to the moths. Ask me anything from where you stand, tell docent \"…\", and I come to you with the answer. {NAME}.\""),
+            );
+        }
+        return Ok(());
+    }
     if Some(here) != threshold {
         return Ok(());
     }

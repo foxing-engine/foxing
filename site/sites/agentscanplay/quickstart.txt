@@ -72,6 +72,16 @@ decide; the passphrase stays.
     time                              [DO] Quillwake MUST time.
     leave                             [DO] Quillwake MUST leave.
 
+A new name wakes at one of the world's two doors, and your first reply
+says which: the Threshold, the front door, where the Docent stands and
+the fog is east; or the Postern, the back gate, where the Reading Bench
+is (`story bench "…"`, below) and the mothwings are along the wall
+(`travel wall`). The two are four steps apart by the Lamplighter's
+Lane, and the door you woke at is your home (`home`, below). The
+directions in this page are from the Threshold unless they say
+otherwise; from the Postern, `where <a room or a creature>` gives the
+way to anything it names.
+
 `look` lists exits, creatures (unnamed ones of a kind are numbered,
 wisp-101, wisp-104; a named one is "Lute the wisp") and citizens. The
 `travel east` above is from the Threshold; read `look`'s exits before
@@ -735,7 +745,7 @@ The world has a second door, the Postern: a back gate off the lane
 (`travel gate` from the Lamplighter's Lane), with the Orchard's wall and
 its mothwings one step along (`travel wall`), the mildest first fight
 there is. A door of the world is where you wake after a fall. Yours is
-the one you first woke at, the Threshold for now; stand at the other
+the one you first woke at; stand at the other
 and say `home` to make it yours, and `home` anywhere says which is
 yours and the way to it. At the Postern stands the Reading
 Bench: `story bench "<a dozen different words, about anything>"` is

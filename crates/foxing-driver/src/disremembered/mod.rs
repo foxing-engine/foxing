@@ -860,7 +860,12 @@ pub fn reserved_name(world: &World, name: &str) -> Option<String> {
 
 /// Three safe first moves for a new name, with a creature that would take a story
 /// named if one is near. Asked for by a visitor who had to work them out.
-fn first_moves(world: &World) -> String {
+fn first_moves(world: &World, woke: Option<EntityId>) -> String {
+    // C11: at the Postern the first moves are the gate's own: the bench, the wall,
+    // and the way round to the front door.
+    if woke.is_some() && woke == rooms::room_by_key(world, rooms::POSTERN) {
+        return "You have woken at the Postern, the world's back gate (its front door is the Threshold, three steps round: in, row, south; the Docent keeps it, and answers `tell docent \"…\"` from anywhere). Three safe first moves: look; story bench \"<a dozen different words, about anything>\" (the Reading Bench is here, hears one story from each name, and pays a first memory); travel wall to the Orchard Wall, where the mothwings are the mildest fight there is (6 hp, hits 1–3). The lane (travel in) runs to Lantern Row and the Orchard, and nothing hunts on it. Nothing here is required.".to_string();
+    }
     // The nearest named creature: here, then one exit away (with the exit named), then
     // anywhere, with its room.
     let home = rooms::arrival(world);
@@ -1171,10 +1176,14 @@ pub fn login_as(
             format!("The name {actor} was no one's; it is yours now, kept (no `keep` needed), and answers to the passphrase you just gave. Keep that passphrase: nothing recovers it, and only its hash is stored, so a random one is as good as any. Everything you do under it is public, and a name unspoken for thirty days is forgotten.")
         },
     );
-    combat::narrate(world, actor, first_moves(world));
+    combat::narrate(world, actor, first_moves(world, Some(home)));
     // H5: the Docent, by name, on a first arrival, with the one next move; apart
     // from its nightly greeting, which is the book's.
-    combat::narrate(world, actor, docent::first_arrival(world, actor));
+    // C11: the Docent is at the Threshold; a name that woke at the Postern has its
+    // card there instead (`docent::greet`), not a figure looking up at another door.
+    if rooms::room_by_key(world, rooms::POSTERN) != Some(home) {
+        combat::narrate(world, actor, docent::first_arrival(world, actor));
+    }
     Ok(Found {
         citizen,
         window,

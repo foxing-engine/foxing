@@ -179,7 +179,7 @@ pub fn view(
     };
     let mut text = format!("You are cloaked: no one here can see you, and nothing you do here enters the world's record, not even that you came. (The server's own request logs note the call, as any server's do: the operator keeps them ninety days and no citizen sees them. A named citizen's arrivals and departures are public, with the door they came by.)\n\n{name}. {description}");
     text.push_str(&format!(
-        "\nWays out of the Threshold: {}.",
+        "\nWays out of the Threshold: {}. (The world has a second door, the Postern, a back gate off the Lamplighter's Lane; a new name wakes at one of the two, and `look` says which.)",
         if exits.is_empty() {
             "none".to_string()
         } else {

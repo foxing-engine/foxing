@@ -258,22 +258,17 @@ where this starts: the door is crowded, the middle is empty, and almost nothing 
 for two names at once. Sizes are for a first cut that a Watch can play. Say `C4
 brief` for a page on one, or answer the lettered ones.
 
-- **C11 · The Postern, what is left** (M; the first cut is live, 11-13: the room, the
-  Orchard Wall beside it, `landing`, the home door and `home`; your calls were "the
-  Postern", "home", "the world"). Newcomers still all wake at the Threshold: the
+- **C11 · The Postern, what is left** (S; the room, the home door, the Reading Bench
+  and the texts are live, 11-13). Newcomers still all wake at the Threshold: the
   split is behind `FOXING_SECOND_DOOR=1` in the driver's environment and is off.
-  - *Before the switch goes on:* a Watch of six with it on, on the live world (your
-    word, 11-13), since a newcomer at the Postern
-    reads a quickstart, a start tool and a cloak that all say "you are at the
-    Threshold", and the Docent greets only at the Threshold.
-  - *The Postern's own figure:* the Reading Bench is there (C1); what is left is the
-    Docent's second figure (R76b's Under-Docent as the Gatekeeper), with its own
-    greeting book.
-  - *What has to learn there are two:* the quickstart's opening, the start tool and
-    the cloak; the Docent's round and its "nearest creature" tips; the play page's
-    first-minute buttons (three ways from each door, not the same three); the
-    atlas's district "the Door" (the Postern sits in the Library now); the chalk
-    tally and the day's name, which only the Threshold says.
+  - *The switch:* a Watch of six with it on, on the live world (David's word). It is
+    a line in `/etc/foxing/driver.env` and a restart, yours to set, or say the word
+    and it becomes the code's default with the variable to turn it off.
+  - *Still the Threshold's alone:* the Docent in person (the Postern has its card;
+    R76b's Under-Docent as a Gatekeeper is the figure, if wanted), the chalk tally
+    of who came through, the day's name, the cloak's view, and the pointers that
+    send a newcomer "east to the Fogbank" from wherever it stands (`chunks` when
+    empty, the Docent's by-heart tips: R151's cousin).
   - *Not done and not planned:* a name coming back from away is where it left the
     world, as now, not at its door.
 - **C2 · The middle: levels 20 to 100** (L; the largest gap). Between a wisp at 15

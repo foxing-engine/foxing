@@ -64,7 +64,7 @@ fn start(w: &crate::world::World) -> String {
     let wanted = if !any_named {
         // D26 b: on a fresh world nothing has a name for a while, and saying a
         // story is welcome sent a talker looking for a listener that was not there.
-        "No creature has a name just now, so nothing is wanted and there is no one to tell a story to yet: fell a wisp east of the Threshold, then feed an unnamed creature to sixty (`remember <chunk> <creature>`) and it takes a name and an ear.".to_string()
+        "No creature has a name just now, so nothing is wanted and there is no one to tell a story to yet: fell a wisp east of the Threshold (or a mothwing along the wall from the Postern), then feed an unnamed creature to sixty (`remember <chunk> <creature>`) and it takes a name and an ear.".to_string()
     } else if wants.is_empty() {
         "Nothing is wanted right now; a story to any named creature is welcome.".to_string()
     } else {

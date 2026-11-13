@@ -932,7 +932,17 @@ pub fn arrival(world: &World) -> Option<EntityId> {
 /// every new name wakes at the Threshold, and the Postern is a room like another
 /// that a name may make its home.
 fn second_door_open() -> bool {
+    #[cfg(test)]
+    if let Some(open) = SECOND_DOOR.with(|c| c.get()) {
+        return open;
+    }
     crate::env::var("FOXING_SECOND_DOOR").is_some_and(|v| v == "1" || v == "true")
+}
+
+#[cfg(test)]
+thread_local! {
+    /// A test's own switch, so one test's open door is not another's.
+    pub(crate) static SECOND_DOOR: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
 }
 
 /// The doors of the world that stand, the Threshold first.
