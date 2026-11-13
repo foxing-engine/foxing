@@ -258,25 +258,17 @@ where this starts: the door is crowded, the middle is empty, and almost nothing 
 for two names at once. Sizes are for a first cut that a Watch can play. Say `C4
 brief` for a page on one, or answer the lettered ones.
 
-- **C1 · A second way to begin** (M). Three of a Watch empty the Fogbank in a minute
-  and the fourth finds "nothing here to fight" as its first reply (R151, four
-  Watches running). A second starter room on the read-and-tell side with its own
-  first step: the **Reading Bench** off Lantern Row, where an unnamed thing takes a
-  first story from a name that has never told one (no name needed, once), so a
-  talker's first minute is not a walk to find a listener. a) **lean**: that; b)
-  spawn counts in the Fogbank that follow who is in the room; c) both.
 - **C11 · The Postern, what is left** (M; the first cut is live, 11-13: the room, the
   Orchard Wall beside it, `landing`, the home door and `home`; your calls were "the
   Postern", "home", "the world"). Newcomers still all wake at the Threshold: the
   split is behind `FOXING_SECOND_DOOR=1` in the driver's environment and is off.
-  - *Before the switch goes on:* a Watch of six with it on, on a local world or for
-    an hour on the live one (yours to say which), since a newcomer at the Postern
+  - *Before the switch goes on:* a Watch of six with it on, on the live world (your
+    word, 11-13), since a newcomer at the Postern
     reads a quickstart, a start tool and a cloak that all say "you are at the
     Threshold", and the Docent greets only at the Threshold.
-  - *The Postern's own first step:* the Reading Bench (C1 a, still yours to call)
-    would stand here, so the name that lands here is handed a listener before a
-    wisp; and the Docent's second figure (R76b's Under-Docent as the Gatekeeper),
-    with its own greeting book.
+  - *The Postern's own figure:* the Reading Bench is there (C1); what is left is the
+    Docent's second figure (R76b's Under-Docent as the Gatekeeper), with its own
+    greeting book.
   - *What has to learn there are two:* the quickstart's opening, the start tool and
     the cloak; the Docent's round and its "nearest creature" tips; the play page's
     first-minute buttons (three ways from each door, not the same three); the
@@ -325,7 +317,7 @@ brief` for a page on one, or answer the lettered ones.
   thing that rewards reading over reflexes: a catalogue in the Stacks that is a real
   index of the public record, a division in the Conclave that can be predicted from
   its Book. Agents are half the players and the content so far is written for hands.
-- Claude's order, if left to it: C1, C4, then C2 with a brief first. C5 can
+- Claude's order, if left to it: C11's rest, C4, then C2 with a brief first. C5 can
   start as three dates. What it needs from you first: which of C2 and C9 is the
   world you want (a deeper library, or a wider one), and whether C7 is in the spirit
   of the thing or too much rope.
@@ -527,6 +519,7 @@ The world
 
 ## What the cohorts taught (T): durable; read before briefing a cohort
 
+- **T15** (11-13, David's rule) Every test is on the live world: a Watch, a load test, a new switch tried. A pocket world (a local copy) is only for a content change David calls high-risk, and he says when that is. Claude's own check of a change before it ships, on a local build, is not a test in this sense and goes on as before.
 - **T14** (11-13, four live, three staggered four minutes apart and one seventy minutes late) Give each tester the night's own changes as numbered things to try and ask for the world's exact words: three of four confirmed fixes line by line and found two faults in the batch within the hour (a help example that did not parse, a dry run that disagreed), which were corrected while the Watch was still out. A feature that needs time to exist (a dead letter takes a quiet name an hour to make) is seeded by a script before the Watch and visited by a latecomer told to sleep first. A builder needs a kept name, and so does anyone asked to petition: the teller, on a passing name, could not. The session's machine may restart under a long Watch: testers should keep a log in their folder as they go (the postmaster's survived, and its report was read from it).
 - **T13** (11-12, four live, staggered four minutes apart) Staggering works and is worth keeping: the latecomer's report is a kind no simultaneous Watch gives (what is left, who is full, whether a word reaches anyone). A tester told to sleep before starting does it. Give one the newest player-facing page and tell it to play by that page alone: the guide's first reader found fourteen things wrong with it in four minutes, most of them figures the writer took from an older page. Testers do not answer each other unless told to check `messages` every few minutes: brief the first two to, or company goes untested. A brief that names where a creature lives must be checked against `where` first (the mender was sent to the Undertow for a lamprey that lives behind the level-100 stair).
 

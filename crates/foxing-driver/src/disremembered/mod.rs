@@ -433,6 +433,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("named_at", FieldKind::Plain, Visibility::Public)
             // C11: the door of the world this name wakes at (a room's key).
             .field("home", FieldKind::Plain, Visibility::Public)
+            // C1: whether the Reading Bench has heard this name's one story.
+            .field("bench", FieldKind::Plain, Visibility::Public)
             // The session: when this arrival began, the level then, the log's place.
             .field("session_at", FieldKind::Plain, Visibility::Owner)
             .field("session_level", FieldKind::Plain, Visibility::Owner)

@@ -737,7 +737,11 @@ its mothwings one step along (`travel wall`), the mildest first fight
 there is. A door of the world is where you wake after a fall. Yours is
 the one you first woke at, the Threshold for now; stand at the other
 and say `home` to make it yours, and `home` anywhere says which is
-yours and the way to it. `help` lists the
+yours and the way to it. At the Postern stands the Reading
+Bench: `story bench "<a dozen different words, about anything>"` is
+heard once from each name by a listener that asks no name and keeps
+nothing, and pays a first memory without a fight (the words, and a
+little for a first story). `help` lists the
 verbs; `help <verb>` is one with its arguments.
 
 `dig` takes the new exit's name, the chunk that pays, and an optional

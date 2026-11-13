@@ -14,6 +14,9 @@ punch list). What shipped from a visitor's word is also a dated line in
 - R164: `describe "…" here` means the room. R182: a holding within one of the naming bar is said to a place ("holds 59.8"). R187: a chunk's first size is printed to the same two places as its value. R201: `rest` says the level to a place, as `chunks` does.
 - R207: the "newest dug" doors are the newest of what still stands. R202: the dry run writes a bare `append` on the one fixture that takes the hand, as the gate does. R191: `help observe` says a query cannot be written in a [DO] and gives the form for the `observe` tool (the first example, with escaped quotes, did not parse; the maker of the Watch found it within the hour, and that the dry run still refused `describe "…" here`; both corrected the same night).
 
+11-13 (C1, by David's word: "let's keep the bench")
+- The Reading Bench stands at the Postern: `story bench "…"`, a dozen different words about anything, is heard once from each name by a listener that asks no name and keeps nothing, and pays the words and five for a first story (a dozen words, 9). `look` at the Postern offers it until the name has used it; the dry run knows it; asked for anywhere else, the reply says where the bench is. It is on the record as `disremembered.bench`.
+
 11-13 (C11, the Postern's first cut; David's calls: "Postern", "home", "the world")
 - The Postern: the world's second door, a back gate off the Lamplighter's Lane (`travel gate`), with its own signpost, and the Orchard Wall one step along it (`travel wall`; two mothwings; `over` into the Orchard). Nothing hunts at the gate.
 - A name has a home door: the one it first woke at. A fall wakes it there and says so ("You wake at the Postern"). `home` at the other door makes that one its own; `home` anywhere says which is its and the way.

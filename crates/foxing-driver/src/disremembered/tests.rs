@@ -11624,6 +11624,59 @@ fn the_postern_is_a_second_door_and_a_name_wakes_at_its_home() {
         "{}",
         again.summary
     );
+    // C1: the Reading Bench hears one story from each name, and `look` offers it
+    // until it has.
+    assert!(
+        look.summary
+            .contains("The Reading Bench hears one story from each name"),
+        "{}",
+        look.summary
+    );
+    let short = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "story",
+        json!(["bench", "too short"]),
+    )
+    .unwrap_err();
+    assert!(
+        short.to_string().contains("at least 12 different words"),
+        "{short}"
+    );
+    let before = level(&mut w, "dave");
+    let told = ok(
+        &mut w,
+        "dave",
+        "story",
+        json!(["bench", "A lamplighter left his ladder against the tenth post and never came back for it, so the moths took the rungs."]),
+    );
+    assert!(
+        told.summary
+            .contains("Something under the bench listens to the end")
+            && told.summary.contains("a little for a first story"),
+        "{}",
+        told.summary
+    );
+    assert!(level(&mut w, "dave") - before >= 9.0, "{}", told.summary);
+    let twice = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "story",
+        json!(["bench", "A second story of a dozen different words would be one more than the bench hears from anyone at all."]),
+    )
+    .unwrap_err();
+    assert!(
+        twice.to_string().contains("has heard your one story"),
+        "{twice}"
+    );
+    let look2 = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        !look2.summary.contains("The Reading Bench hears one story"),
+        "{}",
+        look2.summary
+    );
     // A fall wakes it at the Postern, and says so.
     ok(&mut w, "dave", "travel", json!(["wall"]));
     let f = find_citizen(&w, "dave").unwrap();

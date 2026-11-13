@@ -199,7 +199,7 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: POSTERN,
         name: "The Postern",
-        description: "The back gate: a low door in a garden wall, a lamp on an iron bracket, a bench worn smooth, a boot-scraper nobody has used. It is night here too. Through the door the Lamplighter's Lane runs to the lanterns one way and the Orchard the other, and nothing hunts on it; along the wall the moths come down from the trees, and they are the mildest thing in the world that will give you something to remember. This is a door of the world, as the Threshold is: a name that wakes here comes back here. Nothing hunts here.",
+        description: "The back gate: a low door in a garden wall, a lamp on an iron bracket, the Reading Bench under it worn smooth, a boot-scraper nobody has used. It is night here too. Through the door the Lamplighter's Lane runs to the lanterns one way and the Orchard the other, and nothing hunts on it; along the wall the moths come down from the trees, and they are the mildest thing in the world that will give you something to remember. This is a door of the world, as the Threshold is: a name that wakes here comes back here. Nothing hunts here.",
         exits: &[("in", "lamplighters-lane"), ("wall", "orchard-wall")],
         spawn: None,
         former: &[],
@@ -1431,6 +1431,13 @@ pub fn describe_as(
         }
         if HUBS.contains(&key.as_str()) {
             text.push_str(" A signpost stands here (`read signpost`).");
+        }
+        // C1: the Reading Bench, said until this name has used it.
+        if key == POSTERN
+            && super::find_citizen(world, actor)
+                .is_some_and(|f| !super::exchange::bench_heard(world, f.citizen))
+        {
+            text.push_str(" The Reading Bench hears one story from each name, about anything, and asks no name of its listener: `story bench \"<a dozen different words>\"` is a first memory without a fight.");
         }
     }
     // R78: the weather, by the Clocktower's rates and the hour.

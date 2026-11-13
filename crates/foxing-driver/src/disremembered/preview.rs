@@ -406,7 +406,23 @@ pub fn run_checked(
                 {
                     let who = if verb == "remember" { arg(1) } else { arg(0) };
                     let found = room.and_then(|r| mind::find_here(world, r, &who));
+                    // C1: the Reading Bench at the Postern, once a name.
+                    let at_bench = verb == "story"
+                        && super::exchange::is_bench(&who)
+                        && room.is_some_and(|r| {
+                            super::plain_str(world, r, super::ROOM, "key") == Some(rooms::POSTERN)
+                        });
                     match (verb.as_str(), found) {
+                        _ if at_bench => {
+                            if existing
+                                .as_ref()
+                                .is_some_and(|f| super::exchange::bench_heard(world, f.citizen))
+                            {
+                                (false, "refused: the bench has heard your one story".to_string())
+                            } else {
+                                (true, "tells the Reading Bench a first story, if it is a dozen different words".to_string())
+                            }
+                        }
                         ("story", Some(c)) => match mind::name(world, c) {
                             Some(_) if world.recent_events(2000).iter().any(|e| {
                                 e.kind == super::exchange::STORY

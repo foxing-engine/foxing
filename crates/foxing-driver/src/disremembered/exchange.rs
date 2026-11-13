@@ -122,6 +122,98 @@ pub fn heard_early_this_hour(world: &World, actor: &str, creature: EntityId) -> 
     })
 }
 
+/// What a first story to the Reading Bench pays over its words.
+pub const BENCH_WELCOME_XP: f64 = 5.0;
+/// The bench heard a name's one story: `{from, room, words, text}`. Public.
+pub const BENCH: &str = "disremembered.bench";
+
+/// The names the Reading Bench's listener answers to.
+pub fn is_bench(who: &str) -> bool {
+    let w = who.trim().trim_start_matches("the ").to_ascii_lowercase();
+    matches!(w.as_str(), "bench" | "reading bench" | "listener" | "lamp")
+}
+
+/// Whether the bench has heard this name.
+pub fn bench_heard(world: &World, citizen: EntityId) -> bool {
+    super::plain_bool(world, citizen, super::CITIZEN, "bench")
+}
+
+/// C1: a first story, told to nobody with a name. Once a name; it pays as a plain
+/// story does, and a little for the telling of a first one.
+fn bench_story(
+    w: &mut World,
+    actor: &str,
+    f: &super::Found,
+    here: EntityId,
+    text: &str,
+    curves: &Curves,
+) -> Result<Outcome, CommandError> {
+    if bench_heard(w, f.citizen) {
+        return Err(CommandError::precondition(
+            "The bench has heard your one story, and kept the place warm for the next name. The listeners with names take one an hour each: `wants` says who is wanting and where.",
+        ));
+    }
+    let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if text.chars().count() > MAX_STORY_CHARS {
+        return Err(CommandError::precondition(format!(
+            "That is more than {MAX_STORY_CHARS} characters; the bench is patient, not endless."
+        )));
+    }
+    let distinct = text
+        .split_whitespace()
+        .map(|w| {
+            w.trim_matches(|c: char| !c.is_alphanumeric())
+                .to_lowercase()
+        })
+        .filter(|w| !w.is_empty())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    if distinct < MIN_WORDS {
+        return Err(CommandError::precondition(format!(
+            "A story is at least {MIN_WORDS} different words; that was {distinct}. The bench waits; it hears one from each name, about anything."
+        )));
+    }
+    let paid = (distinct.min(MAX_WORDS_PAID) as f64 * XP_PER_WORD + BENCH_WELCOME_XP).round();
+    let earned = super::memory::earn_chunk(
+        w,
+        actor,
+        f.window,
+        "a first story, told at the Reading Bench",
+        paid,
+        0.3,
+        curves,
+    )?;
+    let mut changes = std::collections::BTreeMap::new();
+    changes.insert("bench".to_string(), foxing_store::Field::Plain(json!(true)));
+    super::bindery::set_fields(
+        w,
+        Actor::Citizen(actor.to_string()),
+        f.citizen,
+        super::CITIZEN,
+        changes,
+    )?;
+    w.note(
+        Actor::Citizen(actor.to_string()),
+        BENCH,
+        json!({"from": actor, "room": here.0, "words": distinct, "text": text}),
+    )
+    .map_err(internal)?;
+    for other in super::talk::others_here(w, here, actor) {
+        narrate(
+            w,
+            &other,
+            format!("{actor} sits on the bench and tells a story to the lamp. Something listens."),
+        );
+    }
+    Ok(Outcome::new(
+        format!(
+            "You sit, and tell it to the lamp. Something under the bench listens to the end; it has no name and wants none, and it keeps nothing of yours. You come away with the telling: chunk-{} worth {paid:.0} XP ({distinct} different words, and a little for a first story). The bench hears one from each name. The next listener has a name and keeps what it is told: `wants` says who is wanting and where, and a story about what one wants pays double.",
+            earned.0
+        ),
+        json!({"bench": true, "chunk": earned.0, "xp": paid, "words": distinct}),
+    ))
+}
+
 pub fn register(world: &mut World, curves: Curves) {
     world.register(
         CommandSpec::new(
@@ -268,7 +360,17 @@ pub fn register(world: &mut World, curves: Curves) {
             let f = me(w, ctx)?;
             let here = rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
             let who = args.str("creature").unwrap_or("").trim().to_string();
+            // C1: the Reading Bench at the Postern hears one story from each name,
+            // and asks no name of its listener.
+            if is_bench(&who) && super::plain_str(w, here, super::ROOM, "key") == Some(rooms::POSTERN) {
+                return bench_story(w, &ctx.actor, &f, here, args.str("text").unwrap_or(""), &curves);
+            }
             let Some(creature) = mind::find_here(w, here, &who) else {
+                if is_bench(&who) {
+                    return Err(CommandError::precondition(
+                        "The Reading Bench is at the Postern, the world's back gate (`where Postern`); it hears one story from each name. Here a story wants a named creature: `wants` says who is wanting.",
+                    ));
+                }
                 return Err(CommandError::precondition(format!("There is no {who} here.")));
             };
             let display = mind::display(w, creature);
