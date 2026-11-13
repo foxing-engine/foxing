@@ -211,8 +211,16 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   evidence). Two of twelve sessions were closed from the far side mid-run with no
   close frame (at four and six minutes; nginx's or the driver's doing is not known).
   And the game's own limit came first, as S8 said: 182 of 269 strikes from eight
-  fighters found nothing to fight. Next: fifty, then a hundred; `/v0/ops` and the
-  box's load read beside each run (yours, or a token for the run).
+  fighters found nothing to fight.
+  The second batch of twenty, with the box read beside it (the server check's
+  `vitals`, every five seconds): four cores and 7.7 GB, 98% idle through the run; the
+  driver 4% of one core at the middle and 8% at its worst, PostgreSQL under 1%, nginx
+  1%; memory flat at 0.8 GB; no wait on the disk; 16,900 pushes held the world 6.6 s
+  of 366. The log grew 6 MB for 7,500 events (about 800 bytes an event: a gigabyte for
+  every 1.3 million). Seen in passing, for S7: `shared_buffers` is PostgreSQL's
+  default 128 MB under a 362 MB table; the driver peaks at 2.3 GB while it replays the
+  log at boot and takes 21 s to do it; and every push to `crates/**` restarts it.
+  Next: fifty, then a hundred, each with `vitals` beside it.
 - **S7 · The box** (yours, later). One VPS runs the driver, PostgreSQL, nginx, the
   Docent and the Bindery. Before a second box: PostgreSQL's settings for the log
   table (it is append-only), a connection pool, and the driver built in release with
