@@ -2065,6 +2065,9 @@
     swap($("map"), map); swap($("ways"), ways);
     const things = (room.relations && room.relations.contents) || [];
     if (!things.length) here.append(Object.assign(document.createElement("div"), { className: "empty", textContent: "Nothing here." }));
+    // D36: a crowded room shows the fifty names the world remembers best, and counts the rest.
+    const more = room.truncated && room.truncated.contents;
+    if (more) here.append(Object.assign(document.createElement("div"), { className: "empty", textContent: "A crowd: the best remembered are shown, and " + more + " more are here. `look` says the same." }));
     const present = [];
     for (const n of things) {
       const s = sprite(n);

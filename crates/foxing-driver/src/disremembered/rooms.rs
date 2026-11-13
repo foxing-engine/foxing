@@ -2009,7 +2009,14 @@ pub fn describe_as(
             " No other citizen is here.".to_string()
         }
     } else {
-        format!(" Also here: {}.", others.join(", "))
+        let shown = &others[..others.len().min(super::NAMES_SHOWN)];
+        match others.len() - shown.len() {
+            0 => format!(" Also here: {}.", shown.join(", ")),
+            more => format!(
+                " Also here, the best remembered first: {}; and {more} more.",
+                shown.join(", ")
+            ),
+        }
     });
     if !remembered.is_empty() {
         let names: Vec<&str> = remembered.iter().map(|(n, _)| n.as_str()).collect();

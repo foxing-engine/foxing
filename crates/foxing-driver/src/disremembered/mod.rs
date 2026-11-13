@@ -724,6 +724,18 @@ pub(crate) fn canonical_name(world: &World, name: &str) -> Option<String> {
         .find(|o| o.to_lowercase() == lower)
 }
 
+/// D36: how many names a room says at once, the best remembered first; the rest are
+/// counted ("and 23 more").
+pub const NAMES_SHOWN: usize = 50;
+
+/// What a name holds now, in the window and on the shelf: how well the world
+/// remembers it, for the order a crowded room says its names in.
+pub(crate) fn holding_of(world: &World, actor: &str) -> f64 {
+    find_citizen(world, actor)
+        .map(|f| memory::level(world, f.window) + conclave::shelved(world, f.palace))
+        .unwrap_or(0.0)
+}
+
 pub(crate) fn find_citizen(world: &World, actor: &str) -> Option<Found> {
     let citizen = world
         .store

@@ -294,6 +294,22 @@ pub enum QueryError {
 pub trait RootResolver {
     /// The entity a name refers to for this viewer, if any.
     fn resolve(&self, name: &str, arg: Option<&str>, viewer: &Viewer) -> Option<EntityId>;
+
+    /// A relation's matches passed the breadth, and the query named no limit of its
+    /// own: which of them to keep, at most `limit`, in the order to show them. The
+    /// node then says how many were left out, under `truncated`. `None` (the
+    /// default) refuses the query as too broad, as a query with its own limit
+    /// always is.
+    fn narrow(
+        &self,
+        _relation: &str,
+        _from: EntityId,
+        _matches: &[EntityId],
+        _limit: usize,
+        _viewer: &Viewer,
+    ) -> Option<Vec<EntityId>> {
+        None
+    }
 }
 
 /// A resolver that knows no names: only entity ids work.
@@ -357,6 +373,8 @@ pub fn observe(
         limits,
         timed: query.timed,
         touched: 0,
+        roots,
+        left_out: Vec::new(),
     };
     let node = walk
         .node(root, query.select.as_ref(), &query.relations)?
@@ -519,6 +537,9 @@ struct Walk<'a> {
     limits: &'a Limits,
     timed: TimedForm,
     touched: usize,
+    roots: &'a dyn RootResolver,
+    /// Relations narrowed on the node being built: `(node, relation, how many more)`.
+    left_out: Vec<(EntityId, String, usize)>,
 }
 
 impl Walk<'_> {
@@ -545,6 +566,19 @@ impl Walk<'_> {
                 rels.insert(name.clone(), self.relation(id, name, rq)?);
             }
             node["relations"] = Value::Object(rels);
+            // What a narrowed relation left out, by its name: "and 23 more".
+            let mut more = Map::new();
+            self.left_out.retain(|(from, name, n)| {
+                if *from == id {
+                    more.insert(name.clone(), Value::from(*n));
+                    false
+                } else {
+                    true
+                }
+            });
+            if !more.is_empty() {
+                node["truncated"] = Value::Object(more);
+            }
         }
         Ok(Some(node))
     }
@@ -622,12 +656,37 @@ impl Walk<'_> {
                 }
             }
             kept.push((id, label));
-            if kept.len() > limit {
+            // A query that names its own limit fails at it, before the rest is read.
+            if rq.limit.is_some() && kept.len() > limit {
                 return Err(QueryError::TooMany {
                     relation: name.to_string(),
                     found: kept.len(),
                     limit,
                 });
+            }
+        }
+        if kept.len() > limit {
+            // Past the breadth with no limit asked: the world may say which to keep.
+            let ids: Vec<EntityId> = kept.iter().map(|(id, _)| *id).collect();
+            match self.roots.narrow(name, from, &ids, limit, self.viewer) {
+                Some(keep) if keep.len() <= limit => {
+                    let found = kept.len();
+                    let labels: std::collections::HashMap<EntityId, Option<String>> =
+                        kept.into_iter().collect();
+                    kept = keep
+                        .into_iter()
+                        .filter_map(|id| labels.get(&id).map(|l| (id, l.clone())))
+                        .collect();
+                    self.left_out
+                        .push((from, name.to_string(), found - kept.len()));
+                }
+                _ => {
+                    return Err(QueryError::TooMany {
+                        relation: name.to_string(),
+                        found: kept.len(),
+                        limit,
+                    });
+                }
             }
         }
         let mut out = Vec::new();

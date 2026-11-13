@@ -54,17 +54,6 @@ Economy and death
   No new rule, one verb that already exists. Cost: it rewards hoarders of creatures.
   Lean, if asked: **c**, with d as the mechanism (tending = having shelved into it).
 
-- **D36 · A room past a hundred things** (M; **waits**: it is the engine's contract). An
-  observation refuses a relation of more than a hundred entities ("relation contents
-  reaches 101 entities; the limit is 100"), so a room with a hundred things in it,
-  fifty arrivals at the Threshold among them, has no room panel on the play page
-  until the crowd thins (the panel now comes back by itself; before 11-13 it stayed
-  dead). a) **lean**: past the breadth, a relation returns its first hundred with
-  `"truncated": <how many more>` and the page says "and 23 more"; a query that names
-  its own `limit` still fails past it, as now; b) the limit rises to five hundred for
-  `contents` alone; c) newcomers past forty at the Threshold arrive in a second room
-  (C1's second way to begin, pulled forward).
-
 ## Ready to ship (R): all ship on the Night's Watch by policy, in Claude's batches
 
 Each is designed and needs no decision. Say `R<n> hold` to keep one back.
@@ -246,8 +235,9 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   (38), and 81,765 of 102,000 wakings took no lock at all. The world's share of a
   reply is unchanged (5 ms, 30 at the 95th: `tell` and `say` in a crowded room are the
   slow verbs now, 33 and 18 ms at the middle, writing a line for every listener).
-  What the fifty found that is not speed: a room past a hundred things has no room
-  panel (D36), and one session in thirty still drops mid-run.
+  What the fifty found that is not speed: a room past a hundred things had no room
+  panel (mended the same day: a room says its fifty best remembered names and counts
+  the rest), and one session in thirty still drops mid-run.
   Next: a hundred, then two hundred, each with `vitals` beside it.
 - **S7 · The box** (yours, later). One VPS runs the driver, PostgreSQL, nginx, the
   Docent and the Bindery. Before a second box: PostgreSQL's settings for the log
@@ -275,6 +265,45 @@ brief` for a page on one, or answer the lettered ones.
   first story from a name that has never told one (no name needed, once), so a
   talker's first minute is not a walk to find a listener. a) **lean**: that; b)
   spawn counts in the Fogbank that follow who is in the room; c) both.
+- **C11 · A second landing: the Postern** (M; sketched 11-13 at David's ask, "more for
+  resilience and variety than load"; nothing built). The Threshold is the one room
+  every name wakes in, falls back to and is greeted in, so everything a newcomer
+  meets is one room's worth, and a fault there (a crowd, a bad description, a
+  creature loose) is a fault at the only door.
+  - *The room.* **The Postern**: the back gate, on the far side of the Library from
+    the Threshold. A low door in a garden wall, a lamp on a bracket, a bench, a
+    boot-scraper; night, like everything. Exits: `in` to the Lamplighter's Lane
+    (nothing hunts on the lane, and it runs to Lantern Row one way and the Orchard
+    the other), `wall` to a stretch of the Orchard wall with mothwings (its own
+    first fight, milder than the fog), `round` to the Threshold, two rooms by the
+    wall. Nothing hunts here. Its own signpost.
+  - *Its own first step.* Where the Threshold says fight, read or dig, the Postern
+    says tell: C1's Reading Bench stands here, so the name that lands here is handed
+    a listener before a wisp. The Docent keeps a second figure at it (R76b's
+    Under-Docent can be this one: the Gatekeeper), with its own greeting book.
+  - *Who lands where.* A new name lands at the door with fewer names in it, and at
+    the Threshold on a tie; a name that has a home door comes back to it (a field on
+    the citizen, set at first arrival, changed by `home` at either door). A fall
+    wakes you at your home door. If either door's room cannot be shown (missing,
+    razed, past its breadth), every name lands at the other: that is the
+    resilience, and it is one function (`rooms::landing(world, citizen)`) where
+    there are fourteen uses of `ARRIVAL` now.
+  - *What has to learn there are two.* The quickstart, the guide, the start tool and
+    the cloak ("you are at the Threshold" is written in each); the map's layout (it
+    is laid from the Threshold: the Postern is a second anchor, or simply a room
+    six cells off); the Docent's round and its "nearest creature" tips; `where
+    door`; the atlas's district "the Door" (it becomes two rooms); the play page's
+    first-minute buttons (three ways from each door, not the same three); every
+    test that logs in and travels east.
+  - *What it is not.* Not a second world or a shard: both doors open on the same
+    rooms, and two names who land apart meet in the lane in two steps.
+  - *Yours to call:* the name (the Postern; the Back Gate; the Garden Door); whether
+    a fall wakes you at your home door or always at the Threshold (lean: home);
+    whether the choice is the world's (the emptier door) or the newcomer's (the
+    invitation offers both; lean: the world's, with `home` to change it).
+  - *Order of work:* `landing()` and the home field with one door (no change seen);
+    the room, its exits and signpost; the Docent's second figure; the texts; then
+    the split of arrivals, behind a switch, tried by a Watch of six.
 - **C2 · The middle: levels 20 to 100** (L; the largest gap). Between a wisp at 15
   and the Stacks' stair at 100 there is the Trail and little else, and the teller of
   11-11 crossed it in five minutes while a fighter cannot cross it in an evening. A

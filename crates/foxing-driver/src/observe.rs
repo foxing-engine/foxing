@@ -116,6 +116,57 @@ impl RootResolver for Roots<'_> {
             _ => None,
         }
     }
+
+    /// D36: a room past the breadth still has a room to show. Of the names in it,
+    /// the viewer and then the fifty the world remembers best (what each holds, in
+    /// the window and on the shelf; a kept name before a passing one at a tie);
+    /// then everything that is not a name, oldest first, as far as the breadth goes.
+    fn narrow(
+        &self,
+        relation: &str,
+        _from: EntityId,
+        matches: &[EntityId],
+        limit: usize,
+        viewer: &Viewer,
+    ) -> Option<Vec<EntityId>> {
+        if relation != "contents" {
+            return None;
+        }
+        let w = self.0;
+        let me = viewer.actor.as_deref();
+        let mut names: Vec<(bool, f64, bool, EntityId)> = Vec::new();
+        let mut things: Vec<EntityId> = Vec::new();
+        for &id in matches {
+            match w.store.entity(id) {
+                Some(e) if e.kind == "citizen" => {
+                    let owner = e.owner.as_deref().unwrap_or("");
+                    let held = crate::disremembered::holding_of(w, owner);
+                    names.push((
+                        Some(owner) == me,
+                        held,
+                        !crate::disremembered::is_passing(w, id),
+                        id,
+                    ));
+                }
+                Some(_) => things.push(id),
+                None => {}
+            }
+        }
+        names.sort_by(|a, b| {
+            b.0.cmp(&a.0)
+                .then(b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal))
+                .then(b.2.cmp(&a.2))
+                .then(a.3.cmp(&b.3))
+        });
+        let mut keep: Vec<EntityId> = names
+            .iter()
+            .take(crate::disremembered::NAMES_SHOWN.min(limit))
+            .map(|n| n.3)
+            .collect();
+        let room = limit - keep.len();
+        keep.extend(things.into_iter().take(room));
+        Some(keep)
+    }
 }
 
 /// Public by nature: what crossed the Gate (the invitation promises it), who arrived,

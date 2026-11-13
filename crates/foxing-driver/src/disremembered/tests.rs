@@ -11532,3 +11532,44 @@ fn the_night_batch_of_11_13_says_what_it_should() {
         "{said}"
     );
 }
+
+#[test]
+fn a_crowded_room_says_its_fifty_best_remembered_names_and_counts_the_rest() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    for i in 0..120 {
+        login(&mut w, &format!("crowd{i:03}"), "test", PASS).unwrap();
+    }
+    // Two of the crowd hold something; they are said first.
+    admin(&mut w, "crowd077", "earn", json!(["wisp", 40, 0.5]));
+    admin(&mut w, "crowd101", "earn", json!(["wisp", 90, 0.5]));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("Also here, the best remembered first: crowd101, crowd077, crowd000,"),
+        "{}",
+        look.summary
+    );
+    assert!(look.summary.contains("; and 70 more."), "{}", look.summary);
+    // The observation behind the room panel: narrowed, not refused; the viewer in it.
+    let obs = &look.result["observation"]["root"];
+    let contents = obs["relations"]["contents"].as_array().expect("contents");
+    let names: Vec<&str> = contents
+        .iter()
+        .filter(|n| n["kind"] == "citizen")
+        .filter_map(|n| n["components"][CITIZEN]["name"].as_str())
+        .collect();
+    assert_eq!(names.len(), 50, "{names:?}");
+    assert_eq!(&names[..3], ["dave", "crowd101", "crowd077"]);
+    assert!(contents.len() <= 100);
+    assert!(
+        obs["truncated"]["contents"].as_u64().unwrap() >= 71,
+        "{}",
+        obs["truncated"]
+    );
+    // A query that names its own limit is still refused past it.
+    let q = json!({"root": "here", "relations": {"contents": {"limit": 20}}}).to_string();
+    let e = call(&mut w, "dave", ActorKind::Citizen, "observe", json!([q])).unwrap_err();
+    assert!(e.to_string().contains("the limit is 20"), "{e}");
+}

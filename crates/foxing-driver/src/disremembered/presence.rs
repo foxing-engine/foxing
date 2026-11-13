@@ -447,10 +447,22 @@ pub fn split(world: &World, room: EntityId, me: &str) -> (Vec<String>, Vec<(Stri
         }
         let shown = describe_citizen(world, e.id, name);
         match trace(world, e.id) {
-            None => here.push(shown),
+            None => here.push((
+                super::holding_of(world, e.owner.as_deref().unwrap_or(name)),
+                !super::is_passing(world, e.id),
+                shown,
+            )),
             Some(t) if t >= FORGOTTEN => remembered.push((shown, t)),
             Some(_) => {}
         }
     }
+    // D36: a crowd is said best remembered first (what each holds; a kept name
+    // before a passing one), and `look` says fifty of it and counts the rest.
+    here.sort_by(|a, b| {
+        b.0.partial_cmp(&a.0)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(b.1.cmp(&a.1))
+    });
+    let here = here.into_iter().map(|h| h.2).collect();
     (here, remembered)
 }
