@@ -258,12 +258,11 @@ where this starts: the door is crowded, the middle is empty, and almost nothing 
 for two names at once. Sizes are for a first cut that a Watch can play. Say `C4
 brief` for a page on one, or answer the lettered ones.
 
-- **C11 · The Postern, what is left** (S; the room, the home door, the Reading Bench
-  and the texts are live, 11-13). Newcomers still all wake at the Threshold: the
-  split is behind `FOXING_SECOND_DOOR=1` in the driver's environment and is off.
-  - *The switch:* a Watch of six with it on, on the live world (David's word). It is
-    a line in `/etc/foxing/driver.env` and a restart, yours to set, or say the word
-    and it becomes the code's default with the variable to turn it off.
+- **C11 · The Postern, what is left** (S; the second door is open, 11-13: a new name
+  wakes at whichever of the Threshold and the Postern has fewer names in it, the
+  Threshold at a tie; `FOXING_SECOND_DOOR=0` shuts it).
+  - *Next:* a Watch of six on the live world (David's word), half of whom will wake
+    at the gate.
   - *Still the Threshold's alone:* the Docent in person (the Postern has its card;
     R76b's Under-Docent as a Gatekeeper is the figure, if wanted), the chalk tally
     of who came through, the day's name, the cloak's view, and the pointers that

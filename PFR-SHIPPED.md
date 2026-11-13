@@ -14,6 +14,9 @@ punch list). What shipped from a visitor's word is also a dated line in
 - R164: `describe "…" here` means the room. R182: a holding within one of the naming bar is said to a place ("holds 59.8"). R187: a chunk's first size is printed to the same two places as its value. R201: `rest` says the level to a place, as `chunks` does.
 - R207: the "newest dug" doors are the newest of what still stands. R202: the dry run writes a bare `append` on the one fixture that takes the hand, as the gate does. R191: `help observe` says a query cannot be written in a [DO] and gives the form for the `observe` tool (the first example, with escaped quotes, did not parse; the maker of the Watch found it within the hour, and that the dry run still refused `describe "…" here`; both corrected the same night).
 
+11-13 (the second door opened, by David's word: "switch is on by default")
+- A new name wakes at whichever door has fewer names in it, the Threshold at a tie. `FOXING_SECOND_DOOR=0` in the driver's environment shuts the Postern to newcomers again; nothing else about it changes.
+
 11-13 (C11's texts, by David's word: "do the texts"; nothing a player sees changes while the second door's switch is off)
 - A name that wakes at the Postern is told so, with the gate's own three first moves (the bench, the wall and its mothwings, the lane) and the way round to the Threshold, in place of "travel east to the Fogbank". It finds the Docent's card behind the lamp, once, in place of the Docent looking up from a page three rooms away.
 - The play page's first-minute buttons are the Postern's own for a name whose home is there: the bench (it starts the line `story bench "`), the wall, the lane.

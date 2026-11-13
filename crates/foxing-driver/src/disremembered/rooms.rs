@@ -928,15 +928,23 @@ pub fn arrival(world: &World) -> Option<EntityId> {
     room_by_key(world, ARRIVAL)
 }
 
-/// Whether newcomers are shared between the two doors (`FOXING_SECOND_DOOR=1`). Off,
-/// every new name wakes at the Threshold, and the Postern is a room like another
-/// that a name may make its home.
+/// Whether newcomers are shared between the two doors: they are, unless
+/// `FOXING_SECOND_DOOR` is `0`, `false` or `off` (David's word, 11-13: "switch is on
+/// by default"). With it off, every new name wakes at the Threshold, and the Postern
+/// is a room like another that a name may make its home.
 fn second_door_open() -> bool {
+    // The tests log in two and three names and walk them from the Threshold, as
+    // they did before there was a second door: under test the door is shut unless
+    // the test opens it.
     #[cfg(test)]
-    if let Some(open) = SECOND_DOOR.with(|c| c.get()) {
-        return open;
+    {
+        SECOND_DOOR.with(|c| c.get()).unwrap_or(false)
     }
-    crate::env::var("FOXING_SECOND_DOOR").is_some_and(|v| v == "1" || v == "true")
+    #[cfg(not(test))]
+    {
+        !crate::env::var("FOXING_SECOND_DOOR")
+            .is_some_and(|v| matches!(v.trim(), "0" | "false" | "off"))
+    }
 }
 
 #[cfg(test)]

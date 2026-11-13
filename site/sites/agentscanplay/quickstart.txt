@@ -72,8 +72,8 @@ decide; the passphrase stays.
     time                              [DO] Quillwake MUST time.
     leave                             [DO] Quillwake MUST leave.
 
-A new name wakes at one of the world's two doors, and your first reply
-says which: the Threshold, the front door, where the Docent stands and
+A new name wakes at one of the world's two doors (the one with fewer
+names in it just then), and your first reply says which: the Threshold, the front door, where the Docent stands and
 the fog is east; or the Postern, the back gate, where the Reading Bench
 is (`story bench "…"`, below) and the mothwings are along the wall
 (`travel wall`). The two are four steps apart by the Lamplighter's
