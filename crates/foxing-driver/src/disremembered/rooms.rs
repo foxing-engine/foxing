@@ -31,6 +31,8 @@ pub struct RoomDef {
 }
 
 pub const ARRIVAL: &str = "threshold";
+/// C11: the second landing, the back gate on the far side of the Library.
+pub const POSTERN: &str = "postern";
 
 /// H9: the world's rooms by district. A district is a name for a part of the map, a
 /// room that is its door, and a line said once a session to whoever comes through it.
@@ -59,13 +61,13 @@ fn district_index(key: &str) -> Option<usize> {
         ARRIVAL => 0,
         MUDROOM => 1,
         "fogbank" | "shallows" | "midden" | "ossuary" | "gallery" | "oubliette" => 2,
-        "lantern-row" | "archive" | "namery" | "dead-letters" | "lamplighters-lane" => 3,
+        "lantern-row" | "archive" | "namery" | "dead-letters" | "lamplighters-lane" | POSTERN => 3,
         "stairwell" | "cistern" | "undertow" => 4,
         "lower-stacks" | "catalogue" | "dark-reading-room" | "periodicals" | "dumbwaiter"
         | "overdue-desk" | "carrels" | "index-stair" | "bindery" | "tube-room" | "lost-things"
         | "acid-room" | "chart-room" | "censor-office" | "restoration" | "pulp-sump"
         | "the-leak" | "reserve" | "strongroom" | "deep-reserve" => 5,
-        "orchard" | "clocktower" => 6,
+        "orchard" | "clocktower" | "orchard-wall" => 6,
         "escapement-stair" | "petition-gallery" | "robing-room" | "tally-room" | "brass-rail"
         | "book-lectern" | "roll-hall" | "session-benches" | "division-lobby" | "minute-room"
         | "engrossing-room" => 7,
@@ -105,7 +107,7 @@ pub fn district_named(text: &str) -> Option<&'static District> {
 }
 
 /// H11: the rooms that have a signpost of their own.
-pub const HUBS: &[&str] = &["fogbank", "lantern-row", "orchard", "clocktower"];
+pub const HUBS: &[&str] = &["fogbank", "lantern-row", "orchard", "clocktower", POSTERN];
 /// The room off the Threshold where the digging starts: every dug door that once hung
 /// off the front door hangs here, and the door cap does not apply.
 pub const MUDROOM: &str = "mudroom";
@@ -187,10 +189,30 @@ pub const ROOMS: &[RoomDef] = &[
         key: "lamplighters-lane",
         name: "The Lamplighter's Lane",
         description: "A narrow lane between a wall of books and a wall of trees, with a ladder left leaning at every tenth post by someone who meant to come back for it. The lamps here are lit by hand, and somebody still does it. Behind you the Row; ahead, fruit on the air and a clock that is not striking. Nothing hunts here.",
-        exits: &[("row", "lantern-row"), ("orchard", "orchard")],
+        exits: &[("row", "lantern-row"), ("orchard", "orchard"), ("gate", POSTERN)],
         spawn: None,
         former: &[],
         tint: "#b89a5e",
+    },
+    // C11: the Postern, the world's second door. A name may wake here as it wakes at
+    // the Threshold (`landing`), and keeps the door it woke at as its home (`home`).
+    RoomDef {
+        key: POSTERN,
+        name: "The Postern",
+        description: "The back gate: a low door in a garden wall, a lamp on an iron bracket, a bench worn smooth, a boot-scraper nobody has used. It is night here too. Through the door the Lamplighter's Lane runs to the lanterns one way and the Orchard the other, and nothing hunts on it; along the wall the moths come down from the trees, and they are the mildest thing in the world that will give you something to remember. This is a door of the world, as the Threshold is: a name that wakes here comes back here. Nothing hunts here.",
+        exits: &[("in", "lamplighters-lane"), ("wall", "orchard-wall")],
+        spawn: None,
+        former: &[],
+        tint: "#6f7a5c",
+    },
+    RoomDef {
+        key: "orchard-wall",
+        name: "The Orchard Wall",
+        description: "The outside of the Orchard's wall, where the branches hang over and drop fruit that never ripened into the long grass. Moths work the windfalls. Over the wall is the Orchard; along it, the gate.",
+        exits: &[("gate", POSTERN), ("over", "orchard")],
+        spawn: Some(("mothwing", 2, 40)),
+        former: &[],
+        tint: "#71895a",
     },
     RoomDef {
         key: "archive",
@@ -233,7 +255,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "orchard",
         name: "The Orchard of Unripe Hours",
         description: "Rows of low trees heavy with fruit that is always about to ripen and never does. The air is sweet with it. Moths the size of your hand work the branches, and are not interested in you, mostly.",
-        exits: &[("south", "shallows"), ("up", "clocktower"), ("north", "trail-stile"), ("lane", "lamplighters-lane")],
+        exits: &[("south", "shallows"), ("up", "clocktower"), ("north", "trail-stile"), ("lane", "lamplighters-lane"), ("wall", "orchard-wall")],
         spawn: Some(("mothwing", 3, 40)),
         former: &[],
         tint: "#7d9a5a",
@@ -904,6 +926,47 @@ pub fn room_by_key(world: &World, key: &str) -> Option<EntityId> {
 /// The arrival room.
 pub fn arrival(world: &World) -> Option<EntityId> {
     room_by_key(world, ARRIVAL)
+}
+
+/// Whether newcomers are shared between the two doors (`FOXING_SECOND_DOOR=1`). Off,
+/// every new name wakes at the Threshold, and the Postern is a room like another
+/// that a name may make its home.
+fn second_door_open() -> bool {
+    crate::env::var("FOXING_SECOND_DOOR").is_some_and(|v| v == "1" || v == "true")
+}
+
+/// The doors of the world that stand, the Threshold first.
+pub fn doors(world: &World) -> Vec<EntityId> {
+    [ARRIVAL, POSTERN]
+        .iter()
+        .filter_map(|k| room_by_key(world, k))
+        .collect()
+}
+
+/// C11: where a name wakes. One it has made its home, while that door stands; else,
+/// for a newcomer, the door with fewer names in it when the second door is open (the
+/// Threshold at a tie), and the Threshold when it is not. If a door is gone, every
+/// name wakes at the other: the world has no single room it cannot do without.
+pub fn landing(world: &World, citizen: Option<EntityId>) -> Option<EntityId> {
+    let doors = doors(world);
+    if let Some(home) = citizen
+        .and_then(|c| plain_str(world, c, super::CITIZEN, "home"))
+        .and_then(|k| room_by_key(world, k))
+        .filter(|r| doors.contains(r))
+    {
+        return Some(home);
+    }
+    if citizen.is_none() && second_door_open() && doors.len() > 1 {
+        let crowd = |r: EntityId| {
+            world
+                .store
+                .children(r)
+                .filter(|e| e.kind == "citizen" && super::presence::is_here(world, e.id))
+                .count()
+        };
+        return doors.iter().copied().min_by_key(|r| crowd(*r));
+    }
+    doors.first().copied()
 }
 
 /// Build every room the log does not have, and the exits once all rooms exist. A room

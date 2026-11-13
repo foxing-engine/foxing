@@ -379,6 +379,55 @@ pub fn register(world: &mut World) {
 
     world.register(
         CommandSpec::new(
+            "disremembered.home",
+            "The door of the world you wake at after a fall: the one you first woke at, until you stand at the other (the Threshold, the Postern) and say `home` there. Anywhere else, it says which door is yours and the way to it.",
+        ),
+        Box::new(|w: &mut World, ctx, _| {
+            let f = super::me(w, ctx)?;
+            let here = super::rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
+            let said = |w: &World, r: foxing_store::EntityId| -> String {
+                let n = super::plain_str(w, r, super::ROOM, "name").unwrap_or("the door");
+                match n.strip_prefix("The ") {
+                    Some(rest) => format!("the {rest}"),
+                    None => n.to_string(),
+                }
+            };
+            let mine = super::rooms::landing(w, Some(f.citizen)).ok_or_else(|| internal("the world has no door"))?;
+            if !super::rooms::doors(w).contains(&here) {
+                let way = super::errand::route(w, here, mine)
+                    .filter(|p| !p.is_empty())
+                    .map(|p| format!(" From here: {}.", p.join(", ")))
+                    .unwrap_or_default();
+                return Ok(Outcome::new(
+                    format!(
+                        "Your home door is {}: a fall wakes you there.{way} Stand at a door of the world (the Threshold, the Postern) and say `home` to make that one yours.",
+                        said(w, mine)
+                    ),
+                    json!({"home": super::plain_str(w, mine, super::ROOM, "key"), "changed": false}),
+                ));
+            }
+            if here == mine {
+                return Ok(Outcome::new(
+                    format!("This is your home door already: a fall wakes you here, at {}.", said(w, here)),
+                    json!({"home": super::plain_str(w, here, super::ROOM, "key"), "changed": false}),
+                ));
+            }
+            let key = super::plain_str(w, here, super::ROOM, "key").unwrap_or(super::rooms::ARRIVAL).to_string();
+            let mut changes = std::collections::BTreeMap::new();
+            changes.insert("home".to_string(), foxing_store::Field::Plain(json!(key)));
+            super::bindery::set_fields(w, Actor::Citizen(ctx.actor.clone()), f.citizen, super::CITIZEN, changes)?;
+            Ok(Outcome::new(
+                format!("{} is your home door now: a fall wakes you here, not at {}.", {
+                    let s = said(w, here);
+                    let mut c = s.chars();
+                    c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or(s)
+                }, said(w, mine)),
+                json!({"home": key, "changed": true}),
+            ))
+        }),
+    );
+    world.register(
+        CommandSpec::new(
             "disremembered.keep",
             "Keep this name: a passing name becomes a kept one, yours until thirty days of silence, and may dig, permit and shelve. The passphrase you set stays the one it answers to.",
         ),

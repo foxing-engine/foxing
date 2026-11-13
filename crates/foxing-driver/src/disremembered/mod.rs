@@ -431,6 +431,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("pto_taken", FieldKind::Plain, Visibility::Public)
             // When the name was taken. A new name is not hunted for its first hour.
             .field("named_at", FieldKind::Plain, Visibility::Public)
+            // C11: the door of the world this name wakes at (a room's key).
+            .field("home", FieldKind::Plain, Visibility::Public)
             // The session: when this arrival began, the level then, the log's place.
             .field("session_at", FieldKind::Plain, Visibility::Owner)
             .field("session_level", FieldKind::Plain, Visibility::Owner)
@@ -1062,8 +1064,11 @@ pub fn login_as(
         return Err(LoginError::Taken { taken });
     }
     identity::acceptable(passphrase)?;
-    let home = rooms::arrival(world)
-        .ok_or_else(|| LoginError::Internal("the Threshold is missing".into()))?;
+    let home = rooms::landing(world, None)
+        .ok_or_else(|| LoginError::Internal("the world has no door to wake at".into()))?;
+    let home_key = plain_str(world, home, ROOM, "key")
+        .unwrap_or(rooms::ARRIVAL)
+        .to_string();
     let citizen = world.store.allocate_id();
     world
         .record(
@@ -1082,6 +1087,8 @@ pub fn login_as(
     fields.insert("origin".into(), Field::Plain(json!(origin)));
     fields.insert("passing".into(), Field::Plain(json!(passing)));
     fields.insert("named_at".into(), Field::Plain(json!(world.now().0)));
+    // C11: the door it woke at is its home, until it says otherwise (`home`).
+    fields.insert("home".into(), Field::Plain(json!(home_key)));
     world
         .record(
             me.clone(),

@@ -5578,10 +5578,11 @@ fn the_killer_keeps_what_you_lost_and_may_learn_from_it() {
         "{}",
         look.summary
     );
-    let learned = plain_str(&w, rag, CREATURE, "learned");
+    // (What it learned is kept as a list; a single string was the older form.)
+    let learned = !super::stacks::learned_of(&w, rag).is_empty();
     assert_eq!(
         look.summary.contains("it has learned"),
-        learned.is_some(),
+        learned,
         "{}",
         look.summary
     );
@@ -5592,7 +5593,7 @@ fn the_killer_keeps_what_you_lost_and_may_learn_from_it() {
         .filter(|e| e.kind == combat::DIED)
         .collect();
     assert_eq!(died[0].payload["killer_kind"], json!("ragpicker"));
-    assert_eq!(died[0].payload["learned"], json!(learned));
+    assert_eq!(died[0].payload["learned"].is_string(), learned);
     assert!(died[0].payload["kept"].is_number());
     // mine says the night's falls.
     let out = ok(&mut w, "dave", "mine", json!([]));
@@ -9199,7 +9200,7 @@ fn the_door_has_a_signpost_and_the_mudroom_boots_and_a_spade() {
     assert!(
         orchard
             .summary
-            .contains("The Clock Quarter begins here (2 rooms)"),
+            .contains("The Clock Quarter begins here (3 rooms)"),
         "{}",
         orchard.summary
     );
@@ -11572,4 +11573,77 @@ fn a_crowded_room_says_its_fifty_best_remembered_names_and_counts_the_rest() {
     let q = json!({"root": "here", "relations": {"contents": {"limit": 20}}}).to_string();
     let e = call(&mut w, "dave", ActorKind::Citizen, "observe", json!([q])).unwrap_err();
     assert!(e.to_string().contains("the limit is 20"), "{e}");
+}
+
+#[test]
+fn the_postern_is_a_second_door_and_a_name_wakes_at_its_home() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let dave = find_citizen(&w, "dave").unwrap().citizen;
+    let threshold = rooms::room_by_key(&w, rooms::ARRIVAL).unwrap();
+    let postern = rooms::room_by_key(&w, rooms::POSTERN).unwrap();
+    // With the second door shut to newcomers, a new name wakes at the Threshold,
+    // which is its home; the Postern is two steps past Lantern Row.
+    assert_eq!(rooms::room_of(&w, dave), Some(threshold));
+    assert_eq!(plain_str(&w, dave, CITIZEN, "home"), Some("threshold"));
+    assert_eq!(rooms::landing(&w, None), Some(threshold));
+    for step in ["north", "lane"] {
+        ok(&mut w, "dave", "travel", json!([step]));
+    }
+    let away = ok(&mut w, "dave", "home", json!([]));
+    assert!(
+        away.summary.contains("Your home door is the Threshold")
+            && away.summary.contains("From here: "),
+        "{}",
+        away.summary
+    );
+    ok(&mut w, "dave", "travel", json!(["gate"]));
+    assert_eq!(rooms::room_of(&w, dave), Some(postern));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("The Postern.")
+            && look.summary.contains("in (Lamplighter's Lane)")
+            && look.summary.contains("wall (Orchard Wall)")
+            && look.summary.contains("A signpost stands here"),
+        "{}",
+        look.summary
+    );
+    let set = ok(&mut w, "dave", "home", json!([]));
+    assert!(
+        set.summary.contains(
+            "The Postern is your home door now: a fall wakes you here, not at the Threshold."
+        ),
+        "{}",
+        set.summary
+    );
+    assert_eq!(rooms::landing(&w, Some(dave)), Some(postern));
+    let again = ok(&mut w, "dave", "home", json!([]));
+    assert!(
+        again.summary.contains("your home door already"),
+        "{}",
+        again.summary
+    );
+    // A fall wakes it at the Postern, and says so.
+    ok(&mut w, "dave", "travel", json!(["wall"]));
+    let f = find_citizen(&w, "dave").unwrap();
+    let d = combat::die(&mut w, "dave", &f, None).unwrap();
+    assert!(d.said().contains("You wake at the Postern"), "{}", d.said());
+    assert_eq!(rooms::room_of(&w, dave), Some(postern));
+    // A door that is gone: every name wakes at the other.
+    w.record(
+        foxing_log::Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: dave,
+            parent: Some(threshold),
+        },
+    )
+    .unwrap();
+    w.record(
+        foxing_log::Actor::Driver,
+        StoreEvent::EntityRemoved { id: postern },
+    )
+    .unwrap();
+    assert!(rooms::room_by_key(&w, rooms::POSTERN).is_none(), "razed");
+    assert_eq!(rooms::landing(&w, Some(dave)), Some(threshold));
 }

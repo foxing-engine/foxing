@@ -1625,6 +1625,8 @@ pub(crate) struct Death {
     pub keeper: Option<String>,
     pub learned: Option<&'static str>,
     pub shaken_ms: i64,
+    /// The door it wakes at, as the room is named ("the Threshold", "the Postern").
+    pub door: String,
 }
 
 impl Death {
@@ -1664,11 +1666,10 @@ impl Death {
         if let Some(l) = self.learned {
             out.push_str(&format!(" And {}.", super::death::learned_said(l)));
         }
-        out.push_str(if self.lost.is_some() {
-            " You wake at the Threshold"
-        } else {
-            " You wake at the Threshold with everything you had"
-        });
+        out.push_str(&format!(" You wake at {}", self.door));
+        if self.lost.is_none() {
+            out.push_str(" with everything you had");
+        }
         out.push_str(&format!(
             ", shaken: your strikes land less often for {}, steadying as it passes{}.",
             human(self.shaken_ms),
@@ -1799,7 +1800,9 @@ pub(crate) fn die(
             })
         };
 
-    let home = super::rooms::arrival(world).ok_or_else(|| internal("the Threshold is missing"))?;
+    // C11: a fall wakes a name at its home door.
+    let home = super::rooms::landing(world, Some(f.citizen))
+        .ok_or_else(|| internal("the world has no door to wake at"))?;
     // The creature keeps its wounds (it mends on the world's clock); a swarm that
     // dies on it does wear it down, as a swarm, not as one name reborn.
     let _ = ensure_regen(world);
@@ -1858,6 +1861,12 @@ pub(crate) fn die(
         keeper: keeper_slot,
         learned,
         shaken_ms,
+        door: plain_str(world, home, super::ROOM, "name")
+            .map(|n| match n.strip_prefix("The ") {
+                Some(rest) => format!("the {rest}"),
+                None => n.to_string(),
+            })
+            .unwrap_or_else(|| "the Threshold".to_string()),
     })
 }
 

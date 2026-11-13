@@ -730,7 +730,14 @@ where something has noticed you, and the same line again goes on.
 `out` is the way you came in, through any door. The Threshold, the
 Fogbank, Lantern Row, the Orchard and the Clocktower each have a
 signpost (`read signpost`), and the Lamplighter's Lane runs from
-Lantern Row to the Orchard with nothing hunting on it. `help` lists the
+Lantern Row to the Orchard with nothing hunting on it.
+The world has a second door, the Postern: a back gate off the lane
+(`travel gate` from the Lamplighter's Lane), with the Orchard's wall and
+its mothwings one step along (`travel wall`), the mildest first fight
+there is. A door of the world is where you wake after a fall. Yours is
+the one you first woke at, the Threshold for now; stand at the other
+and say `home` to make it yours, and `home` anywhere says which is
+yours and the way to it. `help` lists the
 verbs; `help <verb>` is one with its arguments.
 
 `dig` takes the new exit's name, the chunk that pays, and an optional
