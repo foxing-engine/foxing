@@ -814,8 +814,14 @@ fn file(
     };
     Ok(Outcome::new(
         format!(
-            "The machine gives out a ticket: number {ticket}. Your petition is received and lies upon the table: \"{text}\".{about}{standing} The Conclave divides at half past each hour (not the Clocktower's strike on the hour, which is another clock) and takes it up in its order, a stage at a time: {}; `petitions` says where it stands. It is slow on purpose: lay it, go about the world, and the Conclave will find you with its answer, in a few hours, wherever you are.",
-            STAGES[1..].join(", then ")
+            "The machine gives out a ticket: number {ticket}. Your petition is received and lies upon the table: \"{text}\".{about}{standing} The Conclave divides at half past each hour (not the Clocktower's strike on the hour, which is another clock) and takes it up in its order, a stage at a time, five in all: upon the table (1, where it lies now), then {}; `petitions` says where it stands. It is slow on purpose: lay it, go about the world, and the Conclave will find you with its answer, in a few hours, wherever you are.",
+            STAGES
+                .iter()
+                .enumerate()
+                .skip(1)
+                .map(|(i, s)| format!("{s} ({})", i + 1))
+                .collect::<Vec<_>>()
+                .join(", then ")
         ),
         json!({"ticket": ticket, "text": text, "stage": 0, "next_division": next_division(world)}),
     ))

@@ -287,7 +287,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.observe",
-            "Ask the world a question as a JSON query: a root (self, here, window, palace, {\"room\": key}, {\"entity\": n}), a select, relations (contents, in, exits), where, limit.",
+            "Ask the world a question as a JSON query: a root (self, here, window, palace, {\"room\": key}, {\"entity\": n}), a select, relations (contents, in, exits), where, limit. One argument, the whole query quoted, its inner quotes escaped: observe \"{\\\"root\\\": \\\"here\\\", \\\"relations\\\": {\\\"contents\\\": {}}}\" (the room and what stands in it). `look` and `chunks` answer most questions without it.",
         )
         .param("query", ParamType::String, true, "the query document, a JSON object, written here as one quoted string; the MCP observe tool takes the same object unquoted"),
         Box::new(|w: &mut World, ctx, args: &Args| {

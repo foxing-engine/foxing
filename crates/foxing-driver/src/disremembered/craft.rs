@@ -2218,7 +2218,7 @@ pub fn register(world: &mut World, curves: Curves) {
             set_offers(w, &ctx.actor, f.citizen, offers)?;
             super::combat::narrate(w, &to, format!("{} offers {my_name} (item-{}) for your {their_name} (item-{}). To take it: trade {} {} {}", ctx.actor, mine.0, theirs.0, theirs.0, ctx.actor, mine.0));
             Ok(Outcome::new(
-                format!("You offer {my_name} for {to}'s {their_name}. It stands ten minutes; if {to} offers the mirror of it, both cross."),
+                format!("You offer {my_name} for {to}'s {}. It stands ten minutes; if {to} offers the mirror of it, both cross.", their_name.trim_start_matches("a ").trim_start_matches("an ").trim_start_matches("the ")),
                 json!({"offered": mine.0, "for": theirs.0, "to": to, "done": false}),
             ))
         }),

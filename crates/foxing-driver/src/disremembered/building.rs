@@ -919,7 +919,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
                         String::new()
                     };
                     return Ok(Outcome::new(
-                        format!("You give up the memory of {source}, and {called} keeps it. It holds {holds:.0} now.{next}"),
+                        format!("You give up the memory of {source}, and {called} keeps it. It holds {} now.{next}", if (super::craft::NAME_AT - 1.0..super::craft::NAME_AT).contains(&holds) { format!("{holds:.1}") } else { format!("{holds:.0}") }),
                         json!({"item": item.0, "name": called, "spent": chunk.0, "with": source, "held": holds}),
                     ));
                 };
@@ -1049,7 +1049,11 @@ pub fn register(world: &mut World, curves: super::Curves) {
         Box::new(|w: &mut World, ctx, args: &Args| {
             let f = me(w, ctx)?;
             let here = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
-            if let Some(obj) = args.str("object").filter(|s| !s.trim().is_empty()) {
+            // R164: `describe "…" here` means the room.
+            if let Some(obj) = args.str("object").filter(|s| {
+                let s = s.trim();
+                !s.is_empty() && !s.eq_ignore_ascii_case("here") && !s.eq_ignore_ascii_case("room")
+            }) {
                 let item = super::craft::resolve_object(w, &ctx.actor, f.citizen, obj)?;
                 let text = super::craft::describe_object(w, &ctx.actor, item, args.str("text").unwrap_or(""))?;
                 let called = super::craft::display(w, item);

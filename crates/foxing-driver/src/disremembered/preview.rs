@@ -708,7 +708,31 @@ pub fn run_checked(
                                 }
                                 _ => super::building::may_edit(world, &ctx, r),
                             };
+                            // R202: a bare `append` in a room not the writer's goes to
+                            // the one fixture here that takes their hand, as the gate does.
+                            let lone = if verb == "append" && allowed.is_err() {
+                                let takes: Vec<EntityId> = world
+                                    .store
+                                    .children(r)
+                                    .filter(|e| e.kind == "item")
+                                    .map(|e| e.id)
+                                    .filter(|&i| {
+                                        super::craft::is_fixed(world, i)
+                                            && super::craft::append_check(world, &ctx, i).is_ok()
+                                    })
+                                    .collect();
+                                (takes.len() == 1).then(|| takes[0])
+                            } else {
+                                None
+                            };
                             match allowed {
+                                _ if lone.is_some() => (
+                                    true,
+                                    format!(
+                                        "writes a line in {}",
+                                        super::craft::display(world, lone.expect("checked"))
+                                    ),
+                                ),
                                 Ok(()) => (true, format!("runs {verb} on {here_name}")),
                                 Err(e) => (
                                     false,

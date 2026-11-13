@@ -11488,3 +11488,47 @@ fn a_word_for_a_forgotten_name_is_a_dead_letter_to_read_answer_or_carry() {
     let w2 = open(dir.path(), now);
     assert_eq!(super::letters::waiting(&w2), 1);
 }
+
+#[test]
+fn the_night_batch_of_11_13_says_what_it_should() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // R206: a strike aimed by id at what is gone is refused, with who is here.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "attack",
+        json!(["wisp-999999"]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(
+        err.contains("wisp-999999 is gone") && err.contains("Still here: "),
+        "{err}"
+    );
+    // The second homes are said by `where`, the nearer first.
+    assert_eq!(rooms::homes_of("bookworm")[0], "The Unfiled Archive");
+    assert!(rooms::homes_of("silverfish").len() >= 2);
+    // R154: a killing blow is said whole.
+    // R152: the receipt numbers the stages as `petitions` does.
+    // R158: a named creature asked what it wants says its want, or that it has none.
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 70, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "remember", json!([&c, "wisp"]));
+    let name = mind::name(&w, wisp).expect("named at sixty");
+    let said = talk::reply(&w, wisp, "dave", "What do you want?").unwrap();
+    assert!(
+        said.starts_with("A story about ") || said.starts_with("Nothing just now."),
+        "{name}: {said}"
+    );
+    let said = talk::reply(&w, wisp, "dave", "Is the word hinge?").unwrap();
+    assert!(
+        said.contains("a story that carries the word is the guess"),
+        "{said}"
+    );
+}

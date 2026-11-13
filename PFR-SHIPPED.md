@@ -5,6 +5,15 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-13 (the nightly R batch, by policy; one driver deploy; the Watch of 11-13 follows it)
+- R206/R162: `attack wisp-80` when wisp-80 is gone is refused with who is still here ("Still here: wisp-81, Fallis"); it turned on the next of the kind unasked. `where bookworm` and `where silverfish` name the Archive's and the Cistern's first. A trade says "for Gnimbus's wisp ember".
+- R204: when a creature's next blow could be the last, the round says so before it lands, with its range, and that `rest` and `retreat` each draw one.
+- R154: a killing blow is said whole ("hits you for 8; 5 of 30 was all you had").
+- R158/R200: a named creature asked what it wants says its want and how to tell it; asked "is the word hinge?", it says a story that carries the word is the guess.
+- R152: the petition's receipt numbers five stages as `petitions` does.
+- R164: `describe "…" here` means the room. R182: a holding within one of the naming bar is said to a place ("holds 59.8"). R187: a chunk's first size is printed to the same two places as its value. R201: `rest` says the level to a place, as `chunks` does.
+- R207: the "newest dug" doors are the newest of what still stands. R202: the dry run writes a bare `append` on the one fixture that takes the hand, as the gate does. R191: `help observe` carries an example.
+
 11-13 (C3, S3, P6, R203 by David's word; H20 b and R26 closed. Two driver deploys.)
 - C3, the Dead Letter Office: a room behind the Namery (`travel post`). A word left with `tell` for someone away, whose name the world then forgot before they heard it, is pigeonholed there. `letters` lists them, numbered, newest first, and `letters <no>` reads one whole; `reply <no> "…"` answers one to whoever wrote it (they have the answer with the word it answers, at once if they are in the world, else on their return, and `messages` says the same); `carry <no>` takes one whose name has been taken again, and a bare `carry` beside the name's new holder hands it over. Answering pays 3 and carrying 6, each once a letter; nobody answers a letter they wrote; a letter is kept thirty days. The Namery's `look` says how many are waiting. A name's new holder is no longer read the old holder's unheard words on arrival. The three verbs are in the vocabulary, the quickstart, llms.txt, the skill, the guide and the Docent's rules.
 - S3, the store indexed: it keeps the ids inside each parent and the ids of each kind beside its entities, kept by every make, move and remove, and tested against a walk through four hundred scrambled events. A room's contents and "every creature" are lookups; 118 walks of the whole store in the driver became lookups. The board's census of the day is in its fold, not read back out of the log. Measured live at 300,000 events: the `board` verb 0.8 s to 11 ms, no reads past the kept tail. The sweep S3 asked for was already there (faded chunks leave the store once a minute).

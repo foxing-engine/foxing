@@ -1600,6 +1600,14 @@ pub(crate) fn hit_said(taken: f64) -> String {
     } else {
         taken.round()
     };
+    // R154: a killing blow is said whole, not clipped to what was left.
+    if after <= 0.0 && taken.round() > shown.round() {
+        return format!(
+            "hits you for {:.0}; {before:.0} of {:.0} was all you had",
+            taken.round(),
+            super::MAX_HP
+        );
+    }
     format!(
         "hits you for {shown:.0}: {before:.0} \u{2192} {after:.0} of {:.0}",
         super::MAX_HP
@@ -2014,10 +2022,27 @@ pub fn register(world: &mut World, curves: Curves) {
                     let by_name = fighting.or_else(|| super::mind::find_here(w, room, name));
                     let found = by_name
                         .or_else(|| kind_only.as_deref().and_then(|k| super::mind::find_here(w, room, k)).filter(|c| super::mind::name(w, *c).is_none()));
-                    if by_name.is_none() {
-                        if let Some(c) = found {
-                            retargeted = Some(format!("{} is gone; you turn on {}-{}.", name.trim(), plain_str(w, c, CREATURE, "name").unwrap_or("it"), c.0));
-                        }
+                    // R206: a strike aimed by id at what is gone is refused, with who is
+                    // here (it turned on the next of the kind unasked, twice in one
+                    // message, and once felled what a storyteller was keeping).
+                    if by_name.is_none() && kind_only.is_some() {
+                        let _ = &mut retargeted;
+                        let still: Vec<String> = here
+                            .iter()
+                            .map(|c| match super::mind::name(w, c.0) {
+                                Some(n) => n,
+                                None => format!("{}-{}", c.1, c.0 .0),
+                            })
+                            .collect();
+                        return Err(CommandError::precondition(if still.is_empty() {
+                            format!("{} is gone, and nothing else is here to fight.", name.trim())
+                        } else {
+                            format!(
+                                "{} is gone (felled, or drifted off). Still here: {}. Name the one you mean; a bare `attack` takes the nearest.",
+                                name.trim(),
+                                still.join(", ")
+                            )
+                        }));
                     }
                     // A kind never strikes a named creature, even one alone of its kind:
                     // two visitors in one night felled Lute by typing "attack wisp".
@@ -2346,6 +2371,17 @@ pub fn register(world: &mut World, curves: Curves) {
             if let Some(t) = trick {
                 lines.push(t);
             }
+            // R204: said before the blow that would be the last, not after it (a
+            // `rest` at 7 of 30 and a `retreat` at 2 drew the killing blow unwarned).
+            if let Some(a) = plain_num(w, creature, CREATURE, "attack").filter(|a| *a > 0.0) {
+                if engaged_with(w, f.citizen) == Some(creature) && hp(w, f.citizen) <= a + 2.0 {
+                    lines.push(format!(
+                        "Its next blow could be your last (it hits {:.0}\u{2013}{:.0}): anything you do here but a killing strike draws one, `rest` and `retreat` among them; a jar of fog covers a retreat.",
+                        a,
+                        a + 2.0
+                    ));
+                }
+            }
             Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": false, "died": false, "creature_hp": chp, "hp": my_hp})))
         }),
     );
@@ -2521,7 +2557,7 @@ pub fn register(world: &mut World, curves: Curves) {
             // R48: one line with hp, level and what you hit for.
             let level = super::memory::level(w, f.window);
             let text = format!(
-                "{text} Level {level:.0}; you hit for {:.0} (plus 0–2).",
+                "{text} Level {level:.1}; you hit for {:.0} (plus 0–2).",
                 attack_for_level(level)
             );
             // The bog's clock, while standing in it (R40: it showed on the entry look only).

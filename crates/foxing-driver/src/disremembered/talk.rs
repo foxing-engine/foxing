@@ -718,6 +718,26 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
     ]) {
         return super::secret::hint(world, actor, creature);
     }
+    // R158: asked what it wants (three Watches met the stock line here), it says its
+    // want; asked whether its word is this or that, how a guess is made.
+    if has(&[
+        "what do you want",
+        "what you want",
+        "do you want",
+        "your want",
+        "want a story",
+        "want from me",
+        "what would you like",
+    ]) && !has(&["wanted once", "used to want", "wanted before"])
+    {
+        return Some(match super::errand::of(world, creature).and_then(|e| e.story) {
+            Some(s) => format!("A story about {s}. A dozen different words in sentences, some of them about that: `story` me it, and I keep it."),
+            None => "Nothing just now. Tell me any story of a dozen words and I will keep it; `wants` says who is wanting.".to_string(),
+        });
+    }
+    if has(&["is the word", "is your word", "is it the word", "word is"]) && t.contains('?') {
+        return Some("I do not say yes or no to a word asked. Put it in a story: a story that carries the word is the guess, and I will know it.".to_string());
+    }
     // What it wanted once: the want before this one, said whole (the first word under
     // the others is drawn from it, D7).
     if has(&[

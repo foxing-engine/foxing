@@ -861,9 +861,20 @@ fn door_noun(word: &str) -> bool {
 /// Where a kind lives: the seed rooms whose spawn is that kind, by name. Hybrids and
 /// wanderers live nowhere in particular.
 pub fn homes_of(kind: &str) -> Vec<&'static str> {
+    // R206: a room's second kind is a home too, and the nearer one (the Archive's
+    // bookworm, the Cistern's silverfish), so it is said first.
     ROOMS
         .iter()
-        .filter(|r| r.spawn.is_some_and(|(k, _, _)| k == kind))
+        .filter(|r| {
+            super::combat::ALSO
+                .iter()
+                .any(|(room, k, _)| *room == r.key && *k == kind)
+        })
+        .chain(
+            ROOMS
+                .iter()
+                .filter(|r| r.spawn.is_some_and(|(k, _, _)| k == kind)),
+        )
         .map(|r| r.name)
         .collect()
 }
@@ -1549,7 +1560,17 @@ pub fn describe_as(
                 })
                 .collect();
             if !dug.is_empty() {
-                let mut newest = dug.clone();
+                // R207: the newest of what still stands (it named rooms at 0% left).
+                let mut newest: Vec<(u64, String)> = dug
+                    .iter()
+                    .filter(|(id, _)| {
+                        super::building::memory(world, EntityId(*id)).map_or(true, |m| m >= 0.01)
+                    })
+                    .cloned()
+                    .collect();
+                if newest.is_empty() {
+                    newest = dug.clone();
+                }
                 newest.sort_by_key(|b| std::cmp::Reverse(b.0));
                 let newest = newest
                     .iter()
