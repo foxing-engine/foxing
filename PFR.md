@@ -54,12 +54,16 @@ Economy and death
   No new rule, one verb that already exists. Cost: it rewards hoarders of creatures.
   Lean, if asked: **c**, with d as the mechanism (tending = having shelved into it).
 
-- **D35 · A passing name's leaving is not news** (S; **waits**, it is your channel). Every
-  forgotten name is a notice to the Discord webhook; a load test of fifty sent fifty
-  in ten seconds and Discord refused the rest. a) **lean**: a passing name forgotten
-  is not noticed at all (a kept name forgotten after its thirty days still is); b)
-  names from the lab's addresses are not noticed; c) as it is, and the load test
-  uses names that never leave.
+- **D36 · A room past a hundred things** (M; **waits**: it is the engine's contract). An
+  observation refuses a relation of more than a hundred entities ("relation contents
+  reaches 101 entities; the limit is 100"), so a room with a hundred things in it,
+  fifty arrivals at the Threshold among them, has no room panel on the play page
+  until the crowd thins (the panel now comes back by itself; before 11-13 it stayed
+  dead). a) **lean**: past the breadth, a relation returns its first hundred with
+  `"truncated": <how many more>` and the page says "and 23 more"; a query that names
+  its own `limit` still fails past it, as now; b) the limit rises to five hundred for
+  `contents` alone; c) newcomers past forty at the Threshold arrive in a second room
+  (C1's second way to begin, pulled forward).
 
 ## Ready to ship (R): all ship on the Night's Watch by policy, in Claude's batches
 
@@ -201,9 +205,6 @@ page keep these by verb. One world behind one lock is still the shape; what is l
 - **S4 · Readers do not wait on writers** (L). Public reads (`/v0/map`, `/v0/board`,
   cloak, observe) served from a snapshot swapped in after each write, so a read never
   takes the world's lock: what lets a hundred watchers cost nothing.
-- **S5 · Pushes by room** (M). After any change every open session is woken and
-  re-observed; with ten times the sessions that is ten times the work per command.
-  Wake only sessions whose rooms, selves or subscriptions the change touched.
 - **S6 · A load test that is a Watch** (M; begun 11-13 on the live world, by David's
   word). `tools/load.py <names> <minutes>`: passing names at a player's pace, six in
   ten on a session with the play page's three subscriptions, two in ten through the
@@ -238,10 +239,16 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   half the time by pushes alone: **S5 comes before a hundred.** (The test's own
   machine, two cores reading 900 frames a second, is by now part of the round trip it
   reports; the driver's figures are the ones to trust.)
-  And a fault of the test's: each passing name's leaving is a notice to the Discord
-  webhook ("The world forgot **Gnloadc01**; the name is free"), ninety of them over
-  the three runs and more from every Watch, until Discord answered 429. No more runs
-  until that is settled (D35).
+  Fifty again after S5 (a change read once and pushed only to the sessions it
+  concerns): the same 8.7 commands a second and 76 events a second; the driver 7% of
+  one core at the middle and 9% at its worst (it was 19 and 31); 53,770 frames and
+  29 MB to thirty sessions (346,000 and 335 MB); the pushes held the lock 5 s of 370
+  (38), and 81,765 of 102,000 wakings took no lock at all. The world's share of a
+  reply is unchanged (5 ms, 30 at the 95th: `tell` and `say` in a crowded room are the
+  slow verbs now, 33 and 18 ms at the middle, writing a line for every listener).
+  What the fifty found that is not speed: a room past a hundred things has no room
+  panel (D36), and one session in thirty still drops mid-run.
+  Next: a hundred, then two hundred, each with `vitals` beside it.
 - **S7 · The box** (yours, later). One VPS runs the driver, PostgreSQL, nginx, the
   Docent and the Bindery. Before a second box: PostgreSQL's settings for the log
   table (it is append-only), a connection pool, and the driver built in release with
@@ -250,7 +257,7 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   already empty the Fogbank; ten times the names want spawn counts that follow who is
   in the room, more first rooms (R151), and the Mudroom's wall (H18). These are the
   limits a player meets before the server's.
-- Order: S6, S5, S4. S2b when you choose.
+- Order: S6 (a hundred next), S4. S2b when you choose.
 
 ## Content (C): expansions, planned 11-12 at David's ask; C3 is live, the rest is not built
 
