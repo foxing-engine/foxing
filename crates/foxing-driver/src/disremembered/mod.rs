@@ -27,6 +27,7 @@ pub mod footprint;
 pub mod grammar;
 mod identity;
 pub mod kindle;
+pub mod letters;
 pub mod life;
 pub mod memory;
 pub mod mind;
@@ -1366,6 +1367,7 @@ pub fn register(world: &mut World, curves: Curves) {
     mind::register(world);
     speech::register(world);
     talk::register(world);
+    letters::register(world);
     exchange::register(world, curves.clone());
     errand::register(world);
     cloak::register(world);

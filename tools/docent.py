@@ -83,6 +83,10 @@ SYSTEM = (
 # behaves, checked against the verbs. A visitor was told a dug room's memory is not
 # restored by a visit (it is), and that a carried word "was a story" (it was not).
 RULES = (
+    "Dead letters: a word left with `tell` for a name the world then forgot is kept in the Dead "
+    "Letter Office, one door off the Namery (`travel names` from the Unfiled Archive, then "
+    "`travel post`); there `letters` lists them, `reply <no> \"...\"` answers one to its writer "
+    "and `carry <no>` takes one to whoever holds the name now. "
     "The Docent keeps three named creatures within two rooms of the Threshold, fed with the "
     "world's own memories, so a newcomer always has someone to tell a story to; `look` says "
     "'kept by Hollis Quire' of them. "

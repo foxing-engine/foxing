@@ -61,7 +61,6 @@ Each is designed and needs no decision. Say `R<n> hold` to keep one back.
 Away from Moondial and Entropic (the engine's and the game's old names): what is left
 is the box's half (Y1); the `MOONDIAL_*` fallbacks in the driver and the tools go in
 a release after Y1 has run.
-- **R26** (M; was B6, pulled 11-04) Unreproduced: "You again" on `leave` (rare).
 Left over, smaller pieces of larger things:
 - **R76b** (M) An Under-Docent at the Stacks' stair: a second figure for the Lower Stacks.
 - **R10b** (S) The shelf's "five times slower" measured 1.6x over an interval (it is a power law: half in 5x at first, a quarter at 15x). Still to check: per-chunk half-lives after a strike (none should move: a strike makes a new chunk).
@@ -77,7 +76,6 @@ From the Night's Watch of 11-08:
 - **R144** (S) The Docent suggests `tell Wyndle "what is your word?"` minutes after Wyndle's name failed (it is wisp-6579); the by-heart and the model's briefing should read the creature's current display.
 - **R148** (S) The lent-word strike pay reads as fractions of an unnamed thing ("half again", "as much again", "one and a half times again", "2.5 times the pay"), and the in-hour "bonus alone" first strike (3 XP) paid less than a plain miss (4–6 XP): say the figure beside the words ("half again: 3 XP"), and say in `help story` that inside the hour only the word's bonus is paid.
 From the live Watch of 11-12 (a guide reader, a teller, a mender, a latecomer):
-- **R203** (M) A creature that has "learned to shove" throws a fighter out of the room mid-fight, into the Shallows or a stranger's dug room ("The wisp shoves you north, and the door does the rest"): two of four met it, on their first wisp, and no guide says it. Say it in `look` before the fight in plain words ("this one shoves: a blow may put you through a door"), keep a shove from sending a first-hour name into a room that hunts, and put a line in the quickstart and the guide.
 - **R204** (S) A fall ends the message and the statements after it are dropped without a word (three attacks sent, one run); a `rest` in a fight at 7 of 30 drew the killing blow, said only afterward by the narrator; `retreat` at 2 of 30 takes its parting blow and kills, with no warning. Each reply should say what was not run and why, and `retreat` should say when the parting blow would be the last.
 - **R205** (S) `check` disagrees with the gate in four more places: a wanted story inside the hour ("refused: one story an hour" of a story the gate hears at plain pay), a passing name's `append` in a welcomed book ("append is a kept name's"), a message of nineteen or twenty statements failed "CL-I6"/"CL-I5" with no reason given, and `wants` promising "hears the wanted story once more" after it has. With R202, one pass over the dry run against the gate's own rules.
 - **R206** (S) `attack inkling-7858`, already dead, turns on another inkling ("…is gone; you turn on inkling-5355"): a strike aimed by id at what is gone should be refused. `where bookworm` and `where silverfish` name only the Lower Stacks, not the one in the Archive and the one in the Cistern (D21 b). A trade's reply reads "for Gnimbus's a wisp ember".
@@ -147,16 +145,13 @@ What is left of the front door, each yours to call:
 - **H18 · Rows past forty doors** (M; **waits**, it was H14's second question). a)
   **lean**: as built, the wall is one room and `look` shows a digest of it; b) past
   forty doors, new rooms are dug off the Mudroom's own side rooms, ten doors each.
-- **H20 · One name for the mint** (S; **waits**, the names are yours). H12 as approved
-  made the stair "The Mint Stair"; the district it opens on is "the Exergue District",
-  your name for it. a) **lean**: the stair follows the district ("The Exergue Stair",
-  as it was, with its exit glossed "the mint"); b) as shipped.
 
 ## The keyboard (P): performance for a player at the keyboard
 
 Where it stands (a local build in a headless browser at 1440×900): ten idle seconds
 in a room cost half a second of work, the picture's ten frames a second being most of
-it; panels take only the rows that changed. Load is seven requests, `index.html` near
+it; panels take only the rows that changed, and the page keeps the last five hundred
+lines of the transcript. Load is seven requests, `index.html` near
 270 KB in one file with styles and script inline, `tiles.js` near 100 KB. The live
 round trip is on the analytics page, from the play page's own reports. What is left:
 
@@ -167,13 +162,10 @@ round trip is on the analytics page, from the play page's own reports. What is l
   cached; `tiles.js` preloaded; the schema and vocabulary kept in the browser and
   revalidated; the composer and observer tabs loaded when first opened. Check the
   server compresses text (your side to confirm on the box: Y item below).
-- **P6 · Trim the transcript** (S). Keep the last five hundred lines in the page and
-  fold the rest behind "earlier" (still there to scroll to), so a long night does
-  not slow every new line.
 - **P8 · A quiet mode** (S). One setting: no ambient motion, no sky, no sound; for a
   slow machine or a long session.
 
-Order: P6, P5, P8, P1b.
+Order: P5, P8, P1b.
 
 ## Ten times the players (S): planned 11-11 at David's ask
 
@@ -181,7 +173,7 @@ Where it stands (the live world, 11-13, about 299,000 events; the world's own sh
 a reply, from `took`): `say`, `satchel`, `map`, `time` 3 to 4 ms; `look` 5; `wants` 7;
 `travel` and `attack` 3 to 10 by what they write; nobody waits for the lock. The log
 is half to three quarters of that, at about 0.65 ms an event written. The `board` verb
-is 0.8 s and a first `look` after arriving 36 ms. `GET /v0/ops` and the analytics
+is 11 ms and a first `look` after arriving 30. `GET /v0/ops` and the analytics
 page keep these by verb. One world behind one lock is still the shape; what is left:
 
 - **S2b · A command as one unit of the log** (built, off; **waits**: it changes what
@@ -197,10 +189,6 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   world stays up. a) **lean**: turn it on (set the variable in the driver's
   environment, or say the word and it becomes the default in the code); b) leave it
   off: 3 to 7 ms a command is already not what a player feels.
-- **S3 · Indexes over the store** (M). `store.entities()` filtered by kind and by
-  parent is walked on most verbs (8,300 entities now, most of them faded chunks and
-  rooms); keep maps by kind, by room, by owner. And a sweep: entities forgotten for
-  good leave the store (they stay in the log).
 - **S4 · Readers do not wait on writers** (L). Public reads (`/v0/map`, `/v0/board`,
   cloak, observe) served from a snapshot swapped in after each write, so a read never
   takes the world's lock: what lets a hundred watchers cost nothing.
@@ -219,15 +207,15 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   already empty the Fogbank; ten times the names want spawn counts that follow who is
   in the room, more first rooms (R151), and the Mudroom's wall (H18). These are the
   limits a player meets before the server's.
-- Order: S3 (it has the `board` verb: 46 reads past the kept tail for its census of the day, and half a second walking the store), S6, S5, S4. S2b when you choose.
+- Order: S6, S5, S4. S2b when you choose.
 
-## Content (C): expansions, planned 11-12 at David's ask; nothing here is built
+## Content (C): expansions, planned 11-12 at David's ask; C3 is live, the rest is not built
 
 What the world has now: ten districts, about seventy rooms of its own, some thirty
 kinds of creature, two tiers of recipes, the errand and the word ladder, the Conclave,
 Morphos twice a day. What the Watches keep finding is where it is thin, and that is
 where this starts: the door is crowded, the middle is empty, and almost nothing asks
-for two names at once. Sizes are for a first cut that a Watch can play. Say `C3
+for two names at once. Sizes are for a first cut that a Watch can play. Say `C4
 brief` for a page on one, or answer the lettered ones.
 
 - **C1 · A second way to begin** (M). Three of a Watch empty the Fogbank in a minute
@@ -245,12 +233,6 @@ brief` for a page on one, or answer the lettered ones.
   fought (a moth that only takes a memory of a fight you nearly lost; a proofreader
   that strikes harder for every word you repeat). It teaches the Stacks' tricks one
   at a time before they come three to a room.
-- **C3 · The Dead Letter Office** (M; the one Claude would build first). Words left
-  for a name that never came back, and for names the world has forgotten, now have a
-  fold of their own (S1) and nowhere to go. A room off the Namery where they are
-  pigeonholed: read the ones addressed to nobody, carry one to whoever now holds the
-  name, or answer it. It makes absence into content, which is the game's subject,
-  and it is the first thing two players do for each other without meeting.
 - **C4 · Things for two** (M). The Wardens (320 hit points) are the only fight sized
   for company, and `retreat` already says "bring another name". Three small ones on
   the way there: a bell in the Clocktower that takes two hands in the same minute, a
@@ -284,7 +266,7 @@ brief` for a page on one, or answer the lettered ones.
   thing that rewards reading over reflexes: a catalogue in the Stacks that is a real
   index of the public record, a division in the Conclave that can be predicted from
   its Book. Agents are half the players and the content so far is written for hands.
-- Claude's order, if left to it: C3, C1, C4, then C2 with a brief first. C5 can
+- Claude's order, if left to it: C1, C4, then C2 with a brief first. C5 can
   start as three dates. What it needs from you first: which of C2 and C9 is the
   world you want (a deeper library, or a wider one), and whether C7 is in the spirit
   of the thing or too much rope.

@@ -315,7 +315,7 @@ pub fn speak_to(
 
 /// Everything left so far is heard: a word narrated to a citizen now is not read to
 /// them again when they next arrive.
-fn mark_heard(world: &mut World, citizen: EntityId) -> Result<(), CommandError> {
+pub(crate) fn mark_heard(world: &mut World, citizen: EntityId) -> Result<(), CommandError> {
     let head = world
         .log
         .head(&world.id)
@@ -342,11 +342,44 @@ fn mark_heard(world: &mut World, citizen: EntityId) -> Result<(), CommandError> 
         .map_err(internal)
 }
 
-/// Every word left for anyone, by who it was for: `(seq, from, text)`, in order.
+/// A word left for someone: where it sits in the log, when, by whom, and, for an
+/// answer sent from the Dead Letter Office, the letter it answers (`(for, text)`).
+#[derive(Clone)]
+pub(crate) struct Word {
+    pub seq: u64,
+    pub at: i64,
+    pub from: String,
+    pub text: String,
+    pub re: Option<(String, String)>,
+}
+
+/// A word left for a name the world then forgot, unheard (C3): it is pigeonholed in
+/// the Dead Letter Office.
+#[derive(Clone)]
+pub(crate) struct Letter {
+    pub word: Word,
+    /// The forgotten name as it was spelled, and as the log keys it.
+    pub to: String,
+    pub to_actor: String,
+    /// When the name was forgotten.
+    pub died: i64,
+    /// Who answered it, and what they wrote.
+    pub answered: Option<(String, String)>,
+    /// Who has it out of its pigeonhole, to carry to whoever holds the name now.
+    pub taken: Option<String>,
+    /// Who handed it over, or read it as the name's new holder.
+    pub delivered: Option<String>,
+}
+
+/// Every word left for anyone, by who it was for, in order; what each name has heard;
+/// and the words that outlived the name they were for.
 #[derive(Default)]
 pub(crate) struct Tells {
     after: u64,
-    by_to: std::collections::HashMap<String, Vec<(u64, String, String)>>,
+    by_to: std::collections::HashMap<String, Vec<Word>>,
+    citizens: std::collections::HashMap<u64, String>,
+    heard: std::collections::HashMap<String, u64>,
+    pub dead: Vec<Letter>,
 }
 
 impl crate::world::LogFold for Tells {
@@ -356,14 +389,84 @@ impl crate::world::LogFold for Tells {
 
     fn take(&mut self, e: &foxing_log::Event) {
         self.after = e.seq.0;
-        if e.kind == TELL {
-            if let Some(to) = e.payload["to"].as_str() {
-                self.by_to.entry(to.to_string()).or_default().push((
-                    e.seq.0,
-                    e.payload["from"].as_str().unwrap_or("?").to_string(),
-                    e.payload["text"].as_str().unwrap_or("").to_string(),
-                ));
+        let p = &e.payload;
+        match e.kind.as_str() {
+            TELL => {
+                if let Some(to) = p["to"].as_str() {
+                    self.by_to.entry(to.to_string()).or_default().push(Word {
+                        seq: e.seq.0,
+                        at: e.at.0,
+                        from: p["from"].as_str().unwrap_or("?").to_string(),
+                        text: p["text"].as_str().unwrap_or("").to_string(),
+                        re: p["re"]["for"].as_str().map(|f| {
+                            (
+                                f.to_string(),
+                                p["re"]["text"].as_str().unwrap_or("").to_string(),
+                            )
+                        }),
+                    });
+                }
             }
+            "store.entity_created" if p["kind"] == "citizen" => {
+                if let (Some(id), Some(owner)) = (p["id"].as_u64(), p["owner"].as_str()) {
+                    self.citizens.insert(id, owner.to_string());
+                }
+            }
+            "store.component_set" if p["component"] == presence::PRESENCE => {
+                let h = &p["fields"]["heard_through"];
+                let h = h.as_u64().or_else(|| h["value"].as_u64());
+                if let (Some(h), Some(owner)) =
+                    (h, p["id"].as_u64().and_then(|id| self.citizens.get(&id)))
+                {
+                    self.heard.insert(owner.clone(), h);
+                    // What is heard is done with: only the unheard are kept.
+                    if let Some(v) = self.by_to.get_mut(owner) {
+                        v.retain(|w| w.seq > h);
+                    }
+                }
+            }
+            k if k == presence::FORGOTTEN_NAME => {
+                let Some(actor) = p["actor"].as_str() else {
+                    return;
+                };
+                let heard = self.heard.remove(actor).unwrap_or(0);
+                let name = p["name"].as_str().unwrap_or(actor).to_string();
+                for word in self.by_to.remove(actor).unwrap_or_default() {
+                    if word.seq > heard {
+                        self.dead.push(Letter {
+                            word,
+                            to: name.clone(),
+                            to_actor: actor.to_string(),
+                            died: e.at.0,
+                            answered: None,
+                            taken: None,
+                            delivered: None,
+                        });
+                    }
+                }
+            }
+            k if k == super::letters::DEAD_LETTER => {
+                let by = p["by"].as_str().unwrap_or("?").to_string();
+                let Some(l) = p["letter"]
+                    .as_u64()
+                    .and_then(|n| self.dead.get_mut((n as usize).wrapping_sub(1)))
+                else {
+                    return;
+                };
+                match p["what"].as_str() {
+                    Some("answered") => {
+                        l.answered = Some((by, p["text"].as_str().unwrap_or("").to_string()))
+                    }
+                    Some("taken") => l.taken = Some(by),
+                    Some("returned") => l.taken = None,
+                    Some("delivered") => {
+                        l.taken = None;
+                        l.delivered = Some(by)
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -394,22 +497,21 @@ pub fn deliver(world: &mut World, actor: &str) -> Result<(), String> {
     // S1: from the kept fold of every word left for anyone. This read the log from
     // the name's last hearing, which for a new name is its first event: seven
     // seconds, with the world held, each time someone new arrived.
-    let waiting: Vec<(String, String)> = world.folded("tells", |t: &Tells| {
+    let waiting: Vec<Word> = world.folded("tells", |t: &Tells| {
         t.by_to
             .get(actor)
-            .map(|v| {
-                v.iter()
-                    .filter(|(seq, _, _)| *seq > heard)
-                    .map(|(_, from, text)| (from.clone(), text.clone()))
-                    .collect()
-            })
+            .map(|v| v.iter().filter(|w| w.seq > heard).cloned().collect())
             .unwrap_or_default()
     });
-    for (from, text) in &waiting {
+    for w in &waiting {
+        let (from, text) = (&w.from, &w.text);
         narrate(
             world,
             actor,
-            format!("While you were away, {from} left word: \"{text}\""),
+            match &w.re {
+                Some((to, yours)) => format!("While you were away, {from} answered a word of yours from the Dead Letter Office (you left it for {to}, who never heard it: \"{yours}\"): \"{text}\""),
+                None => format!("While you were away, {from} left word: \"{text}\""),
+            },
         );
     }
     let mut fields = world

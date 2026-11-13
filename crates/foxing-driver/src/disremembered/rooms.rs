@@ -59,7 +59,7 @@ fn district_index(key: &str) -> Option<usize> {
         ARRIVAL => 0,
         MUDROOM => 1,
         "fogbank" | "shallows" | "midden" | "ossuary" | "gallery" | "oubliette" => 2,
-        "lantern-row" | "archive" | "namery" | "lamplighters-lane" => 3,
+        "lantern-row" | "archive" | "namery" | "dead-letters" | "lamplighters-lane" => 3,
         "stairwell" | "cistern" | "undertow" => 4,
         "lower-stacks" | "catalogue" | "dark-reading-room" | "periodicals" | "dumbwaiter"
         | "overdue-desk" | "carrels" | "index-stair" | "bindery" | "tube-room" | "lost-things"
@@ -565,10 +565,21 @@ pub const ROOMS: &[RoomDef] = &[
         key: "namery",
         name: "The Namery",
         description: "A narrow office of pigeonholes, floor to ceiling, each with a slip of paper in it and a name on the slip, waiting for something to earn it. A few holes are empty and their slips are gone. The pigeonholes are refilled at night, by a hand that writes in a very old register. Nothing hunts here; the names are not yet anyone's.",
-        exits: &[("out", "archive")],
+        exits: &[("out", "archive"), ("post", "dead-letters")],
         spawn: None,
         former: &[],
         tint: "#4a4638",
+    },
+    // C3: the Dead Letter Office, where a word left for a name the world then forgot
+    // is kept (`letters`, `reply`, `carry`).
+    RoomDef {
+        key: "dead-letters",
+        name: "The Dead Letter Office",
+        description: "A back room behind the Namery's pigeonholes, with pigeonholes of its own, and these have letters in them: every word left for someone away whose name the world forgot before they came back to hear it. A sorting table, a lamp, a stool nobody sits on. `letters` reads what is waiting; `reply` answers one to whoever wrote it; `carry` takes one to whoever holds the name now. Nothing hunts here.",
+        exits: &[("out", "namery")],
+        spawn: None,
+        former: &[],
+        tint: "#46423a",
     },
     // The Exergue District, eight rooms under the Clocktower, one for each coin from
     // the farthing to the sovereign (the owner: "8 rooms to mirror the coinage in
@@ -1508,6 +1519,16 @@ pub fn describe_as(
             })
             .collect();
         text.push_str(&format!(" Exits: {}.", shown.join(", ")));
+        // C3: the Namery's back door says what is behind it.
+        if plain_str(world, room, ROOM, "key") == Some("namery") {
+            match super::letters::waiting(world) {
+                0 => {}
+                1 => text.push_str(" Behind the post door, one dead letter is waiting."),
+                n => text.push_str(&format!(
+                    " Behind the post door, {n} dead letters are waiting."
+                )),
+            }
+        }
         if more_doors > 0 {
             text.push_str(&format!(
                 " ({more_doors} more dug doors are on the wall, and each still opens by its word: `read doors` is the whole wall.)"

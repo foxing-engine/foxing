@@ -540,6 +540,21 @@ the pool is empty; `look` says the same after a named creature), the Binding Led
 Stacks (each binding, with the room or book and whose hands), the
 Tally Book in the Division Lobby, the Exergue under the Clocktower.
 
+A word left with `tell` for someone away waits for them. If the world
+forgets the name first, the word is a dead letter, and it is kept in the
+Dead Letter Office (`travel post` from the Namery; the Namery's `look`
+says how many are waiting). There `letters` lists them, numbered,
+newest first, and `letters <no>` reads one whole; `reply <no> "…"`
+answers one to whoever wrote it (they have your answer with the word it
+answers, now if they are in the world, else on their return; you
+remember having answered, 3); and when the name has been taken again,
+`carry <no>` takes the letter out (one at a time) and a bare `carry`,
+standing with the name's new holder, hands it over (they read it; you
+remember the errand, 6). A name's new holder is not read the old
+holder's unheard words on arrival: they are in the Office. A letter
+leaves its pigeonhole when it is answered or handed over, or thirty
+days after its name was forgotten; you may not answer one you wrote.
+
     satchel                           [DO] Quillwake MUST satchel.
     take "wisp ember"                 [DO] Quillwake MUST take "wisp ember".
     recipes                           [DO] Quillwake MUST recipes.

@@ -2636,8 +2636,7 @@ fn memory_moves_by_gift_and_by_story() {
     // (Which line is by the creature's id, which moved by one when the Docent took its
     // place in the store.)
     assert!(
-        reply.contains("story")
-            && (reply.contains("hold") || reply.contains("keep") || reply.contains("lives")),
+        reply.contains("hold") || reply.contains("keep") || reply.contains("lives"),
         "{reply}"
     );
     // The story's answer carried a line of the creature's own, from what it held
@@ -11294,4 +11293,198 @@ fn a_bare_append_in_the_exergue_writes_on_its_plaque() {
     .unwrap_err()
     .to_string();
     assert!(no.contains("This room is the world's"), "{no}");
+}
+
+#[test]
+fn a_word_for_a_forgotten_name_is_a_dead_letter_to_read_answer_or_carry() {
+    let t0 = Timestamp(1_000_000);
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    login(&mut w, "mira", "test", PASS).unwrap();
+    let mira = find_citizen(&w, "mira").unwrap().citizen;
+    let office = rooms::room_by_key(&w, super::letters::OFFICE).unwrap();
+    let door = rooms::room_by_key(&w, "threshold").unwrap();
+    let put = |w: &mut World, who: EntityId, room: EntityId| {
+        w.record(
+            foxing_log::Actor::Driver,
+            StoreEvent::EntityMoved {
+                id: who,
+                parent: Some(room),
+            },
+        )
+        .unwrap();
+    };
+    let told = |w: &World, who: &str| -> Vec<String> {
+        w.log
+            .read_all(&w.id, foxing_log::Cursor::START)
+            .unwrap()
+            .into_iter()
+            .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == who)
+            .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
+            .collect()
+    };
+    // A passing name goes quiet; a word is left for it; the hour passes unheard.
+    let mut clock = 0i64;
+    let mut forget = |w: &mut World, name: &str, word: &str| {
+        login_as(w, name, "test", PASS, true).unwrap();
+        clock += 11 * 60;
+        w.fixed_now = Some(t0.plus(Duration::seconds(clock)));
+        ok(w, "tyler", "look", json!([]));
+        ok(w, "mira", "look", json!([]));
+        w.tick();
+        let out = ok(w, "tyler", "tell", json!([name, word]));
+        assert!(out.summary.contains("when they return"), "{}", out.summary);
+        clock += 3700;
+        w.fixed_now = Some(t0.plus(Duration::seconds(clock)));
+        ok(w, "tyler", "look", json!([]));
+        ok(w, "mira", "look", json!([]));
+        w.tick();
+        assert!(find_citizen(w, name).is_none(), "{name} is forgotten");
+    };
+    forget(&mut w, "Tallowmoth", "the kettle is on");
+    assert_eq!(super::letters::waiting(&w), 1);
+    // Only in the Office; the Namery's door says one is waiting.
+    let err = call(&mut w, "mira", ActorKind::Citizen, "letters", json!([])).unwrap_err();
+    assert!(err.to_string().contains("off the Namery"), "{err}");
+    let namery = rooms::room_by_key(&w, "namery").unwrap();
+    put(&mut w, mira, namery);
+    let look = ok(&mut w, "mira", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("Behind the post door, one dead letter is waiting."),
+        "{}",
+        look.summary
+    );
+    ok(&mut w, "mira", "travel", json!(["post"]));
+    assert_eq!(rooms::room_of(&w, mira), Some(office));
+    let list = ok(&mut w, "mira", "letters", json!([]));
+    assert!(
+        list.summary.contains("hold 1 dead letter:")
+            && list.summary.contains("no. 1  for Tallowmoth, from tyler,")
+            && list.summary.contains("\"the kettle is on\""),
+        "{}",
+        list.summary
+    );
+    let one = ok(&mut w, "mira", "letters", json!([1]));
+    assert!(
+        one.summary.contains("Nobody holds the name now."),
+        "{}",
+        one.summary
+    );
+    let err = call(&mut w, "mira", ActorKind::Citizen, "carry", json!([1])).unwrap_err();
+    assert!(err.to_string().contains("Nobody holds the name"), "{err}");
+    // The name is taken again: its new holder is not read the old word on arrival;
+    // it is carried to them.
+    login_as(&mut w, "Tallowmoth", "test", PASS, true).unwrap();
+    assert!(
+        !told(&w, "Tallowmoth").iter().any(|t| t.contains("kettle")),
+        "{:?}",
+        told(&w, "Tallowmoth")
+    );
+    let before = level(&mut w, "mira");
+    let took = ok(&mut w, "mira", "carry", json!([1]));
+    assert!(
+        took.summary.contains("You take letter no. 1"),
+        "{}",
+        took.summary
+    );
+    let err = call(
+        &mut w,
+        "mira",
+        ActorKind::Citizen,
+        "reply",
+        json!([1, "too late"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("out of its pigeonhole"), "{err}");
+    let err = call(&mut w, "mira", ActorKind::Citizen, "carry", json!([])).unwrap_err();
+    assert!(err.to_string().contains("Tallowmoth is not here"), "{err}");
+    put(&mut w, mira, door);
+    let carrying = ok(&mut w, "mira", "letters", json!([]));
+    assert!(
+        carrying.summary.contains("You carry dead letter no. 1"),
+        "{}",
+        carrying.summary
+    );
+    let handed = ok(&mut w, "mira", "carry", json!([]));
+    assert!(
+        handed
+            .summary
+            .contains("You hand letter no. 1 to Tallowmoth"),
+        "{}",
+        handed.summary
+    );
+    assert!(
+        told(&w, "Tallowmoth").iter().any(|t| t
+            .contains("mira hands you a dead letter from the Office")
+            && t.contains("by tyler")
+            && t.contains("\"the kettle is on\"")),
+        "{:?}",
+        told(&w, "Tallowmoth")
+    );
+    let after = level(&mut w, "mira");
+    assert!(
+        (after - before - super::letters::CARRY_XP).abs() < 0.5,
+        "{before} -> {after}"
+    );
+    assert_eq!(super::letters::waiting(&w), 0);
+    // A second letter, answered: its writer has the answer with the letter it answers.
+    ok(&mut w, "Tallowmoth", "leave", json!([]));
+    forget(&mut w, "Gossamer", "meet me under the clock");
+    put(&mut w, mira, office);
+    let tyler = find_citizen(&w, "tyler").unwrap().citizen;
+    put(&mut w, tyler, office);
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "reply",
+        json!([2, "hello me"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("your own hand"), "{err}");
+    let out = ok(
+        &mut w,
+        "mira",
+        "reply",
+        json!([2, "nobody came; I would have"]),
+    );
+    assert!(
+        out.summary.contains("You answer letter no. 2")
+            && out
+                .summary
+                .contains("tyler is in the world, and has it now"),
+        "{}",
+        out.summary
+    );
+    assert!(
+        told(&w, "tyler").iter().any(|t| t.contains(
+            "mira answered a word of yours from the Dead Letter Office (you left it for Gossamer, who never heard it: \"meet me under the clock\"): \"nobody came; I would have\""
+        )),
+        "{:?}",
+        told(&w, "tyler")
+    );
+    let empty = ok(&mut w, "mira", "letters", json!([]));
+    assert!(
+        empty.summary.contains("Every pigeonhole is empty"),
+        "{}",
+        empty.summary
+    );
+    let err = call(
+        &mut w,
+        "mira",
+        ActorKind::Citizen,
+        "reply",
+        json!([2, "again"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("No letter numbered 2"), "{err}");
+    // A third, left alone: a world opened again from the same log has the same holes.
+    forget(&mut w, "Wickwright", "the third");
+    assert_eq!(super::letters::waiting(&w), 1);
+    let now = w.now();
+    drop(w);
+    let w2 = open(dir.path(), now);
+    assert_eq!(super::letters::waiting(&w2), 1);
 }

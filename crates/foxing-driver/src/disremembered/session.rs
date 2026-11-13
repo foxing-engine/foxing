@@ -296,7 +296,7 @@ pub fn messages(world: &World, actor: &str, count: usize) -> Outcome {
                 json!({"at": e.at.0, "from": who, "text": p["text"], "kind": "said"})
             }
             k if k == super::talk::TELL && p["to"] == actor => {
-                json!({"at": e.at.0, "from": p["from"], "text": p["text"], "kind": "left"})
+                json!({"at": e.at.0, "from": p["from"], "text": p["text"], "kind": "left", "re": p["re"]})
             }
             k if k == super::combat::NARRATIVE
                 && p["to"] == actor
@@ -333,6 +333,14 @@ pub fn messages(world: &World, actor: &str, count: usize) -> Outcome {
             .map(|r| {
                 let when = ago(world, r["at"].as_i64().unwrap_or(0));
                 match r["kind"].as_str() {
+                    // C3: an answer from the Dead Letter Office names what it answers.
+                    Some("left") if r["re"]["for"].is_string() => format!(
+                        "{when}: {} answered the word you left for {} (\"{}\") from the Dead Letter Office: \"{}\"",
+                        r["from"].as_str().unwrap_or("?"),
+                        r["re"]["for"].as_str().unwrap_or("?"),
+                        r["re"]["text"].as_str().unwrap_or(""),
+                        r["text"].as_str().unwrap_or("")
+                    ),
                     Some("left") => format!(
                         "{when}: {} left word for you: \"{}\"",
                         r["from"].as_str().unwrap_or("?"),
