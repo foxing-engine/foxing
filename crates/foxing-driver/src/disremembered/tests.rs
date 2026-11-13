@@ -180,10 +180,7 @@ fn the_map_is_built_once_and_travel_follows_exits() {
     let dir = tempfile::tempdir().unwrap();
     let mut w = open(dir.path(), Timestamp(0));
     let built = events(&w);
-    assert_eq!(
-        w.store.entities().filter(|e| e.kind == "room").count(),
-        rooms::ROOMS.len()
-    );
+    assert_eq!(w.store.of_kind("room").count(), rooms::ROOMS.len());
     login(&mut w, "dave", "test", PASS).unwrap();
     let look = ok(&mut w, "dave", "look", json!([]));
     assert_eq!(look.result["room"], json!("The Threshold"));
@@ -209,10 +206,7 @@ fn the_map_is_built_once_and_travel_follows_exits() {
     drop(w);
     // Reopening builds nothing: the rooms are in the log.
     let w = open(dir.path(), Timestamp(1000));
-    assert_eq!(
-        w.store.entities().filter(|e| e.kind == "room").count(),
-        rooms::ROOMS.len()
-    );
+    assert_eq!(w.store.of_kind("room").count(), rooms::ROOMS.len());
     assert!(events(&w) > built, "the login and travel were recorded");
     let mut w = w;
     let before = events(&w);
@@ -1729,8 +1723,8 @@ fn a_name_unspoken_for_thirty_days_is_forgotten_and_free() {
     // The cellar stays, dug by dave.
     let cellar = rooms::room_by_key(&w, "cellar").or_else(|| {
         w.store
-            .entities()
-            .find(|e| e.kind == "room" && e.owner.as_deref() == Some("dave"))
+            .of_kind("room")
+            .find(|e| e.owner.as_deref() == Some("dave"))
             .map(|e| e.id)
     });
     assert!(cellar.is_some(), "what dave dug stays");
@@ -2744,10 +2738,7 @@ fn a_name_in_other_letters_is_the_same_name() {
             "{name}: {e}"
         );
     }
-    assert_eq!(
-        w.store.entities().filter(|e| e.kind == "citizen").count(),
-        1
-    );
+    assert_eq!(w.store.of_kind("citizen").count(), 1);
     // The spelling the world knows still works.
     login(&mut w, "Claude-scout", "test", PASS).unwrap();
 }
@@ -3920,8 +3911,8 @@ fn a_chain_closing_can_kindle_a_hybrid_that_knows_its_makers_and_opens_its_seale
     );
     let child = w
         .store
-        .entities()
-        .find(|e| e.kind == "creature" && plain_str(&w, e.id, CREATURE, "name") == Some("ragwisp"))
+        .of_kind("creature")
+        .find(|e| plain_str(&w, e.id, CREATURE, "name") == Some("ragwisp"))
         .map(|e| e.id)
         .expect("a child");
     // Halfway between the two, rounded toward the sender: the midden, one room away.
@@ -4046,8 +4037,8 @@ fn a_chain_closing_can_kindle_a_hybrid_that_knows_its_makers_and_opens_its_seale
     }
     let children = w
         .store
-        .entities()
-        .filter(|e| e.kind == "creature" && plain_str(&w, e.id, CREATURE, "born_of").is_some())
+        .of_kind("creature")
+        .filter(|e| plain_str(&w, e.id, CREATURE, "born_of").is_some())
         .count();
     assert!(children <= kindle::MAX_CHILDREN, "{children}");
     // And past the cap, none.
@@ -4057,8 +4048,8 @@ fn a_chain_closing_can_kindle_a_hybrid_that_knows_its_makers_and_opens_its_seale
     }
     let children = w
         .store
-        .entities()
-        .filter(|e| e.kind == "creature" && plain_str(&w, e.id, CREATURE, "born_of").is_some())
+        .of_kind("creature")
+        .filter(|e| plain_str(&w, e.id, CREATURE, "born_of").is_some())
         .count();
     assert_eq!(children, kindle::MAX_CHILDREN);
 }
@@ -5823,8 +5814,8 @@ fn the_named_confide_in_the_unnamed_when_names_are_few() {
     // With six named, nobody confides: five more unnamed creatures are named here.
     let unnamed: Vec<EntityId> = w
         .store
-        .entities()
-        .filter(|e| e.kind == "creature" && e.id != rag && mind::name(&w, e.id).is_none())
+        .of_kind("creature")
+        .filter(|e| e.id != rag && mind::name(&w, e.id).is_none())
         .map(|e| e.id)
         .take(5)
         .collect();
@@ -7139,6 +7130,43 @@ fn a_creature_learns_from_its_kills_from_irritating_to_painful() {
         Some(fog),
         "shoved out of the Fogbank"
     );
+    // R203: a name in its first hour is never shoved into a room that hunts (the
+    // Shallows is one door north); past the hour, the door is any door.
+    let shallows = rooms::room_by_key(&w, "shallows").unwrap();
+    let put_back = |w: &mut World| {
+        w.record(
+            foxing_log::Actor::Driver,
+            StoreEvent::EntityMoved {
+                id: dave,
+                parent: Some(fog),
+            },
+        )
+        .unwrap();
+    };
+    for _ in 0..30 {
+        put_back(&mut w);
+        play_until(&mut w, "shove");
+        assert_ne!(rooms::room_of(&w, dave), Some(shallows));
+    }
+    w.fixed_now = Some(Timestamp(t0.0 + super::kindle::GRACE_MS + 1));
+    let mut met = false;
+    for _ in 0..60 {
+        put_back(&mut w);
+        play_until(&mut w, "shove");
+        met |= rooms::room_of(&w, dave) == Some(shallows);
+        let _ = combat::leave_fight(&mut w, "dave", dave);
+    }
+    assert!(met, "past its first hour a name can land in the Shallows");
+    let look = {
+        put_back(&mut w);
+        ok(&mut w, "dave", "look", json!([]))
+    };
+    assert!(
+        look.summary
+            .contains("it has learned to shove: a blow of its may put you through a door"),
+        "{}",
+        look.summary
+    );
     // Learning climbs the tiers: three kills, each learning something, worse each time.
     set(&mut w, vec![]);
     let mut got = Vec::new();
@@ -7152,7 +7180,7 @@ fn a_creature_learns_from_its_kills_from_irritating_to_painful() {
     }
     assert_eq!(got.len(), 3, "{got:?}");
     assert!(["chatter", "shove"].contains(&got[0]), "{got:?}");
-    assert!(["numb", "leech"].contains(&got[1]), "{got:?}");
+    assert!(["numb", "leech", "bleed"].contains(&got[1]), "{got:?}");
     assert!(["venom", "forget", "maw"].contains(&got[2]), "{got:?}");
     assert!(
         super::death::maybe_learn(&mut w, wisp).unwrap().is_none(),
@@ -7507,7 +7535,7 @@ fn scale_measurement() {
         t.elapsed(),
         events
     );
-    let rooms = w2.store.entities().filter(|e| e.kind == "room").count();
+    let rooms = w2.store.of_kind("room").count();
     assert!(rooms >= n, "{rooms}");
 }
 
@@ -9628,8 +9656,8 @@ fn the_pilots_lie_awake_near_the_threshold_and_the_docent_leaves_them() {
     past::ensure_pilots(&mut w, &curves()).unwrap();
     let pilots: Vec<EntityId> = w
         .store
-        .entities()
-        .filter(|e| e.kind == "item" && past::tier(&w, e.id) >= 3)
+        .of_kind("item")
+        .filter(|e| past::tier(&w, e.id) >= 3)
         .map(|e| e.id)
         .collect();
     assert_eq!(pilots.len(), 3, "placed once");
@@ -9875,8 +9903,8 @@ fn the_docent_keeps_three_names_near_the_door() {
     assert_eq!(mind::named_count(&w), 3);
     let named: Vec<EntityId> = w
         .store
-        .entities()
-        .filter(|e| e.kind == "creature" && mind::name(&w, e.id).is_some())
+        .of_kind("creature")
+        .filter(|e| mind::name(&w, e.id).is_some())
         .map(|e| e.id)
         .collect();
     for c in &named {

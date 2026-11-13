@@ -455,8 +455,7 @@ pub fn run_checked(
                         ("tell", Some(c)) => {
                             let word = world
                                 .store
-                                .entities()
-                                .filter(|e| e.kind == "creature")
+                                .of_kind("creature")
                                 .filter_map(|e| errand::of(world, e.id))
                                 .any(|e| {
                                     e.word_to.as_deref().is_some_and(|t| {

@@ -158,8 +158,7 @@ pub fn heir_name(parent_a: &str, parent_b: &str, roll: u32) -> String {
 fn children_alive(world: &World) -> usize {
     world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature")
+        .of_kind("creature")
         .filter(|e| {
             e.components
                 .get(CREATURE)
@@ -234,8 +233,7 @@ pub fn try_birth(
                 // A syllable from some third creature in the world, or a seed kind.
                 let others: Vec<String> = world
                     .store
-                    .entities()
-                    .filter(|e| e.kind == "creature")
+                    .of_kind("creature")
                     .filter_map(|e| plain_str(world, e.id, CREATURE, "name").map(str::to_string))
                     .filter(|k| k != &sk && k != &rk)
                     .collect();
@@ -257,15 +255,9 @@ pub fn try_birth(
                     .iter()
                     .map(|d| d.key.to_string())
                     .chain(std::iter::once(kind.clone()))
-                    .chain(
-                        world
-                            .store
-                            .entities()
-                            .filter(|e| e.kind == "creature")
-                            .filter_map(|e| {
-                                plain_str(world, e.id, CREATURE, "name").map(str::to_string)
-                            }),
-                    )
+                    .chain(world.store.of_kind("creature").filter_map(|e| {
+                        plain_str(world, e.id, CREATURE, "name").map(str::to_string)
+                    }))
                     .collect();
                 let near = |a: &str, b: &str| {
                     a == b

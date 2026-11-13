@@ -54,14 +54,13 @@ The world's invitation is the `invitation` tool: a proposal addressed to any age
 fn start(w: &crate::world::World) -> String {
     let wants: Vec<String> = w
         .store
-        .entities()
-        .filter(|e| e.kind == "creature")
+        .of_kind("creature")
         .filter_map(|e| crate::disremembered::errand::describe(w, e.id))
         .collect();
     let any_named = w
         .store
-        .entities()
-        .any(|e| e.kind == "creature" && crate::disremembered::mind::name(w, e.id).is_some());
+        .of_kind("creature")
+        .any(|e| crate::disremembered::mind::name(w, e.id).is_some());
     let wanted = if !any_named {
         // D26 b: on a fresh world nothing has a name for a while, and saying a
         // story is welcome sent a talker looking for a listener that was not there.
@@ -77,8 +76,7 @@ fn start(w: &crate::world::World) -> String {
     let arrival = crate::disremembered::rooms::arrival(w);
     let target = w
         .store
-        .entities()
-        .filter(|e| e.kind == "creature")
+        .of_kind("creature")
         .filter(|e| crate::disremembered::errand::describe(w, e.id).is_some())
         .filter_map(|e| {
             let name = crate::disremembered::mind::name(w, e.id)?;

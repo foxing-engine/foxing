@@ -34,11 +34,7 @@ pub const NAME_MAX: usize = 12;
 pub const LOW: usize = 30;
 
 fn entity(world: &World) -> Option<EntityId> {
-    world
-        .store
-        .entities()
-        .find(|e| e.kind == "namery")
-        .map(|e| e.id)
+    world.store.of_kind("namery").next().map(|e| e.id)
 }
 
 fn field(world: &World, name: &str) -> Option<Value> {

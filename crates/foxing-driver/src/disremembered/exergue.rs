@@ -295,7 +295,7 @@ fn circulation(world: &World) -> Vec<(String, usize, f64)> {
     let now = world.now();
     let mut by: std::collections::BTreeMap<String, (usize, f64)> =
         std::collections::BTreeMap::new();
-    for e in world.store.entities().filter(|e| e.kind == "chunk") {
+    for e in world.store.of_kind("chunk") {
         let source = plain_str(world, e.id, CHUNK, "source").unwrap_or("");
         let coin = coin_of(source);
         let v = world
@@ -401,7 +401,7 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
         }
         "mintmark-hall" if named(&["register", "frame", "mark", "record"]) => {
             let mut rows: Vec<String> = Vec::new();
-            for e in world.store.entities().filter(|e| e.kind == "creature") {
+            for e in world.store.of_kind("creature") {
                 if let Some(n) = super::mind::name(world, e.id) {
                     let kind = plain_str(world, e.id, CREATURE, "name").unwrap_or("?");
                     let room_name = e
@@ -412,7 +412,7 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
                 }
             }
             let mut fixtures: Vec<String> = Vec::new();
-            for e in world.store.entities().filter(|e| e.kind == "room") {
+            for e in world.store.of_kind("room") {
                 for v in super::craft::fixtures_in(world, e.id) {
                     if let Some(n) = v["given_name"].as_str() {
                         fixtures.push(format!(

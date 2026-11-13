@@ -653,8 +653,7 @@ pub fn pto_sweep(world: &mut World) -> Result<(), String> {
     let now = world.now().0;
     let due: Vec<(String, EntityId)> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "citizen")
+        .of_kind("citizen")
         .filter_map(|e| e.owner.clone().map(|o| (o, e.id)))
         .filter(|(actor, id)| {
             on_pto(world, actor)
@@ -719,8 +718,7 @@ pub(crate) fn canonical_name(world: &World, name: &str) -> Option<String> {
     let lower = name.trim().to_lowercase();
     world
         .store
-        .entities()
-        .filter(|e| e.kind == "citizen")
+        .of_kind("citizen")
         .filter_map(|e| e.owner.clone())
         .find(|o| o.to_lowercase() == lower)
 }
@@ -728,8 +726,8 @@ pub(crate) fn canonical_name(world: &World, name: &str) -> Option<String> {
 pub(crate) fn find_citizen(world: &World, actor: &str) -> Option<Found> {
     let citizen = world
         .store
-        .entities()
-        .find(|e| e.kind == "citizen" && e.owner.as_deref() == Some(actor))?;
+        .of_kind("citizen")
+        .find(|e| e.owner.as_deref() == Some(actor))?;
     let mut window = None;
     let mut palace = None;
     for c in world.store.children(citizen.id) {
@@ -851,8 +849,7 @@ fn first_moves(world: &World) -> String {
     let home = rooms::arrival(world);
     let named: Vec<(Option<EntityId>, String, Option<String>)> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature")
+        .of_kind("creature")
         .filter_map(|e| {
             mind::name(world, e.id).map(|n| {
                 // What it wants, if a story: the first move is then the errand.

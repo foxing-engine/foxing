@@ -138,20 +138,15 @@ pub fn view(
     let narrative = last_n(false, NARRATIVE_LINES);
     let session = last_n(true, SESSION_LINES);
     let record: Vec<String> = narrative.iter().chain(session.iter()).cloned().collect();
-    let citizens = world
-        .store
-        .entities()
-        .filter(|e| e.kind == "citizen")
-        .count();
+    let citizens = world.store.of_kind("citizen").count();
     let dug = world
         .store
-        .entities()
-        .filter(|e| e.kind == "room" && e.owner.is_some())
+        .of_kind("room")
+        .filter(|e| e.owner.is_some())
         .count();
     let named: Vec<String> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature")
+        .of_kind("creature")
         .filter_map(|e| {
             super::mind::name(world, e.id).map(|n| {
                 let place = e

@@ -472,11 +472,7 @@ fn set_offers(
 }
 
 fn recipes_entity(world: &World) -> Option<EntityId> {
-    world
-        .store
-        .entities()
-        .find(|e| e.kind == "recipes")
-        .map(|e| e.id)
+    world.store.of_kind("recipes").next().map(|e| e.id)
 }
 
 pub fn added_recipes(world: &World) -> Vec<Rx> {
@@ -1692,8 +1688,7 @@ pub fn sweep(world: &mut World) -> Result<(), String> {
     let now = world.now();
     let gone: Vec<(EntityId, String, Option<EntityId>)> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "item")
+        .of_kind("item")
         .filter_map(|e| {
             let m = world
                 .store
@@ -1725,8 +1720,7 @@ pub fn sweep(world: &mut World) -> Result<(), String> {
     // kind again.
     let unnamed: Vec<(EntityId, String, String, Option<EntityId>)> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "item")
+        .of_kind("item")
         .filter(|e| plain_str(world, e.id, ITEM, "given_name").is_some())
         // A tier-3 thing's name is dealt by the Namery and is its own, not written in memory.
         .filter(|e| super::past::tier(world, e.id) < 3)
@@ -1813,7 +1807,7 @@ pub fn register(world: &mut World, curves: Curves) {
             // minutes (R6).
             let now = w.now().0;
             let mut offers: Vec<String> = Vec::new();
-            for e in w.store.entities().filter(|e| e.kind == "citizen").map(|e| e.id).collect::<Vec<_>>() {
+            for e in w.store.of_kind("citizen").map(|e| e.id).collect::<Vec<_>>() {
                 let who = super::plain_str(w, e, super::CITIZEN, "name").unwrap_or("?").to_string();
                 for o in offers_of(w, e) {
                     let left = OFFER_MS - now.saturating_sub(o["at"].as_i64().unwrap_or(0));

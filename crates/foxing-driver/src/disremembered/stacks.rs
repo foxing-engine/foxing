@@ -106,7 +106,7 @@ pub fn trick_said(t: Trick) -> &'static str {
         Trick::Sweat => "it shakes a twentieth off every chunk",
         Trick::Pinch => "it clouds a chunk for a few minutes",
         Trick::Chatter => "it says your name back wrong",
-        Trick::Shove => "it shoves you through a door",
+        Trick::Shove => "it shoves: a blow of its may put you through a door, the fight over",
         Trick::Numb => "its bite puts your arm to sleep",
         Trick::Leech => "it mends by what it bites",
         Trick::Maw => "it bites twice in a breath",
@@ -676,8 +676,21 @@ fn play(
             let Some(here) = world.store.entity(citizen).and_then(|e| e.parent) else {
                 return Ok((None, false));
             };
-            let exits: Vec<(String, EntityId)> =
+            let mut exits: Vec<(String, EntityId)> =
                 super::rooms::exits_of(world, here).into_iter().collect();
+            // R203: a name in its first hour is not shoved into a room that hunts
+            // (two of four newcomers met the Shallows this way, off their first
+            // wisp); with no other door, it holds the frame and the fight goes on.
+            let new_name = super::plain_num(world, citizen, super::CITIZEN, "named_at")
+                .is_some_and(|t| world.now().0 - (t as i64) < super::kindle::GRACE_MS);
+            if new_name {
+                exits.retain(|(_, to)| {
+                    !world
+                        .store
+                        .children(*to)
+                        .any(|e| e.kind == "creature" && super::combat::is_aggressive(world, e.id))
+                });
+            }
             let Some((via, to)) = exits
                 .get(world.roll(exits.len().max(1) as u32) as usize)
                 .cloned()

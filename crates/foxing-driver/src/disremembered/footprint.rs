@@ -92,7 +92,7 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
     let mut rows: Vec<Value> = Vec::new();
     let mut lines: Vec<String> = Vec::new();
     let scarcity = mind::scarcity(world);
-    for e in world.store.entities().filter(|e| e.kind == "creature") {
+    for e in world.store.of_kind("creature") {
         let Some(name) = mind::name(world, e.id) else {
             continue;
         };
@@ -234,7 +234,7 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
 pub fn snapshot(world: &World, actor: &str) -> Value {
     let now = world.now();
     let mut creatures = serde_json::Map::new();
-    for e in world.store.entities().filter(|e| e.kind == "creature") {
+    for e in world.store.of_kind("creature") {
         if mind::keepers(world, e.id).iter().any(|k| k == actor) {
             creatures.insert(
                 e.id.0.to_string(),
@@ -243,7 +243,7 @@ pub fn snapshot(world: &World, actor: &str) -> Value {
         }
     }
     let mut rooms = serde_json::Map::new();
-    for e in world.store.entities().filter(|e| e.kind == "room") {
+    for e in world.store.of_kind("room") {
         let dug = e.owner.as_deref() == Some(actor);
         let kept = super::building::kept_by(world, e.id)
             .iter()
@@ -329,7 +329,7 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
     // Rooms: dug by you, or kept by you.
     let mut rooms_out: Vec<Value> = Vec::new();
     let mut room_ids: Vec<EntityId> = Vec::new();
-    for e in world.store.entities().filter(|e| e.kind == "room") {
+    for e in world.store.of_kind("room") {
         let dug = e.owner.as_deref() == Some(actor);
         let kept = super::building::kept_by(world, e.id)
             .iter()
@@ -388,7 +388,7 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
     // Creatures you keep (fed), by name or kind.
     let mut creatures_out: Vec<Value> = Vec::new();
     let mut creature_ids: Vec<EntityId> = Vec::new();
-    for e in world.store.entities().filter(|e| e.kind == "creature") {
+    for e in world.store.of_kind("creature") {
         if !mind::keepers(world, e.id).iter().any(|k| k == actor) {
             continue;
         }
@@ -419,7 +419,7 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
     let mut things_out: Vec<Value> = Vec::new();
     let mut thing_ids: Vec<EntityId> = Vec::new();
     let sig = format!(" \u{2014} {actor}");
-    for e in world.store.entities().filter(|e| e.kind == "item") {
+    for e in world.store.of_kind("item") {
         let made = plain_str(world, e.id, ITEM, "made_by") == Some(actor);
         let text = plain_str(world, e.id, ITEM, "text").unwrap_or("");
         let my_lines = text

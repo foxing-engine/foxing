@@ -203,12 +203,7 @@ pub(crate) fn set_fields(
 /// what they were, [`SHEAF_AT`] or more of them, become one chunk worth their sum.
 pub fn fold_sheaves(world: &mut World, curves: &Curves) -> Result<usize, String> {
     let now = world.now();
-    let creatures: Vec<EntityId> = world
-        .store
-        .entities()
-        .filter(|e| e.kind == "creature")
-        .map(|e| e.id)
-        .collect();
+    let creatures: Vec<EntityId> = world.store.of_kind("creature").map(|e| e.id).collect();
     let mut folded = 0;
     for c in creatures {
         let Some(window) = super::mind::window_of(world, c) else {

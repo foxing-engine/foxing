@@ -130,8 +130,7 @@ fn quiet_for(world: &World, citizen: EntityId) -> Option<Duration> {
 pub fn forget_sweep(world: &mut World) -> Result<(), String> {
     let faded: Vec<EntityId> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "citizen")
+        .of_kind("citizen")
         .filter(|e| {
             if super::is_passing(world, e.id) {
                 quiet_for(world, e.id).is_some_and(|d| d.0 >= PASSING_LIFE.0)
@@ -355,8 +354,7 @@ pub fn sweep(world: &mut World) -> Result<(), String> {
     let now = world.now();
     let quiet: Vec<(String, EntityId)> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "citizen")
+        .of_kind("citizen")
         .filter_map(|e| e.owner.clone().map(|o| (o, e.id)))
         .filter(|(actor, id)| {
             is_here(world, *id)

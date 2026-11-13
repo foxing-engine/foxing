@@ -519,8 +519,8 @@ pub(crate) fn raze_room(
             serde_json::Map<String, serde_json::Value>,
         )> = w
             .store
-            .entities()
-            .filter(|e| e.kind == "room" && e.id != room)
+            .of_kind("room")
+            .filter(|e| e.id != room)
             .filter_map(|e| {
                 let m = match e.components.get(super::EXITS)?.fields.get("exits")? {
                     foxing_store::Field::Plain(serde_json::Value::Object(m)) => m.clone(),

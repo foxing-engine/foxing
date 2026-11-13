@@ -610,8 +610,8 @@ pub fn carried_word(
     let said = text.to_lowercase();
     let senders: Vec<(EntityId, Errand)> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature" && e.id != receiver)
+        .of_kind("creature")
+        .filter(|e| e.id != receiver)
         .filter_map(|e| of(world, e.id).map(|er| (e.id, er)))
         .filter(|(_, er)| {
             er.word_to
@@ -730,8 +730,8 @@ fn open_word_for(world: &World, actor: &str, except: EntityId) -> Option<String>
     let hl = super::Curves::from_env().active_half_life.0 as f64 * super::atlas::ATLAS_HALF_LIVES;
     let mut open: Vec<(EntityId, EntityId, String, String)> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature" && e.id != except)
+        .of_kind("creature")
+        .filter(|e| e.id != except)
         .filter_map(|e| {
             let er = of(world, e.id)?;
             let to = er.word_to?;
@@ -841,8 +841,7 @@ fn rotatable(by: &str) -> bool {
 pub fn sweep(world: &mut World) -> Result<(), String> {
     let named: Vec<EntityId> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature")
+        .of_kind("creature")
         .filter(|e| mind::name(world, e.id).is_some())
         .map(|e| e.id)
         .collect();
@@ -852,8 +851,7 @@ pub fn sweep(world: &mut World) -> Result<(), String> {
     // listen with"). Cleared here, so what is wanted is wanted by someone who can hear.
     let nameless_wanting: Vec<EntityId> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature")
+        .of_kind("creature")
         .filter(|e| mind::name(world, e.id).is_none())
         .filter(|e| of(world, e.id).is_some_and(|er| er.story.is_some() || er.word.is_some()))
         .map(|e| e.id)

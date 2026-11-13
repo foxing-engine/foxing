@@ -62,8 +62,8 @@ fn room_name(world: &World, room: EntityId) -> String {
 fn newest_dug(world: &World) -> Option<(EntityId, String)> {
     world
         .store
-        .entities()
-        .filter(|e| e.kind == "room" && e.owner.is_some())
+        .of_kind("room")
+        .filter(|e| e.owner.is_some())
         .filter(|e| !plain_bool(world, e.id, ROOM, "hidden"))
         .max_by_key(|e| e.id.0)
         .map(|e| (e.id, e.owner.clone().unwrap_or_default()))
@@ -73,8 +73,7 @@ fn signpost(world: &World, here: EntityId) -> String {
     // The named, nearest first: three arms at most.
     let mut named: Vec<(usize, String)> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature")
+        .of_kind("creature")
         .filter_map(|e| {
             let name = mind::name(world, e.id)?;
             let room = e.parent?;

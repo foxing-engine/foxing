@@ -93,8 +93,8 @@ impl RootResolver for Roots<'_> {
         let whose = arg.or(viewer.actor.as_deref())?;
         let citizen = || {
             w.store
-                .entities()
-                .find(|e| e.kind == "citizen" && e.owner.as_deref() == Some(whose))
+                .of_kind("citizen")
+                .find(|e| e.owner.as_deref() == Some(whose))
                 .map(|e| e.id)
         };
         let child = |kind: &str| {

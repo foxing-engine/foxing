@@ -289,8 +289,7 @@ pub fn sweep(world: &mut World) -> Result<(), String> {
     world.set_last_forget_minute(now.0 / 60_000);
     let gone: Vec<(EntityId, Option<String>, Option<EntityId>, String)> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "chunk")
+        .of_kind("chunk")
         .filter_map(|e| {
             let v = world
                 .store
@@ -351,8 +350,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 // than telling an empty-handed newcomer to go and ask.
                 let listener = w
                     .store
-                    .entities()
-                    .filter(|e| e.kind == "creature")
+                    .of_kind("creature")
                     .find_map(|e| {
                         let given = super::mind::name(w, e.id)?;
                         let room = e.parent.and_then(|r| super::plain_str(w, r, super::ROOM, "name"))?;

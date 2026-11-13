@@ -68,11 +68,7 @@ pub const TAKEN_LINES: &[&str] = &[
 
 /// The Docent's entity, if it stands.
 pub fn entity(world: &World) -> Option<EntityId> {
-    world
-        .store
-        .entities()
-        .find(|e| e.kind == "docent")
-        .map(|e| e.id)
+    world.store.of_kind("docent").next().map(|e| e.id)
 }
 
 fn field(world: &World, name: &str) -> Option<Value> {
@@ -294,7 +290,7 @@ fn creature_slot(world: &World, actor: &str) -> String {
 fn room_slot(world: &World) -> String {
     // Ids are dealt in order: the highest owned room is the newest dug.
     let mut newest: Option<(u64, String, String)> = None;
-    for e in world.store.entities().filter(|e| e.kind == "room") {
+    for e in world.store.of_kind("room") {
         let Some(owner) = e.owner.clone() else {
             continue;
         };
@@ -635,8 +631,7 @@ pub fn short_question(q: &str) -> String {
 fn wants_plain(world: &World) -> Vec<Value> {
     world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature")
+        .of_kind("creature")
         .filter_map(|e| {
             let name = super::mind::name(world, e.id)?;
             let er = super::errand::of(world, e.id)?;
@@ -864,7 +859,7 @@ pub fn tidy(world: &mut World) -> Result<usize, String> {
     // was swept into it again on the next pass, and the two rooms told the same
     // tidying in opposite directions (the Watch of 11-06).
     let midden = super::rooms::room_by_key(world, "midden");
-    for e in world.store.entities().filter(|e| e.kind == "item") {
+    for e in world.store.of_kind("item") {
         let Some(parent) = e.parent else { continue };
         let in_room = world
             .store
@@ -1100,8 +1095,8 @@ fn anyone_here(world: &World, room_id: EntityId) -> bool {
 fn anyone_in_the_world(world: &World) -> bool {
     world
         .store
-        .entities()
-        .any(|e| e.kind == "citizen" && super::presence::is_here(world, e.id))
+        .of_kind("citizen")
+        .any(|e| super::presence::is_here(world, e.id))
 }
 
 /// The rooms of the round, in order: the world's own as they were laid, then the dug.
@@ -1112,8 +1107,8 @@ fn route(world: &World) -> Vec<EntityId> {
         .collect();
     let mut dug: Vec<EntityId> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "room" && e.owner.is_some())
+        .of_kind("room")
+        .filter(|e| e.owner.is_some())
         .map(|e| e.id)
         .collect();
     dug.sort();

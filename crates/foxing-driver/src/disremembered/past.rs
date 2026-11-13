@@ -383,11 +383,7 @@ pub const PILOTS: &[(&str, &str, &str)] = &[
 ];
 
 pub fn ensure_pilots(world: &mut World, curves: &Curves) -> Result<(), String> {
-    let placed = world
-        .store
-        .entities()
-        .filter(|e| e.kind == "item")
-        .any(|e| item_pilot(world, e.id));
+    let placed = world.store.of_kind("item").any(|e| item_pilot(world, e.id));
     if placed {
         return Ok(());
     }
@@ -445,8 +441,8 @@ fn new_desire(world: &mut World, actor: &str, item: EntityId) -> Result<(), Comm
         .collect();
     let rooms: Vec<(EntityId, String)> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "room" && e.owner.is_none())
+        .of_kind("room")
+        .filter(|e| e.owner.is_none())
         .filter_map(|e| plain_str(world, e.id, ROOM, "name").map(|n| (e.id, n.to_string())))
         .filter(|(_, n)| !seen.contains(n))
         .collect();
@@ -468,8 +464,8 @@ fn new_desire(world: &mut World, actor: &str, item: EntityId) -> Result<(), Comm
 pub fn awake_things(world: &World) -> Vec<serde_json::Value> {
     world
         .store
-        .entities()
-        .filter(|e| e.kind == "item" && tier(world, e.id) >= 3)
+        .of_kind("item")
+        .filter(|e| tier(world, e.id) >= 3)
         .map(|e| {
             // Lying in a room, or in a satchel under a citizen.
             let (room, carried_by) = match e.parent.and_then(|p| world.store.entity(p)) {

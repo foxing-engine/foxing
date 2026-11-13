@@ -24,8 +24,8 @@ fn citizen(world: &World, actor: &str, name: &str) -> Option<(String, EntityId)>
     };
     world
         .store
-        .entities()
-        .find(|e| e.kind == "citizen" && e.owner.as_deref() == Some(who))
+        .of_kind("citizen")
+        .find(|e| e.owner.as_deref() == Some(who))
         .map(|e| (who.to_string(), e.id))
 }
 
@@ -38,8 +38,7 @@ fn room(world: &World, name: &str) -> Option<EntityId> {
         .to_ascii_lowercase();
     world
         .store
-        .entities()
-        .filter(|e| e.kind == "room")
+        .of_kind("room")
         .find(|e| {
             let key = super::plain_str(world, e.id, ROOM, "key")
                 .unwrap_or("")

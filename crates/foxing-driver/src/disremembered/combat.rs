@@ -662,8 +662,8 @@ fn schedule_respawn(world: &mut World, room: EntityId) -> Result<(), String> {
 pub fn ensure_spawns(world: &mut World) -> Result<(), String> {
     let rooms: Vec<EntityId> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "room" && e.components.contains_key(SPAWN))
+        .of_kind("room")
+        .filter(|e| e.components.contains_key(SPAWN))
         .map(|e| e.id)
         .collect();
     for room in rooms {
@@ -983,8 +983,7 @@ pub fn shaken_said(world: &World, citizen: EntityId) -> Option<String> {
 pub fn fought_by(world: &World, creature: EntityId) -> Option<EntityId> {
     world
         .store
-        .entities()
-        .filter(|e| e.kind == "citizen")
+        .of_kind("citizen")
         .find(|e| plain_num(world, e.id, BODY, "engaged").map(|v| v as u64) == Some(creature.0))
         .map(|e| e.id)
 }
@@ -994,8 +993,7 @@ pub fn fought_by(world: &World, creature: EntityId) -> Option<EntityId> {
 pub fn healing_rooms(world: &World) -> Vec<EntityId> {
     world
         .store
-        .entities()
-        .filter(|e| e.kind == "room")
+        .of_kind("room")
         .filter(|e| {
             super::plain_str(world, e.id, super::ROOM, "name") == Some(CLOSET)
                 || super::craft::fixture_of(world, e.id, "basin").is_some()
@@ -1018,8 +1016,7 @@ pub fn regen(world: &mut World, elapsed_ms: i64) -> Result<usize, String> {
     // The wounded, and the whole ones still walking home from succor.
     let wounded: Vec<(EntityId, f64, f64, String)> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature")
+        .of_kind("creature")
         .filter_map(|e| {
             let max = plain_num(world, e.id, CREATURE, "max_hp")?;
             let hp = plain_num(world, e.id, CREATURE, "hp").unwrap_or(max);
@@ -1201,8 +1198,8 @@ fn succor_step(world: &mut World, creature: EntityId, hp: f64, max: f64) -> Resu
 pub fn away_mending(world: &World, room: EntityId) -> Vec<String> {
     world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature" && e.parent != Some(room))
+        .of_kind("creature")
+        .filter(|e| e.parent != Some(room))
         .filter_map(|e| {
             let s = match e.components.get(CREATURE)?.fields.get("succor")? {
                 Field::Plain(v) if v["away"] == true && v["home"].as_u64() == Some(room.0) => v,

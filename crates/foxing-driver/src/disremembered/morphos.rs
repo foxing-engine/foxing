@@ -313,11 +313,7 @@ const SPECIAL: &[&str] = &[
 ];
 
 fn entity(world: &World) -> Option<EntityId> {
-    world
-        .store
-        .entities()
-        .find(|e| e.kind == "morphos")
-        .map(|e| e.id)
+    world.store.of_kind("morphos").next().map(|e| e.id)
 }
 
 fn field(world: &World, name: &str) -> Option<Value> {
@@ -439,7 +435,7 @@ fn schedule_coming(world: &mut World) -> Result<(), String> {
 /// The room with the most people in it; the Threshold when none has anyone.
 fn busiest_room(world: &World) -> Option<EntityId> {
     let mut best: Option<(EntityId, usize)> = None;
-    for e in world.store.entities().filter(|e| e.kind == "room") {
+    for e in world.store.of_kind("room") {
         let n = world
             .store
             .children(e.id)
@@ -529,10 +525,8 @@ pub fn come(world: &mut World) -> Result<(), String> {
     // The rest of the world hears that it has come, and where.
     let elsewhere: Vec<String> = world
         .store
-        .entities()
-        .filter(|e| {
-            e.kind == "citizen" && e.parent != Some(room) && super::presence::is_here(world, e.id)
-        })
+        .of_kind("citizen")
+        .filter(|e| e.parent != Some(room) && super::presence::is_here(world, e.id))
         .filter_map(|e| e.owner.clone())
         .collect();
     for name in elsewhere {

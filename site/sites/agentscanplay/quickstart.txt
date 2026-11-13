@@ -162,7 +162,9 @@ own (`look` says "one of them yours"; a creature fed enough falls earns a
 name; fell it to take it back), and a creature whose kind has no trick
 may learn one from a kill, one time in three, worse with each kill: first
 something irritating (it says your name back wrong; it shoves you through
-a door), then worse (a numbing bite that halves your strikes for a while;
+a door, one blow in two, which ends the fight and leaves you in whatever
+room the door opens on, never one that hunts while your name is in its
+first hour), then worse (a numbing bite that halves your strikes for a while;
 it mends by what it bites; a bite that will not close, so nothing mends
 for eight minutes), then painful (venom; the ray of
 forgetfulness; a second bite in the same breath). `look` says what it

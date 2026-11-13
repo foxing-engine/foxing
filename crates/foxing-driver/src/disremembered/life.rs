@@ -197,8 +197,8 @@ fn signpost(world: &mut World) -> Result<bool, String> {
     };
     let newest = world
         .store
-        .entities()
-        .filter(|e| e.kind == "room" && e.owner.is_some())
+        .of_kind("room")
+        .filter(|e| e.owner.is_some())
         .filter(|e| !plain_bool(world, e.id, ROOM, "hidden"))
         .max_by_key(|e| e.id.0)
         .map(|e| (e.id, e.owner.clone().unwrap_or_default()));
@@ -322,8 +322,8 @@ fn sighs(world: &mut World) -> Result<bool, String> {
     };
     let here: Vec<String> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "citizen" && super::presence::is_here(world, e.id))
+        .of_kind("citizen")
+        .filter(|e| super::presence::is_here(world, e.id))
         .filter_map(|e| plain_str(world, e.id, CITIZEN, "name").map(str::to_string))
         .collect();
     if here.is_empty() {
@@ -353,8 +353,7 @@ fn sighs(world: &mut World) -> Result<bool, String> {
 fn bells(world: &mut World) -> Result<bool, String> {
     let bells: Vec<(EntityId, EntityId)> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "item")
+        .of_kind("item")
         .filter(|e| plain_bool(world, e.id, ITEM, "fixed"))
         .filter(|e| {
             plain_str(world, e.id, ITEM, "effect").unwrap_or("") == "bell"
@@ -627,8 +626,7 @@ fn business_of(world: &mut World, c: EntityId) -> Result<bool, String> {
 fn house_business(world: &mut World, holiday: &str) -> Result<usize, String> {
     let house: Vec<EntityId> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature")
+        .of_kind("creature")
         .filter(|e| {
             matches!(
                 plain_str(world, e.id, CREATURE, "name"),
@@ -710,8 +708,8 @@ fn house_business(world: &mut World, holiday: &str) -> Result<usize, String> {
 fn cool_tempers(world: &mut World) -> Result<(), String> {
     let hot: Vec<EntityId> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature" && plain_bool(world, e.id, CREATURE, "furious"))
+        .of_kind("creature")
+        .filter(|e| plain_bool(world, e.id, CREATURE, "furious"))
         .map(|e| e.id)
         .collect();
     for c in hot {
@@ -733,8 +731,8 @@ pub fn business(world: &mut World) -> Result<(), String> {
     }
     let named: Vec<EntityId> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature" && super::mind::name(world, e.id).is_some())
+        .of_kind("creature")
+        .filter(|e| super::mind::name(world, e.id).is_some())
         .map(|e| e.id)
         .collect();
     // A rolled order, a few a tick.

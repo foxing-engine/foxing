@@ -874,8 +874,8 @@ pub fn homes() -> Vec<serde_json::Value> {
 pub fn room_by_key(world: &World, key: &str) -> Option<EntityId> {
     world
         .store
-        .entities()
-        .find(|e| e.kind == "room" && plain_str(world, e.id, ROOM, "key") == Some(key))
+        .of_kind("room")
+        .find(|e| plain_str(world, e.id, ROOM, "key") == Some(key))
         .map(|e| e.id)
 }
 
@@ -894,10 +894,9 @@ pub fn ensure_rooms(world: &mut World) -> Result<(), String> {
             .or_else(|| {
                 world
                     .store
-                    .entities()
+                    .of_kind("room")
                     .find(|e| {
-                        e.kind == "room"
-                            && plain_str(world, e.id, ROOM, "key").is_none()
+                        plain_str(world, e.id, ROOM, "key").is_none()
                             && plain_str(world, e.id, ROOM, "name") == Some(def.name)
                     })
                     .map(|e| e.id)
@@ -2308,12 +2307,9 @@ fn walk(
                 // Only a hunter in this room counts: one left behind in a room
                 // walked through still has its moment pending, and comes to nothing.
                 let here = w.store.entity(citizen).and_then(|c| c.parent);
-                let near: Vec<u64> = w
-                    .store
-                    .entities()
-                    .filter(|e| e.parent == here)
-                    .map(|e| e.id.0)
-                    .collect();
+                let near: Vec<u64> = here
+                    .map(|h| w.store.children(h).map(|e| e.id.0).collect())
+                    .unwrap_or_default();
                 // R193: a name in its first hour is left alone (the room says "not
                 // you yet"), so nothing has noticed it and the walk goes on.
                 let new_name = super::plain_num(w, citizen, super::CITIZEN, "named_at")

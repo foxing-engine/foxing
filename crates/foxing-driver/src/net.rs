@@ -153,8 +153,8 @@ fn run_line(
             valid_name(name)?;
             let fresh = !world
                 .store
-                .entities()
-                .any(|e| e.kind == "citizen" && e.owner.as_deref() == Some(name));
+                .of_kind("citizen")
+                .any(|e| e.owner.as_deref() == Some(name));
             disremembered::login_as(&mut world, name, "terminal", passphrase, passing)
                 .map_err(|e| e.to_string())?;
             *actor = Some((name.to_string(), ActorKind::Citizen));
@@ -853,7 +853,7 @@ pub(crate) fn schema_value(s: &Shared) -> Result<Value, (StatusCode, Json<Value>
                 .is_some_and(|f| f.visibility == foxing_store::Visibility::Public);
             let mut values: Vec<Value> = Vec::new();
             if public {
-                for e in w.store.entities().filter(|e| e.kind == kind) {
+                for e in w.store.of_kind(kind) {
                     if let Some(foxing_store::Field::Plain(v)) = e
                         .components
                         .get(component)
@@ -914,8 +914,8 @@ pub(crate) fn login_for_session(
     valid_name(actor)?;
     let fresh = !w
         .store
-        .entities()
-        .any(|e| e.kind == "citizen" && e.owner.as_deref() == Some(actor));
+        .of_kind("citizen")
+        .any(|e| e.owner.as_deref() == Some(actor));
     disremembered::login(w, actor, "session", passphrase).map_err(|e| e.to_string())?;
     Ok(fresh)
 }
@@ -931,8 +931,8 @@ pub(crate) fn http_login(
     valid_name(actor).map_err(|e| err_json(StatusCode::BAD_REQUEST, e))?;
     let fresh = !w
         .store
-        .entities()
-        .any(|e| e.kind == "citizen" && e.owner.as_deref() == Some(actor));
+        .of_kind("citizen")
+        .any(|e| e.owner.as_deref() == Some(actor));
     disremembered::login_as(w, actor, origin, passphrase, passing).map_err(|e| match e {
         disremembered::LoginError::Internal(_) => {
             err_json(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())

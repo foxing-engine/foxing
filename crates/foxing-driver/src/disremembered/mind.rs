@@ -56,8 +56,8 @@ fn name_for(creature: EntityId) -> &'static str {
 fn free_name_for(world: &World, creature: EntityId, kind: &str) -> (String, &'static str) {
     let taken: Vec<String> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature" && e.id != creature)
+        .of_kind("creature")
+        .filter(|e| e.id != creature)
         .filter_map(|e| name(world, e.id))
         .collect();
     let start = NAMES
@@ -173,8 +173,7 @@ pub fn find_named(world: &World, given: &str) -> Option<(EntityId, Option<Entity
     let want = given.trim().to_ascii_lowercase();
     world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature")
+        .of_kind("creature")
         .find(|e| name(world, e.id).is_some_and(|n| n.to_ascii_lowercase() == want))
         .map(|e| (e.id, e.parent))
 }
@@ -531,8 +530,8 @@ pub fn check_tier(world: &mut World, creature: EntityId) -> Result<(), CommandEr
     let free = |world: &World, candidate: &str| {
         !world
             .store
-            .entities()
-            .filter(|e| e.kind == "creature" && e.id != creature)
+            .of_kind("creature")
+            .filter(|e| e.id != creature)
             .filter_map(|e| name(world, e.id))
             .any(|t| t.eq_ignore_ascii_case(candidate))
     };
@@ -630,8 +629,8 @@ pub fn check_tier(world: &mut World, creature: EntityId) -> Result<(), CommandEr
 pub fn sweep(world: &mut World) -> Result<(), String> {
     let minded: Vec<EntityId> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature" && e.components.contains_key(MIND))
+        .of_kind("creature")
+        .filter(|e| e.components.contains_key(MIND))
         .map(|e| e.id)
         .collect();
     for c in minded {
@@ -807,8 +806,8 @@ fn schedule_wander(world: &mut World) -> Result<(), String> {
 pub fn wander(world: &mut World) -> Result<usize, String> {
     let rooms: Vec<EntityId> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "room" && e.owner.is_some())
+        .of_kind("room")
+        .filter(|e| e.owner.is_some())
         .map(|e| e.id)
         .filter(|&r| super::building::memory(world, r).is_some_and(|m| m >= super::building::DIM))
         // Empty of the unnamed: a room where only named creatures sit is one a
@@ -920,8 +919,8 @@ pub fn urgency(named: usize) -> f64 {
 pub fn named_count(world: &World) -> usize {
     world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature" && name(world, e.id).is_some())
+        .of_kind("creature")
+        .filter(|e| name(world, e.id).is_some())
         .count()
 }
 
@@ -947,8 +946,8 @@ fn schedule_confide(world: &mut World) -> Result<(), String> {
 pub fn confide(world: &mut World) -> Result<usize, String> {
     let named: Vec<EntityId> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "creature" && name(world, e.id).is_some())
+        .of_kind("creature")
+        .filter(|e| name(world, e.id).is_some())
         .map(|e| e.id)
         .collect();
     let count = named.len();

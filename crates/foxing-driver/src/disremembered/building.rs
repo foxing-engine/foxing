@@ -260,12 +260,7 @@ pub fn way_out(exits: &BTreeMap<String, EntityId>) -> Option<EntityId> {
 /// R84, on boot: every exit named `back` becomes `out` where the room has no `out`
 /// (a dug room's way home, Morphos's doors, the old Namery's). Returns how many.
 pub fn rename_back_doors(world: &mut World) -> Result<usize, String> {
-    let rooms: Vec<EntityId> = world
-        .store
-        .entities()
-        .filter(|e| e.kind == "room")
-        .map(|e| e.id)
-        .collect();
+    let rooms: Vec<EntityId> = world.store.of_kind("room").map(|e| e.id).collect();
     let mut n = 0;
     for r in rooms {
         let exits = exits_of(world, r);
@@ -470,8 +465,8 @@ pub const APPENDED: &str = "disremembered.appended";
 fn dug_from(world: &World, actor: &str, from: EntityId) -> usize {
     world
         .store
-        .entities()
-        .filter(|e| e.kind == "room" && e.owner.as_deref() == Some(actor))
+        .of_kind("room")
+        .filter(|e| e.owner.as_deref() == Some(actor))
         .filter(|e| {
             matches!(
                 e.components.get(ROOM).and_then(|c| c.fields.get("origin")),
@@ -751,8 +746,8 @@ pub fn register(world: &mut World, curves: super::Curves) {
                         let name = r["room"].as_str()?.to_string();
                         let id = w
                             .store
-                            .entities()
-                            .find(|e| e.kind == "room" && e.owner.is_none() && plain_str(w, e.id, ROOM, "name") == Some(name.as_str()))?
+                            .of_kind("room")
+                            .find(|e| e.owner.is_none() && plain_str(w, e.id, ROOM, "name") == Some(name.as_str()))?
                             .id;
                         let doors = exits_of(w, id).len();
                         let mudroom = super::rooms::is_mudroom(w, id);
@@ -1570,8 +1565,7 @@ pub fn reframe(world: &mut World, room: EntityId) -> Result<(), CommandError> {
     // The exit that leads here, as its digger named it, says as much as the name.
     let via: String = world
         .store
-        .entities()
-        .filter(|e| e.kind == "room")
+        .of_kind("room")
         .flat_map(|e| exits_of(world, e.id).into_iter())
         .filter(|(_, to)| *to == room)
         .map(|(via, _)| via)
@@ -1784,12 +1778,7 @@ pub const REJOINED: &str = "disremembered.rejoined";
 /// ancestor, or the Threshold. The ones already orphaned (#5) before razing learned
 /// to rejoin.
 pub fn rejoin_orphans(world: &mut World) -> Result<usize, String> {
-    let rooms: Vec<EntityId> = world
-        .store
-        .entities()
-        .filter(|e| e.kind == "room")
-        .map(|e| e.id)
-        .collect();
+    let rooms: Vec<EntityId> = world.store.of_kind("room").map(|e| e.id).collect();
     let mut reached: std::collections::HashSet<EntityId> = std::collections::HashSet::new();
     for &r in &rooms {
         for (_, to) in exits_of(world, r) {
@@ -1816,12 +1805,7 @@ pub fn rejoin_orphans(world: &mut World) -> Result<usize, String> {
     }
     // A forward door named `back` (the first sweep took a key's first word, and one
     // key began with it) is renamed: `back` is the way you came, never a door onward.
-    let rooms: Vec<EntityId> = world
-        .store
-        .entities()
-        .filter(|e| e.kind == "room")
-        .map(|e| e.id)
-        .collect();
+    let rooms: Vec<EntityId> = world.store.of_kind("room").map(|e| e.id).collect();
     for r in rooms {
         let exits = exits_of(world, r);
         let Some(to) = way_out(&exits) else {
@@ -1867,12 +1851,7 @@ pub fn reframe_all(world: &mut World) -> Result<(), String> {
     // per-room scan made the boot quadratic (three minutes at twenty thousand).
     let mut incoming: std::collections::HashMap<EntityId, Vec<String>> =
         std::collections::HashMap::new();
-    let rooms: Vec<EntityId> = world
-        .store
-        .entities()
-        .filter(|e| e.kind == "room")
-        .map(|e| e.id)
-        .collect();
+    let rooms: Vec<EntityId> = world.store.of_kind("room").map(|e| e.id).collect();
     for &r in &rooms {
         for (via, to) in exits_of(world, r) {
             incoming.entry(to).or_default().push(via);

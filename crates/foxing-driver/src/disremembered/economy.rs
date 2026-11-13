@@ -102,11 +102,7 @@ pub const RATES: &[&str] = &[
 ];
 
 fn entity(world: &World) -> Option<EntityId> {
-    world
-        .store
-        .entities()
-        .find(|e| e.kind == "economy")
-        .map(|e| e.id)
+    world.store.of_kind("economy").next().map(|e| e.id)
 }
 
 /// A rate, 1.0 when the world has none set.
@@ -727,8 +723,7 @@ pub fn strike(world: &mut World) -> Result<(), String> {
     let hour_ago = world.now().0 - 3_600_000;
     let present: Vec<String> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "citizen")
+        .of_kind("citizen")
         .filter(|e| {
             super::presence::is_here(world, e.id)
                 || super::presence::last_seen(world, e.id).is_some_and(|t| t >= hour_ago)
@@ -753,8 +748,8 @@ pub fn strike(world: &mut World) -> Result<(), String> {
     ];
     let papered: Vec<String> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "citizen" && super::presence::is_here(world, e.id))
+        .of_kind("citizen")
+        .filter(|e| super::presence::is_here(world, e.id))
         .filter(|e| {
             e.parent.is_some_and(|r| {
                 super::plain_str(world, r, super::ROOM, "key").is_some_and(|k| PAPERED.contains(&k))

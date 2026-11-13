@@ -86,6 +86,10 @@ pub(crate) struct Fold {
     chunk_owner: HashMap<u64, String>,
     sized: HashMap<u64, ()>,
     forgotten_names: std::collections::BTreeSet<String>,
+    // The last day's counts of who held what, oldest first (S3: the board read the
+    // day back out of the log for these on every asking, forty-odd reads past the
+    // kept tail).
+    census: std::collections::VecDeque<(i64, HashMap<String, f64>)>,
 }
 
 impl crate::world::LogFold for Fold {
@@ -95,6 +99,25 @@ impl crate::world::LogFold for Fold {
 
     fn take(&mut self, e: &foxing_log::Event) {
         self.after = e.seq.0;
+        if e.kind == CENSUS {
+            let held = e.payload["holding"]
+                .as_object()
+                .map(|m| {
+                    m.iter()
+                        .map(|(n, v)| (n.clone(), v.as_f64().unwrap_or(0.0)))
+                        .collect()
+                })
+                .unwrap_or_default();
+            self.census.push_back((e.at.0, held));
+            while self
+                .census
+                .front()
+                .is_some_and(|(at, _)| *at < e.at.0 - DAY_MS)
+            {
+                self.census.pop_front();
+            }
+            return;
+        }
         let Fold {
             lines,
             chunk_owner,
@@ -211,34 +234,25 @@ impl crate::world::LogFold for Fold {
 
 /// The board, from the log and the store.
 pub fn board(world: &World) -> (Vec<Line>, u64) {
-    let (lines, mut forgotten_names) = world.folded("board", |f: &Fold| {
-        (f.lines.clone(), f.forgotten_names.clone())
+    // The day's census, for the hero column: a name absent from a count held nothing.
+    let day_ago = world.now().0 - DAY_MS;
+    let (lines, mut forgotten_names, samples, sums) = world.folded("board", |f: &Fold| {
+        let mut samples = 0usize;
+        let mut sums: HashMap<String, f64> = HashMap::new();
+        for (_, held) in f.census.iter().filter(|(at, _)| *at >= day_ago) {
+            samples += 1;
+            for (n, v) in held {
+                *sums.entry(n.clone()).or_default() += v;
+            }
+        }
+        (f.lines.clone(), f.forgotten_names.clone(), samples, sums)
     });
     // The present: who is still a citizen, what they hold, who knows them.
     let mut known: HashMap<String, u64> = HashMap::new();
-    for e in world.store.entities().filter(|e| e.kind == "creature") {
+    for e in world.store.of_kind("creature") {
         if mind::name(world, e.id).is_some() {
             for k in mind::keepers(world, e.id) {
                 *known.entry(k).or_default() += 1;
-            }
-        }
-    }
-    // The day's census, for the hero column: a name absent from a count held nothing.
-    let day_ago = world.now().0 - DAY_MS;
-    let mut samples = 0usize;
-    let mut sums: HashMap<String, f64> = HashMap::new();
-    for e in world
-        .log
-        .read_all(&world.id, world.cursor_at(day_ago))
-        .unwrap_or_default()
-    {
-        if e.kind != CENSUS || e.at.0 < day_ago {
-            continue;
-        }
-        samples += 1;
-        if let Some(m) = e.payload["holding"].as_object() {
-            for (n, v) in m {
-                *sums.entry(n.clone()).or_default() += v.as_f64().unwrap_or(0.0);
             }
         }
     }
@@ -276,7 +290,7 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
         out.push(l);
     }
     // Citizens who never earned a chunk are on the board too, at nothing.
-    for e in world.store.entities().filter(|e| e.kind == "citizen") {
+    for e in world.store.of_kind("citizen") {
         let Some(name) = super::plain_str(world, e.id, super::CITIZEN, "name") else {
             continue;
         };
@@ -395,8 +409,8 @@ pub fn census(world: &mut World) -> Result<(), String> {
     let mut holding = serde_json::Map::new();
     let citizens: Vec<(String, foxing_store::EntityId)> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "citizen" && !super::is_passing(world, e.id))
+        .of_kind("citizen")
+        .filter(|e| !super::is_passing(world, e.id))
         .filter_map(|e| e.owner.clone().map(|o| (o, e.id)))
         .collect();
     // The shelf counts (D1, Tyler #6, #9): a hoard moved to the palace was invisible

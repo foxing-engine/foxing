@@ -141,11 +141,7 @@ fn def(name: &str) -> Option<&'static StatuteDef> {
 }
 
 fn entity(world: &World) -> Option<EntityId> {
-    world
-        .store
-        .entities()
-        .find(|e| e.kind == "conclave")
-        .map(|e| e.id)
+    world.store.of_kind("conclave").next().map(|e| e.id)
 }
 
 fn book(world: &World, field: &str) -> Option<Value> {
@@ -437,8 +433,7 @@ pub fn is_house(world: &World, room: EntityId) -> bool {
 fn present(world: &World, in_house: Option<bool>) -> Vec<String> {
     world
         .store
-        .entities()
-        .filter(|e| e.kind == "citizen")
+        .of_kind("citizen")
         .filter(|e| {
             let house = e.parent.is_some_and(|r| is_house(world, r));
             // R106: a bell wakes the quiet in its rooms: a name standing in the house,
@@ -676,8 +671,7 @@ fn names_a_citizen(world: &World, text: &str, me: &str) -> Option<String> {
         .collect();
     world
         .store
-        .entities()
-        .filter(|e| e.kind == "citizen")
+        .of_kind("citizen")
         .filter_map(|e| super::plain_str(world, e.id, super::CITIZEN, "name").map(str::to_string))
         .filter(|n| !n.eq_ignore_ascii_case(me))
         .find(|n| words.contains(&n.to_lowercase()))
@@ -687,11 +681,8 @@ fn names_a_citizen(world: &World, text: &str, me: &str) -> Option<String> {
 fn gallery(world: &World) -> Option<EntityId> {
     world
         .store
-        .entities()
-        .find(|e| {
-            e.kind == "room"
-                && super::plain_str(world, e.id, super::ROOM, "key") == Some("petition-gallery")
-        })
+        .of_kind("room")
+        .find(|e| super::plain_str(world, e.id, super::ROOM, "key") == Some("petition-gallery"))
         .map(|e| e.id)
 }
 

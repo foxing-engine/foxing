@@ -448,6 +448,14 @@ pub struct Store {
     entities: BTreeMap<EntityId, Entity>,
     clocks: BTreeMap<ClockId, Clock>,
     next_id: u64,
+    /// The ids inside each parent, and the ids of each kind: kept beside `entities`
+    /// by every event that makes, moves or removes one, so a room's contents and
+    /// "every creature" are a lookup and not a walk of the whole store. Derived, so
+    /// not written out; nothing reads a store back from its serialized form.
+    #[serde(skip)]
+    by_parent: BTreeMap<EntityId, BTreeSet<EntityId>>,
+    #[serde(skip)]
+    by_kind: BTreeMap<String, BTreeSet<EntityId>>,
 }
 
 impl Store {
@@ -458,6 +466,8 @@ impl Store {
             entities: BTreeMap::new(),
             clocks: BTreeMap::new(),
             next_id: 1,
+            by_parent: BTreeMap::new(),
+            by_kind: BTreeMap::new(),
         }
     }
 
@@ -491,9 +501,30 @@ impl Store {
 
     /// The entities directly inside `parent`.
     pub fn children(&self, parent: EntityId) -> impl Iterator<Item = &Entity> {
-        self.entities
-            .values()
-            .filter(move |e| e.parent == Some(parent))
+        self.by_parent
+            .get(&parent)
+            .into_iter()
+            .flatten()
+            .filter_map(|id| self.entities.get(id))
+    }
+
+    /// The entities of one kind, in id order.
+    pub fn of_kind<'a>(&'a self, kind: &str) -> impl Iterator<Item = &'a Entity> {
+        self.by_kind
+            .get(kind)
+            .into_iter()
+            .flatten()
+            .filter_map(|id| self.entities.get(id))
+    }
+
+    /// How many entities the store holds.
+    pub fn len(&self) -> usize {
+        self.entities.len()
+    }
+
+    /// Whether the store holds nothing.
+    pub fn is_empty(&self) -> bool {
+        self.entities.is_empty()
     }
 
     /// The clock for a scope, if it has ever been paused.
@@ -700,6 +731,10 @@ impl Store {
                         components: BTreeMap::new(),
                     },
                 );
+                self.by_kind.entry(kind.clone()).or_default().insert(*id);
+                if let Some(p) = parent {
+                    self.by_parent.entry(*p).or_default().insert(*id);
+                }
                 self.next_id = self.next_id.max(id.0 + 1);
             }
             StoreEvent::EntityRemoved { id } => {
@@ -710,16 +745,14 @@ impl Store {
                 let mut i = 0;
                 while i < doomed.len() {
                     let p = doomed[i];
-                    doomed.extend(
-                        self.entities
-                            .values()
-                            .filter(|e| e.parent == Some(p))
-                            .map(|e| e.id),
-                    );
+                    doomed.extend(self.by_parent.get(&p).into_iter().flatten().copied());
                     i += 1;
                 }
                 for d in doomed {
-                    self.entities.remove(&d);
+                    if let Some(e) = self.entities.remove(&d) {
+                        self.unindex(d, &e.kind, e.parent);
+                    }
+                    self.by_parent.remove(&d);
                 }
             }
             StoreEvent::EntityMoved { id, parent } => {
@@ -738,7 +771,19 @@ impl Store {
                         cur = self.entities.get(&c).and_then(|e| e.parent);
                     }
                 }
-                self.entities.get_mut(id).expect("checked").parent = *parent;
+                let e = self.entities.get_mut(id).expect("checked");
+                let was = std::mem::replace(&mut e.parent, *parent);
+                if let Some(w) = was {
+                    if let Some(set) = self.by_parent.get_mut(&w) {
+                        set.remove(id);
+                        if set.is_empty() {
+                            self.by_parent.remove(&w);
+                        }
+                    }
+                }
+                if let Some(p) = parent {
+                    self.by_parent.entry(*p).or_default().insert(*id);
+                }
             }
             StoreEvent::ComponentSet {
                 id,
@@ -856,6 +901,23 @@ impl Store {
         Ok(())
     }
 
+    fn unindex(&mut self, id: EntityId, kind: &str, parent: Option<EntityId>) {
+        if let Some(set) = self.by_kind.get_mut(kind) {
+            set.remove(&id);
+            if set.is_empty() {
+                self.by_kind.remove(kind);
+            }
+        }
+        if let Some(p) = parent {
+            if let Some(set) = self.by_parent.get_mut(&p) {
+                set.remove(&id);
+                if set.is_empty() {
+                    self.by_parent.remove(&p);
+                }
+            }
+        }
+    }
+
     fn field_schema(&self, component: &str, field: &str) -> Result<FieldSchema, StoreError> {
         let schema = self
             .registry
@@ -934,6 +996,75 @@ mod tests {
         f.insert("note".into(), Field::Plain(json!("shared with party")));
         f.insert("flag".into(), Field::Plain(json!(true)));
         f
+    }
+
+    #[test]
+    fn the_indexes_answer_as_a_walk_of_the_store_would() {
+        // Make, move and remove a few dozen things in a fixed scramble; after every
+        // event, the children of each parent and the members of each kind are what
+        // walking every entity finds, in the same order.
+        let mut s = Store::new(registry());
+        let mut ids: Vec<EntityId> = Vec::new();
+        let mut x: u64 = 7;
+        let mut next = |n: u64| {
+            x = x
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (x >> 33) % n
+        };
+        for step in 0..400 {
+            let live: Vec<EntityId> = ids
+                .iter()
+                .copied()
+                .filter(|i| s.entity(*i).is_some())
+                .collect();
+            let pick = |k: u64| live.get(k as usize % live.len().max(1)).copied();
+            let ev = match (next(10), live.is_empty()) {
+                (0..=5, _) | (_, true) => {
+                    let id = s.allocate_id();
+                    ids.push(id);
+                    StoreEvent::EntityCreated {
+                        id,
+                        kind: ["room", "chunk", "creature"][next(3) as usize].into(),
+                        owner: None,
+                        parent: if live.is_empty() || next(4) == 0 {
+                            None
+                        } else {
+                            pick(next(1000))
+                        },
+                        scopes: vec![],
+                    }
+                }
+                (6..=7, _) => StoreEvent::EntityMoved {
+                    id: pick(next(1000)).unwrap(),
+                    parent: if next(3) == 0 { None } else { pick(next(1000)) },
+                },
+                _ => StoreEvent::EntityRemoved {
+                    id: pick(next(1000)).unwrap(),
+                },
+            };
+            // A move into one's own inside is refused and changes nothing.
+            let _ = s.apply_store_event(at(step), &ev);
+            let mut parents: BTreeSet<EntityId> = s.entities().filter_map(|e| e.parent).collect();
+            parents.extend(ids.iter().copied());
+            for p in parents {
+                let walked: Vec<EntityId> = s
+                    .entities()
+                    .filter(|e| e.parent == Some(p))
+                    .map(|e| e.id)
+                    .collect();
+                let kept: Vec<EntityId> = s.children(p).map(|e| e.id).collect();
+                assert_eq!(walked, kept, "children of {p:?} after step {step}");
+            }
+            for k in ["room", "chunk", "creature", "nothing"] {
+                let walked: Vec<EntityId> =
+                    s.entities().filter(|e| e.kind == k).map(|e| e.id).collect();
+                let kept: Vec<EntityId> = s.of_kind(k).map(|e| e.id).collect();
+                assert_eq!(walked, kept, "{k} after step {step}");
+            }
+            assert_eq!(s.len(), s.entities().count());
+        }
+        assert!(s.len() > 20, "{}", s.len());
     }
 
     #[test]

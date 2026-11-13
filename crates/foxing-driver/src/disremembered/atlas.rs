@@ -139,7 +139,7 @@ pub fn layout(world: &World) -> Layout {
         fp ^= x;
         fp = fp.wrapping_mul(1099511628211);
     };
-    for e in world.store.entities().filter(|e| e.kind == "room") {
+    for e in world.store.of_kind("room") {
         mix(e.id.0);
         for (via, to) in rooms::exits_of(world, e.id) {
             mix(to.0);
@@ -291,8 +291,8 @@ fn layout_uncached(world: &World, prev: Option<&Layout>) -> Layout {
     let mut floor = -1_000;
     let mut orphans: Vec<EntityId> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "room" && !at.contains_key(&e.id))
+        .of_kind("room")
+        .filter(|e| !at.contains_key(&e.id))
         .map(|e| e.id)
         .collect();
     orphans.sort_by_key(|e| e.0);
@@ -828,8 +828,8 @@ pub fn way(
 pub fn routes_from(world: &World, here: EntityId) -> Vec<serde_json::Value> {
     let mut out: Vec<(usize, String, Vec<String>)> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "room" && e.owner.is_none() && e.id != here)
+        .of_kind("room")
+        .filter(|e| e.owner.is_none() && e.id != here)
         .filter_map(|e| {
             let name = plain_str(world, e.id, ROOM, "name")?.to_string();
             let way = way_seeded(world, here, e.id)?;
@@ -855,8 +855,8 @@ pub fn known_room_names(world: &World, citizen: EntityId, half_life_ms: f64) -> 
 pub fn way_seeded(world: &World, from: EntityId, to: EntityId) -> Option<Vec<String>> {
     let seeded: std::collections::HashSet<EntityId> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "room" && e.owner.is_none())
+        .of_kind("room")
+        .filter(|e| e.owner.is_none())
         .map(|e| e.id)
         .collect();
     way_over(world, from, to, Some(&seeded))
@@ -948,8 +948,7 @@ pub fn room_named(world: &World, text: &str) -> Option<EntityId> {
     }
     let exact = world
         .store
-        .entities()
-        .filter(|e| e.kind == "room")
+        .of_kind("room")
         .find(|e| {
             let name = plain_str(world, e.id, ROOM, "name").unwrap_or_default();
             loose(name) == want
@@ -962,18 +961,14 @@ pub fn room_named(world: &World, text: &str) -> Option<EntityId> {
     }
     // R134: a word of the name, when it names one room alone ("where picnic" was
     // refused while "where lookout" answered).
-    let mut by_word = world
-        .store
-        .entities()
-        .filter(|e| e.kind == "room")
-        .filter(|e| {
-            let name = loose(plain_str(world, e.id, ROOM, "name").unwrap_or_default());
-            // R192: a possessive answers to its stem ("wickmaker" finds the
-            // Wickmaker's Bench, whose door is `wickmaker`).
-            name.split(' ')
-                .any(|w| w == want || w.strip_suffix("'s").is_some_and(|stem| stem == want))
-                || name.starts_with(&format!("{want} "))
-        });
+    let mut by_word = world.store.of_kind("room").filter(|e| {
+        let name = loose(plain_str(world, e.id, ROOM, "name").unwrap_or_default());
+        // R192: a possessive answers to its stem ("wickmaker" finds the
+        // Wickmaker's Bench, whose door is `wickmaker`).
+        name.split(' ')
+            .any(|w| w == want || w.strip_suffix("'s").is_some_and(|stem| stem == want))
+            || name.starts_with(&format!("{want} "))
+    });
     let first = by_word.next()?;
     by_word.next().is_none().then_some(first.id)
 }
@@ -986,8 +981,7 @@ pub fn rooms_matching(world: &World, text: &str) -> Vec<EntityId> {
     }
     let mut v: Vec<EntityId> = world
         .store
-        .entities()
-        .filter(|e| e.kind == "room")
+        .of_kind("room")
         .filter(|e| !super::plain_bool(world, e.id, ROOM, "hidden"))
         .filter(|e| {
             let name = loose(plain_str(world, e.id, ROOM, "name").unwrap_or_default());
@@ -1085,7 +1079,7 @@ pub fn register(world: &mut World, curves: Curves) {
             } else if let Some(d) = rooms::district_named(&who).filter(|_| {
                 // H9: a district by name, unless a room has exactly that name.
                 let want = loose(&who);
-                !w.store.entities().any(|e| e.kind == "room" && loose(plain_str(w, e.id, ROOM, "name").unwrap_or_default()) == want)
+                !w.store.of_kind("room").any(|e| loose(plain_str(w, e.id, ROOM, "name").unwrap_or_default()) == want)
             }) {
                 let mut name = d.name.trim_start_matches("the ").to_string();
                 if let Some(c) = name.get_mut(0..1) {
@@ -1128,8 +1122,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 // one stands tonight.
                 let k = who.trim().trim_start_matches("the ").trim_end_matches('s').to_lowercase();
                 w.store
-                    .entities()
-                    .filter(|e| e.kind == "creature")
+                    .of_kind("creature")
                     .filter(|e| plain_str(w, e.id, super::CREATURE, "name").is_some_and(|n| n == k || n.trim_end_matches('s') == k))
                     .filter_map(|e| e.parent)
                     .min_by_key(|r| way(w, f.citizen, here, *r, hl).map(|p| p.len()).unwrap_or(usize::MAX))

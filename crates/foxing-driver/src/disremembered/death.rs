@@ -233,7 +233,9 @@ pub fn learned_said(learned: &str) -> &'static str {
         "venom" => "it has learned to bite with venom",
         "forget" => "it has learned the ray of forgetfulness",
         "chatter" => "it has learned your name, and says it wrong",
-        "shove" => "it has learned to shove",
+        "shove" => {
+            "it has learned to shove: a blow of its may put you through a door, the fight over"
+        }
         "numb" => "it has learned a numbing bite",
         "leech" => "it has learned to mend by what it bites",
         "maw" => "it has learned to bite twice",
