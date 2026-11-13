@@ -459,6 +459,26 @@ where
     }
 }
 
+/// `GET /v0/ops` (operator): where commands' time has gone since the driver started.
+async fn ops(State(s): State<Shared>, headers: HeaderMap) -> Reply {
+    if !s.is_admin(admin_header(&headers)) {
+        return Err(err_json(StatusCode::FORBIDDEN, "admin token required"));
+    }
+    let (uptime, events, entities) = {
+        let w = lock(&s)?;
+        (
+            w.now().since(w.started).0 / 1000,
+            w.log.head(&w.id).ok().flatten().map(|x| x.0).unwrap_or(0),
+            w.store.entities().count(),
+        )
+    };
+    let mut v = crate::ops::report();
+    v["since_boot_seconds"] = json!(uptime);
+    v["events"] = json!(events);
+    v["entities"] = json!(entities);
+    Ok(Json(v))
+}
+
 async fn refusals(State(s): State<Shared>, headers: HeaderMap) -> Reply {
     if !s.is_admin(admin_header(&headers)) {
         return Err(err_json(StatusCode::FORBIDDEN, "admin token required"));
@@ -1013,6 +1033,7 @@ async fn command(
     };
     let asked = std::time::Instant::now();
     let mut w = lock(&s)?;
+    let mark = crate::ops::Mark::locked(asked);
     w.client_ip = Some(client_ip(&headers));
     http_login(&mut w, &body.actor, &body.passphrase, "http", body.passing)?;
     if body.command == "observe" {
@@ -1051,10 +1072,13 @@ async fn command(
         &body.args,
     );
     drop(budget);
+    // S2: and what it spent it on.
+    let took = mark.done(&body.command);
     drop(w);
     let _ = s.changed.send(());
     // P7: how long the world took, apart from the wire.
     let mut v = passage_json(&passage);
+    v["took"] = took;
     v["took_ms"] = json!((asked.elapsed().as_secs_f64() * 1000.0 * 10.0).round() / 10.0);
     Ok(Json(v))
 }
@@ -1204,7 +1228,9 @@ async fn gate_http(
     headers: HeaderMap,
     Body(body): Body<GateBody>,
 ) -> Reply {
+    let asked = std::time::Instant::now();
     let mut w = lock(&s)?;
+    let mark = crate::ops::Mark::locked(asked);
     w.client_ip = Some(client_ip(&headers));
     http_login(&mut w, &body.actor, &body.passphrase, "gate", body.passing)?;
     let mut budget = s
@@ -1223,10 +1249,12 @@ async fn gate_http(
         &body.message,
     );
     drop(budget);
+    let took = mark.done("gate.http");
     drop(w);
     let _ = s.changed.send(());
     Ok(Json(json!({
         "ok": true,
+        "took": took,
         "verdict": passage.verdict,
         "score": passage.score,
         "acted": passage.acted,
@@ -1343,6 +1371,7 @@ pub fn router(shared: Shared) -> Router {
         .route("/v0/docent", get(docent))
         .route("/v0/citizens", get(citizens))
         .route("/v0/refusals", get(refusals))
+        .route("/v0/ops", get(ops))
         .route("/v0/openapi.json", get(openapi))
         .route(
             "/mcp",

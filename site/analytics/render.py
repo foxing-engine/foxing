@@ -193,6 +193,34 @@ def refusals() -> tuple[list[list], str]:
     return rows, f"since the driver started, {hours:.1f} hours ago"
 
 
+def ops() -> tuple[list[list], list[list], str]:
+    """A5/S2: where the driver's time has gone since it started: a summary, and a
+    line a verb."""
+    tok = admin_token()
+    if not tok:
+        return [], [], "no admin token"
+    req = urllib.request.Request(f"{DRIVER}/v0/ops", headers={"X-Foxing-Admin": tok})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            b = json.load(resp)
+    except Exception as exc:  # noqa: BLE001 - the report must render whatever the driver does
+        return [], [], f"driver not reachable at {DRIVER}: {exc}"
+    log, push, wait = b.get("log", {}), b.get("pushes", {}), b.get("lock_wait_ms", {})
+    summary = [
+        ["commands", b.get("commands", 0), ""],
+        ["events in the log", b.get("events", 0), ""],
+        ["entities in the store", b.get("entities", 0), ""],
+        ["wait for the world's lock, mean", f"{wait.get('mean', 0)} ms", f"worst {wait.get('worst', 0)} ms"],
+        ["appends to the log", log.get("appends", 0), f"{log.get('append_mean_ms', 0)} ms each"],
+        ["reads past the kept tail", log.get("reads_past_the_tail", 0), f"{log.get('past_read_mean_ms', 0)} ms each"],
+        ["pushes to open sessions", push.get("count", 0), f"held the world {push.get('held_mean_ms', 0)} ms each, worst {push.get('held_worst_ms', 0)} ms, {round(push.get('held_total_ms', 0) / 1000, 1)} s in all"],
+    ]
+    verbs = [[v["verb"], v["count"], f"{v['mean_ms']} ms", f"{v['worst_ms']} ms", f"{v['log_share']}%", v["appends_each"], v["past_reads"], f"{round(v['total_ms'] / 1000, 1)} s"]
+             for v in b.get("verbs", [])[:40]]
+    hours = b.get("since_boot_seconds", 0) / 3600
+    return summary, verbs, f"since the driver started, {hours:.1f} hours ago"
+
+
 def when(ms: int) -> str:
     return datetime.fromtimestamp(ms / 1000, timezone.utc).strftime("%Y-%m-%d %H:%M") if ms else ""
 
@@ -371,6 +399,7 @@ def report(db: sqlite3.Connection, days: int) -> dict:
     out["daily"] = q(db, f"SELECT day, host, COUNT(*), COUNT(DISTINCT visitor) FROM requests {w} GROUP BY day, host ORDER BY day DESC, host", (since,))
     out["error_senders"] = q(db, "SELECT host, path, status, ua_class, ua_name, COUNT(*), COUNT(DISTINCT visitor), MAX(ts) FROM requests WHERE day >= ? AND status >= 400 AND status != 404 GROUP BY host, path, status, ua_class, ua_name ORDER BY 6 DESC LIMIT 20", (since,))
     out["refusals"], out["refusals_note"] = refusals()
+    out["ops"], out["ops_verbs"], out["ops_note"] = ops()
     out["errors"], out["probes"] = error_rows(db, since, out["refusals"])
     # The same table for the last day and the last week, for the page's filter: a
     # month's errors bury last night's.
@@ -437,6 +466,12 @@ def text(r: dict) -> str:
         lines.append("  " + "  ".join(str(c) for c in row))
     lines.append(f"\nWhy the driver refused ({r['refusals_note']}): path, reason, count")
     for row in r["refusals"]:
+        lines.append("  " + "  ".join(str(c) for c in row))
+    lines.append(f"\nThe driver's side ({r['ops_note']})")
+    for row in r["ops"]:
+        lines.append("  " + "  ".join(str(c) for c in row))
+    lines.append("  verb, count, mean, worst, the log's share, appends each, reads past the tail, in all")
+    for row in r["ops_verbs"][:15]:
         lines.append("  " + "  ".join(str(c) for c in row))
     lines.append("\nOrganic agent visits (address, first seen, last seen, requests, mcp calls, cloaks, gates, names): not from the lab, and in the game, cloaked at least")
     for row in r["organic"]:
@@ -606,6 +641,9 @@ def page(r: dict) -> str:
             ("What a player at the keyboard waited", table(
                 ["day", "", "addresses", "commands", "round trip (median)", "95th", "worst", "world's share", "frames/s", "frame cost", "on the socket"], r.get("perf", []))
                 + "<p class=\"sub\">Each report is a player's last twenty commands, sent by the play page itself; the round trip is from Enter to the reply, and the world's share is how long the driver held it. <code>?perf=1</code> on the play page shows the same live.</p>"),
+            (f"The driver's side ({r['ops_note']})", table(["", "", ""], r["ops"])),
+            ("By verb: the world's own time, heaviest in all first", table(
+                ["verb", "count", "mean", "worst", "the log's share", "appends each", "reads past the tail", "in all"], r["ops_verbs"])),
         ]),
         ("What broke", "what-broke", [
             ("Errors, the lab apart", errors_panes(r["errors_by"])),

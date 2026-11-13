@@ -114,6 +114,18 @@ pub async fn upgrade(ws: WebSocketUpgrade, State(s): State<Shared>) -> Response 
         .on_upgrade(move |socket| run(socket, s))
 }
 
+/// Counts a push when it leaves the lock, however it leaves.
+struct PushTimer {
+    asked: std::time::Instant,
+    locked: std::time::Instant,
+}
+
+impl Drop for PushTimer {
+    fn drop(&mut self) {
+        crate::ops::pushed(self.locked - self.asked, self.locked.elapsed());
+    }
+}
+
 async fn run(socket: WebSocket, s: Shared) {
     let (mut tx, mut rx) = socket.split();
     let mut changes = s.changed.subscribe();
@@ -200,7 +212,9 @@ async fn run(socket: WebSocket, s: Shared) {
                         let asked = std::time::Instant::now();
                         let mut reply = {
                             let Ok(mut w) = s.world.lock() else { continue };
-                            if command == "observe" {
+                            let mark = crate::ops::Mark::locked(asked);
+                            let verb = command.clone();
+                            let mut v = if command == "observe" {
                                 // A read, not speech: runs outside the gate.
                                 let ctx = CallContext { actor: name, kind };
                                 match w.call(&ctx, &command, &args) {
@@ -214,7 +228,10 @@ async fn run(socket: WebSocket, s: Shared) {
                                 v["type"] = json!("result");
                                 v["id"] = id;
                                 v
-                            }
+                            };
+                            // S2: what the world spent it on.
+                            v["took"] = mark.done(&verb);
+                            v
                         };
                         reply["took_ms"] = json!((asked.elapsed().as_secs_f64() * 1000.0 * 10.0).round() / 10.0);
                         let _ = s.changed.send(());
@@ -263,10 +280,14 @@ async fn run(socket: WebSocket, s: Shared) {
                 }
                 let Some(name) = actor.clone() else { continue };
                 // Everything since the cursor this actor may see, and which subscriptions it touched.
+                let push_asked = std::time::Instant::now();
                 let (events, refresh): (Vec<Value>, Vec<Refresh>) = {
                     let Ok(w) = s.world.lock() else { continue };
+                    let push_locked = std::time::Instant::now();
                     let head = w.log.head(&w.id).ok().flatten().map(|x| x.0).unwrap_or(0);
                     if head <= cursor { continue; }
+                    // S2: what every open session costs each time the world changes.
+                    let _counted = PushTimer { asked: push_asked, locked: push_locked };
                     let viewer = if admin { Viewer::admin() } else { Viewer::actor(&name) };
                     let now = w.now();
                     let all = w.log.read(&w.id, Cursor { after: cursor }, 500).unwrap_or_default();

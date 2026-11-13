@@ -361,9 +361,12 @@ fn call(s: &Shared, name: &str, args: &Value, ip: &str) -> Value {
                 (Ok(a), Ok(p), Ok(m)) => (a, p, m),
                 (Err(e), _, _) | (_, Err(e), _) | (_, _, Err(e)) => return e,
             };
+            let asked = std::time::Instant::now();
             let Ok(mut w) = s.world.lock() else {
                 return tool_error("the world is unavailable");
             };
+            // S2: a whole message through the gate, kept as one line ("gate.mcp").
+            let mark = crate::ops::Mark::locked(asked);
             w.client_ip = Some(ip.to_string());
             let passing = args
                 .get("passing")
@@ -389,6 +392,7 @@ fn call(s: &Shared, name: &str, args: &Value, ip: &str) -> Value {
                 message,
             );
             drop(budget);
+            let took = mark.done("gate.mcp");
             drop(w);
             let _ = s.changed.send(());
             // The text is the REPORT; beside it, the statements as JSON (index, verb,
@@ -397,7 +401,7 @@ fn call(s: &Shared, name: &str, args: &Value, ip: &str) -> Value {
             let structured = json!({
                 "verdict": p.verdict, "score": p.score, "acted": p.acted, "ok": p.ok,
                 "statements": p.outcomes, "findings": p.findings,
-                "budget_remaining": p.budget_remaining,
+                "budget_remaining": p.budget_remaining, "took": took,
             });
             tool_text(p.reply.clone(), Some(structured), false)
         }

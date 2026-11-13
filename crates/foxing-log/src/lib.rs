@@ -200,6 +200,46 @@ pub trait EventLog {
     }
 }
 
+/// What every [`Tail`] in this process has spent on the log underneath it: appends,
+/// and reads that started before the kept part (S2: a command's share of its time
+/// that was the log's).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TailCounters {
+    /// Events appended.
+    pub appends: u64,
+    /// Time in the log underneath, appending.
+    pub append_nanos: u64,
+    /// Reads and head queries answered by the log underneath, not the kept part.
+    pub past_reads: u64,
+    /// Time in the log underneath, reading.
+    pub past_read_nanos: u64,
+}
+
+static APPENDS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static APPEND_NANOS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static PAST_READS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static PAST_READ_NANOS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// The counters now.
+pub fn tail_counters() -> TailCounters {
+    use std::sync::atomic::Ordering::Relaxed;
+    TailCounters {
+        appends: APPENDS.load(Relaxed),
+        append_nanos: APPEND_NANOS.load(Relaxed),
+        past_reads: PAST_READS.load(Relaxed),
+        past_read_nanos: PAST_READ_NANOS.load(Relaxed),
+    }
+}
+
+fn timed_past<T>(f: impl FnOnce() -> T) -> T {
+    use std::sync::atomic::Ordering::Relaxed;
+    let t = std::time::Instant::now();
+    let out = f();
+    PAST_READS.fetch_add(1, Relaxed);
+    PAST_READ_NANOS.fetch_add(t.elapsed().as_nanos() as u64, Relaxed);
+    out
+}
+
 /// How many of a world's newest events [`Tail`] keeps in memory.
 pub const TAIL: usize = 12_000;
 
@@ -256,7 +296,14 @@ impl<L: EventLog> EventLog for Tail<L> {
     fn append(&mut self, world: &WorldId, event: NewEvent) -> Result<Event, LogError> {
         // Load before appending, so the kept part and the new event are in order.
         self.with(world, |_| ())?;
-        let e = self.inner.append(world, event)?;
+        let t = std::time::Instant::now();
+        let appended = self.inner.append(world, event);
+        APPENDS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        APPEND_NANOS.fetch_add(
+            t.elapsed().as_nanos() as u64,
+            std::sync::atomic::Ordering::Relaxed,
+        );
+        let e = appended?;
         let kept = self.kept.get_mut().unwrap_or_else(|e| e.into_inner());
         if let Some(q) = kept.get_mut(world) {
             // Only the very next in sequence: anything else (another writer got in
@@ -295,7 +342,7 @@ impl<L: EventLog> EventLog for Tail<L> {
         })?;
         match hit {
             Some(v) => Ok(v),
-            None => self.inner.read(world, cursor, limit),
+            None => timed_past(|| self.inner.read(world, cursor, limit)),
         }
     }
 

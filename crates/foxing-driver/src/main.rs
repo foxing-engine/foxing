@@ -31,6 +31,7 @@ mod net;
 mod notify;
 mod observe;
 mod openapi;
+mod ops;
 mod session;
 mod world;
 
