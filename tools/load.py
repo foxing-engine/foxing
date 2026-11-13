@@ -117,12 +117,13 @@ async def prober():
 def pct(v,p): 
     v=sorted(v); return v[min(len(v)-1,int(len(v)*p))] if v else float("nan")
 async def main():
+    import concurrent.futures; asyncio.get_running_loop().set_default_executor(concurrent.futures.ThreadPoolExecutor(max_workers=64))
     roles=["fighter","walker","teller"]; tasks=[asyncio.create_task(prober())]; t0=time.time()
     for i in range(N):
         role=roles[i%3]
         kind="ws" if i%5<3 else ("gate" if i%5==3 else "http")     # 60% keyboard, 20% gate, 20% plain
         tasks.append(asyncio.create_task(keyboard(i,role) if kind=="ws" else agent(i,role,kind)))
-        await asyncio.sleep(random.uniform(0.5,2.0))               # they do not all arrive at once
+        await asyncio.sleep(random.uniform(0.5,2.0) * min(1.0, 20.0/N))  # they do not all arrive at once: over half a minute
     await asyncio.gather(*tasks, return_exceptions=True)
     dur=time.time()-t0
     json.dump({"rows":rows,"probe":probe,"errors":errors,"push":push,"n":N,"minutes":MINUTES},open(f"run-{TAG}.json","w"))

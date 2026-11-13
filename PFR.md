@@ -54,6 +54,13 @@ Economy and death
   No new rule, one verb that already exists. Cost: it rewards hoarders of creatures.
   Lean, if asked: **c**, with d as the mechanism (tending = having shelved into it).
 
+- **D35 · A passing name's leaving is not news** (S; **waits**, it is your channel). Every
+  forgotten name is a notice to the Discord webhook; a load test of fifty sent fifty
+  in ten seconds and Discord refused the rest. a) **lean**: a passing name forgotten
+  is not noticed at all (a kept name forgotten after its thirty days still is); b)
+  names from the lab's addresses are not noticed; c) as it is, and the load test
+  uses names that never leave.
+
 ## Ready to ship (R): all ship on the Night's Watch by policy, in Claude's batches
 
 Each is designed and needs no decision. Say `R<n> hold` to keep one back.
@@ -220,7 +227,21 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   every 1.3 million). Seen in passing, for S7: `shared_buffers` is PostgreSQL's
   default 128 MB under a 362 MB table; the driver peaks at 2.3 GB while it replays the
   log at boot and takes 21 s to do it; and every push to `crates/**` restarts it.
-  Next: fifty, then a hundred, each with `vitals` beside it.
+  Fifty names, six minutes: 3,134 commands (8.4 a second), 66 events a second, every
+  reply a 200. The world's share of a reply 5 ms at the middle and 27 to 39 at the
+  95th; the wait for the lock 6 ms at the 95th and 55 at worst. The box 93% idle; the
+  driver 19% of one core at the middle and 31% at its worst (two and a half times the
+  names, four and a half times the CPU); PostgreSQL 1.3%, nginx 3%; memory flat. The
+  pushes are the curve: thirty sessions were sent 345,710 frames, 335 MB (nearly six
+  times the twenty's), and 92,000 pushes held the world's lock 38 s of 370, a tenth
+  of the run. On that curve a hundred names is most of a core and the lock held near
+  half the time by pushes alone: **S5 comes before a hundred.** (The test's own
+  machine, two cores reading 900 frames a second, is by now part of the round trip it
+  reports; the driver's figures are the ones to trust.)
+  And a fault of the test's: each passing name's leaving is a notice to the Discord
+  webhook ("The world forgot **Gnloadc01**; the name is free"), ninety of them over
+  the three runs and more from every Watch, until Discord answered 429. No more runs
+  until that is settled (D35).
 - **S7 · The box** (yours, later). One VPS runs the driver, PostgreSQL, nginx, the
   Docent and the Bindery. Before a second box: PostgreSQL's settings for the log
   table (it is append-only), a connection pool, and the driver built in release with
