@@ -636,7 +636,13 @@ pub fn run_checked(
                 },
                 // With an object: a thing of yours, or a fixture here, under the
                 // rules the verbs keep (maker, held, open, welcomed).
-                "describe" | "name" | "append" if args.len() >= 2 && !arg(1).trim().is_empty() => {
+                "describe" | "name" | "append"
+                    if args.len() >= 2
+                        && !arg(1).trim().is_empty()
+                        && !(verb == "describe"
+                            && (arg(1).trim().eq_ignore_ascii_case("here")
+                                || arg(1).trim().eq_ignore_ascii_case("room"))) =>
+                {
                     match existing.as_ref().ok_or(()).and_then(|f| {
                         super::craft::resolve_object(world, actor, f.citizen, &arg(1))
                             .map_err(|_| ())
