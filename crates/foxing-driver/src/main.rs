@@ -222,7 +222,13 @@ fn main() {
                 let (ran, notices) = shared
                     .world
                     .lock()
-                    .map(|mut w| (w.tick(), w.take_notices()))
+                    .map(|mut w| {
+                        // S2: a tick's events are one unit of the log, as a command's are.
+                        w.begin_unit();
+                        let ran = w.tick();
+                        w.end_unit();
+                        (ran, w.take_notices())
+                    })
                     .unwrap_or((0, Vec::new()));
                 for n in notices {
                     let _ = notify.send(n);

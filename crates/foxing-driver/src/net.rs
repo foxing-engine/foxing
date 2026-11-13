@@ -1061,6 +1061,7 @@ async fn command(
         .hour_budget
         .lock()
         .map_err(|_| err_json(StatusCode::INTERNAL_SERVER_ERROR, "budget lock poisoned"))?;
+    w.begin_unit();
     let passage = compiled_passage(
         &mut w,
         &s,
@@ -1071,6 +1072,7 @@ async fn command(
         &body.command,
         &body.args,
     );
+    w.end_unit();
     drop(budget);
     // S2: and what it spent it on.
     let took = mark.done(&body.command);
@@ -1237,6 +1239,7 @@ async fn gate_http(
         .hour_budget
         .lock()
         .map_err(|_| err_json(StatusCode::INTERNAL_SERVER_ERROR, "budget lock poisoned"))?;
+    w.begin_unit();
     let passage = crate::gate::pass(
         &mut w,
         &s.checker,
@@ -1248,6 +1251,7 @@ async fn gate_http(
         false,
         &body.message,
     );
+    w.end_unit();
     drop(budget);
     let took = mark.done("gate.http");
     drop(w);

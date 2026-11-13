@@ -172,6 +172,24 @@ pub trait EventLog {
     /// The last sequence in a world's log, or `None` if it is empty.
     fn head(&self, world: &WorldId) -> Result<Option<Seq>, LogError>;
 
+    /// Begin holding appends as one unit, where the log can (S2): until [`commit`]
+    /// they are written but not yet made durable one by one. A log that cannot does
+    /// nothing, and every append is durable as it returns, as before.
+    ///
+    /// [`commit`]: EventLog::commit
+    fn begin(&mut self) -> Result<(), LogError> {
+        Ok(())
+    }
+
+    /// Make durable everything appended since [`begin`]. If this fails, none of it
+    /// was kept, and whoever applied those events as they were appended is now ahead
+    /// of the log and must stop.
+    ///
+    /// [`begin`]: EventLog::begin
+    fn commit(&mut self) -> Result<(), LogError> {
+        Ok(())
+    }
+
     /// The newest `n` events, oldest first, shared and not copied where the log can
     /// (see [`Tail`]): for a reader that looks back over the last few thousand
     /// events many times a command.
@@ -321,6 +339,28 @@ impl<L: EventLog> EventLog for Tail<L> {
             }
         }
         Ok(e)
+    }
+
+    fn begin(&mut self) -> Result<(), LogError> {
+        self.inner.begin()
+    }
+
+    fn commit(&mut self) -> Result<(), LogError> {
+        // The commit is where the unit's durability is paid for: it is the log's time.
+        let t = std::time::Instant::now();
+        let done = self.inner.commit();
+        APPEND_NANOS.fetch_add(
+            t.elapsed().as_nanos() as u64,
+            std::sync::atomic::Ordering::Relaxed,
+        );
+        if done.is_err() {
+            // What was kept of the unit is not in the log: read again when next asked.
+            self.kept
+                .get_mut()
+                .unwrap_or_else(|e| e.into_inner())
+                .clear();
+        }
+        done
     }
 
     fn read(&self, world: &WorldId, cursor: Cursor, limit: usize) -> Result<Vec<Event>, LogError> {

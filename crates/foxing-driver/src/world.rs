@@ -38,6 +38,8 @@ pub struct World {
     /// S1: running folds over the log, by name: a reader that needs the whole history
     /// (the board) keeps what it has folded and where it stopped, and reads on from
     /// there. In this process only; a restart folds again from the start, once.
+    /// S2: whether commands and ticks are written as units of the log.
+    pub units: bool,
     pub folds:
         std::sync::Mutex<std::collections::HashMap<&'static str, Box<dyn std::any::Any + Send>>>,
     /// The command registry. Shared so a handler running inside [`World::call`] can
@@ -203,6 +205,7 @@ impl World {
         let started = now_ms();
         let mut world = World {
             folds: Default::default(),
+            units: std::env::var("FOXING_LOG_UNITS").is_ok_and(|v| v == "1"),
             id,
             store,
             log,
@@ -686,6 +689,28 @@ impl World {
             .get_mut()
             .unwrap_or_else(|e| e.into_inner())
             .insert(name, Box::new(fold));
+    }
+
+    /// S2: begin holding this command's (or this tick's) appends as one unit of the
+    /// log, made durable together by [`World::end_unit`]. Off unless
+    /// `FOXING_LOG_UNITS=1`; a log that has no units does nothing either way.
+    pub fn begin_unit(&mut self) {
+        if self.units {
+            // A begin that fails leaves appends as they were: each its own commit.
+            let _ = self.log.begin();
+        }
+    }
+
+    /// Make the unit durable. The events in it were applied to the store as they
+    /// were appended, so a commit that fails leaves the world ahead of its log: it
+    /// stops, and is started again from the log (the service restarts it).
+    pub fn end_unit(&mut self) {
+        if self.units {
+            if let Err(e) = self.log.commit() {
+                eprintln!("the log refused a commit ({e}); the world is ahead of its log and stops here, to be read back from it");
+                std::process::exit(70);
+            }
+        }
     }
 
     pub fn recent_events(&self, n: usize) -> Vec<Arc<Event>> {

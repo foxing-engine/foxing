@@ -380,6 +380,7 @@ fn call(s: &Shared, name: &str, args: &Value, ip: &str) -> Value {
             let Ok(mut budget) = s.hour_budget.lock() else {
                 return tool_error("the budget is unavailable");
             };
+            w.begin_unit();
             let p = crate::gate::pass(
                 &mut w,
                 &s.checker,
@@ -391,6 +392,7 @@ fn call(s: &Shared, name: &str, args: &Value, ip: &str) -> Value {
                 false,
                 message,
             );
+            w.end_unit();
             drop(budget);
             let took = mark.done("gate.mcp");
             drop(w);

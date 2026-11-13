@@ -223,7 +223,9 @@ async fn run(socket: WebSocket, s: Shared) {
                                 }
                             } else {
                                 let Ok(mut budget) = s.hour_budget.lock() else { continue };
+                                w.begin_unit();
                                 let p = crate::net::compiled_passage(&mut w, &s, &mut budget, &name, kind, crate::gate::Via::Session, &command, &args);
+                                w.end_unit();
                                 let mut v = crate::net::passage_json(&p);
                                 v["type"] = json!("result");
                                 v["id"] = id;

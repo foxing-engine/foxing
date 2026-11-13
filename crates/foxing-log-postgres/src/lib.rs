@@ -33,6 +33,12 @@ enum Request {
         world: WorldId,
         reply: mpsc::Sender<Result<Option<Seq>, LogError>>,
     },
+    Begin {
+        reply: mpsc::Sender<Result<(), LogError>>,
+    },
+    Commit {
+        reply: mpsc::Sender<Result<(), LogError>>,
+    },
 }
 
 /// A log on PostgreSQL.
@@ -113,7 +119,14 @@ fn storage(e: postgres::Error) -> LogError {
     LogError::Storage(e.to_string())
 }
 
+/// The last event this connection appended to a world: its sequence and its time.
+type Heads = std::collections::HashMap<WorldId, (u64, i64)>;
+
 fn serve(mut client: Client, rx: mpsc::Receiver<Request>) {
+    let mut heads = Heads::new();
+    // S2: between a Begin and a Commit every append is one insert in one open
+    // transaction, and the commit (the wait for the disk) is paid once for all.
+    let mut open = false;
     for req in rx {
         match req {
             Request::Append {
@@ -121,7 +134,41 @@ fn serve(mut client: Client, rx: mpsc::Receiver<Request>) {
                 event,
                 reply,
             } => {
-                let _ = reply.send(append(&mut client, &world, event));
+                let _ = reply.send(if open {
+                    append_in_unit(&mut client, &mut heads, &world, event)
+                } else {
+                    append_known(&mut client, &mut heads, &world, event)
+                });
+            }
+            Request::Begin { reply } => {
+                // A unit left open (its owner never committed) is committed first:
+                // what it appended was applied, and must not be lost behind the next.
+                let closed = if open {
+                    client.batch_execute("COMMIT").map_err(storage)
+                } else {
+                    Ok(())
+                };
+                let began = closed.and_then(|()| client.batch_execute("BEGIN").map_err(storage));
+                open = began.is_ok();
+                if began.is_err() {
+                    heads.clear();
+                }
+                let _ = reply.send(began);
+            }
+            Request::Commit { reply } => {
+                let done = if open {
+                    client.batch_execute("COMMIT").map_err(storage)
+                } else {
+                    Ok(())
+                };
+                if done.is_err() {
+                    // Nothing of the unit was kept: the heads remembered are wrong,
+                    // and the transaction, if it is still open, is aborted.
+                    let _ = client.batch_execute("ROLLBACK");
+                    heads.clear();
+                }
+                open = false;
+                let _ = reply.send(done);
             }
             Request::Read {
                 world,
@@ -136,6 +183,149 @@ fn serve(mut client: Client, rx: mpsc::Receiver<Request>) {
             }
         }
     }
+}
+
+/// Append inside an open unit: one insert, no commit. The head is read once a world
+/// (in the unit's own transaction, locked) and remembered after.
+fn append_in_unit(
+    client: &mut Client,
+    heads: &mut Heads,
+    world: &WorldId,
+    event: NewEvent,
+) -> Result<Event, LogError> {
+    let (last, last_at) = match heads.get(world) {
+        Some(&h) => h,
+        None => {
+            let row = client
+                .query_opt(
+                    "SELECT seq, at FROM events WHERE world = $1 ORDER BY seq DESC LIMIT 1 FOR UPDATE",
+                    &[&world.0],
+                )
+                .map_err(storage)?;
+            match row {
+                Some(r) => (r.get::<_, i64>(0) as u64, r.get::<_, i64>(1)),
+                None => (0, i64::MIN),
+            }
+        }
+    };
+    if event.at.0 < last_at {
+        return Err(LogError::OutOfOrder {
+            at: event.at,
+            last: Timestamp(last_at),
+        });
+    }
+    let seq = last + 1;
+    let actor = serde_json::to_value(&event.actor).map_err(|e| LogError::Storage(e.to_string()))?;
+    let insert = prepared(client)?;
+    client
+        .execute(
+            &insert,
+            &[
+                &world.0,
+                &(seq as i64),
+                &event.at.0,
+                &event.kind,
+                &actor,
+                &event.cause.map(|c| c.0 as i64),
+                &event.payload,
+            ],
+        )
+        .map_err(|e| {
+            // The transaction is aborted now; the commit will fail and say so.
+            heads.remove(world);
+            storage(e)
+        })?;
+    heads.insert(world.clone(), (seq, event.at.0));
+    Ok(Event {
+        seq: Seq(seq),
+        world: world.clone(),
+        at: event.at,
+        kind: event.kind,
+        actor: event.actor,
+        cause: event.cause,
+        payload: event.payload,
+    })
+}
+
+/// The insert, prepared once a connection: unprepared, each append also paid for a
+/// parse and a describe (two more trips to the server than the insert itself).
+fn prepared(client: &mut Client) -> Result<postgres::Statement, LogError> {
+    thread_local! {
+        static INSERT_STMT: std::cell::RefCell<Option<postgres::Statement>> = const { std::cell::RefCell::new(None) };
+    }
+    if let Some(s) = INSERT_STMT.with(|c| c.borrow().clone()) {
+        return Ok(s);
+    }
+    let s = client.prepare(INSERT).map_err(storage)?;
+    INSERT_STMT.with(|c| *c.borrow_mut() = Some(s.clone()));
+    Ok(s)
+}
+
+const INSERT: &str = "INSERT INTO events (world, seq, at, kind, actor, cause, payload) VALUES ($1, $2, $3, $4, $5, $6, $7)";
+
+/// Append, in one statement where this connection knows the world's head (S2).
+///
+/// The careful append below is four round trips an event: begin, read and lock the
+/// head, insert, commit. A driver is the only writer to its world, and this
+/// connection appended the last event itself, so it knows the next sequence without
+/// asking: one insert, committed as it lands. The primary key still decides: if
+/// another writer took that sequence the insert fails, the remembered head is
+/// dropped, and the careful append runs and sees the truth.
+fn append_known(
+    client: &mut Client,
+    heads: &mut Heads,
+    world: &WorldId,
+    event: NewEvent,
+) -> Result<Event, LogError> {
+    if let Some(&(last, last_at)) = heads.get(world) {
+        if event.at.0 < last_at {
+            return Err(LogError::OutOfOrder {
+                at: event.at,
+                last: Timestamp(last_at),
+            });
+        }
+        let seq = last + 1;
+        let actor =
+            serde_json::to_value(&event.actor).map_err(|e| LogError::Storage(e.to_string()))?;
+        let insert = prepared(client)?;
+        match client.execute(
+            &insert,
+            &[
+                &world.0,
+                &(seq as i64),
+                &event.at.0,
+                &event.kind,
+                &actor,
+                &event.cause.map(|c| c.0 as i64),
+                &event.payload,
+            ],
+        ) {
+            Ok(_) => {
+                heads.insert(world.clone(), (seq, event.at.0));
+                return Ok(Event {
+                    seq: Seq(seq),
+                    world: world.clone(),
+                    at: event.at,
+                    kind: event.kind,
+                    actor: event.actor,
+                    cause: event.cause,
+                    payload: event.payload,
+                });
+            }
+            Err(e) if e.code() == Some(&postgres::error::SqlState::UNIQUE_VIOLATION) => {
+                // Someone else appended: forget, and fall through to the careful way.
+                heads.remove(world);
+            }
+            Err(e) => {
+                heads.remove(world);
+                return Err(storage(e));
+            }
+        }
+    }
+    let at = event.at.0;
+    let appended = append(client, world, event)?;
+    heads.insert(world.clone(), (appended.seq.0, at));
+    Ok(appended)
 }
 
 fn append(client: &mut Client, world: &WorldId, event: NewEvent) -> Result<Event, LogError> {
@@ -161,7 +351,7 @@ fn append(client: &mut Client, world: &WorldId, event: NewEvent) -> Result<Event
     }
     let actor = serde_json::to_value(&event.actor).map_err(|e| LogError::Storage(e.to_string()))?;
     tx.execute(
-        "INSERT INTO events (world, seq, at, kind, actor, cause, payload) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        INSERT,
         &[
             &world.0,
             &(seq as i64),
@@ -247,6 +437,14 @@ impl EventLog for PostgresLog {
     fn head(&self, world: &WorldId) -> Result<Option<Seq>, LogError> {
         let world = world.clone();
         self.ask(|reply| Request::Head { world, reply })
+    }
+
+    fn begin(&mut self) -> Result<(), LogError> {
+        self.ask(|reply| Request::Begin { reply })
+    }
+
+    fn commit(&mut self) -> Result<(), LogError> {
+        self.ask(|reply| Request::Commit { reply })
     }
 }
 
