@@ -1059,6 +1059,10 @@ async fn login(State(s): State<Shared>, headers: HeaderMap, Body(body): Body<Log
     let mut w = lock(&s)?;
     w.client_ip = Some(client_ip(&headers));
     let fresh = http_login(&mut w, &body.actor, &body.passphrase, "http", body.passing)?;
+    drop(w);
+    // An arrival is a change: the sessions in the room see the newcomer now, not
+    // with whatever happens next.
+    s.announce();
     Ok(Json(
         json!({"ok": true, "actor": body.actor, "fresh": fresh}),
     ))

@@ -87,6 +87,9 @@ struct Subscription {
     request: Request,
     /// Entity ids in the last observation; an event touching one re-runs the query.
     ids: HashSet<u64>,
+    /// The last refresh failed: its error was sent once, and is not sent again
+    /// until a refresh succeeds.
+    failed: bool,
 }
 
 /// Every entity id a node and its relations mention.
@@ -295,7 +298,7 @@ async fn run(socket: WebSocket, s: Shared) {
                             (reply, ids)
                         };
                         if reply["type"] == "observation" {
-                            subs.insert(key, Subscription { request: query, ids });
+                            subs.insert(key, Subscription { request: query, ids, failed: false });
                         }
                         send!(reply);
                     }
@@ -395,10 +398,23 @@ async fn run(socket: WebSocket, s: Shared) {
                     send!(e);
                 }
                 for (k, reply, ids) in refresh {
+                    // A refresh that failed (a room past the query's breadth, a root
+                    // gone for a moment) keeps what the subscription covered, so the
+                    // next change tries again; emptied, it never woke again, and a
+                    // crowd of fifty at the Threshold left every room panel dead.
+                    let ok = reply["type"] == "observation";
+                    let mut say = true;
                     if let Some(sub) = subs.get_mut(&k) {
-                        sub.ids = ids;
+                        if ok {
+                            sub.ids = ids;
+                        } else {
+                            say = !sub.failed;
+                        }
+                        sub.failed = !ok;
                     }
-                    send!(reply);
+                    if say {
+                        send!(reply);
+                    }
                 }
             }
         }
