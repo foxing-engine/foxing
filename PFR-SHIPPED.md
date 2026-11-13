@@ -5,6 +5,9 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-13 (the punch list swept, at David's ask)
+- `PFR.md` holds only what is open: the analytics section (A1 to A6, all live) and the emptied small-fixes section are gone, the keyboard and scale sections open with where things stand now instead of the measurements taken before P1 to P4, P7, S1 and S2, and the notes of what each batch had already fixed are out of the R, X and Y lists. The nginx check moved to Y6.
+
 11-13 (S2, by David's word; two driver deploys. P3 and A3, named again in the same message, were live from 11-12.)
 - Where a command's time goes, on every reply: `took` beside `took_ms` gives the wait for the world's lock, the command, the log's share of it, the appends it made and any read that went past the kept tail. `GET /v0/ops` (operator) keeps the same by verb since the driver started, with what the pushes to open sessions cost, the log's size and the store's; the analytics page shows it under How it felt as "The driver's side" and "By verb" (A5).
 - What it showed on the live world: nobody waits for the lock (0.0 ms on every reply); the log was 60 to 90 percent of an ordinary command, 1.3 ms an append (`say`: 3.9 of 5.5 ms; an `attack` of thirteen appends: 17.4 of 19.4). Each append was four trips to the database (begin, read and lock the head, insert, commit) and the insert was parsed anew each time.

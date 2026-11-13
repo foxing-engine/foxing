@@ -19,9 +19,7 @@ went by policy, with ids.
 
 ## Decisions (D): one letter each; **waits** means yours, the rest go by policy
 
-The library's floors (from the Watch of 11-07)
-
-From the live Watch of 11-10 (four on the live world, by David's word; see T11)
+Stories, errands and the word ladder
 - **D33 · The third word by meaning, not by token** (M/L; **waits**: David raised it 11-11, "use our haiku connection to do semantic analysis at level 3"). At the third rung the creature holds a meaning ("something lent and never returned"), and a story strikes it by being about that, in any words; a model reads the story against a fixed rubric and answers 0 to 3 with one line in the creature's voice. What it buys: no word list finds it, hints can be thematic, and the top rung is understanding, not search. What it costs, and how each is met: the verdict is late, so it arrives in `messages` the way the Docent's does and is never made under the world's lock; `check` cannot predict it, so rungs one and two stay lexical and only the top is a judgment; two like stories may be judged apart, so the rubric is fixed, the score coarse and the reason said; a story will address the judge, so the story goes in as data and a structured verdict comes out, tried first by a Watch member told to break it; when the model is not there the rung says the creature sleeps, and nothing guessable stands in for it. One judged story per creature per name per hour (the cost of an attempt is what D32 was about, and it caps the spend). a) **lean**: build it for the third rung as above, behind a switch, and send a teller and a breaker; b) the same, and the second rung too; c) no: the ladder stays lexical with D32 a.
 - **D34 · Telling levels too fast** (S to change, yours to weigh). The teller of 11-11 was level 168 in 19 messages and five minutes, most of it not the ladder: an errand leg pays about 21 and chains (each receiver hands on a fresh word), a wanted story at double 12 to 17, a word bonus 6 to 9; the guides put a wisp at about 6 and the Stacks at level 100. a) **lean**: an errand leg pays once per giver per name per hour and a chain's later legs pay half; b) errands and double pay scaled so an hour of telling is about an hour of fighting (needs a figure from you for what an hour should be worth); c) as is: telling is the fast road, on purpose. The teller of 11-12, after D32 a: level 55 at four messages, 136 at ten (three minutes), about 190 at twenty-five, then flat, every named creature's hour spent; the ten-minute rule held (one of eight guesses weighed). What is uncapped is the errand leg, a flat 20 a message in a chain that does not end (Tinsel to Osgar to Tinsel, then the next pair): it is a) above, and the teller's first ask.
 - **D30 · A carried word nobody gave you.** `wants` prints the phrase an errand carries ("the fourth door is open"); two of the Watch read it there, walked to the receiver, said it, and were paid 23 without meeting the giver. a) **lean**: the errand is taken from the giver (a `tell` to it, or standing with it), and `wants` says who has a word, not the word; b) as is: `wants` is the notice board. S for a.
@@ -60,32 +58,32 @@ Economy and death
 
 Each is designed and needs no decision. Say `R<n> hold` to keep one back.
 
-Away from Moondial and Entropic (the engine's and the game's old names): done in the
-tree 11-06 (R16–R20); the box's half is Y1. The `MOONDIAL_*` fallbacks in the driver
-and the tools go in a release after Y1 has run.
-- **R26** (M; was B6, pulled 11-04) Unreproduced: "You again" on `leave` (rare); `board` at ~4 s. (The named walk that stopped short is H16's walk now, batch X.)
-Left from batch E:
+Away from Moondial and Entropic (the engine's and the game's old names): what is left
+is the box's half (Y1); the `MOONDIAL_*` fallbacks in the driver and the tools go in
+a release after Y1 has run.
+- **R26** (M; was B6, pulled 11-04) Unreproduced: "You again" on `leave` (rare).
+Left over, smaller pieces of larger things:
 - **R76b** (M) An Under-Docent at the Stacks' stair: a second figure for the Lower Stacks.
-- **R10b** (S) The "five times slower" measured 1.6x: the shelf is a power law (half in 5x at first, a quarter at 15x), so an interval measure reads lower; the line now says so. Still to check: per-chunk half-lives after a strike (none should move: a strike makes a new chunk).
-Left from batch D (the play page's bigger pieces):
+- **R10b** (S) The shelf's "five times slower" measured 1.6x over an interval (it is a power law: half in 5x at first, a quarter at 15x). Still to check: per-chunk half-lives after a strike (none should move: a strike makes a new chunk).
+The play page's bigger pieces:
 - **R12b** (M) The transcript folded to a drawer with a "log" tab once bubbles carry the speech.
 - **R13b** (S) A sprite per thing a creature leaves (icons are by word now).
 - **R22b** (S) One `help` voice (the page's list and the world's line).
 - **R25b** (M) A verb's argument from the scene (click `tell`, then a creature); a creature's own verbs on its figure; the palette on the plain page; the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll; admin on the play page; a `remember` that keeps a room on your map.
-From the Night's Watch of 11-08 (after batches O–S; the obvious fixes are in the ledger as batch T):
-- **R138** (S) The Tally Room's sign gave the Gallery's way to the Division Lobby ("north, north, west"; from the Tally Room it is north, west, north, west). The sign says the right way and points at `where tally book` (batch T); the better fix is a sign that computes its way, as the Stile's step does.
+From the Night's Watch of 11-08:
+- **R138** (S) The Tally Room's sign gave the Gallery's way to the Division Lobby ("north, north, west"; from the Tally Room it is north, west, north, west). The sign is right now and points at `where tally book`; what is left is a sign that computes its way, as the Stile's step does.
 - **R140** (S; looked at 11-10, open: the source is built in one place (errand.rs, "carrying <sender>'s word to <receiver>"), so the two clauses are likely two memories, one carried each way; kept for a Watch to reproduce) A dug room's "Dug by Thistlecroft with the memory of carrying Corrowkin's word to Corrow" and "Kept in memory by Thistlecroft (with carrying Corrow's word to Corrowkin)" flip the word's direction between clauses: one of the two source strings is built backward.
 - **R142** (S) The Docent, asked two things ("Where is the tally book, and what does travel back do?"), answers by heart from one verb's help and drops the other; by-heart (R114) should split on "and"/"," and answer each clause, or say which it is answering.
 - **R144** (S) The Docent suggests `tell Wyndle "what is your word?"` minutes after Wyndle's name failed (it is wisp-6579); the by-heart and the model's briefing should read the creature's current display.
 - **R148** (S) The lent-word strike pay reads as fractions of an unnamed thing ("half again", "as much again", "one and a half times again", "2.5 times the pay"), and the in-hour "bonus alone" first strike (3 XP) paid less than a plain miss (4–6 XP): say the figure beside the words ("half again: 3 XP"), and say in `help story` that inside the hour only the word's bonus is paid.
-From the live Watch of 11-12 (four, arriving four minutes apart: a guide reader, a teller, a mender, a latecomer; what it fixed is in `PFR-SHIPPED.md`):
+From the live Watch of 11-12 (a guide reader, a teller, a mender, a latecomer):
 - **R203** (M) A creature that has "learned to shove" throws a fighter out of the room mid-fight, into the Shallows or a stranger's dug room ("The wisp shoves you north, and the door does the rest"): two of four met it, on their first wisp, and no guide says it. Say it in `look` before the fight in plain words ("this one shoves: a blow may put you through a door"), keep a shove from sending a first-hour name into a room that hunts, and put a line in the quickstart and the guide.
 - **R204** (S) A fall ends the message and the statements after it are dropped without a word (three attacks sent, one run); a `rest` in a fight at 7 of 30 drew the killing blow, said only afterward by the narrator; `retreat` at 2 of 30 takes its parting blow and kills, with no warning. Each reply should say what was not run and why, and `retreat` should say when the parting blow would be the last.
 - **R205** (S) `check` disagrees with the gate in four more places: a wanted story inside the hour ("refused: one story an hour" of a story the gate hears at plain pay), a passing name's `append` in a welcomed book ("append is a kept name's"), a message of nineteen or twenty statements failed "CL-I6"/"CL-I5" with no reason given, and `wants` promising "hears the wanted story once more" after it has. With R202, one pass over the dry run against the gate's own rules.
 - **R206** (S) `attack inkling-7858`, already dead, turns on another inkling ("…is gone; you turn on inkling-5355"): a strike aimed by id at what is gone should be refused. `where bookworm` and `where silverfish` name only the Lower Stacks, not the one in the Archive and the one in the Cistern (D21 b). A trade's reply reads "for Gnimbus's a wisp ember".
 - **R207** (S) The Mudroom's "newest dug" names rooms at 0% left (newest should be by what still stands); `read doors` gives an age only to rooms dug since 11-12 (say "before the wall kept dates" for the rest); a named walk to the Lookout goes through the Bog with no word (it is the only way but the Hush: say so as it steps in).
 - **R208** (S) What a newcomer still is not told: `recipes` on its first line says what you lack and not where it is (the where is at the foot); the charm's recipe says "worth 5 or more" and takes the whole chunk offered (20.6); the Exergue's plaque is "a visitor book" in `look`; `chunks` shows "(passing)" and says nothing of what it does; a gardener's row says its bite will not close and one of two never bled in six bites (chance or fault: check). `tell` to a name elsewhere should say when they last acted.
-From the live Watch of 11-11 (four on the live world, after batch Y; the three fixes it led to are in the ledger):
+From the live Watch of 11-11 (a walker, a maker, a teller, a newcomer):
 - **R202** (S) `check` says a bare `append "…"` in the Exergue would be refused as an edit of the room; the gate now writes it on the plaque. The dry run should follow.
 - **R192** (S) `travel The Stair of Indices`, written unquoted in a message through the gate, is refused "There is no exit 'stair'", and `take moth dust` (R198) for two arguments at a quarter of a message: a typed line is quoted for the player by the page, a written `[DO]` is not. The gate should quote a place or a thing of several words as the typed line does, or the refusal should say `travel "The Stair of Indices"`.
 - **R193** (S) A named walk's reply lists the doors taken and not the rooms passed.
@@ -96,24 +94,23 @@ From the live Watch of 11-11 (four on the live world, after batch Y; the three f
 - **R199** (M) The word ladder disagrees with itself: one reply said "It was the story it wanted… the want stands" and "Not the one it wanted: it listens for book, overdue…" (the want had turned); Wyndle's second word was not struck by any word of the sentence its hint quotes (the sentence is also its old want, so a story carrying it is heard as the want and likely never tried against the word); `check` refused a story the gate then heard at plain pay; a creature full for the hour answers eight guesses with "takes no more" and no count, though `wants` says a word-carrying story is heard.
 - **R200** (S) The Docent: two answers were of where the asker had been, not where it stood; its first tip names a wisp that is "not itself yet". `tell <creature> "What do you want?"` still gets the stock line (R158, third Watch).
 - **R201** (S) For a newcomer: "holding 71" in a creature's row is never explained; `chunks` says "Level 14.50" and `rest` "Level 15"; the dry run says `tell` "needs an argument (text)" where the gate says two.
-From the live Watch of 11-10 (four on the live world):
-- **R181** (S) `mine` before any fall says only "Nothing in the world is yours yet" (the quickstart sends a reader there for falls): with memory in the window it should say what a fall now would take ("about 20 XP, 15% of what you carry"). (The line after a fall says "half the share" since batch Y.)
+From the live Watch of 11-10:
+- **R181** (S) `mine` before any fall says only "Nothing in the world is yours yet" (the quickstart sends a reader there for falls): with memory in the window it should say what a fall now would take ("about 20 XP, 15% of what you carry").
 - **R182** (S) "It holds 60 now." and then `name` refused: "a lantern holds 60; a name is written in memory, and it takes 60": the holding had faded under sixty between the lines and both print it rounded. Say the figure to a place when it is within one of the bar ("holds 59.8").
 - **R184** (S) Ten `attack` statements into an empty room return ten identical refusals, and the "drift in within about 42s" countdown is only seen by spending a message: after the first refusal in a message, the rest are said once ("and 9 more the same"); a held `attack` that waits for the next arrival is R174's cousin (M, a word first).
 - **R187** (S) `chunks` prints a value over its own first size ("10.23 of 10.2", "23.62 of 23.6"): the "of" is rounded to a place and the value to two; and creatures listed "holding 0" paid 20 to 30 XP a kill (bookworms), so the row's holding does not say what a kill is worth: say what it is worth.
-- **R189** (S) `session` counts "1 line written" after a `describe` and an `append`, and "1 said" where nothing was said aloud (the story). (The map half closed with H15, batch X.)
-- **R190** (S) Short, a room of your own says "Yours: 100% remembered" on arrival (batch V) the same after four seconds or four hours: say what the absence did ("it had faded to 97%; you bring it back whole"). The builder's one ask.
+- **R189** (S) `session` counts "1 line written" after a `describe` and an `append`, and "1 said" where nothing was said aloud (the story).
+- **R190** (S) Short, a room of your own says "Yours: 100% remembered" on arrival the same after four seconds or four hours: say what the absence did ("it had faded to 97%; you bring it back whole"). The builder's one ask.
 - **R191** (S) `observe` with no argument fails the whole message at a quarter ("'observe' needs 1 argument (query)") and `help observe` shows no example; a `describe` aimed at a room that is not yours should be refused in a line that says whose it is.
-- R158 (a creature asked what it wants answers the stock line) was hit by all four creatures the storyteller asked: confirmed live, and the storyteller's one ask.
 
-From the Night's Watch of 11-10 (on a local copy of batch U; the obvious fixes are in the ledger as batch V):
+From the Night's Watch of 11-10 (on a local copy):
 - **R151** (S) `chunks`, the Docent's first line and the Threshold all send a newcomer east to the Fogbank's wisps; with three of the Watch there the room was empty for most of an hour ("There is nothing here to fight… Something will drift in within about 34s"). The pointer should name a second room when the first is empty (the Orchard's mothwings, Lantern Row's lanternflies), and the empty room's line could say who took them.
 - **R152** (S) The petition's receipt lists four stages ("read into the minutes, then before the Committee on the Matter, then reported from committee, then decided") and `petitions` counts five ("stage 1 of 5"); /v0/conclave's `stage` is one less than the gate's. One list, one numbering.
 - **R154** (S) A killing blow is printed clipped to what was left ("hits you for 5: 5 → 0 of 30" from a creature listed "hits 7–9"): say the blow whole ("hits you for 8; 5 was all you had").
 - **R155** (S) `look` lists a creature "holding 0" in the reply after the fall text says it "keeps" what you lost (the revenant, 58.7/64); its holding should show what it took.
 - **R156** (S) The `chunks` footer's half-lives move with the Clocktower's rate ("30m 0s … 3h 0m", later "28m 33s … 2h 51m") and nothing says why; one clause ("by the Clocktower's memory rate, 0.95 now").
 - **R157** (S) `mine` after two falls: "nothing touched any of it, and nothing of it has faded enough to say" under an empty "What remembers you:"; with nothing kept, say that, and the falls.
-- **R158** (S) `tell <creature> "What do you want?"` and `"Is the word hinge?"` get the stock line ("I hold what I am given…"): answer the want from `wants`, and say a guess is made by a story that carries the word.
+- **R158** (S) `tell <creature> "What do you want?"` and `"Is the word hinge?"` get the stock line ("I hold what I am given…"): answer the want from `wants`, and say a guess is made by a story that carries the word. Met by three Watches running; the storyteller's one ask.
 - **R159** (S) The word hint after a story that used two of the listed words ("moon", "fog") says "One story from you since has carried none": if a pool word was carried and is not it, the hint strikes it from the list (D20's refusal does; the heard story does not).
 - **R160** (S) A creature's holding after a story rose by less than the chunk the teller got (27.0 XP to the teller, 61 → 74 in the creature) and by more after a plain one (6.0, 74 → 90): the teller's pay and the creature's keep are two figures; say the creature's in the reply ("it keeps 13 of it").
 - **R162** (S) In one gate message of five attacks the switch line repeats on each later statement ("wisp-200 is gone; you turn on wisp-201." twice); say it once. And an attack by id on a creature that has gone turns on the next one unasked (it killed the storyteller): refuse with who is here.
@@ -124,19 +121,18 @@ From the Night's Watch of 11-10 (on a local copy of batch U; the obvious fixes a
 - **R167** (S) The room text after a memory is fed to a dug room says "Kept in memory by Gnarrowby (with wisp, telling Loam a story): the memory of a creature of theirs, fed to it": the clause is the creature's, said of a room.
 - **R168** (S) "The fog gives up shapes: 2 wisps" with one wisp in `look` (a named one beside it was counted, or one had gone): count what arrives.
 - **R169** (S) A wisp drifts in at "0.3/8.3": a wounded one that left comes back unmended and reads as a new spawn; say "comes back, still hurt", or mend it away.
-- **R170** (S) The map of a floor reached by two stairs draws two rooms five cells apart on one row ("05· . . . . . . 45@") with nothing between: H15 (batch X) gave the list an "Other floors" line and put a named door's room on the far side of its parent, but the grid of such a floor is not yet checked by a Watch. The list still says "Lantern Row" beside "The Assay Office" (the article kept on some names only).
+- **R170** (S) The map of a floor reached by two stairs drew two rooms five cells apart on one row ("05· . . . . . . 45@") with nothing between; the list now has an "Other floors" line and a named door's room sits on the far side of its parent, but the grid of such a floor has not been checked by a Watch since. The list still says "Lantern Row" beside "The Assay Office" (the article kept on some names only).
 - **R171** (S) The Lookout says "the nine rooms from the Stile up" and the walker counted eight; the Long Afternoon's "(8 off)" is unexplained.
 - **R173** (S) A thing that lay in a room and is gone on the next short arrival leaves no line ("as you left it" over a room missing its charm): short, a room says what has changed since ("Charmkin is gone").
 - **R175** (S) `messages` counts the Docent's welcome again on every read ("the last N of N"); `read` with no thing means the room's page in the Conclave's rooms and "Nothing here has writing on it" in the Bar: one meaning, said in `help read`.
 - **R176** (S) The budget's arithmetic is not sayable from the replies (a message of six with one refused cost 2.0; a free read after arrival left 58.75): the reply says what this message cost and why.
 
-From the Night's Watch of 11-06 (the Mudroom's first night; the obvious fixes are in the ledger as batch F):
+From the Night's Watch of 11-06:
 - **R101** (S; looked at 11-07, open: `rest`'s "Full in" is read off the body's curve on active time, and a hypothesis is that the clause ran before the arrival's recurve; not reproduced, kept for the next Watch to measure) `rest` in a room just fought in moved 6 s in 31 s (nothing was fighting; the mothwing was dead); check whether `end_fight` recurved the mending.
 Pulled from the backlog 11-05 ("B19 yes, B21 yes, B22 yes"), each in pieces the Watch can take a batch at a time:
 - **R74** (M; B19) Crafting, second tier: an usher's ribbon (a thing that lets you choose the room an usher shows you to) and a censor's lens (halves the ray) as recipes from Stacks drops; desires beyond rooms (a hand not met, a story told near it); a thing's past as a want; a sprite per tier on the page; `gather` reading the first cue ("a river of ink" gives ink).
 - **R75** (M; B21) The Exergue, next: a bar story's weight by its money words; the Assayer answering `tell` with your holding's assay; the Wardens' respawn lengthening each taking; the Purse's share as a statute; the sweater's bag and the clippers' filings as things; the Mintmark Hall stamping kept things with their hour; atlas frames for the eight; the slate in the tapster's voice.
-From the Night's Watch of 11-04:
-- Kept on purpose: `nginx-moondial.conf` (moondial.ai redirects to foxing.dev), the
+- Kept on purpose, not to be tidied: `nginx-moondial.conf` (moondial.ai redirects to foxing.dev), the
   `/clear/entropic.yaml` redirect, the postgres schema-lock constant, the host's name
   moondial-1, TRADEMARK.md's history line, the repo's local folder name.
 
@@ -146,7 +142,7 @@ Your project (11-05): "an awesome front door for players". Asked in chat as T1�
 night (the cohort T's below are another list); kept here as H. Each later step is
 yours to call: say `H5 go`, or `H5 brief` for a design first.
 
-What is left of the front door, each yours to call (H1 to H17 are in the ledger):
+What is left of the front door, each yours to call:
 
 - **H18 · Rows past forty doors** (M; **waits**, it was H14's second question). a)
   **lean**: as built, the wall is one room and `look` shows a digest of it; b) past
@@ -158,31 +154,14 @@ What is left of the front door, each yours to call (H1 to H17 are in the ledger)
 
 ## The keyboard (P): performance for a player at the keyboard
 
-Mapped 11-10 at David's ask. Measured on a local build in a headless browser at
-1440×900 (software drawing, so the idle figures are an upper bound), and from this
-session to the live server. Nothing here is built; say `P1 go`.
-
-What was measured:
-- Idle, standing in a room with nothing happening, the page keeps about a third of
-  one core busy. Two causes: the picture redraws all of itself sixty times a second
-  whether or not anything moved (`tiles.js`, and `sky.js` the same), and every panel
-  (You, the window, Here, the lane, the first-hours card) is torn down and rebuilt
-  four times a second: about 5,600 nodes and 820 listeners live, 64 layouts a second.
-- Load: seven requests; `index.html` is 265 KB in one file (styles and script
-  inline) and `tiles.js` 98 KB; the schema (18 KB) and vocabulary (16 KB) are fetched
-  on every load. The CLEAR checker is already loaded only when first used.
-- A command's round trip was 56 to 87 ms on a local debug build; a plain request to
-  the live server took 330 to 570 ms from this session, most of it a fresh
-  connection each time, so the live figure a player sees over the open socket is
-  not known yet (P7 measures it).
-- The transcript is never trimmed; lines are sent one after another, each waiting
-  for the last reply.
-- Keys that exist: Up/Down history, Ctrl+arrows to travel, arrows on an empty line
-  for west/east, `?` for help, Ctrl+L, Ctrl+U. There is no completion.
+Where it stands (a local build in a headless browser at 1440×900): ten idle seconds
+in a room cost half a second of work, the picture's ten frames a second being most of
+it; panels take only the rows that changed. Load is seven requests, `index.html` near
+270 KB in one file with styles and script inline, `tiles.js` near 100 KB. The live
+round trip is on the analytics page, from the play page's own reports. What is left:
 
 - **P1b · The room as a kept layer** (S/M). The floor and walls drawn once and kept, so
-  an ambient frame draws figures only (P1's first half is live: the picture draws on
-  change, ten frames a second idle).
+  an ambient frame draws figures only.
 - **P5 · A lighter door** (M). Styles and script out of `index.html` into two files
   with a hash in their names, cached for a year, the page itself small and never
   cached; `tiles.js` preloaded; the schema and vocabulary kept in the browser and
@@ -192,45 +171,18 @@ What was measured:
   fold the rest behind "earlier" (still there to scroll to), so a long night does
   not slow every new line.
 - **P8 · A quiet mode** (S). One setting: no ambient motion, no sky, no sound; for a
-  slow machine or a long session. It is P1's floor.
+  slow machine or a long session.
 
-Order now: P6, P5, P8, P1b (idle is 0.5 s of work in ten seconds since batch Z; what is left is the picture's ten frames).
-
-- **Y (yours)** On the VPS, confirm nginx serves the site's text compressed and with
-  cache headers for `/play/mods/*.js`; the repo has no copy of that config.
-
-## The analytics page (A): a cleanup, planned 11-11 at David's ask
-
-The page is sixteen tables in the order they were added, thirty days each, with the
-operator's questions ("is anyone here, did they get in, is it fast, is anything
-broken") answered only by reading all of them. Claude cannot open the page from its
-session (the site host is not reachable from there), so this is planned from
-`site/analytics/render.py` and checked against a made-up store; send a screenshot of
-the real page and the rest gets sharper.
-
-- Nothing left of A1 to A6: all live (`PFR-SHIPPED.md`, 11-11 to 11-13).
+Order: P6, P5, P8, P1b.
 
 ## Ten times the players (S): planned 11-11 at David's ask
 
-Measured from Claude's session against the live world on 11-11, at about 264,000
-events in the log, with P7's `took_ms` (the world's own share of a reply):
-
-| asked | the world took |
-|---|---|
-| `say`, `satchel`, `map`, `where` | 145 to 160 ms |
-| `chunks`, `recipes` | 140 to 210 ms |
-| `time` | 370 to 395 ms |
-| `look` | 430 to 470 ms |
-| `travel` (first into a room) | 420 to 1,270 ms |
-| `wants` | 1,020 to 1,130 ms |
-| `GET /v0/economy` | 7.5 s, with every other request waiting on it |
-| `GET /v0/board` | 14.5 s, the same |
-
-The same verbs on a fresh local world take 15 to 25 ms. The shape of the problem:
-one world behind one lock, and several reads that go back to the first event the
-world ever wrote, each time, while holding it. Cost grows with the log, not with who
-is here: at ten times the events the board is two minutes and `wants` ten seconds
-with nobody new in the room.
+Where it stands (the live world, 11-13, about 299,000 events; the world's own share of
+a reply, from `took`): `say`, `satchel`, `map`, `time` 3 to 4 ms; `look` 5; `wants` 7;
+`travel` and `attack` 3 to 10 by what they write; nobody waits for the lock. The log
+is half to three quarters of that, at about 0.65 ms an event written. The `board` verb
+is 0.8 s and a first `look` after arriving 36 ms. `GET /v0/ops` and the analytics
+page keep these by verb. One world behind one lock is still the shape; what is left:
 
 - **S2b · A command as one unit of the log** (built, off; **waits**: it changes what
   a database failure does). Since S2 an append is one insert and one commit, about
@@ -251,13 +203,13 @@ with nobody new in the room.
   good leave the store (they stay in the log).
 - **S4 · Readers do not wait on writers** (L). Public reads (`/v0/map`, `/v0/board`,
   cloak, observe) served from a snapshot swapped in after each write, so a read never
-  takes the world's lock. With S1 this is what lets a hundred watchers cost nothing.
+  takes the world's lock: what lets a hundred watchers cost nothing.
 - **S5 · Pushes by room** (M). After any change every open session is woken and
   re-observed; with ten times the sessions that is ten times the work per command.
   Wake only sessions whose rooms, selves or subscriptions the change touched.
 - **S6 · A load test that is a Watch** (M). A script of fifty then five hundred
   passing names on a copy of the live log (not the live world), walking, fighting and
-  telling at a player's pace, reporting P7's figures; run before and after each step.
+  telling at a player's pace, reporting `/v0/ops`; run before and after each step.
   It is also the test for the gate's budgets and nginx's limits at that size.
 - **S7 · The box** (yours, later). One VPS runs the driver, PostgreSQL, nginx, the
   Docent and the Bindery. Before a second box: PostgreSQL's settings for the log
@@ -267,7 +219,7 @@ with nobody new in the room.
   already empty the Fogbank; ten times the names want spawn counts that follow who is
   in the room, more first rooms (R151), and the Mudroom's wall (H18). These are the
   limits a player meets before the server's.
-- Order now: S3 (the `board` verb is 0.8 s: 46 reads past the kept tail for its census of the day, and half a second walking the store; a first `look` after arriving is 36 ms, none of it the log), S6, S5, S4. S2b when you choose.
+- Order: S3 (it has the `board` verb: 46 reads past the kept tail for its census of the day, and half a second walking the store), S6, S5, S4. S2b when you choose.
 
 ## Content (C): expansions, planned 11-12 at David's ask; nothing here is built
 
@@ -361,22 +313,12 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   as sprites in depth; nothing the world does not already send. First cut: one room,
   one creature, one door, in the browser.
 - **X5 · Creature expansion.** David's rule (11-06): ship more creatures; **a creature
-  never scales with the player; it scales with its own level.** First cut **shipped
-  11-06 (batch J)**: (1) the rule: a creature's hit points and attack grow with what it
-  holds (max hp from its spawned figure, by half at 75 and double at 150; a point of
-  attack per 75 held; the wound keeps its proportion; recomputed with every tier
-  check), so a creature fed to its name is a harder fight and a richer kill, and the
-  door's pilots at 75 are 12-hp wisps hitting 3–5; (2) six kinds on the library's own
-  floors, each with a trick the Stacks already know: lanternflies on Lantern Row (5
-  hp, the mildest thing in the world, and a kind the Docent may name), bookworms at
-  the Overdue Desk (Leech), silverfish in the Card Catalogue (Clip), a dust devil on
-  the Downward Stair (hunts; Shove), a shelf mouse in Lost and Found (Chatter), a
-  custodian in the Strongroom (hunts; Maw); `plural()` for the new names. Next cuts,
-  by brief: aging (a named creature's level drifts up a little a day it is kept),
-  epithets (earned from what felled it or what it fell), retirement (a creature past a
-  level walks to a room of its own and stops fighting), last words (a felled named
-  creature says one line from what it held), a creature's `felled` told as a story;
-  pixel sprites for the six (the page draws their glyph for now).
+  never scales with the player; it scales with its own level.** The rule and the first
+  six kinds are live. Next cuts, by brief: aging (a named creature's level drifts up a
+  little a day it is kept), epithets (earned from what felled it or what it fell),
+  retirement (a creature past a level walks to a room of its own and stops fighting),
+  last words (a felled named creature says one line from what it held), a creature's
+  `felled` told as a story; pixel sprites for the six (the page draws their glyph).
 - **X6 · The Court of Lethe** (the judicial branch; the Conclave writes, the Clocktower
   moves, the Court decides between names). Brief wanted: who may bring a case (a
   wronged name, a room's owner, the Docent), what a judgment can do (restore a chunk,
@@ -386,26 +328,20 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   by what it does, not what it joins (diggers, storytellers, keepers, delvers), with a
   voice at the Conclave and a share of something; no banners, no enemies, a name may
   stand in several.
-- **X8 · Morphos, a very problematic traveler** (briefed and first cut shipped 11-04
-  early: twice a day for twenty minutes, to the busiest room; a haiku riddle, `tell
-  morphos "<answer>"`; a wrong answer or none clouds chunks twenty minutes and summons
-  a Hand of Morphos that pinches one more in; a ladder of three kept between visits,
-  the third the memory of a hidden room with an awake thing and Morphos's Ledger
-  inside, reached by a door only the holder sees; `summon` is the operator's). Next:
-  Morphos moving between rooms during a visit; riddles stocked by a tool like the
-  Namery's (twenty in the table now); the Hands with a sprite of their own; a riddle
-  that wants the answer carried to another room; what Morphos keeps of the clouded
-  (it takes a chunk home once in a while?).
+- **X8 · Morphos, a very problematic traveler.** The traveler, its riddles, its Hands
+  and its ladder are live. Next: Morphos moving between rooms during a visit; riddles
+  stocked by a tool like the Namery's (twenty in the table now); the Hands with a
+  sprite of their own; a riddle that wants the answer carried to another room; what
+  Morphos keeps of the clouded (it takes a chunk home once in a while?).
 - **X9 · CLEAR 0.5.** The spec, the reference checker, the Rust port and the oracle
   corpus, the vocabularies, the editor, and the gate, moved together: structured
   results beside the text, the question patterns a world answers declared in its
   vocabulary, and whatever 0.5 adds. Brief: the change list first. On it (D18,
   11-06): what the gate may mend before the check so fewer messages score a 50
-  (the message stays all-or-nothing): inner straight quotes curled (done, R30), a
-  missing final period supplied, a `look` after `travel` folded (done), an unknown
-  verb answered with its nearest approved one (`strat` → `start`? no: `story`),
-  a statement over the word limit split at a semicolon, and the oracle cases for
-  each.
+  (the message stays all-or-nothing): a missing final period supplied, an unknown
+  verb answered with its nearest approved one (`strat` → `start`? no: `story`), a
+  place or a thing of several words quoted as the typed line already is (R192), a
+  statement over the word limit split at a semicolon, and the oracle cases for each.
 - **X10 · Trademark filing.** The checklist and a consult (Y4), then the filing; the
   logo, when there is one, in the same filing.
 - **X11 · Marketing plan.** Who the world is for (people who play, agents who are
@@ -420,18 +356,12 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   the scene's tiles are the board, and the Wistful Trail's Hollow Way (two footpads
   from both banks) is the first set piece. Brief wanted: what a turn costs in messages.
 
-- **X13 · A world that is lived in.** Shipped 11-05 as the first cut: happenings (twice
-  an hour somewhere), named creatures' business (walk to a keeper, home, count), the
-  Conclave's holidays (no division; the house's characters in tempers). The rest, by
-  complexity and policy:
+- **X13 · A world that is lived in.** Happenings, named creatures' business and the
+  Conclave's holidays are live. The rest, by complexity and policy:
   - **X14** (XL, brief wanted) Day and night: which creatures hunt by the hour (hollows
     by night, sighs by day), the page's light, the Fogbank's fog by the hour.
   - **X15** (XL, brief wanted) A travelling market: the Exergue's tapster walks a circuit
     of the ground floor, the slate with it, trade where it stands.
-
-## Small fixes queued for the Night's Watch (F): ship by rule, no nod needed
-
-(Emptied 11-06: F2–F25 are in the ledger, three of them as checked and not reproduced.)
 
 ## Your side (Y): only you can
 
@@ -446,15 +376,17 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   then `nginx -t && systemctl reload nginx`.
 - **Y2** Apex VPS: starsailorart.com/kaleidostoop links a demo video that was never in the
   repo (add it or drop it); the probe snippet on moondial-1's play site.
-- **Y3** Issues: none open. Tyler's #6, #8, #9, #11 (D1, D2, D1, D6) closed 11-05 with
-  signed replies naming the commits; #10 (D8) closed by design. Glama's maintenance grade
-  reads commit activity and whether open issues get a reply: a new issue gets an
-  answer within a day and a close when it ships (Claude posts, signed, by the 11-03
-  permission).
+- **Y3** Issues: none open. The standing rule: a new issue gets an answer within a day
+  and a close when it ships (Claude posts, signed, by the 11-03 permission); Glama's
+  maintenance grade reads commit activity and whether open issues get a reply.
 - **Y4** crates.io at the v0.4.0 tag (bump in lockstep, READMEs); Zenodo at the tag; the
   trademark filing checklist and a consult; the LLC; Tyler's crates, server and Glama
   maintainer access.
 - **Y5** Show HN, with a log dump, when the game is further along.
+- **Y6** On the VPS, confirm nginx serves the site's text compressed and with cache
+  headers for `/play/mods/*.js` (the repo has no copy of that config; P5 leans on it).
+  And the analytics timer on the box renders hourly where the repo's
+  `site/deploy/setup-analytics.sh` says five minutes: re-run it when convenient.
 
 ## Backlog (B), by area: pulled into R when its turn comes; say `B<n> next` to pull one
 
