@@ -380,9 +380,10 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.home",
-            "The door of the world you wake at after a fall: the one you first woke at, until you stand at the other (the Threshold, the Postern) and say `home` there. Anywhere else, it says which door is yours and the way to it.",
-        ),
-        Box::new(|w: &mut World, ctx, _| {
+            "The door of the world you wake at after a fall: the one you first woke at. `home` says which is yours and the way to it, and changes nothing; `home here`, standing at the other door (the Threshold, the Postern), makes that one yours.",
+        )
+        .param("door", ParamType::String, false, "`here`, at a door of the world, to make it yours"),
+        Box::new(|w: &mut World, ctx, args: &Args| {
             let f = super::me(w, ctx)?;
             let here = super::rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
             let said = |w: &World, r: foxing_store::EntityId| -> String {
@@ -393,23 +394,33 @@ pub fn register(world: &mut World) {
                 }
             };
             let mine = super::rooms::landing(w, Some(f.citizen)).ok_or_else(|| internal("the world has no door"))?;
-            if !super::rooms::doors(w).contains(&here) {
+            let at_door = super::rooms::doors(w).contains(&here);
+            let setting = args.str("door").map(str::trim).is_some_and(|d| !d.is_empty());
+            if setting && !at_door {
+                return Err(CommandError::precondition(format!(
+                    "Only a door of the world can be a home: the Threshold or the Postern. Yours is {}; stand at the other and say `home here`.",
+                    said(w, mine)
+                )));
+            }
+            if here == mine {
+                return Ok(Outcome::new(
+                    format!("This is your home door: a fall wakes you here, at {}.", said(w, here)),
+                    json!({"home": super::plain_str(w, here, super::ROOM, "key"), "changed": false}),
+                ));
+            }
+            if !setting {
                 let way = super::errand::route(w, here, mine)
                     .filter(|p| !p.is_empty())
                     .map(|p| format!(" From here: {}.", p.join(", ")))
                     .unwrap_or_default();
+                let offer = if at_door {
+                    format!(" This is a door of the world too: `home here` makes {} yours.", said(w, here))
+                } else {
+                    " At the other door of the world (the Threshold, the Postern), `home here` makes that one yours.".to_string()
+                };
                 return Ok(Outcome::new(
-                    format!(
-                        "Your home door is {}: a fall wakes you there.{way} Stand at a door of the world (the Threshold, the Postern) and say `home` to make that one yours.",
-                        said(w, mine)
-                    ),
+                    format!("Your home door is {}: a fall wakes you there.{way}{offer}", said(w, mine)),
                     json!({"home": super::plain_str(w, mine, super::ROOM, "key"), "changed": false}),
-                ));
-            }
-            if here == mine {
-                return Ok(Outcome::new(
-                    format!("This is your home door already: a fall wakes you here, at {}.", said(w, here)),
-                    json!({"home": super::plain_str(w, here, super::ROOM, "key"), "changed": false}),
                 ));
             }
             let key = super::plain_str(w, here, super::ROOM, "key").unwrap_or(super::rooms::ARRIVAL).to_string();

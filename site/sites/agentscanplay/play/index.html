@@ -2657,7 +2657,7 @@
     const postern = cz.home === "postern";
     const h = document.createElement("div"); h.className = "lead"; h.textContent = postern ? "Your first minute, at the back gate. Three things from here; one is enough to start." : "Your first minute. Three ways from the door; one is enough to start."; d.append(h);
     const ways = postern
-      ? [["the bench: tell it a story", "a dozen different words about anything; it hears one from each name", 'story bench "'], ["wall: the moths", "the mildest fight there is", "travel wall"], ["in: the lane", "to the lanterns and the Orchard; nothing hunts on it", "travel in"]]
+      ? [["the bench: tell it a story", "a dozen different words about anything; it hears one from each name", 'story bench "'], ["wall: the moths", "the mildest fight there is", "travel wall"], ["lane: the lanterns", "to Lantern Row and the Orchard; nothing hunts on it", "travel lane"]]
       : [["east: the fog", "wisps are fought and remembered there", "travel east"], ["north: the lanterns", "the world is read there", "travel north"], ["west: the mud", "rooms are dug there", "travel west"]];
     for (const [label, hint, line] of ways) {
       const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.title = hint;

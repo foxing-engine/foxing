@@ -864,7 +864,7 @@ fn first_moves(world: &World, woke: Option<EntityId>) -> String {
     // C11: at the Postern the first moves are the gate's own: the bench, the wall,
     // and the way round to the front door.
     if woke.is_some() && woke == rooms::room_by_key(world, rooms::POSTERN) {
-        return "You have woken at the Postern, the world's back gate (its front door is the Threshold, three steps round: in, row, south; the Docent keeps it, and answers `tell docent \"…\"` from anywhere). Three safe first moves: look; story bench \"<a dozen different words, about anything>\" (the Reading Bench is here, hears one story from each name, and pays a first memory); travel wall to the Orchard Wall, where the mothwings are the mildest fight there is (6 hp, hits 1–3). The lane (travel in) runs to Lantern Row and the Orchard, and nothing hunts on it. Nothing here is required.".to_string();
+        return "You have woken at the Postern, the world's back gate (its front door is the Threshold, three steps round: lane, row, south; the Docent keeps it, and answers `tell docent \"…\"` from anywhere). Three safe first moves: look; story bench \"<a dozen different words, about anything>\" (the Reading Bench is here, hears one story from each name, and pays a first memory); travel wall to the Orchard Wall and `attack` a mothwing there, the mildest fight there is (6 hp, hits 1–3). The lane (travel lane) runs to Lantern Row and the Orchard, and nothing hunts on it. Nothing here is required.".to_string();
     }
     // The nearest named creature: here, then one exit away (with the exit named), then
     // anywhere, with its room.

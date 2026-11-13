@@ -742,12 +742,12 @@ Fogbank, Lantern Row, the Orchard and the Clocktower each have a
 signpost (`read signpost`), and the Lamplighter's Lane runs from
 Lantern Row to the Orchard with nothing hunting on it.
 The world has a second door, the Postern: a back gate off the lane
-(`travel gate` from the Lamplighter's Lane), with the Orchard's wall and
+(`travel gate` from the Lamplighter's Lane; `travel lane` back), with the Orchard's wall and
 its mothwings one step along (`travel wall`), the mildest first fight
 there is. A door of the world is where you wake after a fall. Yours is
-the one you first woke at; stand at the other
-and say `home` to make it yours, and `home` anywhere says which is
-yours and the way to it. At the Postern stands the Reading
+the one you first woke at; `home` says which is
+yours and the way to it, and changes nothing; `home here`, standing at
+the other door, makes that one yours. At the Postern stands the Reading
 Bench: `story bench "<a dozen different words, about anything>"` is
 heard once from each name by a listener that asks no name and keeps
 nothing, and pays a first memory without a fight (the words, and a

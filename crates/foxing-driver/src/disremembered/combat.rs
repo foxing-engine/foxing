@@ -836,8 +836,18 @@ pub fn round(
         return Ok(Some((true, said)));
     }
     let (trick, over) = super::stacks::trick(world, curves, creature, citizen, actor)?;
+    // R204: the same warning an attack's round gives, on the blow a `rest`, a `mine`
+    // or any other statement draws (a faller went from 30 to 0 on those, unwarned).
+    let warn = match plain_num(world, creature, CREATURE, "attack").filter(|a| *a > 0.0) {
+        Some(a) if !over && hp(world, citizen) <= a + 2.0 => format!(
+            " Its next blow could be your last (it hits {:.0}\u{2013}{:.0}): every statement you write here draws one, `rest` and `retreat` among them.",
+            a,
+            a + 2.0
+        ),
+        _ => String::new(),
+    };
     let said = format!(
-        "The {cname} {}.{}",
+        "The {cname} {}.{}{warn}",
         hit_said(taken),
         trick.map(|t| format!(" {t}")).unwrap_or_default()
     );
@@ -968,7 +978,7 @@ pub fn shaken_said(world: &World, citizen: EntityId) -> Option<String> {
     let (_, left) = shaken(world, citizen)?;
     let hit = to_hit(world, citizen);
     Some(format!(
-        "Shaken from the Threshold: {}, steadying over {}.",
+        "Shaken from the fall: {}, steadying over {}.",
         // R186: a quarter was said as "3 strikes in 10" beside the guide's "one in four".
         if (hit * 4.0 - 1.0).abs() < 0.04 {
             "1 strike in 4 lands".to_string()
@@ -2000,7 +2010,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the more of your blood that fight took, the more vivid the memory and the longer it lasts (a one-blow kill is barely remembered). While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour. A new name's first grind: Lantern Row's lanternflies (5 hp, hits 1–3; north), the Orchard's mothwings (6 hp, hits 1–3; east, north, north) or the Fogbank's wisps (8 hp, hits 2–4; east); the Shallows' hollows between them hunt and hit 4–6. A creature's figures grow with what it holds, never with your level. Two of a kind in a room are written with their ids (wisp-80, wisp-81) so either can be named; alone, it is just the wisp.")
+        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the more of your blood that fight took, the more vivid the memory and the longer it lasts (a one-blow kill is barely remembered). While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour. A new name's first grind: Lantern Row's lanternflies (5 hp, hits 1–3; north), the Orchard's mothwings (6 hp, hits 1–3; east, north, north from the Threshold, or one step along the wall from the Postern) or the Fogbank's wisps (8 hp, hits 2–4; east); the Shallows' hollows between them hunt and hit 4–6. A creature's figures grow with what it holds, never with your level. Two of a kind in a room are written with their ids (wisp-80, wisp-81) so either can be named; alone, it is just the wisp.")
             .param("creature", ParamType::Entity, false, "a creature name from look; defaults to the one you are fighting, else an unnamed one here. A named creature is never struck by default."),
         Box::new(move |w: &mut World, ctx, args| {
             let f = me(w, ctx)?;
@@ -2241,7 +2251,7 @@ pub fn register(world: &mut World, curves: Curves) {
             // A fight begun by default is said, not silent: six bare `attack` lines
             // felled an inkling on the fourth and struck its neighbor on the fifth.
             let turned = args.str("creature").map_or(true, str::is_empty) && began.is_some();
-            let unsteady = if shaken(w, f.citizen).is_some() { ", your hand unsteady from the Threshold" } else { "" };
+            let unsteady = if shaken(w, f.citizen).is_some() { ", your hand unsteady from the fall" } else { "" };
             let mut lines = vec![match (landed, turned) {
                 (false, true) => format!("You turn on {csaid} and miss{unsteady}."),
                 (false, false) => format!("You swing at {csaid} and miss{unsteady}."),

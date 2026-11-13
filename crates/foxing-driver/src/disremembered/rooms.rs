@@ -200,7 +200,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: POSTERN,
         name: "The Postern",
         description: "The back gate: a low door in a garden wall, a lamp on an iron bracket, the Reading Bench under it worn smooth, a boot-scraper nobody has used. It is night here too. Through the door the Lamplighter's Lane runs to the lanterns one way and the Orchard the other, and nothing hunts on it; along the wall the moths come down from the trees, and they are the mildest thing in the world that will give you something to remember. This is a door of the world, as the Threshold is: a name that wakes here comes back here. Nothing hunts here.",
-        exits: &[("in", "lamplighters-lane"), ("wall", "orchard-wall")],
+        exits: &[("lane", "lamplighters-lane"), ("wall", "orchard-wall")],
         spawn: None,
         former: &[],
         tint: "#6f7a5c",
@@ -1096,7 +1096,9 @@ pub fn ensure_rooms(world: &mut World) -> Result<(), String> {
                 // Only the seed's own compass words: an exit someone named by hand,
                 // wherever it leads, is theirs.
                 const COMPASS: &[&str] = &["north", "south", "east", "west", "up", "down"];
-                COMPASS.contains(&name.as_str())
+                // (And the Postern's first door to the lane, `in`: a word the gate's
+                // grammar drops, so `travel in` written in a message had no argument.)
+                (COMPASS.contains(&name.as_str()) || (def.key == POSTERN && name.as_str() == "in"))
                     && to.as_u64().is_some_and(|t| seed_ids.contains(&t))
                     && !def.exits.iter().any(|(n, _)| n == name)
             })

@@ -10093,7 +10093,7 @@ fn a_fall_leaves_you_shaken_and_the_creature_wounded_and_named_creatures_seek_su
     let rest = ok(&mut w, "dave", "rest", json!([]));
     assert!(
         rest.summary
-            .contains("Shaken from the Threshold: 1 strike in 4 lands"),
+            .contains("Shaken from the fall: 1 strike in 4 lands"),
         "{}",
         rest.summary
     );
@@ -11603,13 +11603,21 @@ fn the_postern_is_a_second_door_and_a_name_wakes_at_its_home() {
     let look = ok(&mut w, "dave", "look", json!([]));
     assert!(
         look.summary.contains("The Postern.")
-            && look.summary.contains("in (Lamplighter's Lane)")
+            && look.summary.contains("lane (Lamplighter's Lane)")
             && look.summary.contains("wall (Orchard Wall)")
             && look.summary.contains("A signpost stands here"),
         "{}",
         look.summary
     );
-    let set = ok(&mut w, "dave", "home", json!([]));
+    let peek = ok(&mut w, "dave", "home", json!([]));
+    assert!(
+        peek.summary.contains("Your home door is the Threshold")
+            && peek.summary.contains("`home here` makes the Postern yours"),
+        "{}",
+        peek.summary
+    );
+    assert_eq!(rooms::landing(&w, Some(dave)), Some(threshold));
+    let set = ok(&mut w, "dave", "home", json!(["here"]));
     assert!(
         set.summary.contains(
             "The Postern is your home door now: a fall wakes you here, not at the Threshold."
@@ -11620,7 +11628,9 @@ fn the_postern_is_a_second_door_and_a_name_wakes_at_its_home() {
     assert_eq!(rooms::landing(&w, Some(dave)), Some(postern));
     let again = ok(&mut w, "dave", "home", json!([]));
     assert!(
-        again.summary.contains("your home door already"),
+        again
+            .summary
+            .contains("This is your home door: a fall wakes you here"),
         "{}",
         again.summary
     );
