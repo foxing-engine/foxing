@@ -197,10 +197,22 @@ page keep these by verb. One world behind one lock is still the shape; what is l
 - **S5 · Pushes by room** (M). After any change every open session is woken and
   re-observed; with ten times the sessions that is ten times the work per command.
   Wake only sessions whose rooms, selves or subscriptions the change touched.
-- **S6 · A load test that is a Watch** (M). A script of fifty then five hundred
-  passing names on a copy of the live log (not the live world), walking, fighting and
-  telling at a player's pace, reporting `/v0/ops`; run before and after each step.
-  It is also the test for the gate's budgets and nginx's limits at that size.
+- **S6 · A load test that is a Watch** (M; begun 11-13 on the live world, by David's
+  word). `tools/load.py <names> <minutes>`: passing names at a player's pace, six in
+  ten on a session with the play page's three subscriptions, two in ten through the
+  gate, two in ten at the plain command door; fighters, walkers and tellers; a steady
+  probe of `/v0/board` and `/health` beside them. The first batch, twenty names for
+  seven minutes at 315,000 events: 1,444 commands (3.4 a second), the world's share of
+  a reply 5 ms at the middle and 15 at the 95th (a gate message of three, 24), nobody
+  waiting on the lock past 55 ms, a keyboard round trip 104 ms at the middle and 205 at
+  the 95th, the probe flat, no reply other than 200. What it found: the pushes. Twelve
+  sessions were sent 63,854 frames, 57 MB, eleven kilobytes a second each, for 8,002
+  events written: every session is sent nearly every event (S5 is next, on this
+  evidence). Two of twelve sessions were closed from the far side mid-run with no
+  close frame (at four and six minutes; nginx's or the driver's doing is not known).
+  And the game's own limit came first, as S8 said: 182 of 269 strikes from eight
+  fighters found nothing to fight. Next: fifty, then a hundred; `/v0/ops` and the
+  box's load read beside each run (yours, or a token for the run).
 - **S7 · The box** (yours, later). One VPS runs the driver, PostgreSQL, nginx, the
   Docent and the Bindery. Before a second box: PostgreSQL's settings for the log
   table (it is append-only), a connection pool, and the driver built in release with
