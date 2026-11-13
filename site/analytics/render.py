@@ -221,6 +221,55 @@ def ops() -> tuple[list[list], list[list], str]:
     return summary, verbs, f"since the driver started, {hours:.1f} hours ago"
 
 
+def vitals(db) -> tuple[list[list], list[list], str]:
+    """S6: the box, from the collector's five-minute samples: how it stands now, and
+    the last day by the hour. CPU is a process's ticks between two samples over the
+    time between them, as a share of one core."""
+    if not has_table(db, "vitals"):
+        return [], [], "no samples yet"
+    since = (datetime.now(timezone.utc) - timedelta(hours=25)).strftime("%Y-%m-%dT%H:%M:%S")
+    rows = q(db, "SELECT ts, load1, cpus, mem_used, mem_total, swap_used, disk_pct, driver_rss, driver_ticks, pg_rss, pg_ticks, db_bytes, events, conns, commits, inserted FROM vitals WHERE ts >= ? ORDER BY ts", (since,))
+    if not rows:
+        return [], [], "no samples in the last day"
+    hz = os.sysconf("SC_CLK_TCK") if hasattr(os, "sysconf") else 100
+    def secs(a, b):
+        return (datetime.fromisoformat(b) - datetime.fromisoformat(a)).total_seconds()
+    def rate(a, b, i, per=1.0):
+        # A counter that fell is a process that restarted: no figure for that step.
+        if a[i] is None or b[i] is None or b[i] < a[i] or secs(a[0], b[0]) <= 0:
+            return None
+        return (b[i] - a[i]) / per / secs(a[0], b[0])
+    steps = []
+    for a, b in zip(rows, rows[1:]):
+        steps.append({"hour": b[0][:13], "load": b[1], "mem": b[3], "drv": rate(a, b, 8, hz), "pg": rate(a, b, 10, hz),
+                      "ev": rate(a, b, 12), "commits": rate(a, b, 14), "conns": b[13], "drss": b[7]})
+    last = rows[-1]
+    def f(v, unit="", places=1):
+        return "" if v is None else f"{v:.{places}f}{unit}"
+    cur = steps[-1] if steps else {}
+    now = [
+        ["load, one minute", f(last[1], "", 2), f"of {last[2]} cores"],
+        ["memory in use", f(last[3], " MB", 0), f"of {f(last[4], ' MB', 0)}; swap {f(last[5], ' MB', 0)}"],
+        ["disk in use", f(last[6], "%", 0), ""],
+        ["the driver", f(last[7], " MB", 0), f"{f((cur.get('drv') or 0) * 100, '%', 1)} of a core, these five minutes"],
+        ["PostgreSQL", f(last[9], " MB", 0), f"{f((cur.get('pg') or 0) * 100, '%', 1)} of a core; {last[13] if last[13] is not None else '?'} connections"],
+        ["the log's database", f((last[11] or 0) / 1e6, " MB", 0), f"{last[12] or '?'} events; {f(cur.get('ev'), ' written a second', 2)}"],
+    ]
+    hours: dict[str, list[dict]] = {}
+    for st in steps:
+        hours.setdefault(st["hour"], []).append(st)
+    def peak(xs, k):
+        v = [x[k] for x in xs if x[k] is not None]
+        return max(v) if v else None
+    def mean(xs, k):
+        v = [x[k] for x in xs if x[k] is not None]
+        return sum(v) / len(v) if v else None
+    by_hour = [[h.replace("T", " ") + ":00", f(peak(xs, "load"), "", 2), f((peak(xs, "drv") or 0) * 100, "%", 1), f((peak(xs, "pg") or 0) * 100, "%", 1),
+                f(peak(xs, "mem"), " MB", 0), f(peak(xs, "drss"), " MB", 0), f(mean(xs, "ev"), "", 2), f(peak(xs, "ev"), "", 2), peak(xs, "conns") or ""]
+               for h, xs in sorted(hours.items(), reverse=True)]
+    return now, by_hour, f"sampled every five minutes; last at {last[0][11:16]} UTC"
+
+
 def when(ms: int) -> str:
     return datetime.fromtimestamp(ms / 1000, timezone.utc).strftime("%Y-%m-%d %H:%M") if ms else ""
 
@@ -400,6 +449,7 @@ def report(db: sqlite3.Connection, days: int) -> dict:
     out["error_senders"] = q(db, "SELECT host, path, status, ua_class, ua_name, COUNT(*), COUNT(DISTINCT visitor), MAX(ts) FROM requests WHERE day >= ? AND status >= 400 AND status != 404 GROUP BY host, path, status, ua_class, ua_name ORDER BY 6 DESC LIMIT 20", (since,))
     out["refusals"], out["refusals_note"] = refusals()
     out["ops"], out["ops_verbs"], out["ops_note"] = ops()
+    out["vitals"], out["vitals_hours"], out["vitals_note"] = vitals(db)
     out["errors"], out["probes"] = error_rows(db, since, out["refusals"])
     # The same table for the last day and the last week, for the page's filter: a
     # month's errors bury last night's.
@@ -644,6 +694,10 @@ def page(r: dict) -> str:
             (f"The driver's side ({r['ops_note']})", table(["", "", ""], r["ops"])),
             ("By verb: the world's own time, heaviest in all first", table(
                 ["verb", "count", "mean", "worst", "the log's share", "appends each", "reads past the tail", "in all"], r["ops_verbs"])),
+            (f"The box ({r.get('vitals_note', '')})", table(["", "", ""], r.get("vitals", []))),
+            ("The box, the last day by the hour", table(
+                ["hour (UTC)", "load, peak", "driver CPU, peak", "PostgreSQL CPU, peak", "memory in use, peak", "driver memory", "events a second, mean", "peak", "connections"], r.get("vitals_hours", []))
+                + "<p class=\"sub\">CPU is a share of one core over five minutes, so a burst shorter than that is smoothed; a load test reads the box every five seconds with the server check's <code>vitals</code>.</p>"),
         ]),
         ("What broke", "what-broke", [
             ("Errors, the lab apart", errors_panes(r["errors_by"])),

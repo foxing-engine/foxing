@@ -138,6 +138,12 @@ CREATE TABLE IF NOT EXISTS doors (
   ts TEXT NOT NULL, day TEXT NOT NULL, ip TEXT NOT NULL, lab INTEGER NOT NULL,
   kind TEXT NOT NULL, method TEXT NOT NULL, tool TEXT NOT NULL, actor TEXT NOT NULL, origin TEXT NOT NULL, fresh INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS vitals (
+  ts TEXT PRIMARY KEY, day TEXT NOT NULL,
+  load1 REAL, cpus INTEGER, mem_used REAL, mem_total REAL, swap_used REAL, disk_pct REAL,
+  driver_rss REAL, driver_ticks INTEGER, pg_rss REAL, pg_ticks INTEGER,
+  db_bytes INTEGER, events INTEGER, conns INTEGER, commits INTEGER, inserted INTEGER
+);
 CREATE TABLE IF NOT EXISTS cursor (file TEXT PRIMARY KEY, inode INTEGER NOT NULL, offset INTEGER NOT NULL);
 """
 
@@ -286,6 +292,96 @@ def prune_requests(db: sqlite3.Connection) -> int:
     return n
 
 
+def proc_sum(comm: str) -> tuple[float | None, int | None]:
+    """Resident megabytes and CPU ticks (user and system, since each started) summed
+    over every process of this name. Shared memory is counted once a process, so
+    PostgreSQL's figure runs high; it is for its shape over time."""
+    rss = ticks = 0
+    found = False
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        try:
+            with open(f"/proc/{pid}/stat", encoding="utf-8") as fh:
+                stat = fh.read()
+            name = stat[stat.index("(") + 1:stat.rindex(")")]
+            if name != comm[:15]:
+                continue
+            rest = stat[stat.rindex(")") + 2:].split()
+            ticks += int(rest[11]) + int(rest[12])
+            rss += int(rest[21]) * os.sysconf("SC_PAGE_SIZE")
+            found = True
+        except (OSError, ValueError, IndexError):
+            continue
+    return (rss / 1e6, ticks) if found else (None, None)
+
+
+def log_url() -> str:
+    for key in ("FOXING_LOG_URL", "MOONDIAL_LOG_URL"):
+        if os.environ.get(key):
+            return os.environ[key]
+    for path in ("/etc/foxing/driver.env", "/etc/moondial/driver.env"):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                for line in fh:
+                    for key in ("FOXING_LOG_URL", "MOONDIAL_LOG_URL"):
+                        if line.startswith(key + "="):
+                            return line.split("=", 1)[1].strip().strip('"').strip("'")
+        except OSError:
+            continue
+    return ""
+
+
+def db_vitals() -> tuple:
+    """The log's database: its size, the events table's rows, connections, and the
+    commit and insert counters. Every one None when psql or the URL is missing."""
+    import subprocess
+    url = log_url()
+    if not url:
+        return (None,) * 5
+    sql = ("select pg_database_size(current_database()), (select max(seq) from events), "
+           "(select count(*) from pg_stat_activity), xact_commit, tup_inserted "
+           "from pg_stat_database where datname = current_database()")
+    try:
+        out = subprocess.run(["psql", url, "-X", "-A", "-t", "-F", ",", "-c", sql], capture_output=True, text=True, timeout=10, check=True).stdout
+        return tuple(int(x) if x.strip() else None for x in out.strip().split(","))[:5]
+    except Exception:  # noqa: BLE001 - a sample without the database is still a sample
+        return (None,) * 5
+
+
+def sample_vitals(db: sqlite3.Connection) -> None:
+    """S6: one line of the box's vitals each time the collector runs (every five
+    minutes): what the load test reads second by second, kept by the hour here."""
+    now = datetime.now(timezone.utc)
+    try:
+        load1 = os.getloadavg()[0]
+    except OSError:
+        load1 = None
+    mem = {}
+    try:
+        with open("/proc/meminfo", encoding="utf-8") as fh:
+            for line in fh:
+                k, v = line.split(":", 1)
+                mem[k] = float(v.split()[0]) / 1024
+    except (OSError, ValueError):
+        pass
+    total, avail = mem.get("MemTotal"), mem.get("MemAvailable")
+    swap = (mem["SwapTotal"] - mem["SwapFree"]) if "SwapTotal" in mem and "SwapFree" in mem else None
+    try:
+        st = os.statvfs(os.path.dirname(DB) or "/")
+        disk = 100.0 * (1 - st.f_bavail / st.f_blocks)
+    except (OSError, ZeroDivisionError):
+        disk = None
+    d_rss, d_ticks = proc_sum("foxing-driver")
+    p_rss, p_ticks = proc_sum("postgres")
+    size, events, conns, commits, inserted = db_vitals()
+    db.execute("INSERT OR REPLACE INTO vitals VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+               (now.strftime("%Y-%m-%dT%H:%M:%S"), now.strftime("%Y-%m-%d"), load1, os.cpu_count(),
+                (total - avail) if total and avail else None, total, swap, disk,
+                d_rss, d_ticks, p_rss, p_ticks, size, events, conns, commits, inserted))
+    db.execute("DELETE FROM vitals WHERE day < ?", ((now - timedelta(days=RETENTION_DAYS)).strftime("%Y-%m-%d"),))
+
+
 def migrate(db: sqlite3.Connection) -> None:
     """A store from before the ip column gains it, empty for the old rows."""
     cols = {r[1] for r in db.execute("PRAGMA table_info(requests)")}
@@ -307,6 +403,10 @@ def main() -> int:
         d = read_new(db, OPS_LOG, ingest_ops_line)
         prune_salts(db)
         prune_requests(db)
+        try:
+            sample_vitals(db)
+        except Exception as exc:  # noqa: BLE001 - the requests are the collector's job; vitals ride along
+            print(f"vitals not sampled: {exc}")
     total = db.execute("SELECT COUNT(*) FROM requests").fetchone()[0]
     doors = db.execute("SELECT COUNT(*) FROM doors").fetchone()[0]
     print(f"ingested {n} new requests ({total} total) and {d} door events ({doors} total)")
