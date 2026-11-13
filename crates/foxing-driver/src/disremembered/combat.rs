@@ -2153,6 +2153,14 @@ pub fn register(world: &mut World, curves: Curves) {
                     {
                         let named: Vec<String> = here.iter().filter(|c| !super::mind::shaken(w, c.0) && super::mind::name(w, c.0).is_some()).map(|c| super::mind::display(w, c.0)).collect();
                         let shaken: Vec<String> = here.iter().filter(|c| super::mind::shaken(w, c.0) && super::mind::name(w, c.0).is_none()).map(|c| format!("the {} is not itself for {}", c.1, super::mind::shaken_for(w, c.0).map(human).unwrap_or_else(|| "a while".into()))).collect();
+                        if named.is_empty() {
+                            // A newborn, neither named nor shaken: the line had no
+                            // subject ("Nothing unnamed is here to fight. have a name").
+                            return Err(CommandError::precondition(format!(
+                                "Nothing here is to be struck just now{}: what stands here is newborn, and a newborn is left alone for its first hour.",
+                                if shaken.is_empty() { String::new() } else { format!(" ({})", shaken.join("; ")) }
+                            )));
+                        }
                         format!(
                             "Nothing unnamed is here to fight{}. {} {} a name, and {} struck only by that name; felled, it loses the name and the stories told to it.",
                             if shaken.is_empty() { String::new() } else { format!(" ({})", shaken.join("; ")) },

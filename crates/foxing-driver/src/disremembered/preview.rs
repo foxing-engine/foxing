@@ -102,7 +102,7 @@ pub fn run_checked(
     let mut room = existing
         .as_ref()
         .and_then(|f| rooms::room_of(world, f.citizen))
-        .or_else(|| rooms::arrival(world));
+        .or_else(|| rooms::landing(world, None));
     let mut lines: Vec<Value> = Vec::new();
     let mut refused = 0usize;
     // The walk this message makes: a dig opens an exit the world does not have yet

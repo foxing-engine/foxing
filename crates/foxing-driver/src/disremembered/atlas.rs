@@ -1168,6 +1168,21 @@ pub fn register(world: &mut World, curves: Curves) {
                     json!({"who": who, "matches": said}),
                 ));
             } else {
+                if super::exchange::is_bench(&who) || who.to_ascii_lowercase().contains("reading bench") {
+                    let here = super::rooms::room_of(w, f.citizen);
+                    let postern = super::rooms::room_by_key(w, super::rooms::POSTERN);
+                    let way = match (here, postern) {
+                        (Some(h), Some(p)) if h == p => "it is here, under the lamp".to_string(),
+                        (Some(h), Some(p)) => super::errand::route(w, h, p)
+                            .map(|r| format!("from here: {}", r.join(", ")))
+                            .unwrap_or_else(|| "`where Postern` is the way".to_string()),
+                        _ => "`where Postern` is the way".to_string(),
+                    };
+                    return Ok(Outcome::new(
+                        format!("The Reading Bench stands at the Postern, the world's back gate; {way}. It hears one story from each name: `story bench \"…\"`."),
+                        json!({"who": who, "room": "postern"}),
+                    ));
+                }
                 return Err(CommandError::precondition(format!(
                     "Nothing called {who} that you could go to: a creature's given name, a citizen in the world now, a room's name (or one word of it), a kind of creature (where ragpicker), or one of the world's own books."
                 )));

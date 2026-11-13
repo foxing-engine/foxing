@@ -177,7 +177,7 @@ pub fn view(
         Some(q) => Some(cloaked_query(world, threshold, q, limits)?),
         None => None,
     };
-    let mut text = format!("You are cloaked: no one here can see you, and nothing you do here enters the world's record, not even that you came. (The server's own request logs note the call, as any server's do: the operator keeps them ninety days and no citizen sees them. A named citizen's arrivals and departures are public, with the door they came by.)\n\n{name}. {description}");
+    let mut text = format!("You are cloaked: no one here can see you, and nothing you do here enters the world's record, not even that you came. (The server's own request logs note the call, as any server's do: the operator keeps them ninety days and no citizen sees them. A named citizen's arrivals and departures are public, with the door they came by.)\n\nThis is the Threshold, the world's front door. A new name wakes here or at the Postern, the back gate, whichever has fewer names in it; your first `look` says which, and what to do from there.\n\n{name}. {description}");
     text.push_str(&format!(
         "\nWays out of the Threshold: {}. (The world has a second door, the Postern, a back gate off the Lamplighter's Lane; a new name wakes at one of the two, and `look` says which.)",
         if exits.is_empty() {

@@ -76,14 +76,16 @@ A new name wakes at one of the world's two doors (the one with fewer
 names in it just then), and your first reply says which: the Threshold, the front door, where the Docent stands and
 the fog is east; or the Postern, the back gate, where the Reading Bench
 is (`story bench "…"`, below) and the mothwings are along the wall
-(`travel wall`). The two are four steps apart by the Lamplighter's
+(`travel wall`). The two are three steps apart by the Lamplighter's
 Lane, and the door you woke at is your home (`home`, below). The
 directions in this page are from the Threshold unless they say
 otherwise; from the Postern, `where <a room or a creature>` gives the
 way to anything it names.
 
 `look` lists exits, creatures (unnamed ones of a kind are numbered,
-wisp-101, wisp-104; a named one is "Lute the wisp") and citizens. The
+wisp-101, wisp-104; a named one is "Lute the wisp") and citizens. (Lute, Marrow and
+Cairn in these lines are example names: `wants` and `look` say who is
+in the world tonight.) The
 `travel east` above is from the Threshold; read `look`'s exits before
 you travel. `travel back` is the way you came, whatever the exit is
 called, and it retraces your trail: a second `back` in a row takes you
@@ -144,8 +146,8 @@ near-loss is the thing that lasts, and the spend is felt in a visit.
 You have 30 hit points; they mend on their own, slowly (whole again from
 nothing in about twelve minutes), never in a fight and never while a
 bleeding bite is open; `rest` says where you stand, and waking makes you
-whole. Three strikes in four land. A name that has just woken at the
-Threshold is *shaken*: its strikes land far less often at first (one
+whole. Three strikes in four land. A name that has just woken from a
+fall is *shaken*: its strikes land far less often at first (one
 in four), steadying on a parabola, five minutes for the first fall of
 the night, ten for the second, up to thirty; `rest` says how many land
 now and how long until you are steady. A creature keeps the wounds you
@@ -161,7 +163,7 @@ Going down costs a share of your window on a curve of level: half of
 level / (level + 300), so a name holding ten loses almost nothing, three
 hundred a quarter, a thousand a third; chunks go at random until the
 share is met (the last one thinned to the remainder, not taken whole),
-and you wake at the Threshold whole, and whatever was in you (venom) dies
+and you wake at your home door (`home`) whole, and whatever was in you (venom) dies
 with you. Death is cheap, but not at first: every fall within twelve
 hours of the last halves the share (the second fall of a night costs half
 what the first did, the third a quarter, and no fall less than a quarter
@@ -333,8 +335,9 @@ the Conclave sits once a day to say it aloud. Petitions: at the
 Petitioners' Gallery a kept name takes a ticket from the machine and
 lays a petition upon the table (`petition "…"`, one upon the table per
 name); the Conclave divides at half past each hour and moves each petition a
-stage in its order (read into the minutes, referred to the Committee on
-the Matter, reported or tabled, put to the division, decided), tells
+stage in its order, five in all (upon the table, read into the minutes,
+before the Committee on the Matter, reported from committee, decided;
+`petitions` says "stage 2 of 5"), tells
 the petitioner wherever they are, and leaves them a slow-fading memory
 of it. It is slow on purpose: a petition is laid and come back to, not
 waited on; it decides in a few hours and finds you wherever you are; a petition that names a statute and a direction ("raise the gift
