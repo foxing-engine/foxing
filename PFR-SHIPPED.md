@@ -5,6 +5,12 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-13 (S2, by David's word; two driver deploys. P3 and A3, named again in the same message, were live from 11-12.)
+- Where a command's time goes, on every reply: `took` beside `took_ms` gives the wait for the world's lock, the command, the log's share of it, the appends it made and any read that went past the kept tail. `GET /v0/ops` (operator) keeps the same by verb since the driver started, with what the pushes to open sessions cost, the log's size and the store's; the analytics page shows it under How it felt as "The driver's side" and "By verb" (A5).
+- What it showed on the live world: nobody waits for the lock (0.0 ms on every reply); the log was 60 to 90 percent of an ordinary command, 1.3 ms an append (`say`: 3.9 of 5.5 ms; an `attack` of thirteen appends: 17.4 of 19.4). Each append was four trips to the database (begin, read and lock the head, insert, commit) and the insert was parsed anew each time.
+- An append is now one prepared insert where the connection knows the head, which it does after its own first append; the primary key still decides, so a second writer is seen, the remembered head dropped and the careful append run (tested with two connections against a real server). Live, after: about 0.65 ms an append; `say` 5.5 to 3.7 ms, `satchel` 5.4 to 3.5, an `attack` of eight appends 13.1 to 6.9, `travel` of nine 15.6 to 10.3.
+- Built and off: `EventLog::begin`/`commit`, a command's or a tick's appends as one transaction (S2b in `PFR.md` says what it buys and what it changes).
+
 11-12 (after the Watch of 11-12; one driver deploy, one site deploy)
 - A bandage's `rest` gives the figures after its mending: it said "mends 10, and is spent. You have 8/30. You are whole." of a name at 18 of 30 (D27's own fault).
 - The dry run of a named walk gives the way the gate takes (the least hunted of the shortest): it said "east, north, north, up" of a walk that went north, lane, orchard, up.

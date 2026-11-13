@@ -208,11 +208,7 @@ session (the site host is not reachable from there), so this is planned from
 `site/analytics/render.py` and checked against a made-up store; send a screenshot of
 the real page and the rest gets sharper.
 
-- **A5 · The driver's side** (M). One admin read (`/v0/ops`): requests by path with
-  median and worst `took_ms`, time the world's lock was held, the log's size and the
-  slowest reads since boot. The page shows it under *How it felt*. It is S1's
-  before-and-after.
-- Left: A5. (A1 to A4 and A6 are live: `PFR-SHIPPED.md`, 11-11 and 11-12.)
+- Nothing left of A1 to A6: all live (`PFR-SHIPPED.md`, 11-11 to 11-13).
 
 ## Ten times the players (S): planned 11-11 at David's ask
 
@@ -236,10 +232,19 @@ world ever wrote, each time, while holding it. Cost grows with the log, not with
 is here: at ten times the events the board is two minutes and `wants` ten seconds
 with nobody new in the room.
 
-- **S2 · Know where the floor is** (S; with S1). `took_ms` split in the ops read
-  into waiting for the lock, the handler, the log append and the pushes to sessions.
-  If the append is the floor (a commit to PostgreSQL per event), batch a command's
-  events into one transaction and one commit.
+- **S2b · A command as one unit of the log** (built, off; **waits**: it changes what
+  a database failure does). Since S2 an append is one insert and one commit, about
+  0.65 ms on the live box, and an ordinary command makes two to nine of them: the log
+  is still half to three quarters of a command's own time. `FOXING_LOG_UNITS=1` holds
+  a command's (and a tick's) appends in one transaction with one commit: on a local
+  PostgreSQL a command's log share becomes a flat 0.9 ms whatever it appends (an
+  `attack` of six appends 2.0 to 0.9). The price: the store has applied the events
+  before the commit, so a commit that fails leaves the world ahead of its log, and
+  the driver stops (exit 70) and is restarted from the log by its service (two
+  seconds, then the boot). Today a failed append refuses that one command and the
+  world stays up. a) **lean**: turn it on (set the variable in the driver's
+  environment, or say the word and it becomes the default in the code); b) leave it
+  off: 3 to 7 ms a command is already not what a player feels.
 - **S3 · Indexes over the store** (M). `store.entities()` filtered by kind and by
   parent is walked on most verbs (8,300 entities now, most of them faded chunks and
   rooms); keep maps by kind, by room, by owner. And a sweep: entities forgotten for
@@ -262,7 +267,7 @@ with nobody new in the room.
   already empty the Fogbank; ten times the names want spawn counts that follow who is
   in the room, more first rooms (R151), and the Mudroom's wall (H18). These are the
   limits a player meets before the server's.
-- Order now: S2 (what the floor is on PostgreSQL, now that reads are memory), S6, S3, S5, S4.
+- Order now: S3 (the `board` verb is 0.8 s: 46 reads past the kept tail for its census of the day, and half a second walking the store; a first `look` after arriving is 36 ms, none of it the log), S6, S5, S4. S2b when you choose.
 
 ## Content (C): expansions, planned 11-12 at David's ask; nothing here is built
 
