@@ -118,6 +118,48 @@ impl RootResolver for Roots<'_> {
     }
 }
 
+/// Public by nature: what crossed the Gate (the invitation promises it), who arrived,
+/// what was said in a room, who kept a room in memory, and the scheduler's bookkeeping.
+pub(crate) fn public_kind(kind: &str) -> bool {
+    kind.starts_with("gate.")
+        || kind.starts_with("job.")
+        || kind == crate::world::ARRIVED
+        || kind == crate::disremembered::speech::SAY
+        || kind == crate::disremembered::building::REMEMBERED
+        || kind == crate::disremembered::presence::DEPARTED
+        || kind == crate::disremembered::presence::FORGOTTEN_NAME
+        || kind == crate::disremembered::mind::TIER
+        || kind == crate::disremembered::mind::TAKEN
+        || kind == crate::disremembered::mind::WANDERED
+        || kind == crate::disremembered::mind::CONFIDED
+        || kind == crate::disremembered::exchange::GIVEN
+        || kind == crate::disremembered::exchange::STORY
+        || kind == crate::disremembered::system::FEEDBACK
+        || kind == crate::disremembered::errand::DONE
+        || kind == crate::disremembered::errand::TURNED
+        || kind == crate::disremembered::DIED
+        || kind == crate::disremembered::memory::FADED
+        || kind == crate::disremembered::kindle::BORN
+        || kind == "disremembered.razed"
+        || kind == crate::disremembered::building::DUG
+        || kind == crate::disremembered::craft::LEFT
+        || kind == crate::disremembered::craft::TOOK
+        || kind == crate::disremembered::craft::DROPPED
+        || kind == crate::disremembered::craft::MADE
+        || kind == crate::disremembered::economy::CLOCKTOWER
+        || kind == crate::disremembered::conclave::STATUTE
+        || kind == crate::disremembered::conclave::SAT
+        || kind == crate::disremembered::board::CENSUS
+        || kind == crate::disremembered::stacks::TRICK
+}
+
+/// The world's news: what is public by nature and worth sending to a session that did
+/// not ask for everything (S5). Another agent's messages through the Gate and the
+/// scheduler's bookkeeping are public and on the record, and no renderer draws them.
+pub(crate) fn news_kind(kind: &str) -> bool {
+    public_kind(kind) && !kind.starts_with("gate.") && !kind.starts_with("job.")
+}
+
 /// Which events in a slice of the log this viewer may see: their own, the driver's
 /// clock events, and events on entities they can currently observe. Removed entities
 /// cannot be observed, so their removal is not shown; a later pass will carry visibility
@@ -128,37 +170,7 @@ pub(crate) fn visible(world: &World, viewer: &Viewer, now: Timestamp, e: &Event)
     }
     // Public by nature: what crossed the Gate (the invitation promises it), who arrived,
     // what was said in a room, who kept a room in memory, and the scheduler's bookkeeping.
-    if e.kind.starts_with("gate.")
-        || e.kind.starts_with("job.")
-        || e.kind == crate::world::ARRIVED
-        || e.kind == crate::disremembered::speech::SAY
-        || e.kind == crate::disremembered::building::REMEMBERED
-        || e.kind == crate::disremembered::presence::DEPARTED
-        || e.kind == crate::disremembered::presence::FORGOTTEN_NAME
-        || e.kind == crate::disremembered::mind::TIER
-        || e.kind == crate::disremembered::mind::TAKEN
-        || e.kind == crate::disremembered::mind::WANDERED
-        || e.kind == crate::disremembered::mind::CONFIDED
-        || e.kind == crate::disremembered::exchange::GIVEN
-        || e.kind == crate::disremembered::exchange::STORY
-        || e.kind == crate::disremembered::system::FEEDBACK
-        || e.kind == crate::disremembered::errand::DONE
-        || e.kind == crate::disremembered::errand::TURNED
-        || e.kind == crate::disremembered::DIED
-        || e.kind == crate::disremembered::memory::FADED
-        || e.kind == crate::disremembered::kindle::BORN
-        || e.kind == "disremembered.razed"
-        || e.kind == crate::disremembered::building::DUG
-        || e.kind == crate::disremembered::craft::LEFT
-        || e.kind == crate::disremembered::craft::TOOK
-        || e.kind == crate::disremembered::craft::DROPPED
-        || e.kind == crate::disremembered::craft::MADE
-        || e.kind == crate::disremembered::economy::CLOCKTOWER
-        || e.kind == crate::disremembered::conclave::STATUTE
-        || e.kind == crate::disremembered::conclave::SAT
-        || e.kind == crate::disremembered::board::CENSUS
-        || e.kind == crate::disremembered::stacks::TRICK
-    {
+    if public_kind(&e.kind) {
         return true;
     }
     if let (Actor::Citizen(a), Some(me)) = (&e.actor, viewer.actor.as_deref()) {

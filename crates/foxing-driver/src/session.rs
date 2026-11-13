@@ -8,6 +8,13 @@
 //! subscription's id. A renderer holds no state of its own: it subscribes to what it
 //! draws, evaluates timed values from their curves between pushes, and sends commands.
 //!
+//! Which events are pushed (S5): the actor's own and those addressed to it, the
+//! world's news (arrivals, speech, names, births, the Clocktower: `observe::news_kind`),
+//! and any event touching an entity one of its subscriptions holds. A session that
+//! wants every event it may see, as before, logs in with `"events": "all"`. The
+//! events come with the announcement of a change, read once for every session; a
+//! session a change concerns in nothing takes no lock and sends nothing.
+//!
 //! ```json
 //! > {"type":"login","actor":"dave","passphrase":"..."}
 //! < {"type":"welcome","actor":"dave","cursor":131,"fresh":false}
@@ -44,6 +51,11 @@ enum Frame {
         passphrase: String,
         #[serde(default)]
         admin: Option<String>,
+        /// `"all"`: every event this actor may see, as before S5. Otherwise the
+        /// events that concern the session: the actor's own and those addressed to
+        /// it, the world's news, and whatever touches something it subscribes to.
+        #[serde(default)]
+        events: Option<String>,
     },
     Command {
         id: Value,
@@ -108,6 +120,21 @@ fn touched(e: &foxing_log::Event) -> Vec<u64> {
     out
 }
 
+/// S5: whether an event is sent to a session that did not ask for everything: the
+/// actor's own, one addressed to or about the actor, the clock, or the world's news.
+fn wanted(e: &foxing_log::Event, me: &str) -> bool {
+    if matches!(&e.actor, foxing_log::Actor::Citizen(a) if a == me) {
+        return true;
+    }
+    if ["to", "citizen", "owner", "actor", "from", "name"]
+        .iter()
+        .any(|k| e.payload.get(*k).and_then(Value::as_str) == Some(me))
+    {
+        return true;
+    }
+    e.kind.starts_with("store.clock_") || crate::observe::news_kind(&e.kind)
+}
+
 pub async fn upgrade(ws: WebSocketUpgrade, State(s): State<Shared>) -> Response {
     ws.max_message_size(crate::net::MAX_BODY_BYTES)
         .max_frame_size(crate::net::MAX_BODY_BYTES)
@@ -133,6 +160,7 @@ async fn run(socket: WebSocket, s: Shared) {
     let mut admin = false;
     let mut cursor: u64 = 0;
     let mut subs: HashMap<String, Subscription> = HashMap::new();
+    let mut all_events = false;
 
     macro_rules! send {
         ($v:expr) => {
@@ -166,7 +194,8 @@ async fn run(socket: WebSocket, s: Shared) {
                     }
                 };
                 match frame {
-                    Frame::Login { actor: name, passphrase, admin: token } => {
+                    Frame::Login { actor: name, passphrase, admin: token, events } => {
+                        all_events = events.as_deref() == Some("all");
                         // The cursor is the log's head from before the login, so what the
                         // login itself said to the name (the Docent's greeting, words left
                         // for them) is pushed rather than lost behind the cursor.
@@ -236,7 +265,7 @@ async fn run(socket: WebSocket, s: Shared) {
                             v
                         };
                         reply["took_ms"] = json!((asked.elapsed().as_secs_f64() * 1000.0 * 10.0).round() / 10.0);
-                        let _ = s.changed.send(());
+                        s.announce();
                         send!(reply);
                     }
                     Frame::Observe { id, query } | Frame::Subscribe { id, query } if actor.is_none() => {
@@ -281,6 +310,29 @@ async fn run(socket: WebSocket, s: Shared) {
                     return;
                 }
                 let Some(name) = actor.clone() else { continue };
+                // S5: the events came with the announcement. A session they concern in
+                // nothing (not its own, not addressed to it, not news, touching nothing
+                // it subscribes to) takes no lock and sends nothing; fifty names once
+                // woke thirty sessions under the world's lock for every command.
+                let batch = changed.ok().filter(|b| {
+                    b.events.first().is_some_and(|e| e.seq.0 <= cursor + 1) || b.head <= cursor
+                });
+                if let Some(b) = &batch {
+                    if b.head <= cursor {
+                        continue;
+                    }
+                    let concerned = b.events.iter().filter(|e| e.seq.0 > cursor).any(|e| {
+                        all_events
+                            || admin
+                            || wanted(e, &name)
+                            || touched(e).iter().any(|id| subs.values().any(|sub| sub.ids.contains(id)))
+                    });
+                    if !concerned {
+                        cursor = b.head;
+                        crate::ops::push_skipped();
+                        continue;
+                    }
+                }
                 // Everything since the cursor this actor may see, and which subscriptions it touched.
                 let push_asked = std::time::Instant::now();
                 let (events, refresh): (Vec<Value>, Vec<Refresh>) = {
@@ -292,8 +344,20 @@ async fn run(socket: WebSocket, s: Shared) {
                     let _counted = PushTimer { asked: push_asked, locked: push_locked };
                     let viewer = if admin { Viewer::admin() } else { Viewer::actor(&name) };
                     let now = w.now();
-                    let all = w.log.read(&w.id, Cursor { after: cursor }, 500).unwrap_or_default();
-                    cursor = head;
+                    // From the announcement when it reaches back to the cursor; else
+                    // (the first one, a lagged listener, a wide gap) from the log.
+                    let all: Vec<std::sync::Arc<foxing_log::Event>> = match &batch {
+                        Some(b) => {
+                            let fresh = b.events.iter().filter(|e| e.seq.0 > cursor).cloned().collect();
+                            cursor = b.head;
+                            fresh
+                        }
+                        None => {
+                            let read = w.log.read(&w.id, Cursor { after: cursor }, 500).unwrap_or_default();
+                            cursor = head;
+                            read.into_iter().map(std::sync::Arc::new).collect()
+                        }
+                    };
                     let mut dirty: HashSet<String> = HashSet::new();
                     for e in &all {
                         for id in touched(e) {
@@ -306,8 +370,14 @@ async fn run(socket: WebSocket, s: Shared) {
                     }
                     let events: Vec<Value> = all
                         .iter()
+                        .filter(|e| {
+                            all_events
+                                || admin
+                                || wanted(e, &name)
+                                || touched(e).iter().any(|id| subs.values().any(|sub| sub.ids.contains(id)))
+                        })
                         .filter(|e| crate::observe::visible(&w, &viewer, now, e))
-                        .map(|e| crate::observe::redacted(&w, &viewer, e.clone()))
+                        .map(|e| crate::observe::redacted(&w, &viewer, (**e).clone()))
                         .map(|e| json!({"type": "event", "event": e}))
                         .collect();
                     let mut refresh = Vec::new();

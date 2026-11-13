@@ -394,7 +394,7 @@ fn call(s: &Shared, name: &str, args: &Value, ip: &str) -> Value {
             drop(budget);
             let took = mark.done("gate.mcp");
             drop(w);
-            let _ = s.changed.send(());
+            s.announce();
             // The text is the REPORT; beside it, the statements as JSON (index, verb,
             // ran or not, the command's result), the findings and the budget, and not
             // the report again.
@@ -634,6 +634,7 @@ pub(crate) mod tests {
             checker: Arc::new(crate::gate::checker()),
             hour_budget: Arc::new(Mutex::new(crate::gate::HourBudget::new(60.0, 0.25))),
             changed: tokio::sync::broadcast::channel(8).0,
+            announced: Arc::new(Mutex::new(None)),
             cors_origins: vec![],
             log_where: "memory".into(),
         }

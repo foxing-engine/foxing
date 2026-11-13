@@ -40,15 +40,59 @@ pub struct Shared {
     pub checker: Arc<foxing_clear::Checker>,
     /// The Gate's hourly budget per agent.
     pub hour_budget: Arc<Mutex<crate::gate::HourBudget>>,
-    /// Fires after anything changes the world, so sessions push what is new.
-    pub changed: tokio::sync::broadcast::Sender<()>,
+    /// Fires after anything changes the world, with what is new, so sessions push
+    /// it (S5: read once here, not once a session under the world's lock).
+    pub changed: tokio::sync::broadcast::Sender<Arc<Batch>>,
+    /// The last event announced; `None` until the first announcement.
+    pub announced: Arc<Mutex<Option<u64>>>,
     /// Origins the browser client may call from (`FOXING_CORS_ORIGINS`, comma-separated).
     pub cors_origins: Vec<String>,
     /// Where the event log lives: `PostgreSQL`, `memory`, or a directory.
     pub log_where: String,
 }
 
+/// What changed: the events since the last announcement, in order, and the log's head.
+/// An empty batch with a head says only "something changed; read the log".
+pub struct Batch {
+    pub events: Vec<Arc<foxing_log::Event>>,
+    pub head: u64,
+}
+
 impl Shared {
+    /// Tell every open session what is new. One short hold of the world's lock to
+    /// read the events off the kept tail, whoever is listening.
+    pub(crate) fn announce(&self) {
+        if self.changed.receiver_count() == 0 {
+            // Nobody to tell; the next listener starts from the log.
+            if let Ok(mut at) = self.announced.lock() {
+                *at = None;
+            }
+            return;
+        }
+        let Ok(mut at) = self.announced.lock() else {
+            return;
+        };
+        let batch = {
+            let Ok(w) = self.world.lock() else { return };
+            let head = w.log.head(&w.id).ok().flatten().map(|x| x.0).unwrap_or(0);
+            let events = match *at {
+                Some(after) if after < head && head - after <= 2_000 => w
+                    .log
+                    .read(&w.id, foxing_log::Cursor { after }, 2_000)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(Arc::new)
+                    .collect(),
+                Some(after) if after >= head => return,
+                // The first announcement, or a gap too wide to carry: head only.
+                _ => Vec::new(),
+            };
+            Batch { events, head }
+        };
+        *at = Some(batch.head);
+        let _ = self.changed.send(Arc::new(batch));
+    }
+
     pub(crate) fn is_admin(&self, token: Option<&str>) -> bool {
         match (&self.admin_token, token) {
             (Some(t), Some(given)) if !t.is_empty() => {
@@ -1077,7 +1121,7 @@ async fn command(
     // S2: and what it spent it on.
     let took = mark.done(&body.command);
     drop(w);
-    let _ = s.changed.send(());
+    s.announce();
     // P7: how long the world took, apart from the wire.
     let mut v = passage_json(&passage);
     v["took"] = took;
@@ -1255,7 +1299,7 @@ async fn gate_http(
     drop(budget);
     let took = mark.done("gate.http");
     drop(w);
-    let _ = s.changed.send(());
+    s.announce();
     Ok(Json(json!({
         "ok": true,
         "took": took,

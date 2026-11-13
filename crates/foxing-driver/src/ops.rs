@@ -29,6 +29,7 @@ struct Stats {
     wait_ms: f64,
     worst_wait_ms: f64,
     pushes: u64,
+    pushes_skipped: u64,
     push_wait_ms: f64,
     push_held_ms: f64,
     worst_push_ms: f64,
@@ -121,6 +122,11 @@ pub fn pushed(wait: Duration, held: Duration) {
     });
 }
 
+/// S5: a change that concerned a session in nothing: no lock taken, nothing sent.
+pub fn push_skipped() {
+    with(|s| s.pushes_skipped += 1);
+}
+
 /// Everything kept, for the operator.
 pub fn report() -> Value {
     let log = foxing_log::tail_counters();
@@ -144,6 +150,7 @@ pub fn report() -> Value {
             },
             "pushes": {
                 "count": s.pushes,
+                "skipped": s.pushes_skipped,
                 "wait_mean_ms": tenth(if s.pushes > 0 { s.push_wait_ms / s.pushes as f64 } else { 0.0 }),
                 "held_mean_ms": tenth(if s.pushes > 0 { s.push_held_ms / s.pushes as f64 } else { 0.0 }),
                 "held_worst_ms": tenth(s.worst_push_ms),

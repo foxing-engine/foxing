@@ -81,6 +81,9 @@ pub fn forget(world: &mut World, citizen: EntityId) -> Result<(), String> {
     let name = plain_str(world, citizen, CITIZEN, "name")
         .unwrap_or(actor.as_str())
         .to_string();
+    // D35: a passing name's leaving is on the record and is not news for the
+    // operator's channel (a load test of fifty sent fifty notices in ten seconds).
+    let passing = super::is_passing(world, citizen);
     let quiet_ms = match e
         .components
         .get(PRESENCE)
@@ -100,7 +103,9 @@ pub fn forget(world: &mut World, citizen: EntityId) -> Result<(), String> {
         FORGOTTEN_NAME,
         json!({"actor": actor, "name": name, "room": room, "quiet_ms": quiet_ms}),
     );
-    world.notice(format!("The world forgot **{name}**; the name is free."));
+    if !passing {
+        world.notice(format!("The world forgot **{name}**; the name is free."));
+    }
     Ok(())
 }
 

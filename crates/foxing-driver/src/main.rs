@@ -184,6 +184,7 @@ fn main() {
         checker: Arc::new(gate::checker()),
         hour_budget: Arc::new(Mutex::new(gate::HourBudget::new(60.0, 0.25))),
         changed: tokio::sync::broadcast::channel(64).0,
+        announced: Arc::new(Mutex::new(None)),
         limits: foxing_query::Limits::default(),
         log_where: where_.clone(),
         cors_origins: env_or(
@@ -234,7 +235,7 @@ fn main() {
                     let _ = notify.send(n);
                 }
                 if ran > 0 {
-                    let _ = shared.changed.send(());
+                    shared.announce();
                 }
             }
         });
