@@ -296,6 +296,24 @@ impl Report {
             });
         }
         let omitted_receipts = self.lines.len() - keep.len();
+        // R247: a fall is never among what is cut. The lines that say it move up
+        // into the reply, in their order, in place of the last of the others.
+        let mut cut_answers = 0;
+        if keep.len() > MAX_REPLY_LINES {
+            let falls = |i: &usize| {
+                matches!(&self.lines[*i], Line::Quote { text, .. } | Line::Fact { text, .. }
+                    if text.contains("You go down") || text.contains("You wake at") || text.contains(" fell at statement "))
+            };
+            let must: Vec<usize> = keep[MAX_REPLY_LINES..]
+                .iter()
+                .copied()
+                .filter(|i| falls(i))
+                .take(MAX_REPLY_LINES / 2)
+                .collect();
+            cut_answers = keep.len() - MAX_REPLY_LINES;
+            keep.truncate(MAX_REPLY_LINES - must.len());
+            keep.extend(must);
+        }
         let shown = keep.len().min(MAX_REPLY_LINES);
         for &i in &keep[..shown] {
             match &self.lines[i] {
@@ -307,14 +325,14 @@ impl Report {
                 }
             }
         }
-        let omitted = omitted_receipts + (keep.len() - shown);
+        let omitted = omitted_receipts + cut_answers;
         if omitted > 0 {
             out.push_str(&format!(
                 "[FACT] The world omitted {omitted} {} from this reply under the statement limit{}. [src:gate]\n",
                 if omitted == 1 { "line" } else { "lines" },
                 // R226: which, as far as a reply can say: the receipts, then the
                 // last answers. Everything ran; `log` has what was cut.
-                match (omitted_receipts > 0, keep.len() > shown) {
+                match (omitted_receipts > 0, cut_answers > 0) {
                     (true, true) => ", the receipts first and then the last answers; every statement ran",
                     (true, false) => ", receipts only; every answer is here",
                     (false, _) => ", the last answers; every statement ran",
@@ -1214,7 +1232,18 @@ fn rejection(result: &CheckResult, report: &mut Report) {
             "CL-C2" => "a fact the writer doubts is written as an INFER with its level",
             _ => "",
         };
-        let why: String = if !own.is_empty() {
+        // R247: a bare name with "and" in it (`where Reading Rooms and Beyond`).
+        let named = f.rule == "CL-I2"
+            && f.r#where
+                .rsplit(' ')
+                .next()
+                .and_then(|n| n.parse::<usize>().ok())
+                .and_then(|n| result.message.statements.iter().find(|s| s.index == n))
+                .and_then(|s| s.verb.as_deref())
+                .is_some_and(|v| ONE_NAME.contains(&v));
+        let why: String = if named {
+            "one action to a statement; a name with `and` in it is written in quotes".to_string()
+        } else if !own.is_empty() {
             own.to_string()
         } else if !matches!(f.rule.as_str(), "CL-I5" | "CL-I6" | "CL-I1" | "CL-M1") {
             String::new()
@@ -1318,8 +1347,21 @@ fn run_request(
     let mut turned: Vec<String> = Vec::new();
     // The last statement that was a travel and arrived: a look right after is carried.
     let mut last_travel_ok: Option<usize> = None;
+    // 11-14 (2 a): a travel that did not go. What follows was written for the room
+    // beyond it, so only the reads run, as after a fall.
+    let mut stayed_at: Option<usize> = None;
     let batch = dos.len() > 1;
     for st in dos {
+        if let (Some(k), false) = (stayed_at, woke) {
+            let verb = st.verb.clone().unwrap_or_default();
+            if !AFTER_DEATH.contains(&verb.as_str()) {
+                report.fact(
+                    format!("Statement {} did not run: the travel at statement {k} did not go, and only reads run after it", st.index),
+                    "gate",
+                );
+                continue;
+            }
+        }
         if woke {
             let verb = st.verb.clone().unwrap_or_default();
             if !AFTER_DEATH.contains(&verb.as_str()) {
@@ -1458,6 +1500,13 @@ fn run_request(
                 report.quote_capped(summary, &world.id.0, cap);
             }
             Err(e) => {
+                // Not the fight's own refusal: `retreat` may be the next statement.
+                if verb.eq_ignore_ascii_case("travel")
+                    && stayed_at.is_none()
+                    && !e.to_string().contains("does not leave a fight")
+                {
+                    stayed_at = Some(n);
+                }
                 outcomes.push(StatementOutcome {
                     statement: n,
                     verb: verb.clone(),

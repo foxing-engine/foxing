@@ -386,7 +386,7 @@ fn you_cannot_travel_mid_fight_and_retreat_costs_a_hit() {
         json!(["west"]),
     )
     .unwrap_err();
-    assert!(err.to_string().contains("Retreat"), "{err}");
+    assert!(err.to_string().contains("send `retreat`"), "{err}");
     let before = combat::hp(&w, f.citizen);
     let out = ok(&mut w, "dave", "retreat", json!([]));
     assert!(combat::hp(&w, f.citizen) < before, "{}", out.summary);

@@ -29,7 +29,7 @@ echo "######## nginx rate limits"
 # Zones live in the http context; conf.d is included there.
 cat > /etc/nginx/conf.d/foxing-limits.conf <<'CONF'
 # Written by deploy/server/harden.sh. Per client address.
-limit_req_zone  $binary_remote_addr zone=foxing_login:1m  rate=10r/m;
+limit_req_zone  $binary_remote_addr zone=foxing_login:1m  rate=15r/m;
 limit_req_zone  $binary_remote_addr zone=foxing_gate:1m   rate=60r/m;
 limit_req_zone  $binary_remote_addr zone=foxing_check:1m  rate=120r/m;
 limit_conn_zone $binary_remote_addr zone=foxing_conn:1m;
@@ -42,7 +42,7 @@ cat > /etc/nginx/snippets/foxing-ratelimit.conf <<'CONF'
 limit_conn foxing_conn 40;
 
 location = /v0/login {
-    limit_req zone=foxing_login burst=5 nodelay;
+    limit_req zone=foxing_login burst=10 nodelay;
     proxy_pass http://127.0.0.1:7777;
     proxy_http_version 1.1;
     proxy_set_header Host $host;

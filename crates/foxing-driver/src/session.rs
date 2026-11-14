@@ -25,6 +25,10 @@
 //! < {"type":"event","event":{"seq":132,...}}
 //! < {"type":"observation","id":"room", ...}
 //! ```
+//!
+//! S11: a subscription is sent an observation only when something in it differs from
+//! the last one sent. With `"patch": true` beside `"query"`, every observation after
+//! the first carries `"patch"` in place of `"root"`: what changed, as [`diff`] says.
 
 use crate::net::Shared;
 use crate::observe::Request;
@@ -70,6 +74,10 @@ enum Frame {
     Subscribe {
         id: Value,
         query: Request,
+        /// S11: `true` asks for what changed since the last observation sent
+        /// (`"patch"` in place of `"root"`) once the first has been sent whole.
+        #[serde(default)]
+        patch: bool,
     },
     Unsubscribe {
         id: Value,
@@ -94,6 +102,163 @@ struct Subscription {
     /// changed under it since without one being sent.
     sent: Option<std::time::Instant>,
     stale: bool,
+    /// S11: the root last sent, and whether the client asked for patches against it.
+    last: Option<Value>,
+    patch: bool,
+}
+
+impl Subscription {
+    /// S11: how long somebody else's change waits. A room's observation grows with
+    /// the crowd in it and so does the number of sessions it is run for, each under
+    /// the world's lock: a crowded room is sent once a second, a packed one every
+    /// two. One's own change is still sent at once.
+    fn window(&self) -> std::time::Duration {
+        REFRESH_EVERY
+            * match self.ids.len() {
+                0..=40 => 1,
+                41..=100 => 2,
+                _ => 4,
+            }
+    }
+
+    /// S11: the frame to send for a fresh observation, and `None` when nothing in it
+    /// differs from the one last sent. A session that asked for patches is sent
+    /// what changed; the rest are sent the observation whole, as before.
+    fn frame(&mut self, mut reply: Value) -> Option<Value> {
+        let root = reply["root"].clone();
+        let out = match &self.last {
+            Some(last) => match diff(last, &root) {
+                None => None,
+                Some(patch) if self.patch => {
+                    if let Some(o) = reply.as_object_mut() {
+                        o.remove("root");
+                        o.insert("patch".into(), patch);
+                    }
+                    Some(reply)
+                }
+                Some(_) => Some(reply),
+            },
+            None => Some(reply),
+        };
+        self.last = Some(root);
+        out
+    }
+}
+
+/// S11: what turns `old` into `new`, or `None` when they are the same. An object's
+/// patch holds its changed keys (a changed object as its own patch) and `"$del"` for
+/// the keys gone. A list of nodes (objects with distinct `id`s, as every relation is)
+/// is `{"$ids": [the ids in order], "$set": {id: a new node whole, or a kept node's
+/// patch}}`. Anything else that changed is the new value. The play page applies the
+/// same (`applyPatch`).
+pub(crate) fn diff(old: &Value, new: &Value) -> Option<Value> {
+    if old == new {
+        return None;
+    }
+    match (old, new) {
+        (Value::Object(a), Value::Object(b)) => {
+            let mut m = serde_json::Map::new();
+            for (k, v) in b {
+                match a.get(k) {
+                    None => {
+                        m.insert(k.clone(), v.clone());
+                    }
+                    Some(o) => {
+                        if let Some(d) = diff(o, v) {
+                            m.insert(k.clone(), d);
+                        }
+                    }
+                }
+            }
+            let gone: Vec<Value> = a
+                .keys()
+                .filter(|k| !b.contains_key(*k))
+                .map(|k| json!(k))
+                .collect();
+            if !gone.is_empty() {
+                m.insert("$del".into(), Value::Array(gone));
+            }
+            Some(Value::Object(m))
+        }
+        (Value::Array(a), Value::Array(b)) => {
+            let (Some(ia), Some(ib)) = (node_ids(a), node_ids(b)) else {
+                return Some(new.clone());
+            };
+            let mut set = serde_json::Map::new();
+            for (id, node) in ib.iter().zip(b) {
+                match ia.iter().position(|x| x == id) {
+                    None => {
+                        set.insert(id.to_string(), node.clone());
+                    }
+                    Some(at) => {
+                        if let Some(d) = diff(&a[at], node) {
+                            set.insert(id.to_string(), d);
+                        }
+                    }
+                }
+            }
+            Some(json!({"$ids": ib, "$set": set}))
+        }
+        _ => Some(new.clone()),
+    }
+}
+
+/// The ids of a list of nodes, when it is one: every element an object with an `id`
+/// no other has.
+fn node_ids(list: &[Value]) -> Option<Vec<u64>> {
+    let mut ids = Vec::with_capacity(list.len());
+    for v in list {
+        let id = v.as_object()?.get("id")?.as_u64()?;
+        if ids.contains(&id) {
+            return None;
+        }
+        ids.push(id);
+    }
+    Some(ids)
+}
+
+/// What [`diff`] undoes: `old` with `patch` applied. The server never needs it; the
+/// tests hold the two together, and the play page's `applyPatch` is this in script.
+#[cfg(test)]
+fn patched(old: &Value, patch: &Value) -> Value {
+    match (old, patch) {
+        (Value::Array(a), Value::Object(p)) if p.contains_key("$ids") => {
+            let set = p["$set"].as_object().cloned().unwrap_or_default();
+            p["$ids"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .iter()
+                .map(|id| {
+                    let kept = a.iter().find(|n| n["id"] == *id);
+                    match (kept, set.get(&id.to_string())) {
+                        (Some(k), Some(d)) => patched(k, d),
+                        (Some(k), None) => k.clone(),
+                        (None, Some(n)) => n.clone(),
+                        (None, None) => Value::Null,
+                    }
+                })
+                .collect()
+        }
+        (Value::Object(a), Value::Object(p)) => {
+            let mut out = a.clone();
+            for (k, v) in p {
+                if k == "$del" {
+                    for gone in v.as_array().into_iter().flatten() {
+                        out.remove(gone.as_str().unwrap_or(""));
+                    }
+                } else {
+                    let next = match out.get(k) {
+                        Some(o) if o.is_object() || o.is_array() => patched(o, v),
+                        _ => v.clone(),
+                    };
+                    out.insert(k.clone(), next);
+                }
+            }
+            Value::Object(out)
+        }
+        _ => patch.clone(),
+    }
 }
 
 /// S10 b: a subscription is sent its observation again at most this often when the
@@ -226,7 +391,7 @@ async fn run(socket: WebSocket, s: Shared) {
             .filter(|sub| sub.stale)
             .map(|sub| {
                 sub.sent
-                    .map_or_else(std::time::Instant::now, |t| t + REFRESH_EVERY)
+                    .map_or_else(std::time::Instant::now, |t| t + sub.window())
             })
             .min();
         tokio::select! {
@@ -240,7 +405,7 @@ async fn run(socket: WebSocket, s: Shared) {
                 let now = std::time::Instant::now();
                 let ready: Vec<String> = subs
                     .iter()
-                    .filter(|(_, sub)| sub.stale && sub.sent.map_or(true, |t| now >= t + REFRESH_EVERY))
+                    .filter(|(_, sub)| sub.stale && sub.sent.map_or(true, |t| now >= t + sub.window()))
                     .map(|(k, _)| k.clone())
                     .collect();
                 let refresh: Vec<Refresh> = {
@@ -261,18 +426,20 @@ async fn run(socket: WebSocket, s: Shared) {
                 };
                 for (k, reply, ids) in refresh {
                     let ok = reply["type"] == "observation";
-                    let mut say = true;
+                    let mut out = Some(reply);
                     if let Some(sub) = subs.get_mut(&k) {
                         if ok {
                             sub.ids = ids;
-                        } else {
-                            say = !sub.failed;
+                            // S11: what changed, or nothing when nothing did.
+                            out = out.and_then(|r| sub.frame(r));
+                        } else if sub.failed {
+                            out = None;
                         }
                         sub.failed = !ok;
                         sub.sent = Some(std::time::Instant::now());
                         sub.stale = false;
                     }
-                    if say {
+                    if let Some(reply) = out {
                         send!(reply);
                     }
                 }
@@ -379,7 +546,7 @@ async fn run(socket: WebSocket, s: Shared) {
                         s.announce();
                         send!(reply);
                     }
-                    Frame::Observe { id, query } | Frame::Subscribe { id, query } if actor.is_none() => {
+                    Frame::Observe { id, query } | Frame::Subscribe { id, query, .. } if actor.is_none() => {
                         send!(json!({"type": "error", "id": id, "error": "log in first"}));
                         let _ = query;
                     }
@@ -391,7 +558,7 @@ async fn run(socket: WebSocket, s: Shared) {
                         };
                         send!(reply);
                     }
-                    Frame::Subscribe { id, query } => {
+                    Frame::Subscribe { id, query, patch } => {
                         let key = id.to_string();
                         if subs.len() >= MAX_SUBSCRIPTIONS && !subs.contains_key(&key) {
                             send!(json!({"type": "error", "id": id, "error": format!("at most {MAX_SUBSCRIPTIONS} subscriptions")}));
@@ -406,7 +573,7 @@ async fn run(socket: WebSocket, s: Shared) {
                             (reply, ids)
                         };
                         if reply["type"] == "observation" {
-                            subs.insert(key, Subscription { request: query, ids, failed: false, sent: Some(std::time::Instant::now()), stale: false });
+                            subs.insert(key, Subscription { request: query, ids, failed: false, sent: Some(std::time::Instant::now()), stale: false, last: Some(reply["root"].clone()), patch });
                         }
                         send!(reply);
                     }
@@ -504,7 +671,7 @@ async fn run(socket: WebSocket, s: Shared) {
                     let mut held = Vec::new();
                     for k in dirty {
                         let Some(sub) = subs.get(&k) else { continue };
-                        if !mine && sub.sent.is_some_and(|t| t.elapsed() < REFRESH_EVERY) {
+                        if !mine && sub.sent.is_some_and(|t| t.elapsed() < sub.window()) {
                             held.push(k);
                             continue;
                         }
@@ -530,18 +697,20 @@ async fn run(socket: WebSocket, s: Shared) {
                     // next change tries again; emptied, it never woke again, and a
                     // crowd of fifty at the Threshold left every room panel dead.
                     let ok = reply["type"] == "observation";
-                    let mut say = true;
+                    let mut out = Some(reply);
                     if let Some(sub) = subs.get_mut(&k) {
                         if ok {
                             sub.ids = ids;
-                        } else {
-                            say = !sub.failed;
+                            // S11: what changed, or nothing when nothing did.
+                            out = out.and_then(|r| sub.frame(r));
+                        } else if sub.failed {
+                            out = None;
                         }
                         sub.failed = !ok;
                         sub.sent = Some(std::time::Instant::now());
                         sub.stale = false;
                     }
-                    if say {
+                    if let Some(reply) = out {
                         send!(reply);
                     }
                 }
@@ -576,5 +745,64 @@ fn observe_frame(
             v
         }
         Err(e) => json!({"type": "error", "id": id, "error": e.to_string(), "detail": e}),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_patch_is_what_changed_and_applied_gives_the_new_observation() {
+        let old = json!({"id": 1, "kind": "room", "components": {"room": {"name": "The Threshold", "lit": null}},
+            "relations": {"contents": [
+                {"id": 2, "kind": "citizen", "components": {"body": {"hp": 30, "engaged": null}}},
+                {"id": 3, "kind": "creature", "components": {"creature": {"hp": 8.0, "name": "wisp"}}},
+                {"id": 4, "kind": "item", "components": {"item": {"name": "a stone roll"}}}],
+              "exits": [{"id": 9, "via": "north"}, {"id": 9, "via": "gate"}]}});
+        let new = json!({"id": 1, "kind": "room", "components": {"room": {"name": "The Threshold"}},
+            "relations": {"contents": [
+                {"id": 3, "kind": "creature", "components": {"creature": {"hp": 5.0, "name": "wisp"}}},
+                {"id": 2, "kind": "citizen", "components": {"body": {"hp": 30, "engaged": 3}}},
+                {"id": 7, "kind": "citizen", "components": {"body": {"hp": 30, "engaged": null}}}],
+              "exits": [{"id": 9, "via": "north"}, {"id": 9, "via": "gate"}, {"id": 10, "via": "east"}]}});
+        assert_eq!(diff(&old, &old), None);
+        let patch = diff(&old, &new).expect("they differ");
+        assert_eq!(patched(&old, &patch), new);
+        // The patch says only what changed: the wisp's hit points, not its name.
+        let wisp = &patch["relations"]["contents"]["$set"]["3"];
+        assert_eq!(*wisp, json!({"components": {"creature": {"hp": 5.0}}}));
+        assert_eq!(patch["relations"]["contents"]["$ids"], json!([3, 2, 7]));
+        assert_eq!(patch["components"]["room"]["$del"], json!(["lit"]));
+        // Exits to one room by two names share an id: not a list of nodes, sent whole.
+        assert!(patch["relations"]["exits"].is_array());
+
+        // A subscription that did not ask is sent the whole or nothing.
+        let frame = |root: &Value| json!({"type": "observation", "id": "room", "root": root});
+        let mut sub = Subscription {
+            request: serde_json::from_value(json!({"root": "here"})).unwrap(),
+            ids: HashSet::new(),
+            failed: false,
+            sent: None,
+            stale: false,
+            last: Some(old.clone()),
+            patch: false,
+        };
+        assert_eq!(
+            sub.frame(frame(&old)),
+            None,
+            "nothing changed, nothing sent"
+        );
+        assert_eq!(sub.frame(frame(&new)), Some(frame(&new)));
+        sub.patch = true;
+        let sent = sub.frame(frame(&old)).expect("changed back");
+        assert!(sent.get("root").is_none());
+        assert_eq!(patched(&new, &sent["patch"]), old);
+        // And the window widens with the crowd.
+        assert_eq!(sub.window(), REFRESH_EVERY);
+        sub.ids = (0..60).collect();
+        assert_eq!(sub.window(), REFRESH_EVERY * 2);
+        sub.ids = (0..200).collect();
+        assert_eq!(sub.window(), REFRESH_EVERY * 4);
     }
 }

@@ -165,7 +165,7 @@ pub fn summary(world: &World, actor: &str) -> Result<Outcome, CommandError> {
     }
     if c("falls") > 0 {
         parts.push(format!(
-            "{} {} (which took {:.0} XP)",
+            "{} {} (which took {:.1} XP)",
             c("falls"),
             plural(c("falls"), "fall", "falls"),
             fell_for

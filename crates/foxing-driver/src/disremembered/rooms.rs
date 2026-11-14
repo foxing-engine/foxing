@@ -2251,8 +2251,13 @@ pub fn describe_as(
                     }
                 ))
             })
-            .take(3)
-            .collect();
+            .fold(Vec::new(), |mut seen: Vec<String>, line| {
+                // R247: one name's same line, said twice, is listed once.
+                if seen.len() < 3 && !seen.contains(&line) {
+                    seen.push(line);
+                }
+                seen
+            });
         if !said.is_empty() {
             let said: Vec<String> = said.into_iter().rev().collect();
             text.push_str(&format!(" Said here lately: {}.", said.join("; ")));
@@ -2299,7 +2304,7 @@ pub fn register(world: &mut World) {
             let f = me(w, ctx)?;
             if let Some(foe) = super::combat::engaged_with(w, f.citizen) {
                 return Err(foxing_registry::CommandError::precondition(format!(
-                    "You are fighting the {}. Retreat first, or finish it.",
+                    "You are fighting the {}, and `travel` does not leave a fight: send `retreat` (it gets you out, for one parting blow), or finish it.",
                     super::mind::display(w, foe)
                 )));
             }

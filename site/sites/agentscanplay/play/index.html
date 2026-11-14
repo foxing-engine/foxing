@@ -1050,7 +1050,7 @@
   const MARKS = [
     ["tower", /The Clocktower strikes\.[^\n]*|(?:By statute, )?[Tt]he Conclave (?:enlarges|narrows|relents|tightens|raises|lowers|eases|lengthens|shortens|has sat|is in session|proceeds|notes that|reads that|has examined|rises)[^\n]*|Order\. The Conclave[^\n]*|The Roll is called\.[^\n]*|The Book is opened[^\n]*|No petition lies[^\n]*|The minutes are engrossed[^\n]*|The Conclave's (?:hoard|gift) tax[^.\n]*\./g],
     ["room", /(?<=^(?:You (?:go|take) [^.\n]+\. )?)(?!You |There |Nothing |Something )(?:The |An? )?[A-Z][\w' -]{2,40}\.(?= [A-Z])/g],
-    ["hit", /[^.\n]{1,40}? (?:hits you for [\d.]+(?:\. You have [\d.]+\/[\d.]+\.|: [\d.]+ \u2192 [\d.]+ of [\d.]+\.)|The venom works: [\d.]+, [\d.]+ \u2192 [\d.]+ of [\d.]+\.|comes at you[^.\n]*\.|surfaces beside you[^.\n]*\.|stands up out of the water[^.\n]*\.|takes hold[^.\n]*\.)|You (?:have )?die[sd]?\b[^.\n]*\.|You wake[^.\n]*\.|Attack it, or retreat\.|Retreat first, or finish it\.|Its bite stays in you[^.\n]*\.|The venom works[^.\n]*\.|The usher takes your elbow[^.\n]*\.|A ray of forgetfulness[^.\n]*\.|The tipstaff shows you below the bar\.|An engrosser enters chunk-[^.\n]*\./g],
+    ["hit", /[^.\n]{1,40}? (?:hits you for [\d.]+(?:\. You have [\d.]+\/[\d.]+\.|: [\d.]+ \u2192 [\d.]+ of [\d.]+\.)|The venom works: [\d.]+, [\d.]+ \u2192 [\d.]+ of [\d.]+\.|comes at you[^.\n]*\.|surfaces beside you[^.\n]*\.|stands up out of the water[^.\n]*\.|takes hold[^.\n]*\.)|You (?:have )?die[sd]?\b[^.\n]*\.|You wake[^.\n]*\.|Attack it, or retreat\.|Retreat first, or finish it\.|send `retreat` \(it gets you out, for one parting blow\), or finish it\.|Its bite stays in you[^.\n]*\.|The venom works[^.\n]*\.|The usher takes your elbow[^.\n]*\.|A ray of forgetfulness[^.\n]*\.|The tipstaff shows you below the bar\.|An engrosser enters chunk-[^.\n]*\./g],
     ["earn", /chunk-\d+ worth [\d.]+ XP(?:, vividity [\d.]+)?(?: \([^)]*\))?|worth double|You remember the carrying[^.\n]*\.|It leaves [^.\n]* behind \(item-\d+\)|has earned its name[^.\n]*\./g],
     ["lbl", /Nothing hunts here\./g],
     ["born", /(?:A \*\*)?[\w-]+\*\* was born[^.]*\.|Something has come of it[^.]*\.|was born in [^.]*\./g],
@@ -1210,7 +1210,17 @@
           const r = waiting.get(String(f.id)); waiting.delete(String(f.id)); if (r) r(f); return;
         }
         if (f.type === "observation" && waiting.has(String(f.id))) { const r = waiting.get(String(f.id)); waiting.delete(String(f.id)); r(f); return; }
-        if (f.type === "observation") { subs[f.id] = f; skew = Date.now() - f.as_of; draw(); emit("observation", f.id, f); return; }
+        if (f.type === "observation") {
+          // S11: after the first, an observation carries what changed ("patch") in
+          // place of the whole ("root"). One with no whole to change is dropped;
+          // the next subscribe sends the whole again.
+          if (f.patch !== undefined) {
+            const had = subs[f.id];
+            if (!had || had.root === undefined) return;
+            f.root = applyPatch(had.root, f.patch); delete f.patch;
+          }
+          subs[f.id] = f; skew = Date.now() - f.as_of; draw(); emit("observation", f.id, f); return;
+        }
         if (f.type === "error" && f.id !== undefined) {
           // A world from before a field this page asks for: ask again for less.
           if (f.id === "me" && !meFallback) { meFallback = true; subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting", "falls", "named_at"] }, timed: "curve", commands: false }); return; }
@@ -1252,7 +1262,32 @@
     document.getElementById("scene").classList.toggle("stale", on);
     const l = $("link"); if (on) l.textContent = "No live session: the panels are from before it closed; polling for the transcript until it is back.";
   }
-  function subscribe(id, query) { if (wsReady) ws.send(JSON.stringify({ type: "subscribe", id, query })); }
+  function subscribe(id, query) { if (wsReady) ws.send(JSON.stringify({ type: "subscribe", id, query, patch: true })); }
+  // S11: what the server's `diff` undoes. An object's patch holds its changed keys
+  // and "$del" for the keys gone; a list of nodes is {"$ids": order, "$set": {id: a
+  // new node whole, or a kept node's patch}}; anything else is the new value. A new
+  // value is built and nothing is changed in place, so a mod that kept the last
+  // observation still holds it as it was.
+  function applyPatch(old, patch) {
+    const isObj = v => v !== null && typeof v === "object" && !Array.isArray(v);
+    if (Array.isArray(old) && isObj(patch) && Array.isArray(patch.$ids)) {
+      const set = patch.$set || {};
+      return patch.$ids.map(id => {
+        const kept = old.find(n => n && n.id === id), d = set[String(id)];
+        return kept !== undefined ? (d !== undefined ? applyPatch(kept, d) : kept) : (d !== undefined ? d : null);
+      });
+    }
+    if (isObj(old) && isObj(patch)) {
+      const out = Object.assign({}, old);
+      for (const k of Object.keys(patch)) {
+        if (k === "$del") { for (const gone of patch.$del) delete out[gone]; continue; }
+        const o = out[k];
+        out[k] = (isObj(o) || Array.isArray(o)) ? applyPatch(o, patch[k]) : patch[k];
+      }
+      return out;
+    }
+    return patch;
+  }
   // R22: a dug door is a new exit on the room; the room subscription is asked again
   // so the tiles and the verb bar show it at once.
   let roomQuery = null;
