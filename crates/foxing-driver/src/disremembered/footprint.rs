@@ -134,7 +134,7 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
                 let once_more = if super::exchange::heard_early_this_hour(world, actor, e.id) {
                     "and has heard the wanted story once more from you already; nothing more from you until then"
                 } else {
-                    "and before then hears the wanted story once more, at plain pay"
+                    "and before then hears the story you told it once more, at plain pay (the one it wanted then, in that want's words, not the new want)"
                 };
                 format!("a story about {s}{turned} (you told it one this hour; it pays double again {ready}, {once_more})")
             } else if super::exchange::heard_this_hour(world, e.id)
@@ -675,22 +675,24 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
                         })
                         .unwrap_or_default();
                     if lost.is_empty() {
-                        " The last fall took nothing: you held too little for it to take.".to_string()
+                        " The last fall took no memory: its share came to less than a tenth of a point.".to_string()
                     } else {
                         format!(" The last fall took {}.", lost.join(", "))
                     }
                 })
                 .unwrap_or_default();
+            let next = (takes * factor).max(0.0);
             Some(format!(
-                "{last} The next fall would take about {:.0} XP of the {level:.0} you carry now.",
-                (takes * factor).max(0.0)
+                "{last} The next fall would take {} of the {level:.0} you carry now, and leave your strikes unsteady for {} minutes (five more with each fall of the night, whatever the memory cost).",
+                if next < 0.1 { "no memory to speak of".to_string() } else { format!("about {next:.1} XP") },
+                5 * (falls + 1)
             ))
         } else {
             None
         }
         .or_else(|| (falls == 0 && takes >= 0.5).then(|| {
             format!(
-                " A fall now would take about {takes:.0} XP, {:.0}% of the {level:.0} you carry (a fall takes a share of the window that grows with what you hold; a second the same night takes half that share).",
+                " A fall now would take about {takes:.1} XP, {:.0}% of the {level:.0} you carry, and leave your strikes unsteady for five minutes (a fall takes a share of the window that grows with what you hold; a second the same night takes half that share and unsteadies you for ten).",
                 super::combat::death_share(level) * 100.0
             )
         }))

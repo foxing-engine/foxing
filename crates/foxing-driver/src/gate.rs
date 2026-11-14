@@ -1121,7 +1121,12 @@ fn rejection(result: &CheckResult, report: &mut Report) {
         // "failed rule CL-I5" with no way to know the verb was the problem. Not for
         // the others: quoting the hedge or the relative time re-offends in the
         // world's own FACT, and the reply obeys the same checker.
-        let why: String = if !matches!(f.rule.as_str(), "CL-I5" | "CL-I6" | "CL-I1") {
+        // And the two a hurried writer meets with no words at all (the Watch of
+        // 11-14): too many statements, whose reason is a pair of numbers, and two
+        // actions in one statement, said in the world's own words.
+        let why: String = if f.rule == "CL-I2" {
+            "a statement carries one action and one object".to_string()
+        } else if !matches!(f.rule.as_str(), "CL-I5" | "CL-I6" | "CL-I1" | "CL-M1") {
             String::new()
         } else {
             f.message
@@ -1219,8 +1224,8 @@ fn run_request(
                     .unwrap_or_else(|| "your door".to_string());
                 report.fact(
                     match fell_at {
-                        Some(k) => format!("Statement {} did not run: you woke at {door}; read the room first. {actor} went down at statement {k}, in another room", st.index),
-                        None => format!("Statement {} did not run: you woke at {door}; read the room first. {actor} went down since the last message, in another room", st.index),
+                        Some(k) => format!("Statement {} did not run: {actor} fell at statement {k} and woke at {door}; only reads run after a fall", st.index),
+                        None => format!("Statement {} did not run: {actor} fell since the last message and woke at {door}; only reads run after a fall", st.index),
                     },
                     "gate",
                 );
@@ -1571,7 +1576,7 @@ mod tests {
         let p = send(&mut w, &checker, &mut budget, "lantern-7", &text);
         assert!(
             p.reply
-                .contains("Statement 1 did not run: you woke at the Threshold; read the room first. lantern-7 went down since the last message"),
+                .contains("Statement 1 did not run: lantern-7 fell since the last message and woke at the Threshold; only reads run after a fall"),
             "{}",
             p.reply
         );

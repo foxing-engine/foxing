@@ -1865,7 +1865,7 @@ pub(crate) fn die(
                 .map(|(id, s, v)| format!("chunk-{} ({s}, {v:.0} XP)", id.0))
                 .collect();
             parts.extend(thinned.iter().map(|(id, s, v, left)| {
-                format!("{v:.0} XP of chunk-{} ({s}, {left:.0} left)", id.0)
+                format!("{v:.1} XP of chunk-{} ({s}, {left:.1} left)", id.0)
             }));
             Some(if parts.len() == 1 {
                 parts.remove(0)

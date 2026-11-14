@@ -26,7 +26,8 @@ const MAX_CHARS: usize = 600;
 
 /// R224: how long ago the world let this name go, if it was lately.
 fn let_go(w: &World, typed: &str) -> Option<i64> {
-    w.recent_events(6000)
+    // As far back as the driver keeps in memory: about half a day of a quiet world.
+    w.recent_events(12_000)
         .iter()
         .rev()
         .find(|e| {
