@@ -74,6 +74,42 @@ fn step(exit: &str) -> Option<(i64, i64, i64)> {
 
 /// The nearest free cell to `(x, y, z)` on its floor, east first, then clockwise, then
 /// the next ring out.
+/// R217: where a named door's room goes: the free cell on its parent's floor that
+/// keeps it nearest to every room it shares a door with and that is already on the
+/// map (the Orchard Wall opens on the Postern and on the Orchard, and was drawn five
+/// columns from the one it is a step from), `want` (the far side of the parent)
+/// settling a tie. With one neighbor that is the cell beside it, as before.
+fn best_beside(
+    taken: &HashSet<(i64, i64, i64)>,
+    want: (i64, i64, i64),
+    anchors: &[(i64, i64)],
+) -> (i64, i64, i64) {
+    let z = want.2;
+    let cheb = |a: (i64, i64), b: (i64, i64)| (a.0 - b.0).abs().max((a.1 - b.1).abs());
+    let (lo_x, hi_x, lo_y, hi_y) = anchors
+        .iter()
+        .fold((want.0, want.0, want.1, want.1), |(a, b, c, d), p| {
+            (a.min(p.0), b.max(p.0), c.min(p.1), d.max(p.1))
+        });
+    type Scored = ((i64, i64, i64, i64), (i64, i64, i64));
+    let mut best: Option<Scored> = None;
+    for x in lo_x - 2..=hi_x + 2 {
+        for y in lo_y - 2..=hi_y + 2 {
+            if taken.contains(&(x, y, z)) {
+                continue;
+            }
+            let far = anchors.iter().map(|a| cheb(*a, (x, y))).max().unwrap_or(0);
+            let sum: i64 = anchors.iter().map(|a| cheb(*a, (x, y))).sum();
+            let score = (sum, far, cheb((want.0, want.1), (x, y)), x * 1000 + y);
+            if best.as_ref().map_or(true, |(b, _)| score < *b) {
+                best = Some((score, (x, y, z)));
+            }
+        }
+    }
+    best.map(|(_, p)| p)
+        .unwrap_or_else(|| nearest_free(taken, want.0, want.1, want.2))
+}
+
 fn nearest_free(taken: &HashSet<(i64, i64, i64)>, x: i64, y: i64, z: i64) -> (i64, i64, i64) {
     if !taken.contains(&(x, y, z)) {
         return (x, y, z);
@@ -262,7 +298,32 @@ fn layout_uncached(world: &World, prev: Option<&Layout>) -> Layout {
                         }
                         None => continue,
                     };
-                    let pos = nearest_free(&taken, want.0, want.1, want.2);
+                    let pos = if kind == "beside" {
+                        // Every placed room on this floor that `to` shares a door
+                        // with, its parent among them.
+                        let mut anchors: Vec<(i64, i64)> = vec![(hx, hy)];
+                        let theirs = rooms::exits_of(world, to);
+                        for (other, &(ox, oy, oz)) in &at {
+                            if *other == here || oz != hz {
+                                continue;
+                            }
+                            let linked = theirs.values().any(|t| t == other)
+                                || rooms::exits_of(world, *other).values().any(|t| *t == to);
+                            if linked {
+                                anchors.push((ox, oy));
+                            }
+                        }
+                        anchors.sort_unstable();
+                        // A room with one door has its old place, the far side of
+                        // its parent: the compass rooms beyond it were laid by that.
+                        if anchors.len() > 1 {
+                            best_beside(&taken, want, &anchors)
+                        } else {
+                            nearest_free(&taken, want.0, want.1, want.2)
+                        }
+                    } else {
+                        nearest_free(&taken, want.0, want.1, want.2)
+                    };
                     let placed = if kind == "compass" && pos != want {
                         out.shoved.push(format!(
                             "{} ({name} from {}) is shoved to ({},{},{}), its cell taken",
@@ -823,6 +884,32 @@ pub fn way(
     way_over(world, from, to, Some(&known))
 }
 
+/// R219: the way a name is given and walks: the one it remembers, or, to one of the
+/// world's own rooms, the way the signs say when that is shorter or it remembers
+/// none (a newcomer who had come round by the Shallows was sent back that way, five
+/// steps, where the lane is three). The flag says the signs gave it.
+pub fn best_way(
+    world: &World,
+    citizen: EntityId,
+    from: EntityId,
+    to: EntityId,
+    half_life_ms: f64,
+) -> Option<(Vec<String>, bool)> {
+    let remembered = way(world, citizen, from, to, half_life_ms);
+    let signed = world
+        .store
+        .entity(to)
+        .is_some_and(|e| e.owner.is_none())
+        .then(|| way_seeded(world, from, to))
+        .flatten();
+    match (remembered, signed) {
+        (Some(r), Some(s)) if s.len() < r.len() => Some((s, true)),
+        (Some(r), _) => Some((r, false)),
+        (None, Some(s)) => Some((s, true)),
+        (None, None) => None,
+    }
+}
+
 /// The signed way from `here` to every one of the world's own rooms, for a figure
 /// that gives directions: `{room, way}`, nearest first.
 pub fn routes_from(world: &World, here: EntityId) -> Vec<serde_json::Value> {
@@ -1020,6 +1107,7 @@ fn said_way(world: &World, from: EntityId, path: &[String]) -> String {
     // a word dead-ended a new name four steps in (the Watch of 11-07).
     let mut at = from;
     let mut stair = "";
+    let mut hunting: Vec<String> = Vec::new();
     for step in path {
         let Some(&to) = rooms::exits_of(world, at).get(step) else {
             break;
@@ -1027,12 +1115,34 @@ fn said_way(world: &World, from: EntityId, path: &[String]) -> String {
         if plain_str(world, to, ROOM, "key") == Some("lower-stacks") && step == "down" {
             stair = " (the stair down asks a level of one hundred)";
         }
+        // R219: a way through a room that hunts says so (two Watches were handed
+        // "over, south, south" through the Shallows with no word of it).
+        let hunts_here = world
+            .store
+            .children(to)
+            .any(|e| e.kind == "creature" && super::combat::is_aggressive(world, e.id));
+        if hunts_here {
+            let n = plain_str(world, to, ROOM, "name")
+                .unwrap_or("a room")
+                .to_string();
+            if !hunting.contains(&n) {
+                hunting.push(n);
+            }
+        }
         at = to;
     }
+    let hunts = if hunting.is_empty() {
+        String::new()
+    } else {
+        format!(
+            " (through {}, where something hunts whoever stays; a name in its first hour is left alone)",
+            hunting.join(" and ")
+        )
+    };
     match path.len() {
         0 => "you are there".to_string(),
-        1 => format!("one step: {}{wicket}{stair}", path[0]),
-        n => format!("{n} steps: {}{wicket}{stair}", path.join(", ")),
+        1 => format!("one step: {}{wicket}{stair}{hunts}", path[0]),
+        n => format!("{n} steps: {}{wicket}{stair}{hunts}", path.join(", ")),
     }
 }
 
@@ -1191,17 +1301,25 @@ pub fn register(world: &mut World, curves: Curves) {
                 return Ok(Outcome::new(format!("{what} is nowhere in particular."), json!({"who": what})));
             };
             let name = plain_str(w, room, ROOM, "name").unwrap_or("?").to_string();
-            let path = way(w, f.citizen, here, room, hl);
             // A room asked for by name is not "in" itself.
             let is_room = what == name;
-            // A seed room you have not walked to: the world's own rooms are signed, so
-            // the way over them is said (the way as you remember it, when you have one).
-            let signed = if path.is_none() && w.store.entity(room).is_some_and(|e| e.owner.is_none()) { way_seeded(w, here, room) } else { None };
+            // The way as you remember it, or the signs' when it is shorter or you
+            // remember none (the world's own rooms are signed).
+            let walked = way(w, f.citizen, here, room, hl).is_some();
+            let (path, signed) = match best_way(w, f.citizen, here, room, hl) {
+                Some((p, false)) => (Some(p), None),
+                Some((p, true)) => (None, Some(p)),
+                None => (None, None),
+            };
             let said = match (&path, &signed) {
                 (Some(p), _) if p.is_empty() && is_room => format!("{name} is where you stand."),
                 (Some(p), _) if p.is_empty() => format!("{what} is here, in {name}."),
                 (Some(p), _) if is_room => format!("{name}: the way from here, as you remember it, is {}.", said_way(w, here, p)),
                 (Some(p), _) => format!("{what} is in {name}; the way from here, as you remember it: {}.", said_way(w, here, p)),
+                (None, Some(p)) if p.is_empty() && is_room => format!("{name} is where you stand."),
+                (None, Some(p)) if p.is_empty() => format!("{what} is here, in {name}."),
+                (None, Some(p)) if is_room && walked => format!("{name}: the signs give a shorter way than the one you remember, {}.", said_way(w, here, p)),
+                (None, Some(p)) if walked => format!("{what} is in {name}; the signs give a shorter way than the one you remember: {}.", said_way(w, here, p)),
                 (None, Some(p)) if is_room => format!("{name}: you have not walked it, but the signs say {}.", said_way(w, here, p)),
                 (None, Some(p)) => format!("{what} is in {name}; you have not walked it, but the signs say {}.", said_way(w, here, p)),
                 (None, None) if is_room => format!("{name}: you remember no way there from here. Walk, and `map` fills in."),

@@ -2254,9 +2254,8 @@ pub fn register(world: &mut World) {
                     let hl = super::Curves::from_env().active_half_life.0 as f64 * super::atlas::ATLAS_HALF_LIVES;
                     // The way as you remember it; for one of the world's own rooms you
                     // have not walked, the way the signs say (as `where` gives it).
-                    let remembered = super::atlas::way(w, f.citizen, room, target, hl);
-                    let signed = if remembered.is_none() && w.store.entity(target).is_some_and(|e| e.owner.is_none()) { super::atlas::way_seeded(w, room, target) } else { None };
-                    match remembered.or(signed) {
+                    let best = super::atlas::best_way(w, f.citizen, room, target, hl).map(|(p, _)| p);
+                    match best {
                         Some(path) if !path.is_empty() => {
                             // A wicket on the way says it asks a word (R41); the
                             // last step's reply names the room, which is arrival enough.
