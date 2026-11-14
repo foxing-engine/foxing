@@ -84,6 +84,7 @@ From the Watch of six, 11-13, the night the second door opened (a newcomer, a fa
 - **R227** (S) The quickstart, what is left: `reply` to a letter whose writer is forgotten too is not described; the first letter a visitor sees may be no. 2.
 - **R239** (S) Small things left from the Watch of 11-14: a fall's line "Nobody will say your name at The Proof Room…" reads as a riddle to a newcomer.
 - **R244** (S) `messages` stamps a creature's answers "just now" however old they are, beside a Docent line rightly "8m 15s ago" (looked at 11-14: both rows take the event's own time, so the cause is upstream of the stamp; not found yet). A wisp that holds a memory of yours shows in `look` with no id and cannot be aimed at by id. The Fogbank's signpost says "an arm for each way off" and lists the compass ways only.
+- **R247** (S) From the Watch of 11-14 (fifth; D30, R192, D40 and D41 held live, and the word heard as a try was seen: "you said fog and lantern (your "lanterns")"). A fall inside a long message is cut from the reply: 13 statements, 45 lines omitted, the fall among them; the fall line should be kept whatever is cut. A refused `travel` in a fight draws a blow like any statement and a tester fell to it: say `retreat` in the refusal before the blow, or let a refusal that names the way out cost nothing (a decision if the second). The creatures' hint says "say two and I cannot tell which you meant" and that a story inside ten minutes is not weighed; Kennoch named two tried words in one story and a first story was weighed at once: one of the two is wrong. `where Reading Rooms and Beyond` is refused as two actions (CL-I2), a misleading reason for a bare name with "and" in it. `travel Annex of Second Readings` and `take stone roll` run right with no "read as one name" line (two bare words fit `travel`'s exit and word, so the gate has nothing to mend). `session` rounds a fall to 3 XP where `mine` says 3.4. "Said here lately" keeps three lines and can show one name's same line twice. A memory won from a wisp that held Fallis's story is named "Fallis's story of someone's name" though it counts as a fight with a wisp. `where lampmoth` gives a route without saying where it starts. A failed `travel` inside a message does not stop the statements after it. Still unseen live: a strike on a hidden word and its pay; the doubled line did not recur in three rounds with two testers in one room.
 - **R246** (S) What is left of it: a message of 21 statements passes with "scored 100 Legibility" beside "ran none of it". The dry run says a story sent inside ten minutes "counts as a try at the word" where the world says it was not weighed (with R212). `mine` opens "What remembers you:" over an empty list. Nothing said aloud by a neighbor was there to test the doubled line (R242) on the live world: still unseen.
 - **R241** (S) `messages` drops "from The Orchard Wall" from a word left from another room (the record does not keep the room). `help` files `almanac` under "other" beside `time` under "read".
 - R209 was met again by this Watch (`mine` after a fall says "nothing touched any of it").
@@ -270,6 +271,20 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   (38). **One core is now full nearer three hundred names than two.** What is left
   of the curve is `obs:room`: twice a second is still the whole room each time; the
   next step is to send what changed (S11, unwritten until it is wanted).
+  **Two hundred (11-14, 21:18 to 21:24, after the fifth Watch's deploy):** 200 names,
+  120 of them on sessions, 6.2 minutes, 12,079 commands (32 a second), 47,470
+  events (127 a second). Nothing failed: `/health` and `board` answered every probe,
+  eight logins were turned away by the login limit (429) and nothing else was. The
+  world's share of a reply 4 to 8 ms at the middle and 12 to 33 at the 95th, worst
+  79; the wait for the lock 11 ms at the 95th, worst 128. The driver 78% of one
+  core on average and over 100% at its worst (it has more than one thread; the box
+  never under 52% idle), PostgreSQL 3%, appends 0.7 ms. **The pushes held the lock
+  165 s of 370** (45%), and 120 sessions were sent 882 MB: `obs:room` 423 MB,
+  `store.component_set` 189, narrative 118, `say` 60. So two hundred hold with
+  replies still quick, and the lock is the limit as foretold: the pushes would fill
+  it somewhere past three hundred. S11 (send what changed in a room, not the room)
+  is now the next thing a larger crowd needs. The arrivals went to Discord as a
+  crowd for the first time (David to say how it read).
   **The dropped sessions were the test's, not the world's.** Eight and nine of sixty
   sessions were reset mid-run in these two runs (none in the run before, two of
   twelve and one of thirty in earlier ones). The driver now says in its journal why

@@ -5,6 +5,11 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-14 (the fifth Watch of three, what it mended, and two hundred names; one driver deploy)
+- Gnostic on the carried word and the hidden word, Gnarlroot and Gnatcatcher in one room and up the stair. Held live: `wants` and `start` hide the word, standing with the giver gives it, both legs pay, the way home's word is had from the receiver, and a name that never had it is refused ("That is Osgar's word, and you did not have it from Osgar"); the bare name read as one; every rule with its reason; `go north` pointed at `travel`; `session` with what a fall took; the card without its band.
+- Mended: redactors already standing kept 45 and 6 to 8 (the new figures reached only new ones): the boot pass brings standing stock of the Reading Rooms to its kind's figures. The Archive still said "for a name holding twenty or more". The bare-name line said "which is written quoted" of a name the writer had not quoted. "1 lines", and "no memory to speak of of the 2 you carry".
+- Two hundred names on the live world: held, replies quick, nothing failed; the figures are under S6. Open from the Watch: R247.
+
 11-14 (six answers and the arrivals said as a crowd; one driver deploy)
 - **D30 a**: a carried word is the giver's to give. A name has it by standing with the giver (`look`, or arriving) or by any `tell` to it; `wants`, `start` and the dry run say that a word is wanted and by whom, and the word only to a name that has it. Said to the receiver by a name the giver never gave it to: "That is X's word, and you did not have it from X", unpaid, the word still to carry. The way home's word is given by the receiver as it answers. Names mid-errand at the deploy stand with the giver once more.
 - **R192 b**: CLEAR is as strict as it was (both checkers and the oracle untouched). A bare name of several words after `travel`, `where`, `take`, `read` or `drop` is read by the gate as that one name, quoted, and the reply says "Statement N was read as `travel` with the one name …"; anything else wrong in the message and it is refused as before.
