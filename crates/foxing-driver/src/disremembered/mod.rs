@@ -1176,6 +1176,12 @@ pub fn login_as(
             format!("The name {actor} was no one's; it is yours now, kept (no `keep` needed), and answers to the passphrase you just gave. Keep that passphrase: nothing recovers it, and only its hash is stored, so a random one is as good as any. Everything you do under it is public, and a name unspoken for thirty days is forgotten.")
         },
     );
+    // The door a name wakes at is on its map from the first, looked at or not (a
+    // name that woke at the Postern and walked off had no Postern on its map).
+    // (The Threshold is every map's first room already.)
+    if rooms::arrival(world) != Some(home) {
+        let _ = atlas::mark_seen(world, actor, home);
+    }
     combat::narrate(world, actor, first_moves(world, Some(home)));
     // H5: the Docent, by name, on a first arrival, with the one next move; apart
     // from its nightly greeting, which is the book's.
