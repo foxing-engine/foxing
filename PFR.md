@@ -288,8 +288,8 @@ brief` for a page on one, or answer the lettered ones.
     whether the figures are right: a telling lands two and a half words to a point
     times three quarters to one and a half by the memory's vividity; the kinds
     hold 40 to 100 and hit 3 to 8.
-  - *Not in the first cut:* nothing of the Reading Rooms' kinds drops a material;
-    the Docent does not know the rooms by heart; the play page has no button for a
+  - *Not in the first cut:* the rooms' kinds leave only what the ground floor
+    leaves (moth dust, ink, thread), nothing of their own; the Docent does not know the rooms by heart; the play page has no button for a
     telling; a named one of these kinds is a listener like any other, and whether
     that is right is undecided; the pilots do not tend the Mezzanine.
 - **C4 · Things for two** (M). The Wardens (320 hit points) are the only fight sized

@@ -142,6 +142,15 @@ pub const MATERIALS: &[(&str, &str)] = &[
     ("sweater", "a pinch of coin sweat"),
     ("assayer", "an assay needle"),
     ("warden", "a warden's key"),
+    // C2: the Reading Rooms' kinds leave what the ground floor leaves. Named here
+    // so none is taken for a hybrid of the kind it sounds like (a lampmoth left a
+    // lamprey's tooth on its first night, a shusher would have left an usher's
+    // ribbon).
+    ("lampmoth", "moth dust"),
+    ("erratum", "a dab of ink"),
+    ("shusher", "rag thread"),
+    ("proofreader", "a dab of ink"),
+    ("redactor", "rag thread"),
 ];
 
 /// What can be made, of what, for what memory, and what it does.

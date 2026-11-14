@@ -11888,6 +11888,16 @@ fn a_lampmoth_keeps_a_vigil_over_a_fight_nearly_lost() {
     )
     .unwrap_err();
     assert!(e.to_string().contains("one vigil an hour"), "{e}");
+    // None of the rooms' kinds is taken for a hybrid of a kind of the Stacks.
+    assert_eq!(craft::material_for("lampmoth"), Some("moth dust"));
+    assert_eq!(craft::material_for("shusher"), Some("rag thread"));
+    for k in reading::KINDS {
+        let m = craft::material_for(k).unwrap();
+        assert!(
+            ["moth dust", "a dab of ink", "rag thread"].contains(&m),
+            "{k}: {m}"
+        );
+    }
 }
 
 /// C5: the almanac's seasons, each changing one thing while it is on.
