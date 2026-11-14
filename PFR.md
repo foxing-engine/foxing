@@ -255,6 +255,33 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   panel (mended the same day: a room says its fifty best remembered names and counts
   the rest), and one session in thirty still drops mid-run.
   Next: a hundred, then two hundred, each with `vitals` beside it.
+  **A hundred names, six minutes (11-14, after S5 and S9, at 415,000 events):** it
+  held. 6,353 commands (17 a second), 180 events a second, every reply a 200, no
+  session dropped. The world's share of a reply 5 to 9 ms at the middle and 36 to 76
+  at the 95th; the wait for the lock 16 to 20 ms at the 95th, 174 at worst; a
+  keyboard round trip 123 ms at the middle and 399 at the 95th, the gate's 335 and
+  611. The box 85% idle (four cores); the driver 44% of one core at the middle and
+  85% at its worst (twice the names of fifty, six times the CPU); PostgreSQL 3%,
+  nginx 3%; memory flat at 0.85 GB; no wait on the disk. Where it went:
+  `say` and `tell`. A `say` wrote 41 events and took 28 ms, a `tell` 76 events and
+  51 ms, nine tenths of it the log: 558 of them, a tenth of the commands, wrote half
+  of the run's 68,900 events. And the pushes again: 92,600 held the world's lock
+  102 s of 370, more than a quarter of the run (294,000 were passed over, S5's
+  doing); sixty sessions were sent 273,000 frames and 509 MB, 23 kB a second each,
+  389 MB of it `obs:room`, the whole room sent again on every change in it. Every
+  read (`chunks`, `map`, `time`) writes two events. The log grew 38 MB (560 bytes an
+  event; the disk is 150 GB, 3% used). Discord answered 429 to most of a hundred
+  "arrived for the first time" notices. 1,020 commands were refused, not broken down
+  (the test counts them and does not say why). **On this curve one core is full
+  near two hundred names**, and the lock, not the box, is the limit: S10 comes
+  before two hundred.
+- **S10 · What a hundred found** (M; from the run of 11-14). In order of what each
+  buys: (a) a `say` or a `tell` in a crowd writes one event a hearer (41 and 76): one
+  event with its hearers, the narrative derived when it is read; (b) `obs:room` sends
+  the whole room on every change (389 of 509 MB): send what changed, or at most one
+  a session every half second; (c) a read writes two events: see what they are and
+  whether a read needs either; (d) a lab arrival is not a Discord notice (a load
+  test sent a hundred, and Discord refused most): say the count once, or nothing.
 - **S7 · The box** (yours, later). One VPS runs the driver, PostgreSQL, nginx, the
   Docent and the Bindery. Before a second box: PostgreSQL's settings for the log
   table (it is append-only), a connection pool, and the driver built in release with
@@ -269,7 +296,7 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   the new build (read-only, beside the running driver) before the switch, and stop
   there if it fails. It needs memory for two drivers at boot (2.5 GB each on a
   7.7 GB box), so it wants S7's look at boot memory first.
-- Order: S6 (a hundred next), S4, S9. S2b when you choose.
+- Order: S10, then S6 at two hundred; S4, S9. S2b when you choose.
 
 ## Content (C): expansions, planned 11-12 at David's ask; C3 is live, the rest is not built
 
