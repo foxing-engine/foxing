@@ -267,7 +267,18 @@ pub fn rename_back_doors(world: &mut World) -> Result<usize, String> {
         let Some(&to) = exits.get("back") else {
             continue;
         };
-        if exits.contains_key("out") {
+        if let Some(&out) = exits.get("out") {
+            // Both, to the same room (the Namery, whose seed gained an `out` beside
+            // its old `back`): the `back` goes; `look` listed two doors to one room.
+            if out == to {
+                let m: serde_json::Map<String, Value> = exits
+                    .iter()
+                    .filter(|(k, _)| k.as_str() != "back")
+                    .map(|(k, v)| (k.clone(), json!(v.0)))
+                    .collect();
+                set_exits(world, r, m)?;
+                n += 1;
+            }
             continue;
         }
         let mut m: serde_json::Map<String, Value> = exits

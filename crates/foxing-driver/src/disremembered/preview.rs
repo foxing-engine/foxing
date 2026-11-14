@@ -488,7 +488,7 @@ pub fn run_checked(
                                                 t.new_words,
                                                 if t.new_words == 1 { "" } else { "s" },
                                                 if t.back > 0.0 {
-                                                    format!(", {:.0} harder for repeated words", t.back)
+                                                    format!(", {:.0} harder for repeated words ({})", t.back, t.marked.join(", "))
                                                 } else {
                                                     String::new()
                                                 }

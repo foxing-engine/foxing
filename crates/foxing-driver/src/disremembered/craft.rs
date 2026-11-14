@@ -346,7 +346,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a commonplace book",
         of: &["rag thread", "a dab of ink", "a catalogue card"],
         chunk_at_least: 30.0,
-        does: "writes one line a visit of its own accord while you carry it (a fall, a room you dug, a creature that took a name by your hand, a vigil kept), and keeps them: `read` it whole, however little you hold. It has a past",
+        does: "(a catalogue card is what the Stacks' cataloguers leave) writes one line a visit of its own accord while you carry it (a fall, a room you dug, a creature that took a name by your hand, a vigil kept), and keeps them: `read` it whole, however little you hold. It has a past",
         uses: 0,
         fixed: false,
         takes_lines: false,

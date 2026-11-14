@@ -12195,3 +12195,28 @@ fn a_commonplace_book_writes_a_line_a_visit_and_keeps_it() {
         2
     );
 }
+
+/// D37 b reaches the creatures already standing: one of the Reading Rooms' kinds
+/// that holds nothing and is worth more than its kind now is, is worth its kind.
+#[test]
+fn a_reading_room_creature_from_before_the_halving_is_worth_its_kind() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(1_000_000));
+    let room = rooms::room_by_key(&w, "proof-room").unwrap();
+    let (old, _, _, _) = combat::creatures_in(&w, room)[0].clone();
+    let (new, _, _, _) = combat::creatures_in(&w, room)[1].clone();
+    let was = plain_num(&w, new, CREATURE, "xp").unwrap();
+    w.record(
+        foxing_log::Actor::Driver,
+        StoreEvent::FieldSet {
+            id: old,
+            component: CREATURE.into(),
+            field: "xp".into(),
+            value: json!(88.0),
+        },
+    )
+    .unwrap();
+    assert_eq!(reading::settle(&mut w).unwrap(), 1);
+    assert_eq!(plain_num(&w, old, CREATURE, "xp"), Some(40.0));
+    assert_eq!(plain_num(&w, new, CREATURE, "xp"), Some(was));
+    assert_eq!(reading::settle(&mut w).unwrap(), 0);
+}

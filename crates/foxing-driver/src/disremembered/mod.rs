@@ -779,6 +779,10 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     building::rejoin_orphans(world)?;
     building::clear_the_door(world)?;
     building::rename_back_doors(world)?;
+    // Never a reason not to open the world.
+    if let Err(e) = reading::settle(world) {
+        eprintln!("the Reading Rooms' kinds were not settled: {e}");
+    }
     building::reframe_all(world)?;
     economy::ensure(world)?;
     conclave::ensure(world)?;

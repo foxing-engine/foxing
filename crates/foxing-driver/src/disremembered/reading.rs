@@ -150,6 +150,8 @@ pub struct Weighed {
     pub vividity: f64,
     pub new_words: usize,
     pub repeats: usize,
+    /// The words marked, for the reply: a count alone taught nothing.
+    pub marked: Vec<String>,
     /// What a proofreader adds to its blow.
     pub back: f64,
     pub damage: f64,
@@ -212,15 +214,22 @@ pub fn weigh(w: &World, f: &Found, creature: EntityId, text: &str) -> Result<Wei
         exempt.extend(words_of(&super::combat::plural(k)));
     }
     let counts = |x: &String| x.chars().count() >= 4 && !exempt.contains(x);
-    let twice = distinct
+    // (A word said twice here and also earlier in the fight is marked for each.)
+    let twice: Vec<&String> = distinct
         .iter()
         .filter(|x| counts(x) && words.iter().filter(|y| y == x).count() > 1)
-        .count();
-    let again = distinct
+        .collect();
+    let again: Vec<&String> = distinct
         .iter()
         .filter(|x| counts(x) && before.contains(*x))
-        .count();
-    let repeats = twice + again;
+        .collect();
+    let repeats = twice.len() + again.len();
+    let mut marked: Vec<String> = twice
+        .iter()
+        .chain(again.iter())
+        .map(|x| x.to_string())
+        .collect();
+    marked.dedup();
     let back = if kind == PROOFREADER {
         repeats.min(MOST_BACK) as f64
     } else {
@@ -238,6 +247,7 @@ pub fn weigh(w: &World, f: &Found, creature: EntityId, text: &str) -> Result<Wei
         vividity,
         new_words,
         repeats,
+        marked,
         back,
         damage,
         words: all,
@@ -258,6 +268,7 @@ pub fn tell(
         vividity,
         new_words,
         repeats,
+        marked,
         back,
         damage: dmg,
         words,
@@ -291,8 +302,9 @@ pub fn tell(
     );
     if kind == PROOFREADER && repeats > 0 {
         said.push_str(&format!(
-            " The proofreader marked {repeats} repeated word{} and struck {} harder for {}.",
+            " The proofreader marked {repeats} repeated word{} ({}) and struck {} harder for {}.",
             if repeats == 1 { "" } else { "s" },
+            marked.join(", "),
             back as i64,
             if repeats == 1 { "it" } else { "them" }
         ));
@@ -445,4 +457,38 @@ pub fn landing_said(world: &World, f: &Found) -> String {
             )
         }
     )
+}
+
+/// D37 b, for those already standing: a creature of these rooms that holds nothing
+/// of its own and is worth more than its kind now is (it stood before the kinds
+/// were halved, and two of the Watch of 11-14 were paid 88 and 48 by such) is worth
+/// what its kind is. On boot; returns how many.
+pub fn settle(world: &mut World) -> Result<usize, String> {
+    let ids: Vec<(EntityId, f64)> = world
+        .store
+        .of_kind("creature")
+        .filter_map(|e| {
+            let kind = plain_str(world, e.id, CREATURE, "name")?;
+            if !is_told(kind) || super::mind::name(world, e.id).is_some() {
+                return None;
+            }
+            let def = super::combat::def_by_name(kind)?;
+            let xp = plain_num(world, e.id, CREATURE, "xp")?;
+            (super::mind::level(world, e.id) < 0.5 && xp > def.xp * 1.25).then_some((e.id, def.xp))
+        })
+        .collect();
+    for (id, xp) in &ids {
+        world
+            .record(
+                Actor::Driver,
+                StoreEvent::FieldSet {
+                    id: *id,
+                    component: CREATURE.into(),
+                    field: "xp".into(),
+                    value: json!(xp),
+                },
+            )
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(ids.len())
 }
