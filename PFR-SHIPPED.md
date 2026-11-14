@@ -5,6 +5,11 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-14 (the log reconnects; one driver deploy, after a restart by hand)
+- The outage: from about 06:45 to 06:56 UTC every command failed with "internal: log: log storage error: connection closed". PostgreSQL had restarted on the box and the driver's one connection to it was never made again; `/health` said ok throughout. David found it at the keyboard. A redeploy restarted the driver; no event was lost.
+- The log reconnects: a connection found closed is made again before the next request is tried (five tries, a second apart), so a database restart costs at most one request, usually a tick. If a unit was open when the connection went, or the log's head is not the one this process last wrote, the process stops and is read back from the log, as a failed commit does. Tested against a real PostgreSQL two ways: every backend terminated under a running log, and the database restarted under a running driver with a name playing (no command failed).
+- Open from it: S12 (`/health` should ask the log; a notice when ticks fail), T19, and why PostgreSQL restarted.
+
 11-14 (S10 a and b, by David's word; one driver deploy)
 - S10 a: a line said to several hearers is one event addressed to all of them (`to` a list), not an event apiece: `say`, `tell` and everything a room is told. A `say` in a room of forty wrote 41 events and a `tell` 76; a `say` writes four now whatever the crowd. Every reader of a narrative knows both shapes (the gate's "Meanwhile", the session, the play page, `log`, the Docent, the operator's trace); one hearer is written as before.
 - S10 b: a session's subscription is sent its observation again at most twice a second when the change was somebody else's, and once more when the window closes, as the room then stands; a change the session's own name made is sent at once. It was the whole room on every change in it.

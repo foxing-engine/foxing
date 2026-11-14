@@ -220,3 +220,38 @@ fn a_thousand_appends_in_units_of_ten_time() {
         t.elapsed().as_secs_f64()
     );
 }
+
+/// The database restarts under a running log (every backend is terminated): the
+/// request in flight may fail, and the next one finds the connection closed,
+/// reconnects, and carries on at the next sequence. Before this the log never
+/// reconnected, and every command failed until the driver was restarted (11-14).
+#[test]
+fn the_log_reconnects_when_the_database_closes_its_connection() {
+    let Some(url) = url() else {
+        eprintln!("FOXING_TEST_PG not set; skipping");
+        return;
+    };
+    let mut log = PostgresLog::open(&url).unwrap();
+    let w = fresh_world();
+    for i in 1..=3 {
+        log.append(&w, ev(1000 * i as i64, "t.k", i)).unwrap();
+    }
+    // Another connection ends every other backend of this database, as a restart does.
+    let mut other = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+    other
+        .batch_execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND datname = current_database()")
+        .unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    // At most one request is lost; then the log is itself again.
+    let first = log.head(&w);
+    let head = match first {
+        Ok(h) => h,
+        Err(_) => log.head(&w).expect("the second request reconnects"),
+    };
+    assert_eq!(head, Some(Seq(3)));
+    let e = log
+        .append(&w, ev(4000, "t.k", 4))
+        .expect("appends after the reconnect");
+    assert_eq!(e.seq, Seq(4));
+    assert_eq!(log.read_all(&w, Cursor::START).unwrap().len(), 4);
+}

@@ -96,7 +96,10 @@ impl PostgresLog {
         let (tx, rx) = mpsc::channel::<Request>();
         std::thread::Builder::new()
             .name("foxing-log-postgres".into())
-            .spawn(move || serve(client, rx))
+            .spawn({
+                let url = url.to_string();
+                move || serve(client, rx, url)
+            })
             .map_err(|e| LogError::Storage(e.to_string()))?;
         Ok(PostgresLog { tx })
     }
@@ -122,12 +125,89 @@ fn storage(e: postgres::Error) -> LogError {
 /// The last event this connection appended to a world: its sequence and its time.
 type Heads = std::collections::HashMap<WorldId, (u64, i64)>;
 
-fn serve(mut client: Client, rx: mpsc::Receiver<Request>) {
+/// How often, and how long between, attempts to reconnect when the connection is
+/// found closed. Short: the command that asked is waiting, under the world's lock.
+const RECONNECT_TRIES: u32 = 5;
+const RECONNECT_WAIT_MS: u64 = 1000;
+
+/// The connection was closed under the log (PostgreSQL restarted: an upgrade, a
+/// reload gone wrong, the box's own housekeeping). Connect again, and see that the
+/// log is where this process left it. It was not reconnected at all, and on 11-14
+/// every command failed with "connection closed" from the database's restart until
+/// the driver was restarted by hand.
+///
+/// If a unit was open when the connection went, or the log's head is not the head
+/// this process last wrote, the world in memory and the log disagree: the process
+/// stops (exit 70) and is started again from the log, as a failed commit does.
+fn reconnect(url: &str, heads: &Heads, open: bool) -> Result<Client, LogError> {
+    let mut last = None;
+    for attempt in 1..=RECONNECT_TRIES {
+        match Client::connect(url, NoTls) {
+            Ok(mut c) => {
+                eprintln!("postgres: the connection was closed; reconnected (attempt {attempt})");
+                let mut apart = open;
+                for (world, (seq, _)) in heads {
+                    match head(&mut c, world) {
+                        Ok(h) if h.map(|s| s.0) == Some(*seq) => {}
+                        Ok(h) => {
+                            eprintln!(
+                                "postgres: world {} is at #{} in the log and #{seq} here",
+                                world.0,
+                                h.map(|s| s.0).unwrap_or(0)
+                            );
+                            apart = true;
+                        }
+                        Err(e) => return Err(e),
+                    }
+                }
+                if apart {
+                    eprintln!("the log and the world in memory disagree after the connection was lost; stopping here, to be read back from the log");
+                    std::process::exit(70);
+                }
+                return Ok(c);
+            }
+            Err(e) => {
+                eprintln!("postgres: reconnecting: {e} ({attempt}/{RECONNECT_TRIES})");
+                last = Some(e);
+                std::thread::sleep(std::time::Duration::from_millis(RECONNECT_WAIT_MS));
+            }
+        }
+    }
+    Err(last
+        .map(storage)
+        .unwrap_or_else(|| LogError::Storage("could not reconnect".into())))
+}
+
+fn serve(mut client: Client, rx: mpsc::Receiver<Request>, url: String) {
     let mut heads = Heads::new();
     // S2: between a Begin and a Commit every append is one insert in one open
     // transaction, and the commit (the wait for the disk) is paid once for all.
     let mut open = false;
     for req in rx {
+        // A closed connection is found before the request is tried, and after one
+        // that failed on it (below), so at most one request is lost to a restart.
+        if client.is_closed() {
+            match reconnect(&url, &heads, open) {
+                Ok(c) => {
+                    client = c;
+                    heads.clear();
+                    open = false;
+                    INSERT_STMT.with(|s| *s.borrow_mut() = None);
+                }
+                Err(e) => {
+                    let e = LogError::Storage(format!("{e}; the database is not answering"));
+                    match req {
+                        Request::Append { reply, .. } => drop(reply.send(Err(e))),
+                        Request::Read { reply, .. } => drop(reply.send(Err(e))),
+                        Request::Head { reply, .. } => drop(reply.send(Err(e))),
+                        Request::Begin { reply } | Request::Commit { reply } => {
+                            drop(reply.send(Err(e)))
+                        }
+                    }
+                    continue;
+                }
+            }
+        }
         match req {
             Request::Append {
                 world,
@@ -247,12 +327,13 @@ fn append_in_unit(
     })
 }
 
-/// The insert, prepared once a connection: unprepared, each append also paid for a
-/// parse and a describe (two more trips to the server than the insert itself).
+// The insert, prepared once a connection: unprepared, each append also paid for a
+// parse and a describe (two more trips to the server than the insert itself).
+thread_local! {
+    static INSERT_STMT: std::cell::RefCell<Option<postgres::Statement>> = const { std::cell::RefCell::new(None) };
+}
+
 fn prepared(client: &mut Client) -> Result<postgres::Statement, LogError> {
-    thread_local! {
-        static INSERT_STMT: std::cell::RefCell<Option<postgres::Statement>> = const { std::cell::RefCell::new(None) };
-    }
     if let Some(s) = INSERT_STMT.with(|c| c.borrow().clone()) {
         return Ok(s);
     }
