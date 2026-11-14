@@ -1319,7 +1319,15 @@ pub(crate) fn resolve_item(
             by_kind || by_given
         })
         .map(|e| e.id)
-        .ok_or_else(|| CommandError::precondition(format!("There is no {arg} here to speak of.")))
+        .ok_or_else(|| {
+            // R213: "There is no a small key here".
+            let bare = arg
+                .trim()
+                .trim_start_matches("a ")
+                .trim_start_matches("an ")
+                .trim_start_matches("the ");
+            CommandError::precondition(format!("There is no {bare} here to speak of."))
+        })
 }
 
 /// An object the verbs that shape things take: a thing in your satchel, or a fixture

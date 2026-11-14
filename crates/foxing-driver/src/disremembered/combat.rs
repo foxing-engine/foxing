@@ -2611,7 +2611,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 let in_me_whole = (super::MAX_HP / its).floor();
                 if chp > 0.0 {
                     format!(
-                        " A second stand now: about {rounds_now:.0} round{}{} to fell it, and you have {in_me_now:.0} in you. When you are whole: about {rounds_then:.0} round{} against its {chp_then:.0}, and you have {in_me_whole:.0}{}{}.",
+                        " A second stand now would take about {rounds_now:.0} round{}{} to fell it, and you could stand about {in_me_now:.0} of its blows. Once you are whole it would take about {rounds_then:.0} round{} against the {chp_then:.0} hit points it will have by then, and you could stand about {in_me_whole:.0} blows{}{}.",
                         if rounds_now == 1.0 { "" } else { "s" },
                         // The rounds count misses: a shaken hand at one in four lands
                         // reads as "3 rounds for 10 hp with a hit of 7" (the Watch of 11-07).

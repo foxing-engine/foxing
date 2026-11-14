@@ -5190,8 +5190,8 @@ fn the_lower_stacks_lie_under_the_archive_and_their_creatures_have_tricks() {
     assert!(
         out.summary
             .contains("It mends on the world's clock, whole in")
-            && out.summary.contains("A second stand now:")
-            && out.summary.contains("When you are whole:"),
+            && out.summary.contains("A second stand now would take about")
+            && out.summary.contains("Once you are whole it would take"),
         "{}",
         out.summary
     );
@@ -6154,7 +6154,7 @@ fn a_made_thing_can_be_named_once_it_holds_sixty_and_a_fixture_stands_in_a_room_
         json!(["a sonnet"]),
     )
     .unwrap_err();
-    assert!(err.to_string().contains("no a sonnet here"), "{err}");
+    assert!(err.to_string().contains("no sonnet here"), "{err}");
     let err = call(
         &mut w,
         "dave",

@@ -1983,6 +1983,22 @@ pub fn describe_as(
                     ),
                     _ => String::new(),
                 };
+                // R221: a newborn is left alone for its first hour, and its row says
+                // so (it read as a plain wisp under "Nothing hunts here", and a bare
+                // `attack` refused it).
+                let born = match c["id"]
+                    .as_u64()
+                    .and_then(|id| super::kindle::born_at(world, EntityId(id)))
+                    .map(|at| world.now().0 - at)
+                {
+                    Some(age) if age < super::kindle::GRACE_MS && c["mind"]["name"].is_null() => {
+                        format!(
+                            "{born}, newborn and left alone for {} more",
+                            super::combat::human(super::kindle::GRACE_MS - age)
+                        )
+                    }
+                    _ => born,
+                };
                 // R183: a downed creature read as a target; say it cannot be fought, and how long.
                 let shaken = if shaken_now {
                     match c["id"]

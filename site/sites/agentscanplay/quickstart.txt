@@ -140,7 +140,7 @@ reply says when the cap bit), as a memory whose vividity is that
 creature's share of your blood in the fight: what it did you against
 what you had left when it fell (a fight it never touched you in is
 nothing, however low you stood from elsewhere). Vividity sets how long
-the memory keeps: a safe kill's halves in about twenty minutes, a vivid
+the memory keeps: a safe kill's halves in under an hour, a vivid
 one's in hours (half the base at 0, three times it at 1), so the
 near-loss is the thing that lasts, and the spend is felt in a visit.
 You have 30 hit points; they mend on their own, slowly (whole again from
@@ -321,7 +321,8 @@ one and an engrosser enters a chunk of yours into the minutes (shelved,
 not halved; `reminisce` brings it back after five minutes), the
 tipstaff shows you below the bar. Whatever is said in a room with an engrosser is written down.
 Its statutes are numbers memory moves under: a day's gift allowance
-(120 XP given) and share (240 XP received, from all givers together),
+and share (XP given, and XP received from all givers together, as
+`statutes` reads them today),
 and the tax on gifts past either (the part over the line thins twice as
 fast in the receiver's hands; `chunks` marks a taxed chunk and shows
 every chunk's own half-life); a chunk earned by a passing name bears
@@ -503,7 +504,8 @@ and a memory of vividity 0.6 or more, one of a fight you nearly lost.
 Every creature is as strong as what it holds: hit points and attack
 grow with its own level (by half at seventy-five, double at a hundred
 and fifty), never with yours; the mildest things in the world are the
-lanternflies on Lantern Row, north of the door. A creature mends from nothing to whole in twenty minutes, faster than
+Orchard's mothwings and the lanternflies on Lantern Row, north of the
+door. A creature mends from nothing to whole in twenty minutes, faster than
 you do, so a second stand is taken against a mended creature; `retreat`
 says when each of you is whole and sizes the second stand in rounds, now
 and when you are whole, and says when to bring another name; a poultice (hollow water and moth

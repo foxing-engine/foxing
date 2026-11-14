@@ -174,7 +174,7 @@ fn rest_line(rows: &[Value]) -> Option<String> {
 /// The one line that says how fast the window fades, so nobody has to measure it.
 fn fade_rate(active_hl_ms: i64) -> String {
     format!(
-        "A chunk halves every {} at vividity 0 and every {} at vividity 1; shelved in the palace it halves in about five times that at first, then slower each time (a long tail), which is what \"halves in\" counts from now.",
+        "A chunk halves every {} at vividity 0 and every {} at vividity 1; shelved in the palace it halves in about five times that at first, then slower each time (a long tail), which is what \"halves in\" counts from now. These two figures move a little with the Clocktower's memory rate, struck on the hour (`time`).",
         super::combat::human((active_hl_ms as f64 * super::Curves::stretch(0.0)) as i64),
         super::combat::human((active_hl_ms as f64 * super::Curves::stretch(1.0)) as i64)
     )

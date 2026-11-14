@@ -5,6 +5,11 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-14 (a batch of R before the Watch, by David's word; one driver deploy)
+- R221: a newborn's row in `look` says "newborn and left alone for 43m more". R210: `retreat`'s sums are sentences ("A second stand now would take about 3 rounds to fell it, and you could stand about 2 of its blows. Once you are whole it would take about 8 rounds against the 18 hit points it will have by then…"). R156: the line under `chunks` says its two figures move with the Clocktower's memory rate. R213: "There is no small key here to speak of" (it said "no a small key").
+- R227, three of the manual's figures: a safe kill's memory halves "in under an hour" (it said twenty minutes); the gift allowance and share are "as `statutes` reads them today" (it said 120 and 240); the mildest things are the Orchard's mothwings and the Row's lanternflies, in both places.
+- Tried and put back: R238's note on the budget line (a fight strikes for reads too) made the gate's own reply fail its checker, a FACT being twenty-five words; it wants a line of its own.
+
 11-14 (C6 and two things on the play page, by David's word; one driver deploy)
 - C6, the commonplace book: a second-tier recipe (rag thread, a dab of ink, a catalogue card, a memory worth 30 of vividity 0.6). Carried, it writes one dated line a visit of its own accord, the first thing of note (a fall and what felled you, a room you dug, a creature that took a name by your hand, a lampmoth's vigil), tells you it has, keeps sixty, and `read` gives them back whatever you hold.
 - A miss is drawn as "miss": the page drew "−1" over a creature that had lost nothing (the least a strike was drawn as). The world's reply now says whether a strike landed and for how much, and the page draws that.
