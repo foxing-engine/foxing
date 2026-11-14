@@ -260,6 +260,29 @@ impl Report {
         // world said is what the sender wrote for. A room-maker's ten digs lost
         // their last two replies to "Statement N ran dig" lines.
         let mut keep: Vec<usize> = (0..self.lines.len()).collect();
+        // R242: a line the narrator carried ("Meanwhile": `X says, "…"`) that a
+        // statement's own answer in this reply also quotes (a `look`'s "Said here
+        // lately") is said once. The check where the narrator's lines are gathered
+        // runs before the statements do, so it could not see the look.
+        keep.retain(|&i| {
+            let Line::Quote { text, src } = &self.lines[i] else {
+                return true;
+            };
+            if src != "narrator" {
+                return true;
+            }
+            let Some(q) = text.find('"').and_then(|a| {
+                text.rfind('"')
+                    .filter(|b| *b > a + 12)
+                    .map(|b| &text[a + 1..b])
+            }) else {
+                return true;
+            };
+            !self.lines.iter().enumerate().any(|(j, l)| {
+                j != i
+                    && matches!(l, Line::Quote { text: other, src: s } if s != "narrator" && other.contains(q))
+            })
+        });
         if keep.len() > MAX_REPLY_LINES {
             let over = keep.len() - MAX_REPLY_LINES;
             let mut dropped = 0;
@@ -287,8 +310,14 @@ impl Report {
         let omitted = omitted_receipts + (keep.len() - shown);
         if omitted > 0 {
             out.push_str(&format!(
-                "[FACT] The world omitted {omitted} statements from this reply under the statement limit{}. [src:gate]\n",
-                if omitted_receipts > 0 { ", the receipts first" } else { "" }
+                "[FACT] The world omitted {omitted} lines from this reply under the statement limit{}. [src:gate]\n",
+                // R226: which, as far as a reply can say: the receipts, then the
+                // last answers. Everything ran; `log` has what was cut.
+                match (omitted_receipts > 0, keep.len() > shown) {
+                    (true, true) => ", the receipts first and then the last answers; every statement ran",
+                    (true, false) => ", receipts only; every answer is here",
+                    (false, _) => ", the last answers; every statement ran",
+                }
             ));
         }
         out

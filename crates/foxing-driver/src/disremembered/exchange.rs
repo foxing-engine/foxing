@@ -462,7 +462,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 }
                 // R117: a story that carried a word of the pool, and was not it, is
                 // told so by the word, so the guess counts for something.
-                let carried = super::secret::carried_of_pool(w, creature, &text);
+                let carried = super::secret::as_told(&text, &super::secret::carried_of_pool(w, creature, &text));
                 let not_it = match carried.len() {
                     0 => String::new(),
                     1 => format!(" It carried {}; that is not the word.", carried[0]),
@@ -515,7 +515,10 @@ pub fn register(world: &mut World, curves: Curves) {
                     1.0
                 };
             let gist = gist(&text);
-            let missed = if wanted { None } else { super::errand::why_missed(w, creature, &text) };
+            // R199: a story heard as the wanted one, at double or at plain pay inside
+            // the hour, is not also "not the one it wanted" (the want it met and the
+            // want that stands were two, and one reply said both).
+            let missed = if wanted || wanted_early { None } else { super::errand::why_missed(w, creature, &text) };
             // The word under the others: a story that carries it pays the level's bonus.
             let over = super::secret::overreach(w, &ctx.actor, creature, &text);
             // R214: what the story carried of the words its word could be, taken
@@ -597,8 +600,8 @@ pub fn register(world: &mut World, curves: Curves) {
                     // Watches' tellers could not tell a wrong guess from one unweighed.
                     None => match &guessed {
                         Some(g) if g.is_empty() => " Of my word: you said none of the words it could be.".to_string(),
-                        Some(g) if g.len() == 1 => format!(" Of my word: you said {}, which it could have been, and is not.", g[0]),
-                        Some(g) => format!(" Of my word: you said {}, which it could have been; it is none of them.", g.join(" and ")),
+                        Some(g) if g.len() == 1 => format!(" Of my word: you said {}, which it could have been, and is not.", super::secret::as_told(&text, g)[0]),
+                        Some(g) => format!(" Of my word: you said {}, which it could have been; it is none of them.", super::secret::as_told(&text, g).join(" and ")),
                         None => String::new(),
                     },
                 },
@@ -619,7 +622,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 format!(
                     "You tell {display} a story of {words} words, and it answers.{}{}{heard_line} You remember the telling: chunk-{} worth {paid:.1} XP{}.{}",
                     if wanted_early { " It was the story it wanted, heard inside its hour with you at plain pay (once an hour); the want stands, and told again when its hour turns it pays double." } else if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
-                    struck.as_ref().map(|(b, _, l)| format!(" It carried the word under the others, the {} of three: {}, and vivid.", ["first", "second", "third"][(*l as usize).clamp(1, 3) - 1], if bonus_only { format!("heard inside its hour with you, so the bonus alone: {} of what a story pays", match (b * 10.0).round() as i64 { 15 => "half again".to_string(), 20 => "as much again".to_string(), 25 => "one and a half times again".to_string(), _ => format!("{:.1} times", b - 1.0) }) } else { format!("{b:.1} times the pay") })).unwrap_or_default(),
+                    struck.as_ref().map(|(b, _, l)| format!(" It carried the word under the others, the {} of three: {}, and vivid.", ["first", "second", "third"][(*l as usize).clamp(1, 3) - 1], if bonus_only { format!("heard inside its hour with you, so the bonus alone, {paid:.1} XP: {} of what a story pays", match (b * 10.0).round() as i64 { 15 => "half again".to_string(), 20 => "as much again".to_string(), 25 => "one and a half times again".to_string(), _ => format!("{:.1} times", b - 1.0) }) } else { format!("{b:.1} times the pay, {paid:.1} XP") })).unwrap_or_default(),
                     earned.0,
                     if vivid > 0.4 { format!(", vividity {vivid:.2}{}", if long > 0.0 && struck.is_none() { " (length buys vividity, to 0.90 at two hundred words)" } else { "" }) } else { String::new() },
                     missed.as_deref().map(|m| format!(" {m}")).unwrap_or_default()

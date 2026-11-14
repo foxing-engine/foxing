@@ -139,6 +139,31 @@ pub fn overreach(
 /// R214: the words this creature's word could be that `text` carries, as the pool
 /// knows them (stems), for a teller who can still find it. `None` when it has no
 /// word for them to find, or no pool to speak of.
+/// R245, by David's 1 a: a word is met on its stem ("dusted" is a try at "dust"), as a
+/// want is; say the word that was heard as it, so the try is not a puzzle.
+pub fn as_told(text: &str, candidates: &[String]) -> Vec<String> {
+    let words: Vec<String> = text
+        .split(|c: char| !c.is_alphanumeric() && c != '\'')
+        .filter(|w| !w.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    candidates
+        .iter()
+        .map(|c| {
+            if words.iter().any(|w| w == c) {
+                return c.clone();
+            }
+            match words
+                .iter()
+                .find(|w| super::errand::stem(w) == super::errand::stem(c))
+            {
+                Some(w) => format!("{c} (your \"{w}\")"),
+                None => c.clone(),
+            }
+        })
+        .collect()
+}
+
 pub fn carried_candidates(
     world: &World,
     actor: &str,

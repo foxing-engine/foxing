@@ -179,7 +179,23 @@ pub fn register(world: &mut World) {
                 )));
             };
             let Some(them) = super::find_citizen(w, &target) else {
-                return Err(CommandError::precondition(format!("There is no one called {typed}.")));
+                // R224: a name the world knew lately and has forgotten is said so.
+                let gone = w
+                    .recent_events(6000)
+                    .iter()
+                    .rev()
+                    .find(|e| {
+                        e.kind == presence::FORGOTTEN_NAME
+                            && e.payload["name"].as_str().or(e.payload["actor"].as_str()).is_some_and(|n| n.eq_ignore_ascii_case(&typed))
+                    })
+                    .map(|e| w.now().since(e.at).0);
+                return Err(CommandError::precondition(match gone {
+                    Some(ago) => format!(
+                        "The world has forgotten {typed}: a passing name, gone quiet and let go {} ago. A word for it would have gone to the Dead Letter Office had it been left before; there is no one to tell now.",
+                        super::combat::human(ago)
+                    ),
+                    None => format!("There is no one called {typed}."),
+                }));
             };
             if target == ctx.actor {
                 return Err(CommandError::precondition("You tell yourself. Nothing changes."));
@@ -717,9 +733,17 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
         "what would you like",
     ]) && !has(&["wanted once", "used to want", "wanted before"])
     {
-        return Some(match super::errand::of(world, creature).and_then(|e| e.story) {
-            Some(s) => format!("A story about {s}. A dozen different words in sentences, some of them about that: `story` me it, and I keep it."),
-            None => "Nothing just now. Tell me any story of a dozen words and I will keep it; `wants` says who is wanting.".to_string(),
+        let e = super::errand::of(world, creature);
+        // R215: and the word it wants carried, which `wants` and `look` said and
+        // the creature itself did not.
+        let word = e
+            .as_ref()
+            .and_then(|e| e.word.clone().zip(e.word_to.clone()))
+            .map(|(w, to)| format!(" And a word carried: \"{w}\", to {to} (`wants` says how)."))
+            .unwrap_or_default();
+        return Some(match e.and_then(|e| e.story) {
+            Some(s) => format!("A story about {s}. A dozen different words in sentences, some of them about that: `story` me it, and I keep it.{word}"),
+            None => format!("Nothing just now. Tell me any story of a dozen words and I will keep it; `wants` says who is wanting.{word}"),
         });
     }
     if has(&["is the word", "is your word", "is it the word", "word is"]) && t.contains('?') {

@@ -130,7 +130,13 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
                 let ready = super::exchange::ready_in(world, actor, e.id)
                     .map(|ms| format!("ready in {}", super::combat::human(ms)))
                     .unwrap_or_else(|| "after the hour".to_string());
-                format!("a story about {s}{turned} (you told it one this hour; it pays double again {ready}, and before then hears the wanted story once more, at plain pay)")
+                // R205: "once more" was promised after it had been heard.
+                let once_more = if super::exchange::heard_early_this_hour(world, actor, e.id) {
+                    "and has heard the wanted story once more from you already; nothing more from you until then"
+                } else {
+                    "and before then hears the wanted story once more, at plain pay"
+                };
+                format!("a story about {s}{turned} (you told it one this hour; it pays double again {ready}, {once_more})")
             } else if super::exchange::heard_this_hour(world, e.id)
                 >= super::exchange::STORIES_AN_HOUR
             {
@@ -650,8 +656,33 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
         let takes = level * super::combat::death_share(level);
         if falls > 0 {
             let factor = (0.5f64.powi(falls as i32)).max(super::combat::FALL_FLOOR);
+            // R209: and what the last one took, and from what.
+            let last = world
+                .recent_events(6000)
+                .iter()
+                .rev()
+                .find(|e| e.kind == super::combat::DIED && e.payload["citizen"] == actor)
+                .map(|e| {
+                    let lost: Vec<String> = e.payload["lost"]
+                        .as_array()
+                        .map(|a| {
+                            a.iter()
+                                .filter_map(|l| {
+                                    let v = l["value"].as_f64()?;
+                                    (v >= 0.05).then(|| format!("{v:.1} XP of {}", l["source"].as_str().unwrap_or("a memory")))
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    if lost.is_empty() {
+                        " The last fall took nothing: you held too little for it to take.".to_string()
+                    } else {
+                        format!(" The last fall took {}.", lost.join(", "))
+                    }
+                })
+                .unwrap_or_default();
             Some(format!(
-                " The next fall would take about {:.0} XP of the {level:.0} you carry now.",
+                "{last} The next fall would take about {:.0} XP of the {level:.0} you carry now.",
                 (takes * factor).max(0.0)
             ))
         } else {

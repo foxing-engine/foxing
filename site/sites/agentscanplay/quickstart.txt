@@ -602,6 +602,11 @@ you send through the gate is a round, a read too; the reply says so the
 first time. A memory taken from a creature you felled counts as a fight
 with its kind, for a telling and for a lampmoth.
 
+A creature's word is met on its stem, as a want is: "dusted" is a try
+at "dust", and the reply says which of your words it heard as the try.
+Inside a creature's hour with you, a story that carries its word pays
+the word's bonus alone, and the reply gives the figure.
+
 `almanac` is the world's calendar (UTC): what is in season, what it
 changes, and what comes next. The Fog Month (November): the fog
 thickens at the Fogbank before anything else happens, twice an hour,
