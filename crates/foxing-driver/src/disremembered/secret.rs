@@ -136,6 +136,44 @@ pub fn overreach(
     (carried > heard).then_some((carried, heard))
 }
 
+/// R214: the words this creature's word could be that `text` carries, as the pool
+/// knows them (stems), for a teller who can still find it. `None` when it has no
+/// word for them to find, or no pool to speak of.
+pub fn carried_candidates(
+    world: &World,
+    actor: &str,
+    creature: EntityId,
+    text: &str,
+) -> Option<Vec<String>> {
+    let v = field(world, creature)?;
+    if v["word"].as_str().unwrap_or("").is_empty()
+        || v["struck"]
+            .as_array()
+            .is_some_and(|a| a.iter().any(|s| s == actor))
+    {
+        return None;
+    }
+    let level = (v["level"].as_u64().unwrap_or(1) as u8).clamp(1, LEVELS);
+    let from = v["from"].as_str().unwrap_or("");
+    let pool: std::collections::BTreeSet<String> = if from == "lore" {
+        LORE.iter().map(|w| super::errand::stem(w)).collect()
+    } else {
+        source_text(
+            world,
+            creature,
+            level,
+            if from == "kept" { "room" } else { from },
+        )
+        .map(|t| {
+            candidates(&t)
+                .iter()
+                .map(|w| super::errand::stem(w))
+                .collect()
+        })?
+    };
+    Some(stems_of(text).intersection(&pool).cloned().collect())
+}
+
 /// The third rung's word after it has been found `turn` times: another of the
 /// room's words, so the public record of the last strike does not open it.
 fn room_word(world: &World, creature: EntityId, turn: usize, not: &str) -> Option<String> {
@@ -530,7 +568,7 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
         1 => "There is a word under the others, and I do not say it. It was in the first thing anyone told me; ask me to recite the first story.".to_string(),
         2 if from == "told" => "The first was found. The next was in the first thing anyone told me; ask me to recite it. I hear three of its words to a story now; say more of them and I cannot tell which you meant.".to_string(),
         2 => "The first was found. The next is in something I wanted once, and have not forgotten. I hear three of its words to a story now; say more of them and I cannot tell which you meant.".to_string(),
-        _ => "The last is around me: a word of the room I stand in, as `look` says it. One of the room's words to a story and no more; say two and I cannot tell which you meant. And it moves on each time it is found. I weigh one guess at it from a name every ten minutes; a story sent sooner I do not weigh at all.".to_string(),
+        _ => "The third and last is around me: a word of the room I stand in, as `look` says it. One of the room's words to a story and no more; say two and I cannot tell which you meant. And it moves on each time it is found. I weigh one guess at it from a name every ten minutes; a story sent sooner I do not weigh at all.".to_string(),
     };
     // R118: at the top of the ladder the word stays for new tellers; the one who
     // found it is told so, not "Gnatterbell found one before you" to Gnatterbell.
@@ -568,7 +606,7 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
                 .collect();
             if n == 1 {
                 format!(
-                    " One story from you since has carried none, so: it is one of these: {}.",
+                    " One try of yours since has not been it, so: it is one of these: {}.",
                     LORE.iter()
                         .copied()
                         .filter(|w| !not_it.iter().any(|t| t == w))
@@ -587,7 +625,7 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
                 five.truncate(4);
                 five.insert(seed % 5, &word);
                 format!(
-                    " {n} stories from you since have carried none, so: it is one of these five: {}.",
+                    " {n} tries of yours since have not been it, so: it is one of these five: {}.",
                     five.join(", ")
                 )
             }
@@ -597,19 +635,19 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
         // second, four and eight at the third), and the third never quotes the
         // room: `look` has it.
         (n, Some(_)) if n < NARROWS[(level.clamp(1, LEVELS) - 1) as usize].0 => format!(
-            " {n} stor{} from you since {} carried none; I say more after {}.",
+            " {n} tr{} of yours since {} not been it; I say more after {}.",
             if n == 1 { "y" } else { "ies" },
             if n == 1 { "has" } else { "have" },
             NARROWS[(level.clamp(1, LEVELS) - 1) as usize].0
         ),
         (n, Some(_)) if level >= LEVELS && n < NARROWS[(LEVELS - 1) as usize].1 => format!(
-            " {n} stories from you since have carried none, so: it is one of the longer words of this room, five letters or more; I say which sentence after {}.",
+            " {n} tries of yours since have not been it, so: it is one of the longer words of this room, five letters or more; I say which sentence after {}.",
             NARROWS[(LEVELS - 1) as usize].1
         ),
         (n, Some(text)) if n < NARROWS[(level.clamp(1, LEVELS) - 1) as usize].1 => {
             let shown: String = text.chars().take(160).collect();
             format!(
-                " {n} stor{} from you since {} carried none, so: it is in this: \"{shown}{}\"",
+                " {n} tr{} of yours since {} not been it, so: it is in this: \"{shown}{}\"",
                 if n == 1 { "y" } else { "ies" },
                 if n == 1 { "has" } else { "have" },
                 if text.chars().count() > 160 {
@@ -634,7 +672,7 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
                 .unwrap_or(text.as_str())
                 .to_string();
             format!(
-                " {n} stories from you since have carried none, so: it is in this sentence, one of the longer words: \"{sentence}\"",
+                " {n} tries of yours since have not been it, so: it is in this sentence, one of the longer words: \"{sentence}\"",
             )
         }
     };

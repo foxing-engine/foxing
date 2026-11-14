@@ -31,8 +31,8 @@ const KEPT_ONLY: &[&str] = &[
     "pto",
     "resume",
     "describe",
-    "append",
     "name",
+    "petition",
 ];
 
 /// What the name is, before any statement: free, kept, or passing.
@@ -418,18 +418,32 @@ pub fn run_checked(
                                 .as_ref()
                                 .is_some_and(|f| super::exchange::bench_heard(world, f.citizen))
                             {
-                                (false, "refused: the bench has heard your one story".to_string())
+                                (
+                                    false,
+                                    "refused: the bench has heard your one story".to_string(),
+                                )
                             } else {
                                 (true, "tells the Reading Bench a first story, if it is a dozen different words".to_string())
                             }
                         }
                         ("story", Some(c)) => match mind::name(world, c) {
-                            Some(_) if world.recent_events(2000).iter().any(|e| {
-                                e.kind == super::exchange::STORY
-                                    && e.payload["from"] == actor
-                                    && e.payload["creature"] == c.0
-                                    && world.now().0 - e.at.0 < 3_600_000
-                            }) => (false, format!("refused: one story an hour per creature, and {} had one from you within the hour", mind::display(world, c))),
+                            // R212: inside its hour with the teller the gate still hears
+                            // the story it wants (once, at plain pay) and one that
+                            // carries its word. The dry run says the first, and of the
+                            // second only that it cannot say: a free yes would be a
+                            // free guess.
+                            Some(_) if super::exchange::told_this_hour(world, actor, c) => {
+                                let who = mind::display(world, c);
+                                if errand::wants_story(world, c, &arg(1)) {
+                                    if super::exchange::heard_early_this_hour(world, actor, c) {
+                                        (false, format!("refused: {who} has heard the story it wants from you inside this hour already; another waits for the hour to turn"))
+                                    } else {
+                                        (true, format!("tells {who} the story it wants, inside its hour with you: heard once, at plain pay"))
+                                    }
+                                } else {
+                                    (true, format!("inside {who}'s hour with you: heard only if it carries its word, which a dry run does not say; if not, refused at a quarter and counted as a try at the word"))
+                                }
+                            }
                             Some(_) => {
                                 let wanted = errand::wants_story(world, c, &arg(1));
                                 let heard = super::exchange::heard_lately(world, c, &arg(1));
@@ -443,20 +457,18 @@ pub fn run_checked(
                                     format!(
                                         "tells {} a story{}{}",
                                         mind::display(world, c),
-                                            if wanted {
-                                                ": the one it wants, worth double".to_string()
-                                            } else if let Some(k) = listens {
-                                                format!(
-                                                    ", not the one it wants (it listens for {k})"
-                                                )
-                                            } else {
-                                                String::new()
-                                            },
-                                            if heard > 0 {
-                                                format!("; it has heard {heard} much like it this hour, so this one pays {}", if heard == 1 { "half" } else { "less than half" })
-                                            } else {
-                                                String::new()
-                                            }
+                                        if wanted {
+                                            ": the one it wants, worth double".to_string()
+                                        } else if let Some(k) = listens {
+                                            format!(", not the one it wants (it listens for {k})")
+                                        } else {
+                                            String::new()
+                                        },
+                                        if heard > 0 {
+                                            format!("; it has heard {heard} much like it this hour, so this one pays {}", if heard == 1 { "half" } else { "less than half" })
+                                        } else {
+                                            String::new()
+                                        }
                                     ),
                                 )
                             }
@@ -508,7 +520,8 @@ pub fn run_checked(
                                         super::combat::human(ms)
                                     ),
                                 )
-                            } else if mind::name(world, c).is_some() && (asked.is_empty() || asked == kind)
+                            } else if mind::name(world, c).is_some()
+                                && (asked.is_empty() || asked == kind)
                             {
                                 (
                                     false,
@@ -532,7 +545,8 @@ pub fn run_checked(
                         // refused what the gate ran).
                         ("tell", None) if super::docent::is_named(&who) => (
                             true,
-                            "asks the Docent; it comes to you with the answer within a few minutes".to_string(),
+                            "asks the Docent; it comes to you with the answer within a few minutes"
+                                .to_string(),
                         ),
                         ("tell", None) => match super::canonical_name(world, &who) {
                             Some(cz) => {
@@ -565,7 +579,9 @@ pub fn run_checked(
                                 .map(|r| super::combat::creatures_in(world, r))
                                 .unwrap_or_default()
                                 .into_iter()
-                                .find(|c| mind::name(world, c.0).is_none() && !mind::shaken(world, c.0));
+                                .find(|c| {
+                                    mind::name(world, c.0).is_none() && !mind::shaken(world, c.0)
+                                });
                             match unnamed {
                                 Some(c) => (true, format!("strikes the {}", c.1)),
                                 // R201: say why, as `attack <kind>` does, when what
@@ -590,7 +606,26 @@ pub fn run_checked(
                                 ),
                             }
                         }
-                        (_, None) => (false, format!("refused: no {who} in {}", room_name_in(&dug_names, room))),
+                        ("remember", None)
+                            if existing.as_ref().is_some_and(|f| {
+                                super::craft::resolve_object(world, actor, f.citizen, &who).is_ok()
+                            }) =>
+                        {
+                            match my_chunk(&arg(0)) {
+                                Ok(_) => (
+                                    true,
+                                    format!(
+                                        "feeds {} to {who}, which you carry or which stands here",
+                                        arg(0)
+                                    ),
+                                ),
+                                Err(why) => (false, format!("refused: {why}")),
+                            }
+                        }
+                        (_, None) => (
+                            false,
+                            format!("refused: no {who} in {}", room_name_in(&dug_names, room)),
+                        ),
                         _ => (true, format!("runs {verb}")),
                     }
                 }
@@ -627,6 +662,40 @@ pub fn run_checked(
                     Ok(_) => (true, format!("runs {verb} on {}", arg(0))),
                     Err(why) => (false, format!("refused: {why}")),
                 },
+                "give" | "trade"
+                    if my_chunk(&arg(0)).is_err()
+                        && existing.as_ref().is_some_and(|f| {
+                            super::craft::resolve_object(world, actor, f.citizen, &arg(0)).is_ok()
+                        }) =>
+                {
+                    // R212: a thing in the satchel is given and traded as the gate
+                    // does it; what the other carries the dry run cannot see.
+                    let typed = arg(1).trim().trim_start_matches("citizen-").to_string();
+                    match super::canonical_name(world, &typed) {
+                        None => (false, format!("refused: there is no one called {typed}")),
+                        Some(cz) if cz == actor => (false, "refused: that is yourself".into()),
+                        Some(cz) => {
+                            let here = super::find_citizen(world, &cz).is_some_and(|f| {
+                                rooms::room_of(world, f.citizen) == room
+                                    && presence::is_here(world, f.citizen)
+                            });
+                            if !here {
+                                (false, format!("refused: {cz} is not here; a thing is handed over hand to hand"))
+                            } else if verb == "give" {
+                                (true, format!("hands {} to {cz}, who is here", arg(0)))
+                            } else {
+                                (true, format!("offers {} to {cz} for {}, if {cz} carries one: the dry run cannot see another's satchel", arg(0), arg(2)))
+                            }
+                        }
+                    }
+                }
+                "trade" => (
+                    false,
+                    format!(
+                        "refused: there is no {} in your satchel; satchel lists what you carry",
+                        arg(0)
+                    ),
+                ),
                 "give" => match my_chunk(&arg(0)) {
                     Err(why) => (false, format!("refused: {why}")),
                     Ok(_) => {

@@ -441,7 +441,8 @@ pub fn register(world: &mut World, curves: Curves) {
             if within_hour && !wanted_early && super::secret::would_strike_any(w, &ctx.actor, creature) {
                 if let Some(ms) = super::secret::next_guess_in(w, &ctx.actor, creature) {
                     return Err(CommandError::precondition(format!(
-                        "{name} weighs one guess at its third word from a name every ten minutes, and yours was weighed just now; it will weigh another in {}. That story was not weighed: it is neither a miss nor the word. (The story it wants is still heard, at plain pay.)",
+                        "{name} weighs one guess at its third and last word from a name every ten minutes, and weighed one of yours {}; it will weigh another in {}. That story was not weighed: it is neither a miss nor the word. (The story it wants is still heard, at plain pay.)",
+                        if super::secret::GUESS_EVERY_MS - ms < 60_000 { "just now".to_string() } else { format!("{} ago", super::combat::human(super::secret::GUESS_EVERY_MS - ms)) },
                         super::combat::human(ms)
                     )));
                 }
@@ -511,6 +512,9 @@ pub fn register(world: &mut World, curves: Curves) {
             let missed = if wanted { None } else { super::errand::why_missed(w, creature, &text) };
             // The word under the others: a story that carries it pays the level's bonus.
             let over = super::secret::overreach(w, &ctx.actor, creature, &text);
+            // R214: what the story carried of the words its word could be, taken
+            // before the strike moves the word on.
+            let guessed = super::secret::carried_candidates(w, &ctx.actor, creature, &text);
             let struck = super::secret::strike(w, &ctx.actor, creature, &text)?;
             // The grace, said right: the first miss of the hour spends nothing; the
             // second spends it ("once" on both read as a lie, the Watch of 11-07). A
@@ -583,7 +587,14 @@ pub fn register(world: &mut World, curves: Curves) {
                         " You said {n} of the words my word could be; I hear {} to a story at this rung, so none of them counted.",
                         if heard == 1 { "one".to_string() } else { heard.to_string() }
                     ),
-                    None => String::new(),
+                    // R214: a story heard and not the word says so, every time: two
+                    // Watches' tellers could not tell a wrong guess from one unweighed.
+                    None => match &guessed {
+                        Some(g) if g.is_empty() => " Of my word: you said none of the words it could be.".to_string(),
+                        Some(g) if g.len() == 1 => format!(" Of my word: you said {}, which it could have been, and is not.", g[0]),
+                        Some(g) => format!(" Of my word: you said {}, which it could have been; it is none of them.", g.join(" and ")),
+                        None => String::new(),
+                    },
                 },
             };
             let answer = if wanted {

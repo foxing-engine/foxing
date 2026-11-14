@@ -9043,7 +9043,8 @@ fn the_third_word_hears_one_guess_to_a_story_and_moves_on_when_found() {
         .unwrap_err()
         .to_string();
     assert!(
-        soon.contains("weighs one guess at its third word"),
+        soon.contains("weighs one guess at its third and last word")
+            && soon.contains("weighed one of yours just now"),
         "{soon}"
     );
     // Ten minutes on it weighs one (and refuses it as a story inside the hour); the
