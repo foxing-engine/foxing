@@ -2394,10 +2394,24 @@ pub fn register(world: &mut World, curves: Curves) {
                             })
                             .collect();
                         return Err(CommandError::precondition(format!(
-                            "{} needs {}, and you carry none{}.",
+                            "{} needs {}, and you carry none{}.{}",
                             r.name,
                             lacking.join(" and "),
-                            if lacking.len() > 1 { " of them" } else { "" }
+                            if lacking.len() > 1 { " of them" } else { "" },
+                            if r.chunk_at_least > 0.0 {
+                                format!(
+                                    " It is also made with a memory: `craft {} <chunk>`, one worth {:.0} or more{} (`recipes` says whether you hold one).",
+                                    r.key,
+                                    r.chunk_at_least,
+                                    if r.vividity_at_least > 0.0 {
+                                        format!(" at vividity {:.1} or more", r.vividity_at_least)
+                                    } else {
+                                        String::new()
+                                    }
+                                )
+                            } else {
+                                String::new()
+                            }
                         )));
                     }
                 }

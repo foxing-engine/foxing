@@ -595,7 +595,8 @@ back however little you hold: you forget; the book does not.
 A creature that has heard three stories in an hour, from anyone, is
 full for that hour and says so. A story it wants, told again inside
 your own hour with it, is heard once more at plain pay. `attend` works
-in the Conclave's rooms (the Gallery, off the Division Lobby): elsewhere
+in the Conclave's rooms (up the Stopped Clocktower and through the
+Escapement Stair; `where "Division Lobby"`): elsewhere
 it says where they are. While something fights you, every statement
 you send through the gate is a round, a read too; the reply says so the
 first time. A memory taken from a creature you felled counts as a fight

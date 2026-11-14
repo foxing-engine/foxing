@@ -648,12 +648,21 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
     let fall_now = {
         let level = super::memory::level(world, f.window);
         let takes = level * super::combat::death_share(level);
-        (falls == 0 && takes >= 0.5).then(|| {
+        if falls > 0 {
+            let factor = (0.5f64.powi(falls as i32)).max(super::combat::FALL_FLOOR);
+            Some(format!(
+                " The next fall would take about {:.0} XP of the {level:.0} you carry now.",
+                (takes * factor).max(0.0)
+            ))
+        } else {
+            None
+        }
+        .or_else(|| (falls == 0 && takes >= 0.5).then(|| {
             format!(
                 " A fall now would take about {takes:.0} XP, {:.0}% of the {level:.0} you carry (a fall takes a share of the window that grows with what you hold; a second the same night takes half that share).",
                 super::combat::death_share(level) * 100.0
             )
-        })
+        }))
     };
     let summary = if lines.is_empty() {
         format!(
@@ -692,6 +701,11 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
                 )
             }
         )
+    };
+    // With things of yours listed, the fall's figure follows them.
+    let summary = match (&fall_now, lines.is_empty()) {
+        (Some(line), false) => format!("{summary}\n{}", line.trim()),
+        _ => summary,
     };
     Ok(
         json!({"summary": summary, "rooms": rooms_out, "creatures": creatures_out, "things": things_out, "since": since, "digest": digest, "falls_tonight": falls}),

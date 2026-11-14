@@ -792,7 +792,9 @@ fn clock_line(world: &World, creature: EntityId, actor: &str) -> String {
 /// still standing read as a lie; then a decimal.
 pub fn left_said(hp: f64) -> String {
     if hp > 0.0 && hp < 1.0 {
-        format!("{hp:.1}")
+        // Under one and not down: said in words, since every other figure is whole
+        // ("6/6" hit for 6 and "(0.1 left)" read as a fault; its hit points are 6.1).
+        "a sliver".to_string()
     } else {
         // Halves go up: "{:.0}" rounds a half to the even number, so 19.5 read
         // "20 left" and 12.5 "12 left" in one fight.
@@ -2220,21 +2222,31 @@ pub fn register(world: &mut World, curves: Curves) {
                     String::new()
                 };
                 // R225: and where else, from here, something mild stands now.
-                let elsewhere = if here.is_empty() {
+                let all_down = !here.is_empty() && here.iter().all(|c| super::mind::name(w, c.0).is_some() || super::mind::shaken(w, c.0));
+                let elsewhere = if here.is_empty() || all_down {
                     let here_key = plain_str(w, room, super::ROOM, "key").unwrap_or("").to_string();
-                    ["orchard-wall", "orchard", "fogbank", "lantern-row"]
+                    // The nearest by the signs, not the first on a list (from the
+                    // Threshold it named the Orchard Wall, four steps off, with
+                    // lanternflies one step north).
+                    let mut near: Vec<(usize, String)> = ["orchard-wall", "orchard", "fogbank", "lantern-row"]
                         .iter()
                         .filter(|k| **k != here_key)
                         .filter_map(|k| super::rooms::room_by_key(w, k))
-                        .find_map(|r| {
+                        .filter_map(|r| {
                             let c = creatures_in(w, r)
                                 .into_iter()
                                 .find(|c| super::mind::name(w, c.0).is_none() && !super::mind::shaken(w, c.0))?;
                             let kind = plain_str(w, c.0, CREATURE, "name")?.to_string();
                             let name = plain_str(w, r, super::ROOM, "name")?.to_string();
-                            Some(format!(" Elsewhere just now: a {kind} stands in {name} (`where {kind}` gives the way from here)."))
+                            let way = super::door::signed_way(w, room, r)?;
+                            Some((
+                                way.len(),
+                                format!(" Elsewhere just now: a {kind} stands in {name}, {} step{} by the signs ({}).", way.len(), if way.len() == 1 { "" } else { "s" }, way.join(", ")),
+                            ))
                         })
-                        .unwrap_or_default()
+                        .collect();
+                    near.sort();
+                    near.into_iter().next().map(|(_, s)| s).unwrap_or_default()
                 } else {
                     String::new()
                 };
@@ -2424,7 +2436,7 @@ pub fn register(world: &mut World, curves: Curves) {
                         .map(|ms| format!(", halves every {}", human(ms)))
                         .unwrap_or_default();
                     lines.push(format!(
-                        "{who} goes down, and you take its memory of {source}: chunk-{} worth {worth:.1} XP, vividity {taken_vividity:.2}{halves}.{faded} It gets up again, holding {left:.0}, and will not be itself for {}.",
+                        "{who} goes down, and you take its memory of {source}: chunk-{} worth {worth:.1} XP, vividity {taken_vividity:.2}{halves}. It counts as your fight with a {cname}, where a fight is asked for (the Reading Rooms).{faded} It gets up again, holding {left:.0}, and will not be itself for {}.",
                         chunk.0,
                         super::mind::shaken_for(w, creature).map(human).unwrap_or_else(|| "a while".into())
                     ));

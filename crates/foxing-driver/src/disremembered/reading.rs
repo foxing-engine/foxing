@@ -406,6 +406,8 @@ pub fn vigil(
     let source = plain_str(w, chunk, CHUNK, "source")
         .unwrap_or("?")
         .to_string();
+    // What it was a fight with (a taken memory is named for the creature's own).
+    let source = fight_kind(w, chunk, &source).unwrap_or(source);
     let vividity = plain_num(w, chunk, CHUNK, "vividity").unwrap_or(0.0);
     let now = w.now();
     let worth = w
@@ -446,7 +448,7 @@ pub fn vigil(
         .unwrap_or_default();
     Ok(Outcome::new(
         format!(
-            "The lampmoth settles on the memory of the {source} (vividity {vividity:.2}, worth {worth:.1}) and keeps it, wings shut, as long as a lamp burns. What it leaves you is the vigil: chunk-{} worth {paid:.1} XP, vividity {VIGIL_VIVIDITY:.2}{halves}. It keeps one an hour for a name.",
+            "The lampmoth settles on the memory of your fight with the {source}, a fight nearly lost (vividity {vividity:.2}, worth {worth:.1}) and keeps it, wings shut, as long as a lamp burns. What it leaves you is the vigil: chunk-{} worth {paid:.1} XP, vividity {VIGIL_VIVIDITY:.2}{halves}. It keeps one an hour for a name.",
             earned.0
         ),
         json!({"vigil": true, "spent": chunk.0, "with": source, "chunk": earned.0, "xp": paid, "vividity": VIGIL_VIVIDITY}),

@@ -31,7 +31,7 @@ pub fn carries_spade(world: &World, citizen: EntityId) -> bool {
 
 /// The way from `here` to `to` by the signs: the world's own rooms by their seeded
 /// exits, a dug room by the way to the Mudroom and then its door.
-fn signed_way(world: &World, here: EntityId, to: EntityId) -> Option<Vec<String>> {
+pub(crate) fn signed_way(world: &World, here: EntityId, to: EntityId) -> Option<Vec<String>> {
     if here == to {
         return Some(Vec::new());
     }
