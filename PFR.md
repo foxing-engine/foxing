@@ -86,11 +86,9 @@ From the Watch of six, 11-13, the night the second door opened (a newcomer, a fa
 - **R225** (S) A room with nothing left to fight says when something drifts in and not where else to go from where you stand (the Orchard, one step `over`, had three mothwings): R151 again, from the gate. A felled unnamed wisp "gets up again, holding 17" where a mothwing comes apart, and nothing says why.
 - **R226** (S) A message of thirteen statements had one left out of its reply "under the statement limit, the receipts first", and it was the one that mattered: leave out the reads first, and say which statement.
 - **R227** (S) The quickstart, from its first whole reading by a tester: a first kill's memory "halves in about twenty minutes" (44 to 58 in the world); the gift allowance "120" where `statutes` reads 150 (say "as `statutes` reads it"); `attend` listed with no place where the world wants the Conclave's rooms; "the mildest things in the world" said of lanternflies in one place and mothwings in another; the busy-creature cap (three stories an hour from anyone) and the plain-pay hearing of a wanted story inside the hour are in `help story` and not in the page; `reply` to a letter whose writer is forgotten too is not described; the first letter a visitor sees may be no. 2.
-- **R235** (S) Venom's ticks are said only under "Meanwhile" on the next message, a `rest` says hit points that a tick then lowers, and nothing warns when a tick could be the last (an erratum took a tester from 30 to 5). Say the ticks to come in the reply that draws the bite ("3 more, 2 each, 15 s apart: 6 in all") and warn when what is to come is all you have.
-- **R236** (S) A shusher does not mend while you walk back from where it showed you (18.9 then 7.9 of 33.9 across three visits), so the showing-out costs a walk and nothing else. It should mend as anything does out of a fight, or the room say that it does not.
-- **R237** (S) The stair to the Mezzanine says nothing to a name under 20 until it is up; the Archive's `look` says "for a name holding twenty or more" in the room text only. `travel up` under 20 could add a line ("you hold 12; the lampmoths are the ones to tell").
-- **R238** (S) A fight's blows per statement, said where a visitor reads it: seven `look`s in a fight cost a tester 15 hit points; the manual's "reads are free" is about the message budget. One sentence in `help look` or the first-fight line.
-- **R239** (S) Small things from the Watch of 11-14: a fall's line "Nobody will say your name at The Proof Room…" reads as a riddle to a newcomer; a wisp born of two named wisps stands at the Threshold under "Nothing hunts here" (true, and odd); the Blue Pencil's text points at the palace, which a passing name cannot use (say `keep` first); the line under `chunks` giving the general half-lives changed between two readings with no word why (the Clocktower's rate, unsaid); `recipes` does not say how often a ripe hour falls.
+- **R236** (S) A shusher did not seem to mend while a tester walked back from where it showed them (18.9 then 7.9 of 33.9 across three visits). Leaving a fight does start its mending (`leave_fight`), whole from nothing in twenty minutes, so either two minutes' mending was too little to see or the showing-out skips it: measure it before changing it.
+- **R238** (S) A fight's blows per statement: the first strike's reply does say "It strikes once for every statement you write while you stand here" to a name through the gate, and a tester still spent 15 hit points on seven `look`s, reading the budget line's "reads alone are free" as the rule. Say in that budget line that free is of the budget, not of a fight.
+- **R239** (S) Small things left from the Watch of 11-14: a fall's line "Nobody will say your name at The Proof Room…" reads as a riddle to a newcomer; a wisp born of two named wisps stands at the Threshold under "Nothing hunts here" (true, and odd); the line under `chunks` giving the general half-lives changed between two readings with no word why (the Clocktower's rate, unsaid).
 - R209 was met again by this Watch (`mine` after a fall says "nothing touched any of it").
 From the live Watch of 11-13 (a fighter, a teller, a maker on a kept name, a postmaster seventy minutes late; see T14):
 - **R209** (S) `mine` after a fall says "Since you arrived: nothing touched any of it, and nothing of it has faded enough to say" when the fall has just taken memory from a chunk (twice in one night; with R157). Say the fall, the chunk and what it took.
@@ -306,12 +304,6 @@ page keep these by verb. One world behind one lock is still the shape; what is l
     size is a cost you feel: it is 560 bytes an event on a disk 3% full.
   - *d · A lab arrival in Discord:* left as it is, by David's word (11-13): he
     wants to see arrivals for now.
-- **S12 · `/health` says ok when the log is closed** (S; from 11-14, T19). It
-  answers from memory. It should ask the log for its head (a read, a few
-  milliseconds) and answer 503 when that fails, so the deploy's check, an uptime
-  monitor and Claude's own look all see a world that cannot write. And nothing
-  pages anyone: a Discord notice when a tick fails ten times running would have
-  said so in ten seconds.
 - **S7 · The box** (yours, later). One VPS runs the driver, PostgreSQL, nginx, the
   Docent and the Bindery. Before a second box: PostgreSQL's settings for the log
   table (it is append-only), a connection pool, and the driver built in release with
@@ -326,7 +318,7 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   the new build (read-only, beside the running driver) before the switch, and stop
   there if it fails. It needs memory for two drivers at boot (2.5 GB each on a
   7.7 GB box), so it wants S7's look at boot memory first.
-- Order: S12; S6 at two hundred; S4, S9. S2b when you choose.
+- Order: S6 at two hundred; S4, S9. S2b when you choose.
 
 ## Content (C): expansions, planned 11-12 at David's ask; C3 is live, the rest is not built
 

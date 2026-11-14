@@ -223,7 +223,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "an orchard cordial",
         of: &["a ripe hour", "hollow water"],
         chunk_at_least: 0.0,
-        does: "makes your next two fights' memories much more vivid (half the scale) while carried, one each, as a moth charm does once. A ripe hour falls only in the Ripe Week (`almanac`)",
+        does: "makes your next two fights' memories much more vivid (half the scale) while carried, one each, as a moth charm does once. A ripe hour falls only in the Ripe Week, about twice an hour, in the Orchard (`almanac`)",
         uses: 2,
         fixed: false,
         takes_lines: false,

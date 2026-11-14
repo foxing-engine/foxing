@@ -351,7 +351,7 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: "blue-pencil",
         name: "The Blue Pencil",
-        description: "An office with the blinds down and a desk of files, every third line struck through in blue. The redactor does to you what it does to the files: one hit in two halves one of your chunks where it stands. The Stacks' censors do the same; this is where to learn to keep what you would miss in the palace.",
+        description: "An office with the blinds down and a desk of files, every third line struck through in blue. The redactor does to you what it does to the files: one hit in two halves one of your chunks where it stands. The Stacks' censors do the same; this is where to learn to keep what you would miss in the palace (`shelve <chunk>`; a passing name must `keep` its name first).",
         exits: &[("east", "returns-cage"), ("north", "lamp-table")],
         spawn: Some(("redactor", 1, 300)),
         former: &[],

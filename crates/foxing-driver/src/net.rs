@@ -587,6 +587,24 @@ async fn health(State(s): State<Shared>) -> Reply {
     let w = lock(&s)?;
     let head = w.log.head(&w.id).ok().flatten().map(|x| x.0).unwrap_or(0);
     let now = w.now();
+    // S12: ok means the world can write. The head above is answered from what the
+    // driver keeps in memory; this read is of the log's first event, which is not
+    // kept, so it goes to the log itself (and finds a closed connection, which is
+    // then made again). A world whose log refuses writes answers 503.
+    let asked = w.log.read(&w.id, foxing_log::Cursor::START, 1);
+    let failing = w.log_failures;
+    if asked.is_err() || failing > 0 {
+        let why = asked
+            .err()
+            .map(|e| e.to_string())
+            .unwrap_or_else(|| format!("the log has refused the last {failing} writes"));
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(
+                json!({"ok": false, "world": w.id.0, "events": head, "log": s.log_where, "error": why, "refused_writes": failing, "uptime_seconds": now.since(w.started).0 / 1000, "now": now.0}),
+            ),
+        ));
+    }
     Ok(Json(
         json!({"ok": true, "world": w.id.0, "events": head, "log": s.log_where, "uptime_seconds": now.since(w.started).0 / 1000, "now": now.0}),
     ))

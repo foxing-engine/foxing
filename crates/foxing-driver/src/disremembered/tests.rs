@@ -5114,7 +5114,7 @@ fn the_lower_stacks_lie_under_the_archive_and_their_creatures_have_tricks() {
     let lamprey = combat::creatures_in(&w, sump)[0].0;
     let (line, over) = stacks::trick(&mut w, &curves(), lamprey, f.citizen, "dave").unwrap();
     assert!(!over);
-    assert!(line.unwrap().contains("the venom will work"));
+    assert!(line.unwrap().contains("the venom works 4 times, 2 each"));
     assert!(w
         .jobs
         .has(stacks::JOB_VENOM, |p| p["citizen"] == f.citizen.0));

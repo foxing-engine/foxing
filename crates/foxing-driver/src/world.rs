@@ -30,6 +30,11 @@ pub trait LogFold: Default + Send + 'static {
     fn take(&mut self, e: &Event);
 }
 
+/// S12: how many refused writes in a row before the operator is told. Three: with
+/// the database gone each refused write has already waited five seconds for it, and
+/// a quiet world writes seldom.
+pub const LOG_FAILURES_SAID: u64 = 3;
+
 /// The driver's world.
 pub struct World {
     pub id: WorldId,
@@ -63,6 +68,9 @@ pub struct World {
     greetings: std::collections::HashMap<String, Timestamp>,
     /// Lines for the operator (a Discord channel, say), drained by the tick loop.
     notices: Vec<String>,
+    /// S12: writes the log has refused in a row, and since when.
+    pub log_failures: u64,
+    pub log_failing_since: Option<Timestamp>,
     /// Wrong passphrases per name: how many in a row, and when the last was. Five in a
     /// row lock the name for [`LOCKOUT`]. In this process only; a restart forgets.
     failures: std::collections::HashMap<String, (u32, Timestamp)>,
@@ -219,6 +227,8 @@ impl World {
             doors: std::collections::HashMap::new(),
             greetings: std::collections::HashMap::new(),
             notices: Vec::new(),
+            log_failures: 0,
+            log_failing_since: None,
             failures: std::collections::HashMap::new(),
             sweepers: Arc::new(Vec::new()),
             arrival_hooks: Arc::new(Vec::new()),
@@ -609,15 +619,54 @@ impl World {
     /// Append an event to the log and apply it to the store.
     pub fn record(&mut self, actor: Actor, event: StoreEvent) -> Result<Event, StoreError> {
         let at = self.now();
-        self.store
-            .record(self.log.as_mut(), &self.id, at, actor, event)
+        let out = self
+            .store
+            .record(self.log.as_mut(), &self.id, at, actor, event);
+        match &out {
+            Err(StoreError::Log(e)) => self.log_refused(&e.to_string()),
+            Err(_) => {}
+            Ok(_) => self.log_took(),
+        }
+        out
+    }
+
+    /// S12: the log refused a write. At the third in a row the operator is told,
+    /// once: on 11-14 the database restarted, every write failed for ten minutes,
+    /// `/health` said ok, and the first to know was a player at the keyboard.
+    fn log_refused(&mut self, why: &str) {
+        self.log_failures += 1;
+        if self.log_failing_since.is_none() {
+            self.log_failing_since = Some(self.now());
+        }
+        if self.log_failures == LOG_FAILURES_SAID {
+            eprintln!("the log has refused {LOG_FAILURES_SAID} writes running: {why}");
+            self.notices.push(format!(
+                "\u{26a0}\u{fe0f} **The world cannot write.** The log has refused {LOG_FAILURES_SAID} writes running ({why}). Nothing anyone does is kept until it answers; `/health` says 503."
+            ));
+        }
+    }
+
+    fn log_took(&mut self) {
+        if self.log_failures >= LOG_FAILURES_SAID {
+            let secs = self
+                .log_failing_since
+                .map(|t| self.now().since(t).0 / 1000)
+                .unwrap_or(0);
+            self.notices.push(format!(
+                "\u{2705} The log is taking writes again, after {} refused over {secs}s.",
+                self.log_failures
+            ));
+        }
+        self.log_failures = 0;
+        self.log_failing_since = None;
     }
 
     /// Append an event that is not a store event: a message through the Gate, say. The
     /// store ignores it on replay; it is in the log for the record, which is the point.
     pub fn note(&mut self, actor: Actor, kind: &str, payload: Value) -> Result<Event, String> {
         let at = self.now();
-        self.log
+        let out = self
+            .log
             .append(
                 &self.id,
                 foxing_log::NewEvent {
@@ -628,7 +677,12 @@ impl World {
                     payload,
                 },
             )
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string());
+        match &out {
+            Err(e) => self.log_refused(e),
+            Ok(_) => self.log_took(),
+        }
+        out
     }
 
     /// The last `n` events, oldest first.

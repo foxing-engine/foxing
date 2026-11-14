@@ -47,7 +47,7 @@ pub const SEASONS: &[Season] = &[
         name: "the Ripe Week",
         from: (11, 16),
         to: (11, 22),
-        does: "the Orchard's hours ripen, the one week its fruit is a material: a ripe hour falls there now and then (`take` it), and an orchard cordial is made of one and hollow water (`recipes`)",
+        does: "the Orchard's hours ripen, the one week its fruit is a material: a ripe hour falls there about twice an hour, three lying at most (`take` it), and an orchard cordial is made of one and hollow water (`recipes`)",
     },
     Season {
         key: ONE_STORY,

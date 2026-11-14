@@ -307,7 +307,21 @@ fn play(
                 json!({"trick": "venom", "creature": creature.0, "kind": kind, "citizen": actor}),
             );
             Ok((
-                Some("Its bite stays in you: the venom will work for a minute.".to_string()),
+                // R235: what is to come, said with the bite: the ticks were said
+                // only as they landed, a message late, and one fight went from 30
+                // to 5 on them unwarned.
+                Some({
+                    let to_come = VENOM_TICKS as f64 * VENOM_DAMAGE;
+                    let hp = super::combat::hp(world, citizen);
+                    format!(
+                        "Its bite stays in you: the venom works {VENOM_TICKS} times, {VENOM_DAMAGE:.0} each, {VENOM_EVERY_S} seconds apart ({to_come:.0} in all, wherever you go; a new bite starts the count again, it does not add).{}",
+                        if hp <= to_come + 1.0 {
+                            format!(" You have {hp:.0}: the venom alone could finish you. `rest` mends between ticks once you are out of the fight.")
+                        } else {
+                            String::new()
+                        }
+                    )
+                }),
                 false,
             ))
         }
