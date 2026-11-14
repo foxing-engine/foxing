@@ -168,7 +168,34 @@ impl Drop for PushTimer {
     }
 }
 
+/// Why a session ended, said in the journal when it was not the client's own
+/// goodbye: sessions have been dropped mid-run with no close frame since the first
+/// load test (two of twelve, one of thirty, eight of sixty), and nothing said which
+/// side did it.
+struct Ending {
+    began: std::time::Instant,
+    who: Option<String>,
+    why: String,
+}
+impl Drop for Ending {
+    fn drop(&mut self) {
+        if self.why != "the client closed" {
+            eprintln!(
+                "session ended: {} after {}s: {}",
+                self.who.as_deref().unwrap_or("(not logged in)"),
+                self.began.elapsed().as_secs(),
+                self.why
+            );
+        }
+    }
+}
+
 async fn run(socket: WebSocket, s: Shared) {
+    let mut ending = Ending {
+        began: std::time::Instant::now(),
+        who: None,
+        why: "the task was dropped".into(),
+    };
     let (mut tx, mut rx) = socket.split();
     let mut changes = s.changed.subscribe();
     let mut actor: Option<String> = None;
@@ -179,13 +206,13 @@ async fn run(socket: WebSocket, s: Shared) {
 
     macro_rules! send {
         ($v:expr) => {
-            if tx
+            if let Err(e) = tx
                 .send(Message::Text(
                     serde_json::to_string(&$v).unwrap_or_default().into(),
                 ))
                 .await
-                .is_err()
             {
+                ending.why = format!("a send failed: {e}");
                 return;
             }
         };
@@ -251,10 +278,23 @@ async fn run(socket: WebSocket, s: Shared) {
                 }
             }
             incoming = rx.next() => {
-                let Some(Ok(msg)) = incoming else { return };
+                let msg = match incoming {
+                    Some(Ok(msg)) => msg,
+                    Some(Err(e)) => {
+                        ending.why = format!("reading from the client failed: {e}");
+                        return;
+                    }
+                    None => {
+                        ending.why = "the client's stream ended with no close frame".into();
+                        return;
+                    }
+                };
                 let text = match msg {
                     Message::Text(t) => t.to_string(),
-                    Message::Close(_) => return,
+                    Message::Close(_) => {
+                        ending.why = "the client closed".into();
+                        return;
+                    }
                     _ => continue,
                 };
                 let frame: Frame = match serde_json::from_str(&text) {
@@ -378,9 +418,13 @@ async fn run(socket: WebSocket, s: Shared) {
             }
             changed = changes.recv() => {
                 if changed.is_err() && !matches!(changed, Err(tokio::sync::broadcast::error::RecvError::Lagged(_))) {
+                    ending.why = "the world's announcements closed".into();
                     return;
                 }
                 let Some(name) = actor.clone() else { continue };
+                if ending.who.is_none() {
+                    ending.who = Some(name.clone());
+                }
                 // S5: the events came with the announcement. A session they concern in
                 // nothing (not its own, not addressed to it, not news, touching nothing
                 // it subscribes to) takes no lock and sends nothing; fifty names once

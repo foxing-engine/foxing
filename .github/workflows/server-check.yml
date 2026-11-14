@@ -106,7 +106,8 @@ jobs:
               END { flush() }'
             db after; ops after
             echo "## driver journal during (last 15)"; journalctl -u foxing --since "-$((minutes + 1)) min" --no-pager </dev/null 2>&1 | tail -15 | cut -c1-220
-            echo "## nginx errors during (last 15)"; (sudo -n tail -n 400 /var/log/nginx/error.log 2>/dev/null || tail -n 400 /var/log/nginx/error.log 2>&1) | tail -15 | cut -c1-240
+            echo "## sessions ended, and panics, during"; journalctl -u foxing --since "-$((minutes + 1)) min" --no-pager </dev/null 2>&1 | grep -E "session ended|panicked" | tail -60 | cut -c1-220
+  echo "## nginx errors during (last 15)"; (sudo -n tail -n 400 /var/log/nginx/error.log 2>/dev/null || tail -n 400 /var/log/nginx/error.log 2>&1) | tail -15 | cut -c1-240
           fi
           REMOTE
           )
