@@ -108,6 +108,29 @@ impl HourBudget {
         entry.1 += cost;
     }
 
+    /// R226: what every name has spent in its running hour, to be kept across a
+    /// restart (a deploy mid-Watch gave every name sixty again): `{name: [start, spent]}`.
+    pub fn snapshot(&self, now: Timestamp) -> serde_json::Value {
+        serde_json::Value::Object(
+            self.used
+                .iter()
+                .filter(|(_, (start, spent))| now.since(*start).0 < HOUR_MS && *spent > 0.0)
+                .map(|(k, (start, spent))| (k.clone(), serde_json::json!([start.0, spent])))
+                .collect(),
+        )
+    }
+
+    /// Take up a snapshot: only the hours still running.
+    pub fn restore(&mut self, v: &serde_json::Value, now: Timestamp) {
+        for (name, e) in v.as_object().into_iter().flatten() {
+            if let (Some(start), Some(spent)) = (e[0].as_i64(), e[1].as_f64()) {
+                if now.since(Timestamp(start)).0 < HOUR_MS && spent > 0.0 {
+                    self.used.insert(name.clone(), (Timestamp(start), spent));
+                }
+            }
+        }
+    }
+
     /// When `actor`'s rolling hour frees, if anything is spent in it.
     pub fn frees_at(&self, actor: &str, now: Timestamp) -> Option<Timestamp> {
         match self.used.get(actor) {

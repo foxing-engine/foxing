@@ -177,12 +177,29 @@ fn main() {
             env_or("FOXING_LAB_NETS", "")
         );
     }
+    let budget_file: Option<std::path::PathBuf> = world
+        .ops_log
+        .as_ref()
+        .and_then(|p| p.parent().map(|d| d.join("hour-budget.json")));
+    let budget_file_tick = budget_file.clone();
     let shared = net::Shared {
         world: Arc::new(Mutex::new(world)),
         admin_token: env::var("FOXING_ADMIN_TOKEN"),
         budget: Arc::new(Mutex::new(observe::Budget::new(30, 10_000))),
         checker: Arc::new(gate::checker()),
-        hour_budget: Arc::new(Mutex::new(gate::HourBudget::new(60.0, 0.25))),
+        hour_budget: Arc::new(Mutex::new({
+            // R226: the hours running when the driver last stopped, from beside the
+            // operator's log (no file, no memory of them: a local world starts fresh).
+            let mut b = gate::HourBudget::new(60.0, 0.25);
+            if let Some(path) = &budget_file {
+                if let Ok(text) = std::fs::read_to_string(path) {
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                        b.restore(&v, world::now_ms());
+                    }
+                }
+            }
+            b
+        })),
         changed: tokio::sync::broadcast::channel(64).0,
         announced: Arc::new(Mutex::new(None)),
         limits: foxing_query::Limits::default(),
@@ -218,8 +235,30 @@ fn main() {
         // The scheduler: every due job, once a second.
         tokio::spawn(async move {
             let mut every = tokio::time::interval(std::time::Duration::from_secs(1));
+            let mut beat: u64 = 0;
+            let mut saved = String::new();
             loop {
                 every.tick().await;
+                // R226: the gate's hours, set down every ten seconds when they changed.
+                beat += 1;
+                if beat % 10 == 0 {
+                    if let Some(path) = &budget_file_tick {
+                        let text = shared
+                            .hour_budget
+                            .lock()
+                            .map(|b| b.snapshot(world::now_ms()).to_string())
+                            .unwrap_or_default();
+                        if !text.is_empty() && text != saved {
+                            let tmp = path.with_extension("json.tmp");
+                            if std::fs::write(&tmp, &text)
+                                .and_then(|_| std::fs::rename(&tmp, path))
+                                .is_ok()
+                            {
+                                saved = text;
+                            }
+                        }
+                    }
+                }
                 let (ran, notices) = shared
                     .world
                     .lock()

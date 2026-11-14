@@ -9899,9 +9899,18 @@ fn the_docent_keeps_three_names_near_the_door() {
     );
     // One pass names three mild creatures, kept by the Docent, with the world's
     // own memories; `look` says who keeps them.
+    // (And one more a step from the Postern, R222: a mothwing on the Orchard Wall.)
     let did = pilots::tend(&mut w).unwrap();
-    assert_eq!(did, 3);
-    assert_eq!(mind::named_count(&w), 3);
+    assert_eq!(did, 4);
+    assert_eq!(mind::named_count(&w), 4);
+    let wall = rooms::room_by_key(&w, "orchard-wall").unwrap();
+    assert_eq!(
+        combat::creatures_in(&w, wall)
+            .iter()
+            .filter(|c| mind::name(&w, c.0).is_some())
+            .count(),
+        1
+    );
     let named: Vec<EntityId> = w
         .store
         .of_kind("creature")
@@ -9947,7 +9956,8 @@ fn the_docent_keeps_three_names_near_the_door() {
         .iter()
         .filter(|e| e.kind == pilots::PILOTED)
         .count();
-    assert_eq!(piloted, 4);
+    // Three named by the door, one by the gate, and one fed back up.
+    assert_eq!(piloted, 5);
 }
 
 #[test]

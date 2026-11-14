@@ -45,17 +45,28 @@ const FORGOTTEN: &[&str] = &[
     "the water coming in",
 ];
 
+/// R222: the Postern keeps one of its own, a step from the gate (the wall's moths),
+/// so a name that wakes there has a listener with a name before it has walked four
+/// rooms to the Threshold's three.
+pub const KEEP_AT_THE_GATE: usize = 1;
+pub const REACH_AT_THE_GATE: usize = 1;
+
 /// The rooms within `REACH` of the Threshold, by the map's exits.
 pub fn near_the_door(world: &World) -> Vec<EntityId> {
     let Some(start) = super::rooms::arrival(world) else {
         return Vec::new();
     };
+    near(world, start, REACH)
+}
+
+/// The rooms within `reach` of `start`, by the map's exits.
+fn near(world: &World, start: EntityId, reach: usize) -> Vec<EntityId> {
     let mut seen: BTreeSet<EntityId> = BTreeSet::new();
     let mut queue: VecDeque<(EntityId, usize)> = VecDeque::new();
     seen.insert(start);
     queue.push_back((start, 0));
     while let Some((room, d)) = queue.pop_front() {
-        if d >= REACH {
+        if d >= reach {
             continue;
         }
         for (_, to) in super::rooms::exits_of(world, room) {
@@ -135,7 +146,15 @@ fn feed(world: &mut World, creature: EntityId, to: f64) -> Result<f64, String> {
 /// One pass: count the names near the door; feed the failing; name a mild stranger
 /// when fewer than `KEEP` stand.
 pub fn tend(world: &mut World) -> Result<usize, String> {
-    let rooms = near_the_door(world);
+    let mut did = tend_near(world, near_the_door(world), KEEP)?;
+    if let Some(gate) = super::rooms::room_by_key(world, super::rooms::POSTERN) {
+        let rooms = near(world, gate, REACH_AT_THE_GATE);
+        did += tend_near(world, rooms, KEEP_AT_THE_GATE)?;
+    }
+    Ok(did)
+}
+
+fn tend_near(world: &mut World, rooms: Vec<EntityId>, keep: usize) -> Result<usize, String> {
     let mut did = 0;
     // The failing among the Docent's own: fed back up (a player's name is theirs to tend).
     for (c, lvl) in named_near(world, &rooms) {
@@ -148,7 +167,7 @@ pub fn tend(world: &mut World) -> Result<usize, String> {
     }
     let mut standing = named_near(world, &rooms).len();
     let mut guard = 0;
-    while standing < KEEP && guard < KEEP {
+    while standing < keep && guard < keep {
         guard += 1;
         let Some(c) = candidate(world, &rooms) else {
             break;
