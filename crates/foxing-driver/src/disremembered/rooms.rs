@@ -220,7 +220,7 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: "archive",
         name: "The Unfiled Archive",
-        description: "Shelves to the ceiling and ledgers on every one, but the ink lifts off the page the moment you read it and drifts for the rafters. Some of it has learned to flutter. An iron stair turns up to a mezzanine: the Reading Rooms, for a name holding twenty or more.",
+        description: "Shelves to the ceiling and ledgers on every one, but the ink lifts off the page the moment you read it and drifts for the rafters. Some of it has learned to flutter. An iron stair turns up to a mezzanine: the Reading Rooms, where creatures are told and not struck.",
         exits: &[("south", "lantern-row"), ("down", "lower-stacks"), ("up", "mezzanine"), ("names", "namery")],
         spawn: Some(("inkling", 3, 45)),
         former: &[],

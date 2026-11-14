@@ -479,31 +479,48 @@ pub fn landing_said(world: &World, f: &Found) -> String {
 /// were halved, and two of the Watch of 11-14 were paid 88 and 48 by such) is worth
 /// what its kind is. On boot; returns how many.
 pub fn settle(world: &mut World) -> Result<usize, String> {
-    let ids: Vec<(EntityId, f64)> = world
-        .store
-        .of_kind("creature")
-        .filter_map(|e| {
-            let kind = plain_str(world, e.id, CREATURE, "name")?;
-            if !is_told(kind) || super::mind::name(world, e.id).is_some() {
-                return None;
+    // What a stock creature of these rooms carries that its kind no longer does: the
+    // pay (D37 b), and what it can take and how hard it hits (D40 a; a spawn's hit
+    // points are within a twentieth of the kind's).
+    let mut sets: Vec<(EntityId, &str, f64)> = Vec::new();
+    for e in world.store.of_kind("creature") {
+        let Some(kind) = plain_str(world, e.id, CREATURE, "name") else {
+            continue;
+        };
+        if !is_told(kind)
+            || super::mind::name(world, e.id).is_some()
+            || super::mind::level(world, e.id) >= 0.5
+        {
+            continue;
+        }
+        let Some(def) = super::combat::def_by_name(kind) else {
+            continue;
+        };
+        if plain_num(world, e.id, CREATURE, "xp").is_some_and(|xp| xp > def.xp * 1.25) {
+            sets.push((e.id, "xp", def.xp));
+        }
+        if plain_num(world, e.id, CREATURE, "max_hp").is_some_and(|m| m > def.hp * 1.06) {
+            sets.push((e.id, "max_hp", def.hp));
+            if plain_num(world, e.id, CREATURE, "hp").is_some_and(|h| h > def.hp) {
+                sets.push((e.id, "hp", def.hp));
             }
-            let def = super::combat::def_by_name(kind)?;
-            let xp = plain_num(world, e.id, CREATURE, "xp")?;
-            (super::mind::level(world, e.id) < 0.5 && xp > def.xp * 1.25).then_some((e.id, def.xp))
-        })
-        .collect();
-    for (id, xp) in &ids {
+        }
+        if plain_num(world, e.id, CREATURE, "attack").is_some_and(|a| a > def.attack) {
+            sets.push((e.id, "attack", def.attack));
+        }
+    }
+    for (id, field, value) in &sets {
         world
             .record(
                 Actor::Driver,
                 StoreEvent::FieldSet {
                     id: *id,
                     component: CREATURE.into(),
-                    field: "xp".into(),
-                    value: json!(xp),
+                    field: (*field).into(),
+                    value: json!(value),
                 },
             )
             .map_err(|e| e.to_string())?;
     }
-    Ok(ids.len())
+    Ok(sets.len())
 }

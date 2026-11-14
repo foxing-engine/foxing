@@ -310,7 +310,8 @@ impl Report {
         let omitted = omitted_receipts + (keep.len() - shown);
         if omitted > 0 {
             out.push_str(&format!(
-                "[FACT] The world omitted {omitted} lines from this reply under the statement limit{}. [src:gate]\n",
+                "[FACT] The world omitted {omitted} {} from this reply under the statement limit{}. [src:gate]\n",
+                if omitted == 1 { "line" } else { "lines" },
                 // R226: which, as far as a reply can say: the receipts, then the
                 // last answers. Everything ran; `log` has what was cut.
                 match (omitted_receipts > 0, keep.len() > shown) {
@@ -1148,7 +1149,7 @@ fn mend(
         let at = line.rfind(args)?;
         line.replace_range(at..at + args.len(), &format!("\"{args}\""));
         said.push(format!(
-            "Statement {n} was read as `{verb}` with the one name {}, which is written quoted",
+            "Statement {n} was read as `{verb}` with the one name {}; write such a name in quotes",
             curl_inner_quotes(&format!("\"{args}\""))
         ));
     }

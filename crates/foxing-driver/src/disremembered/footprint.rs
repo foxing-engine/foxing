@@ -692,8 +692,8 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
                 .unwrap_or_default();
             let next = (takes * factor).max(0.0);
             Some(format!(
-                "{last} The next fall would take {} of the {level:.0} you carry now, and leave your strikes unsteady for {} minutes (five more with each fall of the night, whatever the memory cost).",
-                if next < 0.1 { "no memory to speak of".to_string() } else { format!("about {next:.1} XP") },
+                "{last} The next fall would take {}, and leave your strikes unsteady for {} minutes (five more with each fall of the night, whatever the memory cost).",
+                if next < 0.1 { "no memory to speak of".to_string() } else { format!("about {next:.1} XP of the {level:.0} you carry now") },
                 5 * (falls + 1)
             ))
         } else {
