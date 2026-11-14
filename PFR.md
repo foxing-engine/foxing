@@ -443,10 +443,13 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   trademark filing checklist and a consult; the LLC; Tyler's crates, server and Glama
   maintainer access.
 - **Y5** Show HN, with a log dump, when the game is further along.
-- **Y6** On the VPS, confirm nginx serves the site's text compressed and with cache
-  headers for `/play/mods/*.js` (the repo has no copy of that config; P5 leans on it).
-  And the analytics timer on the box renders hourly where the repo's
-  `site/deploy/setup-analytics.sh` says five minutes: re-run it when convenient.
+- **Y6** Done on the boxes by David, 11-13 (his word; Claude cannot reach the apex
+  host to see the headers): text compressed on the site box
+  (`/etc/nginx/conf.d/gzip-text.conf`), `/play/mods/` served with
+  `Cache-Control: public, max-age=300, must-revalidate`, and the analytics timers
+  re-run. *Left, Claude's:* the box is ahead of the repo by that file and seven
+  lines of `nginx-agentscanplay.conf`; they go into `site/deploy/` with the next
+  driver deploy (a push there restarts the driver, so not on its own).
 
 ## Backlog (B), by area: pulled into R when its turn comes; say `B<n> next` to pull one
 
