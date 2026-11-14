@@ -456,6 +456,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("edge_escapement_stair", FieldKind::Plain, Visibility::Owner)
             .field("edge_exergue_stair", FieldKind::Plain, Visibility::Owner)
             .field("edge_trail_stile", FieldKind::Plain, Visibility::Owner)
+            // C2. Every district's door needs its field here: a write to one the
+            // schema does not know is refused on replay, and the world does not open.
+            .field("edge_mezzanine", FieldKind::Plain, Visibility::Owner)
             .field("vivid_rule_said", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(ACCOUNT, 1).field(
             "passphrase_hash",
