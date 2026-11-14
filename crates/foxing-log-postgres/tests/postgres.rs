@@ -231,16 +231,28 @@ fn the_log_reconnects_when_the_database_closes_its_connection() {
         eprintln!("FOXING_TEST_PG not set; skipping");
         return;
     };
-    let mut log = PostgresLog::open(&url).unwrap();
+    // This log's connection carries a name of its own, so only it is ended: the
+    // other tests share the database and run beside this one (ending every backend
+    // failed one of them in CI the first time).
     let w = fresh_world();
+    let name = format!("reconnect-{}", w.0);
+    let mine = format!(
+        "{url}{}application_name={name}",
+        if url.contains('?') { "&" } else { "?" }
+    );
+    let mut log = PostgresLog::open(&mine).unwrap();
     for i in 1..=3 {
         log.append(&w, ev(1000 * i as i64, "t.k", i)).unwrap();
     }
-    // Another connection ends every other backend of this database, as a restart does.
+    // Another connection ends this log's backend, as a restart ends them all.
     let mut other = postgres::Client::connect(&url, postgres::NoTls).unwrap();
-    other
-        .batch_execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND datname = current_database()")
+    let ended = other
+        .query(
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name = $1",
+            &[&name],
+        )
         .unwrap();
+    assert_eq!(ended.len(), 1, "the log's one backend was found and ended");
     std::thread::sleep(std::time::Duration::from_millis(300));
     // At most one request is lost; then the log is itself again.
     let first = log.head(&w);
