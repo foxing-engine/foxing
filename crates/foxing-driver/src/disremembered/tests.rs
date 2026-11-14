@@ -12220,3 +12220,45 @@ fn a_reading_room_creature_from_before_the_halving_is_worth_its_kind() {
     assert_eq!(plain_num(&w, new, CREATURE, "xp"), Some(was));
     assert_eq!(reading::settle(&mut w).unwrap(), 0);
 }
+
+/// R240: a memory taken from a creature felled counts as a fight with its kind, for a
+/// telling and a vigil, whatever the memory is of; and the world reopens with the
+/// field that says so.
+#[test]
+fn a_memory_taken_in_a_fight_is_a_fight_with_its_kind() {
+    let dir = tempfile::tempdir().unwrap();
+    let t0 = Timestamp(1_000_000);
+    let chunk = {
+        let mut w = open(dir.path(), t0);
+        login(&mut w, "dave", "test", PASS).unwrap();
+        let id = admin(
+            &mut w,
+            "dave",
+            "earn",
+            json!(["Kennoch's story of the smell of rain", 12, 0.8]),
+        )
+        .result["chunk"]
+            .as_u64()
+            .unwrap();
+        let f = find_citizen(&w, "dave").unwrap();
+        assert!(reading::fights(&w, &f).is_empty());
+        w.record(
+            foxing_log::Actor::Driver,
+            StoreEvent::FieldSet {
+                id: EntityId(id),
+                component: CHUNK.into(),
+                field: "fought".into(),
+                value: json!("mothwing"),
+            },
+        )
+        .unwrap();
+        assert_eq!(reading::fights(&w, &f), vec![("mothwing".to_string(), 0.8)]);
+        assert!(reading::vigil_why_not(&w, "dave", &f, EntityId(id)).is_none());
+        id
+    };
+    let w = open(dir.path(), t0);
+    assert_eq!(
+        plain_str(&w, EntityId(chunk), CHUNK, "fought"),
+        Some("mothwing")
+    );
+}

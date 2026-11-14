@@ -1159,6 +1159,10 @@ fn run_request(
     let mut woke = died_since_last_message(world, actor);
     // Which statement of this message the fall was at, when it was in this one.
     let mut fell_at: Option<usize> = None;
+    let mut round_said = false;
+    // R184: a refusal said once, and R162: a turn from a gone creature said once.
+    let mut refused: Vec<(String, usize)> = Vec::new();
+    let mut turned: Vec<String> = Vec::new();
     // The last statement that was a travel and arrived: a look right after is carried.
     let mut last_travel_ok: Option<usize> = None;
     let batch = dos.len() > 1;
@@ -1166,10 +1170,28 @@ fn run_request(
         if woke {
             let verb = st.verb.clone().unwrap_or_default();
             if !AFTER_DEATH.contains(&verb.as_str()) {
+                // The door this name woke at: "the Threshold" was said of names
+                // whose door is the Postern.
+                let door = crate::disremembered::find_citizen(world, actor)
+                    .and_then(|f| crate::disremembered::rooms::room_of(world, f.citizen))
+                    .and_then(|r| {
+                        crate::disremembered::plain_str(
+                            world,
+                            r,
+                            crate::disremembered::ROOM,
+                            "name",
+                        )
+                        .map(str::to_string)
+                    })
+                    .map(|n| match n.strip_prefix("The ") {
+                        Some(rest) => format!("the {rest}"),
+                        None => n,
+                    })
+                    .unwrap_or_else(|| "your door".to_string());
                 report.fact(
                     match fell_at {
-                        Some(k) => format!("Statement {} did not run: you woke at the Threshold; read the room first. {actor} went down at statement {k}, in another room", st.index),
-                        None => format!("Statement {} did not run: you woke at the Threshold; read the room first. {actor} went down since the last message, in another room", st.index),
+                        Some(k) => format!("Statement {} did not run: you woke at {door}; read the room first. {actor} went down at statement {k}, in another room", st.index),
+                        None => format!("Statement {} did not run: you woke at {door}; read the room first. {actor} went down since the last message, in another room", st.index),
                     },
                     "gate",
                 );
@@ -1267,7 +1289,20 @@ fn run_request(
                 } else {
                     usize::MAX
                 };
-                report.quote_capped(out.summary, &world.id.0, cap);
+                // R162: "X is gone; you turn on Y." once a message.
+                let mut summary = out.summary;
+                if let Some(end) = summary
+                    .find("; you turn on ")
+                    .and_then(|i| summary[i..].find(". ").map(|j| i + j + 2))
+                {
+                    let lead = summary[..end].to_string();
+                    if turned.contains(&lead) {
+                        summary = summary[end..].to_string();
+                    } else {
+                        turned.push(lead);
+                    }
+                }
+                report.quote_capped(summary, &world.id.0, cap);
             }
             Err(e) => {
                 outcomes.push(StatementOutcome {
@@ -1290,7 +1325,18 @@ fn run_request(
                     CommandError::Internal { .. } => ("failed inside the world", "driver"),
                 };
                 report.receipt(format!("Statement {n} {reason}"), src);
-                report.quote(e.to_string(), &world.id.0);
+                // R184: the same refusal again in one message is said once.
+                let words = e.to_string();
+                match refused.iter().find(|(w, _)| *w == words) {
+                    Some((_, first)) => report.quote(
+                        format!("The same answer as statement {first}."),
+                        &world.id.0,
+                    ),
+                    None => {
+                        refused.push((words.clone(), n));
+                        report.quote(words, &world.id.0);
+                    }
+                }
             }
         }
         // A name through the gate is struck once a statement while something fights
@@ -1301,7 +1347,19 @@ fn run_request(
             actor,
             &verb,
         ) {
-            Ok(Some(said)) => report.quote(said, "narrator"),
+            Ok(Some(said)) => {
+                // R238/R196: the rule, said the first time a statement that is not
+                // a blow draws one (two testers lost half their blood to `look`s).
+                if round_said {
+                    report.quote(said, "narrator");
+                } else {
+                    round_said = true;
+                    report.quote(
+                        format!("{said} (That blow was for `{verb}`: while something fights you, every statement you send is a round, a read too. `retreat` first, or `attack`.)"),
+                        "narrator",
+                    );
+                }
+            }
             Ok(None) => {}
             Err(e) => report.fact(
                 format!("The round after statement {n} failed inside the world: {e}"),

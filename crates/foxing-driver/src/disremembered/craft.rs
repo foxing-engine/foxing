@@ -2372,10 +2372,33 @@ pub fn register(world: &mut World, curves: Curves) {
                         used_names.push(m.to_string());
                     }
                     None => {
+                        // R241: every thing lacked, as `recipes` lists them, not
+                        // the first alone.
+                        let carried: Vec<&str> = w
+                            .store
+                            .children(s)
+                            .filter(|e| e.kind == "item")
+                            .filter_map(|e| plain_str(w, e.id, ITEM, "name"))
+                            .collect();
+                        let mut have = carried.clone();
+                        let lacking: Vec<&str> = r
+                            .of
+                            .iter()
+                            .map(String::as_str)
+                            .filter(|want| match have.iter().position(|h| h == want) {
+                                Some(i) => {
+                                    have.remove(i);
+                                    false
+                                }
+                                None => true,
+                            })
+                            .collect();
                         return Err(CommandError::precondition(format!(
-                            "{} needs {m}, and you carry none.",
-                            r.name
-                        )))
+                            "{} needs {}, and you carry none{}.",
+                            r.name,
+                            lacking.join(" and "),
+                            if lacking.len() > 1 { " of them" } else { "" }
+                        )));
                     }
                 }
             }

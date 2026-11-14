@@ -490,6 +490,16 @@ pub fn take(
     let kind = plain_str(world, creature, CREATURE, "name")
         .unwrap_or("?")
         .to_string();
+    // R240: it was won in a fight with this kind, whatever the memory is of.
+    let _ = world.record(
+        Actor::Driver,
+        StoreEvent::FieldSet {
+            id,
+            component: super::CHUNK.into(),
+            field: "fought".into(),
+            value: json!(kind),
+        },
+    );
     let _ = world.note(
         Actor::Citizen(killer.to_string()),
         TAKEN,

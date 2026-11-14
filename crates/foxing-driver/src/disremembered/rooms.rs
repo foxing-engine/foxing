@@ -1969,6 +1969,24 @@ pub fn describe_as(
                     _ if c["mind"]["name"].is_null() => ", holding 0".to_string(),
                     _ => String::new(),
                 };
+                // R187: what felling it is worth, beside what it holds (a row that
+                // said "holding 0" paid twenty a kill). Holding is the memory it
+                // keeps, which a name is made of and a kill of a holder takes.
+                let holds = match c["id"]
+                    .as_u64()
+                    .and_then(|id| super::plain_num(world, EntityId(id), super::CREATURE, "xp"))
+                {
+                    // (One that holds something is felled for what it holds, not
+                    // for this: no figure there.)
+                    Some(xp)
+                        if c["mind"]["name"].is_null()
+                            && xp >= 0.5
+                            && c["mind"]["level"].as_f64().map(super::up).unwrap_or(0.0) < 0.5 =>
+                    {
+                        format!(", worth {xp:.0}{holds}")
+                    }
+                    _ => holds,
+                };
                 // A child says whose it is; a mutant that it is a strange one.
                 let born = match c["parents"].as_array() {
                     Some(p) if p.len() == 2 => format!(
@@ -2041,8 +2059,10 @@ pub fn describe_as(
                 // Hit points to one decimal (a timed value is a long float), trimmed.
                 let hp_said = |v: &Value| -> String {
                     match v.as_f64() {
-                        Some(x) if (x - x.round()).abs() < 0.05 => format!("{:.0}", x.round()),
-                        Some(x) => format!("{x:.1}"),
+                        // R241: whole, as a round says them (a row read 8.1/8.1 and
+                        // the round "(8 left)"); a sliver is one, never nothing.
+                        Some(x) if x > 0.0 && x < 1.0 => "1".to_string(),
+                        Some(x) => format!("{:.0}", x.round()),
                         None => v.to_string(),
                     }
                 };

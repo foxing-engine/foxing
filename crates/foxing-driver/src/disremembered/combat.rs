@@ -2204,7 +2204,7 @@ pub fn register(world: &mut World, curves: Curves) {
                             " Something will drift in within about {}; this room refills three fifths to eight fifths of {} after it empties, never on the minute.{}",
                             human(ms.max(5_000)),
                             human((every * 1000.0) as i64),
-                            if is_fog && others_fighting { " Or try the mothwings in the Orchard (north, north), the mildest things there are." } else { "" }
+                            { let _ = (is_fog, others_fighting); "" }
                         )
                     })
                     .unwrap_or_default();
@@ -2219,7 +2219,26 @@ pub fn register(world: &mut World, curves: Curves) {
                 } else {
                     String::new()
                 };
-                let where_ = format!("{where_}{refill}{stacks_hint}");
+                // R225: and where else, from here, something mild stands now.
+                let elsewhere = if here.is_empty() {
+                    let here_key = plain_str(w, room, super::ROOM, "key").unwrap_or("").to_string();
+                    ["orchard-wall", "orchard", "fogbank", "lantern-row"]
+                        .iter()
+                        .filter(|k| **k != here_key)
+                        .filter_map(|k| super::rooms::room_by_key(w, k))
+                        .find_map(|r| {
+                            let c = creatures_in(w, r)
+                                .into_iter()
+                                .find(|c| super::mind::name(w, c.0).is_none() && !super::mind::shaken(w, c.0))?;
+                            let kind = plain_str(w, c.0, CREATURE, "name")?.to_string();
+                            let name = plain_str(w, r, super::ROOM, "name")?.to_string();
+                            Some(format!(" Elsewhere just now: a {kind} stands in {name} (`where {kind}` gives the way from here)."))
+                        })
+                        .unwrap_or_default()
+                } else {
+                    String::new()
+                };
+                let where_ = format!("{where_}{refill}{elsewhere}{stacks_hint}");
                 let officers: Vec<String> = here.iter().filter(|c| super::mind::name(w, c.0).is_none() && plain_str(w, c.0, CREATURE, "name").is_some_and(|k| OFFICERS.contains(&k))).map(|c| super::mind::display(w, c.0)).collect();
                 return Err(CommandError::precondition(if here.is_empty() { format!("There is nothing here to fight.{where_}") } else if args.str("creature").map_or(true, str::is_empty) && !officers.is_empty() {
                     format!("Nothing here is struck by accident: {} {} an officer of the house, named in `attack` or left alone.", officers.join(" and "), if officers.len() == 1 { "is" } else { "are" })
@@ -2619,7 +2638,11 @@ pub fn register(world: &mut World, curves: Curves) {
                         if rounds_then == 1.0 { "" } else { "s" },
                         // R94: the level fades while you rest, and a point of attack with it.
                         if me_whole_in_ms > 3 * 60_000 { " (a round more, maybe, as your level fades while you rest)" } else { "" },
-                        if in_me_whole < rounds_then { "; not a fight for one name at this level: bring another" } else { "" }
+                        if in_me_whole < rounds_then {
+                            "; not a fight for one name at this level. Alone: `rest`, then something milder (`where mothwing`), or come back holding more; with another name here it is two against one"
+                        } else {
+                            ". The rounds allow for your misses. `rest` until you are whole, then stand again"
+                        }
                     )
                 } else {
                     String::new()

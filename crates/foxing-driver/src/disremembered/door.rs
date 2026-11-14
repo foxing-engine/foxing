@@ -120,6 +120,15 @@ fn signpost(world: &World, here: EntityId) -> String {
             ));
         }
     }
+    // R216: the Dead Letter Office has an arm when a letter waits in it; nothing
+    // told a newcomer it was there.
+    let waiting = super::letters::waiting(world);
+    if waiting > 0 {
+        arms.push(format!(
+            "the Dead Letter Office, off the Namery (`where \"Dead Letter Office\"`): {waiting} letter{} for names the world forgot, and a small memory for answering or carrying one (`letters`)",
+            if waiting == 1 { " waits" } else { "s wait" }
+        ));
+    }
     format!(
         "The signpost has an arm for each thing worth the walk, and they swing when the world does. {}. Read it again later; it will have moved.",
         arms.into_iter().map(cap).collect::<Vec<_>>().join(". ")

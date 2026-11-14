@@ -203,6 +203,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("value", FieldKind::Timed, Visibility::Owner)
             .field("size", FieldKind::Plain, Visibility::Owner)
             .field("vividity", FieldKind::Plain, Visibility::Owner)
+            // R240: the kind a memory was taken from in a fight ("mothwing"), when
+            // its source is the creature's own ("Kennoch's story of…").
+            .field("fought", FieldKind::Plain, Visibility::Owner)
             .field("source", FieldKind::Plain, Visibility::Public)
             .field("tier", FieldKind::Plain, Visibility::Public)
             // What a taxed gift keeps of its half-life, when it was taxed.
@@ -1355,7 +1358,12 @@ pub(crate) fn set_citizen_fields(
 }
 
 /// A plain field as a string, or a fallback.
-fn plain_str<'a>(world: &'a World, id: EntityId, component: &str, field: &str) -> Option<&'a str> {
+pub(crate) fn plain_str<'a>(
+    world: &'a World,
+    id: EntityId,
+    component: &str,
+    field: &str,
+) -> Option<&'a str> {
     match world
         .store
         .entity(id)?

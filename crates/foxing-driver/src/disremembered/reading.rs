@@ -85,9 +85,10 @@ pub fn fights(world: &World, f: &Found) -> Vec<(String, f64)> {
             let Some(source) = plain_str(world, e.id, CHUNK, "source") else {
                 continue;
             };
-            if super::combat::def_by_name(source).is_none() {
+            let Some(source) = fight_kind(world, e.id, source) else {
                 continue;
-            }
+            };
+            let source = source.as_str();
             let v = plain_num(world, e.id, CHUNK, "vividity").unwrap_or(0.0);
             match out.iter_mut().find(|(k, _)| k == source) {
                 Some((_, best)) => *best = best.max(v),
@@ -97,6 +98,17 @@ pub fn fights(world: &World, f: &Found) -> Vec<(String, f64)> {
     }
     out.sort_by(|a, b| a.0.cmp(&b.0));
     out
+}
+
+/// R240: the kind a chunk is a fight with: its source when that is a kind's name,
+/// or the kind it was taken from when the memory itself is the creature's own.
+pub fn fight_kind(world: &World, chunk: EntityId, source: &str) -> Option<String> {
+    if super::combat::def_by_name(source).is_some() {
+        return Some(source.to_string());
+    }
+    plain_str(world, chunk, CHUNK, "fought")
+        .filter(|k| super::combat::def_by_name(k).is_some())
+        .map(str::to_string)
 }
 
 fn words_of(text: &str) -> Vec<String> {
@@ -333,14 +345,16 @@ pub fn vigil_why_not(w: &World, actor: &str, f: &Found, chunk: EntityId) -> Opti
         .unwrap_or("?")
         .to_string();
     let vividity = plain_num(w, chunk, CHUNK, "vividity").unwrap_or(0.0);
-    let fight = super::combat::def_by_name(&source).is_some();
+    let fought = fight_kind(w, chunk, &source);
+    let fight = fought.is_some();
+    let source = fought.unwrap_or(source);
     if !fight || vividity < NEARLY_LOST {
         let have: Vec<String> = [f.window, f.palace]
             .iter()
             .flat_map(|h| w.store.children(*h).filter(|e| e.kind == "chunk"))
             .filter(|e| {
                 plain_str(w, e.id, CHUNK, "source")
-                    .is_some_and(|s| super::combat::def_by_name(s).is_some())
+                    .is_some_and(|s| fight_kind(w, e.id, s).is_some())
                     && plain_num(w, e.id, CHUNK, "vividity").unwrap_or(0.0) >= NEARLY_LOST
             })
             .map(|e| format!("chunk-{}", e.id.0))

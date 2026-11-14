@@ -644,8 +644,22 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
             }
         ));
     }
+    // R181: with memory in the window and no fall yet, what one would take now.
+    let fall_now = {
+        let level = super::memory::level(world, f.window);
+        let takes = level * super::combat::death_share(level);
+        (falls == 0 && takes >= 0.5).then(|| {
+            format!(
+                " A fall now would take about {takes:.0} XP, {:.0}% of the {level:.0} you carry (a fall takes a share of the window that grows with what you hold; a second the same night takes half that share).",
+                super::combat::death_share(level) * 100.0
+            )
+        })
+    };
     let summary = if lines.is_empty() {
-        "Nothing in the world is yours yet: dig a room, feed a creature to sixty, make a thing, write in a book. Each stays after you go.".to_string()
+        format!(
+            "Nothing in the world is yours yet: dig a room, feed a creature to sixty, make a thing, write in a book. Each stays after you go.{}",
+            fall_now.clone().unwrap_or_default()
+        )
     } else {
         format!(
             "What remembers you:\n{}{}",
@@ -662,7 +676,7 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
                         faded.join("; ")
                     )
                 } else if since > 0 {
-                    format!("\n{since_said}: nothing touched any of it, and nothing of it has faded enough to say.")
+                    format!("\n{since_said}: nobody else touched any of it, and nothing of it has faded enough to say (your own falls are above, when there were any).")
                 } else {
                     String::new()
                 }
