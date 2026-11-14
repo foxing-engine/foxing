@@ -24,6 +24,21 @@ use std::collections::BTreeMap;
 pub const TELL: &str = "disremembered.tell";
 const MAX_CHARS: usize = 600;
 
+/// R224: how long ago the world let this name go, if it was lately.
+fn let_go(w: &World, typed: &str) -> Option<i64> {
+    w.recent_events(6000)
+        .iter()
+        .rev()
+        .find(|e| {
+            e.kind == presence::FORGOTTEN_NAME
+                && e.payload["name"]
+                    .as_str()
+                    .or(e.payload["actor"].as_str())
+                    .is_some_and(|n| n.eq_ignore_ascii_case(typed))
+        })
+        .map(|e| w.now().since(e.at).0)
+}
+
 pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
@@ -174,21 +189,18 @@ pub fn register(world: &mut World) {
                         of_kind.join(", ")
                     )));
                 }
-                return Err(CommandError::precondition(format!(
-                    "There is no one called {typed}, and no such creature here."
-                )));
+                // R224: the same answer here, where a name nobody holds is first met.
+                return Err(CommandError::precondition(match let_go(w, &typed) {
+                    Some(ago) => format!(
+                        "The world has forgotten {typed}: a passing name, gone quiet and let go {} ago. There is no one to tell now.",
+                        super::combat::human(ago)
+                    ),
+                    None => format!("There is no one called {typed}, and no such creature here."),
+                }));
             };
             let Some(them) = super::find_citizen(w, &target) else {
                 // R224: a name the world knew lately and has forgotten is said so.
-                let gone = w
-                    .recent_events(6000)
-                    .iter()
-                    .rev()
-                    .find(|e| {
-                        e.kind == presence::FORGOTTEN_NAME
-                            && e.payload["name"].as_str().or(e.payload["actor"].as_str()).is_some_and(|n| n.eq_ignore_ascii_case(&typed))
-                    })
-                    .map(|e| w.now().since(e.at).0);
+                let gone = let_go(w, &typed);
                 return Err(CommandError::precondition(match gone {
                     Some(ago) => format!(
                         "The world has forgotten {typed}: a passing name, gone quiet and let go {} ago. A word for it would have gone to the Dead Letter Office had it been left before; there is no one to tell now.",
