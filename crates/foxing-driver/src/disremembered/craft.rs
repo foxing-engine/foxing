@@ -340,6 +340,20 @@ pub const RECIPES: &[Recipe] = &[
         vividity_at_least: 0.6,
         effect: "lantern",
     },
+    // C6: the commonplace book. You forget; a book you carry does not.
+    Recipe {
+        key: "commonplace",
+        name: "a commonplace book",
+        of: &["rag thread", "a dab of ink", "a catalogue card"],
+        chunk_at_least: 30.0,
+        does: "writes one line a visit of its own accord while you carry it (a fall, a room you dug, a creature that took a name by your hand, a vigil kept), and keeps them: `read` it whole, however little you hold. It has a past",
+        uses: 0,
+        fixed: false,
+        takes_lines: false,
+        tier: 2,
+        vividity_at_least: 0.6,
+        effect: "commonplace",
+    },
     Recipe {
         key: "warden-charm",
         name: "a warden's charm",
@@ -1132,6 +1146,58 @@ pub fn ground_line(world: &World, room: EntityId) -> Option<String> {
 }
 
 /// Whether a citizen carries a made thing of this recipe.
+/// C6: how many lines a commonplace book keeps; the oldest goes when it is full.
+pub const COMMONPLACE_LINES: usize = 60;
+/// A visit, to the book, when no arrival is in the log's recent memory.
+const COMMONPLACE_VISIT_MS: i64 = 60 * 60 * 1000;
+
+/// C6: something worth a line happened to `actor`. If they carry a commonplace book
+/// and it has not written since this visit began, it writes the line itself, with
+/// the date, and keeps it. One line a visit: the first thing of note, not a diary.
+/// Never fails the act it records.
+pub fn commonplace(world: &mut World, actor: &str, citizen: EntityId, line: &str) {
+    let Some(book) = carries(world, citizen, "commonplace") else {
+        return;
+    };
+    let now = world.now().0;
+    let visit_began = world
+        .recent_events(3000)
+        .iter()
+        .rev()
+        .find(|e| e.kind == crate::world::ARRIVED && e.payload["actor"] == actor)
+        .map(|e| e.at.0)
+        .unwrap_or(now - COMMONPLACE_VISIT_MS);
+    if super::plain_num(world, book, ITEM, "wrote_at").is_some_and(|t| t as i64 >= visit_began) {
+        return;
+    }
+    let (_, m, d, _) = super::life::civil(now);
+    const MONTHS: [&str; 12] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    let entry = format!(
+        "{d} {}: {line} \u{2014} the book",
+        MONTHS[(m as usize).saturating_sub(1).min(11)]
+    );
+    let mut lines: Vec<String> = plain_str(world, book, ITEM, "text")
+        .filter(|t| !t.is_empty())
+        .map(|t| t.split(" | ").map(str::to_string).collect())
+        .unwrap_or_default();
+    lines.push(entry);
+    while lines.len() > COMMONPLACE_LINES {
+        lines.remove(0);
+    }
+    let mut changes = BTreeMap::new();
+    changes.insert("text".into(), Field::Plain(json!(lines.join(" | "))));
+    changes.insert("wrote_at".into(), Field::Plain(json!(now)));
+    if set_item_fields(world, Actor::Driver, book, changes).is_ok() {
+        super::combat::narrate(
+            world,
+            actor,
+            format!("The commonplace book you carry writes a line of its own accord: \"{line}\" (`read` it, item-{}).", book.0),
+        );
+    }
+}
+
 pub fn carries(world: &World, citizen: EntityId, recipe: &str) -> Option<EntityId> {
     let satchel = world
         .store

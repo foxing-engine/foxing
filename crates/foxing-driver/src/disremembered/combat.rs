@@ -1925,6 +1925,22 @@ pub(crate) fn die(
         )
         .map_err(internal)?;
     commit_hp(world, f.citizen, super::MAX_HP).map_err(internal)?;
+    // C6: the book remembers the fall.
+    {
+        let by = killer
+            .and_then(|k| plain_str(world, k, CREATURE, "name").map(str::to_string))
+            .map(|k| format!(" to a {k}"))
+            .unwrap_or_default();
+        let at = fell_in
+            .and_then(|r| plain_str(world, r, super::ROOM, "name").map(str::to_string))
+            .unwrap_or_else(|| "a room it does not name".to_string());
+        super::craft::commonplace(
+            world,
+            actor,
+            f.citizen,
+            &format!("{actor} fell{by} in {at}, and woke at the door."),
+        );
+    }
     Ok(Death {
         lost,
         worth: taken,
@@ -2393,7 +2409,7 @@ pub fn register(world: &mut World, curves: Curves) {
                         chunk.0,
                         super::mind::shaken_for(w, creature).map(human).unwrap_or_else(|| "a while".into())
                     ));
-                    return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": false, "taken": chunk.0, "with": source, "xp": worth, "was": was, "left": left, "hp": hp(w, f.citizen)})));
+                    return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "creature_id": creature.0, "killed": false, "taken": chunk.0, "with": source, "xp": worth, "was": was, "left": left, "hp": hp(w, f.citizen)})));
                 }
                 // Win: the chunk's vividity is how close you came to dying; a moth
                 // charm carried makes it more vivid and is spent.
@@ -2465,7 +2481,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     },
                     throes.map(|t| format!(" {t}")).unwrap_or_default()
                 ));
-                return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": true, "chunk": chunk.0, "xp": xp, "vividity": vividity, "hp": my_hp, "left": left.as_ref().map(|(id, n)| json!({"item": id.0, "name": n}))})));
+                return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "creature_id": creature.0, "killed": true, "chunk": chunk.0, "xp": xp, "vividity": vividity, "hp": my_hp, "left": left.as_ref().map(|(id, n)| json!({"item": id.0, "name": n}))})));
             }
 
             // It strikes back.
@@ -2474,7 +2490,7 @@ pub fn register(world: &mut World, curves: Curves) {
             if dead {
                 let d = die(w, &ctx.actor, &f, Some(creature))?;
                 lines.push(format!("You go down.{}", d.said()));
-                return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": false, "died": true, "lost": d.lost, "worth": d.worth, "fall": d.fall, "epitaph": d.epitaph, "keeper": d.keeper, "learned": d.learned})));
+                return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "creature_id": creature.0, "killed": false, "died": true, "lost": d.lost, "worth": d.worth, "fall": d.fall, "epitaph": d.epitaph, "keeper": d.keeper, "learned": d.learned})));
             }
             let my_hp = hp_said(w, f.citizen);
             let (trick, _) = super::stacks::trick(w, &curves, creature, f.citizen, &ctx.actor).map_err(internal)?;
@@ -2492,7 +2508,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     ));
                 }
             }
-            Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "killed": false, "died": false, "creature_hp": chp, "hp": my_hp})))
+            Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "creature_id": creature.0, "killed": false, "died": false, "creature_hp": chp, "hp": my_hp, "landed": landed, "damage": dmg})))
         }),
     );
 

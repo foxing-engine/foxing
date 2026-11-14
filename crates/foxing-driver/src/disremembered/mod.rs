@@ -316,6 +316,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("past_folded", FieldKind::Plain, Visibility::Public)
             .field("past_text", FieldKind::Plain, Visibility::Public)
             .field("past_wanted", FieldKind::Plain, Visibility::Public)
+            // C6: when a commonplace book last wrote a line of its own accord.
+            .field("wrote_at", FieldKind::Plain, Visibility::Public)
             .field("past_written", FieldKind::Plain, Visibility::Public)
             .field("desire", FieldKind::Plain, Visibility::Owner)
             .field("desire_met_at", FieldKind::Plain, Visibility::Owner),

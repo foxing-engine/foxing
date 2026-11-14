@@ -12117,3 +12117,81 @@ fn a_line_said_to_a_room_is_one_event_for_all_its_hearers() {
         .unwrap();
     assert_eq!(one.payload["to"], json!("tyler"));
 }
+
+/// C6: a commonplace book writes one line a visit of its own accord, keeps it, reads
+/// whole, and the world reopens with it (its field is in the schema).
+#[test]
+fn a_commonplace_book_writes_a_line_a_visit_and_keeps_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let t0 = Timestamp(1_000_000);
+    let book = {
+        let mut w = open(dir.path(), t0);
+        login(&mut w, "dave", "test", PASS).unwrap();
+        w.arrive("dave", "session", true);
+        let dave = find_citizen(&w, "dave").unwrap();
+        let s = craft::satchel(&mut w, "dave", dave.citizen).unwrap();
+        for m in ["rag thread", "a dab of ink", "a catalogue card"] {
+            conjure(&mut w, s, m);
+        }
+        // A second-tier thing asks a vivid memory.
+        let dull = admin(&mut w, "dave", "earn", json!(["cataloguer", 40, 0.2])).result["chunk"]
+            .as_u64()
+            .unwrap();
+        let e = call(
+            &mut w,
+            "dave",
+            ActorKind::Citizen,
+            "craft",
+            json!(["commonplace", format!("chunk-{dull}")]),
+        )
+        .unwrap_err();
+        assert!(e.to_string().contains("vividity"), "{e}");
+        let vivid = admin(&mut w, "dave", "earn", json!(["cataloguer", 40, 0.9])).result["chunk"]
+            .as_u64()
+            .unwrap();
+        let made = ok(
+            &mut w,
+            "dave",
+            "craft",
+            json!(["commonplace", format!("chunk-{vivid}")]),
+        );
+        let book = EntityId(made.result["item"].as_u64().unwrap());
+        // Two things of note in one visit: one line.
+        craft::commonplace(
+            &mut w,
+            "dave",
+            dave.citizen,
+            "dave fell to a wisp in The Fogbank, and woke at the door.",
+        );
+        craft::commonplace(&mut w, "dave", dave.citizen, "dave dug a room.");
+        let text = plain_str(&w, book, craft::ITEM, "text")
+            .unwrap()
+            .to_string();
+        assert_eq!(text.split(" | ").count(), 1, "{text}");
+        assert!(
+            text.contains("fell to a wisp") && text.ends_with("\u{2014} the book"),
+            "{text}"
+        );
+        // Away, and back: a new visit, a new line.
+        w.depart("dave");
+        w.fixed_now = Some(t0.plus(Duration::seconds(3 * 3600)));
+        w.arrive("dave", "session", false);
+        craft::commonplace(&mut w, "dave", dave.citizen, "dave dug a room.");
+        let read = ok(&mut w, "dave", "read", json!([format!("item-{}", book.0)])).summary;
+        assert!(
+            read.contains("fell to a wisp") && read.contains("dug a room"),
+            "{read}"
+        );
+        book
+    };
+    // (Reopened at the first moment: on the test world's ten-second curves a thing made
+    // three hours ago has faded off the world by the first tick.)
+    let w = open(dir.path(), t0);
+    assert_eq!(
+        plain_str(&w, book, craft::ITEM, "text")
+            .unwrap()
+            .split(" | ")
+            .count(),
+        2
+    );
+}

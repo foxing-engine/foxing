@@ -582,6 +582,14 @@ is worth when you give it, vividity 0.9, at most your level plus sixty;
 one an hour for a name. In a fight every statement you send through
 the gate draws a blow, a `look` too; a telling's blow is its own.
 
+A commonplace book is a thing of the second tier (`recipes`: rag thread,
+a dab of ink and a catalogue card, which the Stacks' cataloguers leave,
+with a memory worth 30 or more of vividity 0.6 or more). Carried, it
+writes one line a visit of its own accord, the first thing of note: a
+fall, a room you dug, a creature that took a name by your hand, a
+lampmoth's vigil. It keeps sixty lines, dated, and `read` gives them
+back however little you hold: you forget; the book does not.
+
 `almanac` is the world's calendar (UTC): what is in season, what it
 changes, and what comes next. The Fog Month (November): the fog
 thickens at the Fogbank before anything else happens, twice an hour,

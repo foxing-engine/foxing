@@ -405,6 +405,16 @@ pub fn vigil(
         VIGIL,
         json!({"by": ctx.actor, "creature": creature.0, "chunk": chunk.0, "with": source, "vividity": vividity, "worth": worth, "paid": paid, "earned": earned.0}),
     );
+    // C6: the book remembers the vigil.
+    super::craft::commonplace(
+        w,
+        &ctx.actor,
+        f.citizen,
+        &format!(
+            "A lampmoth kept a vigil over {}'s fight with the {source}.",
+            ctx.actor
+        ),
+    );
     let halves = super::memory::halving_ms(w, earned)
         .map(|ms| format!(", halves every {}", super::combat::human(ms)))
         .unwrap_or_default();

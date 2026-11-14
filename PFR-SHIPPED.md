@@ -5,6 +5,11 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-14 (C6 and two things on the play page, by David's word; one driver deploy)
+- C6, the commonplace book: a second-tier recipe (rag thread, a dab of ink, a catalogue card, a memory worth 30 of vividity 0.6). Carried, it writes one dated line a visit of its own accord, the first thing of note (a fall and what felled you, a room you dug, a creature that took a name by your hand, a lampmoth's vigil), tells you it has, keeps sixty, and `read` gives them back whatever you hold.
+- A miss is drawn as "miss": the page drew "−1" over a creature that had lost nothing (the least a strike was drawn as). The world's reply now says whether a strike landed and for how much, and the page draws that.
+- A thing on the floor is taken, and read, by its own id: clicked by name, the world took the first thing of that name, so with two alike the wrong one went. The same for the Here panel and the phone's buttons.
+
 11-14 (S12 and a batch of R, by David's word; one driver deploy)
 - S12: `/health` is ok only when the world can write. It reads the log's first event, which the driver does not keep in memory, so the read goes to the log itself; if that fails, or the last writes were refused, it answers 503 with the reason and the count. And the operator is told: at the third refused write running, a notice to Discord ("The world cannot write…"), and another when the log takes writes again, with how many were refused over how long. Tried on a local world with its database stopped and started: 200, 503, 200.
 - R235: a venomous bite says what is to come with the bite ("the venom works 4 times, 2 each, 15 seconds apart (8 in all, wherever you go; a new bite starts the count again)"), and when that alone could finish you. R237: closed, covered by the card on the Mezzanine, which a name reads before anything up there can strike it. R239, in part: the Blue Pencil says how to shelve and that a passing name must `keep` first; the almanac and `recipes` say a ripe hour falls about twice an hour, three lying at most.

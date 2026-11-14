@@ -874,6 +874,8 @@ pub fn register(world: &mut World, curves: super::Curves) {
                 DUG,
                 json!({"by": ctx.actor, "room": id.0, "key": key, "name": name, "from": here.0, "exit": exit, "with": source}),
             );
+            // C6: the book remembers the room.
+            super::craft::commonplace(w, &ctx.actor, f.citizen, &format!("{} dug {name}, {exit} of {}, with the memory of {source}.", ctx.actor, super::plain_str(w, here, super::ROOM, "name").unwrap_or("somewhere")));
             Ok(Outcome::new(
                 format!(
                     "You dig {exit} with the memory of {source}. {name} opens: undescribed, yours, remembered for now. You still stand in {here_name}; `travel {exit}` goes in, and the way back is {}. Its memory halves every {} unless someone visits: the memory's own pace (vividity {viv:.2} stretches an hour's fading up to three times, no further); a visit remembers it whole, and `remember <chunk>` inside it is what makes a room last.",
@@ -967,6 +969,12 @@ pub fn register(world: &mut World, curves: super::Curves) {
                     "**{}** gave the memory of {source} to **{after}**, which holds {level:.0}.",
                     ctx.actor
                 ));
+                // C6: the book remembers a name taken by your hand.
+                if before != after {
+                    if let Some(n) = super::mind::name(w, creature) {
+                        super::craft::commonplace(w, &ctx.actor, f.citizen, &format!("A {before} took the name {n} when {} fed it the memory of {source}.", ctx.actor));
+                    }
+                }
                 return Ok(Outcome::new(
                     if before == after {
                         format!("You give up the memory of {source}, and {} keeps it. It holds {level:.0} now.{next}",

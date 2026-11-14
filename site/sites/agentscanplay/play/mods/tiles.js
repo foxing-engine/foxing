@@ -711,7 +711,7 @@ export default function install(m) {
       px(x * T + 4, y * T + 12, 8, 2, "rgba(0,0,0,.3)");
       ctx.drawImage(iconCanvas(it.icon), 0, 0, 8, 8, (x * T + 4) * SCALE, (y * T + 4) * SCALE, 8 * SCALE, 8 * SCALE);
       if (glint > 0.85) px(x * T + 3, y * T + 3, 1, 1, "#fff");
-      hot.set(x + "," + y, { label: it.name + " lies here — take it", primary: () => m.command("take", [it.take]), menu: [{ label: "Take " + it.name, run: () => m.command("take", [it.take]) }, { label: "Read " + it.name, run: () => m.command("read", ['"' + it.name + '"']) }] });
+      hot.set(x + "," + y, { label: it.name + " lies here — take it", primary: () => m.command("take", ["item-" + it.id]), menu: [{ label: "Take " + it.name, run: () => m.command("take", ["item-" + it.id]) }, { label: "Read " + it.name, run: () => m.command("read", ["item-" + it.id]) }] });
     }
     // Things, back to front.
     const walk = docentAt(now);
@@ -1052,11 +1052,18 @@ export default function install(m) {
     // one, then by name; `remember <chunk> <whom>` and `give <chunk> <whom>` name them
     // second (the first word is the chunk, so "holds 13" once rose over the giver).
     const second = command === "remember" || command === "give";
-    const byId = scene && (r.creature != null || r.citizen != null) ? scene.things.find(t => t.kind !== "you" && (String(t.id) === String(r.creature) || String(t.id) === String(r.citizen))) : null;
+    const byId = scene && (r.creature_id != null || r.creature != null || r.citizen != null) ? scene.things.find(t => t.kind !== "you" && (String(t.id) === String(r.creature_id) || String(t.id) === String(r.creature) || String(t.id) === String(r.citizen))) : null;
     const arg = args && String(args[second ? 1 : 0] || ""), argId = (/-(\d+)$/.exec(arg) || [])[1];
     const target = byId || (command === "give" && thingNamed(r.to)) || (argId && scene && scene.things.find(t => String(t.id) === argId)) || thingNamed(arg) || (!second && thingNamed(r.name || r.creature_name)) || null;
     if (command === "attack") {
-      if (r.creature_hp != null && target) { flashes.set(target.id, performance.now() + 140); floatOver(target, "−" + Math.max(1, Math.round((target.hp || 0) - r.creature_hp)), INK); sfx.hit(); }
+      // A miss is said as a miss: it read "−1" (the least a strike was drawn as),
+      // over a creature that had lost nothing. The world says whether it landed
+      // and for how much; an older driver does not, and the summary's words do.
+      if (r.creature_hp != null && target) {
+        const missed = r.landed === false || (r.landed == null && /\bmiss\b|does not land/.test(String(body.summary || "")));
+        if (missed) { floatOver(target, "miss", DUST); }
+        else { flashes.set(target.id, performance.now() + 140); floatOver(target, "−" + (r.damage != null ? Math.round(r.damage) : Math.max(1, Math.round((target.hp || 0) - r.creature_hp))), INK); sfx.hit(); }
+      }
       if (r.killed) { floatOver(target, "+" + Math.round(r.xp || 0) + " ✦", MOSS, true); sfx.earn(); }
       if (r.hp != null && lastHp != null && r.hp < lastHp) { hurt = performance.now() + 500; floatOver(scene && scene.things.find(t => t.kind === "you"), "−" + Math.round(lastHp - r.hp), EMBER); sfx.hurt(); }
       if (r.hp != null) lastHp = r.hp;

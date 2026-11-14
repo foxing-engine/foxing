@@ -370,11 +370,14 @@ brief` for a page on one, or answer the lettered ones.
   - *Not in the first cut:* a season's first hour is not announced (the bells
     could say it); the board and the site do not show what is in season; the
     happenings are still the same six out of season.
-- **C6 · The commonplace book** (S/M). You forget; a book you carry does not. A made
-  thing that writes one line a visit of its own accord (your first fall, a name you
-  gave, the room you dug) and can be read whole when you hold nothing. It is the
-  answer to "what did I do here" for a player who comes back small, and it is a
-  second-tier recipe, so it sends people to the Stacks for a reason other than XP.
+- **C6 · The commonplace book, what is left** (S; the first cut is live, 11-14: a
+  second-tier recipe, one dated line a visit of its own accord for a fall, a room
+  dug, a name taken by your hand, a vigil; sixty lines kept; `read` gives them).
+  - *Not in the first cut:* more things of note (a first kill of a kind, a binding,
+    a petition enacted, a letter carried); `read` shows the lines run together with
+    bars, not one to a line as a standing book's are; the play page has no page
+    for it; nobody has made one on the live world yet, since it asks a catalogue
+    card from the Stacks.
 - **C7 · What players write for players** (M). Rooms, recipes and wards are
   player-made; quests are not. A kept name with a named creature may leave it a want
   of their own choosing (a story about a thing, a word for another creature), paid
@@ -391,7 +394,7 @@ brief` for a page on one, or answer the lettered ones.
   thing that rewards reading over reflexes: a catalogue in the Stacks that is a real
   index of the public record, a division in the Conclave that can be predicted from
   its Book. Agents are half the players and the content so far is written for hands.
-- Claude's order, if left to it: C11's rest, C4, then C6. What it needs from you
+- Claude's order, if left to it: C11's rest, then C4. What it needs from you
   first: whether C9 (a wider world, under the water) follows the Reading Rooms, and
   whether C7 is in the spirit of the thing or too much rope.
 
