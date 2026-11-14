@@ -456,6 +456,9 @@ pub struct Store {
     by_parent: BTreeMap<EntityId, BTreeSet<EntityId>>,
     #[serde(skip)]
     by_kind: BTreeMap<String, BTreeSet<EntityId>>,
+    /// Events passed over on replay: written under a schema this build lacks.
+    #[serde(skip)]
+    skipped: u64,
 }
 
 impl Store {
@@ -468,6 +471,7 @@ impl Store {
             next_id: 1,
             by_parent: BTreeMap::new(),
             by_kind: BTreeMap::new(),
+            skipped: 0,
         }
     }
 
@@ -689,6 +693,11 @@ impl Store {
         actor: Actor,
         event: StoreEvent,
     ) -> Result<Event, StoreError> {
+        // S9: what the schema would refuse is refused before it is written. It was
+        // appended first and refused after, so a write to a field no schema declared
+        // went into the log, the caller got an error it could ignore, and the next
+        // boot could not replay its own log (11-14: the world down eight minutes).
+        self.check(&event)?;
         let payload =
             serde_json::to_value(&event).map_err(|e| StoreError::Malformed(e.to_string()))?;
         let ev = log
@@ -696,6 +705,60 @@ impl Store {
             .map_err(StoreError::Log)?;
         self.apply_store_event(ev.at, &event)?;
         Ok(ev)
+    }
+
+    /// Whether the schemas take this event: its component and fields declared, each
+    /// of the kind the event writes. Nothing is changed. `record` asks before it
+    /// appends; replay skips what fails here (see `Projection for Store`).
+    pub fn check(&self, event: &StoreEvent) -> Result<(), StoreError> {
+        let kind_of = |component: &str, field: &str, want: FieldKind| {
+            let fs = self.field_schema(component, field)?;
+            if fs.kind != want {
+                return Err(StoreError::WrongKind(
+                    component.into(),
+                    field.into(),
+                    fs.kind,
+                    want,
+                ));
+            }
+            Ok(())
+        };
+        match event {
+            StoreEvent::ComponentSet {
+                component, fields, ..
+            } => {
+                for (fname, f) in fields {
+                    kind_of(
+                        component,
+                        fname,
+                        match f {
+                            Field::Plain(_) => FieldKind::Plain,
+                            Field::Timed(_) => FieldKind::Timed,
+                        },
+                    )?;
+                }
+                self.registry
+                    .get(component)
+                    .map(|_| ())
+                    .ok_or_else(|| StoreError::UnknownComponent(component.clone()))
+            }
+            StoreEvent::FieldSet {
+                component, field, ..
+            } => kind_of(component, field, FieldKind::Plain),
+            StoreEvent::FieldCommitted {
+                component, field, ..
+            }
+            | StoreEvent::FieldRecurved {
+                component, field, ..
+            } => kind_of(component, field, FieldKind::Timed),
+            _ => Ok(()),
+        }
+    }
+
+    /// How many events of the log this store passed over on replay because no
+    /// schema of this build takes them.
+    pub fn skipped_on_replay(&self) -> u64 {
+        self.skipped
     }
 
     /// Apply a store event at a timestamp. Used by [`Projection::apply`] and [`Store::record`].
@@ -952,6 +1015,21 @@ impl Projection for Store {
         }
         let se: StoreEvent = serde_json::from_value(event.payload.clone())
             .map_err(|e| StoreError::Malformed(e.to_string()))?;
+        // S9: an event no schema of this build takes is passed over, said, and
+        // counted, and the world opens. Either the build that wrote it refused it
+        // too (so the world never had it), or a later build dropped the field; a
+        // world that will not open serves nobody, and a rollback cannot mend a log.
+        // A component no schema knows is another matter: that is another world's
+        // log, and it is still refused whole.
+        if let Err(e @ (StoreError::UnknownField(..) | StoreError::WrongKind(..))) = self.check(&se)
+        {
+            self.skipped += 1;
+            eprintln!(
+                "replay: passed over event #{} ({}): {e}",
+                event.seq.0, event.kind
+            );
+            return Ok(());
+        }
         self.apply_store_event(event.at, &se)
     }
 }
@@ -1305,6 +1383,104 @@ mod tests {
                 FieldKind::Plain
             ))
         );
+    }
+
+    /// S9: a write no schema takes is refused before it reaches the log; one that
+    /// is in a log already (written by a build that appended first) is passed over
+    /// on replay, counted, and the store opens with everything else.
+    #[test]
+    fn a_write_no_schema_takes_is_not_logged_and_does_not_stop_a_replay() {
+        let mut log = MemoryLog::new();
+        let world = WorldId::from("test");
+        let mut s = Store::new(registry());
+        let chunk = s.allocate_id();
+        let me = Actor::Citizen("dave".into());
+        s.record(
+            &mut log,
+            &world,
+            T0,
+            me.clone(),
+            StoreEvent::EntityCreated {
+                id: chunk,
+                kind: "chunk".into(),
+                owner: Some("dave".into()),
+                parent: None,
+                scopes: vec![],
+            },
+        )
+        .unwrap();
+        s.record(
+            &mut log,
+            &world,
+            T0,
+            me.clone(),
+            StoreEvent::ComponentSet {
+                id: chunk,
+                component: "test.chunk".into(),
+                fields: chunk_fields(10.0, T0),
+            },
+        )
+        .unwrap();
+        let before = log.read_all(&world, Cursor::START).unwrap().len();
+        let stray = StoreEvent::FieldSet {
+            id: chunk,
+            component: "test.chunk".into(),
+            field: "edge_mezzanine".into(),
+            value: json!(true),
+        };
+        let err = s
+            .record(&mut log, &world, T0, me.clone(), stray.clone())
+            .unwrap_err();
+        assert!(matches!(err, StoreError::UnknownField(_, _)), "{err}");
+        // A timed write to a plain field is the same kind of mistake.
+        let wrong = StoreEvent::FieldCommitted {
+            id: chunk,
+            component: "test.chunk".into(),
+            field: "source".into(),
+            value: 1.0,
+        };
+        assert!(matches!(
+            s.record(&mut log, &world, T0, me.clone(), wrong)
+                .unwrap_err(),
+            StoreError::WrongKind(..)
+        ));
+        assert_eq!(log.read_all(&world, Cursor::START).unwrap().len(), before);
+        // The log as an older build left it: the stray write appended, then a good one.
+        log.append(
+            &world,
+            NewEvent::new(
+                T0,
+                stray.kind(),
+                me.clone(),
+                serde_json::to_value(&stray).unwrap(),
+            ),
+        )
+        .unwrap();
+        s.record(
+            &mut log,
+            &world,
+            T0,
+            me,
+            StoreEvent::FieldSet {
+                id: chunk,
+                component: "test.chunk".into(),
+                field: "source".into(),
+                value: json!("after the stray"),
+            },
+        )
+        .unwrap();
+        let mut again = Store::new(registry());
+        replay(&log, &world, Cursor::START, &mut again).unwrap();
+        assert_eq!(again.skipped_on_replay(), 1);
+        let source = |st: &Store| match st.entity(chunk).unwrap().components["test.chunk"].fields
+            ["source"]
+            .clone()
+        {
+            Field::Plain(v) => v,
+            _ => unreachable!(),
+        };
+        assert_eq!(source(&again), json!("after the stray"));
+        assert_eq!(source(&again), source(&s));
     }
 
     #[test]

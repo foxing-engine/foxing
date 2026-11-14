@@ -257,14 +257,13 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   already empty the Fogbank; ten times the names want spawn counts that follow who is
   in the room, more first rooms (R151), and the Mudroom's wall (H18). These are the
   limits a player meets before the server's.
-- **S9 · A write the schema does not know is refused when it is made** (S; from the
-  outage of 11-14, T17). The store takes a `FieldSet` on an undeclared field while
-  it runs and refuses the same event on replay, so one such write stops the next
-  boot, and the rollback's too. Refuse it at `record`, or accept it on replay with
-  a warning; Claude leans the first, with the second as well for the log already
-  written. Beside it: the deploy's health check could replay the live log against
-  the new build before it stops the old one.
-- Order: S9, S6 (a hundred next), S4. S2b when you choose.
+- **S9 · The deploy, what is left** (S; the store's half is live, 11-14). A deploy
+  still stops the old driver before it knows the new one opens the log. The step
+  that would have caught 11-14 without any of the rest: replay the live log against
+  the new build (read-only, beside the running driver) before the switch, and stop
+  there if it fails. It needs memory for two drivers at boot (2.5 GB each on a
+  7.7 GB box), so it wants S7's look at boot memory first.
+- Order: S6 (a hundred next), S4, S9. S2b when you choose.
 
 ## Content (C): expansions, planned 11-12 at David's ask; C3 is live, the rest is not built
 
