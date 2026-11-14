@@ -88,6 +88,8 @@ pub fn summary(world: &World, actor: &str) -> Result<Outcome, CommandError> {
     let mut bump = |k: &str| *n.entry(k.to_string()).or_insert(0usize) += 1;
     // R135: the longest silence of your own inside the session, said (a name quiet
     // 34 minutes for a division read "Here 37m" and nothing of the wait).
+    // R246: what the falls took, beside their count.
+    let mut fell_for = 0.0f64;
     let mut last_own: Option<i64> = Some(at);
     let mut quiet: Option<(i64, i64)> = None;
     for e in &events {
@@ -109,7 +111,12 @@ pub fn summary(world: &World, actor: &str) -> Result<Outcome, CommandError> {
             "store.entity_created" if p["kind"] == "chunk" && p["parent"] == window => {
                 bump("earned")
             }
-            k if k == super::combat::DIED && p["citizen"] == actor => bump("falls"),
+            k if k == super::combat::DIED && p["citizen"] == actor => {
+                fell_for += p["worth"].as_f64().unwrap_or(0.0);
+                bump("falls")
+            }
+            // R241: the Reading Bench's one story is a story told.
+            k if k == super::exchange::BENCH && p["from"] == actor => bump("stories"),
             k if k == super::building::DUG && p["by"] == actor => {
                 bump("dug");
                 bump("spent")
@@ -158,9 +165,10 @@ pub fn summary(world: &World, actor: &str) -> Result<Outcome, CommandError> {
     }
     if c("falls") > 0 {
         parts.push(format!(
-            "{} {}",
+            "{} {} (which took {:.0} XP)",
             c("falls"),
-            plural(c("falls"), "fall", "falls")
+            plural(c("falls"), "fall", "falls"),
+            fell_for
         ));
     }
     if c("dug") > 0 {

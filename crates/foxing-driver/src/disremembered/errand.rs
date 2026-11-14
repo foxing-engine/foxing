@@ -230,6 +230,7 @@ pub fn set_word(
             ("word_to", json!(to)),
             ("word_by", json!(by)),
             ("word_at", json!(world.now().0)),
+            ("word_heard", json!([])),
         ],
     )
 }
@@ -376,8 +377,43 @@ pub fn clear_word(world: &mut World, creature: EntityId) -> Result<(), CommandEr
             ("word", Value::Null),
             ("word_to", Value::Null),
             ("word_by", Value::Null),
+            ("word_heard", Value::Null),
         ],
     )
+}
+
+/// D30 (a): a word is carried by one who had it from the giver: told by it, or stood
+/// with it. `wants` and the door say that a word is wanted, never the word.
+pub fn heard(world: &World, giver: EntityId, actor: &str) -> bool {
+    plain(&fields_of(world, giver), "word_heard")
+        .and_then(|v| v.as_array().cloned())
+        .is_some_and(|a| a.iter().any(|n| n.as_str() == Some(actor)))
+}
+
+/// The giver gives its word to `actor`: once, and only while it has one.
+pub fn hear(world: &mut World, giver: EntityId, actor: &str) -> Result<(), CommandError> {
+    if !of(world, giver).is_some_and(|e| e.word.is_some()) || heard(world, giver, actor) {
+        return Ok(());
+    }
+    let mut names = plain(&fields_of(world, giver), "word_heard")
+        .and_then(|v| v.as_array().cloned())
+        .unwrap_or_default();
+    names.push(json!(actor));
+    write(world, giver, vec![("word_heard", Value::Array(names))])
+}
+
+/// Standing with the givers in a room is hearing each one's word.
+pub fn hear_here(world: &mut World, room: EntityId, actor: &str) -> Result<(), CommandError> {
+    let givers: Vec<EntityId> = world
+        .store
+        .of_kind("creature")
+        .filter(|e| e.parent == Some(room))
+        .map(|e| e.id)
+        .collect();
+    for g in givers {
+        hear(world, g, actor)?;
+    }
+    Ok(())
 }
 
 pub fn clear(world: &mut World, creature: EntityId) -> Result<(), CommandError> {
@@ -419,6 +455,12 @@ pub fn route(world: &World, from: EntityId, to: EntityId) -> Option<Vec<String>>
 /// The errand as `look` and the cloak say it, if the creature has a name and a want:
 /// one sentence per part, the word with the way there.
 pub fn describe(world: &World, creature: EntityId) -> Option<String> {
+    describe_as(world, creature, true)
+}
+
+/// As [`describe`], and with `worded` false the word itself is left out: the giver
+/// says it to whoever stands with it or tells it (D30).
+pub fn describe_as(world: &World, creature: EntityId, worded: bool) -> Option<String> {
     let n = mind::name(world, creature)?;
     let e = of(world, creature)?;
     let mut parts = Vec::new();
@@ -497,9 +539,17 @@ pub fn describe(world: &World, creature: EntityId) -> Option<String> {
         } else {
             " That is half the errand: it will hand you a word for the way home, and the way home is the other half."
         };
-        parts.push(format!(
-            "{n} wants word carried to {to}{place}: \"{phrase}\"{way}.{halves}"
-        ));
+        parts.push(if worded {
+            format!("{n} wants word carried to {to}{place}: \"{phrase}\"{way}.{halves}")
+        } else {
+            let at = here
+                .and_then(|r| plain_str(world, r, ROOM, "name"))
+                .map(|p| format!(", in {p}"))
+                .unwrap_or_default();
+            format!(
+                "{n}{at} wants a word carried to {to}{place}, and gives the word to whoever stands with it or tells it.{halves}"
+            )
+        });
     }
     Some(parts.join(" "))
 }
@@ -668,6 +718,12 @@ pub fn carried_word(
     };
     let phrase = e.word.clone().unwrap_or_default();
     let sender_name = mind::name(world, sender).unwrap_or_else(|| "someone".into());
+    if !heard(world, sender, actor) {
+        // D30 (a): read off a board and walked over is not carried.
+        return Ok(Some(format!(
+            "That is {sender_name}'s word, and you did not have it from {sender_name}. A word is carried by one it was given to: stand with {sender_name} or tell it anything, and it gives you the word; then bring it."
+        )));
+    }
     let f = me_by_name(world, actor)?;
     let curves = super::Curves::with_half_life(foxing_time::Duration::seconds(3 * 3600));
     // A word carried pays more when names are few: the errands are what keep them.
@@ -700,6 +756,7 @@ pub fn carried_word(
         let back = RETURN_WORDS
             [(sender.0 as usize * 31 + receiver.0 as usize + times * 7) % RETURN_WORDS.len()];
         set_word(world, receiver, back, &sender_name, "the way home")?;
+        hear(world, receiver, actor)?;
         format!(" Carry this back to {sender_name}: \"{back}\"")
     } else {
         String::new()

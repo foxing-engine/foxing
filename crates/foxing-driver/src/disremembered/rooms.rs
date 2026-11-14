@@ -54,7 +54,7 @@ pub const DISTRICTS: &[District] = &[
     District { name: "the Conclave", entry: "escapement-stair", blurb: "the house that sets the world's rates: read its Book, lay a petition, watch a division" },
     District { name: "the Exergue District", entry: "exergue-stair", blurb: "the mint under the clock: the coinage in circulation, a bar, and a guarded Purse" },
     District { name: "the Wistful Trail", entry: "trail-stile", blurb: "a walk north of the Orchard: a meadow, a well, a bog and a lookout" },
-    District { name: "the Reading Rooms", entry: "mezzanine", blurb: "a mezzanine over the Archive, for a name holding 20 to 100: its creatures are fought by what you tell them, and told by what you fought" },
+    District { name: "the Reading Rooms", entry: "mezzanine", blurb: "a mezzanine over the Archive: its creatures are fought by what you tell them, and told by what you fought" },
 ];
 
 fn district_index(key: &str) -> Option<usize> {
@@ -1395,6 +1395,8 @@ pub fn describe_as(
 ) -> Result<Outcome, foxing_registry::CommandError> {
     // Standing here is remembering it: the mini-map is what you have seen.
     super::atlas::mark_seen(world, actor, room)?;
+    // D30: and standing with a giver is having its word.
+    super::errand::hear_here(world, room, actor)?;
     let obs = super::observe_as(world, ctx, look_query(room))?;
     let root = &obs.observation.root;
     let name = root["components"][ROOM]["name"]

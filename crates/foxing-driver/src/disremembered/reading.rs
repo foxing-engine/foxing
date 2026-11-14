@@ -458,9 +458,8 @@ pub fn vigil(
 /// The sign on the landing, in `look`.
 pub fn landing_said(world: &World, f: &Found) -> String {
     let mine = fights(world, f);
-    let level = super::memory::level(world, f.window);
     format!(
-        "A card on the newel post: \"READING ROOMS. Sized for a name holding 20 to 100 (you hold {level:.0}). Nothing here is struck to any purpose; it is told. `story <creature> \"\u{2026}\"` of a fight you still remember, naming what you fought, a dozen words or more: the more words it has not heard this fight and the more vivid that memory, the harder the telling lands (your most vivid memory of the kind you name is the one told). Every telling draws a blow back; a proofreader's is a point harder for each word you repeat. The lampmoth takes the memory of a fight you nearly lost, vividity 0.6 or more (`remember <chunk> lampmoth`). Nothing asks your level at the stair: under 20, the lampmoths are the ones to tell.\" {}",
+        "A card on the newel post: \"READING ROOMS. Nothing here is struck to any purpose; it is told. `story <creature> \"\u{2026}\"` of a fight you still remember, naming what you fought, a dozen words or more: the more words it has not heard this fight and the more vivid that memory, the harder the telling lands (your most vivid memory of the kind you name is the one told). Every telling draws a blow back; a proofreader's is a point harder for each word you repeat. The lampmoth takes the memory of a fight you nearly lost, vividity 0.6 or more (`remember <chunk> lampmoth`). Nothing asks your level at the stair; a new name does best to tell the lampmoths first.\" {}",
         if mine.is_empty() {
             "You remember no fight just now; win one below first.".to_string()
         } else {

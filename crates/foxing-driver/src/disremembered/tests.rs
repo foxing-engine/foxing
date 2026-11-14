@@ -3905,7 +3905,39 @@ fn a_chain_closing_can_kindle_a_hybrid_that_knows_its_makers_and_opens_its_seale
         "errand",
         json!([&rag_name, "the fourth door is open", &wisp_name]),
     );
+    // D30 (a): a word read off a board is not carried. Tyler never stood with the
+    // ragpicker since it had the word; Dave looks, and has it from the giver.
+    ok(&mut w, "tyler", "travel", json!(["north"]));
+    let said = ok(
+        &mut w,
+        "tyler",
+        "tell",
+        json!([&wisp_name, "the fourth door is open"]),
+    );
+    assert!(
+        said.summary.contains("you did not have it from"),
+        "{}",
+        said.summary
+    );
+    assert!(
+        errand::of(&w, rag).unwrap().word.is_some(),
+        "still to carry"
+    );
+    ok(&mut w, "tyler", "travel", json!(["south"]));
+    let wants = ok(&mut w, "tyler", "wants", json!([]));
+    assert!(
+        wants.summary.contains("the fourth door is open"),
+        "back beside the giver, tyler has the word: {}",
+        wants.summary
+    );
+    ok(&mut w, "dave", "look", json!([]));
     ok(&mut w, "dave", "travel", json!(["north"]));
+    let wants = ok(&mut w, "dave", "wants", json!([]));
+    assert!(
+        wants.summary.contains("you have it from"),
+        "{}",
+        wants.summary
+    );
     ok(
         &mut w,
         "dave",

@@ -510,6 +510,7 @@ pub fn run_checked(
                             let word = world
                                 .store
                                 .of_kind("creature")
+                                .filter(|e| errand::heard(world, e.id, actor))
                                 .filter_map(|e| errand::of(world, e.id))
                                 .any(|e| {
                                     e.word_to.as_deref().is_some_and(|t| {

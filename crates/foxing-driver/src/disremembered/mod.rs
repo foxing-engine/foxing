@@ -262,6 +262,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // When a want of the world's own turns (about four hours on, rolled).
             .field("story_until", FieldKind::Plain, Visibility::Public)
             .field("word_at", FieldKind::Plain, Visibility::Public)
+            // D30: the names that have the word from the giver itself.
+            .field("word_heard", FieldKind::Plain, Visibility::Public)
             .field("story_prev", FieldKind::Plain, Visibility::Public)
             .field("prev_keywords", FieldKind::Plain, Visibility::Public)
             .field("prev_at", FieldKind::Plain, Visibility::Public)

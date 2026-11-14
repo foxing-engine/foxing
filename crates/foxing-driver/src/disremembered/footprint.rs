@@ -157,9 +157,18 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
                 )
             });
         }
+        // D30 (a): the word is the giver's to give. `wants` says there is one, and
+        // the word itself only to a name that has it already.
+        let has_word = super::errand::heard(world, e.id, actor);
         if let (Some(w), Some(to)) = (&word, &word_to) {
-            want_said.push(format!("the word \u{201c}{w}\u{201d} carried to {to}"));
+            want_said.push(if has_word {
+                format!("the word \u{201c}{w}\u{201d} carried to {to} (you have it from {name})")
+            } else {
+                format!("a word carried to {to} (stand with {name} or tell it, and it gives you the word)")
+            });
         }
+        let word_wanted = word.is_some() && word_to.is_some();
+        let word = word.filter(|_| has_word);
         if want_said.is_empty() {
             continue;
         }
@@ -178,7 +187,7 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
         ));
         rows.push(json!({
             "creature": e.id.0, "name": name, "kind": kind, "room": room.map(|r| r.0), "room_name": where_,
-            "way": way, "story": story, "word": word, "word_to": word_to, "knows_you": knows_you, "told_this_hour": told,
+            "way": way, "story": story, "word": word, "word_wanted": word_wanted, "word_to": word_to, "knows_you": knows_you, "told_this_hour": told,
             "ready_in_ms": if told { super::exchange::ready_in(world, actor, e.id) } else { None },
             "level": level, "failing": level < mind::FAILING_BELOW,
         }));

@@ -273,7 +273,7 @@ pub const CREATURES: &[CreatureDef] = &[
     CreatureDef { key: "erratum", name: "erratum", hp: 28.0, attack: 4.0, xp: 28.0, aggressive: false, strike_seconds: 10, ambush: "slides out of a book on a slip of paper that says what the book should have said.", glyph: "e", tint: "#d0c0a8" },
     CreatureDef { key: "shusher", name: "shusher", hp: 34.0, attack: 5.0, xp: 35.0, aggressive: false, strike_seconds: 10, ambush: "lays a finger where a mouth would be, and the room is quieter than it was.", glyph: "S", tint: "#8a8aa0" },
     CreatureDef { key: "proofreader", name: "proofreader", hp: 36.0, attack: 4.0, xp: 40.0, aggressive: false, strike_seconds: 10, ambush: "looks up over its spectacles with the pencil already moving.", glyph: "P", tint: "#b0a890" },
-    CreatureDef { key: "redactor", name: "redactor", hp: 44.0, attack: 6.0, xp: 50.0, aggressive: false, strike_seconds: 9, ambush: "uncaps the blue pencil and draws a line through the air where you are standing.", glyph: "R", tint: "#5a78b0" },
+    CreatureDef { key: "redactor", name: "redactor", hp: 36.0, attack: 5.0, xp: 50.0, aggressive: false, strike_seconds: 9, ambush: "uncaps the blue pencil and draws a line through the air where you are standing.", glyph: "R", tint: "#5a78b0" },
     CreatureDef { key: "custodian", name: "custodian", hp: 40.0, attack: 7.0, xp: 150.0, aggressive: true, strike_seconds: 9, ambush: "stands up from behind the counter with a ledger in one hand and the other hand empty, and the empty one is the one to watch.", glyph: "C", tint: "#5a5a6a" },
 ];
 

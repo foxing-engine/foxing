@@ -55,7 +55,7 @@ fn start(w: &crate::world::World) -> String {
     let wants: Vec<String> = w
         .store
         .of_kind("creature")
-        .filter_map(|e| crate::disremembered::errand::describe(w, e.id))
+        .filter_map(|e| crate::disremembered::errand::describe_as(w, e.id, false))
         .collect();
     let any_named = w
         .store

@@ -143,6 +143,7 @@ pub fn register(world: &mut World) {
                 .map_err(internal)?;
                 super::combat::narrate_many(w, &others_here(w, room, &ctx.actor), format!("{} says to {name}, \"{text}\"", ctx.actor));
                 // A word carried to it, if one was wanted, before anything it would say.
+                super::errand::hear(w, creature, &ctx.actor)?;
                 let answer = match super::errand::carried_word(w, &ctx.actor, creature, &text)? {
                     Some(a) => Some(a),
                     None => reply(w, creature, &ctx.actor, &text),

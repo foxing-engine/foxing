@@ -762,10 +762,26 @@ pub fn pass(
             Vec::new(),
         );
     }
-    let result = checker.check(text);
+    // R192 (b): CLEAR stays strict and the world forgives. A name of several words
+    // written bare after a verb that takes one name is read as that name, quoted, and
+    // the reply says so.
+    let first = checker.check(text);
+    let mended;
+    let mut mends: Vec<String> = Vec::new();
+    let (text, result) = match mend(checker, text, &first) {
+        Some((t, r, said)) => {
+            mends = said;
+            mended = t;
+            (mended.as_str(), r)
+        }
+        None => (text, first),
+    };
     let msg = &result.message;
     let r#ref = msg.field("REF").filter(|r| !r.is_empty());
     let mut report = Report::new(&world_name, actor, r#ref);
+    for said in mends {
+        report.fact(said, "gate");
+    }
     // What happened to the sender since they last wrote, for the channels that have
     // no other way to hear it: an ambush, a strike, words left for them. The text port
     // prints these itself and the session pushes them.
@@ -1095,6 +1111,62 @@ fn finish(
 }
 
 /// A rejection cites every error by rule.
+/// The verbs whose argument is one name, which a writer may leave unquoted.
+const ONE_NAME: [&str; 5] = ["travel", "where", "take", "read", "drop"];
+
+/// R192 (b): when every error in a message is the argument count of a one-name verb
+/// written with a bare name of several words, the same message with those names
+/// quoted, its check, and a line for each saying how it was read. `None` when that
+/// does not make the message pass.
+fn mend(
+    checker: &Checker,
+    text: &str,
+    result: &CheckResult,
+) -> Option<(String, CheckResult, Vec<String>)> {
+    let errors: Vec<&foxing_clear::Finding> = result
+        .findings
+        .iter()
+        .filter(|f| f.severity == foxing_clear::ERROR)
+        .collect();
+    if errors.is_empty() || errors.iter().any(|f| f.rule != "CL-I6") {
+        return None;
+    }
+    let mut lines: Vec<String> = text.lines().map(str::to_string).collect();
+    let mut said = Vec::new();
+    for f in errors {
+        let n: usize = f.r#where.rsplit(' ').next()?.parse().ok()?;
+        let st = result.message.statements.iter().find(|s| s.index == n)?;
+        let verb = st.verb.as_deref()?;
+        let args = st.arguments.as_deref()?.trim();
+        if !ONE_NAME.contains(&verb)
+            || args.contains(['"', '\u{201c}', '\u{201d}'])
+            || !(2..=8).contains(&args.split_whitespace().count())
+        {
+            return None;
+        }
+        let line = lines.get_mut(st.line.checked_sub(1)?)?;
+        let at = line.rfind(args)?;
+        line.replace_range(at..at + args.len(), &format!("\"{args}\""));
+        said.push(format!(
+            "Statement {n} was read as `{verb}` with the one name {}, which is written quoted",
+            curl_inner_quotes(&format!("\"{args}\""))
+        ));
+    }
+    let mut mended = lines.join("\n");
+    if text.ends_with('\n') {
+        mended.push('\n');
+    }
+    let again = checker.check(&mended);
+    if again
+        .findings
+        .iter()
+        .any(|f| f.severity == foxing_clear::ERROR)
+    {
+        return None;
+    }
+    Some((mended, again, said))
+}
+
 fn rejection(result: &CheckResult, report: &mut Report) {
     let r#ref = result
         .message
@@ -1124,8 +1196,25 @@ fn rejection(result: &CheckResult, report: &mut Report) {
         // And the two a hurried writer meets with no words at all (the Watch of
         // 11-14): too many statements, whose reason is a pair of numbers, and two
         // actions in one statement, said in the world's own words.
-        let why: String = if f.rule == "CL-I2" {
-            "a statement carries one action and one object".to_string()
+        // R246: no refusal is a bare code. The rest are said in the world's own
+        // words, which quote nothing from the statement and so cannot re-offend.
+        let own = match f.rule.as_str() {
+            "CL-I2" => "a statement carries one action and one object",
+            "CL-R1" => "a clause opens with the name of its subject, written out",
+            "CL-R2" => "a time is written as a date or as a numbered turn",
+            "CL-R3" => "a number carries its unit",
+            "CL-S1" => "each statement opens with a type tag",
+            "CL-S2" => "one sentence to a statement",
+            "CL-S3" => "the statement is over the word limit",
+            "CL-S4" => "the statement repeats one before",
+            "CL-S5" => "a statement ends with a period, after any closing quote",
+            "CL-I3" => "the actor of the verb is named before the verb",
+            "CL-I4" => "an obligation is written as a DO statement",
+            "CL-C2" => "a fact the writer doubts is written as an INFER with its level",
+            _ => "",
+        };
+        let why: String = if !own.is_empty() {
+            own.to_string()
         } else if !matches!(f.rule.as_str(), "CL-I5" | "CL-I6" | "CL-I1" | "CL-M1") {
             String::new()
         } else {
@@ -1157,8 +1246,37 @@ fn rejection(result: &CheckResult, report: &mut Report) {
         "clear_check",
     );
     if result.findings.iter().any(|f| f.rule == "CL-I5") {
+        // R246: a way written as a verb (`go north`, `east`) is pointed at `travel`.
+        const WAYS: [&str; 16] = [
+            "go",
+            "walk",
+            "move",
+            "head",
+            "enter",
+            "north",
+            "south",
+            "east",
+            "west",
+            "up",
+            "down",
+            "out",
+            "back",
+            "northeast",
+            "northwest",
+            "climb",
+        ];
+        let way = result
+            .message
+            .statements
+            .iter()
+            .filter_map(|s| s.verb.as_deref())
+            .any(|v| WAYS.contains(&v));
         report.fact(
-            "The `commands` tool lists the verbs this world runs",
+            if way {
+                "The verb for moving is `travel`, as in `travel north`; the `commands` tool lists every verb"
+            } else {
+                "The `commands` tool lists the verbs this world runs"
+            },
             "gate",
         );
     }
@@ -1886,9 +2004,18 @@ mod tests {
         let p = send(&mut w, &checker, &mut budget, "lantern-7", &text);
         assert_eq!(p.verdict, "FAIL");
         assert!(!p.acted);
-        assert!(p.reply.contains("[FACT] Statement 1 of message lantern-7-test-1 failed rule CL-C2. [src:clear_check]"), "{}", p.reply);
-        assert!(p.reply.contains("failed rule CL-R1."), "{}", p.reply);
-        assert!(p.reply.contains("failed rule CL-R2."), "{}", p.reply);
+        assert!(p.reply.contains("[FACT] Statement 1 of message lantern-7-test-1 failed rule CL-C2 (a fact the writer doubts is written as an INFER with its level). [src:clear_check]"), "{}", p.reply);
+        assert!(
+            p.reply.contains("failed rule CL-R1 (a clause opens"),
+            "{}",
+            p.reply
+        );
+        assert!(
+            p.reply
+                .contains("failed rule CL-R2 (a time is written as a date"),
+            "{}",
+            p.reply
+        );
         // The verb rule says why; a visitor met "failed rule CL-I5" and nothing more.
         assert!(p.reply.contains("[FACT] Statement 2 of message lantern-7-test-1 failed rule CL-I5 (Verb 'nuke' is not an approved action verb for the sender). [src:clear_check]"), "{}", p.reply);
         assert!(
@@ -2171,8 +2298,9 @@ mod tests {
         );
         assert!(!p.ok && !p.acted);
         assert!(p.prose.contains("CL-I5"), "{}", p.prose);
+        // R246: a way written as a verb is pointed at `travel`.
         assert!(
-            p.prose.contains("lists the verbs this world runs"),
+            p.prose.contains("The verb for moving is `travel`"),
             "{}",
             p.prose
         );
@@ -2287,6 +2415,27 @@ mod tests {
             &text,
         );
         assert!(!p.acted && p.prose.contains("CL-I6"), "{}", p.prose);
+
+        // R192 (b): a bare name of several words after a one-name verb is read as
+        // that name, and the reply says so; CLEAR itself is as strict as it was.
+        let text = compile("spacepants", "disremembered", "where tyler", now, &checker)
+            .replace("where tyler.", "where The Stair of Indices.");
+        assert!(checker.check(&text).errors > 0, "{text}");
+        let p = send_via(
+            &mut w,
+            &checker,
+            &mut budget,
+            "spacepants",
+            Via::Gate,
+            &text,
+        );
+        assert!(
+            !p.prose.contains("CL-I6")
+                && p.prose.contains("was read as `where` with the one name")
+                && p.prose.contains("The Stair of Indices"),
+            "{}",
+            p.prose
+        );
     }
 
     #[test]
