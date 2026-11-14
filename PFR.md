@@ -275,6 +275,26 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   (the test counts them and does not say why). **On this curve one core is full
   near two hundred names**, and the lock, not the box, is the limit: S10 comes
   before two hundred.
+  **A hundred again after S10 a and b (11-14, twice):** the same 16 to 17 commands a
+  second, and 62 events a second where there were 180 (23,200 for the run; 68,900).
+  A `say` 4.8 ms and four events (28 ms, 41), a `tell` 6.2 ms and five (51 ms, 76).
+  The world's share of a reply 5 to 8 ms at the middle and 12 to 29 at the 95th (36
+  to 76); the wait for the lock 6 to 7 ms at the 95th (16 to 20). The driver 27 to
+  30% of one core at the middle and 57 to 59% at its worst (44 and 85); the box 90%
+  idle. The pushes held the lock 45 to 55 s of 370 (102); sixty sessions were sent
+  306 to 349 MB (509), `obs:room` still 187 to 220 MB of it. The log grew 21 MB
+  (38). **One core is now full nearer three hundred names than two.** What is left
+  of the curve is `obs:room`: twice a second is still the whole room each time; the
+  next step is to send what changed (S11, unwritten until it is wanted).
+  **The dropped sessions were the test's, not the world's.** Eight and nine of sixty
+  sessions were reset mid-run in these two runs (none in the run before, two of
+  twelve and one of thirty in earlier ones). The driver now says in its journal why
+  a session ended, and the vitals check reads it: each was "reading from the client
+  failed: Connection reset without closing handshake", and the test machine's own
+  outbound relay logged the same seventeen closes as its own ("tunnel closed, code
+  1012, server_draining"). nginx and the driver were bystanders. A load test from
+  this workspace cannot hold sixty long connections without losing some; the
+  figures above are the driver's and are unaffected.
 - **S10 · What a hundred found, what is left** (a and b are live, 11-14).
   - *c · A read writes two events* (**waits**, yours): they are the gate's own
     record, `gate.message` and `gate.reply`, written for every statement because

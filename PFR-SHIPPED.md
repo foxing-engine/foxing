@@ -8,6 +8,8 @@ punch list). What shipped from a visitor's word is also a dated line in
 11-14 (S10 a and b, by David's word; one driver deploy)
 - S10 a: a line said to several hearers is one event addressed to all of them (`to` a list), not an event apiece: `say`, `tell` and everything a room is told. A `say` in a room of forty wrote 41 events and a `tell` 76; a `say` writes four now whatever the crowd. Every reader of a narrative knows both shapes (the gate's "Meanwhile", the session, the play page, `log`, the Docent, the operator's trace); one hearer is written as before.
 - S10 b: a session's subscription is sent its observation again at most twice a second when the change was somebody else's, and once more when the window closes, as the room then stands; a change the session's own name made is sent at once. It was the whole room on every change in it.
+- Measured on the live world at a hundred names, twice: events written 180 a second to 62; the driver 44% of a core to 27 to 30%; the lock held by pushes 102 s of 370 to 45 to 55; sent to sessions 509 MB to 306 to 349; the log's growth 38 MB to 21. The figures are in S6.
+- The driver says in its journal why a session ended when it was not the client's goodbye, and the server check's `vitals` reads those lines. With it: the sessions dropped in the load tests were closed by the test machine's own outbound relay, not by nginx or the driver.
 
 11-14 (D34, D37, D39, by David's word; one driver deploy)
 - D34, closed as intended: a teller levels as fast as it does by design.
