@@ -21,10 +21,7 @@ went by policy, with ids.
 
 Stories, errands and the word ladder
 - **D33 · The third word by meaning, not by token** (M/L; **waits**: David raised it 11-11, "use our haiku connection to do semantic analysis at level 3"). At the third rung the creature holds a meaning ("something lent and never returned"), and a story strikes it by being about that, in any words; a model reads the story against a fixed rubric and answers 0 to 3 with one line in the creature's voice. What it buys: no word list finds it, hints can be thematic, and the top rung is understanding, not search. What it costs, and how each is met: the verdict is late, so it arrives in `messages` the way the Docent's does and is never made under the world's lock; `check` cannot predict it, so rungs one and two stay lexical and only the top is a judgment; two like stories may be judged apart, so the rubric is fixed, the score coarse and the reason said; a story will address the judge, so the story goes in as data and a structured verdict comes out, tried first by a Watch member told to break it; when the model is not there the rung says the creature sleeps, and nothing guessable stands in for it. One judged story per creature per name per hour (the cost of an attempt is what D32 was about, and it caps the spend). a) **lean**: build it for the third rung as above, behind a switch, and send a teller and a breaker; b) the same, and the second rung too; c) no: the ladder stays lexical with D32 a.
-- **D34 · Telling levels too fast** (S to change, yours to weigh). The teller of 11-11 was level 168 in 19 messages and five minutes, most of it not the ladder: an errand leg pays about 21 and chains (each receiver hands on a fresh word), a wanted story at double 12 to 17, a word bonus 6 to 9; the guides put a wisp at about 6 and the Stacks at level 100. a) **lean**: an errand leg pays once per giver per name per hour and a chain's later legs pay half; b) errands and double pay scaled so an hour of telling is about an hour of fighting (needs a figure from you for what an hour should be worth); c) as is: telling is the fast road, on purpose. The teller of 11-12, after D32 a: level 55 at four messages, 136 at ten (three minutes), about 190 at twenty-five, then flat, every named creature's hour spent; the ten-minute rule held (one of eight guesses weighed). What is uncapped is the errand leg, a flat 20 a message in a chain that does not end (Tinsel to Osgar to Tinsel, then the next pair): it is a) above, and the teller's first ask.
-- **D37 · The Reading Rooms pay a name out of them in one kill** (S to change, **waits**; all four of the Watch of 11-14). Sized for 20 to 100, and a name of 12 left its first lampmoth at 42, one of 28 its first proofreader at 110, one of 54 an erratum at 109 and two shushers at 152. A kill pays what the kind holds, at most your level plus sixty, and these hold 40 to 100. a) a kill up there never pays past what brings you to 100 (the rooms teach, the Stacks pay), and at 100 pays a token ten; b) halve what the kinds hold (20 to 50); c) both; d) leave it: the middle was too slow before. Claude leans a: it keeps the climb worth it at 20 and stops it being the fastest road in the world at 60.
 - **D38 · One long telling skips the fight** (S, **waits**). Sixty words are counted and a 67-word telling did 29 of a proofreader's 36; two tellings and no blow back killed it. a) count thirty words at most (a fight is three tellings or more); b) leave sixty and raise what the kinds can take by half; c) leave it. Claude leans a.
-- **D39 · Vividity hardly matters to a telling** (S, **waits**). The multiplier runs from three quarters to one and a half, and word count swamps it: every tester measured about half a point a word at every vividity. "Told by what you fought" wants the memory to matter more. a) a quarter to one and three quarters (a dull memory is a third of a vivid one); b) leave it. Claude leans a, with D38 a, so the way to hit hard is a fight nearly lost and not a longer paragraph.
 - **D40 · The lampmoth is the easy one, and the redactor cannot be beaten by the names it is for** (S, **waits**). A lampmoth (20, hits 3 to 5) fell to a name of 12 in three tellings; the redactor (44, hits 6 to 8) stood at 34 after two tellings from a name of 22 with 30 hit points. a) the lampmoth to 26, the redactor to 36 and hits 5 to 7; b) leave them until D37 to D39 are answered, since each changes the arithmetic. Claude leans b.
 - **D30 · A carried word nobody gave you.** `wants` prints the phrase an errand carries ("the fourth door is open"); two of the Watch read it there, walked to the receiver, said it, and were paid 23 without meeting the giver. a) **lean**: the errand is taken from the giver (a `tell` to it, or standing with it), and `wants` says who has a word, not the word; b) as is: `wants` is the notice board. S for a.
 
@@ -301,8 +298,8 @@ brief` for a page on one, or answer the lettered ones.
   fight nearly lost, and the Stacks' three tricks one to a room).
   - *Next:* a Watch sent up the stair, with names holding 20, 60 and 100, to say
     whether the figures are right: a telling lands two and a half words to a point
-    times three quarters to one and a half by the memory's vividity; the kinds
-    hold 40 to 100 and hit 3 to 8.
+    times a quarter to one and three quarters by the memory's vividity (D39 a);
+    the kinds hold 20 to 50 (D37 b) and hit 3 to 8.
   - *Not in the first cut:* the rooms' kinds leave only what the ground floor
     leaves (moth dust, ink, thread), nothing of their own; the Docent does not know the rooms by heart; the play page has no button for a
     telling; a named one of these kinds is a listener like any other, and whether
@@ -447,9 +444,8 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   host to see the headers): text compressed on the site box
   (`/etc/nginx/conf.d/gzip-text.conf`), `/play/mods/` served with
   `Cache-Control: public, max-age=300, must-revalidate`, and the analytics timers
-  re-run. *Left, Claude's:* the box is ahead of the repo by that file and seven
-  lines of `nginx-agentscanplay.conf`; they go into `site/deploy/` with the next
-  driver deploy (a push there restarts the driver, so not on its own).
+  re-run. The box was ahead of the repo by that file and seven
+  lines of `nginx-agentscanplay.conf`; both are in `site/deploy/` since 11-14.
 
 ## Backlog (B), by area: pulled into R when its turn comes; say `B<n> next` to pull one
 

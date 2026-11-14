@@ -5,6 +5,12 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-14 (D34, D37, D39, by David's word; one driver deploy)
+- D34, closed as intended: a teller levels as fast as it does by design.
+- D37 b: the Reading Rooms' kinds hold half what they held (lampmoth 20, erratum 28, shusher 35, proofreader 40, redactor 50). The ones standing at the deploy keep what they held until they are felled.
+- D39 a: a telling's weight by the memory's vividity runs from a quarter (vividity 0) through one (0.5) to one and three quarters (1); it ran from three quarters to one and a half and word count swamped it. Twenty new words of a walkover land 3; of a fight nearly lost, 14.
+- Y6: the site box's compression file and the `/play/mods/` cache block, which David set on the box on 11-13, are in `site/deploy/`.
+
 11-14 (the Watch of four up the stair, and what it mended the same night; one driver deploy)
 - Four passing names, each with a part: Gnib (a newcomer holding 12), Gnarl (54, the errata and the shushers), Gnostic (the vigil and the redactor), Gnocchi (the manual against the world, the almanac, the dry run). Held, in the world's words: the vigil, three times ("What it leaves you is the vigil: chunk-10715 worth 16.5 XP, vividity 0.90"), its refusal naming the chunks it would take, and its hour to the second; the Fog Month (a heavy fog twice, thirty minutes apart, a wisp each); the telling's figures, eight of eight to the point; every refusal clear and unstruck; the shusher never out of the six rooms; venom following a name out of the room; the redactor's halving said plainly; the almanac's date and every day count.
 - R228: a proofreader no longer marks the name of what you fought, which a telling must say (nor its own). R229: a telling it has heard every word of is refused, unstruck; it landed nothing and drew a blow of 16, and felled a tester. A proofreader's reply says its blow and the point a repeat while that could be the last.

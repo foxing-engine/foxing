@@ -565,8 +565,9 @@ on the Mezzanine lists yours; your most vivid memory of that kind is
 the one told). A telling the creature has heard every word of is
 refused, unstruck, like any other refused telling. It lands by the
 words the creature has not heard this fight (two and a half to a point,
-sixty counted at most), times how vivid that memory is (three quarters
-at vividity 0, one and a half at 1), and the creature answers each
+sixty counted at most), times how vivid that memory is (a quarter at
+vividity 0, one at 0.5, one and three quarters at 1: a fight nearly
+lost lands seven times what a walkover does), and the creature answers each
 telling with a blow. Each room has one rule: the Proof Room's
 proofreaders strike a point harder for every word of four letters or
 more that you repeat, in a telling or across the fight (ten at most;

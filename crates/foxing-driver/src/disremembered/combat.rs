@@ -267,12 +267,13 @@ pub const CREATURES: &[CreatureDef] = &[
     CreatureDef { key: "dust devil", name: "dust devil", hp: 12.0, attack: 3.0, xp: 35.0, aggressive: true, strike_seconds: 10, ambush: "comes up the stair as a column of grey and does not stop for you.", glyph: "D", tint: "#9a9280" },
     CreatureDef { key: "shelf mouse", name: "shelf mouse", hp: 10.0, attack: 2.0, xp: 30.0, aggressive: false, strike_seconds: 9, ambush: "looks up from a glove it has been living in and says something that is nearly your name.", glyph: "m", tint: "#8a7a6a" },
     // C2: the Reading Rooms, over the Archive: fought by what you tell them
-    // (`reading.rs`), sized for a name holding twenty to a hundred.
-    CreatureDef { key: "lampmoth", name: "lampmoth", hp: 20.0, attack: 3.0, xp: 40.0, aggressive: false, strike_seconds: 12, ambush: "comes down off the shade and opens its wings over the page you were reading.", glyph: "M", tint: "#e8d8a0" },
-    CreatureDef { key: "erratum", name: "erratum", hp: 28.0, attack: 4.0, xp: 55.0, aggressive: false, strike_seconds: 10, ambush: "slides out of a book on a slip of paper that says what the book should have said.", glyph: "e", tint: "#d0c0a8" },
-    CreatureDef { key: "shusher", name: "shusher", hp: 34.0, attack: 5.0, xp: 70.0, aggressive: false, strike_seconds: 10, ambush: "lays a finger where a mouth would be, and the room is quieter than it was.", glyph: "S", tint: "#8a8aa0" },
-    CreatureDef { key: "proofreader", name: "proofreader", hp: 36.0, attack: 4.0, xp: 80.0, aggressive: false, strike_seconds: 10, ambush: "looks up over its spectacles with the pencil already moving.", glyph: "P", tint: "#b0a890" },
-    CreatureDef { key: "redactor", name: "redactor", hp: 44.0, attack: 6.0, xp: 100.0, aggressive: false, strike_seconds: 9, ambush: "uncaps the blue pencil and draws a line through the air where you are standing.", glyph: "R", tint: "#5a78b0" },
+    // (`reading.rs`), sized for a name holding twenty to a hundred. D37 b: they hold 20 to 50, half
+    // what they first held (every tester of 11-14 left the band in a kill or two).
+    CreatureDef { key: "lampmoth", name: "lampmoth", hp: 20.0, attack: 3.0, xp: 20.0, aggressive: false, strike_seconds: 12, ambush: "comes down off the shade and opens its wings over the page you were reading.", glyph: "M", tint: "#e8d8a0" },
+    CreatureDef { key: "erratum", name: "erratum", hp: 28.0, attack: 4.0, xp: 28.0, aggressive: false, strike_seconds: 10, ambush: "slides out of a book on a slip of paper that says what the book should have said.", glyph: "e", tint: "#d0c0a8" },
+    CreatureDef { key: "shusher", name: "shusher", hp: 34.0, attack: 5.0, xp: 35.0, aggressive: false, strike_seconds: 10, ambush: "lays a finger where a mouth would be, and the room is quieter than it was.", glyph: "S", tint: "#8a8aa0" },
+    CreatureDef { key: "proofreader", name: "proofreader", hp: 36.0, attack: 4.0, xp: 40.0, aggressive: false, strike_seconds: 10, ambush: "looks up over its spectacles with the pencil already moving.", glyph: "P", tint: "#b0a890" },
+    CreatureDef { key: "redactor", name: "redactor", hp: 44.0, attack: 6.0, xp: 50.0, aggressive: false, strike_seconds: 9, ambush: "uncaps the blue pencil and draws a line through the air where you are standing.", glyph: "R", tint: "#5a78b0" },
     CreatureDef { key: "custodian", name: "custodian", hp: 40.0, attack: 7.0, xp: 150.0, aggressive: true, strike_seconds: 9, ambush: "stands up from behind the counter with a ledger in one hand and the other hand empty, and the empty one is the one to watch.", glyph: "C", tint: "#5a5a6a" },
 ];
 

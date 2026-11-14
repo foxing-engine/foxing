@@ -41,6 +41,12 @@ pub const BLADE_SHARE: f64 = 0.25;
 /// one telling is counted for.
 const WORDS_A_POINT: f64 = 2.5;
 const MOST_WORDS: usize = 60;
+/// D39 a: what the memory's vividity is worth to a telling: a quarter of the words'
+/// weight at vividity 0, one and three quarters at 1, so a dull memory lands a
+/// seventh of a vivid one and the way to hit hard is a fight nearly lost. (It ran
+/// from three quarters to one and a half, and word count swamped it.)
+const VIVIDITY_FLOOR: f64 = 0.25;
+const VIVIDITY_SPAN: f64 = 1.5;
 /// The most a proofreader adds to its blow for repeats.
 const MOST_BACK: usize = 10;
 /// A fight this vivid or more was nearly lost: what the lampmoth takes.
@@ -221,7 +227,7 @@ pub fn weigh(w: &World, f: &Found, creature: EntityId, text: &str) -> Result<Wei
         0.0
     };
     let counted = new_words.min(MOST_WORDS) as f64;
-    let damage = ((counted / WORDS_A_POINT) * (0.75 + 0.75 * vividity))
+    let damage = ((counted / WORDS_A_POINT) * (VIVIDITY_FLOOR + VIVIDITY_SPAN * vividity))
         .round()
         .max(1.0);
     let mut all = before;
