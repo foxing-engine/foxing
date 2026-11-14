@@ -1685,7 +1685,7 @@
   // P2: "you are here" ebbs and returns, a class flipped every 1.2 s.
   setInterval(() => { if (document.hidden) return; const r = document.querySelector("#atlas .room.here"); if (r) r.classList.toggle("ebb"); }, 1200);
   // H17: the world's districts, each with a color for the map.
-  const DISTRICT_TINT = { "the Door": "#e8c27a", "the Diggings": "#a9825a", "the Wilds": "#7fae8c", "the Library": "#d9a15b", "the Deep Water": "#5b9bd9", "the Stacks": "#b58bd6", "the Clock Quarter": "#d98f8f", "the Conclave": "#c7c16a", "the Exergue District": "#8fd1cf", "the Wistful Trail": "#9fb3e8" };
+  const DISTRICT_TINT = { "the Door": "#e8c27a", "the Diggings": "#a9825a", "the Wilds": "#7fae8c", "the Library": "#d9a15b", "the Deep Water": "#5b9bd9", "the Stacks": "#b58bd6", "the Clock Quarter": "#d98f8f", "the Conclave": "#c7c16a", "the Exergue District": "#8fd1cf", "the Wistful Trail": "#9fb3e8", "the Reading Rooms": "#c9a0b8" };
   async function refreshAtlas(force) {
     if (!wsReady || !actor) return;
     const room = subs.room && subs.room.root;

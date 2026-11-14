@@ -183,6 +183,10 @@ pub const TRICKS: &[(&str, Trick)] = &[
     ("dust devil", Trick::Shove),
     ("shelf mouse", Trick::Chatter),
     ("custodian", Trick::Maw),
+    // C2: the Reading Rooms, the Stacks' three tricks one to a room.
+    ("erratum", Trick::Venom),
+    ("shusher", Trick::Usher),
+    ("redactor", Trick::Forget),
 ];
 
 /// Venom: this many ticks, this far apart, this much each.
@@ -307,7 +311,14 @@ fn play(
                 return Ok((None, false));
             }
             let here = world.store.entity(citizen).and_then(|e| e.parent);
-            let rooms: Vec<EntityId> = KEYS
+            // C2: a shusher shows you to another of the Reading Rooms, never down
+            // the Stacks' stair.
+            let among: &[&str] = if here.is_some_and(|h| super::reading::is_room(world, h)) {
+                super::reading::KEYS
+            } else {
+                KEYS
+            };
+            let rooms: Vec<EntityId> = among
                 .iter()
                 .filter_map(|k| super::rooms::room_by_key(world, k))
                 .filter(|r| Some(*r) != here)
@@ -338,7 +349,7 @@ fn play(
             );
             Ok((
                 Some(format!(
-                    "The usher takes your elbow and the shelves go past very fast. You are in {rname}."
+                    "The {kind} takes your elbow and the shelves go past very fast. You are in {rname}."
                 )),
                 true,
             ))

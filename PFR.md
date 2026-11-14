@@ -76,7 +76,6 @@ From the Night's Watch of 11-08:
 - **R144** (S) The Docent suggests `tell Wyndle "what is your word?"` minutes after Wyndle's name failed (it is wisp-6579); the by-heart and the model's briefing should read the creature's current display.
 - **R148** (S) The lent-word strike pay reads as fractions of an unnamed thing ("half again", "as much again", "one and a half times again", "2.5 times the pay"), and the in-hour "bonus alone" first strike (3 XP) paid less than a plain miss (4–6 XP): say the figure beside the words ("half again: 3 XP"), and say in `help story` that inside the hour only the word's bonus is paid.
 From the Watch of six, 11-13, the night the second door opened (a newcomer, a faller, a teller, a walker, a manual reader on a kept name, a latecomer; all six woke at the Postern; see T16):
-- **R217** (M) The map, what is left: on the live world the Orchard Wall and the Postern are drawn side by side and three cells from the Orchard and the Lane they open on, because every nearer cell is taken; the Cider Press sits at the far corner from the Orchard, the Namery two rows from the Archive. A grid cannot keep every named door's room beside its parent once dug rooms crowd it: draw the link (a line or a mark on both rooms, "↔ 04"), or lay the world's own rooms before any dug one so the seed map is always whole and the dug rooms take what is left.
 - **R218** (S) The dry run and the gate chose different ways of the same length (Threshold to the Orchard Wall: "north, lane, orchard, wall" in `check`, "north, lane, gate, wall" walked): one route search, one tie-break. And a named walk's reply, and its dry run, still list the doors taken and not the rooms passed (R193).
 - **R220** (S) `wants` gives a creature in a dug room a way "by the signs" ("5 steps: lane, row, south, west, annex") that `where Osgar` and `travel "The Annex of Second Readings"` then refuse ("you remember no way there from here") until the room has been walked: one rule for all three.
 - **R221** (S) The Threshold says "Nothing hunts here" beside "wisp (13/13, hits 2–4, holding 4, born of Fallis and Osgar)": a newborn shown as a plain wisp, which a bare `attack` refuses (the refusal now says it is newborn). `look` should say "newborn, left alone for its first hour" on its row. The chalk tally lists a name as "came through" that has never stood at the Threshold (it counts arrivals at either door): each door its own tally, or say "came into the world".
@@ -281,26 +280,35 @@ brief` for a page on one, or answer the lettered ones.
     empty, the Docent's by-heart tips: R151's cousin).
   - *Not done and not planned:* a name coming back from away is where it left the
     world, as now, not at its door.
-- **C2 · The middle: levels 20 to 100** (L; the largest gap). Between a wisp at 15
-  and the Stacks' stair at 100 there is the Trail and little else, and the teller of
-  11-11 crossed it in five minutes while a fighter cannot cross it in an evening. A
-  mid district that is neither: the **Reading Rooms**, a mezzanine over the Archive,
-  six rooms whose creatures are fought by what you tell them and told by what you
-  fought (a moth that only takes a memory of a fight you nearly lost; a proofreader
-  that strikes harder for every word you repeat). It teaches the Stacks' tricks one
-  at a time before they come three to a room.
+- **C2 · The Reading Rooms, what is left** (M; the first cut is live, 11-13: six
+  rooms up a stair from the Archive, their creatures fought by tellings of fights
+  you remember, a proofreader that strikes for repeats, a lampmoth that takes a
+  fight nearly lost, and the Stacks' three tricks one to a room).
+  - *Next:* a Watch sent up the stair, with names holding 20, 60 and 100, to say
+    whether the figures are right: a telling lands two and a half words to a point
+    times three quarters to one and a half by the memory's vividity; the kinds
+    hold 40 to 100 and hit 3 to 8.
+  - *Not in the first cut:* nothing of the Reading Rooms' kinds drops a material;
+    the Docent does not know the rooms by heart; the play page has no button for a
+    telling; a named one of these kinds is a listener like any other, and whether
+    that is right is undecided; the pilots do not tend the Mezzanine.
 - **C4 · Things for two** (M). The Wardens (320 hit points) are the only fight sized
   for company, and `retreat` already says "bring another name". Three small ones on
   the way there: a bell in the Clocktower that takes two hands in the same minute, a
   door on the Trail with a key in each of two rooms, a creature that only takes a
   story told in two voices (one name starts it, another ends it within the hour).
   Each pays both, and says who you did it with on the record.
-- **C5 · A year in the world** (M, then small things forever). The Conclave keeps
-  five holidays and nothing else knows the date. A calendar the whole world reads:
-  the fog heavier in one month, the Orchard's hours ripe for one week (the only time
-  its fruit is a material), a night when every named creature wants the same story.
-  The happenings engine (X13) already fires twice an hour; this is a table of dates
-  for it.
+- **C5 · The almanac, what is left** (small things forever; the first cut is live,
+  11-13: `almanac`, and three seasons that each change one thing, the Fog Month
+  (November), the Ripe Week (16 to 22 November), the Night of One Story (30
+  November)). All three are in November because the world is three weeks old and a
+  season nobody can walk into is not a first cut; the table is `almanac::SEASONS`.
+  - *a · Spread them over the year?* a) leave November as the world's own month
+    and add one season a month as each is thought of; b) move the Ripe Week to
+    September and the Night to midwinter now. Claude leans a.
+  - *Not in the first cut:* a season's first hour is not announced (the bells
+    could say it); the board and the site do not show what is in season; the
+    happenings are still the same six out of season.
 - **C6 · The commonplace book** (S/M). You forget; a book you carry does not. A made
   thing that writes one line a visit of its own accord (your first fall, a name you
   gave, the room you dug) and can be read whole when you hold nothing. It is the
@@ -322,10 +330,9 @@ brief` for a page on one, or answer the lettered ones.
   thing that rewards reading over reflexes: a catalogue in the Stacks that is a real
   index of the public record, a division in the Conclave that can be predicted from
   its Book. Agents are half the players and the content so far is written for hands.
-- Claude's order, if left to it: C11's rest, C4, then C2 with a brief first. C5 can
-  start as three dates. What it needs from you first: which of C2 and C9 is the
-  world you want (a deeper library, or a wider one), and whether C7 is in the spirit
-  of the thing or too much rope.
+- Claude's order, if left to it: C11's rest, C4, then C6. What it needs from you
+  first: whether C9 (a wider world, under the water) follows the Reading Rooms, and
+  whether C7 is in the spirit of the thing or too much rope.
 
 ## XL (X): the scaffolding; each wants a brief before a first cut
 

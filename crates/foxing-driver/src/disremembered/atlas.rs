@@ -262,7 +262,13 @@ fn layout_uncached(world: &World, prev: Option<&Layout>) -> Layout {
     // east of the Cistern, two floors down; placed beside the Shallows it shoved the
     // Gallery off the Ossuary's east). Then the named doors, beside what they open
     // from, until nothing more is reachable.
-    for pass in 0..2 {
+    // R217: and the world's own rooms before any dug one, both passes, so the seed
+    // map is laid whole and a dug room takes what is left (on the live world the dug
+    // rooms had every cell by the Orchard, and the Orchard Wall stood three cells
+    // from the trees it hangs over).
+    for pass in 0..4 {
+        let named = pass % 2 == 1;
+        let seed_only = pass < 2;
         loop {
             queue.clear();
             let mut keys: Vec<EntityId> = at.keys().copied().collect();
@@ -275,8 +281,13 @@ fn layout_uncached(world: &World, prev: Option<&Layout>) -> Layout {
                 let mut order: Vec<(&String, &EntityId)> = exits.iter().collect();
                 order.sort_by_key(|(name, _)| (step(name).is_none(), (*name).clone()));
                 for (name, &to) in order {
-                    if at.contains_key(&to) || world.store.entity(to).is_none() {
+                    if at.contains_key(&to) {
                         continue;
+                    }
+                    match world.store.entity(to) {
+                        None => continue,
+                        Some(e) if seed_only && e.owner.is_some() => continue,
+                        Some(_) => {}
                     }
                     let (want, kind) = match step(name) {
                         Some((dx, dy, dz)) => ((hx + dx, hy + dy, hz + dz), "compass"),
@@ -284,7 +295,7 @@ fn layout_uncached(world: &World, prev: Option<&Layout>) -> Layout {
                         // it opens from (away from the way that room was reached),
                         // so the Mudroom's dug rooms gather west of it and not
                         // wherever east had a gap.
-                        None if pass == 1 => {
+                        None if named => {
                             let (dx, dy) = out
                                 .rooms
                                 .iter()
@@ -716,6 +727,7 @@ pub fn remembered_map(
             });
             {
                 let mut legend: Vec<String> = Vec::new();
+                let mut legend_ids: Vec<(u64, String)> = Vec::new();
                 let mut grid: Vec<Vec<String>> =
                     // Empty cells are dots, not spaces: a reply through the gate
                     // collapses whitespace, and the grid lost its columns.
@@ -747,6 +759,9 @@ pub fn remembered_map(
                     // read the Scout's Lamp above the Threshold.
                     grid[(y - y0) as usize][(x - x0) as usize] = format!("{code}{mark}");
                     legend.push(format!("{code} {}", r["name"].as_str().unwrap_or("?")));
+                    if let Some(id) = r["id"].as_u64() {
+                        legend_ids.push((id, code.clone()));
+                    }
                 }
                 // By number, not by the walk: "08 …; 34 …; 36 …; 13 …" was hard to
                 // read against the grid.
@@ -757,6 +772,49 @@ pub fn remembered_map(
                     rows.join("\n"),
                     legend.join("; ")
                 ));
+                // R217: a door between two rooms the grid could not draw side by
+                // side, said by their numbers: the Orchard Wall is one step from the
+                // Orchard however far apart the cells fell.
+                let cell_of = |id: u64| {
+                    in_window
+                        .iter()
+                        .find(|r| r["id"].as_u64() == Some(id))
+                        .map(|r| (r["x"].as_i64().unwrap_or(0), r["y"].as_i64().unwrap_or(0)))
+                };
+                let code_of = |id: u64| {
+                    legend_ids
+                        .iter()
+                        .find(|(i, _)| *i == id)
+                        .map(|(_, c)| c.clone())
+                };
+                let mut apart: Vec<String> = Vec::new();
+                let mut said_pairs: HashSet<(u64, u64)> = HashSet::new();
+                for r in in_window.iter() {
+                    let Some(id) = r["id"].as_u64() else { continue };
+                    let Some((x, y)) = cell_of(id) else { continue };
+                    for (via, to) in rooms::exits_of(world, EntityId(id)) {
+                        let Some((tx, ty)) = cell_of(to.0) else {
+                            continue;
+                        };
+                        let beside = match step(&via) {
+                            Some((dx, dy, _)) => (x + dx, y + dy) == (tx, ty),
+                            None => (x - tx).abs().max((y - ty).abs()) <= 1,
+                        };
+                        if beside || !said_pairs.insert((id.min(to.0), id.max(to.0))) {
+                            continue;
+                        }
+                        if let (Some(a), Some(b)) = (code_of(id), code_of(to.0)) {
+                            apart.push(format!("{a}\u{2194}{b} by `{via}`"));
+                        }
+                    }
+                }
+                if !apart.is_empty() {
+                    apart.sort();
+                    summary.push_str(&format!(
+                        "\nOne step apart, though not drawn side by side: {}.",
+                        apart.join("; ")
+                    ));
+                }
                 if !beyond.is_empty() {
                     summary.push_str(&format!(
                         "\nOff this window, on the same floor: {}.",

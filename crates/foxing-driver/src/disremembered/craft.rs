@@ -208,6 +208,20 @@ pub const RECIPES: &[Recipe] = &[
         vividity_at_least: 0.0,
         effect: "bandage",
     },
+    // C5: made of a ripe hour, which falls in the Orchard one week of the year.
+    Recipe {
+        key: "cordial",
+        name: "an orchard cordial",
+        of: &["a ripe hour", "hollow water"],
+        chunk_at_least: 0.0,
+        does: "makes your next two fights' memories much more vivid (half the scale) while carried, one each, as a moth charm does once. A ripe hour falls only in the Ripe Week (`almanac`)",
+        uses: 2,
+        fixed: false,
+        takes_lines: false,
+        tier: 1,
+        vividity_at_least: 0.0,
+        effect: "charm",
+    },
     Recipe {
         key: "poultice",
         name: "a poultice",

@@ -929,6 +929,12 @@ pub fn register(world: &mut World, curves: super::Curves) {
                     args.str("chunk").unwrap_or(""),
                     &[f.window, f.palace],
                 )?;
+                // C2: the lampmoth takes a fight nearly lost, and pays for it.
+                if super::plain_str(w, creature, super::CREATURE, "name") == Some(super::reading::LAMPMOTH)
+                    && super::mind::name(w, creature).is_none()
+                {
+                    return super::reading::vigil(w, ctx, &f, creature, chunk, &curves);
+                }
                 let before = super::mind::display(w, creature);
                 let (source, level) = super::mind::give(w, ctx.actor.as_str(), chunk, creature)?;
                 let after = super::mind::display(w, creature);

@@ -22,7 +22,7 @@ pub const GIVEN: &str = "disremembered.given";
 pub const STORY: &str = "disremembered.story";
 
 /// A story is at least this many words, and worth up to this many.
-const MIN_WORDS: usize = 12;
+pub(crate) const MIN_WORDS: usize = 12;
 /// Distinct words at which a story's vividity reaches 0.9 (D6).
 pub const VIVID_WORDS: f64 = 200.0;
 const MAX_WORDS_PAID: usize = 60;
@@ -377,6 +377,12 @@ pub fn register(world: &mut World, curves: Curves) {
             // The tapster at the Counting Bar takes a story about money, by the ounce.
             if super::plain_str(w, creature, super::CREATURE, "name") == Some("tapster") {
                 return super::exergue::bar_story(w, ctx, creature, args.str("text").unwrap_or(""));
+            }
+            // C2: a thing of the Reading Rooms is fought by what it is told.
+            if mind::name(w, creature).is_none()
+                && super::plain_str(w, creature, super::CREATURE, "name").is_some_and(super::reading::is_told)
+            {
+                return super::reading::tell(w, ctx, &f, creature, args.str("text").unwrap_or(""));
             }
             let Some(name) = mind::name(w, creature) else {
                 return Ok(Outcome::new(

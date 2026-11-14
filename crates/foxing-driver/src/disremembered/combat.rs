@@ -266,6 +266,13 @@ pub const CREATURES: &[CreatureDef] = &[
     CreatureDef { key: "silverfish", name: "silverfish", hp: 7.0, attack: 2.0, xp: 20.0, aggressive: false, strike_seconds: 8, ambush: "runs out from between two cards, and the cards are blank where it was.", glyph: "s", tint: "#c0c8d0" },
     CreatureDef { key: "dust devil", name: "dust devil", hp: 12.0, attack: 3.0, xp: 35.0, aggressive: true, strike_seconds: 10, ambush: "comes up the stair as a column of grey and does not stop for you.", glyph: "D", tint: "#9a9280" },
     CreatureDef { key: "shelf mouse", name: "shelf mouse", hp: 10.0, attack: 2.0, xp: 30.0, aggressive: false, strike_seconds: 9, ambush: "looks up from a glove it has been living in and says something that is nearly your name.", glyph: "m", tint: "#8a7a6a" },
+    // C2: the Reading Rooms, over the Archive: fought by what you tell them
+    // (`reading.rs`), sized for a name holding twenty to a hundred.
+    CreatureDef { key: "lampmoth", name: "lampmoth", hp: 20.0, attack: 3.0, xp: 40.0, aggressive: false, strike_seconds: 12, ambush: "comes down off the shade and opens its wings over the page you were reading.", glyph: "M", tint: "#e8d8a0" },
+    CreatureDef { key: "erratum", name: "erratum", hp: 28.0, attack: 4.0, xp: 55.0, aggressive: false, strike_seconds: 10, ambush: "slides out of a book on a slip of paper that says what the book should have said.", glyph: "e", tint: "#d0c0a8" },
+    CreatureDef { key: "shusher", name: "shusher", hp: 34.0, attack: 5.0, xp: 70.0, aggressive: false, strike_seconds: 10, ambush: "lays a finger where a mouth would be, and the room is quieter than it was.", glyph: "S", tint: "#8a8aa0" },
+    CreatureDef { key: "proofreader", name: "proofreader", hp: 36.0, attack: 4.0, xp: 80.0, aggressive: false, strike_seconds: 10, ambush: "looks up over its spectacles with the pencil already moving.", glyph: "P", tint: "#b0a890" },
+    CreatureDef { key: "redactor", name: "redactor", hp: 44.0, attack: 6.0, xp: 100.0, aggressive: false, strike_seconds: 9, ambush: "uncaps the blue pencil and draws a line through the air where you are standing.", glyph: "R", tint: "#5a78b0" },
     CreatureDef { key: "custodian", name: "custodian", hp: 40.0, attack: 7.0, xp: 150.0, aggressive: true, strike_seconds: 9, ambush: "stands up from behind the counter with a ledger in one hand and the other hand empty, and the empty one is the one to watch.", glyph: "C", tint: "#5a5a6a" },
 ];
 
@@ -638,6 +645,28 @@ pub(crate) fn spawn_one(
     Ok(id)
 }
 
+/// A creature kind by the name its memories carry ("wisp", "dust devil").
+pub fn def_by_name(name: &str) -> Option<&'static CreatureDef> {
+    CREATURES.iter().find(|c| c.name == name)
+}
+
+thread_local! {
+    /// C2: a telling in flight: the damage `story` worked out for the blow `attack`
+    /// is about to strike, and what a proofreader adds to its answer.
+    static TELLING: std::cell::Cell<Option<f64>> = const { std::cell::Cell::new(None) };
+    static TELL_BACK: std::cell::Cell<f64> = const { std::cell::Cell::new(0.0) };
+}
+
+/// Run `f` (an `attack`) with the blow a telling struck in place of the blade's.
+pub(crate) fn with_telling<R>(dmg: f64, back: f64, f: impl FnOnce() -> R) -> R {
+    TELLING.with(|c| c.set(Some(dmg)));
+    TELL_BACK.with(|c| c.set(back));
+    let out = f();
+    TELLING.with(|c| c.set(None));
+    TELL_BACK.with(|c| c.set(0.0));
+    out
+}
+
 /// A creature kind by key.
 pub(crate) fn def_by_key(key: &str) -> Option<&'static CreatureDef> {
     def(key)
@@ -873,6 +902,13 @@ pub fn gate_round(
     let Some(creature) = engaged_with(world, f.citizen) else {
         return Ok(None);
     };
+    // C2: a telling is the round, its answer already in it.
+    if verb == "story"
+        && plain_str(world, creature, CREATURE, "name").is_some_and(super::reading::is_told)
+        && super::mind::name(world, creature).is_none()
+    {
+        return Ok(None);
+    }
     round(world, curves, creature, f.citizen, actor).map(|r| r.map(|(_, said)| said))
 }
 
@@ -1527,7 +1563,7 @@ fn creature_strikes(
     citizen: EntityId,
 ) -> Result<(f64, bool), StoreError> {
     let attack = plain_num(world, creature, CREATURE, "attack").unwrap_or(1.0);
-    let dmg = attack + world.roll(3) as f64;
+    let dmg = attack + world.roll(3) as f64 + TELL_BACK.with(|c| c.replace(0.0));
     let before = hp(world, citizen);
     let after = before - dmg;
     commit_hp(world, citizen, after)?;
@@ -2248,9 +2284,25 @@ pub fn register(world: &mut World, curves: Curves) {
             let landed = (w.roll(100) as f64) < hit_chance * 100.0;
             let mut dmg = if landed { attack_for_level(level) + w.roll(3) as f64 } else { 0.0 };
             // An arm asleep from a numbing bite strikes for half, for a while.
-            let numb = plain_num(w, f.citizen, BODY, "numb_until").is_some_and(|u| u > w.now().0 as f64);
+            let mut numb = plain_num(w, f.citizen, BODY, "numb_until").is_some_and(|u| u > w.now().0 as f64);
             if numb && landed {
                 dmg = (dmg / 2.0).max(1.0).floor();
+            }
+            // C2: a thing of the Reading Rooms is fought by what it is told. A
+            // telling (`story`, which calls this) lands as it was worked out; a
+            // blade lands a quarter.
+            let telling = TELLING.with(|c| c.take());
+            let told_kind = super::reading::is_told(&cname) && super::mind::name(w, creature).is_none();
+            let landed = match telling {
+                Some(d) => {
+                    dmg = d;
+                    numb = false;
+                    d > 0.0
+                }
+                None => landed,
+            };
+            if telling.is_none() && told_kind && landed {
+                dmg = (dmg * super::reading::BLADE_SHARE).floor().max(1.0);
             }
             let chp = (plain_num(w, creature, CREATURE, "hp").unwrap_or(0.0) - dmg).max(0.0);
             if landed {
@@ -2261,11 +2313,16 @@ pub fn register(world: &mut World, curves: Curves) {
             let turned = args.str("creature").map_or(true, str::is_empty) && began.is_some();
             let unsteady = if shaken(w, f.citizen).is_some() { ", your hand unsteady from the fall" } else { "" };
             let mut lines = vec![match (landed, turned) {
+                _ if telling.is_some() && landed => format!("The telling lands on {csaid} for {dmg:.0}."),
+                _ if telling.is_some() => format!("The telling does not land on {csaid}."),
                 (false, true) => format!("You turn on {csaid} and miss{unsteady}."),
                 (false, false) => format!("You swing at {csaid} and miss{unsteady}."),
                 (true, true) => format!("You turn on {csaid} and hit it for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" }),
                 (true, false) => format!("You hit {csaid} for {dmg:.0}{}.", if numb { ", your arm still asleep" } else { "" }),
             }];
+            if telling.is_none() && told_kind {
+                lines.push(super::reading::blade_said(&cname));
+            }
             if let Some(r) = retargeted.take() {
                 lines.insert(0, r);
             }

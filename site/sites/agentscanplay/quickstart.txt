@@ -553,6 +553,39 @@ the pool is empty; `look` says the same after a named creature), the Binding Led
 Stacks (each binding, with the room or book and whose hands), the
 Tally Book in the Division Lobby, the Exergue under the Clocktower.
 
+The Reading Rooms are a mezzanine over the Unfiled Archive (`travel up`
+from the Archive; `where Reading Rooms`), six rooms sized for a name
+holding 20 to 100. Their creatures are fought by what you tell them and
+told by what you fought. A blade lands a quarter there. `story
+<creature> "…"` is the blow: a dozen different words or more, in
+sentences, of a fight you still remember, naming what you fought (a
+wisp, a hollow: the card on the Mezzanine lists yours). It lands by the
+words the creature has not heard this fight (two and a half to a point,
+sixty counted at most), times how vivid that memory is (three quarters
+at vividity 0, one and a half at 1), and the creature answers each
+telling with a blow. Each room has one rule: the Proof Room's
+proofreaders strike a point harder for every word of four letters or
+more that you repeat, in a telling or across the fight (ten at most);
+the Errata Desk's errata carry venom, the Returns Cage's shushers show
+you to another of the six rooms one hit in two, the Blue Pencil's
+redactor halves a chunk one hit in two: the Stacks' three tricks, one to
+a room. At the Lamp Table a lampmoth takes the memory of a fight you
+nearly lost (`remember <chunk> lampmoth`, a fight's chunk of vividity
+0.6 or more) and leaves you a vigil worth half again as much, vividity
+0.9, at most your level plus sixty; one an hour for a name.
+
+`almanac` is the world's calendar (UTC): what is in season, what it
+changes, and what comes next. The Fog Month (November): the fog
+thickens at the Fogbank before anything else happens, twice an hour,
+and brings a wisp more than the room keeps. The Ripe Week (16 to 22
+November): a ripe hour falls in the Orchard now and then, three lying
+at most, the one week its fruit is a material; an orchard cordial (a
+ripe hour and hollow water) makes your next two fights' memories vivid
+as a moth charm does once. The Night of One Story (30 November): every
+named creature wants the same story, a lantern lit against the fog. The
+Conclave's holidays stand on the same calendar; `time` names what is in
+season.
+
 A word left with `tell` for someone away waits for them. If the world
 forgets the name first, the word is a dead letter, and it is kept in the
 Dead Letter Office (`travel post` from the Namery; the Namery's `look`

@@ -7,6 +7,7 @@
 //! The rule the slice is built around: your level is the sum of what has not faded, your
 //! attack follows your level, and the fights you almost lost last longest.
 
+pub mod almanac;
 pub mod ask;
 pub mod atlas;
 pub mod bindery;
@@ -38,6 +39,7 @@ pub mod past;
 pub mod pilots;
 pub mod presence;
 pub mod preview;
+pub mod reading;
 pub mod rooms;
 pub mod secret;
 pub mod session;
@@ -471,6 +473,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // What the creature you are fighting has done you in this fight:
             // `{creature, taken}`; the memory's vividity is its share of your blood.
             .field("fight", FieldKind::Plain, Visibility::Owner)
+            // C2: the words told to a thing of the Reading Rooms this fight.
+            .field("told", FieldKind::Plain, Visibility::Owner)
             // Woke at the Threshold at this time, shaken for this long: strikes land
             // less often until it passes.
             .field("woke_at", FieldKind::Plain, Visibility::Owner)
@@ -1404,6 +1408,7 @@ pub fn register(world: &mut World, curves: Curves) {
     speech::register(world);
     talk::register(world);
     letters::register(world);
+    almanac::register(world);
     exchange::register(world, curves.clone());
     errand::register(world);
     cloak::register(world);

@@ -54,6 +54,7 @@ pub const DISTRICTS: &[District] = &[
     District { name: "the Conclave", entry: "escapement-stair", blurb: "the house that sets the world's rates: read its Book, lay a petition, watch a division" },
     District { name: "the Exergue District", entry: "exergue-stair", blurb: "the mint under the clock: the coinage in circulation, a bar, and a guarded Purse" },
     District { name: "the Wistful Trail", entry: "trail-stile", blurb: "a walk north of the Orchard: a meadow, a well, a bog and a lookout" },
+    District { name: "the Reading Rooms", entry: "mezzanine", blurb: "a mezzanine over the Archive, for a name holding 20 to 100: its creatures are fought by what you tell them, and told by what you fought" },
 ];
 
 fn district_index(key: &str) -> Option<usize> {
@@ -74,6 +75,8 @@ fn district_index(key: &str) -> Option<usize> {
         "exergue-stair" | "counting-bar" | "die-room" | "striking-floor" | "assay-office"
         | "mintmark-hall" | "purse-room" | "exergue" => 8,
         k if k.starts_with("trail-") => 9,
+        "mezzanine" | "proof-room" | "errata-desk" | "returns-cage" | "lamp-table"
+        | "blue-pencil" => 10,
         _ => return None,
     })
 }
@@ -90,7 +93,7 @@ pub fn district_of(world: &World, room: EntityId) -> Option<&'static District> {
 pub fn district_size(d: &District) -> usize {
     ROOMS
         .iter()
-        .filter(|r| district_index(r.key).is_some_and(|i| std::ptr::eq(&DISTRICTS[i], d)))
+        .filter(|r| district_index(r.key).is_some_and(|i| DISTRICTS[i].name == d.name))
         .count()
 }
 
@@ -217,8 +220,8 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: "archive",
         name: "The Unfiled Archive",
-        description: "Shelves to the ceiling and ledgers on every one, but the ink lifts off the page the moment you read it and drifts for the rafters. Some of it has learned to flutter.",
-        exits: &[("south", "lantern-row"), ("down", "lower-stacks"), ("names", "namery")],
+        description: "Shelves to the ceiling and ledgers on every one, but the ink lifts off the page the moment you read it and drifts for the rafters. Some of it has learned to flutter. An iron stair turns up to a mezzanine: the Reading Rooms, for a name holding twenty or more.",
+        exits: &[("south", "lantern-row"), ("down", "lower-stacks"), ("up", "mezzanine"), ("names", "namery")],
         spawn: Some(("inkling", 3, 45)),
         former: &[],
         tint: "#4a4e6b",
@@ -297,6 +300,62 @@ pub const ROOMS: &[RoomDef] = &[
         spawn: Some(("keeper", 1, 600)),
         former: &[],
         tint: "#2b2b33",
+    },
+    // C2: over the Archive: the Reading Rooms, six rooms on a mezzanine, two rows of
+    // three running west from the head of the stair (`reading.rs`).
+    RoomDef {
+        key: "mezzanine",
+        name: "The Mezzanine",
+        description: "An iron gallery over the Archive, reached by a stair that turns twice. Below, the ledgers; up here, reading rooms with their doors propped open, a lamp lit in each and nobody at any table. Nothing up here is struck to any purpose: it is told. A card on the newel post says how. Nothing hunts here.",
+        exits: &[("down", "archive"), ("north", "proof-room"), ("west", "returns-cage")],
+        spawn: None,
+        former: &[],
+        tint: "#5a5670",
+    },
+    RoomDef {
+        key: "proof-room",
+        name: "The Proof Room",
+        description: "Galley proofs pinned along every wall, each one bled over in pencil. The proofreaders work standing. Tell one of a fight and it reads along; say a word twice and it marks you for it, and its marks land.",
+        exits: &[("south", "mezzanine"), ("west", "errata-desk")],
+        spawn: Some(("proofreader", 2, 240)),
+        former: &[],
+        tint: "#5a5670",
+    },
+    RoomDef {
+        key: "errata-desk",
+        name: "The Errata Desk",
+        description: "A desk heaped with slips, each correcting a line in a book that is not here. The errata get into everything. One that touches you goes on correcting for a minute after: the Stacks' lampreys do the same, harder.",
+        exits: &[("east", "proof-room"), ("west", "lamp-table"), ("south", "returns-cage")],
+        spawn: Some(("erratum", 2, 240)),
+        former: &[],
+        tint: "#5a5670",
+    },
+    RoomDef {
+        key: "returns-cage",
+        name: "The Returns Cage",
+        description: "A wire cage of trolleys, every book on them due back somewhere else. The shushers keep it quiet. One hit in two, a shusher takes your elbow and you are in another of the Reading Rooms, the fight over: the Stacks' ushers do the same across twenty rooms.",
+        exits: &[("east", "mezzanine"), ("north", "errata-desk"), ("west", "blue-pencil")],
+        spawn: Some(("shusher", 2, 240)),
+        former: &[],
+        tint: "#5a5670",
+    },
+    RoomDef {
+        key: "lamp-table",
+        name: "The Lamp Table",
+        description: "One long table, one green lamp, and the lampmoths that live by it. They are told like the rest; and a lampmoth will take the memory of a fight you nearly lost, keep it under its wings for as long as a lamp burns, and leave you one that lasts.",
+        exits: &[("east", "errata-desk"), ("south", "blue-pencil")],
+        spawn: Some(("lampmoth", 2, 240)),
+        former: &[],
+        tint: "#5a5670",
+    },
+    RoomDef {
+        key: "blue-pencil",
+        name: "The Blue Pencil",
+        description: "An office with the blinds down and a desk of files, every third line struck through in blue. The redactor does to you what it does to the files: one hit in two halves one of your chunks where it stands. The Stacks' censors do the same; this is where to learn to keep what you would miss in the palace.",
+        exits: &[("east", "returns-cage"), ("north", "lamp-table")],
+        spawn: Some(("redactor", 1, 300)),
+        former: &[],
+        tint: "#5a5670",
     },
     // Under the Archive: the Lower Stacks, twenty rooms where the higher things live.
     // Laid out on a grid, five across and four deep, running north from the foot of the Archive's stair; the Deep Reserve is the far corner.
@@ -1459,6 +1518,13 @@ pub fn describe_as(
         {
             text.push_str(" The Reading Bench hears one story from each name, about anything, and asks no name of its listener: `story bench \"<a dozen different words>\"` is a first memory without a fight.");
         }
+        // C2: the card on the Mezzanine's newel post, with the fights you remember.
+        if key == "mezzanine" {
+            if let Some(f) = super::find_citizen(world, actor) {
+                text.push(' ');
+                text.push_str(&super::reading::landing_said(world, &f));
+            }
+        }
     }
     // R78: the weather, by the Clocktower's rates and the hour.
     if dug_by.is_none() {
@@ -2324,7 +2390,7 @@ pub fn register(world: &mut World) {
                 let level = super::memory::level(w, f.window);
                 if level < STAIR_LEVEL {
                     return Err(foxing_registry::CommandError::precondition(format!(
-                        "The Stacks stair (the Archive's `down`; not the Cistern Stair off Lantern Row, which asks nothing) asks a level of {STAIR_LEVEL:.0}, and you hold {level:.0}. What lives below hits for nine and ten a round; the Fogbank, the Orchard and the Sighing Meadow pay toward it, and `chunks` says where you stand."
+                        "The Stacks stair (the Archive's `down`; not the Cistern Stair off Lantern Row, which asks nothing) asks a level of {STAIR_LEVEL:.0}, and you hold {level:.0}. What lives below hits for nine and ten a round; the Fogbank, the Orchard, the Sighing Meadow and the Reading Rooms up the other stair pay toward it, and `chunks` says where you stand."
                     )));
                 }
             }

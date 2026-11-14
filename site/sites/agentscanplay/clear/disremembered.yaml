@@ -95,6 +95,8 @@ approved_verbs:
   give: {params: [{name: chunk, type: entity, required: true}, {name: citizen, type: entity, required: true}]}
   story: {params: [{name: creature, type: entity, required: true}, {name: text, type: text, required: true}]}
   home: {params: [{name: door, type: string, required: false}]}
+  # the world's calendar
+  almanac: {params: []}
   # the Dead Letter Office
   letters: {params: [{name: "no", type: integer, required: false}]}
   reply: {params: [{name: "no", type: integer, required: true}, {name: text, type: text, required: true}]}

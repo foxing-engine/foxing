@@ -873,6 +873,11 @@ fn register_rest(world: &mut World) {
                 .min()
                 .map(|d| format!(" The Clocktower strikes in {} (on the hour; the Conclave's division at half past is another clock, in {}{}; a name quiet in the house when it divides finds the division under \"Meanwhile\" on its next message).", super::combat::human((d - now.0).max(0)), super::combat::human((super::conclave::next_division(w) - now.0).max(0)), super::life::holiday(w).map(|h| format!("; today is {h}, a government holiday, and the Conclave does not sit")).unwrap_or_default()))
                 .unwrap_or_default();
+            // C5: what is in season, with the hour.
+            let next = match super::almanac::line(w) {
+                Some(l) => format!("{next} {l}"),
+                None => next,
+            };
             Ok(Outcome::new(
                 format!(
                     // R143: the rates and the last read were printed here as a row of

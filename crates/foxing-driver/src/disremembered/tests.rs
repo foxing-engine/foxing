@@ -8807,7 +8807,9 @@ fn a_thing_keeps_its_past_and_the_tiers_climb() {
         "{}",
         out.summary
     );
-    // Walk it where it wants: follow the pull until it settles.
+    // Walk it where it wants: follow the pull until it settles. (Enough held to be
+    // let down the Stacks' stair, if that is where it pulls.)
+    admin(&mut w, "tyler", "earn", json!(["a long walk", 300, 0.5]));
     let mut settled = false;
     for _ in 0..40 {
         let look = ok(&mut w, "tyler", "look", json!([]));
@@ -11775,4 +11777,187 @@ fn with_the_second_door_open_a_newcomer_wakes_at_the_emptier_door_and_is_told_wh
         look.summary
     );
     rooms::SECOND_DOOR.with(|c| c.set(None));
+}
+
+/// C2: the Reading Rooms. A blade lands a quarter; a telling is the blow, lands only
+/// if it names a fight you remember, and a proofreader strikes harder for repeats.
+#[test]
+fn the_reading_rooms_are_fought_by_telling_and_told_by_what_you_fought() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    for step in ["north", "north", "up"] {
+        ok(&mut w, "dave", "travel", json!([step]));
+    }
+    let landing = ok(&mut w, "dave", "look", json!([])).summary;
+    assert!(landing.contains("You remember no fight"), "{landing}");
+    ok(&mut w, "dave", "travel", json!(["north"]));
+    let tale = "The wisp came at me out of the fog near the door and I struck it twice before it burned my sleeve and drifted apart";
+    // No fight remembered: refused, and nothing strikes.
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "story",
+        json!(["proofreader", tale]),
+    )
+    .unwrap_err();
+    assert!(e.to_string().contains("you hold no memory of one"), "{e}");
+    admin(&mut w, "dave", "earn", json!(["wisp", 30, 0.5]));
+    // A blade: a quarter, and told why.
+    let blade = ok(&mut w, "dave", "attack", json!(["proofreader"])).summary;
+    assert!(blade.contains("a quarter lands"), "{blade}");
+    // A story of nothing fought: refused, with what would do.
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "story",
+        json!(["proofreader", "I walked out under the moon and counted the lamps along the row until my feet were cold"]),
+    )
+    .unwrap_err();
+    assert!(e.to_string().contains("You remember: wisp"), "{e}");
+    let first = ok(&mut w, "dave", "story", json!(["proofreader", tale]));
+    assert!(
+        first.summary.contains("The telling lands on"),
+        "{}",
+        first.summary
+    );
+    assert!(
+        first.result["told"]["damage"].as_f64().unwrap() >= 6.0,
+        "{}",
+        first.result
+    );
+    assert_eq!(first.result["told"]["repeats"], 0, "{}", first.summary);
+    // The same again: nothing new lands, and the proofreader marks every word.
+    let again = ok(&mut w, "dave", "story", json!(["proofreader", tale]));
+    assert!(again.summary.contains("does not land"), "{}", again.summary);
+    assert!(again.summary.contains("repeated word"), "{}", again.summary);
+}
+
+/// C2: the lampmoth takes the memory of a fight nearly lost, once an hour, and pays.
+#[test]
+fn a_lampmoth_keeps_a_vigil_over_a_fight_nearly_lost() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let dull = admin(&mut w, "dave", "earn", json!(["wisp", 30, 0.2])).result["chunk"]
+        .as_u64()
+        .unwrap();
+    let near = admin(&mut w, "dave", "earn", json!(["hollow", 40, 0.8])).result["chunk"]
+        .as_u64()
+        .unwrap();
+    let near2 = admin(&mut w, "dave", "earn", json!(["hollow", 40, 0.9])).result["chunk"]
+        .as_u64()
+        .unwrap();
+    for step in ["north", "north", "up", "north", "west", "west"] {
+        ok(&mut w, "dave", "travel", json!([step]));
+    }
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "remember",
+        json!([format!("chunk-{dull}"), "lampmoth"]),
+    )
+    .unwrap_err();
+    assert!(
+        e.to_string().contains("nearly lost") && e.to_string().contains(&format!("chunk-{near}")),
+        "{e}"
+    );
+    let before = level(&mut w, "dave");
+    let kept = ok(
+        &mut w,
+        "dave",
+        "remember",
+        json!([format!("chunk-{near}"), "lampmoth"]),
+    );
+    assert!(kept.summary.contains("the vigil"), "{}", kept.summary);
+    assert!(
+        (kept.result["xp"].as_f64().unwrap() - 60.0).abs() < 0.5,
+        "{}",
+        kept.result
+    );
+    assert!(level(&mut w, "dave") > before + 15.0);
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "remember",
+        json!([format!("chunk-{near2}"), "lampmoth"]),
+    )
+    .unwrap_err();
+    assert!(e.to_string().contains("one vigil an hour"), "{e}");
+}
+
+/// C5: the almanac's seasons, each changing one thing while it is on.
+#[test]
+fn the_almanac_s_seasons_change_the_world_while_they_are_on() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // Out of season: nothing.
+    almanac::DATE.with(|c| c.set(Some((3, 3))));
+    assert!(almanac::now_on(&w).is_empty());
+    let said = ok(&mut w, "dave", "almanac", json!([])).summary;
+    assert!(
+        said.contains("Nothing is in season") && said.contains("the Fog Month"),
+        "{said}"
+    );
+    // The Ripe Week, in the Fog Month: an hour falls in the Orchard, three at most.
+    almanac::DATE.with(|c| c.set(Some((11, 18))));
+    let orchard = rooms::room_by_key(&w, "orchard").unwrap();
+    let lying = |w: &World| {
+        w.store
+            .children(orchard)
+            .filter(|e| {
+                e.kind == "item"
+                    && plain_str(w, e.id, craft::ITEM, "name") == Some(almanac::RIPE_HOUR)
+            })
+            .count()
+    };
+    for _ in 0..5 {
+        life::happen(&mut w).unwrap();
+    }
+    assert_eq!(lying(&w), almanac::RIPE_LYING);
+    // With the Orchard full, the fog comes first, and brings more than the room keeps.
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisps = combat::creatures_in(&w, fog).len();
+    assert!(wisps > 2, "{wisps} wisps in the Fog Month");
+    let said = ok(&mut w, "dave", "almanac", json!([])).summary;
+    assert!(
+        said.contains("It is the Fog Month") && said.contains("It is the Ripe Week"),
+        "{said}"
+    );
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let look = ok(&mut w, "dave", "look", json!([])).summary;
+    assert!(look.contains("It is the Fog Month"), "{look}");
+    // The Night of One Story: every named creature wants the one story.
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    admin(&mut w, "dave", "earn", json!(["a long walk", 80, 0.5]));
+    let chunk = ok(&mut w, "dave", "chunks", json!([])).result["chunks"][0]["id"]
+        .as_u64()
+        .unwrap();
+    ok(
+        &mut w,
+        "dave",
+        "remember",
+        json!([format!("chunk-{chunk}"), format!("wisp-{}", wisp.0)]),
+    );
+    almanac::DATE.with(|c| c.set(Some((11, 30))));
+    assert_eq!(
+        errand::of(&w, wisp).and_then(|e| e.story).as_deref(),
+        Some(almanac::THE_STORY)
+    );
+    assert!(errand::wants_story(
+        &w,
+        wisp,
+        "Somebody hung a lantern on the gatepost, and it burned there against the fog all night."
+    ));
+    almanac::DATE.with(|c| c.set(Some((3, 3))));
+    assert_ne!(
+        errand::of(&w, wisp).and_then(|e| e.story).as_deref(),
+        Some(almanac::THE_STORY)
+    );
+    almanac::DATE.with(|c| c.set(None));
 }

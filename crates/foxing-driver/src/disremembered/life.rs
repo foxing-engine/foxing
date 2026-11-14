@@ -289,13 +289,79 @@ fn midden(world: &mut World) -> Result<bool, String> {
     Ok(true)
 }
 
+/// C5: in the Ripe Week an hour ripens on the bough and falls: a material, and the
+/// only week there is one. At most a few lie in the Orchard at once.
+fn windfall(world: &mut World, curves: &super::Curves) -> Result<bool, String> {
+    let Some(r) = room(world, "orchard") else {
+        return Ok(false);
+    };
+    let lying = world
+        .store
+        .children(r)
+        .filter(|e| {
+            e.kind == "item"
+                && super::plain_str(world, e.id, super::craft::ITEM, "name")
+                    == Some(super::almanac::RIPE_HOUR)
+        })
+        .count();
+    if lying >= super::almanac::RIPE_LYING {
+        return Ok(false);
+    }
+    let item = super::craft::make(
+        world,
+        curves,
+        Actor::Driver,
+        None,
+        r,
+        super::almanac::RIPE_HOUR,
+        "material",
+        "fell in the Ripe Week",
+        None,
+        &[],
+        0,
+        false,
+    )
+    .map_err(|e| e.to_string())?;
+    super::combat::narrate_room(
+        world,
+        item,
+        "An hour ripens on the bough over your head and falls into the grass, whole. It is the Ripe Week; `take` it.",
+    );
+    note_happening(
+        world,
+        "windfall",
+        r,
+        json!({"item": item.0, "name": super::almanac::RIPE_HOUR}),
+    );
+    Ok(true)
+}
+
 /// The fog thickens and something drifts in early.
 fn fog(world: &mut World) -> Result<bool, String> {
     let Some(r) = room(world, "fogbank") else {
         return Ok(false);
     };
     let before = super::combat::creatures_in(world, r).len();
-    let n = super::combat::fill(world, r).map_err(|e| e.to_string())?;
+    let mut n = super::combat::fill(world, r).map_err(|e| e.to_string())?;
+    // C5: in the Fog Month the fog brings one wisp more than the room keeps, to
+    // two over at most.
+    let heavy = super::almanac::on(world, super::almanac::FOG_MONTH);
+    if heavy {
+        let keeps = super::combat::kinds_of(world, r)
+            .iter()
+            .map(|(_, c)| *c)
+            .sum::<usize>();
+        let unnamed = super::combat::creatures_in(world, r)
+            .iter()
+            .filter(|c| super::mind::name(world, c.0).is_none())
+            .count();
+        if unnamed < keeps + 2 {
+            if let Some(d) = super::combat::def_by_key("wisp") {
+                super::combat::spawn_one(world, r, d).map_err(|e| e.to_string())?;
+                n += 1;
+            }
+        }
+    }
     if n == 0 {
         return Ok(false);
     }
@@ -308,7 +374,11 @@ fn fog(world: &mut World) -> Result<bool, String> {
         super::combat::narrate_room(
             world,
             a,
-            "The fog thickens for a moment, and when it thins something has drifted in that was not here.",
+            if heavy {
+                "The fog comes in heavy, as it does all the Fog Month, and when it thins there is more in it than the room keeps."
+            } else {
+                "The fog thickens for a moment, and when it thins something has drifted in that was not here."
+            },
         );
     }
     note_happening(world, "fog", r, json!({"before": before, "arrived": n}));
@@ -450,6 +520,14 @@ pub fn happen(world: &mut World) -> Result<(), String> {
     }
     // R82: a named day's festival thing, before the day's other happenings.
     if festival(world, &curves)? {
+        return wind_happening(world);
+    }
+    // C5: what the season does comes before the day's other happenings: the fog
+    // in the Fog Month, a windfall in the Ripe Week.
+    if super::almanac::on(world, super::almanac::RIPE_WEEK) && windfall(world, &curves)? {
+        return wind_happening(world);
+    }
+    if super::almanac::on(world, super::almanac::FOG_MONTH) && fog(world)? {
         return wind_happening(world);
     }
     // Try in a rolled order until one takes.

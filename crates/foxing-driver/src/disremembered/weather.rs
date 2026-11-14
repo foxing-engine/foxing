@@ -22,6 +22,19 @@ pub fn line(world: &World, key: &str) -> Option<String> {
             "The sky is the wrong color, as it is when the traveler is in the world.".to_string(),
         );
     }
+    // C5: the season's weather before the hour's.
+    if key == "fogbank" && super::almanac::on(world, super::almanac::FOG_MONTH) {
+        return Some(
+            "It is the Fog Month: the fog lies heavier than the room is wide, and more drifts in it than the Fogbank keeps (`almanac`)."
+                .to_string(),
+        );
+    }
+    if key == "orchard" && super::almanac::on(world, super::almanac::RIPE_WEEK) {
+        return Some(
+            "It is the Ripe Week: for once the hours on the boughs are ripe, and now and then one falls (`almanac`)."
+                .to_string(),
+        );
+    }
     let s = match key {
         "fogbank" => {
             let mend = rate("mend");

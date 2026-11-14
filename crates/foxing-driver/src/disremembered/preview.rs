@@ -472,6 +472,25 @@ pub fn run_checked(
                                     ),
                                 )
                             }
+                            // C2: a thing of the Reading Rooms is fought by a telling.
+                            None if super::plain_str(world, c, super::CREATURE, "name")
+                                .is_some_and(super::reading::is_told) =>
+                            {
+                                let fights = super::find_citizen(world, actor)
+                                    .map(|f| super::reading::fights(world, &f))
+                                    .unwrap_or_default();
+                                if fights.is_empty() {
+                                    (false, "refused: a telling lands only if it is of a fight you still remember, and you hold no memory of one".to_string())
+                                } else {
+                                    (
+                                        true,
+                                        format!(
+                                            "a telling: the blow, if it is a dozen different words and names a fight you remember ({}); it strikes back",
+                                            fights.iter().map(|(k, _)| k.as_str()).collect::<Vec<_>>().join(", ")
+                                        ),
+                                    )
+                                }
+                            }
                             None => (
                                 false,
                                 format!(

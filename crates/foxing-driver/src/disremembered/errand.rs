@@ -118,6 +118,23 @@ pub fn of(world: &World, creature: EntityId) -> Option<Errand> {
         word_by: str_of("word_by").unwrap_or_default(),
         word_at: plain(&f, "word_at").and_then(|v| v.as_i64()).unwrap_or(0),
     };
+    // C5: on the Night of One Story every named creature wants the same story,
+    // whatever it wanted yesterday; a word to carry stands as it stood.
+    let e = if super::almanac::on(world, super::almanac::ONE_STORY)
+        && super::mind::name(world, creature).is_some()
+    {
+        let day = world.now().0.div_euclid(86_400_000);
+        Errand {
+            story: Some(super::almanac::THE_STORY.to_string()),
+            keywords: vec![super::almanac::THE_STORY_WORD.to_string()],
+            story_by: "the almanac".to_string(),
+            story_at: day * 86_400_000,
+            story_until: (day + 1) * 86_400_000,
+            ..e
+        }
+    } else {
+        e
+    };
     if e.story.is_none() && e.word.is_none() {
         return None;
     }
