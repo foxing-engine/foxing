@@ -11971,3 +11971,35 @@ fn the_almanac_s_seasons_change_the_world_while_they_are_on() {
     );
     almanac::DATE.with(|c| c.set(None));
 }
+
+/// Every district's door has its field on the citizen (`edge_<door>`): the first
+/// walk into a district writes it, and a write the schema does not know is refused
+/// on replay, so the world does not open (the Reading Rooms, 11-14: eight minutes
+/// down). And a name that has walked into every district survives a restart.
+#[test]
+fn every_district_s_door_is_in_the_schema_and_the_world_reopens() {
+    let schema = schemas().into_iter().find(|s| s.name == CITIZEN).unwrap();
+    for d in rooms::DISTRICTS.iter().filter(|d| !d.blurb.is_empty()) {
+        let field = format!("edge_{}", d.entry.replace('-', "_"));
+        assert!(
+            schema.fields.iter().any(|f| f.name == field),
+            "{}: `{field}` is not a field of the citizen",
+            d.name
+        );
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let t0 = Timestamp(1_000_000);
+    {
+        let mut w = open(dir.path(), t0);
+        login(&mut w, "dave", "test", PASS).unwrap();
+        for step in ["north", "north", "up"] {
+            ok(&mut w, "dave", "travel", json!([step]));
+        }
+    }
+    let w = open(dir.path(), t0);
+    let dave = find_citizen(&w, "dave").unwrap();
+    assert_eq!(
+        plain_str(&w, rooms::room_of(&w, dave.citizen).unwrap(), ROOM, "key"),
+        Some("mezzanine")
+    );
+}
