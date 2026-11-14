@@ -90,7 +90,18 @@ struct Subscription {
     /// The last refresh failed: its error was sent once, and is not sent again
     /// until a refresh succeeds.
     failed: bool,
+    /// S10 b: when its observation was last sent, and whether the world has
+    /// changed under it since without one being sent.
+    sent: Option<std::time::Instant>,
+    stale: bool,
 }
+
+/// S10 b: a subscription is sent its observation again at most this often when the
+/// change was somebody else's. A hundred names sent sixty sessions the whole room on
+/// every change in it: 389 MB in six minutes, and the pushes held the world's lock
+/// a quarter of the run. A change the session's own name made is sent at once; the
+/// rest wait for the window to close and are sent once, as the room then stands.
+const REFRESH_EVERY: std::time::Duration = std::time::Duration::from_millis(500);
 
 /// Every entity id a node and its relations mention.
 fn ids_of(node: &Value, out: &mut HashSet<u64>) {
@@ -132,6 +143,7 @@ fn wanted(e: &foxing_log::Event, me: &str) -> bool {
     if ["to", "citizen", "owner", "actor", "from", "name"]
         .iter()
         .any(|k| e.payload.get(*k).and_then(Value::as_str) == Some(me))
+        || crate::disremembered::combat::addressed(&e.payload, me)
     {
         return true;
     }
@@ -181,7 +193,63 @@ async fn run(socket: WebSocket, s: Shared) {
 
     send!(json!({"type": "hello", "world": "disremembered", "protocol": "foxing-session/0"}));
     loop {
+        // When the first held-back subscription may be sent again.
+        let due: Option<std::time::Instant> = subs
+            .values()
+            .filter(|sub| sub.stale)
+            .map(|sub| {
+                sub.sent
+                    .map_or_else(std::time::Instant::now, |t| t + REFRESH_EVERY)
+            })
+            .min();
         tokio::select! {
+            _ = async {
+                match due {
+                    Some(d) => tokio::time::sleep_until(d.into()).await,
+                    None => std::future::pending::<()>().await,
+                }
+            } => {
+                let Some(name) = actor.clone() else { continue };
+                let now = std::time::Instant::now();
+                let ready: Vec<String> = subs
+                    .iter()
+                    .filter(|(_, sub)| sub.stale && sub.sent.map_or(true, |t| now >= t + REFRESH_EVERY))
+                    .map(|(k, _)| k.clone())
+                    .collect();
+                let refresh: Vec<Refresh> = {
+                    let push_asked = std::time::Instant::now();
+                    let Ok(w) = s.world.lock() else { continue };
+                    let _counted = PushTimer { asked: push_asked, locked: std::time::Instant::now() };
+                    ready
+                        .iter()
+                        .filter_map(|k| {
+                            let sub = subs.get(k)?;
+                            let id: Value = serde_json::from_str(k).unwrap_or(Value::String(k.clone()));
+                            let reply = observe_frame(&w, &name, admin, &id, &sub.request, &s);
+                            let mut ids = HashSet::new();
+                            ids_of(&reply["root"], &mut ids);
+                            Some((k.clone(), reply, ids))
+                        })
+                        .collect()
+                };
+                for (k, reply, ids) in refresh {
+                    let ok = reply["type"] == "observation";
+                    let mut say = true;
+                    if let Some(sub) = subs.get_mut(&k) {
+                        if ok {
+                            sub.ids = ids;
+                        } else {
+                            say = !sub.failed;
+                        }
+                        sub.failed = !ok;
+                        sub.sent = Some(std::time::Instant::now());
+                        sub.stale = false;
+                    }
+                    if say {
+                        send!(reply);
+                    }
+                }
+            }
             incoming = rx.next() => {
                 let Some(Ok(msg)) = incoming else { return };
                 let text = match msg {
@@ -298,7 +366,7 @@ async fn run(socket: WebSocket, s: Shared) {
                             (reply, ids)
                         };
                         if reply["type"] == "observation" {
-                            subs.insert(key, Subscription { request: query, ids, failed: false });
+                            subs.insert(key, Subscription { request: query, ids, failed: false, sent: Some(std::time::Instant::now()), stale: false });
                         }
                         send!(reply);
                     }
@@ -338,7 +406,7 @@ async fn run(socket: WebSocket, s: Shared) {
                 }
                 // Everything since the cursor this actor may see, and which subscriptions it touched.
                 let push_asked = std::time::Instant::now();
-                let (events, refresh): (Vec<Value>, Vec<Refresh>) = {
+                let (events, refresh, held): (Vec<Value>, Vec<Refresh>, Vec<String>) = {
                     let Ok(w) = s.world.lock() else { continue };
                     let push_locked = std::time::Instant::now();
                     let head = w.log.head(&w.id).ok().flatten().map(|x| x.0).unwrap_or(0);
@@ -383,17 +451,32 @@ async fn run(socket: WebSocket, s: Shared) {
                         .map(|e| crate::observe::redacted(&w, &viewer, (**e).clone()))
                         .map(|e| json!({"type": "event", "event": e}))
                         .collect();
+                    // S10 b: a change this name made is shown at once; anybody
+                    // else's waits for the subscription's window.
+                    let mine = all
+                        .iter()
+                        .any(|e| matches!(&e.actor, foxing_log::Actor::Citizen(a) if *a == name));
                     let mut refresh = Vec::new();
+                    let mut held = Vec::new();
                     for k in dirty {
                         let Some(sub) = subs.get(&k) else { continue };
+                        if !mine && sub.sent.is_some_and(|t| t.elapsed() < REFRESH_EVERY) {
+                            held.push(k);
+                            continue;
+                        }
                         let id: Value = serde_json::from_str(&k).unwrap_or(Value::String(k.clone()));
                         let reply = observe_frame(&w, &name, admin, &id, &sub.request, &s);
                         let mut ids = HashSet::new();
                         ids_of(&reply["root"], &mut ids);
                         refresh.push((k, reply, ids));
                     }
-                    (events, refresh)
+                    (events, refresh, held)
                 };
+                for k in held {
+                    if let Some(sub) = subs.get_mut(&k) {
+                        sub.stale = true;
+                    }
+                }
                 for e in events {
                     send!(e);
                 }
@@ -411,6 +494,8 @@ async fn run(socket: WebSocket, s: Shared) {
                             say = !sub.failed;
                         }
                         sub.failed = !ok;
+                        sub.sent = Some(std::time::Instant::now());
+                        sub.stale = false;
                     }
                     if say {
                         send!(reply);

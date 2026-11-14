@@ -326,7 +326,10 @@ fn narrative_since(shared: &Shared, actor: &str, cursor: &mut u64) -> Vec<String
         .read(&w.id, Cursor { after: *cursor }, 500)
         .unwrap_or_default()
         .iter()
-        .filter(|e| e.kind == crate::disremembered::NARRATIVE && e.payload["to"] == actor)
+        .filter(|e| {
+            e.kind == crate::disremembered::NARRATIVE
+                && crate::disremembered::combat::addressed(&e.payload, actor)
+        })
         .filter_map(|e| e.payload["text"].as_str().map(|t| format!("* {t}")))
         .collect();
     *cursor = head;

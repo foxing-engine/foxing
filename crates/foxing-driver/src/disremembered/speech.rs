@@ -4,7 +4,6 @@
 //! in the room as narrative, so a terminal prints them and an agent's REPORT carries
 //! them as a `[QUOTE]` with the speaker as its source. Untagged speech never exists.
 
-use super::combat::narrate;
 use super::{internal, me};
 use crate::world::World;
 use foxing_log::Actor;
@@ -53,9 +52,7 @@ pub fn register(world: &mut World) {
                 .filter_map(|e| e.owner.clone())
                 .filter(|o| o != &ctx.actor)
                 .collect();
-            for other in &listeners {
-                narrate(w, other, format!("{} says, \"{text}\"", ctx.actor));
-            }
+            super::combat::narrate_many(w, &listeners, format!("{} says, \"{text}\"", ctx.actor));
             // The Conclave's clerks write down everything said, word for word.
             let clerks = super::combat::creatures_in(w, room)
                 .iter()

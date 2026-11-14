@@ -1311,7 +1311,7 @@ fn asker_record(world: &World, actor: &str, asked_at: i64) -> Vec<String> {
             let p = &e.payload;
             let mine = |k: &str| p[k].as_str() == Some(actor);
             if e.kind == super::combat::NARRATIVE {
-                return mine("to");
+                return super::combat::addressed(p, actor);
             }
             mine("from") || mine("by") || mine("to") || mine("actor") || mine("citizen")
         })

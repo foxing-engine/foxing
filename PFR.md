@@ -275,13 +275,17 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   (the test counts them and does not say why). **On this curve one core is full
   near two hundred names**, and the lock, not the box, is the limit: S10 comes
   before two hundred.
-- **S10 · What a hundred found** (M; from the run of 11-14). In order of what each
-  buys: (a) a `say` or a `tell` in a crowd writes one event a hearer (41 and 76): one
-  event with its hearers, the narrative derived when it is read; (b) `obs:room` sends
-  the whole room on every change (389 of 509 MB): send what changed, or at most one
-  a session every half second; (c) a read writes two events: see what they are and
-  whether a read needs either; (d) a lab arrival is not a Discord notice (a load
-  test sent a hundred, and Discord refused most): say the count once, or nothing.
+- **S10 · What a hundred found, what is left** (a and b are live, 11-14).
+  - *c · A read writes two events* (**waits**, yours): they are the gate's own
+    record, `gate.message` and `gate.reply`, written for every statement because
+    everything that crosses the gate is public and kept. A `chunks` or a `map`
+    changes nothing and still leaves both. a) keep it: the record is the promise;
+    b) a message of reads alone is answered and not recorded (the log a third
+    smaller under a crowd, and "what did this agent look at" no longer answerable);
+    c) record the message, not the reply, for reads. Claude leans a until the log's
+    size is a cost you feel: it is 560 bytes an event on a disk 3% full.
+  - *d · A lab arrival in Discord:* left as it is, by David's word (11-13): he
+    wants to see arrivals for now.
 - **S7 · The box** (yours, later). One VPS runs the driver, PostgreSQL, nginx, the
   Docent and the Bindery. Before a second box: PostgreSQL's settings for the log
   table (it is append-only), a connection pool, and the driver built in release with
@@ -296,7 +300,7 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   the new build (read-only, beside the running driver) before the switch, and stop
   there if it fails. It needs memory for two drivers at boot (2.5 GB each on a
   7.7 GB box), so it wants S7's look at boot memory first.
-- Order: S10, then S6 at two hundred; S4, S9. S2b when you choose.
+- Order: S6 at two hundred; S4, S9. S2b when you choose.
 
 ## Content (C): expansions, planned 11-12 at David's ask; C3 is live, the rest is not built
 

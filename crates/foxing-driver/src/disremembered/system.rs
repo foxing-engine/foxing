@@ -826,7 +826,7 @@ fn register_rest(world: &mut World) {
                 .filter(|e| {
                     e.kind != NARRATIVE
                         || ctx.kind == ActorKind::Admin
-                        || e.payload["to"].as_str() == Some(ctx.actor.as_str())
+                        || super::combat::addressed(&e.payload, ctx.actor.as_str())
                 })
                 .map(|e| crate::observe::redacted(w, &viewer, (*e).clone()))
                 .collect();

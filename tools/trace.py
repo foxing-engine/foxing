@@ -332,7 +332,7 @@ def trace(events, name, since=None, verbose=False):
             add(e, f"the room forgets them ({rooms.get(p.get('room'), '?')})", "<")
         elif k == "disremembered.forgotten_name" and p.get("name") == name:
             add(e, "the world forgets the name", "<")
-        elif k == "disremembered.narrative" and p.get("to") == name and verbose:
+        elif k == "disremembered.narrative" and (p.get("to") == name or (isinstance(p.get("to"), list) and name in p["to"])) and verbose:
             add(e, "  hears: " + p.get("text", "")[:200], "·")
     return lines, stats, me
 

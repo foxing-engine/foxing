@@ -1218,7 +1218,7 @@
         }
         if (f.type === "event") {
           const e = f.event;
-          if (e.kind === "disremembered.narrative" && e.payload && e.payload.to === actor) { heard(e.payload.text); }
+          if (e.kind === "disremembered.narrative" && e.payload && (e.payload.to === actor || (Array.isArray(e.payload.to) && e.payload.to.includes(actor)))) { heard(e.payload.text); }
           if (e.kind === "disremembered.died" && e.payload && e.payload.citizen === actor) fell(e.payload);
           lately(e);
           emit("event", e);
@@ -1284,7 +1284,7 @@
       if (status === 401) { print(body.error, "err"); logout(); return; }
       if (!body || !body.ok) return;
       for (const e of body.observation.events || []) {
-        if (e.kind === "disremembered.narrative" && e.payload && e.payload.to === actor) heard(e.payload.text);
+        if (e.kind === "disremembered.narrative" && e.payload && (e.payload.to === actor || (Array.isArray(e.payload.to) && e.payload.to.includes(actor)))) heard(e.payload.text);
         if (e.kind === "disremembered.died" && e.payload && e.payload.citizen === actor) fell(e.payload);
         lately(e);
       }

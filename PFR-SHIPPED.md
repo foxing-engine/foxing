@@ -5,6 +5,10 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-14 (S10 a and b, by David's word; one driver deploy)
+- S10 a: a line said to several hearers is one event addressed to all of them (`to` a list), not an event apiece: `say`, `tell` and everything a room is told. A `say` in a room of forty wrote 41 events and a `tell` 76; a `say` writes four now whatever the crowd. Every reader of a narrative knows both shapes (the gate's "Meanwhile", the session, the play page, `log`, the Docent, the operator's trace); one hearer is written as before.
+- S10 b: a session's subscription is sent its observation again at most twice a second when the change was somebody else's, and once more when the window closes, as the room then stands; a change the session's own name made is sent at once. It was the whole room on every change in it.
+
 11-14 (D34, D37, D39, by David's word; one driver deploy)
 - D34, closed as intended: a teller levels as fast as it does by design.
 - D37 b: the Reading Rooms' kinds hold half what they held (lampmoth 20, erratum 28, shusher 35, proofreader 40, redactor 50). The ones standing at the deploy keep what they held until they are felled.

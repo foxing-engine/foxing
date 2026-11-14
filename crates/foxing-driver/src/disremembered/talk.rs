@@ -83,9 +83,7 @@ pub fn register(world: &mut World) {
             if super::morphos::is_named(&who) {
                 let (line, result) = super::morphos::answer(w, &ctx.actor, &f, room, &text)?;
                 if super::morphos::present(w) == Some(room) {
-                    for other in others_here(w, room, &ctx.actor) {
-                        narrate(w, &other, format!("{} says something to Morphos, low.", ctx.actor));
-                    }
+                    super::combat::narrate_many(w, &others_here(w, room, &ctx.actor), format!("{} says something to Morphos, low.", ctx.actor));
                 }
                 return Ok(Outcome::new(format!("You say to Morphos, \"{text}\" {line}"), result));
             }
@@ -105,9 +103,7 @@ pub fn register(world: &mut World) {
                     ));
                 }
                 if here_with_it {
-                    for other in others_here(w, room, &ctx.actor) {
-                        narrate(w, &other, format!("{} asks the Docent something; it nods.", ctx.actor));
-                    }
+                    super::combat::narrate_many(w, &others_here(w, room, &ctx.actor), format!("{} asks the Docent something; it nods.", ctx.actor));
                 }
                 let nth = super::docent::nth_tonight(w, &ctx.actor);
                 let said = if here_with_it {
@@ -129,9 +125,7 @@ pub fn register(world: &mut World) {
                     json!({"from": ctx.actor, "room": room.0, "to": name, "text": text}),
                 )
                 .map_err(internal)?;
-                for other in others_here(w, room, &ctx.actor) {
-                    narrate(w, &other, format!("{} says to {name}, \"{text}\"", ctx.actor));
-                }
+                super::combat::narrate_many(w, &others_here(w, room, &ctx.actor), format!("{} says to {name}, \"{text}\"", ctx.actor));
                 // A word carried to it, if one was wanted, before anything it would say.
                 let answer = match super::errand::carried_word(w, &ctx.actor, creature, &text)? {
                     Some(a) => Some(a),
@@ -200,9 +194,8 @@ pub fn register(world: &mut World) {
                 )
                 .map_err(internal)?;
                 narrate(w, &target, format!("{} says to you, \"{text}\"", ctx.actor));
-                for other in others_here(w, room, &ctx.actor).into_iter().filter(|o| o != &target) {
-                    narrate(w, &other, format!("{} says to {target}, \"{text}\"", ctx.actor));
-                }
+                let rest: Vec<String> = others_here(w, room, &ctx.actor).into_iter().filter(|o| o != &target).collect();
+                super::combat::narrate_many(w, &rest, format!("{} says to {target}, \"{text}\"", ctx.actor));
                 // R5: the Conclave's clerks write a `tell` down as they write a `say`.
                 let clerks = super::combat::creatures_in(w, room)
                     .iter()
@@ -299,17 +292,11 @@ pub fn speak_to(
         .filter(|e| e.kind == "citizen" && presence::is_here(world, e.id))
         .filter_map(|e| e.owner.clone())
         .collect();
-    for actor in present {
-        let line = if actor == to {
-            if !to_hears {
-                continue;
-            }
-            format!("{name} says to you, \"{text}\"")
-        } else {
-            format!("{name} says to {to}, \"{text}\"")
-        };
-        narrate(world, &actor, line);
+    if to_hears && present.iter().any(|a| a == to) {
+        narrate(world, to, format!("{name} says to you, \"{text}\""));
     }
+    let others: Vec<String> = present.into_iter().filter(|a| a != to).collect();
+    super::combat::narrate_many(world, &others, format!("{name} says to {to}, \"{text}\""));
     Ok(())
 }
 

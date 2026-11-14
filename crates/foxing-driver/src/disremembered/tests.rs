@@ -119,7 +119,9 @@ fn narrative(w: &World, to: &str, after: u64) -> Vec<String> {
         .read_all(&w.id, foxing_log::Cursor { after })
         .unwrap()
         .iter()
-        .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == to)
+        .filter(|e| {
+            e.kind == combat::NARRATIVE && crate::disremembered::combat::addressed(&e.payload, to)
+        })
         .map(|e| e.payload["text"].as_str().unwrap().to_string())
         .collect()
 }
@@ -681,7 +683,10 @@ fn the_world_moves_on_its_own() {
             .read_all(&w.id, foxing_log::Cursor { after })
             .unwrap()
             .iter()
-            .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == "dave")
+            .filter(|e| {
+                e.kind == combat::NARRATIVE
+                    && crate::disremembered::combat::addressed(&e.payload, "dave")
+            })
             .map(|e| e.payload["text"].as_str().unwrap().to_string())
             .collect()
     };
@@ -1690,7 +1695,10 @@ fn a_name_unspoken_for_thirty_days_is_forgotten_and_free() {
         .read_all(&w.id, foxing_log::Cursor::START)
         .unwrap()
         .into_iter()
-        .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == "dave")
+        .filter(|e| {
+            e.kind == combat::NARRATIVE
+                && crate::disremembered::combat::addressed(&e.payload, "dave")
+        })
         .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
         .collect();
     assert!(
@@ -1755,7 +1763,10 @@ fn a_passing_name_keeps_nothing_and_is_forgotten_within_the_hour_or_kept() {
         .read_all(&w.id, foxing_log::Cursor::START)
         .unwrap()
         .into_iter()
-        .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == "Tallowmoth")
+        .filter(|e| {
+            e.kind == combat::NARRATIVE
+                && crate::disremembered::combat::addressed(&e.payload, "Tallowmoth")
+        })
         .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
         .collect();
     assert!(
@@ -1855,7 +1866,10 @@ fn a_standing_greeting_meets_whoever_arrives_and_the_room_says_who_is_at_a_keybo
             .read_all(&w.id, foxing_log::Cursor::START)
             .unwrap()
             .into_iter()
-            .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == who)
+            .filter(|e| {
+                e.kind == combat::NARRATIVE
+                    && crate::disremembered::combat::addressed(&e.payload, who)
+            })
             .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
             .collect()
     };
@@ -2148,7 +2162,10 @@ fn a_named_creature_answers_and_words_wait_for_the_absent() {
         .read_all(&w.id, foxing_log::Cursor { after: before })
         .unwrap()
         .into_iter()
-        .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == "tyler")
+        .filter(|e| {
+            e.kind == combat::NARRATIVE
+                && crate::disremembered::combat::addressed(&e.payload, "tyler")
+        })
         .map(|e| e.payload["text"].as_str().unwrap().to_string())
         .collect();
     assert!(
@@ -2622,7 +2639,10 @@ fn memory_moves_by_gift_and_by_story() {
         .read_all(&w.id, foxing_log::Cursor::START)
         .unwrap()
         .into_iter()
-        .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == "dave")
+        .filter(|e| {
+            e.kind == combat::NARRATIVE
+                && crate::disremembered::combat::addressed(&e.payload, "dave")
+        })
         .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
         .collect();
     assert!(
@@ -3218,7 +3238,10 @@ fn a_chunk_faded_to_nothing_is_forgotten_by_the_sweep_and_the_owner_is_told() {
         .read_all(&w.id, foxing_log::Cursor::START)
         .unwrap()
         .into_iter()
-        .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == "dave")
+        .filter(|e| {
+            e.kind == combat::NARRATIVE
+                && crate::disremembered::combat::addressed(&e.payload, "dave")
+        })
         .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
         .collect();
     assert!(
@@ -6820,7 +6843,9 @@ fn where_finds_a_way_you_remember_and_travel_takes_a_room_name() {
     let to_tyler: Vec<String> = w
         .recent_events(200)
         .iter()
-        .filter(|e| e.kind == NARRATIVE && e.payload["to"] == "tyler")
+        .filter(|e| {
+            e.kind == NARRATIVE && crate::disremembered::combat::addressed(&e.payload, "tyler")
+        })
         .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
         .filter(|t| t.contains("left word"))
         .collect();
@@ -6834,7 +6859,9 @@ fn where_finds_a_way_you_remember_and_travel_takes_a_room_name() {
     let again = w
         .recent_events(300)
         .iter()
-        .filter(|e| e.kind == NARRATIVE && e.payload["to"] == "tyler")
+        .filter(|e| {
+            e.kind == NARRATIVE && crate::disremembered::combat::addressed(&e.payload, "tyler")
+        })
         .filter(|e| {
             e.payload["text"]
                 .as_str()
@@ -11334,7 +11361,10 @@ fn a_word_for_a_forgotten_name_is_a_dead_letter_to_read_answer_or_carry() {
             .read_all(&w.id, foxing_log::Cursor::START)
             .unwrap()
             .into_iter()
-            .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == who)
+            .filter(|e| {
+                e.kind == combat::NARRATIVE
+                    && crate::disremembered::combat::addressed(&e.payload, who)
+            })
             .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
             .collect()
     };
@@ -11736,7 +11766,10 @@ fn with_the_second_door_open_a_newcomer_wakes_at_the_emptier_door_and_is_told_wh
             .read_all(&w.id, foxing_log::Cursor::START)
             .unwrap()
             .into_iter()
-            .filter(|e| e.kind == combat::NARRATIVE && e.payload["to"] == who)
+            .filter(|e| {
+                e.kind == combat::NARRATIVE
+                    && crate::disremembered::combat::addressed(&e.payload, who)
+            })
             .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
             .collect()
     };
@@ -12026,4 +12059,61 @@ fn every_district_s_door_is_in_the_schema_and_the_world_reopens() {
         plain_str(&w, rooms::room_of(&w, dave.citizen).unwrap(), ROOM, "key"),
         Some("mezzanine")
     );
+}
+
+/// S10 a: a line said to a room is one event addressed to every hearer, and each of
+/// them hears it; a line for one hearer is written as it always was.
+#[test]
+fn a_line_said_to_a_room_is_one_event_for_all_its_hearers() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    for who in ["dave", "tyler", "sphinx"] {
+        login(&mut w, who, "test", PASS).unwrap();
+    }
+    let before = events(&w);
+    ok(&mut w, "dave", "say", json!(["is anyone keeping count"]));
+    let written: Vec<foxing_log::Event> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor { after: before })
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == combat::NARRATIVE)
+        .collect();
+    assert_eq!(written.len(), 1, "one narrative for two hearers");
+    assert_eq!(written[0].payload["to"], json!(["tyler", "sphinx"]));
+    for who in ["tyler", "sphinx"] {
+        let heard = narrative(&w, who, before);
+        assert_eq!(
+            heard,
+            vec!["dave says, \"is anyone keeping count\"".to_string()],
+            "{who}"
+        );
+        // And only they may see it.
+        let viewer = foxing_store::Viewer::actor(who);
+        assert!(crate::observe::visible(&w, &viewer, w.now(), &written[0]));
+    }
+    assert!(narrative(&w, "dave", before).is_empty());
+    assert!(!crate::observe::visible(
+        &w,
+        &foxing_store::Viewer::actor("nobody"),
+        w.now(),
+        &written[0]
+    ));
+    // One hearer: the old shape.
+    ok(&mut w, "sphinx", "travel", json!(["east"]));
+    let before = events(&w);
+    ok(&mut w, "dave", "say", json!(["two of us now"]));
+    let one = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor { after: before })
+        .unwrap()
+        .into_iter()
+        .find(|e| {
+            e.kind == combat::NARRATIVE
+                && e.payload["text"]
+                    .as_str()
+                    .is_some_and(|t| t.contains("two of us"))
+        })
+        .unwrap();
+    assert_eq!(one.payload["to"], json!("tyler"));
 }

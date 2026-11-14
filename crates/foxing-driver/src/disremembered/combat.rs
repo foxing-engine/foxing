@@ -358,6 +358,33 @@ pub fn narrate(world: &mut World, actor: &str, text: impl Into<String>) {
     );
 }
 
+/// S10 a: one line for several hearers is one event, addressed to all of them
+/// (`to` a list), not an event apiece: a `say` in a room of forty wrote forty-one
+/// events and a `tell` seventy-six, and a tenth of a crowd's commands wrote half
+/// its log. One hearer is written as it always was.
+pub fn narrate_many(world: &mut World, to: &[String], text: impl Into<String>) {
+    match to {
+        [] => {}
+        [one] => narrate(world, one, text),
+        many => {
+            let _ = world.note(
+                Actor::Driver,
+                NARRATIVE,
+                json!({"to": many, "text": text.into()}),
+            );
+        }
+    }
+}
+
+/// Whether an event's `to` is this name, alone or among several.
+pub fn addressed(payload: &Value, actor: &str) -> bool {
+    match &payload["to"] {
+        Value::String(s) => s == actor,
+        Value::Array(a) => a.iter().any(|v| v.as_str() == Some(actor)),
+        _ => false,
+    }
+}
+
 /// Something happened near `entity` that everyone present in its room should hear.
 pub fn narrate_room(world: &mut World, entity: EntityId, text: &str) {
     narrate_room_but(world, entity, text, None);
@@ -380,9 +407,7 @@ fn narrate_room_but(world: &mut World, entity: EntityId, text: &str, except: Opt
         .filter_map(|e| e.owner.clone())
         .filter(|o| except != Some(o.as_str()))
         .collect();
-    for actor in present {
-        narrate(world, &actor, text.to_string());
-    }
+    narrate_many(world, &present, text);
 }
 
 fn creature_def(world: &World, creature: EntityId) -> Option<&'static CreatureDef> {

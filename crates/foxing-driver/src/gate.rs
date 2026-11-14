@@ -506,7 +506,10 @@ fn since_last_message(world: &World, actor: &str) -> Vec<String> {
     let lines: Vec<String> = recent
         .iter()
         .filter(|e| e.seq.0 > last && e.at.0 >= day_ago)
-        .filter(|e| e.kind == crate::disremembered::NARRATIVE && e.payload["to"] == actor)
+        .filter(|e| {
+            e.kind == crate::disremembered::NARRATIVE
+                && crate::disremembered::combat::addressed(&e.payload, actor)
+        })
         .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
         .collect();
     if lines.len() > 8 {
@@ -970,7 +973,10 @@ pub fn pass(
             .recent_events(500)
             .iter()
             .filter(|e| e.seq.0 > began)
-            .filter(|e| e.kind == crate::disremembered::NARRATIVE && e.payload["to"] == actor)
+            .filter(|e| {
+                e.kind == crate::disremembered::NARRATIVE
+                    && crate::disremembered::combat::addressed(&e.payload, actor)
+            })
             .filter_map(|e| e.payload["text"].as_str().map(str::to_string))
             .collect();
         for line in said {
@@ -2168,7 +2174,10 @@ mod tests {
         let heard = events
             .iter()
             .rev()
-            .find(|e| e.kind == disremembered::NARRATIVE && e.payload["to"] == "tyler")
+            .find(|e| {
+                e.kind == disremembered::NARRATIVE
+                    && crate::disremembered::combat::addressed(&e.payload, "tyler")
+            })
             .expect("tyler hears it");
         assert!(heard.payload["text"]
             .as_str()

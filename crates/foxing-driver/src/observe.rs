@@ -241,6 +241,14 @@ pub(crate) fn visible(world: &World, viewer: &Viewer, now: Timestamp, e: &Event)
             return true;
         }
     }
+    // Or to the viewer among several (a line said to a room).
+    if viewer
+        .actor
+        .as_deref()
+        .is_some_and(|me| crate::disremembered::combat::addressed(&e.payload, me))
+    {
+        return true;
+    }
     match e.payload.get("id").and_then(Value::as_u64) {
         Some(id) => world.store.view(EntityId(id), viewer, now).is_some(),
         None => false,
