@@ -51,7 +51,7 @@ pub fn why_unfollowable(text: &str) -> Option<String> {
         .count() as f64;
     if small / total < FUNCTION_SHARE {
         return Some(
-            "there are no small words in it (the, and, of, it, was) to hold the rest together; it is a list, not a telling".to_string(),
+            "there are too few small words in it (the, and, of, it, was: fewer than one word in six) to hold the rest together; it reads as a list, not a telling".to_string(),
         );
     }
     // Sentences: split on terminal punctuation; a wall of sixty words is not one.

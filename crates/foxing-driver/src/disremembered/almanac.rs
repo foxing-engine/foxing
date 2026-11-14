@@ -162,6 +162,7 @@ pub fn said(world: &World) -> (String, serde_json::Value) {
     )];
     let mut on_now = Vec::new();
     let mut ahead: Vec<(i64, String, serde_json::Value)> = Vec::new();
+    let mut ahead_json: Vec<serde_json::Value> = Vec::new();
     for s in SEASONS {
         if within(s, md) {
             let left = days_until(md, s.to);
@@ -172,8 +173,8 @@ pub fn said(world: &World) -> (String, serde_json::Value) {
                 s.does,
                 match left {
                     0 => "Today is its last day.".to_string(),
-                    1 => "One more day after this.".to_string(),
-                    n => format!("{n} more days after this."),
+                    1 => "It ends tomorrow.".to_string(),
+                    n => format!("It ends in {n} days, with {}.", date_said(s.to)),
                 }
             ));
             on_now.push(json!({"key": s.key, "name": s.name, "days_left": left}));
@@ -192,38 +193,52 @@ pub fn said(world: &World) -> (String, serde_json::Value) {
             ));
         }
     }
-    // The Conclave's holidays stand on the same calendar.
-    for (m, d, name) in super::life::NAMED_DAYS {
-        let n = days_until(md, (*m, *d));
-        ahead.push((
-            n,
-            if n == 0 {
-                format!("{name} (today): the Conclave does not sit, and something is left at the Threshold")
-            } else {
-                format!("{name} ({}; in {n} day{}): the Conclave does not sit, and something is left at the Threshold", date_said((*m, *d)), if n == 1 { "" } else { "s" })
-            },
-            json!({"key": "holiday", "name": name, "in_days": n}),
-        ));
-    }
+    // The Conclave's holidays stand on the same calendar: listed after the
+    // seasons, the rule said once.
+    let mut days: Vec<(i64, String)> = super::life::NAMED_DAYS
+        .iter()
+        .map(|(m, d, name)| {
+            let n = days_until(md, (*m, *d));
+            ahead_json.push(json!({"key": "holiday", "name": name, "in_days": n}));
+            (
+                n,
+                if n == 0 {
+                    format!("{name} (today)")
+                } else {
+                    format!(
+                        "{name} ({}; in {n} day{})",
+                        date_said((*m, *d)),
+                        if n == 1 { "" } else { "s" }
+                    )
+                },
+            )
+        })
+        .collect();
+    days.sort_by_key(|(n, _)| *n);
     ahead.sort_by_key(|(n, _, _)| *n);
     if on_now.is_empty() {
         lines.push("Nothing is in season today.".into());
     }
+    if !ahead.is_empty() {
+        lines.push(format!(
+            "Ahead: {}.",
+            ahead
+                .iter()
+                .map(|(_, s, _)| s.clone())
+                .collect::<Vec<_>>()
+                .join("; ")
+        ));
+    }
     lines.push(format!(
-        "Ahead: {}.",
-        ahead
-            .iter()
-            .map(|(_, s, _)| s.clone())
-            .collect::<Vec<_>>()
-            .join("; ")
+        "The Conclave's holidays, on each of which it does not sit and something is left at the Threshold: {}. Every Sunday (UTC) is the Clerks' Sabbath, and it does not sit then either.",
+        days.iter().map(|(_, s)| s.clone()).collect::<Vec<_>>().join("; ")
     ));
-    lines.push("Every seventh day is the Clerks' Sabbath, and the Conclave does not sit.".into());
     (
         lines.join(" "),
         json!({
             "today": {"month": md.0, "day": md.1},
             "on": on_now,
-            "ahead": ahead.into_iter().map(|(_, _, v)| v).collect::<Vec<_>>(),
+            "ahead": ahead.into_iter().map(|(_, _, v)| v).chain(ahead_json).collect::<Vec<_>>(),
         }),
     )
 }

@@ -137,6 +137,107 @@ fn fight_named(text_words: &[String], fights: &[(String, f64)]) -> Option<(Strin
         .cloned()
 }
 
+/// A telling, weighed: what it is of, what it would do.
+pub struct Weighed {
+    pub kind: String,
+    pub of: String,
+    pub vividity: f64,
+    pub new_words: usize,
+    pub repeats: usize,
+    /// What a proofreader adds to its blow.
+    pub back: f64,
+    pub damage: f64,
+    words: BTreeSet<String>,
+}
+
+/// Weigh a telling without telling it: why it would be refused (nothing spent, no
+/// blow), or what it would land for. The gate and the dry run both ask here, so
+/// they agree (the dry run passed five tellings the gate refused, the Watch of
+/// 11-14).
+pub fn weigh(w: &World, f: &Found, creature: EntityId, text: &str) -> Result<Weighed, String> {
+    let kind = plain_str(w, creature, CREATURE, "name")
+        .unwrap_or("?")
+        .to_string();
+    let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let words = words_of(&text);
+    let distinct: BTreeSet<String> = words.iter().cloned().collect();
+    if distinct.len() < super::exchange::MIN_WORDS {
+        return Err(format!(
+            "A telling is at least {} different words; that was {}. Nothing is spent and the {kind} has not struck.",
+            super::exchange::MIN_WORDS,
+            distinct.len()
+        ));
+    }
+    if let Some(why) = super::grammar::why_unfollowable(&text) {
+        return Err(format!(
+            "The {kind} cannot follow that: {why}. Tell it again, in sentences (small words between the others, a stop now and then); it has not struck."
+        ));
+    }
+    let mine = fights(w, f);
+    if mine.is_empty() {
+        return Err(format!(
+            "The {kind} does not look up. In the Reading Rooms a telling lands only if it is of a fight you still remember, and you hold no memory of one: win a fight (the Orchard's mothwings, the Fogbank's wisps), keep the memory, and come back."
+        ));
+    }
+    let Some((of, vividity)) = fight_named(&words, &mine) else {
+        return Err(format!(
+            "The {kind} does not look up: a telling lands only if it is of a fight you still remember, and names what you fought. You remember: {}. Tell it one of those; it has not struck.",
+            mine.iter()
+                .map(|(k, v)| format!("{k} (vividity {v:.2})"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    };
+    let before = told_so_far(w, f.citizen, creature);
+    let new_words = distinct.iter().filter(|x| !before.contains(*x)).count();
+    // R229: a telling it has heard every word of is not a blow thrown away and a
+    // blow taken; it is refused, unstruck (a word-for-word retelling was a fall).
+    if new_words == 0 {
+        return Err(format!(
+            "The {kind} has heard every word of that from you this fight. Tell it something new; nothing is spent and it has not struck."
+        ));
+    }
+    // The words that count against you with a proofreader: any of four letters or
+    // more said twice in this telling, or said already this fight. R228: not the
+    // names of what you fought, which a telling must say, nor the listener's own.
+    let mut exempt: BTreeSet<String> = BTreeSet::new();
+    for k in mine.iter().map(|(k, _)| k.as_str()).chain([kind.as_str()]) {
+        exempt.extend(words_of(k));
+        exempt.extend(words_of(&super::combat::plural(k)));
+    }
+    let counts = |x: &String| x.chars().count() >= 4 && !exempt.contains(x);
+    let twice = distinct
+        .iter()
+        .filter(|x| counts(x) && words.iter().filter(|y| y == x).count() > 1)
+        .count();
+    let again = distinct
+        .iter()
+        .filter(|x| counts(x) && before.contains(*x))
+        .count();
+    let repeats = twice + again;
+    let back = if kind == PROOFREADER {
+        repeats.min(MOST_BACK) as f64
+    } else {
+        0.0
+    };
+    let counted = new_words.min(MOST_WORDS) as f64;
+    let damage = ((counted / WORDS_A_POINT) * (0.75 + 0.75 * vividity))
+        .round()
+        .max(1.0);
+    let mut all = before;
+    all.extend(distinct);
+    Ok(Weighed {
+        kind,
+        of,
+        vividity,
+        new_words,
+        repeats,
+        back,
+        damage,
+        words: all,
+    })
+}
+
 /// `story` at an unnamed thing of the Reading Rooms: the telling is the blow.
 pub fn tell(
     w: &mut World,
@@ -145,82 +246,30 @@ pub fn tell(
     creature: EntityId,
     text: &str,
 ) -> Result<Outcome, CommandError> {
-    let kind = plain_str(w, creature, CREATURE, "name")
-        .unwrap_or("?")
-        .to_string();
-    let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    let words = words_of(&text);
-    let distinct: BTreeSet<String> = words.iter().cloned().collect();
-    if distinct.len() < super::exchange::MIN_WORDS {
-        return Err(CommandError::precondition(format!(
-            "A telling is at least {} different words; that was {}. Nothing is spent and the {kind} has not struck.",
-            super::exchange::MIN_WORDS,
-            distinct.len()
-        )));
-    }
-    if let Some(why) = super::grammar::why_unfollowable(&text) {
-        return Err(CommandError::precondition(format!(
-            "The {kind} cannot follow that: {why}. Tell it again, in sentences; it has not struck."
-        )));
-    }
-    let mine = fights(w, f);
-    if mine.is_empty() {
-        return Err(CommandError::precondition(format!(
-            "The {kind} does not look up. In the Reading Rooms a telling lands only if it is of a fight you still remember, and you hold no memory of one: win a fight (the Orchard's mothwings, the Fogbank's wisps), keep the memory, and come back."
-        )));
-    }
-    let Some((of, vividity)) = fight_named(&words, &mine) else {
-        return Err(CommandError::precondition(format!(
-            "The {kind} does not look up: a telling lands only if it is of a fight you still remember, and names what you fought. You remember: {}. Tell it one of those; it has not struck.",
-            mine.iter()
-                .map(|(k, v)| format!("{k} (vividity {v:.2})"))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )));
-    };
-    let before = told_so_far(w, f.citizen, creature);
-    let new_words: Vec<&String> = distinct.iter().filter(|x| !before.contains(*x)).collect();
-    // The words that count against you with a proofreader: any of four letters or
-    // more said twice in this telling, or said already this fight.
-    let long = |x: &str| x.chars().count() >= 4;
-    let twice = distinct
-        .iter()
-        .filter(|x| long(x) && words.iter().filter(|y| y == x).count() > 1)
-        .count();
-    let again = distinct
-        .iter()
-        .filter(|x| long(x) && before.contains(*x))
-        .count();
-    let repeats = twice + again;
-    let back = if kind == PROOFREADER {
-        repeats.min(MOST_BACK) as f64
-    } else {
-        0.0
-    };
-    let counted = new_words.len().min(MOST_WORDS) as f64;
-    let dmg = if new_words.is_empty() {
-        0.0
-    } else {
-        ((counted / WORDS_A_POINT) * (0.75 + 0.75 * vividity))
-            .round()
-            .max(1.0)
-    };
-    let mut all = before.clone();
-    all.extend(distinct.iter().cloned());
+    let Weighed {
+        kind,
+        of,
+        vividity,
+        new_words,
+        repeats,
+        back,
+        damage: dmg,
+        words,
+    } = weigh(w, f, creature, text).map_err(CommandError::precondition)?;
     w.record(
         Actor::Driver,
         StoreEvent::FieldSet {
             id: f.citizen,
             component: BODY.into(),
             field: "told".into(),
-            value: json!({"creature": creature.0, "words": all.into_iter().collect::<Vec<_>>()}),
+            value: json!({"creature": creature.0, "words": words.into_iter().collect::<Vec<_>>()}),
         },
     )
     .map_err(internal)?;
     let _ = w.note(
         Actor::Citizen(ctx.actor.clone()),
         TOLD,
-        json!({"by": ctx.actor, "creature": creature.0, "kind": kind, "of": of, "new_words": new_words.len(), "repeats": repeats, "damage": dmg}),
+        json!({"by": ctx.actor, "creature": creature.0, "kind": kind, "of": of, "new_words": new_words, "repeats": repeats, "damage": dmg}),
     );
     let out = super::combat::with_telling(dmg, back, || {
         w.call(
@@ -230,14 +279,10 @@ pub fn tell(
         )
     })?;
     let mut said = format!(
-        "You tell it of the {of} (your memory of that fight: vividity {vividity:.2}; {} word{} it had not heard). {}",
-        new_words.len(),
-        if new_words.len() == 1 { "" } else { "s" },
+        "You tell it of the {of} (your memory of that fight: vividity {vividity:.2}; {new_words} word{} it had not heard). {}",
+        if new_words == 1 { "" } else { "s" },
         out.summary
     );
-    if new_words.is_empty() {
-        said.push_str(" It had heard every word of that: tell it something new.");
-    }
     if kind == PROOFREADER && repeats > 0 {
         said.push_str(&format!(
             " The proofreader marked {repeats} repeated word{} and struck {} harder for {}.",
@@ -246,21 +291,26 @@ pub fn tell(
             if repeats == 1 { "it" } else { "them" }
         ));
     }
+    // A proofreader's blow is its own and a point a repeat: said while it could
+    // still be the last (a tester at 13 took 14 unwarned).
+    if kind == PROOFREADER && super::combat::engaged_with(w, f.citizen) == Some(creature) {
+        let base = plain_num(w, creature, CREATURE, "attack").unwrap_or(4.0);
+        let hp = super::combat::hp(w, f.citizen);
+        if hp <= base + 2.0 + MOST_BACK as f64 {
+            said.push_str(&format!(
+                " You have {hp:.0}: a proofreader hits {base:.0}\u{2013}{:.0} and a point more for each word of four letters or more that you repeat, in a telling or across the fight, ten at most (the names of what you fought do not count).",
+                base + 2.0
+            ));
+        }
+    }
     let mut data = out.result;
-    data["told"] = json!({"of": of, "vividity": vividity, "new_words": new_words.len(), "repeats": repeats, "damage": dmg});
+    data["told"] = json!({"of": of, "vividity": vividity, "new_words": new_words, "repeats": repeats, "damage": dmg});
     Ok(Outcome::new(said, data))
 }
 
-/// `remember <chunk> lampmoth`: it takes the memory of a fight you nearly lost, and
-/// pays with one that lasts.
-pub fn vigil(
-    w: &mut World,
-    ctx: &CallContext,
-    f: &Found,
-    creature: EntityId,
-    chunk: EntityId,
-    curves: &super::Curves,
-) -> Result<Outcome, CommandError> {
+/// Why a lampmoth would not take this chunk, or nothing: asked by the gate and by
+/// the dry run.
+pub fn vigil_why_not(w: &World, actor: &str, f: &Found, chunk: EntityId) -> Option<String> {
     let source = plain_str(w, chunk, CHUNK, "source")
         .unwrap_or("?")
         .to_string();
@@ -277,7 +327,7 @@ pub fn vigil(
             })
             .map(|e| format!("chunk-{}", e.id.0))
             .collect();
-        return Err(CommandError::precondition(format!(
+        return Some(format!(
             "The lampmoth turns from it. It takes only the memory of a fight you nearly lost: a fight's chunk of vividity {NEARLY_LOST:.1} or more (`chunks` shows each; a memory is that vivid when the fight had most of your blood). {} {}",
             if fight {
                 format!("That one, of the {source}, is {vividity:.2}.")
@@ -289,22 +339,43 @@ pub fn vigil(
             } else {
                 format!("It would take: {}. Nothing is spent.", have.join(", "))
             }
-        )));
+        ));
     }
     let now = w.now();
     let last = w
         .recent_events(4000)
         .iter()
         .rev()
-        .find(|e| e.kind == VIGIL && e.payload["by"] == ctx.actor.as_str())
+        .find(|e| e.kind == VIGIL && e.payload["by"] == actor)
         .map(|e| now.since(e.at).0);
     if let Some(ago) = last.filter(|a| *a < VIGIL_EVERY_MS) {
-        return Err(CommandError::precondition(format!(
+        return Some(format!(
             "A lampmoth keeps one vigil an hour for a name, and kept one of yours {} ago; it will take another in {}. Nothing is spent.",
             super::combat::human(ago),
             super::combat::human(VIGIL_EVERY_MS - ago)
-        )));
+        ));
     }
+    None
+}
+
+/// `remember <chunk> lampmoth`: it takes the memory of a fight you nearly lost, and
+/// pays with one that lasts.
+pub fn vigil(
+    w: &mut World,
+    ctx: &CallContext,
+    f: &Found,
+    creature: EntityId,
+    chunk: EntityId,
+    curves: &super::Curves,
+) -> Result<Outcome, CommandError> {
+    if let Some(why) = vigil_why_not(w, ctx.actor.as_str(), f, chunk) {
+        return Err(CommandError::precondition(why));
+    }
+    let source = plain_str(w, chunk, CHUNK, "source")
+        .unwrap_or("?")
+        .to_string();
+    let vividity = plain_num(w, chunk, CHUNK, "vividity").unwrap_or(0.0);
+    let now = w.now();
     let worth = w
         .store
         .read_field(chunk, CHUNK, "value", now)
@@ -345,7 +416,7 @@ pub fn landing_said(world: &World, f: &Found) -> String {
     let mine = fights(world, f);
     let level = super::memory::level(world, f.window);
     format!(
-        "A card on the newel post: \"READING ROOMS. Sized for a name holding 20 to 100 (you hold {level:.0}). Nothing here is struck to any purpose; it is told. `story <creature> \"\u{2026}\"` of a fight you still remember, naming what you fought, a dozen words or more: the more vivid that memory and the more words it has not heard, the harder the telling lands. The lampmoth takes the memory of a fight you nearly lost (`remember <chunk> lampmoth`).\" {}",
+        "A card on the newel post: \"READING ROOMS. Sized for a name holding 20 to 100 (you hold {level:.0}). Nothing here is struck to any purpose; it is told. `story <creature> \"\u{2026}\"` of a fight you still remember, naming what you fought, a dozen words or more: the more words it has not heard this fight and the more vivid that memory, the harder the telling lands (your most vivid memory of the kind you name is the one told). Every telling draws a blow back; a proofreader's is a point harder for each word you repeat. The lampmoth takes the memory of a fight you nearly lost, vividity 0.6 or more (`remember <chunk> lampmoth`). Nothing asks your level at the stair: under 20, the lampmoths are the ones to tell.\" {}",
         if mine.is_empty() {
             "You remember no fight just now; win one below first.".to_string()
         } else {

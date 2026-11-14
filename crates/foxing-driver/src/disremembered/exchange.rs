@@ -352,9 +352,9 @@ pub fn register(world: &mut World, curves: Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.story",
-            "Tell a named creature here a story, at least a dozen words. It keeps the story as a memory of its own, and you come away with one: the way to earn without striking anything. One story an hour per creature, from the story that opened the hour; inside it, the one it wants is still heard once at plain pay (double when the hour turns), and one that carries its hidden word is heard for the word's bonus alone. A first miss of what it wants spends nothing; a second spends the hour. A creature without a name does not understand you.",
+            "Tell a named creature here a story, at least a dozen words. It keeps the story as a memory of its own, and you come away with one: the way to earn without striking anything. One story an hour per creature, from the story that opened the hour; inside it, the one it wants is still heard once at plain pay (double when the hour turns), and one that carries its hidden word is heard for the word's bonus alone. A first miss of what it wants spends nothing; a second spends the hour. A creature without a name does not understand you, except in the Reading Rooms over the Archive, where a story is the blow: there it is a telling, of a fight you still remember, naming what you fought, with no hour to wait between tellings and a blow back for each (the card on the Mezzanine says how).",
         )
-        .param("creature", ParamType::Entity, true, "a named creature here")
+        .param("creature", ParamType::Entity, true, "a named creature here, or a thing of the Reading Rooms")
         .param("text", ParamType::Text, true, "the story, quoted"),
         Box::new(move |w: &mut World, ctx, args: &Args| {
             let f = me(w, ctx)?;

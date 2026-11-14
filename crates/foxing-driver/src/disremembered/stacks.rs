@@ -251,6 +251,11 @@ pub fn throes(
     citizen: EntityId,
     actor: &str,
 ) -> Result<(Option<String>, bool), String> {
+    // A showing-out as it comes apart read oddly, and cost the walk back for
+    // nothing (the Watch of 11-14): a shusher's throes are quiet.
+    if plain_str(world, creature, CREATURE, "name") == Some("shusher") {
+        return Ok((None, false));
+    }
     let (line, over) = play(world, curves, creature, citizen, actor, true)?;
     Ok((
         line.map(|l| format!("Even as it comes apart: {}", lower_first(&l))),

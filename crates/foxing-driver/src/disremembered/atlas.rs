@@ -804,7 +804,7 @@ pub fn remembered_map(
                             continue;
                         }
                         if let (Some(a), Some(b)) = (code_of(id), code_of(to.0)) {
-                            apart.push(format!("{a}\u{2194}{b} by `{via}`"));
+                            apart.push(format!("{a}\u{2194}{b} (`{via}` from {a})"));
                         }
                     }
                 }

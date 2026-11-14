@@ -11830,9 +11830,33 @@ fn the_reading_rooms_are_fought_by_telling_and_told_by_what_you_fought() {
     );
     assert_eq!(first.result["told"]["repeats"], 0, "{}", first.summary);
     // The same again: nothing new lands, and the proofreader marks every word.
-    let again = ok(&mut w, "dave", "story", json!(["proofreader", tale]));
-    assert!(again.summary.contains("does not land"), "{}", again.summary);
-    assert!(again.summary.contains("repeated word"), "{}", again.summary);
+    // The same again: refused, unstruck.
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "story",
+        json!(["proofreader", tale]),
+    )
+    .unwrap_err();
+    assert!(
+        e.to_string().contains("heard every word") && e.to_string().contains("has not struck"),
+        "{e}"
+    );
+    // A second telling that says "struck" and "sleeve" again is marked for those,
+    // and not for the wisp it must name.
+    let again = ok(
+        &mut w,
+        "dave",
+        "story",
+        json!(["proofreader", "Then another wisp found my sleeve by the gate, and when I struck at that one my whole hand went cold"]),
+    );
+    assert_eq!(again.result["told"]["repeats"], 2, "{}", again.summary);
+    assert!(
+        again.summary.contains("marked 2 repeated words"),
+        "{}",
+        again.summary
+    );
 }
 
 /// C2: the lampmoth takes the memory of a fight nearly lost, once an hour, and pays.

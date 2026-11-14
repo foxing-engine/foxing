@@ -476,19 +476,26 @@ pub fn run_checked(
                             None if super::plain_str(world, c, super::CREATURE, "name")
                                 .is_some_and(super::reading::is_told) =>
                             {
-                                let fights = super::find_citizen(world, actor)
-                                    .map(|f| super::reading::fights(world, &f))
-                                    .unwrap_or_default();
-                                if fights.is_empty() {
-                                    (false, "refused: a telling lands only if it is of a fight you still remember, and you hold no memory of one".to_string())
-                                } else {
-                                    (
-                                        true,
-                                        format!(
-                                            "a telling: the blow, if it is a dozen different words and names a fight you remember ({}); it strikes back",
-                                            fights.iter().map(|(k, _)| k.as_str()).collect::<Vec<_>>().join(", ")
+                                match super::find_citizen(world, actor) {
+                                    None => (false, "refused: log in first".to_string()),
+                                    Some(f) => match super::reading::weigh(world, &f, c, &arg(1)) {
+                                        Ok(t) => (
+                                            true,
+                                            format!(
+                                                "a telling of the {}: lands for {:.0} as the world stands ({} word{} it has not heard); it strikes back{}",
+                                                t.of,
+                                                t.damage,
+                                                t.new_words,
+                                                if t.new_words == 1 { "" } else { "s" },
+                                                if t.back > 0.0 {
+                                                    format!(", {:.0} harder for repeated words", t.back)
+                                                } else {
+                                                    String::new()
+                                                }
+                                            ),
                                         ),
-                                    )
+                                        Err(why) => (false, format!("refused: {why}")),
+                                    },
                                 }
                             }
                             None => (
@@ -554,6 +561,19 @@ pub fn run_checked(
                             }
                         }
                         ("remember", Some(c)) => match my_chunk(&arg(0)) {
+                            // C2: a lampmoth takes only a fight nearly lost.
+                            Ok(ch)
+                                if super::plain_str(world, c, super::CREATURE, "name")
+                                    == Some(super::reading::LAMPMOTH)
+                                    && mind::name(world, c).is_none() =>
+                            {
+                                match super::find_citizen(world, actor)
+                                    .and_then(|f| super::reading::vigil_why_not(world, actor, &f, ch))
+                                {
+                                    Some(why) => (false, format!("refused: {why}")),
+                                    None => (true, format!("the lampmoth keeps {} and leaves you a vigil worth half again what it is worth now", arg(0))),
+                                }
+                            }
                             Ok(_) => (
                                 true,
                                 format!("gives {} to {}", arg(0), mind::display(world, c)),
