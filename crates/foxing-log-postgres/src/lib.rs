@@ -61,7 +61,102 @@ CREATE TABLE IF NOT EXISTS events (
     PRIMARY KEY (world, seq)
 );
 CREATE INDEX IF NOT EXISTS events_world_kind ON events (world, kind, seq);
+CREATE TABLE IF NOT EXISTS events_archive (
+    world   TEXT        NOT NULL,
+    seq     BIGINT      NOT NULL,
+    at      BIGINT      NOT NULL,
+    kind    TEXT        NOT NULL,
+    actor   JSONB       NOT NULL,
+    cause   BIGINT      NULL,
+    payload JSONB       NOT NULL,
+    PRIMARY KEY (world, seq)
+);
+CREATE INDEX IF NOT EXISTS events_archive_world_kind ON events_archive (world, kind, seq);
 ";
+
+/// S16 (c): the log is two tables that are one log. `events` holds what the world
+/// reads day to day; `events_archive` holds the older events, moved there whole by
+/// [`archive`]. An event is in exactly one of them. Every read is of both, in order
+/// (one statement, so one snapshot: a read during a move sees each event once), so a
+/// reader that goes back past the archive's edge, a boot with no checkpoint above
+/// all, gets the whole log without knowing there is an archive. A build that reads
+/// only `events` must never be run on a log that has been archived: it would boot a
+/// world from the tail alone.
+const READ: &str = "
+SELECT seq, at, kind, actor, cause, payload FROM (
+    SELECT seq, at, kind, actor, cause, payload FROM events_archive WHERE world = $1 AND seq > $2
+    UNION ALL
+    SELECT seq, at, kind, actor, cause, payload FROM events WHERE world = $1 AND seq > $2
+) both_tables ORDER BY seq LIMIT $3";
+
+/// The world's last event, from `events`, and from the archive if every event of the
+/// world has been moved (never done by [`archive`], which leaves the newest behind;
+/// said here so that a log in that state still appends after its true last event).
+const LAST: &str = "
+SELECT seq, at FROM (
+    (SELECT seq, at FROM events WHERE world = $1 ORDER BY seq DESC LIMIT 1)
+    UNION ALL
+    (SELECT seq, at FROM events_archive WHERE world = $1 ORDER BY seq DESC LIMIT 1)
+) last_of_both ORDER BY seq DESC LIMIT 1";
+
+/// S16 (c): move every event of `world` at or before `through` from `events` to
+/// `events_archive`, in one transaction: all of them are moved or none is. It takes
+/// its own connection and may be run beside a live driver: the driver appends above
+/// `through` and reads both tables. Returns how many were moved. It refuses to move
+/// the world's newest event, so `events` is never left empty for a world.
+pub fn archive(url: &str, world: &WorldId, through: u64) -> Result<u64, LogError> {
+    let mut client = Client::connect(url, NoTls).map_err(storage)?;
+    let mut tx = client.transaction().map_err(storage)?;
+    let head: Option<i64> = tx
+        .query_one("SELECT max(seq) FROM events WHERE world = $1", &[&world.0])
+        .map_err(storage)?
+        .get(0);
+    let Some(head) = head else {
+        return Ok(0);
+    };
+    if through as i64 >= head {
+        return Err(LogError::Storage(format!(
+            "refusing to archive through {through}: the world's newest event is {head}, and it stays"
+        )));
+    }
+    let copied = tx
+        .execute(
+            "INSERT INTO events_archive (world, seq, at, kind, actor, cause, payload)
+             SELECT world, seq, at, kind, actor, cause, payload FROM events WHERE world = $1 AND seq <= $2",
+            &[&world.0, &(through as i64)],
+        )
+        .map_err(storage)?;
+    let gone = tx
+        .execute(
+            "DELETE FROM events WHERE world = $1 AND seq <= $2",
+            &[&world.0, &(through as i64)],
+        )
+        .map_err(storage)?;
+    if copied != gone {
+        return Err(LogError::Storage(format!(
+            "{copied} events copied to the archive and {gone} removed: nothing was moved"
+        )));
+    }
+    tx.commit().map_err(storage)?;
+    Ok(gone)
+}
+
+/// How many events of `world` are in each table: `(archive, events)`.
+pub fn counts(url: &str, world: &WorldId) -> Result<(u64, u64), LogError> {
+    let mut client = Client::connect(url, NoTls).map_err(storage)?;
+    let a: i64 = client
+        .query_one(
+            "SELECT count(*) FROM events_archive WHERE world = $1",
+            &[&world.0],
+        )
+        .map_err(storage)?
+        .get(0);
+    let e: i64 = client
+        .query_one("SELECT count(*) FROM events WHERE world = $1", &[&world.0])
+        .map_err(storage)?
+        .get(0);
+    Ok((a as u64, e as u64))
+}
 
 /// How often, and how long between, connection attempts at open.
 const CONNECT_TRIES: u32 = 20;
@@ -463,10 +558,7 @@ fn read(
     limit: usize,
 ) -> Result<Vec<Event>, LogError> {
     let rows = client
-        .query(
-            "SELECT seq, at, kind, actor, cause, payload FROM events WHERE world = $1 AND seq > $2 ORDER BY seq LIMIT $3",
-            &[&world.0, &(cursor.after as i64), &(limit as i64)],
-        )
+        .query(READ, &[&world.0, &(cursor.after as i64), &(limit as i64)])
         .map_err(storage)?;
     rows.iter()
         .map(|row| {
@@ -487,12 +579,8 @@ fn read(
 }
 
 fn head(client: &mut Client, world: &WorldId) -> Result<Option<Seq>, LogError> {
-    let row = client
-        .query_opt("SELECT max(seq) FROM events WHERE world = $1", &[&world.0])
-        .map_err(storage)?;
-    Ok(row
-        .and_then(|r| r.get::<_, Option<i64>>(0))
-        .map(|s| Seq(s as u64)))
+    let row = client.query_opt(LAST, &[&world.0]).map_err(storage)?;
+    Ok(row.map(|r| Seq(r.get::<_, i64>(0) as u64)))
 }
 
 impl EventLog for PostgresLog {

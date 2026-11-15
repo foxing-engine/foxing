@@ -267,3 +267,49 @@ fn the_log_reconnects_when_the_database_closes_its_connection() {
     assert_eq!(e.seq, Seq(4));
     assert_eq!(log.read_all(&w, Cursor::START).unwrap().len(), 4);
 }
+
+/// S16 (c): the older events moved to the archive are still the log. Every read is
+/// of both tables in order, the head and the next append are where they were, the
+/// move is all or nothing, and the world's newest event is never moved.
+#[test]
+fn an_archived_log_reads_whole_and_appends_where_it_left_off() {
+    let Some(url) = url() else {
+        eprintln!("FOXING_TEST_PG not set; skipping");
+        return;
+    };
+    let w = fresh_world();
+    let mut log = PostgresLog::open(&url).unwrap();
+    for i in 1..=50u64 {
+        log.append(&w, ev(1000 * i as i64, "t.k", i)).unwrap();
+    }
+    let before = log.read(&w, Cursor::START, 1000).unwrap();
+    assert_eq!(foxing_log_postgres::archive(&url, &w, 30).unwrap(), 30);
+    assert_eq!(foxing_log_postgres::counts(&url, &w).unwrap(), (30, 20));
+    // The whole log, across the edge, a page that straddles it, and one above it.
+    assert_eq!(log.read(&w, Cursor::START, 1000).unwrap(), before);
+    let straddle = log.read(&w, Cursor { after: 25 }, 10).unwrap();
+    assert_eq!(
+        straddle.iter().map(|e| e.seq.0).collect::<Vec<_>>(),
+        (26..=35).collect::<Vec<_>>()
+    );
+    assert_eq!(log.read(&w, Cursor { after: 40 }, 1000).unwrap().len(), 10);
+    assert_eq!(log.head(&w).unwrap().map(|s| s.0), Some(50));
+    // A log opened afresh on it, as a boot is, sees the same and appends at 51.
+    let mut again = PostgresLog::open(&url).unwrap();
+    assert_eq!(again.read(&w, Cursor::START, 1000).unwrap(), before);
+    assert_eq!(again.append(&w, ev(60_000, "t.k", 51)).unwrap().seq.0, 51);
+    // Moving again further is fine; moving what is already moved moves nothing;
+    // the newest event stays where it is.
+    assert_eq!(foxing_log_postgres::archive(&url, &w, 30).unwrap(), 0);
+    assert_eq!(foxing_log_postgres::archive(&url, &w, 45).unwrap(), 15);
+    assert!(foxing_log_postgres::archive(&url, &w, 51).is_err());
+    assert!(foxing_log_postgres::archive(&url, &w, 99).is_err());
+    assert_eq!(foxing_log_postgres::counts(&url, &w).unwrap(), (45, 6));
+    assert_eq!(again.read(&w, Cursor::START, 1000).unwrap().len(), 51);
+    // Another world's events were not touched.
+    let other = fresh_world();
+    again.append(&other, ev(1, "t.k", 1)).unwrap();
+    again.append(&other, ev(2, "t.k", 2)).unwrap();
+    assert_eq!(foxing_log_postgres::archive(&url, &w, 50).unwrap(), 5);
+    assert_eq!(again.read(&other, Cursor::START, 10).unwrap().len(), 2);
+}

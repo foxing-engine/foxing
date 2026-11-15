@@ -125,6 +125,81 @@ fn main() {
         return;
     }
 
+    // S16 (c): `foxing-driver archive [--yes]`: move the events older than the
+    // checkpoint, less a tail, from `events` to `events_archive`. Without `--yes` it
+    // says what it would move and moves nothing. The checkpoint is verified against
+    // the whole log before the move and again after it; a mismatch before stops it.
+    if args.get(1).map(String::as_str) == Some("archive") {
+        // The furthest back any verb reads today is 60,000 events; that many stay.
+        // FOXING_ARCHIVE_TAIL is for a rehearsal on a small log.
+        let tail: u64 = env_or("FOXING_ARCHIVE_TAIL", "60000")
+            .parse()
+            .unwrap_or(60_000)
+            .max(1_000);
+        let Some(url) = &log_url else {
+            eprintln!("archive needs FOXING_LOG_URL: only a PostgreSQL log has an archive");
+            std::process::exit(2);
+        };
+        let fail = |what: &str, e: String| -> ! {
+            eprintln!("archive: {what}: {e}");
+            std::process::exit(1)
+        };
+        let id = WorldId(world_name.clone());
+        let dir = std::path::Path::new(&data);
+        let schemas = disremembered::registry();
+        let log = foxing_log_postgres::PostgresLog::open(url)
+            .unwrap_or_else(|e| fail("the log would not open", e.to_string()));
+        use foxing_log::EventLog;
+        let head = log.head(&id).ok().flatten().map(|s| s.0).unwrap_or(0);
+        let Some(kept) = checkpoint::load(dir, &world_name, &schemas) else {
+            fail(
+                "no checkpoint",
+                "nothing is archived without a checkpoint this build can boot from".into(),
+            )
+        };
+        let through = kept.seq.min(head).saturating_sub(tail);
+        let (archived, live) = foxing_log_postgres::counts(url, &id)
+            .unwrap_or_else(|e| fail("counting", e.to_string()));
+        println!(
+            "archive: world {world_name}: {archived} events in the archive, {live} in events, head {head}; the checkpoint is of event {}; a tail of {tail} stays, so events through {through} would be archived ({} to move)",
+            kept.seq,
+            through.saturating_sub(archived)
+        );
+        drop(kept);
+        if through <= archived {
+            println!("archive: nothing to move");
+            return;
+        }
+        match checkpoint::verify(&log, dir, &world_name, &schemas) {
+            Ok(said) => println!("before: {said}"),
+            Err(e) => fail(
+                "the checkpoint does not match the log, so nothing is moved",
+                e,
+            ),
+        }
+        if !args.iter().any(|a| a == "--yes") {
+            println!("archive: a dry run; nothing was moved. Say --yes to move them.");
+            return;
+        }
+        let began = std::time::Instant::now();
+        let moved = foxing_log_postgres::archive(url, &id, through)
+            .unwrap_or_else(|e| fail("the move failed and nothing was moved", e.to_string()));
+        let (archived, live) = foxing_log_postgres::counts(url, &id)
+            .unwrap_or_else(|e| fail("counting", e.to_string()));
+        println!(
+            "archive: moved {moved} events in {:.1} s; {archived} in the archive, {live} in events",
+            began.elapsed().as_secs_f64()
+        );
+        match checkpoint::verify(&log, dir, &world_name, &schemas) {
+            Ok(said) => println!("after: {said}"),
+            Err(e) => fail(
+                "AFTER THE MOVE the checkpoint does not match the whole log (both tables)",
+                e,
+            ),
+        }
+        return;
+    }
+
     let backing = match log_url {
         Some(url) => LogBacking::Postgres(url),
         None if data == "memory" => LogBacking::Memory,
