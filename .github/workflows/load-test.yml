@@ -1,4 +1,4 @@
-name: Load test (the live world)
+name: Load test (the load world)
 
 # tools/load.py from a runner, down an SSH tunnel to the driver's own port on the game
 # box: a crowd from one address cannot come through nginx (15 logins a minute and 40
@@ -13,6 +13,11 @@ on:
       minutes:
         description: "how long (1 to 20)"
         default: "6"
+      world:
+        description: "load (a world thrown away after) or live (writes to the live log for ever)"
+        type: choice
+        default: load
+        options: [load, live]
 
 jobs:
   load:
@@ -46,6 +51,6 @@ jobs:
           case "$NAMES" in ''|*[!0-9]*) echo "names must be a number"; exit 1;; esac
           case "$MINUTES" in ''|*[!0-9]*) echo "minutes must be a number"; exit 1;; esac
           [ "$NAMES" -le 800 ] && [ "$MINUTES" -ge 1 ] && [ "$MINUTES" -le 20 ] || { echo "out of range"; exit 1; }
-          GAME_SSH=game tools/loadtest.sh "$NAMES" "$MINUTES" "r$(date -u +%H%M)" || true
+          WORLD="${{ github.event.inputs.world }}" GAME_SSH=game tools/loadtest.sh "$NAMES" "$MINUTES" "r$(date -u +%H%M)" || true
           echo "---- the whole result ----"
-          cut -c1-400 loadtest-*.txt | head -40
+          cut -c1-1500 loadtest-*.txt | grep -v '\.probe' | head -60

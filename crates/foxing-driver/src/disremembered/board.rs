@@ -312,8 +312,11 @@ pub fn board(world: &World) -> (Vec<Line>, u64) {
         });
     }
     // Forgotten: every name the record says the world forgot, less any taken again.
+    // David, 11-15: the load test's names (`Gnload…`) are not people the world
+    // forgot; six runs in an evening put thousands of them in this count.
     let forgotten = forgotten_names
         .iter()
+        .filter(|n| !n.to_lowercase().starts_with("gnload"))
         .filter(|n| super::find_citizen(world, n).is_none())
         .count() as u64;
     out.sort_by(|a, b| {
