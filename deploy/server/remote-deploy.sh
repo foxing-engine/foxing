@@ -24,7 +24,10 @@ point_current() {
 }
 
 healthy() {
-  for _ in $(seq 1 20); do
+  # The driver answers once it has replayed the log, and the log grows: 1.18 million
+  # events took 55 s on 11-14, past the 50 s this waited, and a good build was rolled
+  # back for being slow to wake. Up to five minutes now (each try is at most 2.5 s).
+  for _ in $(seq 1 120); do
     if out=$(curl -fsS --max-time 2 http://127.0.0.1:7777/health 2>/dev/null) && printf '%s' "$out" | grep -q '"ok":true'; then
       echo "health: $out"
       return 0
