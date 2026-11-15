@@ -337,6 +337,8 @@ async fn run(socket: WebSocket, s: Shared) {
     let mut actor: Option<String> = None;
     let mut admin = false;
     let mut cursor: u64 = 0;
+    // S15: this session fell behind the announcements and has not been caught up.
+    let mut behind = false;
     let mut subs: HashMap<String, Subscription> = HashMap::new();
     let mut all_events = false;
 
@@ -567,6 +569,29 @@ async fn run(socket: WebSocket, s: Shared) {
                 // nothing (not its own, not addressed to it, not news, touching nothing
                 // it subscribes to) takes no lock and sends nothing; fifty names once
                 // woke thirty sessions under the world's lock for every command.
+                // S15: a session that reads too slowly falls behind the announcements.
+                // It was then answered from the log, under the world's lock, on every
+                // announcement it woke for: at five hundred names nearly every push was
+                // one of these, and the slow readers cost everybody the lock. A session
+                // that fell behind now loses the events it missed, is told so once,
+                // and has its subscriptions sent again at their next window.
+                if matches!(changed, Err(tokio::sync::broadcast::error::RecvError::Lagged(_))) {
+                    crate::ops::session_behind();
+                    behind = true;
+                    continue;
+                }
+                if behind {
+                    if let Ok(b) = &changed {
+                        behind = false;
+                        cursor = cursor.max(b.head);
+                        for sub in subs.values_mut() {
+                            sub.stale = true;
+                        }
+                        send!(json!({"type": "behind", "cursor": cursor,
+                            "note": "this session read too slowly and some events were not sent; its subscriptions follow whole"}));
+                        continue;
+                    }
+                }
                 let batch = changed.ok().filter(|b| {
                     b.events.first().is_some_and(|e| e.seq.0 <= cursor + 1) || b.head <= cursor
                 });

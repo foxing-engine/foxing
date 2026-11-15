@@ -33,6 +33,8 @@ struct Stats {
     observations_shared: u64,
     /// S15: pushes answered from the log under the lock (a session that fell behind).
     pushes_from_log: u64,
+    /// S15: times a session fell behind the announcements and dropped what it missed.
+    sessions_behind: u64,
     /// S14: observations run for a session under the lock, and what they took: by
     /// subscription (`room`, `me`, `window`, other), count and milliseconds, for
     /// those answered from a shared run and those run for the viewer alone.
@@ -154,6 +156,10 @@ pub fn observed(id: &str, shared: bool, ms: f64) {
     });
 }
 
+pub fn session_behind() {
+    with(|s| s.sessions_behind += 1);
+}
+
 pub fn push_from_log() {
     with(|s| s.pushes_from_log += 1);
 }
@@ -188,6 +194,7 @@ pub fn report() -> Value {
                 "skipped": s.pushes_skipped,
                 "observations_shared": s.observations_shared,
                 "from_log": s.pushes_from_log,
+                "behind": s.sessions_behind,
                 "observed": s.observed.iter().map(|(k, v)| (k.clone(), json!({
                     "shared": v.0, "shared_ms": (v.1 * 10.0).round() / 10.0,
                     "own": v.2, "own_ms": (v.3 * 10.0).round() / 10.0,
