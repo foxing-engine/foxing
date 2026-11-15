@@ -347,6 +347,20 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   every name the shared run kept (the order of what is kept is the order found,
   no longer the asker first). An index of what each actor owns replaced a walk of
   every citizen on each command and observation.
+  **And again with packed rooms shared (11-14, 20:03, from a runner):** no better.
+  15,901 commands, no errors, a round trip 0.36 s at the middle and 2.9 s at the
+  95th; the lock held 194 s of 378; rooms run for one viewer alone still 16,374 at
+  4.85 ms (79 s), shared 29,943 (35 s), `me` 37,959 (15 s). One wait for the lock
+  of 8.3 s, cause not found (not a push: their worst hold was 57 ms). A packed
+  room's observation measured on the workspace's machine, release build, 160
+  names: 0.42 ms, of which ranking the names is 0.07. So the same work costs ten
+  times as much on the box, under load, as here; and in a room of a hundred and
+  fifty names a hundred are still answered alone. **What is left is structural,
+  and David's to choose (S15):** (a) the world behind a read-write lock, so
+  observations run side by side on the box's four cores and only commands take it
+  whole; (b) a box with dedicated cores; (c) serve a name trimmed out of a packed
+  room from the shared run with its own node put in. Three hundred names hold with
+  no errors and a median reply near a third of a second; five hundred are not there.
   **A second place to test from:** `tools/loadtest.sh <names> <minutes>` on any
   machine with SSH to the box (an SSH tunnel to the driver's own port, around
   nginx's per-address limits), and the same as a hand-run workflow, `Load test`.

@@ -5,6 +5,10 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-14 (S14 again, twice, and the harness's first runs; two driver deploys)
+- A shared room stands until something in it changes (what each announced change touched is kept beside the rooms), not until the log's next event anywhere; a room past its breadth is shared by every name the shared run kept, and what is kept stands in the order found. An index of what each actor owns. `ops` times a session's observations by subscription, shared and alone.
+- The `Load test` workflow ran three hundred names twice with no errors. The lock is held as long as before; the figures and what is left (S15) are under S6.
+
 11-14 (S14 and a load harness; one driver deploy)
 - **S14**: a room's observation is run once for a change and shared by every session it serves; a viewer with something of their own in view that a stranger is not shown, an administrator, and anyone in a room past its breadth are run on their own as before. `observations_shared` beside the push counts in `ops`. Local, 150 names: 11,511 observations served from a shared run, the lock held 2.6 s of 66.
 - `tools/loadtest.sh` and the `Load test` workflow: the load test from a machine that is not the cloud workspace, down an SSH tunnel to the driver's port.
