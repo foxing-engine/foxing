@@ -639,6 +639,7 @@ pub(crate) mod tests {
             changed: tokio::sync::broadcast::channel(8).0,
             announced: Arc::new(Mutex::new(None)),
             rooms: Arc::default(),
+            to_announce: Arc::default(),
             cors_origins: vec![],
             log_where: "memory".into(),
         }

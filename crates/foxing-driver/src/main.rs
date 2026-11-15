@@ -201,9 +201,12 @@ fn main() {
             }
             b
         })),
-        changed: tokio::sync::broadcast::channel(64).0,
+        // S15: a session that falls this many batches behind is answered from the
+        // log under the world's lock, the dear way; there is room for many.
+        changed: tokio::sync::broadcast::channel(2048).0,
         announced: Arc::new(Mutex::new(None)),
         rooms: Arc::default(),
+        to_announce: Arc::default(),
         limits: foxing_query::Limits::default(),
         log_where: where_.clone(),
         cors_origins: env_or(

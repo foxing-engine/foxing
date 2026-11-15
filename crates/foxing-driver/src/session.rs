@@ -657,6 +657,7 @@ async fn run(socket: WebSocket, s: Shared) {
                 } else {
                     // The first announcement, a lagged listener, a wide gap: from the
                     // log, under the lock, as every push once was.
+                    crate::ops::push_from_log();
                     let Ok(w) = s.world.lock() else { continue };
                     let push_locked = std::time::Instant::now();
                     let head = w.log.head(&w.id).ok().flatten().map(|x| x.0).unwrap_or(0);

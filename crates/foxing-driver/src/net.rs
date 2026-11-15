@@ -45,6 +45,8 @@ pub struct Shared {
     pub changed: tokio::sync::broadcast::Sender<Arc<Batch>>,
     /// The last event announced; `None` until the first announcement.
     pub announced: Arc<Mutex<Option<u64>>>,
+    /// S15: a change is waiting to be announced. Whoever is announcing takes it too.
+    pub to_announce: Arc<std::sync::atomic::AtomicBool>,
     /// S14: a room's observation, run once for a change and shared.
     pub rooms: Arc<Mutex<crate::observe::Rooms>>,
     /// Origins the browser client may call from (`FOXING_CORS_ORIGINS`, comma-separated).
@@ -76,9 +78,32 @@ impl Shared {
             }
             return;
         }
-        let Ok(mut at) = self.announced.lock() else {
-            return;
-        };
+        // S15: one announcer at a time, and nobody queues behind it. Every command
+        // announced its own change: it took `announced`, then waited for the world's
+        // lock while holding it, and every other command's reply stood in line behind
+        // that wait. At five hundred names the line grew faster than it cleared, and
+        // replies took seconds while the box sat half idle. Now a change is flagged;
+        // whoever holds `announced` carries every flagged change in its next batch,
+        // and the rest return at once.
+        use std::sync::atomic::Ordering;
+        self.to_announce.store(true, Ordering::SeqCst);
+        loop {
+            let Ok(at) = self.announced.try_lock() else {
+                return;
+            };
+            if self.to_announce.swap(false, Ordering::SeqCst) {
+                self.announce_now(at);
+            } else {
+                drop(at);
+            }
+            // A change flagged while the lock was being let go has nobody to carry it.
+            if !self.to_announce.load(Ordering::SeqCst) {
+                return;
+            }
+        }
+    }
+
+    fn announce_now(&self, mut at: std::sync::MutexGuard<'_, Option<u64>>) {
         let batch = {
             let Ok(w) = self.world.lock() else { return };
             let head = w.log.head(&w.id).ok().flatten().map(|x| x.0).unwrap_or(0);
