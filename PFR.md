@@ -335,6 +335,18 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   serves is answered from the one run; the rest are run on their own as before.
   The play page's room query reads only public fields, so a room serves everyone
   in it. A test holds the shared run to each viewer's own for three queries.
+  **Three hundred on S14, from a runner (11-14, 19:53; the harness's first run):**
+  16,959 commands, no errors at all (the tunnel goes around the login limit), a
+  reply's round trip 0.27 s at the middle and 2.2 s at the 95th. The first cut of
+  S14 shared almost nothing (a kept room was trusted only to the log's next event
+  anywhere); the second keeps a room until something in it changes. With the
+  observations timed by kind, the 190 s the lock was held went: rooms run for one
+  viewer alone 91 s (19,457 at 4.7 ms: every room past its breadth of a hundred,
+  where nobody shared), rooms shared 38 s (32,807), `me` 18 s (42,624). So the
+  packed rooms are what is left, and a room past its breadth is now shared by
+  every name the shared run kept (the order of what is kept is the order found,
+  no longer the asker first). An index of what each actor owns replaced a walk of
+  every citizen on each command and observation.
   **A second place to test from:** `tools/loadtest.sh <names> <minutes>` on any
   machine with SSH to the box (an SSH tunnel to the driver's own port, around
   nginx's per-address limits), and the same as a hand-run workflow, `Load test`.

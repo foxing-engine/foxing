@@ -296,7 +296,9 @@ pub trait RootResolver {
     fn resolve(&self, name: &str, arg: Option<&str>, viewer: &Viewer) -> Option<EntityId>;
 
     /// A relation's matches passed the breadth, and the query named no limit of its
-    /// own: which of them to keep, at most `limit`, in the order to show them. The
+    /// own: which of them to keep, at most `limit` (they are shown in the order they
+    /// were found). It keeps the viewer's own and otherwise does not look at who is
+    /// asking: a shared run (S14) counts on that. The
     /// node then says how many were left out, under `truncated`. `None` (the
     /// default) refuses the query as too broad, as a query with its own limit
     /// always is.
@@ -345,17 +347,19 @@ pub struct Sharing {
     pub owners: std::collections::BTreeSet<String>,
     /// A relation ran past its breadth and the world chose what to keep.
     pub narrowed: bool,
+    /// The owners of what was kept when it did. [`RootResolver::narrow`] keeps the
+    /// viewer's own and otherwise does not look at the viewer, so a viewer whose own
+    /// was kept for the stranger would have been shown the same.
+    pub kept: std::collections::BTreeSet<String>,
 }
 
 impl Sharing {
     /// Whether the stranger's observation is this viewer's too.
     pub fn serves(&self, viewer: &Viewer) -> bool {
         !viewer.admin
-            && !self.narrowed
-            && viewer
-                .actor
-                .as_ref()
-                .is_some_and(|a| !self.owners.contains(a))
+            && viewer.actor.as_ref().is_some_and(|a| {
+                !self.owners.contains(a) && (!self.narrowed || self.kept.contains(a))
+            })
             && viewer.party.iter().all(|p| !self.owners.contains(p))
     }
 }
@@ -778,18 +782,22 @@ impl Walk<'_> {
         if kept.len() > limit {
             // Past the breadth with no limit asked: the world may say which to keep.
             let ids: Vec<EntityId> = kept.iter().map(|(id, _)| *id).collect();
-            if let Some(sharing) = self.sharing.as_deref_mut() {
-                sharing.narrowed = true;
-            }
             match self.roots.narrow(name, from, &ids, limit, self.viewer) {
                 Some(keep) if keep.len() <= limit => {
                     let found = kept.len();
-                    let labels: std::collections::HashMap<EntityId, Option<String>> =
-                        kept.into_iter().collect();
-                    kept = keep
-                        .into_iter()
-                        .filter_map(|id| labels.get(&id).map(|l| (id, l.clone())))
-                        .collect();
+                    // What is kept stays in the order it was found, as a relation
+                    // within its breadth is: who is asking decides at most what is
+                    // kept, never where it stands (S14: so a run can be shared).
+                    let keep: std::collections::HashSet<EntityId> = keep.into_iter().collect();
+                    kept.retain(|(id, _)| keep.contains(id));
+                    if let Some(sharing) = self.sharing.as_deref_mut() {
+                        sharing.narrowed = true;
+                        for (id, _) in &kept {
+                            if let Some(o) = self.store.entity(*id).and_then(|e| e.owner.clone()) {
+                                sharing.kept.insert(o);
+                            }
+                        }
+                    }
                     self.left_out
                         .push((from, name.to_string(), found - kept.len()));
                 }

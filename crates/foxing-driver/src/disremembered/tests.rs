@@ -11637,7 +11637,11 @@ fn a_crowded_room_says_its_fifty_best_remembered_names_and_counts_the_rest() {
         .filter_map(|n| n["components"][CITIZEN]["name"].as_str())
         .collect();
     assert_eq!(names.len(), 50, "{names:?}");
-    assert_eq!(&names[..3], ["dave", "crowd101", "crowd077"]);
+    // S14: the viewer and the best remembered are among those kept; they stand in
+    // the order they are found in, as in a room within its breadth.
+    for kept in ["dave", "crowd101", "crowd077"] {
+        assert!(names.contains(&kept), "{kept} is kept: {names:?}");
+    }
     assert!(contents.len() <= 100);
     assert!(
         obs["truncated"]["contents"].as_u64().unwrap() >= 71,
@@ -12452,6 +12456,60 @@ fn a_room_run_once_is_each_viewer_s_own_observation_or_is_not_theirs() {
             assert_eq!(shared, alone, "{name} after {who}'s {verb}");
         }
     }
+    // A room past its breadth: the world keeps the asker and the best remembered.
+    // Those whose own name the shared run kept are served it, the same as their
+    // own; the rest are answered alone.
+    for name in ["gnat", "gnome", "gnu"] {
+        login(&mut w, name, "test", PASS).unwrap();
+    }
+    let tight = foxing_query::Limits {
+        max_breadth: 3,
+        ..foxing_query::Limits::default()
+    };
+    let packed = std::sync::Mutex::new(Rooms::default());
+    for name in ["dave", "tyler", "sphinx"] {
+        // Everyone to the door the new names woke at.
+        let _ = call(
+            &mut w,
+            name,
+            ActorKind::Citizen,
+            "travel",
+            json!(["The Threshold"]),
+        );
+    }
+    let door = w
+        .store
+        .owned("gnat", "citizen")
+        .next()
+        .and_then(|e| e.parent)
+        .unwrap();
+    let here: Request = serde_json::from_value(json!({"root": door.0, "select": {"disremembered.room": ["name"]},
+        "relations": {"contents": {"kinds": ["citizen"], "select": {"disremembered.citizen": ["name"]}}}, "commands": false}))
+    .unwrap();
+    let (mut kept, mut left) = (0, 0);
+    for name in ["dave", "tyler", "sphinx", "gnat", "gnome", "gnu"] {
+        let v = Viewer::actor(name);
+        let alone = serde_json::to_value(w.observe(&v, ActorKind::Citizen, &here, &tight).unwrap())
+            .unwrap();
+        assert_eq!(
+            alone["root"]["relations"]["contents"]
+                .as_array()
+                .map(Vec::len),
+            Some(3),
+            "{alone}"
+        );
+        match w.observe_shared(&v, ActorKind::Citizen, &here, &tight, &packed) {
+            Some(shared) => {
+                kept += 1;
+                assert_eq!(shared, alone, "{name} in a packed room");
+            }
+            None => left += 1,
+        }
+    }
+    assert!(
+        kept >= 1 && left >= 1,
+        "{kept} served from the packed room, {left} alone"
+    );
     // The page's room serves all four askers; a view with a name's own fields none.
     assert_eq!((served, own), (4, 8), "served, and on their own");
 }
