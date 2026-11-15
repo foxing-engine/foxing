@@ -9,6 +9,7 @@
 //! PostgreSQL log `FOXING_LOG_URL` names, once, and exits.
 //! - `FOXING_WORLD`: world name (default `disremembered`).
 //! - `FOXING_TCP`: text listener (default `127.0.0.1:7778`).
+//! - `FOXING_WORKERS` — the async runtime's worker threads (default 48; see S15).
 //! - `FOXING_HTTP`: HTTP listener (default `127.0.0.1:7777`).
 //! - `FOXING_ADMIN_TOKEN`: enables `admin <token>` and the `X-Foxing-Admin` header.
 //! - `FOXING_ACTIVE_HALF_LIFE_SECONDS`: the active window's half-life (default 3600).
@@ -226,7 +227,18 @@ fn main() {
         &world_name,
     );
 
+    // S15: a session waits for the world's lock on a runtime worker. With a worker
+    // a core (four on the box) and hundreds of sessions queued on the lock, every
+    // worker stood waiting and nothing else was picked up: at five hundred names a
+    // request waited seconds for a handler while the box sat half idle. Workers that
+    // wait cost nothing, so there are many more of them than cores.
+    let workers = std::env::var("FOXING_WORKERS")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .filter(|n| (1..=512).contains(n))
+        .unwrap_or(48);
     let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(workers)
         .enable_all()
         .build()
         .expect("tokio runtime");
