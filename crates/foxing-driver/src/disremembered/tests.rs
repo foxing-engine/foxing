@@ -12294,3 +12294,56 @@ fn a_memory_taken_in_a_fight_is_a_fight_with_its_kind() {
         Some("mothwing")
     );
 }
+
+/// S13: an event judged once at its announcement is seen, and cut, exactly as the
+/// world's own answer for each viewer: the two are the same rule, said twice.
+#[test]
+fn an_event_judged_once_is_seen_by_each_viewer_as_the_world_would_show_it() {
+    use crate::observe::{redacted, redacted_as, seen, visible, visible_as};
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    ok(&mut w, "dave", "say", json!(["counting lanterns"]));
+    ok(&mut w, "dave", "tell", json!(["tyler", "a word for you"]));
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "attack", json!(["wisp"]));
+    ok(&mut w, "tyler", "travel", json!(["west"]));
+    ok(&mut w, "tyler", "look", json!([]));
+    let now = w.now();
+    let events = w
+        .log
+        .read(&w.id, foxing_log::Cursor { after: 0 }, 100_000)
+        .unwrap();
+    let mut party = Viewer::actor("tyler");
+    party.party.insert("dave".into());
+    let viewers = [
+        Viewer::actor("dave"),
+        Viewer::actor("tyler"),
+        party,
+        Viewer::anonymous(),
+        Viewer::admin(),
+    ];
+    let (mut cut, mut hidden) = (0, 0);
+    for e in &events {
+        let s = seen(&w, now, e);
+        for v in &viewers {
+            let shown = visible(&w, v, now, e);
+            assert_eq!(visible_as(v, e, &s), shown, "{} for {:?}", e.kind, v.actor);
+            hidden += usize::from(!shown);
+            let whole = redacted(&w, v, e.clone());
+            assert_eq!(
+                redacted_as(v, e.clone(), &s).payload,
+                whole.payload,
+                "{}",
+                e.kind
+            );
+            cut += usize::from(whole.payload != e.payload);
+        }
+    }
+    assert!(
+        events.len() > 200 && cut > 0 && hidden > 0,
+        "{} events, {cut} cut, {hidden} hidden",
+        events.len()
+    );
+}

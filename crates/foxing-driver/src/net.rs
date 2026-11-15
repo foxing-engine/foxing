@@ -55,6 +55,8 @@ pub struct Shared {
 /// An empty batch with a head says only "something changed; read the log".
 pub struct Batch {
     pub events: Vec<Arc<foxing_log::Event>>,
+    /// S13: each event judged once for every viewer, beside it.
+    pub seen: Vec<crate::observe::Seen>,
     pub head: u64,
 }
 
@@ -87,7 +89,13 @@ impl Shared {
                 // The first announcement, or a gap too wide to carry: head only.
                 _ => Vec::new(),
             };
-            Batch { events, head }
+            let now = w.now();
+            let events: Vec<Arc<foxing_log::Event>> = events;
+            let seen = events
+                .iter()
+                .map(|e| crate::observe::seen(&w, now, e))
+                .collect();
+            Batch { events, seen, head }
         };
         *at = Some(batch.head);
         let _ = self.changed.send(Arc::new(batch));

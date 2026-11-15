@@ -309,6 +309,12 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   session the `component_set` events its patched subscription already carries.
   Until then the honest figure is two hundred names with quick replies, three
   hundred with slow ones.
+  **S13 a, shipped 11-14 (the goal David set: five hundred names, and alpha):** each
+  event is judged once when its change is announced (can its entity be observed,
+  whose is it, who may see each field), and a session filters and cuts the events
+  for its own viewer with no lock; it takes the world's lock only to run an
+  observation that is due. Still to do under S13: not sending a session the
+  `component_set` events its patched room already carries.
   **The dropped sessions were the test's, not the world's.** Eight and nine of sixty
   sessions were reset mid-run in these two runs (none in the run before, two of
   twelve and one of thirty in earlier ones). The driver now says in its journal why

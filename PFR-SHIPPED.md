@@ -5,6 +5,9 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-14 (S13 a; one driver deploy)
+- A change's events are judged once for every viewer when the change is announced, and each session filters them for itself without the world's lock; the lock is taken by a session only for an observation that is due. A test holds the judged-once rule to the world's own answer for five kinds of viewer over every event of a played world. Local: eighty names, a patched session and a whole one end on the same room.
+
 11-14 (the sixth Watch of three, and three hundred names; nothing deployed)
 - Gnomon on the hidden word alone, Gnocchi on the fight's way out and the stopped travel, Gnubbin on the redactor. What held is in R248's first line; what is open is R248. Three hundred names held without a failure and with slow replies; the figures and the next step (S13: the events, not the rooms) are under S6.
 

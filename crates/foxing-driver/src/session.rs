@@ -617,29 +617,83 @@ async fn run(socket: WebSocket, s: Shared) {
                 }
                 // Everything since the cursor this actor may see, and which subscriptions it touched.
                 let push_asked = std::time::Instant::now();
-                let (events, refresh, held): (Vec<Value>, Vec<Refresh>, Vec<String>) = {
+                let viewer = if admin { Viewer::admin() } else { Viewer::actor(&name) };
+                let (events, refresh, held): (Vec<Value>, Vec<Refresh>, Vec<String>) = if let Some(b) = &batch {
+                    // S13: the events came judged (who may see each, and which of its
+                    // fields), so a session filters them for itself with no lock. It
+                    // takes the world's lock only to run an observation that is due.
+                    let fresh: Vec<(&std::sync::Arc<foxing_log::Event>, &crate::observe::Seen)> = b
+                        .events
+                        .iter()
+                        .zip(&b.seen)
+                        .filter(|(e, _)| e.seq.0 > cursor)
+                        .collect();
+                    cursor = b.head;
+                    let mut dirty: HashSet<String> = HashSet::new();
+                    for (e, _) in &fresh {
+                        for id in touched(e) {
+                            for (k, sub) in &subs {
+                                if sub.ids.contains(&id) {
+                                    dirty.insert(k.clone());
+                                }
+                            }
+                        }
+                    }
+                    let events: Vec<Value> = fresh
+                        .iter()
+                        .filter(|(e, _)| {
+                            all_events
+                                || admin
+                                || wanted(e, &name)
+                                || touched(e).iter().any(|id| subs.values().any(|sub| sub.ids.contains(id)))
+                        })
+                        .filter(|(e, seen)| crate::observe::visible_as(&viewer, e, seen))
+                        .map(|(e, seen)| crate::observe::redacted_as(&viewer, (***e).clone(), seen))
+                        .map(|e| json!({"type": "event", "event": e}))
+                        .collect();
+                    // S10 b: a change this name made is shown at once; anybody
+                    // else's waits for the subscription's window.
+                    let mine = fresh
+                        .iter()
+                        .any(|(e, _)| matches!(&e.actor, foxing_log::Actor::Citizen(a) if *a == name));
+                    let mut due = Vec::new();
+                    let mut held = Vec::new();
+                    for k in dirty {
+                        let Some(sub) = subs.get(&k) else { continue };
+                        if !mine && sub.sent.is_some_and(|t| t.elapsed() < sub.window()) {
+                            held.push(k);
+                        } else {
+                            due.push(k);
+                        }
+                    }
+                    let mut refresh = Vec::new();
+                    if due.is_empty() {
+                        crate::ops::push_skipped();
+                    } else {
+                        let Ok(w) = s.world.lock() else { continue };
+                        // S2: what every open session costs each time the world changes.
+                        let _counted = PushTimer { asked: push_asked, locked: std::time::Instant::now() };
+                        for k in due {
+                            let Some(sub) = subs.get(&k) else { continue };
+                            let id: Value = serde_json::from_str(&k).unwrap_or(Value::String(k.clone()));
+                            let reply = observe_frame(&w, &name, admin, &id, &sub.request, &s);
+                            let mut ids = HashSet::new();
+                            ids_of(&reply["root"], &mut ids);
+                            refresh.push((k, reply, ids));
+                        }
+                    }
+                    (events, refresh, held)
+                } else {
+                    // The first announcement, a lagged listener, a wide gap: from the
+                    // log, under the lock, as every push once was.
                     let Ok(w) = s.world.lock() else { continue };
                     let push_locked = std::time::Instant::now();
                     let head = w.log.head(&w.id).ok().flatten().map(|x| x.0).unwrap_or(0);
                     if head <= cursor { continue; }
-                    // S2: what every open session costs each time the world changes.
                     let _counted = PushTimer { asked: push_asked, locked: push_locked };
-                    let viewer = if admin { Viewer::admin() } else { Viewer::actor(&name) };
                     let now = w.now();
-                    // From the announcement when it reaches back to the cursor; else
-                    // (the first one, a lagged listener, a wide gap) from the log.
-                    let all: Vec<std::sync::Arc<foxing_log::Event>> = match &batch {
-                        Some(b) => {
-                            let fresh = b.events.iter().filter(|e| e.seq.0 > cursor).cloned().collect();
-                            cursor = b.head;
-                            fresh
-                        }
-                        None => {
-                            let read = w.log.read(&w.id, Cursor { after: cursor }, 500).unwrap_or_default();
-                            cursor = head;
-                            read.into_iter().map(std::sync::Arc::new).collect()
-                        }
-                    };
+                    let all: Vec<foxing_log::Event> = w.log.read(&w.id, Cursor { after: cursor }, 500).unwrap_or_default();
+                    cursor = head;
                     let mut dirty: HashSet<String> = HashSet::new();
                     for e in &all {
                         for id in touched(e) {
@@ -659,11 +713,9 @@ async fn run(socket: WebSocket, s: Shared) {
                                 || touched(e).iter().any(|id| subs.values().any(|sub| sub.ids.contains(id)))
                         })
                         .filter(|e| crate::observe::visible(&w, &viewer, now, e))
-                        .map(|e| crate::observe::redacted(&w, &viewer, (**e).clone()))
+                        .map(|e| crate::observe::redacted(&w, &viewer, e.clone()))
                         .map(|e| json!({"type": "event", "event": e}))
                         .collect();
-                    // S10 b: a change this name made is shown at once; anybody
-                    // else's waits for the subscription's window.
                     let mine = all
                         .iter()
                         .any(|e| matches!(&e.actor, foxing_log::Actor::Citizen(a) if *a == name));

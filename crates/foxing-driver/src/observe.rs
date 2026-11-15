@@ -211,6 +211,96 @@ pub(crate) fn news_kind(kind: &str) -> bool {
     public_kind(kind) && !kind.starts_with("gate.") && !kind.starts_with("job.")
 }
 
+/// S13: what [`visible`] and [`redacted`] would ask the world about one event, asked
+/// once when the change is announced, so that every session answers for its own
+/// viewer without the world's lock. `there` is whether the entity the event names
+/// can be observed; `owner` is that entity's; `fields` is who may see each field a
+/// `store.component_set` carries (a field the schema does not know is nobody's).
+#[derive(Debug, Clone, Default)]
+pub struct Seen {
+    pub there: bool,
+    pub owner: Option<String>,
+    pub fields: Vec<(String, foxing_store::Visibility)>,
+}
+
+/// S13: judge an event once, under the lock the announcer already holds.
+pub(crate) fn seen(world: &World, now: Timestamp, e: &Event) -> Seen {
+    let id = e.payload.get("id").and_then(Value::as_u64).map(EntityId);
+    let there = id.is_some_and(|id| world.store.view(id, &Viewer::anonymous(), now).is_some());
+    if e.kind != "store.component_set" {
+        return Seen {
+            there,
+            ..Seen::default()
+        };
+    }
+    let owner = id
+        .and_then(|id| world.store.entity(id))
+        .and_then(|en| en.owner.clone());
+    let schema = world
+        .store
+        .registry()
+        .get(e.payload["component"].as_str().unwrap_or(""));
+    let fields = e
+        .payload
+        .get("fields")
+        .and_then(Value::as_object)
+        .map(|f| {
+            f.keys()
+                .map(|k| {
+                    let v = schema
+                        .and_then(|c| c.get(k))
+                        .map_or(foxing_store::Visibility::Admin, |f| f.visibility);
+                    (k.clone(), v)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Seen {
+        there,
+        owner,
+        fields,
+    }
+}
+
+/// S13: [`visible`] from what was [`seen`]. The two are held together by a test.
+pub(crate) fn visible_as(viewer: &Viewer, e: &Event, seen: &Seen) -> bool {
+    if viewer.admin || public_kind(&e.kind) || e.kind.starts_with("store.clock_") {
+        return true;
+    }
+    if let Some(me) = viewer.actor.as_deref() {
+        if matches!(&e.actor, Actor::Citizen(a) if a == me)
+            || e.payload.get("to").and_then(Value::as_str) == Some(me)
+            || crate::disremembered::combat::addressed(&e.payload, me)
+        {
+            return true;
+        }
+    }
+    seen.there
+}
+
+/// S13: [`redacted`] from what was [`seen`].
+pub(crate) fn redacted_as(viewer: &Viewer, mut e: Event, seen: &Seen) -> Event {
+    if e.kind != "store.component_set" || viewer.admin {
+        return e;
+    }
+    let is_owner = seen.owner.is_some() && seen.owner.as_deref() == viewer.actor.as_deref();
+    let in_party = seen
+        .owner
+        .as_deref()
+        .is_some_and(|o| viewer.party.contains(o));
+    if let Some(fields) = e.payload.get_mut("fields").and_then(Value::as_object_mut) {
+        fields.retain(
+            |k, _| match seen.fields.iter().find(|(f, _)| f == k).map(|(_, v)| *v) {
+                Some(foxing_store::Visibility::Public) => true,
+                Some(foxing_store::Visibility::Party) => is_owner || in_party,
+                Some(foxing_store::Visibility::Owner) => is_owner,
+                Some(foxing_store::Visibility::Admin) | None => false,
+            },
+        );
+    }
+    e
+}
+
 /// Which events in a slice of the log this viewer may see: their own, the driver's
 /// clock events, and events on entities they can currently observe. Removed entities
 /// cannot be observed, so their removal is not shown; a later pass will carry visibility
