@@ -5,6 +5,9 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-15 (S16 b, the verifier; one driver deploy, the first to restart inside a second)
+- `foxing-driver verify-checkpoint` and the `verify-checkpoint` server check. The live checkpoint verified against all 1.39 million events of the live log.
+
 11-15 (S16 a, the checkpoint; one driver deploy)
 - Boot starts from a checkpoint of the store, the jobs and the three whole-log folds and replays only the events after it; a checkpoint that is missing, of another format, world or schemas, or that does not sit on this log, is set aside with a line in the journal and the whole log replayed. Written a minute after boot and daily, to a file beside the data. Held to a whole-log boot by a test and by a local world on PostgreSQL. The archive table and the comparison workflow (S16 b, c) are not started.
 
