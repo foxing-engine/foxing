@@ -183,6 +183,9 @@ pub const ABSENCE: foxing_time::Duration = foxing_time::Duration(10 * 60 * 1000)
 /// The arrival event: `{actor, origin, fresh, away_ms}`.
 pub const ARRIVED: &str = "citizen.arrived";
 
+/// How many events are read from the log at a time, at boot and by a fold.
+const REPLAY_PAGE: usize = 5_000;
+
 impl World {
     /// Open a world, replaying its log into a fresh store.
     #[cfg_attr(not(test), allow(dead_code))]
@@ -246,32 +249,36 @@ impl World {
             // Replay into a fresh store that knows the same schemas, and rebuild the
             // pending jobs from the same pass over the log.
             let mut fresh = Store::new(world.store.registry().clone());
-            foxing_log::replay(world.log.as_ref(), &world.id, Cursor::START, &mut fresh).map_err(
-                |e| match e {
-                    // A log written under another set of modules: say so, and what to do.
-                    foxing_log::ReplayError::Projection {
-                        at,
-                        error: foxing_store::StoreError::UnknownComponent(c),
-                    } => format!(
-                        "the log for world {} was written by modules this driver does not have: \
-                         event #{} uses component {c}. Move that log aside, or run this driver \
-                         under a different FOXING_WORLD, or run the modules that wrote it.",
-                        world.id.0, at.0
-                    ),
-                    e => e.to_string(),
-                },
-            )?;
-            world.store = fresh;
-            for e in world
-                .log
-                .read_all(&world.id, Cursor::START)
-                .map_err(|e| e.to_string())?
-            {
-                if e.kind.starts_with("job.") {
-                    world.jobs.apply(&e.kind, e.seq.0, &e.payload);
+            // A page at a time. The whole log was read into memory, twice over (once
+            // for the store, once for the jobs and the folds): at 1.38 million events
+            // that was 6.9 GB on a box of 7.7, the kernel killed the driver 26 seconds
+            // into every start, and the world could not come back (11-15).
+            let mut cursor = Cursor::START;
+            loop {
+                let page = world
+                    .log
+                    .read(&world.id, cursor, REPLAY_PAGE)
+                    .map_err(|e| e.to_string())?;
+                let Some(last) = page.last() else { break };
+                cursor = Cursor::after(last.seq);
+                for e in &page {
+                    foxing_log::Projection::apply(&mut fresh, e).map_err(|error| match error {
+                        // A log written under another set of modules: say so, and what to do.
+                        foxing_store::StoreError::UnknownComponent(c) => format!(
+                            "the log for world {} was written by modules this driver does not have: \
+                             event #{} uses component {c}. Move that log aside, or run this driver \
+                             under a different FOXING_WORLD, or run the modules that wrote it.",
+                            world.id.0, e.seq.0
+                        ),
+                        error => format!("projection failed at seq {}: {error:?}", e.seq),
+                    })?;
+                    if e.kind.starts_with("job.") {
+                        world.jobs.apply(&e.kind, e.seq.0, &e.payload);
+                    }
+                    seen(e);
                 }
-                seen(&e);
             }
+            world.store = fresh;
         }
         Ok(world)
     }
@@ -722,17 +729,28 @@ impl World {
             .or_insert_with(|| Box::new(T::default()))
             .downcast_mut::<T>()
             .expect("one type to a fold's name");
-        for e in self
-            .log
-            .read_all(
-                &self.id,
-                Cursor {
-                    after: fold.after(),
-                },
-            )
-            .unwrap_or_default()
-        {
-            fold.take(&e);
+        // A page at a time: a fold first asked for after boot reads the whole log.
+        loop {
+            let page = self
+                .log
+                .read(
+                    &self.id,
+                    Cursor {
+                        after: fold.after(),
+                    },
+                    REPLAY_PAGE,
+                )
+                .unwrap_or_default();
+            if page.is_empty() {
+                break;
+            }
+            let before = fold.after();
+            for e in &page {
+                fold.take(e);
+            }
+            if fold.after() == before {
+                break;
+            }
         }
         f(fold)
     }
