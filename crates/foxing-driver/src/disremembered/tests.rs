@@ -12347,3 +12347,76 @@ fn an_event_judged_once_is_seen_by_each_viewer_as_the_world_would_show_it() {
         events.len()
     );
 }
+
+/// S14: one run of a room, shared, is what each viewer it serves would have had on
+/// their own; and a viewer with something of their own in view is not served.
+#[test]
+fn a_room_run_once_is_each_viewer_s_own_observation_or_is_not_theirs() {
+    use crate::observe::{Request, Rooms};
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    for name in ["dave", "tyler", "sphinx"] {
+        login(&mut w, name, "test", PASS).unwrap();
+    }
+    ok(&mut w, "dave", "say", json!(["counting lanterns"]));
+    ok(&mut w, "sphinx", "travel", json!(["east"]));
+    ok(&mut w, "sphinx", "attack", json!(["wisp"]));
+    let limits = foxing_query::Limits::default();
+    let rooms = std::sync::Mutex::new(Rooms::new());
+    // The play page's room, a name's own self with everything, and its window.
+    let page = json!({"root": "here", "select": {"disremembered.room": ["name"], "disremembered.sprite": "*"},
+        "relations": {"contents": {"kinds": ["citizen", "creature", "item", "docent"], "select": {
+            "disremembered.citizen": ["name", "passing", "greeting"], "disremembered.creature": ["name", "hp", "max_hp"],
+            "disremembered.sprite": "*", "disremembered.presence": ["here", "trace", "door"],
+            "disremembered.mind": ["name", "tier"], "disremembered.item": ["name", "given_name"]}},
+            "exits": {"select": {"disremembered.room": ["name"]}}}, "timed": "curve", "commands": false});
+    let whole = json!({"root": "here", "relations": {"contents": {}}, "commands": false});
+    let mine = json!({"root": "self", "commands": false});
+    let (mut served, mut own) = (0, 0);
+    for q in [&page, &whole, &mine] {
+        let req: Request = serde_json::from_value(q.clone()).unwrap();
+        for name in ["dave", "tyler", "sphinx", "dave"] {
+            let v = Viewer::actor(name);
+            let alone =
+                serde_json::to_value(w.observe(&v, ActorKind::Citizen, &req, &limits).unwrap())
+                    .unwrap();
+            match w.observe_shared(&v, ActorKind::Citizen, &req, &limits, &rooms) {
+                Some(shared) => {
+                    served += 1;
+                    assert_eq!(shared, alone, "{name} served another's view of {q}");
+                }
+                None => own += 1,
+            }
+        }
+    }
+    // The page's room is shared by everyone in it; a whole view of oneself is not.
+    let req: Request = serde_json::from_value(page).unwrap();
+    for name in ["dave", "tyler", "sphinx"] {
+        assert!(
+            w.observe_shared(
+                &Viewer::actor(name),
+                ActorKind::Citizen,
+                &req,
+                &limits,
+                &rooms
+            )
+            .is_some(),
+            "{name} is served the page's room"
+        );
+    }
+    let req: Request = serde_json::from_value(mine).unwrap();
+    assert!(w
+        .observe_shared(
+            &Viewer::actor("dave"),
+            ActorKind::Citizen,
+            &req,
+            &limits,
+            &rooms
+        )
+        .is_none());
+    assert!(w
+        .observe_shared(&Viewer::admin(), ActorKind::Admin, &req, &limits, &rooms)
+        .is_none());
+    // The page's room serves all four askers; a view with a name's own fields none.
+    assert_eq!((served, own), (4, 8), "served, and on their own");
+}

@@ -33,7 +33,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use foxing_store::{EntityId, RelationKind, Store, TimedForm, Viewer};
+use foxing_store::{EntityId, RelationKind, Store, TimedForm, Viewer, Visibility};
 use foxing_time::Timestamp;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -333,6 +333,59 @@ pub struct Observation {
     pub entities: usize,
 }
 
+/// S14: for whom an observation run as a stranger is the observation they would have
+/// had themselves. `owners` are the actors who own something in it with a field a
+/// stranger is not shown (theirs or their party's) among those the query read: each
+/// of them, and anyone with one of them in their party, must be answered on their
+/// own. `narrowed` says a relation ran past its breadth and the world chose what to
+/// keep, which it may choose by viewer: nobody shares such an observation.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Sharing {
+    /// Actors who own something in view that a stranger is not shown.
+    pub owners: std::collections::BTreeSet<String>,
+    /// A relation ran past its breadth and the world chose what to keep.
+    pub narrowed: bool,
+}
+
+impl Sharing {
+    /// Whether the stranger's observation is this viewer's too.
+    pub fn serves(&self, viewer: &Viewer) -> bool {
+        !viewer.admin
+            && !self.narrowed
+            && viewer
+                .actor
+                .as_ref()
+                .is_some_and(|a| !self.owners.contains(a))
+            && viewer.party.iter().all(|p| !self.owners.contains(p))
+    }
+}
+
+/// S14: run a query from `root` as `stranger` (a signed-in viewer who owns nothing and
+/// is in no party), and say whom the result serves. One run for a room, shared by
+/// every session in it that it serves.
+pub fn observe_shared(
+    store: &Store,
+    stranger: &Viewer,
+    now: Timestamp,
+    query: &Query,
+    root: EntityId,
+    roots: &dyn RootResolver,
+    limits: &Limits,
+) -> Result<(Observation, Sharing), QueryError> {
+    let mut sharing = Sharing::default();
+    let obs = run(
+        store,
+        stranger,
+        now,
+        query,
+        Some(root),
+        roots,
+        limits,
+        Some(&mut sharing),
+    )?;
+    Ok((obs, sharing))
+}
+
 /// Run a query as `viewer` at `now`.
 pub fn observe(
     store: &Store,
@@ -341,6 +394,20 @@ pub fn observe(
     query: &Query,
     roots: &dyn RootResolver,
     limits: &Limits,
+) -> Result<Observation, QueryError> {
+    run(store, viewer, now, query, None, roots, limits, None)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run(
+    store: &Store,
+    viewer: &Viewer,
+    now: Timestamp,
+    query: &Query,
+    at: Option<EntityId>,
+    roots: &dyn RootResolver,
+    limits: &Limits,
+    sharing: Option<&mut Sharing>,
 ) -> Result<Observation, QueryError> {
     // Static checks first: depth, names. Nothing is read until the document is sound.
     let depth = depth_of(&query.relations);
@@ -353,18 +420,17 @@ pub fn observe(
     check_select(store, query.select.as_ref())?;
     check_relations(store, &query.relations, limits)?;
 
-    let root = match &query.root {
-        Root::Entity(id) => *id,
-        Root::Named { name, arg } => {
-            roots
-                .resolve(name, arg.as_deref(), viewer)
-                .ok_or_else(|| QueryError::UnknownRoot {
-                    root: match arg {
-                        Some(a) => format!("{name}:{a}"),
-                        None => name.clone(),
-                    },
-                })?
-        }
+    let root = match (&query.root, at) {
+        (_, Some(id)) => id,
+        (Root::Entity(id), None) => *id,
+        (Root::Named { name, arg }, None) => roots
+            .resolve(name, arg.as_deref(), viewer)
+            .ok_or_else(|| QueryError::UnknownRoot {
+                root: match arg {
+                    Some(a) => format!("{name}:{a}"),
+                    None => name.clone(),
+                },
+            })?,
     };
     let mut walk = Walk {
         store,
@@ -375,6 +441,7 @@ pub fn observe(
         touched: 0,
         roots,
         left_out: Vec::new(),
+        sharing,
     };
     let node = walk
         .node(root, query.select.as_ref(), &query.relations)?
@@ -540,9 +607,49 @@ struct Walk<'a> {
     roots: &'a dyn RootResolver,
     /// Relations narrowed on the node being built: `(node, relation, how many more)`.
     left_out: Vec<(EntityId, String, usize)>,
+    /// S14: when the run is to be shared, whom it cannot serve.
+    sharing: Option<&'a mut Sharing>,
 }
 
 impl Walk<'_> {
+    /// S14: an entity's view was read, through `select` (`None`: all of it). If its
+    /// owner would have been shown more than a stranger was, the owner is noted.
+    fn note(&mut self, id: EntityId, select: Option<&Select>) {
+        let Some(sharing) = self.sharing.as_deref_mut() else {
+            return;
+        };
+        let Some(e) = self.store.entity(id) else {
+            return;
+        };
+        let Some(owner) = &e.owner else { return };
+        if sharing.owners.contains(owner) {
+            return;
+        }
+        let registry = self.store.registry();
+        let theirs = e.components.iter().any(|(name, c)| {
+            let wanted = match select {
+                None => None,
+                Some(sel) => match sel.get(name) {
+                    None => return false,
+                    Some(FieldSelect::All(_)) => None,
+                    Some(FieldSelect::Some(names)) => Some(names),
+                },
+            };
+            let Some(schema) = registry.get(name) else {
+                return false;
+            };
+            c.fields.keys().any(|f| {
+                wanted.map_or(true, |w| w.contains(f))
+                    && schema.get(f).is_some_and(|fs| {
+                        matches!(fs.visibility, Visibility::Owner | Visibility::Party)
+                    })
+            })
+        });
+        if theirs {
+            sharing.owners.insert(owner.clone());
+        }
+    }
+
     /// The node for an entity, or `None` if the viewer cannot see it at all.
     fn node(
         &mut self,
@@ -553,6 +660,7 @@ impl Walk<'_> {
         let Some(view) = self.store.view_as(id, self.viewer, self.now, self.timed) else {
             return Ok(None);
         };
+        self.note(id, select);
         self.touched += 1;
         if self.touched > self.limits.max_entities {
             return Err(QueryError::TooManyEntities {
@@ -615,6 +723,7 @@ impl Walk<'_> {
                 .unwrap_or_default(),
             RelationKind::Field { component, field } => {
                 // Through the *visible* view, so a hidden field yields nothing.
+                self.note(from, None);
                 let view = self
                     .store
                     .view(from, self.viewer, self.now)
@@ -648,6 +757,7 @@ impl Walk<'_> {
             }
             // Filters see the visible view only.
             if let Some(f) = &rq.filter {
+                self.note(id, None);
                 let Some(view) = self.store.view(id, self.viewer, self.now) else {
                     continue;
                 };
@@ -668,6 +778,9 @@ impl Walk<'_> {
         if kept.len() > limit {
             // Past the breadth with no limit asked: the world may say which to keep.
             let ids: Vec<EntityId> = kept.iter().map(|(id, _)| *id).collect();
+            if let Some(sharing) = self.sharing.as_deref_mut() {
+                sharing.narrowed = true;
+            }
             match self.roots.narrow(name, from, &ids, limit, self.viewer) {
                 Some(keep) if keep.len() <= limit => {
                     let found = kept.len();

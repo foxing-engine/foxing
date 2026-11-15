@@ -328,6 +328,16 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   fields laid over it), or the observations run beside the world rather than under
   its lock. And a load test from a box that is not this workspace, to tell the
   world's slowness from the relay's.
+  **S14, shipped 11-14 (David: yes):** a room is run once for a change and shared.
+  The query engine runs it as a stranger (signed in, owning nothing) and notes
+  whom that cannot serve: the owner of anything in view with a field a stranger is
+  not shown, and everyone when a relation ran past its breadth. A session it
+  serves is answered from the one run; the rest are run on their own as before.
+  The play page's room query reads only public fields, so a room serves everyone
+  in it. A test holds the shared run to each viewer's own for three queries.
+  **A second place to test from:** `tools/loadtest.sh <names> <minutes>` on any
+  machine with SSH to the box (an SSH tunnel to the driver's own port, around
+  nginx's per-address limits), and the same as a hand-run workflow, `Load test`.
   **The dropped sessions were the test's, not the world's.** Eight and nine of sixty
   sessions were reset mid-run in these two runs (none in the run before, two of
   twelve and one of thirty in earlier ones). The driver now says in its journal why

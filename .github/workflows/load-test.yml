@@ -1,0 +1,51 @@
+name: Load test (the live world)
+
+# tools/load.py from a runner, down an SSH tunnel to the driver's own port on the game
+# box: a crowd from one address cannot come through nginx (15 logins a minute and 40
+# connections an address), and a runner is a second place to measure from, on an
+# ordinary network path. Run by hand; run `Server check` with `vitals` beside it.
+on:
+  workflow_dispatch:
+    inputs:
+      names:
+        description: "how many names"
+        default: "200"
+      minutes:
+        description: "how long (1 to 20)"
+        default: "6"
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GAME_HOST: ${{ secrets.GAME_HOST }}
+      GAME_USER: ${{ vars.VPS_USER || 'starsailor' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.GAME_KNOWN_HOSTS }}" | tr -d '\r' | grep -v '^#' > ~/.ssh/known_hosts
+          GAME_HOST=$(printf '%s' "$GAME_HOST" | tr -d '\r\n ')
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host game
+            HostName $GAME_HOST
+            User $GAME_USER
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+      - name: Run
+        env:
+          NAMES: ${{ github.event.inputs.names }}
+          MINUTES: ${{ github.event.inputs.minutes }}
+        run: |
+          case "$NAMES" in ''|*[!0-9]*) echo "names must be a number"; exit 1;; esac
+          case "$MINUTES" in ''|*[!0-9]*) echo "minutes must be a number"; exit 1;; esac
+          [ "$NAMES" -le 800 ] && [ "$MINUTES" -ge 1 ] && [ "$MINUTES" -le 20 ] || { echo "out of range"; exit 1; }
+          GAME_SSH=game tools/loadtest.sh "$NAMES" "$MINUTES" "r$(date -u +%H%M)" || true
+          echo "---- the whole result ----"
+          cut -c1-400 loadtest-*.txt | head -40

@@ -30,6 +30,7 @@ struct Stats {
     worst_wait_ms: f64,
     pushes: u64,
     pushes_skipped: u64,
+    observations_shared: u64,
     push_wait_ms: f64,
     push_held_ms: f64,
     worst_push_ms: f64,
@@ -123,6 +124,11 @@ pub fn pushed(wait: Duration, held: Duration) {
 }
 
 /// S5: a change that concerned a session in nothing: no lock taken, nothing sent.
+/// S14: an observation answered from a room's shared run.
+pub fn observation_shared() {
+    with(|s| s.observations_shared += 1);
+}
+
 pub fn push_skipped() {
     with(|s| s.pushes_skipped += 1);
 }
@@ -151,6 +157,7 @@ pub fn report() -> Value {
             "pushes": {
                 "count": s.pushes,
                 "skipped": s.pushes_skipped,
+                "observations_shared": s.observations_shared,
                 "wait_mean_ms": tenth(if s.pushes > 0 { s.push_wait_ms / s.pushes as f64 } else { 0.0 }),
                 "held_mean_ms": tenth(if s.pushes > 0 { s.push_held_ms / s.pushes as f64 } else { 0.0 }),
                 "held_worst_ms": tenth(s.worst_push_ms),

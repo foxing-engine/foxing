@@ -789,6 +789,13 @@ fn observe_frame(
     } else {
         ActorKind::Citizen
     };
+    // S14: from the room's one run when it serves this viewer.
+    if let Some(mut v) = w.observe_shared(&viewer, kind, query, &s.limits, &s.rooms) {
+        crate::ops::observation_shared();
+        v["type"] = json!("observation");
+        v["id"] = id.clone();
+        return v;
+    }
     match w.observe(&viewer, kind, query, &s.limits) {
         Ok(obs) => {
             let mut v = serde_json::to_value(obs).unwrap_or_default();

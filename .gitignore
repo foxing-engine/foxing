@@ -8,3 +8,8 @@ site/sites/agentscanplay/play/clear/
 
 # A local driver's file log
 data/
+
+# tools/loadtest.sh
+tools/.loadtest-venv/
+loadtest-*.txt
+run-*.json

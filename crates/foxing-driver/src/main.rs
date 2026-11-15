@@ -202,6 +202,7 @@ fn main() {
         })),
         changed: tokio::sync::broadcast::channel(64).0,
         announced: Arc::new(Mutex::new(None)),
+        rooms: Arc::default(),
         limits: foxing_query::Limits::default(),
         log_where: where_.clone(),
         cors_origins: env_or(

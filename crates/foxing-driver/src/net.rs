@@ -45,6 +45,8 @@ pub struct Shared {
     pub changed: tokio::sync::broadcast::Sender<Arc<Batch>>,
     /// The last event announced; `None` until the first announcement.
     pub announced: Arc<Mutex<Option<u64>>>,
+    /// S14: a room's observation, run once for a change and shared.
+    pub rooms: Arc<Mutex<crate::observe::Rooms>>,
     /// Origins the browser client may call from (`FOXING_CORS_ORIGINS`, comma-separated).
     pub cors_origins: Vec<String>,
     /// Where the event log lives: `PostgreSQL`, `memory`, or a directory.

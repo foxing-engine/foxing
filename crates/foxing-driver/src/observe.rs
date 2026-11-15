@@ -345,7 +345,90 @@ pub(crate) fn visible(world: &World, viewer: &Viewer, now: Timestamp, e: &Event)
     }
 }
 
+/// S14: the observations kept to be shared, by query and root: the log's head they
+/// were run at, the reply, and whom it serves.
+pub type Rooms = std::collections::HashMap<(String, u64), (u64, Value, foxing_query::Sharing)>;
+
 impl World {
+    /// S14: the observation `viewer` would get from [`World::observe`], from one run
+    /// shared by everyone it serves: a room is run once for each change, not once
+    /// for each session standing in it. `None` when this viewer must be answered on
+    /// their own (an administrator, a query for events, something of theirs in view
+    /// that a stranger is not shown, a room past its breadth), or when the query
+    /// fails and the ordinary run should say why.
+    pub fn observe_shared(
+        &self,
+        viewer: &Viewer,
+        kind: ActorKind,
+        req: &Request,
+        limits: &Limits,
+        rooms: &std::sync::Mutex<Rooms>,
+    ) -> Option<Value> {
+        if viewer.admin || req.after.is_some() {
+            return None;
+        }
+        let root = match &req.query.root {
+            foxing_query::Root::Entity(id) => *id,
+            foxing_query::Root::Named { name, arg } => {
+                foxing_query::RootResolver::resolve(&Roots(self), name, arg.as_deref(), viewer)?
+            }
+        };
+        let head = self
+            .log
+            .head(&self.id)
+            .ok()
+            .flatten()
+            .map(|s| s.0)
+            .unwrap_or(0);
+        let key = (
+            format!(
+                "{}{}",
+                serde_json::to_string(&req.query).ok()?,
+                req.commands
+            ),
+            root.0,
+        );
+        let mut rooms = rooms.lock().ok()?;
+        if let Some((at, reply, sharing)) = rooms.get(&key) {
+            if *at == head {
+                return sharing.serves(viewer).then(|| reply.clone());
+            }
+        }
+        // A signed-in viewer who owns nothing and is in no party.
+        let stranger = Viewer::actor("\u{1}");
+        let (observation, sharing) = foxing_query::observe_shared(
+            &self.store,
+            &stranger,
+            self.now(),
+            &req.query,
+            root,
+            &Roots(self),
+            limits,
+        )
+        .ok()?;
+        let commands = if req.commands {
+            self.commands_for(kind)
+                .iter()
+                .map(|s| s.verb().to_string())
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let reply = serde_json::to_value(Observed {
+            observation,
+            commands,
+            cursor: head,
+            events: Vec::new(),
+        })
+        .ok()?;
+        let serves = sharing.serves(viewer);
+        if rooms.len() > 4_000 {
+            rooms.retain(|_, (at, _, _)| *at == head);
+        }
+        rooms.insert(key, (head, reply.clone(), sharing));
+        serves.then_some(reply)
+    }
+
     /// Run an observation for `viewer`, who acts as `kind`.
     pub fn observe(
         &self,
