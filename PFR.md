@@ -315,6 +315,19 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   for its own viewer with no lock; it takes the world's lock only to run an
   observation that is due. Still to do under S13: not sending a session the
   `component_set` events its patched room already carries.
+  **Three hundred again (11-14, 18:53 to 18:59, on S13 a):** 14,737 commands, nothing
+  failed (41 logins at the login limit). The sessions took the lock 71,000 times
+  where they had taken it 347,000, and a reply's round trip from here fell from
+  0.68 s to 0.43 s at the middle (2.6 to 1.9 s at the 95th). **But the lock was held
+  as long as before, 207 s of 378:** each hold is now an observation and nothing
+  else, 2.9 ms apiece, and the wait for the lock rose to 23 ms at the 95th. So what
+  costs is running a crowded room's observation once for every session in it, each
+  time it changes. The driver 130% of a core, the box 47% idle, PostgreSQL to 37%.
+  **S14 (unwritten, the next step to five hundred):** one observation of a room per
+  change, shared by the sessions in it (the public form once, each viewer's own
+  fields laid over it), or the observations run beside the world rather than under
+  its lock. And a load test from a box that is not this workspace, to tell the
+  world's slowness from the relay's.
   **The dropped sessions were the test's, not the world's.** Eight and nine of sixty
   sessions were reset mid-run in these two runs (none in the run before, two of
   twelve and one of thirty in earlier ones). The driver now says in its journal why
