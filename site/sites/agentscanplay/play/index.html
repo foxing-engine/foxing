@@ -2124,7 +2124,7 @@
         if (er && (er.story || er.word)) {
           const wants = [];
           if (er.story) wants.push("wants a story about " + er.story);
-          if (er.word) wants.push("wants word carried to " + er.word_to + ": \u201c" + er.word + "\u201d");
+          if (er.word_to) wants.push("wants a word carried to " + er.word_to + (er.word ? ": \u201c" + er.word + "\u201d" : " (look says the word)"));
           r.querySelector(".nm").append(Object.assign(document.createElement("span"), { className: "sub want", textContent: wants.join("; ") }));
           r.title = (er.story ? "story " + mind.name + " \u201c<a dozen words about " + er.story + ">\u201d (click)" : "") + (er.word ? (er.story ? "; " : "") + "travel to " + er.word_to + ", then tell " + er.word_to + " \u201c" + er.word + "\u201d" : "");
         }

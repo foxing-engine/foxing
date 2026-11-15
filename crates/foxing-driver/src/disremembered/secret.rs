@@ -330,9 +330,11 @@ fn source_text(world: &World, creature: EntityId, level: u8, from: &str) -> Opti
 pub const DECLINED: &str = "disremembered.word_declined";
 
 /// D32 a: at the third rung a creature weighs one guess at its word from a name
-/// every ten minutes. Guesses inside the hour cost no hour, twenty fit a message,
-/// and the live teller of 11-11 had three third words in five minutes.
-pub const GUESS_EVERY_MS: i64 = 10 * 60 * 1000;
+/// every three minutes (David, 11-15: ten was too slow; a tester given forty-three
+/// minutes and nothing else to do had eleven weighed guesses and no strike). Guesses
+/// inside the hour cost no hour, twenty fit a message, and the live teller of 11-11
+/// had three third words in five minutes when there was no wait at all.
+pub const GUESS_EVERY_MS: i64 = 3 * 60 * 1000;
 
 /// The rung the creature's word is on (1 when it has none yet).
 pub fn level_of(world: &World, creature: EntityId) -> u8 {
@@ -593,7 +595,7 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
         1 => "There is a word under the others, and I do not say it. It was in the first thing anyone told me; ask me to recite the first story.".to_string(),
         2 if from == "told" => "The first was found. The next was in the first thing anyone told me; ask me to recite it. I hear three of its words to a story now; say more of them and I cannot tell which you meant.".to_string(),
         2 => "The first was found. The next is in something I wanted once, and have not forgotten. I hear three of its words to a story now; say more of them and I cannot tell which you meant.".to_string(),
-        _ => "The third and last is around me: a word of the room I stand in, as `look` says it. One of the room's words to a story and no more; say two and I cannot tell which you meant. And it moves on each time it is found. I weigh one guess at it from a name every ten minutes; a story sent sooner I do not weigh at all.".to_string(),
+        _ => "The third and last is around me: a word of the room I stand in, as `look` says it. One of the room's words to a story and no more; say two and I cannot tell which you meant. And it moves on each time it is found. I weigh one guess at it from a name every three minutes; a story sent sooner I do not weigh at all.".to_string(),
     };
     // R118: at the top of the ladder the word stays for new tellers; the one who
     // found it is told so, not "Gnatterbell found one before you" to Gnatterbell.

@@ -255,7 +255,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("story", FieldKind::Plain, Visibility::Public)
             .field("keywords", FieldKind::Plain, Visibility::Public)
             .field("story_by", FieldKind::Plain, Visibility::Public)
-            .field("word", FieldKind::Plain, Visibility::Public)
+            // David, 11-15 (D30): the word is the giver's to give. No query reads it;
+            // `look` beside the giver, a `tell` to it and `wants` (once had) say it.
+            .field("word", FieldKind::Plain, Visibility::Admin)
             .field("word_to", FieldKind::Plain, Visibility::Public)
             .field("word_by", FieldKind::Plain, Visibility::Public)
             .field("story_at", FieldKind::Plain, Visibility::Public)

@@ -81,5 +81,10 @@ if v:
 PY
 # What the driver says of its own lock and pushes, before the load world is dropped.
 if [ -n "${ssh_to:-}" ]; then
-  ssh "$ssh_to" "f=/etc/foxing/\$([ ${world:-load} = load ] && echo load || echo driver).env; t=\$(sed -n 's/^FOXING_ADMIN_TOKEN=//p' \$f 2>/dev/null | tail -1); curl -s -m 10 -H \"x-foxing-admin: \$t\" http://127.0.0.1:${port:-7787}/v0/ops | head -c 5000; echo" </dev/null | tee -a "$out" | cut -c1-1500 || true
+  envfile=/etc/foxing/driver.env; [ "${world:-load}" = load ] && envfile=/etc/foxing/load.env
+  # The remote script arrives on stdin, so nothing in it is read by this shell.
+  ssh "$ssh_to" "bash -s -- $envfile ${port:-7787}" <<'REMOTE' | tee -a "$out" | cut -c1-1800 || true
+t=$(sed -n 's/^FOXING_ADMIN_TOKEN=//p' "$1" 2>/dev/null | tail -1)
+curl -s -m 10 -H "x-foxing-admin: $t" "http://127.0.0.1:$2/v0/ops" | head -c 6000; echo
+REMOTE
 fi

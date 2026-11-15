@@ -442,12 +442,12 @@ pub fn register(world: &mut World, curves: Curves) {
                     "{name} has heard the story it wanted from you inside this hour already, at plain pay; another waits for the hour to turn, when it pays double. `wants` says when."
                 )));
             }
-            // D32 a: at the third rung, one guess at the word every ten minutes. A
+            // D32 a: at the third rung, one guess at the word every three minutes. A
             // story sent sooner is not weighed at all: no strike, no miss, no hint.
             if within_hour && !wanted_early && super::secret::would_strike_any(w, &ctx.actor, creature) {
                 if let Some(ms) = super::secret::next_guess_in(w, &ctx.actor, creature) {
                     return Err(CommandError::precondition(format!(
-                        "{name} weighs one guess at its third and last word from a name every ten minutes, and weighed one of yours {}; it will weigh another in {}. That story was not weighed: it is neither a miss nor the word. (The story it wants is still heard, at plain pay.)",
+                        "{name} weighs one guess at its third and last word from a name every three minutes, and weighed one of yours {}; it will weigh another in {}. That story was not weighed: it is neither a miss nor the word. (The story it wants is still heard, at plain pay.)",
                         if super::secret::GUESS_EVERY_MS - ms < 60_000 { "just now".to_string() } else { format!("{} ago", super::combat::human(super::secret::GUESS_EVERY_MS - ms)) },
                         super::combat::human(ms)
                     )));
@@ -621,7 +621,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 // narrator line, so the outcome does not repeat it.
                 format!(
                     "You tell {display} a story of {words} words, and it answers.{}{}{heard_line} You remember the telling: chunk-{} worth {paid:.1} XP{}.{}",
-                    if wanted_early { " It was the story it wanted, heard inside its hour with you at plain pay (once an hour); the want stands, and told again when its hour turns it pays double." } else if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
+                    if wanted_early { " It was the story it wanted, heard inside its hour with you at plain pay (once an hour); the want stands, and told again when its hour turns it pays double. A story counts as the wanted one by what it is about, meant so or not, and that was this hour's one early hearing." } else if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
                     struck.as_ref().map(|(b, _, l)| format!(" It carried the word under the others, the {} of three: {}, and vivid.", ["first", "second", "third"][(*l as usize).clamp(1, 3) - 1], if bonus_only { format!("heard inside its hour with you, so the bonus alone, {paid:.1} XP: {} of what a story pays", match (b * 10.0).round() as i64 { 15 => "half again".to_string(), 20 => "as much again".to_string(), 25 => "one and a half times again".to_string(), _ => format!("{:.1} times", b - 1.0) }) } else { format!("{b:.1} times the pay, {paid:.1} XP") })).unwrap_or_default(),
                     earned.0,
                     if vivid > 0.4 { format!(", vividity {vivid:.2}{}", if long > 0.0 && struck.is_none() { " (length buys vividity, to 0.90 at two hundred words)" } else { "" }) } else { String::new() },

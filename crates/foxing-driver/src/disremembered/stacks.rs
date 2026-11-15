@@ -253,7 +253,10 @@ pub fn throes(
 ) -> Result<(Option<String>, bool), String> {
     // A showing-out as it comes apart read oddly, and cost the walk back for
     // nothing (the Watch of 11-14): a shusher's throes are quiet.
-    if plain_str(world, creature, CREATURE, "name") == Some("shusher") {
+    // And a redactor halved a memory in the line of its own death (David, 11-15: a
+    // dead creature of the Reading Rooms gets no parting shot). The Lower Stacks'
+    // creatures keep their throes: there it is the place's nature.
+    if plain_str(world, creature, CREATURE, "name").is_some_and(super::reading::is_told) {
         return Ok((None, false));
     }
     let (line, over) = play(world, curves, creature, citizen, actor, true)?;

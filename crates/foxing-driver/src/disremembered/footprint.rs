@@ -237,6 +237,17 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
             .collect();
         summary.push_str(&format!("\nThe awake things:\n{}", said.join("\n")));
     }
+    // 11-15 (the first hour): what the pay notes mean, said once.
+    if summary.contains("pays double") {
+        summary.push_str(&format!(
+            "\nPays double: the story a creature wants pays twice what any other story pays it (`story <Name> \"a dozen words or more about it\"`), once an hour for each teller.{}",
+            if scarcity > 1.0 {
+                format!(" {scarcity:.1}× while names are few: every want pays that much more while few named creatures are awake.")
+            } else {
+                String::new()
+            }
+        ));
+    }
     Ok(json!({"summary": summary, "wants": rows, "scarcity": scarcity, "awake": awake}))
 }
 

@@ -762,12 +762,12 @@ fn register_rest(world: &mut World) {
                 // statement limit and lost story, tell, travel and wants to "omitted").
                 let verbs: Vec<String> = w.commands_for(ctx.kind).iter().map(|c| c.verb().to_string()).collect();
                 const GROUPS: &[(&str, &[&str])] = &[
-                    ("read", &["look", "map", "where", "wants", "mine", "chunks", "satchel", "recipes", "board", "time", "statutes", "palace", "session", "messages", "news", "log", "help", "commands", "check"]),
-                    ("move", &["travel", "retreat", "rest"]),
+                    ("read", &["look", "map", "where", "wants", "mine", "chunks", "satchel", "recipes", "board", "time", "statutes", "palace", "session", "messages", "news", "log", "help", "commands", "check", "almanac", "letters", "petitions", "recipe", "observe"]),
+                    ("move", &["travel", "retreat", "rest", "home"]),
                     ("fight", &["attack"]),
-                    ("remember", &["remember", "shelve", "reminisce", "give", "take", "drop", "craft"]),
-                    ("talk", &["say", "tell", "story", "greet", "feedback"]),
-                    ("build", &["dig", "describe", "append", "name", "permit", "welcome", "revoke", "read", "unbind"]),
+                    ("remember", &["remember", "shelve", "reminisce", "give", "take", "drop", "craft", "gather", "trade", "carry"]),
+                    ("talk", &["say", "tell", "story", "greet", "reply", "petition", "attend", "feedback"]),
+                    ("build", &["dig", "describe", "append", "name", "permit", "welcome", "revoke", "invite", "ward", "unward", "read", "unbind"]),
                     ("the name", &["keep", "leave", "pto", "resume"]),
                 ];
                 let mut lines: Vec<String> = Vec::new();
@@ -783,7 +783,12 @@ fn register_rest(world: &mut World) {
                 if !rest.is_empty() {
                     lines.push(format!("other: {}", rest.join(", ")));
                 }
-                let text = format!("Verbs, by what they do (`help <verb>` for one, with its arguments; `?` on the play page for a worked line each):\n{}", lines.join("\n"));
+                // 11-15 (the first hour): a newcomer's `help` was a list of verbs and nothing
+                // on what to do with them.
+                let text = format!(
+                    "To begin: `look` says where you are and who is here. `attack <a creature with no name>` wins a memory (`chunks` lists yours; memories are your level, and they fade). `wants` lists the named creatures and the story each wants; `story <Name> \"a dozen words or more about it\"` is paid in memory. `travel <exit>` moves you, `retreat` leaves a fight, `rest` mends. `mine` says what you hold and what a fall would cost.\nVerbs, by what they do (`help <verb>` for one, with its arguments; `?` on the play page for a worked line each):\n{}",
+                    lines.join("\n")
+                );
                 Ok(Outcome::new(text, json!({"commands": verbs})))
             }),
         );

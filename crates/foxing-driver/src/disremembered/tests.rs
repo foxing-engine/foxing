@@ -6958,7 +6958,8 @@ fn where_finds_a_way_you_remember_and_travel_takes_a_room_name() {
     // help is a verb now, a read.
     let out = ok(&mut w, "dave", "help", json!([]));
     assert!(
-        out.summary.starts_with("Verbs, by what they do"),
+        out.summary.starts_with("To begin: `look`")
+            && out.summary.contains("Verbs, by what they do"),
         "{}",
         out.summary
     );

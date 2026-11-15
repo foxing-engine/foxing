@@ -5,6 +5,12 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-15 (David's answers after five hundred; one driver deploy)
+- **6 a**: a creature of the Reading Rooms has no dying trick (a redactor halved a memory in the line of its own death); the Lower Stacks' keep theirs. **7 a**: an errand's `word` is read by no query: `look` beside the giver, a `tell` to it, and `wants` once had, say it; the play page says "wants a word carried to X (look says the word)". **8 b**: a creature weighs a guess at its third word from a name every three minutes, was ten. **9 b**: the sixteen words on a refused story stay where they are. **10 a**: a story heard as the wanted one inside its hour says that it counted as that, meant so or not, and that it was the hour's one early hearing.
+- **13 (the first hour)**: `help` opens with what to do (look, attack a nameless creature, wants, story, travel, retreat, rest, mine) before its verbs, and files fifteen verbs that stood under "other"; `wants` ends by saying what "pays double" and "1.1× while names are few" mean.
+- **4**: a failed driver deploy asks the world's `/health` for a minute and says in Discord whether the world is up or down (down: `@here`).
+- D5 is closed as it stands and off the list. The harness reads the load world's `ops` (the remote script goes over stdin).
+
 11-14 (S14 again, twice, and the harness's first runs; two driver deploys)
 - A shared room stands until something in it changes (what each announced change touched is kept beside the rooms), not until the log's next event anywhere; a room past its breadth is shared by every name the shared run kept, and what is kept stands in the order found. An index of what each actor owns. `ops` times a session's observations by subscription, shared and alone.
 - The `Load test` workflow ran three hundred names twice with no errors. The lock is held as long as before; the figures and what is left (S15) are under S6.
