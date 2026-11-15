@@ -84,6 +84,7 @@ From the Watch of six, 11-13, the night the second door opened (a newcomer, a fa
 - **R227** (S) The quickstart, what is left: `reply` to a letter whose writer is forgotten too is not described; the first letter a visitor sees may be no. 2.
 - **R239** (S) Small things left from the Watch of 11-14: a fall's line "Nobody will say your name at The Proof Room…" reads as a riddle to a newcomer.
 - **R244** (S) `messages` stamps a creature's answers "just now" however old they are, beside a Docent line rightly "8m 15s ago" (looked at 11-14: both rows take the event's own time, so the cause is upstream of the stamp; not found yet). A wisp that holds a memory of yours shows in `look` with no id and cannot be aimed at by id. The Fogbank's signpost says "an arm for each way off" and lists the compass ways only.
+- **R248** (S) From the Watch of 11-14 (sixth; the fight's refusal, the stopped travel, the redactor at 36 and beaten by four tellings of a lampmoth memory, the Archive and card, the quoted-name reasons all held live). A redactor halves a chunk in the line of its own death ("Even as it comes apart: A ray of forgetfulness"): a dead creature's parting trick. A bare `attack` after a kill silently takes another unnamed creature in the room; say which. A lampmoth "hits 3–5" hit exactly 5 five times running: check the roll. A refused extra story to Kennoch prints the sixteen words its word is among: the ladder's best hint arrives on a refusal. A story that happens to match a creature's want spends the wanted-story-once-more without the teller meaning it. `help` alone is a verb list with nothing on fighting or telling; "(pays double, and 1.1× while names are few)" in `wants` is unexplained. No strike on a hidden word in 43 minutes given to nothing else: five named creatures, four on the room word, one weighed guess in ten minutes each; seeing one takes a local world with the clock moved, or two hours on one creature. The cut-reply fall guard was not reached live (no reply of 14 statements was cut) and has no test of its own.
 - **R247** (S) What is left from the Watch of 11-14 (fifth): `travel Annex of Second Readings` and `take stone roll` run right with no "read as one name" line (two bare words fit `travel`'s exit and word, so the gate has nothing to mend). A memory won from a wisp that held Fallis's story is named "Fallis's story of someone's name" though it counts as a fight with a wisp. `where lampmoth` gives a route without saying where it starts. The play page's room query reads an errand's `word` (a public field): a keyboard player is standing with the giver, so D30 holds there, but a query written by hand could read it from elsewhere; make the field the giver's to show. Still unseen live: a strike on a hidden word and its pay (a tester sent for nothing else, 11-14); the doubled line did not recur in three rounds with two testers in one room. (Not a fault, struck: the hints differ by which word a creature is on, and the ten-minute rule bites only on a second story.)
 - **R246** (S) What is left of it: a message of 21 statements passes with "scored 100 Legibility" beside "ran none of it". The dry run says a story sent inside ten minutes "counts as a try at the word" where the world says it was not weighed (with R212). `mine` opens "What remembers you:" over an empty list. Nothing said aloud by a neighbor was there to test the doubled line (R242) on the live world: still unseen.
 - **R241** (S) `messages` drops "from The Orchard Wall" from a word left from another room (the record does not keep the room). `help` files `almanac` under "other" beside `time` under "read".
@@ -290,6 +291,24 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   for patches (`"patch": true` on subscribe) and is sent what changed, by node; and
   somebody else's change waits 0.5 s in a room of up to forty things, 1 s to a
   hundred, 2 s beyond (one's own is still sent at once). Three hundred names next.
+  **Three hundred (11-14, 16:45 to 16:51, on S11):** 300 names, 180 on sessions, 6.3
+  minutes, 14,195 commands (38 a second), 59,767 events (158 a second). Nothing
+  failed (27 logins turned away by the login limit, as before; every probe
+  answered), but it is past the knee: the world's own share of a reply is as it was
+  (5 to 8 ms at the middle, 15 to 34 at the 95th; lock wait 14 ms at the 95th), and
+  a reply's round trip from here went from 0.13 s at the middle (two hundred) to
+  0.68 s, 2.6 s at the 95th, `/health` 0.68 s. The driver 111% of a core on average,
+  121 at its worst; the box 55% idle; PostgreSQL under 10%. S11 did what it was for:
+  `obs:room` 199 MB to 180 sessions (423 MB to 120), with the load test's sessions
+  not asking for patches. **What holds the lock now is the events, not the rooms:**
+  the pushes took it 347,000 times and held it 217 s of 378 (57%), each session
+  reading and redacting the same events for itself on every change; the events are
+  also most of the 881 MB sent (`component_set` 287, narrative 223, `say` 91).
+  **S13 (unwritten):** read and redact a change's events once for all sessions
+  (one pass under the lock, a per-viewer filter outside it), and stop sending a
+  session the `component_set` events its patched subscription already carries.
+  Until then the honest figure is two hundred names with quick replies, three
+  hundred with slow ones.
   **The dropped sessions were the test's, not the world's.** Eight and nine of sixty
   sessions were reset mid-run in these two runs (none in the run before, two of
   twelve and one of thirty in earlier ones). The driver now says in its journal why

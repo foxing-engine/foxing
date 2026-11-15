@@ -5,6 +5,9 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-14 (the sixth Watch of three, and three hundred names; nothing deployed)
+- Gnomon on the hidden word alone, Gnocchi on the fight's way out and the stopped travel, Gnubbin on the redactor. What held is in R248's first line; what is open is R248. Three hundred names held without a failure and with slow replies; the figures and the next step (S13: the events, not the rooms) are under S6.
+
 11-14 (six more answers and S11; one driver deploy)
 - **S11 (5 a)**: a session is sent what changed in a room, not the room. An observation that differs in nothing from the last one sent is not sent; a subscription with `"patch": true` (the play page's) gets `"patch"` in place of `"root"` after the first: changed keys, `"$del"` for keys gone, and a relation as `{"$ids", "$set"}` by node. Clients that do not ask get whole observations as before. Somebody else's change waits half a second in a room of up to forty things, a second to a hundred, two beyond. Held on a local world with forty names: a patched session and a whole one end on the same room, at a fifth of the bytes.
 - **1 a**: `travel` in a fight says "`travel` does not leave a fight: send `retreat` (it gets you out, for one parting blow), or finish it"; the blow stands. **2 a**: after a travel that did not go, the rest of the message's actions do not run and each says so; reads do (the fight's own refusal excepted, so `retreat` may follow it). **3 a**: standing with the giver is having the word, kept. **4 b**: the login limit is 15 a minute with a burst of 10 for an address, was 10 and 5 (in `harden.sh`; on the box by hand). **6 b**: a tester sent for the hidden word alone.
