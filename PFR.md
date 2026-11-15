@@ -361,6 +361,19 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   whole; (b) a box with dedicated cores; (c) serve a name trimmed out of a packed
   room from the shared run with its own node put in. Three hundred names hold with
   no errors and a median reply near a third of a second; five hundred are not there.
+  **Five hundred (11-14, 22:06, from a runner; David: "let's yolo it"):** the world
+  stayed up and nothing was refused or lost (one session dropped on a ping), and it
+  was not playable: 13,480 commands (35 a second, fewer than three hundred made),
+  a reply's round trip 3.6 s at the middle and 11 s at the 95th, `/health` 4.8 s.
+  **The wait is not in the world and not at the lock:** a command's own time was
+  as ever (5 ms at the middle), the wait for the lock 42 ms at the 95th, the driver
+  105% of a core and the box 57% idle. The pushes held the lock 208 s of 390. So a
+  request waits seconds before any handler starts: the sessions take the world's
+  lock on the async runtime's own worker threads, and with three hundred of them
+  queued on it the four workers are all stood waiting and nothing else is picked
+  up. **S15 is therefore first: (0) keep the lock off the runtime's workers (more
+  workers at once; then the sessions' observations on blocking threads), before
+  (a) the read-write lock or (b) a larger box.**
   **A second place to test from:** `tools/loadtest.sh <names> <minutes>` on any
   machine with SSH to the box (an SSH tunnel to the driver's own port, around
   nginx's per-address limits), and the same as a hand-run workflow, `Load test`.
