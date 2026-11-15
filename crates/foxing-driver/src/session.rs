@@ -268,36 +268,7 @@ fn patched(old: &Value, patch: &Value) -> Value {
 /// rest wait for the window to close and are sent once, as the room then stands.
 const REFRESH_EVERY: std::time::Duration = std::time::Duration::from_millis(500);
 
-/// Every entity id a node and its relations mention.
-fn ids_of(node: &Value, out: &mut HashSet<u64>) {
-    if let Some(id) = node["id"].as_u64() {
-        out.insert(id);
-    }
-    if let Some(p) = node["parent"].as_u64() {
-        out.insert(p);
-    }
-    if let Some(rels) = node["relations"].as_object() {
-        for v in rels.values() {
-            match v {
-                Value::Array(items) => items.iter().for_each(|n| ids_of(n, out)),
-                Value::Object(_) => ids_of(v, out),
-                _ => {}
-            }
-        }
-    }
-}
-
-/// The entity ids an event touches: its subject and, for creations and moves, the
-/// container it entered or left.
-fn touched(e: &foxing_log::Event) -> Vec<u64> {
-    let mut out = Vec::new();
-    for key in ["id", "parent", "from"] {
-        if let Some(v) = e.payload.get(key).and_then(Value::as_u64) {
-            out.push(v);
-        }
-    }
-    out
-}
+use crate::observe::{ids_of, touched};
 
 /// S5: whether an event is sent to a session that did not ask for everything: the
 /// actor's own, one addressed to or about the actor, the clock, or the world's news.
@@ -790,10 +761,13 @@ fn observe_frame(
         ActorKind::Citizen
     };
     // S14: from the room's one run when it serves this viewer.
+    let began = std::time::Instant::now();
+    let which = id.as_str().unwrap_or("");
     if let Some(mut v) = w.observe_shared(&viewer, kind, query, &s.limits, &s.rooms) {
         crate::ops::observation_shared();
         v["type"] = json!("observation");
         v["id"] = id.clone();
+        crate::ops::observed(which, true, began.elapsed().as_secs_f64() * 1000.0);
         return v;
     }
     match w.observe(&viewer, kind, query, &s.limits) {
@@ -801,6 +775,7 @@ fn observe_frame(
             let mut v = serde_json::to_value(obs).unwrap_or_default();
             v["type"] = json!("observation");
             v["id"] = id.clone();
+            crate::ops::observed(which, false, began.elapsed().as_secs_f64() * 1000.0);
             v
         }
         Err(e) => json!({"type": "error", "id": id, "error": e.to_string(), "detail": e}),

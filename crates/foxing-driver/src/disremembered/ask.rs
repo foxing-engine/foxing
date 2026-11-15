@@ -24,8 +24,8 @@ fn citizen(world: &World, actor: &str, name: &str) -> Option<(String, EntityId)>
     };
     world
         .store
-        .of_kind("citizen")
-        .find(|e| e.owner.as_deref() == Some(who))
+        .owned(who, "citizen")
+        .next()
         .map(|e| (who.to_string(), e.id))
 }
 

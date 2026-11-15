@@ -755,10 +755,7 @@ pub(crate) fn holding_of(world: &World, actor: &str) -> f64 {
 }
 
 pub(crate) fn find_citizen(world: &World, actor: &str) -> Option<Found> {
-    let citizen = world
-        .store
-        .of_kind("citizen")
-        .find(|e| e.owner.as_deref() == Some(actor))?;
+    let citizen = world.store.owned(actor, "citizen").next()?;
     let mut window = None;
     let mut palace = None;
     for c in world.store.children(citizen.id) {

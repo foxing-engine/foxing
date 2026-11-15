@@ -12362,7 +12362,7 @@ fn a_room_run_once_is_each_viewer_s_own_observation_or_is_not_theirs() {
     ok(&mut w, "sphinx", "travel", json!(["east"]));
     ok(&mut w, "sphinx", "attack", json!(["wisp"]));
     let limits = foxing_query::Limits::default();
-    let rooms = std::sync::Mutex::new(Rooms::new());
+    let rooms = std::sync::Mutex::new(Rooms::default());
     // The play page's room, a name's own self with everything, and its window.
     let page = json!({"root": "here", "select": {"disremembered.room": ["name"], "disremembered.sprite": "*"},
         "relations": {"contents": {"kinds": ["citizen", "creature", "item", "docent"], "select": {
@@ -12390,7 +12390,7 @@ fn a_room_run_once_is_each_viewer_s_own_observation_or_is_not_theirs() {
         }
     }
     // The page's room is shared by everyone in it; a whole view of oneself is not.
-    let req: Request = serde_json::from_value(page).unwrap();
+    let req: Request = serde_json::from_value(page.clone()).unwrap();
     for name in ["dave", "tyler", "sphinx"] {
         assert!(
             w.observe_shared(
@@ -12417,6 +12417,41 @@ fn a_room_run_once_is_each_viewer_s_own_observation_or_is_not_theirs() {
     assert!(w
         .observe_shared(&Viewer::admin(), ActorKind::Admin, &req, &limits, &rooms)
         .is_none());
+    // And as the world goes on: each change is announced, a kept room is used until
+    // something in it changes, and what is served is still each viewer's own.
+    let req: Request = serde_json::from_value(page.clone()).unwrap();
+    let mut told = w.log.head(&w.id).unwrap().unwrap().0;
+    rooms.lock().unwrap().changed(&[], told);
+    let steps: [(&str, &str, Value); 6] = [
+        ("sphinx", "attack", json!(["wisp"])),
+        ("tyler", "say", json!(["a second line"])),
+        ("sphinx", "retreat", json!([])),
+        ("dave", "travel", json!(["east"])),
+        ("tyler", "travel", json!(["north"])),
+        ("dave", "travel", json!(["west"])),
+    ];
+    for (who, verb, args) in steps {
+        let _ = call(&mut w, who, ActorKind::Citizen, verb, args);
+        let events: Vec<std::sync::Arc<foxing_log::Event>> = w
+            .log
+            .read(&w.id, foxing_log::Cursor { after: told }, 10_000)
+            .unwrap()
+            .into_iter()
+            .map(std::sync::Arc::new)
+            .collect();
+        told = w.log.head(&w.id).unwrap().unwrap().0;
+        rooms.lock().unwrap().changed(&events, told);
+        for name in ["dave", "tyler", "sphinx", "tyler"] {
+            let v = Viewer::actor(name);
+            let alone =
+                serde_json::to_value(w.observe(&v, ActorKind::Citizen, &req, &limits).unwrap())
+                    .unwrap();
+            let shared = w
+                .observe_shared(&v, ActorKind::Citizen, &req, &limits, &rooms)
+                .expect("the page's room serves everyone");
+            assert_eq!(shared, alone, "{name} after {who}'s {verb}");
+        }
+    }
     // The page's room serves all four askers; a view with a name's own fields none.
     assert_eq!((served, own), (4, 8), "served, and on their own");
 }

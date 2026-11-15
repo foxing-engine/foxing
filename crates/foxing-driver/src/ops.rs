@@ -31,6 +31,10 @@ struct Stats {
     pushes: u64,
     pushes_skipped: u64,
     observations_shared: u64,
+    /// S14: observations run for a session under the lock, and what they took: by
+    /// subscription (`room`, `me`, `window`, other), count and milliseconds, for
+    /// those answered from a shared run and those run for the viewer alone.
+    observed: std::collections::BTreeMap<String, (u64, f64, u64, f64)>,
     push_wait_ms: f64,
     push_held_ms: f64,
     worst_push_ms: f64,
@@ -129,6 +133,25 @@ pub fn observation_shared() {
     with(|s| s.observations_shared += 1);
 }
 
+/// S14: one observation run for a session's subscription `id`: shared or the
+/// viewer's own, and how long it took.
+pub fn observed(id: &str, shared: bool, ms: f64) {
+    with(|s| {
+        let key = match id {
+            "room" | "me" | "window" | "dug" => id,
+            _ => "other",
+        };
+        let e = s.observed.entry(key.to_string()).or_default();
+        if shared {
+            e.0 += 1;
+            e.1 += ms;
+        } else {
+            e.2 += 1;
+            e.3 += ms;
+        }
+    });
+}
+
 pub fn push_skipped() {
     with(|s| s.pushes_skipped += 1);
 }
@@ -158,6 +181,10 @@ pub fn report() -> Value {
                 "count": s.pushes,
                 "skipped": s.pushes_skipped,
                 "observations_shared": s.observations_shared,
+                "observed": s.observed.iter().map(|(k, v)| (k.clone(), json!({
+                    "shared": v.0, "shared_ms": (v.1 * 10.0).round() / 10.0,
+                    "own": v.2, "own_ms": (v.3 * 10.0).round() / 10.0,
+                }))).collect::<serde_json::Map<String, Value>>(),
                 "wait_mean_ms": tenth(if s.pushes > 0 { s.push_wait_ms / s.pushes as f64 } else { 0.0 }),
                 "held_mean_ms": tenth(if s.pushes > 0 { s.push_held_ms / s.pushes as f64 } else { 0.0 }),
                 "held_worst_ms": tenth(s.worst_push_ms),

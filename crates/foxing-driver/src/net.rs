@@ -71,6 +71,9 @@ impl Shared {
             if let Ok(mut at) = self.announced.lock() {
                 *at = None;
             }
+            if let Ok(mut rooms) = self.rooms.lock() {
+                rooms.unheard();
+            }
             return;
         }
         let Ok(mut at) = self.announced.lock() else {
@@ -93,6 +96,10 @@ impl Shared {
             };
             let now = w.now();
             let events: Vec<Arc<foxing_log::Event>> = events;
+            // S14: what this change touched, for the rooms kept to be shared.
+            if let Ok(mut rooms) = self.rooms.lock() {
+                rooms.changed(&events, head);
+            }
             let seen = events
                 .iter()
                 .map(|e| crate::observe::seen(&w, now, e))
@@ -205,10 +212,7 @@ fn run_line(
             let passphrase = parts.next().unwrap_or("").trim();
             let passing = parts.next().unwrap_or("").trim() == "passing";
             valid_name(name)?;
-            let fresh = !world
-                .store
-                .of_kind("citizen")
-                .any(|e| e.owner.as_deref() == Some(name));
+            let fresh = !world.store.owned(name, "citizen").next().is_some();
             disremembered::login_as(&mut world, name, "terminal", passphrase, passing)
                 .map_err(|e| e.to_string())?;
             *actor = Some((name.to_string(), ActorKind::Citizen));
@@ -987,10 +991,7 @@ pub(crate) fn login_for_session(
     passphrase: &str,
 ) -> Result<bool, String> {
     valid_name(actor)?;
-    let fresh = !w
-        .store
-        .of_kind("citizen")
-        .any(|e| e.owner.as_deref() == Some(actor));
+    let fresh = !w.store.owned(actor, "citizen").next().is_some();
     disremembered::login(w, actor, "session", passphrase).map_err(|e| e.to_string())?;
     Ok(fresh)
 }
@@ -1004,10 +1005,7 @@ pub(crate) fn http_login(
     passing: bool,
 ) -> Result<bool, (StatusCode, Json<Value>)> {
     valid_name(actor).map_err(|e| err_json(StatusCode::BAD_REQUEST, e))?;
-    let fresh = !w
-        .store
-        .of_kind("citizen")
-        .any(|e| e.owner.as_deref() == Some(actor));
+    let fresh = !w.store.owned(actor, "citizen").next().is_some();
     disremembered::login_as(w, actor, origin, passphrase, passing).map_err(|e| match e {
         disremembered::LoginError::Internal(_) => {
             err_json(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())

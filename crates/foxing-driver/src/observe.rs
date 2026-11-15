@@ -91,12 +91,7 @@ impl RootResolver for Roots<'_> {
     fn resolve(&self, name: &str, arg: Option<&str>, viewer: &Viewer) -> Option<EntityId> {
         let w = self.0;
         let whose = arg.or(viewer.actor.as_deref())?;
-        let citizen = || {
-            w.store
-                .of_kind("citizen")
-                .find(|e| e.owner.as_deref() == Some(whose))
-                .map(|e| e.id)
-        };
+        let citizen = || w.store.owned(whose, "citizen").next().map(|e| e.id);
         let child = |kind: &str| {
             let c = citizen()?;
             w.store.children(c).find(|e| e.kind == kind).map(|e| e.id)
@@ -345,17 +340,108 @@ pub(crate) fn visible(world: &World, viewer: &Viewer, now: Timestamp, e: &Event)
     }
 }
 
-/// S14: the observations kept to be shared, by query and root: the log's head they
-/// were run at, the reply, and whom it serves.
-pub type Rooms = std::collections::HashMap<(String, u64), (u64, Value, foxing_query::Sharing)>;
+/// S14: the observations kept to be shared, by query and root: the log's head each
+/// was run at, the reply, whom it serves and the entities it covers; and what has
+/// changed since, so that a kept run is used for as long as nothing in it has.
+#[derive(Default)]
+pub struct Rooms {
+    kept: std::collections::HashMap<(String, u64), Kept>,
+    /// The entities each announced event touched, by its place in the log.
+    changes: std::collections::VecDeque<(u64, Vec<u64>)>,
+    /// Nothing run before this place in the log is trusted: the changes between
+    /// were not all told (the first announcement, a gap too wide to carry).
+    floor: u64,
+}
+
+struct Kept {
+    at: u64,
+    reply: Value,
+    sharing: foxing_query::Sharing,
+    ids: std::collections::HashSet<u64>,
+}
+
+/// How many announced changes are remembered; a run older than these is run again.
+const CHANGES_KEPT: usize = 50_000;
+
+impl Rooms {
+    /// A change was announced: the events it carried, or none when it carried only
+    /// the head (then every kept run is too old to trust).
+    pub(crate) fn changed(&mut self, events: &[std::sync::Arc<Event>], head: u64) {
+        if events.is_empty() || self.floor == u64::MAX {
+            self.floor = head;
+            self.changes.clear();
+        }
+        for e in events {
+            let ids = touched(e);
+            if !ids.is_empty() {
+                self.changes.push_back((e.seq.0, ids));
+            }
+        }
+        while self.changes.len() > CHANGES_KEPT {
+            if let Some((seq, _)) = self.changes.pop_front() {
+                self.floor = self.floor.max(seq);
+            }
+        }
+    }
+
+    /// Nobody was listening, so nothing was read: what is kept cannot be trusted
+    /// until the next announcement says where the log stands.
+    pub(crate) fn unheard(&mut self) {
+        self.floor = u64::MAX;
+        self.changes.clear();
+        self.kept.clear();
+    }
+
+    /// Whether a run at `at` covering `ids` still stands: nothing announced since
+    /// has touched anything in it.
+    fn stands(&self, at: u64, ids: &std::collections::HashSet<u64>) -> bool {
+        at >= self.floor
+            && self
+                .changes
+                .iter()
+                .rev()
+                .take_while(|(seq, _)| *seq > at)
+                .all(|(_, touched)| touched.iter().all(|id| !ids.contains(id)))
+    }
+}
+
+/// The entities an event concerns: the one it names, its parent, where it came from.
+pub(crate) fn touched(e: &Event) -> Vec<u64> {
+    let mut out = Vec::new();
+    for key in ["id", "parent", "from"] {
+        if let Some(v) = e.payload.get(key).and_then(Value::as_u64) {
+            out.push(v);
+        }
+    }
+    out
+}
+
+/// The entities an observation covers: every node in it, and each one's parent.
+pub(crate) fn ids_of(node: &Value, out: &mut std::collections::HashSet<u64>) {
+    if let Some(id) = node["id"].as_u64() {
+        out.insert(id);
+    }
+    if let Some(p) = node["parent"].as_u64() {
+        out.insert(p);
+    }
+    if let Some(rels) = node["relations"].as_object() {
+        for v in rels.values() {
+            match v {
+                Value::Array(items) => items.iter().for_each(|n| ids_of(n, out)),
+                Value::Object(_) => ids_of(v, out),
+                _ => {}
+            }
+        }
+    }
+}
 
 impl World {
     /// S14: the observation `viewer` would get from [`World::observe`], from one run
-    /// shared by everyone it serves: a room is run once for each change, not once
-    /// for each session standing in it. `None` when this viewer must be answered on
-    /// their own (an administrator, a query for events, something of theirs in view
-    /// that a stranger is not shown, a room past its breadth), or when the query
-    /// fails and the ordinary run should say why.
+    /// shared by everyone it serves: a room is run once for each change to it, not
+    /// once for each session standing in it. `None` when this viewer must be
+    /// answered on their own (an administrator, a query for events, something of
+    /// theirs in view that a stranger is not shown, a room past its breadth), or
+    /// when the query fails and the ordinary run should say why.
     pub fn observe_shared(
         &self,
         viewer: &Viewer,
@@ -389,9 +475,13 @@ impl World {
             root.0,
         );
         let mut rooms = rooms.lock().ok()?;
-        if let Some((at, reply, sharing)) = rooms.get(&key) {
-            if *at == head {
-                return sharing.serves(viewer).then(|| reply.clone());
+        if let Some(k) = rooms.kept.get(&key) {
+            if k.at == head || rooms.stands(k.at, &k.ids) {
+                return k.sharing.serves(viewer).then(|| {
+                    let mut reply = k.reply.clone();
+                    reply["cursor"] = Value::from(head);
+                    reply
+                });
             }
         }
         // A signed-in viewer who owns nothing and is in no party.
@@ -422,10 +512,21 @@ impl World {
         })
         .ok()?;
         let serves = sharing.serves(viewer);
-        if rooms.len() > 4_000 {
-            rooms.retain(|_, (at, _, _)| *at == head);
+        if rooms.kept.len() > 4_000 {
+            let floor = head.saturating_sub(5_000);
+            rooms.kept.retain(|_, k| k.at >= floor);
         }
-        rooms.insert(key, (head, reply.clone(), sharing));
+        let mut ids = std::collections::HashSet::new();
+        ids_of(&reply["root"], &mut ids);
+        rooms.kept.insert(
+            key,
+            Kept {
+                at: head,
+                reply: reply.clone(),
+                sharing,
+                ids,
+            },
+        );
         serves.then_some(reply)
     }
 

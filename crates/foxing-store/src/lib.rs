@@ -456,6 +456,11 @@ pub struct Store {
     by_parent: BTreeMap<EntityId, BTreeSet<EntityId>>,
     #[serde(skip)]
     by_kind: BTreeMap<String, BTreeSet<EntityId>>,
+    /// What each actor owns. "This name's citizen" was a walk of every citizen, on
+    /// every command and every observation; with thousands of names it was most of
+    /// what a reply cost.
+    #[serde(skip)]
+    by_owner: BTreeMap<String, BTreeSet<EntityId>>,
     /// Events passed over on replay: written under a schema this build lacks.
     #[serde(skip)]
     skipped: u64,
@@ -471,6 +476,7 @@ impl Store {
             next_id: 1,
             by_parent: BTreeMap::new(),
             by_kind: BTreeMap::new(),
+            by_owner: BTreeMap::new(),
             skipped: 0,
         }
     }
@@ -519,6 +525,16 @@ impl Store {
             .into_iter()
             .flatten()
             .filter_map(|id| self.entities.get(id))
+    }
+
+    /// What `owner` owns of a kind, oldest first: a lookup, not a walk of the kind.
+    pub fn owned<'a>(&'a self, owner: &str, kind: &'a str) -> impl Iterator<Item = &'a Entity> {
+        self.by_owner
+            .get(owner)
+            .into_iter()
+            .flatten()
+            .filter_map(|id| self.entities.get(id))
+            .filter(move |e| e.kind == kind)
     }
 
     /// How many entities the store holds.
@@ -795,6 +811,9 @@ impl Store {
                     },
                 );
                 self.by_kind.entry(kind.clone()).or_default().insert(*id);
+                if let Some(o) = owner {
+                    self.by_owner.entry(o.clone()).or_default().insert(*id);
+                }
                 if let Some(p) = parent {
                     self.by_parent.entry(*p).or_default().insert(*id);
                 }
@@ -813,6 +832,14 @@ impl Store {
                 }
                 for d in doomed {
                     if let Some(e) = self.entities.remove(&d) {
+                        if let Some(o) = &e.owner {
+                            if let Some(set) = self.by_owner.get_mut(o) {
+                                set.remove(&d);
+                                if set.is_empty() {
+                                    self.by_owner.remove(o);
+                                }
+                            }
+                        }
                         self.unindex(d, &e.kind, e.parent);
                     }
                     self.by_parent.remove(&d);
