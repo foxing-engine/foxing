@@ -12631,6 +12631,41 @@ fn a_boot_from_a_checkpoint_is_the_boot_from_the_whole_log() {
     assert_eq!(again.from_checkpoint, None);
     assert!(again.store == whole.store);
     assert_eq!(said(&again_folds), said(&whole_folds));
+    // S16 (b): the verifier says the same of this checkpoint, and says what differs
+    // of one that has been meddled with: a citizen's name in its store, a line of
+    // its board.
+    drop((whole, short, again));
+    let log = foxing_log::FileLog::open(dir.path().to_path_buf()).unwrap();
+    let said = checkpoint::verify(&log, files.path(), "test", &schemas).expect("it matches");
+    assert!(
+        said.starts_with("checkpoint verified:") && said.contains(&format!("event {seq}")),
+        "{said}"
+    );
+    let file = checkpoint::path(files.path(), "test");
+    let good = std::fs::read_to_string(&file).unwrap();
+    assert!(
+        good.contains("\"owner\":\"dave\""),
+        "what dave owns is in it"
+    );
+    std::fs::write(
+        &file,
+        good.replacen("\"owner\":\"dave\"", "\"owner\":\"davf\"", 1),
+    )
+    .unwrap();
+    let why = checkpoint::verify(&log, files.path(), "test", &schemas).expect_err("meddled with");
+    assert!(
+        why.contains("at the checkpoint's event") && why.contains("differ"),
+        "{why}"
+    );
+    let mut v: Value = serde_json::from_str(&good).unwrap();
+    v["jobs"] = json!([]);
+    std::fs::write(&file, v.to_string()).unwrap();
+    let why =
+        checkpoint::verify(&log, files.path(), "test", &schemas).expect_err("its jobs emptied");
+    assert!(why.contains("the pending jobs differ"), "{why}");
+    std::fs::write(&file, &good).unwrap();
+    drop(log);
+
     // And one of another world, or of other schemas, does not load at all.
     assert!(checkpoint::load(files.path(), "elsewhere", &schemas).is_none());
     assert!(checkpoint::load(files.path(), "test", &Default::default()).is_none());

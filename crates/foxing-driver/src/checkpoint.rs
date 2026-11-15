@@ -203,3 +203,177 @@ pub fn start(
         }
     });
 }
+
+/// S16 (b): the proof. Replay the whole log from its first event and hold it against
+/// the checkpoint twice: at the checkpoint's own event (is what the file holds what
+/// the log says the world was?), and at the log's head (does the checkpoint and the
+/// events after it arrive where the whole log does?). The store with its indexes,
+/// the pending jobs and the three folds are each compared. It reads the log and
+/// writes nothing; it is run as a process of its own beside a live driver
+/// (`foxing-driver verify-checkpoint`), and before any event is ever moved to the
+/// archive. `Ok` is the report of a match; `Err` says what differs.
+pub fn verify(
+    log: &dyn foxing_log::EventLog,
+    dir: &Path,
+    world: &str,
+    schemas: &foxing_store::Registry,
+) -> Result<String, String> {
+    use crate::world::LogFold;
+    use foxing_log::{Cursor, Projection, WorldId};
+    type Folds = (
+        crate::disremembered::board::Fold,
+        crate::net::CitizensFold,
+        crate::disremembered::talk::Tells,
+    );
+    let began = std::time::Instant::now();
+    let id = WorldId(world.to_string());
+    let head = log
+        .head(&id)
+        .map_err(|e| e.to_string())?
+        .ok_or("the log is empty")?
+        .0;
+    let c = load(dir, world, schemas).ok_or("there is no checkpoint this build can use")?;
+    if c.seq > head {
+        return Err(format!(
+            "the checkpoint is of event {} and the log ends at {head}",
+            c.seq
+        ));
+    }
+    let (seq, at) = (c.seq, c.at);
+    // The short way: the checkpoint, then the events after it.
+    let mut short: Folds = (
+        serde_json::from_value(c.board).map_err(|e| format!("the board in the checkpoint: {e}"))?,
+        serde_json::from_value(c.citizens)
+            .map_err(|e| format!("the citizens in the checkpoint: {e}"))?,
+        serde_json::from_value(c.tells).map_err(|e| format!("the tells in the checkpoint: {e}"))?,
+    );
+    let mut short_store = c.store.restored(schemas.clone());
+    let mut short_jobs = crate::jobs::Jobs::restored(c.jobs);
+    // The long way: every event.
+    let mut whole: Folds = Default::default();
+    let mut whole_store = Store::new(schemas.clone());
+    let mut whole_jobs = crate::jobs::Jobs::default();
+
+    let differ = |when: &str,
+                  a: (&Store, &crate::jobs::Jobs, &Folds),
+                  b: (&Store, &crate::jobs::Jobs, &Folds)|
+     -> Vec<String> {
+        let mut out = Vec::new();
+        if a.0 != b.0 {
+            // Which entities: through the serialized form, which names them.
+            let (x, y) = (
+                serde_json::to_value(a.0).unwrap_or_default(),
+                serde_json::to_value(b.0).unwrap_or_default(),
+            );
+            let mut ids: Vec<String> = Vec::new();
+            for key in ["entities"] {
+                if let (Some(m), Some(n)) = (x[key].as_object(), y[key].as_object()) {
+                    for k in m.keys().chain(n.keys()) {
+                        if m.get(k) != n.get(k) && !ids.contains(k) {
+                            ids.push(k.clone());
+                        }
+                    }
+                }
+            }
+            out.push(format!(
+                "{when}: the stores differ ({} entities; the first: {})",
+                ids.len(),
+                ids.iter().take(8).cloned().collect::<Vec<_>>().join(", ")
+            ));
+        }
+        if a.1.pending().collect::<Vec<_>>() != b.1.pending().collect::<Vec<_>>() {
+            out.push(format!(
+                "{when}: the pending jobs differ ({} and {})",
+                a.1.pending().count(),
+                b.1.pending().count()
+            ));
+        }
+        for (name, p, q) in [
+            (
+                "board",
+                serde_json::to_value(&a.2 .0),
+                serde_json::to_value(&b.2 .0),
+            ),
+            (
+                "citizens",
+                serde_json::to_value(&a.2 .1),
+                serde_json::to_value(&b.2 .1),
+            ),
+            (
+                "tells",
+                serde_json::to_value(&a.2 .2),
+                serde_json::to_value(&b.2 .2),
+            ),
+        ] {
+            if p.ok() != q.ok() {
+                out.push(format!("{when}: the {name} fold differs"));
+            }
+        }
+        out
+    };
+
+    let mut found = Vec::new();
+    let mut cursor = Cursor::START;
+    let mut read = 0u64;
+    let mut sat = false;
+    'log: loop {
+        let page = log.read(&id, cursor, 5_000).map_err(|e| e.to_string())?;
+        let Some(last) = page.last() else { break };
+        cursor = Cursor::after(last.seq);
+        for e in &page {
+            if e.seq.0 > head {
+                break 'log;
+            }
+            read += 1;
+            Projection::apply(&mut whole_store, e)
+                .map_err(|x| format!("event {}: {x:?}", e.seq))?;
+            if e.kind.starts_with("job.") {
+                whole_jobs.apply(&e.kind, e.seq.0, &e.payload);
+            }
+            whole.0.take(e);
+            whole.1.take(e);
+            whole.2.take(e);
+            if e.seq.0 == seq {
+                sat = e.at.0 == at;
+                if !sat {
+                    return Err(format!(
+                        "the checkpoint is not of this log: event {seq} here was written at {}, and it says {at}",
+                        e.at.0
+                    ));
+                }
+                found.extend(differ(
+                    &format!("at the checkpoint's event {seq}"),
+                    (&whole_store, &whole_jobs, &whole),
+                    (&short_store, &short_jobs, &short),
+                ));
+            } else if e.seq.0 > seq {
+                Projection::apply(&mut short_store, e)
+                    .map_err(|x| format!("event {} after the checkpoint: {x:?}", e.seq))?;
+                if e.kind.starts_with("job.") {
+                    short_jobs.apply(&e.kind, e.seq.0, &e.payload);
+                }
+                short.0.take(e);
+                short.1.take(e);
+                short.2.take(e);
+            }
+        }
+    }
+    if !sat {
+        return Err(format!("the log has no event {seq}"));
+    }
+    found.extend(differ(
+        &format!("at the head, event {head}"),
+        (&whole_store, &whole_jobs, &whole),
+        (&short_store, &short_jobs, &short),
+    ));
+    if found.is_empty() {
+        Ok(format!(
+            "checkpoint verified: {read} events replayed from the first; at the checkpoint's event {seq} and again at the head {head} ({} events after it) the store with its indexes, the {} pending jobs and the three folds are the same both ways. {:.1} s.",
+            head - seq,
+            whole_jobs.pending().count(),
+            began.elapsed().as_secs_f64()
+        ))
+    } else {
+        Err(found.join("\n"))
+    }
+}

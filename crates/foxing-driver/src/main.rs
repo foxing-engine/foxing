@@ -91,6 +91,40 @@ fn main() {
         return;
     }
 
+    // S16 (b): `foxing-driver verify-checkpoint`: the whole log replayed and held
+    // against the checkpoint, as a process of its own. It reads; it writes nothing.
+    if args.get(1).map(String::as_str) == Some("verify-checkpoint") {
+        let log: Box<dyn foxing_log::EventLog> = match &log_url {
+            Some(url) => match foxing_log_postgres::PostgresLog::open(url) {
+                Ok(l) => Box::new(l),
+                Err(e) => {
+                    eprintln!("the log would not open: {e}");
+                    std::process::exit(2);
+                }
+            },
+            None => match foxing_log::FileLog::open(std::path::PathBuf::from(&data)) {
+                Ok(l) => Box::new(l),
+                Err(e) => {
+                    eprintln!("the log would not open: {e}");
+                    std::process::exit(2);
+                }
+            },
+        };
+        match checkpoint::verify(
+            log.as_ref(),
+            std::path::Path::new(&data),
+            &world_name,
+            &disremembered::registry(),
+        ) {
+            Ok(said) => println!("{said}"),
+            Err(e) => {
+                eprintln!("CHECKPOINT DOES NOT MATCH THE LOG:\n{e}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+
     let backing = match log_url {
         Some(url) => LogBacking::Postgres(url),
         None if data == "memory" => LogBacking::Memory,

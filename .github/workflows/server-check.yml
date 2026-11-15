@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       what:
-        description: "analytics | driver | vitals | all"
+        description: "analytics | driver | vitals | verify-checkpoint | all"
         default: "all"
       minutes:
         description: "vitals only: how long to sample (1 to 25)"
@@ -53,6 +53,15 @@ jobs:
           [ "$minutes" -gt 25 ] && minutes=25; [ "$minutes" -lt 1 ] && minutes=1
           APP=/srv/foxing; [ -d $APP ] || APP=/srv/moondial
           echo "## host $(hostname), app $APP, $(date -u)"
+          if [ "$what" = verify-checkpoint ]; then
+            # S16 (b): the whole log replayed in a process of its own and held
+            # against the checkpoint the live driver boots from. It reads; it writes
+            # nothing. It exits 1, and so does this job, when they differ.
+            echo "## verify-checkpoint"; ls -la $APP/shared/data/checkpoint-* 2>&1 | cut -c1-160
+            env $(grep -E '^(FOXING|MOONDIAL)_(LOG_URL|WORLD|DATA)=' /etc/foxing/driver.env | xargs -d '\n') \
+              nice -n 10 $APP/current/foxing-driver verify-checkpoint </dev/null 2>&1 | cut -c1-1500
+            exit ${PIPESTATUS[0]}
+          fi
           if [ "$what" = all ] || [ "$what" = driver ]; then
             echo "## driver"; systemctl status foxing --no-pager </dev/null 2>&1 | head -12
             echo "## driver journal (last 30)"; journalctl -u foxing -n 30 --no-pager </dev/null 2>&1 | tail -30
