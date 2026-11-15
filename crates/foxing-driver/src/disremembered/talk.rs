@@ -361,7 +361,7 @@ pub(crate) fn mark_heard(world: &mut World, citizen: EntityId) -> Result<(), Com
 
 /// A word left for someone: where it sits in the log, when, by whom, and, for an
 /// answer sent from the Dead Letter Office, the letter it answers (`(for, text)`).
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Word {
     pub seq: u64,
     pub at: i64,
@@ -372,7 +372,7 @@ pub(crate) struct Word {
 
 /// A word left for a name the world then forgot, unheard (C3): it is pigeonholed in
 /// the Dead Letter Office.
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Letter {
     pub word: Word,
     /// The forgotten name as it was spelled, and as the log keys it.
@@ -390,7 +390,7 @@ pub(crate) struct Letter {
 
 /// Every word left for anyone, by who it was for, in order; what each name has heard;
 /// and the words that outlived the name they were for.
-#[derive(Default)]
+#[derive(Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Tells {
     after: u64,
     by_to: std::collections::HashMap<String, Vec<Word>>,
@@ -400,6 +400,8 @@ pub(crate) struct Tells {
 }
 
 impl crate::world::LogFold for Tells {
+    // S16: a checkpoint carries this fold. If the same events would now fold to
+    // something else, raise `checkpoint::FORMAT`, or old counts live on in it.
     fn after(&self) -> u64 {
         self.after
     }

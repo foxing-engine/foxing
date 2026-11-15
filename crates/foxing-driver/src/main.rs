@@ -24,6 +24,7 @@
 //! - `FOXING_DISCORD_WEBHOOK`: a Discord webhook URL; arrivals worth knowing about (a
 //!   first arrival, an agent's channel, a return after a day away) are posted there.
 
+mod checkpoint;
 mod disremembered;
 mod gate;
 mod jobs;
@@ -107,15 +108,51 @@ fn main() {
     let mut board = disremembered::board::Fold::default();
     let mut citizens = net::CitizensFold::default();
     let mut tells = disremembered::talk::Tells::default();
-    let mut world = match World::open_seeing(
+    // S16: from a checkpoint when there is one this build can use (never for a world
+    // kept in memory, and not when FOXING_CHECKPOINT=0): the store, the jobs and
+    // these three folds as they stood, and then only the events since.
+    let schemas = disremembered::registry();
+    let checkpoints =
+        !matches!(backing, LogBacking::Memory) && env_or("FOXING_CHECKPOINT", "1") != "0";
+    let checkpoint_dir = std::path::PathBuf::from(&data);
+    let mut from = None;
+    if checkpoints {
+        if let Some(c) = checkpoint::load(&checkpoint_dir, &world_name, &schemas) {
+            match (
+                serde_json::from_value::<disremembered::board::Fold>(c.board),
+                serde_json::from_value::<net::CitizensFold>(c.citizens),
+                serde_json::from_value::<disremembered::talk::Tells>(c.tells),
+            ) {
+                (Ok(b), Ok(ci), Ok(t)) => {
+                    board = b;
+                    citizens = ci;
+                    tells = t;
+                    from = Some((c.store.restored(schemas.clone()), c.jobs, c.seq, c.at));
+                }
+                _ => eprintln!("checkpoint: set aside: its folds are not this build's"),
+            }
+        }
+    }
+    let mut world = match World::open_from(
         WorldId(world_name.clone()),
-        Store::new(disremembered::registry()),
+        Store::new(schemas.clone()),
         backing,
+        from,
         &mut |e| {
             use world::LogFold;
-            board.take(e);
-            citizens.take(e);
-            tells.take(e);
+            match e {
+                Some(e) => {
+                    board.take(e);
+                    citizens.take(e);
+                    tells.take(e);
+                }
+                // The checkpoint did not sit on this log: the folds start again too.
+                None => {
+                    board = Default::default();
+                    citizens = Default::default();
+                    tells = Default::default();
+                }
+            }
         },
     ) {
         Ok(mut w) => {
@@ -153,11 +190,18 @@ fn main() {
         .map(|s| s.0)
         .unwrap_or(0);
     eprintln!(
-        "foxing-driver {} · world {} · {} events replayed from {} · {} commands",
+        "foxing-driver {} · world {} · {} events in {}, {} · {} commands",
         env!("CARGO_PKG_VERSION"),
         world_name,
         events,
         where_,
+        match world.from_checkpoint {
+            Some(seq) => format!(
+                "{} replayed after the checkpoint at {seq}",
+                events.saturating_sub(seq)
+            ),
+            None => "all replayed".to_string(),
+        },
         world.registry.specs().count()
     );
 
@@ -230,6 +274,15 @@ fn main() {
         &world_name,
     );
 
+    // S16: a checkpoint a minute after boot and then daily, so the next start
+    // replays a day of events at most and not every one the world has written.
+    if checkpoints {
+        checkpoint::start(
+            shared.world.clone(),
+            checkpoint_dir.clone(),
+            schemas.clone(),
+        );
+    }
     // S15: a session waits for the world's lock on a runtime worker. With a worker
     // a core (four on the box) and hundreds of sessions queued on the lock, every
     // worker stood waiting and nothing else was picked up: at five hundred names a

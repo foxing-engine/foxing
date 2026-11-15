@@ -486,6 +486,28 @@ impl Store {
         &self.registry
     }
 
+    /// S16: a store read back from its serialized form (a checkpoint), made whole:
+    /// the indexes are derived and are not written out, so they are built again here
+    /// from the entities, exactly as the events that made the entities built them.
+    /// It takes the schemas boot starts from, as a store replayed from the log has.
+    pub fn restored(mut self, registry: Registry) -> Store {
+        self.registry = registry;
+        self.by_parent.clear();
+        self.by_kind.clear();
+        self.by_owner.clear();
+        for (id, e) in &self.entities {
+            self.by_kind.entry(e.kind.clone()).or_default().insert(*id);
+            if let Some(o) = &e.owner {
+                self.by_owner.entry(o.clone()).or_default().insert(*id);
+            }
+            if let Some(p) = e.parent {
+                self.by_parent.entry(p).or_default().insert(*id);
+            }
+        }
+        self.skipped = 0;
+        self
+    }
+
     /// Register a schema. Modules do this at load.
     pub fn register(&mut self, schema: ComponentSchema) {
         self.registry.register(schema);

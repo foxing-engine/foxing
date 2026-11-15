@@ -680,7 +680,7 @@ async fn citizens(
 
 /// One name's line of the citizens report: the log's part, and (filled in at each
 /// asking) the store's.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CitizenRow {
     origin: String,
     first_seen: i64,
@@ -697,13 +697,15 @@ pub(crate) struct CitizenRow {
 
 /// S1: the citizens report's fold over the log. It read every event the world ever
 /// wrote, with the world held, each time the operator's page was rendered.
-#[derive(Default)]
+#[derive(Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CitizensFold {
     after: u64,
     rows: std::collections::BTreeMap<String, CitizenRow>,
 }
 
 impl crate::world::LogFold for CitizensFold {
+    // S16: a checkpoint carries this fold. If the same events would now fold to
+    // something else, raise `checkpoint::FORMAT`, or old counts live on in it.
     fn after(&self) -> u64 {
         self.after
     }

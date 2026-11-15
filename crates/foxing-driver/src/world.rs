@@ -45,6 +45,8 @@ pub struct World {
     /// there. In this process only; a restart folds again from the start, once.
     /// S2: whether commands and ticks are written as units of the log.
     pub units: bool,
+    /// S16: the event this boot's checkpoint held the world as of, if it used one.
+    pub from_checkpoint: Option<u64>,
     pub folds:
         std::sync::Mutex<std::collections::HashMap<&'static str, Box<dyn std::any::Any + Send>>>,
     /// The command registry. Shared so a handler running inside [`World::call`] can
@@ -202,6 +204,26 @@ impl World {
         backing: LogBacking,
         seen: &mut dyn FnMut(&Event),
     ) -> Result<Self, String> {
+        Self::open_from(id, store, backing, None, &mut |e| {
+            if let Some(e) = e {
+                seen(e)
+            }
+        })
+    }
+
+    /// S16: [`World::open_seeing`] from a checkpoint: the store and jobs as they stood
+    /// after event `seq` (written at `at`), and then only the events after it. The
+    /// checkpoint is laid down only if it sits on this log: the log reaches `seq` and
+    /// the event there was written at `at`. Otherwise it is set aside, `seen` is
+    /// called once with `None` ("start your folds again"), and the whole log is
+    /// replayed as ever. `seen` is shown each event replayed, as `Some`.
+    pub fn open_from(
+        id: WorldId,
+        store: Store,
+        backing: LogBacking,
+        from: Option<(Store, Vec<crate::jobs::Job>, u64, i64)>,
+        seen: &mut dyn FnMut(Option<&Event>),
+    ) -> Result<Self, String> {
         let log: Box<dyn EventLog + Send> = match backing {
             // S1: every backing under a kept tail, so "the last few thousand events"
             // (asked dozens of times a command) is memory, not a round trip each.
@@ -216,6 +238,7 @@ impl World {
         let started = now_ms();
         let mut world = World {
             folds: Default::default(),
+            from_checkpoint: None,
             units: std::env::var("FOXING_LOG_UNITS").is_ok_and(|v| v == "1"),
             id,
             store,
@@ -249,11 +272,32 @@ impl World {
             // Replay into a fresh store that knows the same schemas, and rebuild the
             // pending jobs from the same pass over the log.
             let mut fresh = Store::new(world.store.registry().clone());
+            let mut cursor = Cursor::START;
+            // S16: from a checkpoint, if it sits on this log.
+            if let Some((kept, jobs, seq, at)) = from {
+                let there = seq > 0
+                    && world
+                        .log
+                        .read(&world.id, Cursor { after: seq - 1 }, 1)
+                        .ok()
+                        .and_then(|v| v.into_iter().next())
+                        .is_some_and(|e| e.seq.0 == seq && e.at.0 == at);
+                if there {
+                    fresh = kept;
+                    world.jobs = crate::jobs::Jobs::restored(jobs);
+                    cursor = Cursor { after: seq };
+                    world.from_checkpoint = Some(seq);
+                } else {
+                    eprintln!(
+                        "checkpoint: set aside: this log has no event {seq} written at {at}; replaying the whole log"
+                    );
+                    seen(None);
+                }
+            }
             // A page at a time. The whole log was read into memory, twice over (once
             // for the store, once for the jobs and the folds): at 1.38 million events
             // that was 6.9 GB on a box of 7.7, the kernel killed the driver 26 seconds
             // into every start, and the world could not come back (11-15).
-            let mut cursor = Cursor::START;
             loop {
                 let page = world
                     .log
@@ -275,7 +319,7 @@ impl World {
                     if e.kind.starts_with("job.") {
                         world.jobs.apply(&e.kind, e.seq.0, &e.payload);
                     }
-                    seen(e);
+                    seen(Some(e));
                 }
             }
             world.store = fresh;

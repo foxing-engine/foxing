@@ -12514,3 +12514,124 @@ fn a_room_run_once_is_each_viewer_s_own_observation_or_is_not_theirs() {
     // The page's room serves all four askers; a view with a name's own fields none.
     assert_eq!((served, own), (4, 8), "served, and on their own");
 }
+
+/// S16: a world booted from a checkpoint and the events after it is the world
+/// booted from the whole log: the same store (its indexes too), the same pending
+/// jobs, the same three folds. And a checkpoint that does not sit on the log is set
+/// aside and the whole log replayed.
+#[test]
+fn a_boot_from_a_checkpoint_is_the_boot_from_the_whole_log() {
+    use crate::checkpoint;
+    use crate::world::LogFold;
+    let dir = tempfile::tempdir().unwrap();
+    let play = |w: &mut World, round: usize| {
+        ok(
+            w,
+            "dave",
+            "say",
+            json!([format!("counting lanterns, round {round}")]),
+        );
+        ok(w, "dave", "tell", json!(["tyler", "a word for you"]));
+        let _ = call(w, "sphinx", ActorKind::Citizen, "attack", json!(["wisp"]));
+        let _ = call(w, "sphinx", ActorKind::Citizen, "retreat", json!([]));
+        ok(w, "tyler", "look", json!([]));
+        let _ = call(w, "tyler", ActorKind::Citizen, "travel", json!(["north"]));
+        let _ = call(w, "tyler", ActorKind::Citizen, "travel", json!(["south"]));
+        admin(w, "dave", "earn", json!(["wisp", 12, 0.5]));
+        w.tick();
+    };
+    // A played world, a checkpoint in the middle of it (through a file, as boot
+    // reads it), and more play after.
+    let schemas = registry();
+    let files = tempfile::tempdir().unwrap();
+    {
+        let mut w = open(dir.path(), Timestamp(0));
+        for name in ["dave", "tyler", "sphinx"] {
+            login(&mut w, name, "test", PASS).unwrap();
+        }
+        ok(&mut w, "sphinx", "travel", json!(["east"]));
+        for round in 0..4 {
+            play(&mut w, round);
+        }
+        let taken = checkpoint::take(&w, &schemas).expect("a checkpoint");
+        checkpoint::write(files.path(), &taken).unwrap();
+        for round in 4..8 {
+            play(&mut w, round);
+        }
+        login(&mut w, "gnat", "test", PASS).unwrap();
+    }
+    type Folds = (
+        super::board::Fold,
+        crate::net::CitizensFold,
+        super::talk::Tells,
+    );
+    let said = |f: &Folds| {
+        (
+            serde_json::to_value(&f.0).unwrap(),
+            serde_json::to_value(&f.1).unwrap(),
+            serde_json::to_value(&f.2).unwrap(),
+        )
+    };
+    let boot = |from: Option<checkpoint::Checkpoint>, at: Option<i64>| {
+        let mut folds: Folds = Default::default();
+        let mut start = None;
+        if let Some(c) = from {
+            folds = (
+                serde_json::from_value(c.board).unwrap(),
+                serde_json::from_value(c.citizens).unwrap(),
+                serde_json::from_value(c.tells).unwrap(),
+            );
+            start = Some((
+                c.store.restored(schemas.clone()),
+                c.jobs,
+                c.seq,
+                at.unwrap_or(c.at),
+            ));
+        }
+        let w = World::open_from(
+            WorldId("test".into()),
+            Store::new(schemas.clone()),
+            LogBacking::File(dir.path().to_path_buf()),
+            start,
+            &mut |e| match e {
+                Some(e) => {
+                    folds.0.take(e);
+                    folds.1.take(e);
+                    folds.2.take(e);
+                }
+                None => folds = Default::default(),
+            },
+        )
+        .unwrap();
+        (w, folds)
+    };
+    let (whole, whole_folds) = boot(None, None);
+    assert_eq!(whole.from_checkpoint, None);
+    let kept = checkpoint::load(files.path(), "test", &schemas).expect("it loads");
+    let seq = kept.seq;
+    let head = whole.log.head(&whole.id).unwrap().unwrap().0;
+    assert!(
+        seq > 100 && head > seq + 50,
+        "the checkpoint is mid-log: {seq} of {head}"
+    );
+    let (short, short_folds) = boot(Some(kept), None);
+    assert_eq!(short.from_checkpoint, Some(seq));
+    assert!(short.store == whole.store, "the store, and its indexes");
+    assert_eq!(
+        short.jobs.pending().collect::<Vec<_>>(),
+        whole.jobs.pending().collect::<Vec<_>>()
+    );
+    assert_eq!(said(&short_folds), said(&whole_folds));
+    assert_eq!(short_folds.0.after(), head);
+
+    // A checkpoint of another log (the event at its place was written at another
+    // time): set aside, the folds started again, and the whole log replayed.
+    let other = checkpoint::load(files.path(), "test", &schemas).unwrap();
+    let (again, again_folds) = boot(Some(other), Some(-1));
+    assert_eq!(again.from_checkpoint, None);
+    assert!(again.store == whole.store);
+    assert_eq!(said(&again_folds), said(&whole_folds));
+    // And one of another world, or of other schemas, does not load at all.
+    assert!(checkpoint::load(files.path(), "elsewhere", &schemas).is_none());
+    assert!(checkpoint::load(files.path(), "test", &Default::default()).is_none());
+}

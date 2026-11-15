@@ -5,6 +5,9 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-15 (S16 a, the checkpoint; one driver deploy)
+- Boot starts from a checkpoint of the store, the jobs and the three whole-log folds and replays only the events after it; a checkpoint that is missing, of another format, world or schemas, or that does not sit on this log, is set aside with a line in the journal and the whole log replayed. Written a minute after boot and daily, to a file beside the data. Held to a whole-log boot by a test and by a local world on PostgreSQL. The archive table and the comparison workflow (S16 b, c) are not started.
+
 11-15 (David's answers after five hundred; one driver deploy)
 - **6 a**: a creature of the Reading Rooms has no dying trick (a redactor halved a memory in the line of its own death); the Lower Stacks' keep theirs. **7 a**: an errand's `word` is read by no query: `look` beside the giver, a `tell` to it, and `wants` once had, say it; the play page says "wants a word carried to X (look says the word)". **8 b**: a creature weighs a guess at its third word from a name every three minutes, was ten. **9 b**: the sixteen words on a refused story stay where they are. **10 a**: a story heard as the wanted one inside its hour says that it counted as that, meant so or not, and that it was the hour's one early hearing.
 - **13 (the first hour)**: `help` opens with what to do (look, attack a nameless creature, wants, story, travel, retreat, rest, mine) before its verbs, and files fifteen verbs that stood under "other"; `wants` ends by saying what "pays double" and "1.1× while names are few" mean.

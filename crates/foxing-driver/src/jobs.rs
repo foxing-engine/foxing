@@ -67,6 +67,13 @@ impl Jobs {
         self.pending.values()
     }
 
+    /// S16: the pending set as a checkpoint carries it, and back.
+    pub fn restored(jobs: Vec<Job>) -> Jobs {
+        Jobs {
+            pending: jobs.into_iter().map(|j| ((j.due, j.id), j)).collect(),
+        }
+    }
+
     /// Whether a job of this kind whose payload matches `pred` is pending.
     pub fn has(&self, kind: &str, pred: impl Fn(&Value) -> bool) -> bool {
         self.pending

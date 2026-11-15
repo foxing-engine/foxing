@@ -31,7 +31,7 @@ pub const CENSUS_EVERY_MS: i64 = 600_000;
 pub const DAY_MS: i64 = 86_400_000;
 
 /// One citizen's line.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Line {
     pub name: String,
     pub passing: bool,
@@ -78,7 +78,7 @@ pub struct Line {
 /// What the board has folded out of the log so far, and the last event it read (S1:
 /// it read the whole log on every asking, fourteen seconds at a quarter of a
 /// million events; now it reads on from where it stopped).
-#[derive(Default)]
+#[derive(Default, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Fold {
     after: u64,
     lines: BTreeMap<String, Line>,
@@ -93,6 +93,8 @@ pub(crate) struct Fold {
 }
 
 impl crate::world::LogFold for Fold {
+    // S16: a checkpoint carries this fold. If the same events would now fold to
+    // something else, raise `checkpoint::FORMAT`, or old counts live on in it.
     fn after(&self) -> u64 {
         self.after
     }
