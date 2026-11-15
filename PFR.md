@@ -374,6 +374,19 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   up. **S15 is therefore first: (0) keep the lock off the runtime's workers (more
   workers at once; then the sessions' observations on blocking threads), before
   (a) the read-write lock or (b) a larger box.**
+  **Five hundred, twice more, and what it really was (11-14, 22:27 and 22:35):**
+  forty-eight runtime workers changed nothing in the generator's figures (4 s at
+  the middle). Then the world timed from the workspace while a runner drove five
+  hundred names: `/health` 0.29 to 0.32 s and `board` about 0.5 s, **the same as with
+  nobody there**, for the last two minutes at full crowd; and one minute of stalls
+  of 2 to 10 s before it. So (1) the generator's own round trips above two hundred
+  names are mostly the generator (one Python loop reading a gigabyte of frames),
+  and (2) the stall was the departure sweep: a quarter of an hour after a restart
+  everyone the process has not heard from since goes, all in one tick under the
+  lock, and each run tonight came a quarter of an hour after a deploy (the 8 s and
+  11 s waits for the lock were this). A tick now sees off or forgets twelve names
+  at most. To prove: five hundred with the sweep landing mid-run, timed from
+  outside the generator throughout.
   **A second place to test from:** `tools/loadtest.sh <names> <minutes>` on any
   machine with SSH to the box (an SSH tunnel to the driver's own port, around
   nginx's per-address limits), and the same as a hand-run workflow, `Load test`.

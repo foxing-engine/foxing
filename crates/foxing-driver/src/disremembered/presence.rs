@@ -144,6 +144,7 @@ pub fn forget_sweep(world: &mut World) -> Result<(), String> {
             }
         })
         .map(|e| e.id)
+        .take(MOST_A_TICK)
         .collect();
     for id in faded {
         forget(world, id)?;
@@ -353,6 +354,12 @@ pub fn returned(world: &mut World, actor: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// S15: how many names one tick sees off, or forgets. A crowd that goes quiet
+/// together (five hundred names a quarter of an hour after a restart, which counts
+/// everyone quiet since it started) was all seen off in one tick, under the world's
+/// lock: ten seconds in which nothing was answered. The rest wait for the next ticks.
+pub const MOST_A_TICK: usize = 12;
+
 /// Every citizen quiet for [`ABSENCE`] goes. A citizen the process has not heard from
 /// since it started is quiet since then.
 pub fn sweep(world: &mut World) -> Result<(), String> {
@@ -368,6 +375,7 @@ pub fn sweep(world: &mut World) -> Result<(), String> {
                     .0
                     >= ABSENCE.0
         })
+        .take(MOST_A_TICK)
         .collect();
     for (actor, id) in quiet {
         depart(world, &actor, id)?;
