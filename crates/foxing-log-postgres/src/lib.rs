@@ -221,7 +221,25 @@ impl PostgresLog {
         let mut tx = client.transaction().map_err(storage)?;
         tx.execute("SELECT pg_advisory_xact_lock($1)", &[&SCHEMA_LOCK])
             .map_err(storage)?;
-        tx.batch_execute(SCHEMA).map_err(storage)?;
+        // Only where something is missing. `CREATE INDEX IF NOT EXISTS` locks its
+        // table against writers before it looks, existing index or not: an opener
+        // then held `events` and waited for `events_archive` while an archive move
+        // held the archive and waited for `events`, and the database ended one of
+        // them as a deadlock (a test failed one run in three; on the box it would
+        // have been a driver's boot or a move).
+        let whole: bool = tx
+            .query_one(
+                "SELECT to_regclass('events') IS NOT NULL
+                    AND to_regclass('events_world_kind') IS NOT NULL
+                    AND to_regclass('events_archive') IS NOT NULL
+                    AND to_regclass('events_archive_world_kind') IS NOT NULL",
+                &[],
+            )
+            .map_err(storage)?
+            .get(0);
+        if !whole {
+            tx.batch_execute(SCHEMA).map_err(storage)?;
+        }
         tx.commit().map_err(storage)?;
         let (tx, rx) = mpsc::channel::<Request>();
         std::thread::Builder::new()
@@ -249,7 +267,11 @@ impl PostgresLog {
 }
 
 fn storage(e: postgres::Error) -> LogError {
-    LogError::Storage(e.to_string())
+    // With the database's own words: "db error" alone hid a deadlock for a day.
+    LogError::Storage(match e.as_db_error() {
+        Some(db) => format!("{e}: {} ({})", db.message(), db.code().code()),
+        None => e.to_string(),
+    })
 }
 
 /// The last event this connection appended to a world: its sequence and its time.

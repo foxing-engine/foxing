@@ -882,6 +882,7 @@ pub fn pass(
     }
 
     let passed = result.verdict == "PASS";
+    let before_charge = budget.remaining(actor, now);
     if !compiled && !(reads_only && passed) {
         budget.charge(actor, now, passed);
     } else if cost > 0.0 {
@@ -1012,6 +1013,9 @@ pub fn pass(
                     // R110: the quarter a refused or voided message costs, said beside
                     // the free read (the counter fell with no message charged).
                     "; reads alone are free, as here; refusals cost a quarter"
+                } else if (before_charge - left - 1.0).abs() < 0.01 {
+                    // R176: a read beside a refused action still cost one, unsaid.
+                    "; this message cost one (reads alone are free)"
                 } else {
                     "; a message of reads alone (look, chunks, rest, wants) is free"
                 },
