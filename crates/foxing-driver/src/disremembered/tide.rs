@@ -45,6 +45,10 @@ pub const HEIGHTS: &[(&str, f64)] = &[
     (SHELF, 0.06),
 ];
 
+/// The wing's own kinds: a stock one standing from before its kind was softened is
+/// brought to what the kind is now, at boot (`reading::settle`).
+pub const KINDS: &[&str] = &["newtling", "mudskipper", "hermit", "axolotl", "anemone"];
+
 /// The middle of a cycle's length, and how far either end of it may be moved.
 pub const CYCLE_MS: i64 = 40 * 60 * 1000;
 pub const JITTER_MS: i64 = 4 * 60 * 1000;
@@ -276,6 +280,9 @@ fn closes_over(
 ) -> Result<(), String> {
     let now = world.now().0;
     let grace = grace_s(world, citizen);
+    let rname = plain_str(world, room, ROOM, "name")
+        .unwrap_or("This room")
+        .to_string();
     let jar = match super::craft::carries(world, citizen, JAR) {
         Some(j) => super::craft::spend(world, actor, j, "kept the water off you")
             .map(|n| format!(" Your {n} holds a breath of air around you: three times as long."))
@@ -285,12 +292,14 @@ fn closes_over(
     super::combat::narrate(
         world,
         actor,
+        // By the room's name: a walk through one to the Wrack Line was told "this
+        // room is under water" in the reply that set it down in the dry.
         format!(
-            "{} You have {grace} seconds before it hurts; then a point every {TICK_S} seconds, and more the longer you stay. Nothing mends under water.{jar}",
+            "{} You have {grace} seconds there before it hurts; then a point every {TICK_S} seconds, and more the longer you stay. Nothing mends under water.{jar}",
             if walked_in {
-                "This room is under water, and you are in it to the chest."
+                format!("{rname} is under water, and you are in it to the chest.")
             } else {
-                "The water is over the floor, and rising past your knees."
+                format!("The water is over the floor of {rname}, and rising past your knees.")
             }
         ),
     );
@@ -316,6 +325,16 @@ pub fn on_arrival(
     }) {
         return Ok(());
     }
+    // Already under water in the room just left: the hurt that was coming is still
+    // coming, when it was due, and the count of minutes under goes on. (A door
+    // between two flooded rooms was a fresh half minute of grace each way.)
+    let carried: Option<(i64, i64)> = world
+        .jobs
+        .pending()
+        .find(|j| {
+            j.kind == JOB_WATER && j.payload["citizen"] == citizen.0 && j.payload["stage"] == "tick"
+        })
+        .and_then(|j| Some((j.due.0, j.payload["since"].as_i64()?)));
     world.cancel(JOB_WATER, |p| p["citizen"] == citizen.0)?;
     let Some(height) = height_of(world, room) else {
         return Ok(());
@@ -326,7 +345,29 @@ pub fn on_arrival(
     let now = world.now().0;
     let s = season(world);
     match floods_at(now, height, s) {
-        None => closes_over(world, actor, citizen, room, true),
+        None => match carried {
+            Some((due, since)) => {
+                let rname = plain_str(world, room, ROOM, "name")
+                    .unwrap_or("This room")
+                    .to_string();
+                super::combat::narrate(
+                    world,
+                    actor,
+                    format!("{rname} is under water too: there is no fresh breath in it, and the water goes on as it was."),
+                );
+                super::combat::recurve_mending(world, citizen).map_err(|e| e.to_string())?;
+                schedule(
+                    world,
+                    due.max(now + 1000),
+                    citizen,
+                    actor,
+                    room,
+                    "tick",
+                    since,
+                )
+            }
+            None => closes_over(world, actor, citizen, room, true),
+        },
         Some(at) if at - now <= 60_000 => {
             super::combat::narrate(
                 world,
@@ -530,7 +571,8 @@ pub fn look_line(world: &World, actor: &str, room: EntityId) -> Option<String> {
         // says it too, to whoever asks.
         Some(at) if at - now < 60_000 => "The water is over the sill: this room goes under inside a minute.",
         Some(at) if at - now < 3 * 60_000 => "The water is at the sill, and coming in.",
-        Some(at) if at - now < 10 * 60_000 && falling => "The floor is wet and the water is still going out; a room this low is not clear of it long.",
+        // (Of a deep room only: a middle room said "well out" and then this.)
+        Some(at) if at - now < 10 * 60_000 && falling && height < 0.2 => "The floor is wet and the water is still going out; a room this low is not clear of it long.",
         Some(at) if at - now < 10 * 60_000 => "The floor is wet and the water is on its way back: you can hear it in the next room.",
         Some(_) => "The floor is wet, and the water is well out.",
     };

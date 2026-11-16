@@ -259,14 +259,16 @@ pub const CREATURES: &[CreatureDef] = &[
     CreatureDef { key: "picnicker", name: "picnicker", hp: 30.0, attack: 5.0, xp: 100.0, aggressive: false, strike_seconds: 10, ambush: "sets down the teapot. \"You're late,\" it says, with no mouth to say it with.", glyph: "p", tint: "#d8b890" },
     CreatureDef { key: "longsight", name: "longsight", hp: 40.0, attack: 6.0, xp: 160.0, aggressive: false, strike_seconds: 9, ambush: "unfolds a neck as long as the hill and looks at you from very close.", glyph: "L", tint: "#9ab0c8" },
     CreatureDef { key: "gardener", name: "gardener", hp: 55.0, attack: 7.0, xp: 220.0, aggressive: false, strike_seconds: 9, ambush: "straightens from the border with the shears, and the shadow of the stuck sun does not move.", glyph: "G", tint: "#6a8a4a" },
-    // C9: the Drowned Wing, tide pools and amphibians. Newtlings are mild; a
+    // C9: the Drowned Wing, tide pools and amphibians. Paid on the scale of the
+    // ground floor (a wisp of 8 and 2 pays 15, a ragpicker of 16 and 3 pays 40): a
+    // newtling paid 30 at first, and two of them made a level of 57. Newtlings are mild; a
     // mudskipper's hop may put you through a door; a hermit's shell takes the first
     // blow; an axolotl mends by what it bites; an anemone's sting puts an arm to
     // sleep. The starfish lies across the way to the Burning Shelf and waits.
-    CreatureDef { key: "newtling", name: "newtling", hp: 10.0, attack: 1.0, xp: 30.0, aggressive: false, strike_seconds: 12, ambush: "slides off a wet shelf and looks at you with both sides of its head.", glyph: "n", tint: "#7fae8a" },
-    CreatureDef { key: "mudskipper", name: "mudskipper", hp: 18.0, attack: 3.0, xp: 45.0, aggressive: false, strike_seconds: 10, ambush: "walks up out of the puddle on its elbows, as if it had been asked.", glyph: "m", tint: "#8a7f5e" },
-    CreatureDef { key: "hermit", name: "hermit", hp: 32.0, attack: 3.0, xp: 75.0, aggressive: false, strike_seconds: 11, ambush: "stands the inkwell it lives in up on six legs, and comes about slowly.", glyph: "h", tint: "#b08a6a" },
-    CreatureDef { key: "axolotl", name: "axolotl", hp: 30.0, attack: 5.0, xp: 95.0, aggressive: true, strike_seconds: 9, ambush: "comes smiling out of the pool, pink as a gum, its frills opening like a book.", glyph: "x", tint: "#e3a3b4" },
+    CreatureDef { key: "newtling", name: "newtling", hp: 10.0, attack: 1.0, xp: 14.0, aggressive: false, strike_seconds: 12, ambush: "slides off a wet shelf and looks at you with both sides of its head.", glyph: "n", tint: "#7fae8a" },
+    CreatureDef { key: "mudskipper", name: "mudskipper", hp: 18.0, attack: 3.0, xp: 42.0, aggressive: false, strike_seconds: 10, ambush: "walks up out of the puddle on its elbows, as if it had been asked.", glyph: "m", tint: "#8a7f5e" },
+    CreatureDef { key: "hermit", name: "hermit", hp: 32.0, attack: 3.0, xp: 60.0, aggressive: false, strike_seconds: 11, ambush: "stands the inkwell it lives in up on six legs, and comes about slowly.", glyph: "h", tint: "#b08a6a" },
+    CreatureDef { key: "axolotl", name: "axolotl", hp: 30.0, attack: 5.0, xp: 90.0, aggressive: true, strike_seconds: 9, ambush: "comes smiling out of the pool, pink as a gum, its frills opening like a book.", glyph: "x", tint: "#e3a3b4" },
     CreatureDef { key: "anemone", name: "anemone", hp: 36.0, attack: 6.0, xp: 115.0, aggressive: true, strike_seconds: 9, ambush: "does not move at all; the floor where you put your foot is what moves.", glyph: "a", tint: "#c46a8a" },
     CreatureDef { key: "starfish", name: "starfish", hp: 160.0, attack: 9.0, xp: 420.0, aggressive: false, strike_seconds: 8, ambush: "lifts one arm off the stone, the width of the door, and lets you see the underside of it.", glyph: "S", tint: "#d9824a" },
     // X5 (11-06): the library's own, on the floors between the door and the Stacks.
@@ -2838,6 +2840,13 @@ pub fn register(world: &mut World, curves: Curves) {
                 }
             }
             let shaken_line = shaken_said(w, f.citizen).map(|l| format!(" {l}")).unwrap_or_default();
+            // An arm put to sleep by a bite was said once, with no figure, and `rest`
+            // did not say it at all.
+            let numb_line = plain_num(w, f.citizen, BODY, "numb_until")
+                .map(|u| u as i64 - w.now().0)
+                .filter(|left| *left > 0)
+                .map(|left| format!(" Your arm is asleep for {} more: your strikes do half.", human(left)))
+                .unwrap_or_default();
             let text = match eta {
                 // Every branch says when a bandage went (#12: it was spent in a fight
                 // and the reply never said so).
@@ -2870,7 +2879,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 .filter(|l| l.contains("takes a liking"))
                 .map(|l| format!(" {l}"))
                 .unwrap_or_default();
-            Ok(Outcome::new(format!("{text}{shaken_line}{bog_line}"), json!({"hp": current, "max_hp": max_hp(w, f.citizen), "full_in_seconds": eta.map(|d| d.0 / 1000), "bandage_spent": !bandaged.is_empty(), "to_hit": to_hit(w, f.citizen), "shaken_ms_left": shaken(w, f.citizen).map(|(_, l)| l)})))
+            Ok(Outcome::new(format!("{text}{shaken_line}{numb_line}{bog_line}"), json!({"hp": current, "max_hp": max_hp(w, f.citizen), "full_in_seconds": eta.map(|d| d.0 / 1000), "bandage_spent": !bandaged.is_empty(), "to_hit": to_hit(w, f.citizen), "shaken_ms_left": shaken(w, f.citizen).map(|(_, l)| l)})))
         }),
     );
 }

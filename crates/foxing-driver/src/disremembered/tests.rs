@@ -12818,7 +12818,7 @@ fn the_drowned_wing_keeps_its_tide() {
     w.tick();
     let said = narrative(&w, "dave", before).join(" ");
     assert!(
-        said.contains("You have 30 seconds before it hurts"),
+        said.contains("You have 30 seconds there before it hurts"),
         "{said}"
     );
     assert!(tide::under(&w, f.citizen));
@@ -12855,14 +12855,31 @@ fn the_drowned_wing_keeps_its_tide() {
     assert!(said.contains("Under water: it takes 2"), "{said}");
     assert_eq!(combat::hp(&w, f.citizen), whole - 8.0, "{said}");
     assert_eq!(
-        said.matches("You have 30 seconds before it hurts").count(),
+        said.matches("You have 30 seconds there before it hurts")
+            .count(),
         1,
         "{said}"
     );
     // The next room is a hand higher and has gone under half a minute behind this
     // one: a flooded room is walked into, and says what it is.
+    let hurt = combat::hp(&w, f.citizen);
     let out = ok(&mut w, "dave", "travel", json!(["west"]));
     assert!(out.summary.contains("The Kelp Stacks"), "{}", out.summary);
+    // And through a door between two flooded rooms the water goes on as it was: no
+    // fresh grace, the next hurt when it was due, two a tick still.
+    w.fixed_now = Some(Timestamp(wet + 109_000));
+    w.tick();
+    let said = narrative(&w, "dave", before).join(" ");
+    assert!(
+        said.contains("The Kelp Stacks is under water too"),
+        "{said}"
+    );
+    assert_eq!(combat::hp(&w, f.citizen), hurt - 2.0, "{said}");
+    assert_eq!(
+        said.matches("seconds there before it hurts").count(),
+        1,
+        "{said}"
+    );
     assert!(
         out.summary.contains("this room is under water"),
         "{}",

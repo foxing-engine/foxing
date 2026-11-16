@@ -487,7 +487,8 @@ pub fn settle(world: &mut World) -> Result<usize, String> {
         let Some(kind) = plain_str(world, e.id, CREATURE, "name") else {
             continue;
         };
-        if !is_told(kind)
+        // (C9: and the Drowned Wing's kinds, softened the night they opened.)
+        if !(is_told(kind) || super::tide::KINDS.contains(&kind))
             || super::mind::name(world, e.id).is_some()
             || super::mind::level(world, e.id) >= 0.5
         {
