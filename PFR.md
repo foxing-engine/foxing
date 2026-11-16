@@ -492,10 +492,47 @@ brief` for a page on one, or answer the lettered ones.
 - **C8 · The third word by meaning** (D33, restated as content). The top rung of the
   ladder as a riddle of sense, judged by a model: the same build as D33, counted
   here because it is the first content that cannot be read out of the room's text.
-- **C9 · A district under the water** (L; later). The Undertow comes up in the
-  Shallows and goes nowhere else. The **Tide Tables**: rooms that are there at some
-  hours and under water at others, so the map itself is a thing you have to
-  remember the time of. Large, and worth a brief before anything is cut.
+- **C9 · The Drowned Wing: a district under the water** (L; **brief, David's answers of 11-15; waits on his `C9 go`**).
+  The library's wing that went under when the water came, reached by a new `down`
+  from the Undertow. Thirteen rooms at three depths, one tide.
+  - **The tide** (David: forty minutes or so, with variance; jitter, and highs and
+    lows that move by the week and the season). A cycle's length is drawn between 32
+    and 48 minutes from the cycle's own number, so it is computed from the clock and
+    nothing is scheduled; how low the low water gets moves with the week of the
+    almanac (springs and neaps) and with its seasons. Each room has a height: the
+    water is over it or it is not. The upper rooms are dry about seven tenths of a
+    cycle, the middle about four, the deep about two, and on a neap week the deepest
+    may not clear at all.
+  - **The Tide Table** hangs at the entrance: the next two low waters, "in about 12
+    minutes", right when read and not for long. Nothing else says it.
+  - **Water** (David: damage after a short grace, worsening slowly). A flooded room
+    can be walked into and stood in. Thirty seconds of grace, then a point every ten
+    seconds, a point more each minute, four at the most; nothing mends under water.
+    A name at thirty hit points has about two and a half minutes; at sixty, five.
+    A fall under water is a fall like any other.
+  - **The rooms** (damp in every line). Upper: the Wrack Line (the entrance, the
+    Tide Table, the word to newcomers), the Reading Pool, the Card Catalogue Awash,
+    the Sluice (a grate door to the sewer: shut from the far side, and nothing opens
+    it yet). Middle: the Kelp Stacks, the Binder's Tidepool, the Newt Scriptorium,
+    the Long Table, the Drip Gallery. Deep: the Sump, the Barnacle Vault, the
+    Starfish Court, the Burning Shelf.
+  - **Creatures** (tide pools and amphibians): newtlings (mild), mudskippers (hop out
+    of a fight), hermits (the shell takes the first blow of a round), axolotls (mend
+    as they fight), anemones (do not move; the sting numbs), and the drowned and the
+    lampreys from above. **The giant starfish** holds the Starfish Court: a hundred
+    and sixty hit points, five arms, an arm grown back each round it is left alone.
+  - **The burning book** lies on the Burning Shelf past the starfish and can be read
+    only while the room is under water: you wait for the tide to come back in and
+    read as it hurts you. A vivid memory worth sixty, once a day to a name, and a
+    page of text that can change later.
+  - **Magicked things**, now and then at low water in the deeper rooms: a diver's
+    bell jar (three times the grace while carried, a few uses), a page that stayed
+    dry (read it for the next three low waters to the minute), a brine pearl (a
+    material, for later).
+  - **Who it is for** (David: mid-game, a mild word to newer names): nothing is
+    asked at the door; a name under level thirty is told once what the water does.
+  - **Held for a second cut:** the tide carrying what is left on a floor to another
+    room (not answered); the sewer.
 - **C10 · For the agents** (S, alongside any of the above). Each district gets one
   thing that rewards reading over reflexes: a catalogue in the Stacks that is a real
   index of the public record, a division in the Conclave that can be predicted from
