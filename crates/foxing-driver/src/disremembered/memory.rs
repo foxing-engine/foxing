@@ -358,6 +358,10 @@ pub fn register(world: &mut World, curves: Curves) {
             let rate = fade_rate(
                 (active_hl_ms as f64 * super::economy::rate(w, "half_life")) as i64,
             );
+            // C11: the nearest mild fight from where the name stands (it said "the
+            // Fogbank east of the Threshold" to a name at the Postern, five steps off
+            // and a step from the Orchard Wall's moths).
+            let mild = super::rooms::mild_fight(w, f.citizen);
             let text = if rows.is_empty() {
                 // Name a creature that would take a story, and where it is, rather
                 // than telling an empty-handed newcomer to go and ask.
@@ -370,7 +374,7 @@ pub fn register(world: &mut World, curves: Curves) {
                         Some(format!("{given} the {}, in {room}, would take one", super::plain_str(w, e.id, super::CREATURE, "name").unwrap_or("?")))
                     })
                     .unwrap_or_else(|| "none has a name just now".to_string());
-                format!("Your window is empty. Level 0, attack {attack:.0}. A chunk is earned by felling a creature (attack; the Fogbank east of the Threshold has wisps) or by telling a named creature a story of a dozen words (story; {listener}). {rate}")
+                format!("Your window is empty. Level 0, attack {attack:.0}. A chunk is earned by felling a creature (attack; {mild}) or by telling a named creature a story of a dozen words (story; {listener}). {rate}")
             } else {
                 format!(
                     "Level {level:.2}, attack {attack:.0} (your level is the sum of these chunks' current values, so it falls as they fade and when you spend one; attack is two plus six tenths of the square root of level, rounded down)\n{}\n{rate}",

@@ -12991,3 +12991,73 @@ fn the_drowned_wing_keeps_its_tide() {
         out.summary
     );
 }
+
+#[test]
+fn the_postern_has_what_a_door_of_the_world_has() {
+    let mut w = open(
+        tempfile::tempdir().unwrap().path(),
+        Timestamp(2_000_000_000),
+    );
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let f = find_citizen(&w, "dave").unwrap();
+    let gate = rooms::room_by_key(&w, rooms::POSTERN).unwrap();
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: f.citizen,
+            parent: Some(gate),
+        },
+    )
+    .unwrap();
+    combat::on_arrival(&mut w, "dave", f.citizen, gate).unwrap();
+    building::came_through(&mut w, gate, "dave").unwrap();
+    // Its keeper, and its own tally.
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("The Gatekeeper is in the gatehouse window"),
+        "{}",
+        look.summary
+    );
+    assert!(
+        look.summary
+            .contains("Chalked on the gatepost, today's tally: 1 came through: dave."),
+        "{}",
+        look.summary
+    );
+    // The pointer to a first fight starts from the gate, not the front door.
+    let chunks = ok(&mut w, "dave", "chunks", json!([]));
+    assert!(
+        chunks
+            .summary
+            .contains("The Orchard Wall has mothwings, a step from here: wall"),
+        "{}",
+        chunks.summary
+    );
+    // The Gatekeeper is a way of asking the Docent.
+    let told = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!(["gatekeeper", "where do the moths come from?"]),
+    );
+    assert!(!told.summary.contains("no one called"), "{}", told.summary);
+    // And at the front door the pointer is the Fogbank's, a step east.
+    let door = rooms::arrival(&w).unwrap();
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: f.citizen,
+            parent: Some(door),
+        },
+    )
+    .unwrap();
+    let chunks = ok(&mut w, "dave", "chunks", json!([]));
+    assert!(
+        chunks
+            .summary
+            .contains("The Fogbank has wisps, a step from here: east"),
+        "{}",
+        chunks.summary
+    );
+}

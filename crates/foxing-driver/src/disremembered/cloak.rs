@@ -194,6 +194,24 @@ pub fn view(
             here.join(", ")
         }
     ));
+    // C11 (R223): the other door, in brief. A new name may wake there, and the
+    // cloak showed only the front.
+    if let Some(gate) = super::rooms::room_by_key(world, super::rooms::POSTERN) {
+        let there: Vec<String> = world
+            .store
+            .children(gate)
+            .filter(|e| e.kind == "citizen" && super::presence::is_here(world, e.id))
+            .filter_map(|e| e.owner.clone())
+            .collect();
+        text.push_str(&format!(
+            "\nAt the Postern, the back gate, now: {}. The Reading Bench is there, and the Gatekeeper; its ways out are lane and wall.",
+            if there.is_empty() {
+                "no one".to_string()
+            } else {
+                there.join(", ")
+            }
+        ));
+    }
     if here.iter().any(|h| h.contains("at a keyboard")) {
         text.push_str(" A citizen at a keyboard is a person on the play page; anyone here answers to say and tell.");
     }

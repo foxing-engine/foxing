@@ -44,9 +44,7 @@ From the Night's Watch of 11-08:
 - **R140** (S; looked at 11-10, open: the source is built in one place (errand.rs, "carrying <sender>'s word to <receiver>"), so the two clauses are likely two memories, one carried each way; kept for a Watch to reproduce) A dug room's "Dug by Thistlecroft with the memory of carrying Corrowkin's word to Corrow" and "Kept in memory by Thistlecroft (with carrying Corrow's word to Corrowkin)" flip the word's direction between clauses: one of the two source strings is built backward.
 - **R144** (S) The Docent suggests `tell Wyndle "what is your word?"` minutes after Wyndle's name failed (it is wisp-6579); the by-heart and the model's briefing should read the creature's current display.
 From the Watch of six, 11-13, the night the second door opened (a newcomer, a faller, a teller, a walker, a manual reader on a kept name, a latecomer; all six woke at the Postern; see T16):
-- **R221** (S) What is left: the chalk tally lists a name as "came through" that has never stood at the Threshold (it counts arrivals at either door). (The newborn's row says it is newborn and for how long, 11-14.)
-- **R222** (S) What the Postern still lacks beside the Threshold: the Docent in person, the day's name, a tally. The quickstart's list of signposts leaves the Postern's out, and its signpost says nothing of how far the Threshold is. `where mothwing` from the Postern names the Wall and not the Orchard; `where bench` offers two other benches before the Reading Bench.
-- **R223** (S) The cloak shows the Threshold whatever door a name will wake at, and says so in a line; it could show the door a new name would wake at just then, or both in brief.
+- **R222** (S) What is left at the Postern: `where mothwing` from the Postern names the Wall and not the Orchard; `where bench` offers two other things first.
 - **R224** (S) An absent name gets two answers: `tell Gnashfall` (away) "They will hear it when they return", `tell Gnewelpost` (gone, forgotten on leaving) "There is no one called Gnewelpost", at a quarter, and `where` answers with the whole catalogue of what it can find. (`tell` says "The world has forgotten <name>" of one it knew lately, 11-14.) `where <name>` recommends `log`, and `log` takes a count, not a name. A word said in a room after you left it reaches you only if you walk back ("Said here lately"), never through `messages`.
 - **R226** (S) A long message's reply is cut "under the statement limit"; it now says what was cut (receipts first, then the last answers) and that every statement ran. What is left: cut the answers to reads before the answers to acts, which wants each line to know its statement.
 - **R227** (S) The quickstart, what is left: `reply` to a letter whose writer is forgotten too is not described; the first letter a visitor sees may be no. 2.
@@ -104,7 +102,6 @@ From the Night's Watch of 11-10 (on a local copy):
 - **R168** (S) "The fog gives up shapes: 2 wisps" with one wisp in `look` (a named one beside it was counted, or one had gone): count what arrives.
 - **R169** (S) A wisp drifts in at "0.3/8.3": a wounded one that left comes back unmended and reads as a new spawn; say "comes back, still hurt", or mend it away.
 - **R170** (S) The map draws the Mezzanine and the Stopped Clocktower side by side though no door joins them (11-16; no room is drawn twice now).
-- **R171** (S) The Long Afternoon's "(8 off)" is unexplained.
 - **R173** (S) A thing that lay in a room and is gone on the next short arrival leaves no line ("as you left it" over a room missing its charm): short, a room says what has changed since ("Charmkin is gone").
 - **R175** (S) `read` with no thing means the room's page in the Conclave's rooms and "Nothing here has writing on it" in the Bar: one meaning, said in `help read`.
 
@@ -433,18 +430,7 @@ where this starts: the door is crowded, the middle is empty, and almost nothing 
 for two names at once. Sizes are for a first cut that a Watch can play. Say `C4
 brief` for a page on one, or answer the lettered ones.
 
-- **C11 · The Postern, what is left** (S; the second door is open, 11-13: a new name
-  wakes at whichever of the Threshold and the Postern has fewer names in it, the
-  Threshold at a tie; `FOXING_SECOND_DOOR=0` shuts it).
-  - *Next:* a Watch of six on the live world (David's word), half of whom will wake
-    at the gate.
-  - *Still the Threshold's alone:* the Docent in person (the Postern has its card;
-    R76b's Under-Docent as a Gatekeeper is the figure, if wanted), the chalk tally
-    of who came through, the day's name, the cloak's view, and the pointers that
-    send a newcomer "east to the Fogbank" from wherever it stands (`chunks` when
-    empty, the Docent's by-heart tips: R151's cousin).
-  - *Not done and not planned:* a name coming back from away is where it left the
-    world, as now, not at its door.
+- **C11 · The Postern** (done 11-16: the Gatekeeper, the gate's own tally and day, the cloak's line for it, and a first-fight pointer from where a name stands). *Not done and not planned:* a name coming back from away is where it left the world, as now, not at its door.
 - **C2 · The Reading Rooms, what is left** (M; the first cut is live, 11-13: six
   rooms up a stair from the Archive, their creatures fought by tellings of fights
   you remember, a proofreader that strikes for repeats, a lampmoth that takes a

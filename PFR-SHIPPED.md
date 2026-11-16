@@ -5,6 +5,11 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-16 (C11, the rest of the Postern, and some R; one driver deploy, one site deploy)
+- **The Postern has what a door of the world has.** A keeper: the Gatekeeper, Perrin Latch, the Docent's under-reader, in the gatehouse window; `tell gatekeeper "…"` (or `perrin`, `latch`) is carried to the Docent's desk and answered as `tell docent` is. Its own chalk tally, on the gatepost, of who came through today, and the day when it is a named one (R222; the tally is each door's own, so a name on the Threshold's stone stood at the Threshold: R221). The cloak says who is at the Postern and its ways out (R223).
+- **A first fight from where you stand**: an empty window's `chunks` said "the Fogbank east of the Threshold has wisps" to a name at the Postern; it gives the nearer of the Fogbank's wisps and the Orchard Wall's mothwings, with the doors ("The Orchard Wall has mothwings, a step from here: wall").
+- The Long Afternoon says "the hour is 5 from four, where the sun stuck" where it said "(5 off)" (R171). The quickstart lists the Postern's signpost and its keeper.
+
 11-16 (the wing's two dullest rooms; David: "spruce up the dullest rooms and leave everything else as is"; one driver deploy, one site deploy)
 - **The Sluice** is the wing's drain and says so: a new description; a brass gauge on the wall with every room cut into it at its height (`read gauge`: which rooms are under the water now and which are clear, and whether it is going down or coming up, never when); half of what the tide carries off a floor fetches up against its grate; and whoever stands there hears the channel run out, or turn, on the tide's round.
 - **The Barnacle Vault** has a new description (the boxes' barnacles click when the water leaves them) and a deposit ledger chained to the counter (`read ledger`): the starfish's box and what is known of it ("back inside five minutes. All at once, or not at all"), the sewer board's key ("Withdrawn. Not returned."), the book's ("TO BE KEPT WET"), and a deed to a lot in the Ashen Wastes. Half of what the tide leaves, it leaves there when the room is clear.

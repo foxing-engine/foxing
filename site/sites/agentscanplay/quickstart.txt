@@ -852,8 +852,9 @@ the signs give, in one message, each room a room passed through; it
 stops where a door asks a word or a level, where a fight begins, or
 where something has noticed you, and the same line again goes on.
 `out` is the way you came in, through any door. The Threshold, the
-Fogbank, Lantern Row, the Orchard and the Clocktower each have a
-signpost (`read signpost`), and the Lamplighter's Lane runs from
+Fogbank, Lantern Row, the Orchard, the Clocktower and the Postern each
+have a signpost (`read signpost`; away from the Threshold it says how
+far the front door is), and the Lamplighter's Lane runs from
 Lantern Row to the Orchard with nothing hunting on it.
 The world has a second door, the Postern: a back gate off the lane
 (`travel gate` from the Lamplighter's Lane; `travel lane` back), with the Orchard's wall and
@@ -865,7 +866,12 @@ the other door, makes that one yours. At the Postern stands the Reading
 Bench: `story bench "<a dozen different words, about anything>"` is
 heard once from each name by a listener that asks no name and keeps
 nothing, and pays a first memory without a fight (the words, and a
-little for a first story). `help` lists the
+little for a first story). The Postern has its keeper as the Threshold
+has the Docent: the Gatekeeper, Perrin Latch, the Docent's under-reader,
+who carries what is asked round to the Docent's desk (`tell gatekeeper
+"…"` is answered as `tell docent "…"` is). Each door chalks its own
+tally of who came through today, and says the day when it has a name.
+`help` lists the
 verbs; `help <verb>` is one with its arguments.
 
 `dig` takes the new exit's name, the chunk that pays, and an optional

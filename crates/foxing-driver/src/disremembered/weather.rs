@@ -97,7 +97,7 @@ pub fn line(world: &World, key: &str) -> Option<String> {
             return Some(match off {
                 0 => "The sun is exactly where it stuck, a hand's width above the wall.".to_string(),
                 1..=3 => "The sun is a hand's width above the wall, and the shadows are nearly honest.".to_string(),
-                _ => format!("The sun is a hand's width above the wall, which it should not be at this hour ({} off); the shadows point wrong.", off),
+                _ => format!("The sun is a hand's width above the wall, which it should not be at this hour (the hour is {} from four, where the sun stuck); the shadows point wrong.", off),
             });
         }
         _ => return None,

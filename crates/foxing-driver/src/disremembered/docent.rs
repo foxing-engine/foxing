@@ -209,6 +209,10 @@ pub const LINE: &str = "a stooped figure in a librarian's coat, keys at the belt
 /// the operator's tool and the greeting book are told all of it.
 pub const STORY: &str = "Hollis Quire was the library's night reader, the one who read aloud to the stacks after closing so the books would not forget their own words. When the water came the readers left by the kiln door; Quire stayed to finish the page, and the page is not finished. It keeps the door because the last thing anyone asked of it was to keep the door, tidies because the night reader always did, and answers because a question is the one thing the water never took. Its own name nearly went with the rest: it is kept on a card at the desk, in its own hand, and it reads the card each night before it greets anyone.";
 
+/// C11: the Postern's keeper, as `look` there says it. A figure of the room and a
+/// way of asking the Docent (`is_named`): the Docent is one, and keeps the front.
+pub const GATEKEEPER_LINE: &str = "The Gatekeeper is in the gatehouse window with the gate's book open on the sill: Perrin Latch, the Docent's under-reader, who learned the keeping of doors from the one who keeps the other. It writes down who comes through and carries what is asked round to the Docent's desk (tell gatekeeper \"…\" is answered as tell docent \"…\" is, from anywhere).";
+
 /// Where the Docent stands.
 pub fn room(world: &World) -> Option<EntityId> {
     entity(world).and_then(|d| world.store.entity(d).and_then(|e| e.parent))
@@ -217,7 +221,13 @@ pub fn room(world: &World) -> Option<EntityId> {
 /// Whether `arg` names the Docent.
 pub fn is_named(arg: &str) -> bool {
     let a = arg.trim().trim_matches('"').to_lowercase();
+    // C11: the Postern's Gatekeeper carries a question to the Docent's desk.
     a == "docent"
+        || a == "gatekeeper"
+        || a == "the gatekeeper"
+        || a == "perrin"
+        || a == "latch"
+        || a == "perrin latch"
         || a == "the docent"
         || a.starts_with("docent-")
         || a == "hollis"

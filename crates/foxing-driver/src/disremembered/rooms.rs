@@ -112,6 +112,42 @@ pub fn district_named(text: &str) -> Option<&'static District> {
 }
 
 /// H11: the rooms that have a signpost of their own.
+/// The nearest mild first fight from where a citizen stands, for a pointer: the
+/// Fogbank's wisps or the Orchard Wall's mothwings, whichever is fewer doors off.
+pub fn mild_fight(world: &World, citizen: EntityId) -> String {
+    let here = world.store.entity(citizen).and_then(|e| e.parent);
+    let mut best: Option<(usize, String)> = None;
+    for (key, kind) in [("fogbank", "wisps"), ("orchard-wall", "mothwings")] {
+        let Some(room) = room_by_key(world, key) else {
+            continue;
+        };
+        let name = plain_str(world, room, ROOM, "name").unwrap_or("?");
+        let (steps, said) = match here {
+            Some(h) if h == room => (0, format!("the {kind} here are the mildest there are")),
+            Some(h) => match super::atlas::way_seeded(world, h, room) {
+                Some(way) => (
+                    way.len(),
+                    format!(
+                        "{name} has {kind}, {} from here: {} (`travel \"{name}\"` walks it)",
+                        match way.len() {
+                            1 => "a step".to_string(),
+                            n => format!("{n} steps"),
+                        },
+                        way.join(", ")
+                    ),
+                ),
+                None => continue,
+            },
+            None => continue,
+        };
+        if !best.as_ref().is_some_and(|(n, _)| steps >= *n) {
+            best = Some((steps, said));
+        }
+    }
+    best.map(|(_, s)| s)
+        .unwrap_or_else(|| "the Fogbank east of the Threshold has wisps".to_string())
+}
+
 pub const HUBS: &[&str] = &["fogbank", "lantern-row", "orchard", "clocktower", POSTERN];
 /// The room off the Threshold where the digging starts: every dug door that once hung
 /// off the front door hangs here, and the door cap does not apply.
@@ -1943,8 +1979,8 @@ pub fn describe_as(
     if let Some(f) = super::find_citizen(world, actor) {
         let key = root["components"][ROOM]["key"].as_str().unwrap_or("");
         // (H5's line for a new name, the three ways, is the room's own text since H4.)
-        // R82: the day, when it is a named one.
-        if key == ARRIVAL {
+        // R82: the day, when it is a named one. (C11: at either door of the world.)
+        if key == ARRIVAL || key == POSTERN {
             if let Some(day) = super::life::holiday(world) {
                 if day != super::life::SABBATH {
                     text.push_str(&format!(
@@ -1958,8 +1994,14 @@ pub fn describe_as(
                 }
             }
         }
-        // R80: a chalk tally on the Threshold of who came through today.
-        if key == ARRIVAL {
+        // C11: the back gate has its keeper, as the front door has the Docent: the
+        // Docent's under-reader, who carries what is asked round to the desk.
+        if key == POSTERN {
+            text.push_str(&format!(" {}", super::docent::GATEKEEPER_LINE));
+        }
+        // R80: a chalk tally on the Threshold of who came through today. (C11: and
+        // on the Postern's gatepost.)
+        if key == ARRIVAL || key == POSTERN {
             let names: Vec<String> =
                 super::building::came_through_within(world, room, 24 * 3_600_000)
                     .into_iter()
@@ -1968,7 +2010,8 @@ pub fn describe_as(
             if !names.is_empty() {
                 let shown: Vec<&str> = names.iter().take(6).map(String::as_str).collect();
                 text.push_str(&format!(
-                    " Chalked on the stone, today's tally: {} came through{}{}.",
+                    " Chalked on the {}, today's tally: {} came through{}{}.",
+                    if key == POSTERN { "gatepost" } else { "stone" },
                     names.len(),
                     // R131: "among them" only when the chalk shows fewer than came.
                     if names.len() <= shown.len() {
