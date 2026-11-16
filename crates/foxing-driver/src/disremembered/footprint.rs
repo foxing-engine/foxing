@@ -691,7 +691,7 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
                             a.iter()
                                 .filter_map(|l| {
                                     let v = l["value"].as_f64()?;
-                                    (v >= 0.05).then(|| format!("{v:.1} XP of {}", l["source"].as_str().unwrap_or("a memory")))
+                                    (v >= 0.05).then(|| format!("{v:.1} XP of your memory of {}", l["source"].as_str().unwrap_or("a memory")))
                                 })
                                 .collect()
                         })

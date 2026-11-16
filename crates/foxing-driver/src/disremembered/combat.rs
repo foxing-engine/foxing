@@ -265,7 +265,7 @@ pub const CREATURES: &[CreatureDef] = &[
     // sleep. The starfish lies across the way to the Burning Shelf and waits.
     CreatureDef { key: "newtling", name: "newtling", hp: 10.0, attack: 1.0, xp: 30.0, aggressive: false, strike_seconds: 12, ambush: "slides off a wet shelf and looks at you with both sides of its head.", glyph: "n", tint: "#7fae8a" },
     CreatureDef { key: "mudskipper", name: "mudskipper", hp: 18.0, attack: 3.0, xp: 45.0, aggressive: false, strike_seconds: 10, ambush: "walks up out of the puddle on its elbows, as if it had been asked.", glyph: "m", tint: "#8a7f5e" },
-    CreatureDef { key: "hermit", name: "hermit", hp: 40.0, attack: 3.0, xp: 75.0, aggressive: false, strike_seconds: 11, ambush: "stands the inkwell it lives in up on six legs, and comes about slowly.", glyph: "h", tint: "#b08a6a" },
+    CreatureDef { key: "hermit", name: "hermit", hp: 32.0, attack: 3.0, xp: 75.0, aggressive: false, strike_seconds: 11, ambush: "stands the inkwell it lives in up on six legs, and comes about slowly.", glyph: "h", tint: "#b08a6a" },
     CreatureDef { key: "axolotl", name: "axolotl", hp: 30.0, attack: 5.0, xp: 95.0, aggressive: true, strike_seconds: 9, ambush: "comes smiling out of the pool, pink as a gum, its frills opening like a book.", glyph: "x", tint: "#e3a3b4" },
     CreatureDef { key: "anemone", name: "anemone", hp: 36.0, attack: 6.0, xp: 115.0, aggressive: true, strike_seconds: 9, ambush: "does not move at all; the floor where you put your foot is what moves.", glyph: "a", tint: "#c46a8a" },
     CreatureDef { key: "starfish", name: "starfish", hp: 160.0, attack: 9.0, xp: 420.0, aggressive: false, strike_seconds: 8, ambush: "lifts one arm off the stone, the width of the door, and lets you see the underside of it.", glyph: "S", tint: "#d9824a" },
@@ -1837,7 +1837,11 @@ impl Death {
             );
         }
         if let Some(l) = self.learned {
-            out.push_str(&format!(" And {}.", super::death::learned_said(l)));
+            // "And it has learned to shove" had no "it" before it.
+            out.push_str(&format!(
+                " And what felled you {}.",
+                super::death::learned_said(l).trim_start_matches("it ")
+            ));
         }
         out.push_str(&format!(" You wake at {}", self.door));
         if self.lost.is_none() {
@@ -2584,7 +2588,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     let uses_left = plain_num(w, charm, super::craft::ITEM, "uses").unwrap_or(1.0);
                     let name = super::craft::spend(w, &ctx.actor, charm, &format!("Made the memory of a {} vivid", plain_str(w, creature, CREATURE, "name").unwrap_or("fight")))?;
                     charm_line = if uses_left > 1.5 {
-                        format!(" The {} you carry gives one of its uses, and the memory is the more vivid for it (vividity {before:.2} to {vividity:.2}).", name.trim_start_matches("a "))
+                        format!(" The {} you carry gives one of its uses ({:.0} left), and the memory is the more vivid for it (vividity {before:.2} to {vividity:.2}).", name.trim_start_matches("a "), uses_left - 1.0)
                     } else {
                         // R197: the figure, so the charm can be told from a near loss.
                         format!(" The {} you carried is spent, and the memory is the more vivid for it (vividity {before:.2} to {vividity:.2}).", name.trim_start_matches("a "))
@@ -2629,7 +2633,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     chunk.0,
                     vividity,
                     if vividity > 0.6 {
-                        if first_this_session(w, &ctx.actor, f.citizen, "vivid_rule_said") { " (it had most of your blood for it; this one will last)" } else { " (vivid; it will last)" }
+                        if first_this_session(w, &ctx.actor, f.citizen, "vivid_rule_said") { " (the fight took most of your hit points, so the memory is vivid, and a vivid one fades slowly)" } else { " (vivid; it will last)" }
                     } else { "" },
                     match &left {
                         Some((id, n)) => format!(" It leaves {n} behind (item-{}); take it.", id.0),

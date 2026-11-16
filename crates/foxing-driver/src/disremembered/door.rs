@@ -230,7 +230,7 @@ fn hub_post(world: &World, here: EntityId) -> String {
         })
         .unwrap_or_default();
     format!(
-        "The signpost here has an arm for each way off. {}.{front} `where <a room or a district>` is the way to anywhere; `travel <its name>` walks it.",
+        "The signpost here has an arm for each of the world's own ways off (a dug door has none). {}.{front} `where <a room or a district>` is the way to anywhere; `travel <its name>` walks it.",
         arms.join(". ")
     )
 }

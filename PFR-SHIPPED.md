@@ -5,6 +5,11 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-16 (the hermit softened, and a batch of R; one driver deploy)
+- A hermit has 32 hit points (was 40; David: "just a bit").
+- A first vivid kill of a session says "(the fight took most of your hit points, so the memory is vivid, and a vivid one fades slowly)" where it said "(it had most of your blood for it; this one will last)" (R249). `mine` says "The last fall took 1.0 XP of your memory of wisp" (R249). A fall says "And what felled you has learned to shove" (R211). A charm that gives a use says how many are left (R166). A signpost has "an arm for each of the world's own ways off (a dug door has none)" (R244).
+- Struck as already right when looked at: a fall inside a message says which statements did not run and why (R204); the Namery has one door to the Archive (R215); the Trail is nine rooms, the Stile counted (R171); `map list` was a line in a Watch's brief and in no manual (R170).
+
 11-16 (the ninth Watch, of three, cut short; the wing's first fixes; one driver deploy)
 - Gnautilus (the water), Gnewt (the creatures) and Gnemone (the deep) were the Drowned Wing's first visitors. All three were stopped inside a quarter of an hour by a fault in the session's own tooling, not the world's; what they had seen by then is here, and the deep rooms, a whole tide, the starfish and the book are still unseen on the live world.
 - **The water started over with every message.** A message through the gate is an arrival as far as a room is concerned, and the wing's clock took each one for a walk in: the grace again, a point about every seventeen seconds, never two, the entry line said again after the name had left, and the word to newcomers on every message. A clock already running on a name in a room is now left to run. The test holds it: a point every ten seconds, two once a minute is past, the entry line once.
