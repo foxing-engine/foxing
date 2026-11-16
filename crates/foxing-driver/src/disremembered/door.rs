@@ -52,7 +52,7 @@ pub(crate) fn signed_way(world: &World, here: EntityId, to: EntityId) -> Option<
     Some(p)
 }
 
-fn room_name(world: &World, room: EntityId) -> String {
+pub(super) fn room_name(world: &World, room: EntityId) -> String {
     plain_str(world, room, ROOM, "name")
         .unwrap_or("a room")
         .to_string()
@@ -215,8 +215,22 @@ fn hub_post(world: &World, here: EntityId) -> String {
             )
         })
         .collect();
+    // R249: away from the front door, how far it is (the Postern's post named the
+    // lane and the wall and not the Threshold, three steps round).
+    let front = super::atlas::room_named(world, "The Threshold")
+        .filter(|t| *t != here)
+        .and_then(|t| signed_way(world, here, t))
+        .filter(|way| way.len() > 1)
+        .map(|way| {
+            format!(
+                " The Threshold, the world's front door, is {} steps by the signs: {}.",
+                way.len(),
+                way.join(", ")
+            )
+        })
+        .unwrap_or_default();
     format!(
-        "The signpost here has an arm for each way off. {}. `where <a room or a district>` is the way to anywhere; `travel <its name>` walks it.",
+        "The signpost here has an arm for each way off. {}.{front} `where <a room or a district>` is the way to anywhere; `travel <its name>` walks it.",
         arms.join(". ")
     )
 }
@@ -294,7 +308,8 @@ fn wall(world: &World, here: EntityId) -> String {
                         format!(", dug {} ago", super::combat::human(ms))
                     }
                 })
-                .unwrap_or_default();
+                // R207: three doors of nine had an age and the rest said nothing.
+                .unwrap_or_else(|| ", dug before the wall kept dates".to_string());
             Some((
                 m,
                 format!(

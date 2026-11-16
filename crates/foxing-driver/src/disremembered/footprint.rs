@@ -120,7 +120,7 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
             .filter(|(x, at)| x.story_at > *at && x.story.is_some())
             .map(|(x, _)| {
                 format!(
-                    " (turned {} ago)",
+                    " (a new want: the last one was met or passed {} ago)",
                     super::combat::human(world.now().0 - x.story_at)
                 )
             })
@@ -667,9 +667,8 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
             },
             match falls {
                 1 => "half",
-                2 => "a quarter",
-                3 => "an eighth",
-                _ => "a small part of",
+                // The halving has a floor at a quarter (it said "an eighth").
+                _ => "a quarter",
             }
         ));
     }
@@ -698,7 +697,7 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
                         })
                         .unwrap_or_default();
                     if lost.is_empty() {
-                        " The last fall took no memory: its share came to less than a tenth of a point.".to_string()
+                        " The last fall took no memory: its share came to less than one point, and a share that small takes nothing.".to_string()
                     } else {
                         format!(" The last fall took {}.", lost.join(", "))
                     }
@@ -707,13 +706,13 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
             let next = (takes * factor).max(0.0);
             Some(format!(
                 "{last} The next fall would take {}, and leave your strikes unsteady for {} minutes (five more with each fall of the night, whatever the memory cost).",
-                if next < 0.1 { "no memory to speak of".to_string() } else { format!("about {next:.1} XP of the {level:.0} you carry now") },
+                if next < 1.0 { "no memory (its share would come to less than one point, and a share that small takes nothing)".to_string() } else { format!("about {next:.1} XP of the {level:.0} you carry now") },
                 5 * (falls + 1)
             ))
         } else {
             None
         }
-        .or_else(|| (falls == 0 && takes >= 0.5).then(|| {
+        .or_else(|| (falls == 0 && takes >= 1.0).then(|| {
             format!(
                 " A fall now would take about {takes:.1} XP, {:.0}% of the {level:.0} you carry, and leave your strikes unsteady for five minutes (a fall takes a share of the window that grows with what you hold; a second the same night takes half that share and unsteadies you for ten).",
                 super::combat::death_share(level) * 100.0

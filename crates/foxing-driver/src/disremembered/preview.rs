@@ -375,6 +375,25 @@ pub fn run_checked(
                                         )
                                     })
                                     .unwrap_or_default();
+                                // The rooms passed, as the walk itself says them.
+                                let mut at = room;
+                                let path: Vec<String> = path
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(i, step)| {
+                                        at = at.and_then(|r| {
+                                            rooms::exits_of(world, r).get(step).copied()
+                                        });
+                                        match at {
+                                            Some(r) if i + 1 < path.len() => format!(
+                                                "{step} ({})",
+                                                room_name_in(&dug_names, Some(r))
+                                                    .trim_start_matches("The ")
+                                            ),
+                                            _ => step.clone(),
+                                        }
+                                    })
+                                    .collect();
                                 if let Some(r) = room {
                                     trail.push(r);
                                 }

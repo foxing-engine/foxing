@@ -192,7 +192,7 @@ pub fn register(world: &mut World) {
             };
             Ok(Outcome::new(
                 format!(
-                    "The pigeonholes hold {total} dead letter{}: words left for names the world forgot before they were heard.{more}\n{}\n`letters <no>` reads one whole; `reply <no> \"…\"` answers it to whoever wrote it; `carry <no>` takes one whose name is held again to its new holder.",
+                    "The pigeonholes hold {total} dead letter{}: words left for names the world forgot before they were heard (a letter keeps the number it was given, so the list need not begin at 1).{more}\n{}\n`letters <no>` reads one whole; `reply <no> \"…\"` answers it to whoever wrote it; `carry <no>` takes one whose name is held again to its new holder.",
                     if total == 1 { "" } else { "s" },
                     rows.join("\n")
                 ),

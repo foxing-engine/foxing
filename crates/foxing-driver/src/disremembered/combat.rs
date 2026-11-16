@@ -1727,10 +1727,15 @@ impl Death {
                 super::death::ordinal(self.fall),
                 match self.fall {
                     2 => "half the share",
-                    3 => "a quarter of the share",
-                    4 => "an eighth of the share",
-                    _ => "almost none of the share",
+                    // The halving has a floor at a quarter.
+                    _ => "a quarter of the share",
                 }
+            ));
+        } else if self.lost.is_none() && self.fall > 1 {
+            // `mine` had said half a point; "nothing at yours" read as a level's rule.
+            out.push_str(&format!(
+                " The {} fall of the night took no memory: its share came to less than one point, and a share that small takes nothing.",
+                super::death::ordinal(self.fall)
             ));
         } else if self.lost.is_none() {
             out.push_str(
@@ -2451,7 +2456,7 @@ pub fn register(world: &mut World, curves: Curves) {
                         chunk.0,
                         // Why this one got up and another came apart went unsaid.
                         if left >= 0.5 {
-                            format!("holding {left:.0} (one that holds a memory loses a memory when it is felled, and stands; one holding nothing comes apart)")
+                            format!("holding {left:.0} (one that holds a memory loses a memory when it is felled, and stands; one holding nothing worth taking comes apart)")
                         } else {
                             "holding nothing now (that was its last memory: felled again, it comes apart)".to_string()
                         },

@@ -6919,7 +6919,7 @@ fn where_finds_a_way_you_remember_and_travel_takes_a_room_name() {
     let out = ok(&mut w, "dave", "travel", json!(["The Midden"]));
     assert!(
         out.summary
-            .starts_with("You walk east, south to The Midden."),
+            .starts_with("You walk east (Fogbank), south to The Midden."),
         "{}",
         out.summary
     );
@@ -9276,7 +9276,7 @@ fn the_door_has_a_signpost_and_the_mudroom_boots_and_a_spade() {
     assert!(
         walked
             .summary
-            .starts_with("You walk lane, row, south, west to The Mudroom."),
+            .starts_with("You walk lane (Lamplighter's Lane), row (Lantern Row), south (Threshold), west to The Mudroom."),
         "{}",
         walked.summary
     );

@@ -493,7 +493,7 @@ pub fn describe_as(world: &World, creature: EntityId, worded: bool) -> Option<St
             if rotatable(&e.story_by) && e.story_at > 0 && world.now().0 - e.story_at < 30 * 60_000
             {
                 format!(
-                    " (turned {} ago)",
+                    " (a new want: the last one was met or passed {} ago)",
                     super::combat::human(world.now().0 - e.story_at)
                 )
             } else {

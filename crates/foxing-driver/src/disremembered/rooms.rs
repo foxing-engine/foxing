@@ -2543,6 +2543,9 @@ fn walk(
     target: &str,
 ) -> Result<Outcome, foxing_registry::CommandError> {
     let mut taken: Vec<String> = Vec::new();
+    // R193: the rooms passed, beside the doors taken ("over, north, east, east"
+    // went through the Bog without a word of it).
+    let mut said: Vec<String> = Vec::new();
     let mut last: Option<Outcome> = None;
     let mut stopped: Option<String> = None;
     for (i, step) in path.iter().enumerate() {
@@ -2550,6 +2553,16 @@ fn walk(
             Ok(out) => {
                 taken.push(step.clone());
                 let died = out.result["died"] == true;
+                let now_in = w.store.entity(citizen).and_then(|c| c.parent);
+                said.push(match now_in {
+                    Some(r) if i + 1 < path.len() => {
+                        format!(
+                            "{step} ({})",
+                            super::door::room_name(w, r).trim_start_matches("The ")
+                        )
+                    }
+                    _ => step.clone(),
+                });
                 last = Some(out);
                 if i + 1 == path.len() {
                     break;
@@ -2597,10 +2610,10 @@ fn walk(
         .map(|(_, b)| b.to_string())
         .unwrap_or_else(|| out.summary.clone());
     out.summary = match &stopped {
-        None => format!("You walk {} to {target}. {body}", taken.join(", ")),
+        None => format!("You walk {} to {target}. {body}", said.join(", ")),
         Some(why) => format!(
             "You walk {} toward {target} and stop: {}. {}{body}",
-            taken.join(", "),
+            said.join(", "),
             // R195: a refusal that ends in its own period made "…where you stand..".
             why.trim_end_matches('.'),
             if rest.is_empty() {
