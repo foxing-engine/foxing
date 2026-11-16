@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       what:
-        description: "analytics | driver | vitals | verify-checkpoint | rehearse-archive | all"
+        description: "analytics | driver | vitals | verify-checkpoint | rehearse-archive | archive-live (moves the live log: David's go) | all"
         default: "all"
       minutes:
         description: "vitals only: how long to sample (1 to 25)"
@@ -53,6 +53,12 @@ jobs:
           [ "$minutes" -gt 25 ] && minutes=25; [ "$minutes" -lt 1 ] && minutes=1
           APP=/srv/foxing; [ -d $APP ] || APP=/srv/moondial
           echo "## host $(hostname), app $APP, $(date -u)"
+          if [ "$what" = archive-live ]; then
+            # S16 (c): THE LIVE MOVE. A dump first, a dry run, the move in batches,
+            # the checkpoint verified against both tables after. David's go, each time.
+            bash $APP/current/deploy/archive-live.sh </dev/null 2>&1 | cut -c1-700
+            exit ${PIPESTATUS[0]}
+          fi
           if [ "$what" = rehearse-archive ]; then
             # S16 (c): the archive move on a copy of the live log, in the load
             # database; one read of the live log, nothing written to it.
