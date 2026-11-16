@@ -263,7 +263,7 @@ pub const CREATURES: &[CreatureDef] = &[
     // mudskipper's hop may put you through a door; a hermit's shell takes the first
     // blow; an axolotl mends by what it bites; an anemone's sting puts an arm to
     // sleep. The starfish lies across the way to the Burning Shelf and waits.
-    CreatureDef { key: "newtling", name: "newtling", hp: 12.0, attack: 2.0, xp: 30.0, aggressive: false, strike_seconds: 12, ambush: "slides off a wet shelf and looks at you with both sides of its head.", glyph: "n", tint: "#7fae8a" },
+    CreatureDef { key: "newtling", name: "newtling", hp: 10.0, attack: 1.0, xp: 30.0, aggressive: false, strike_seconds: 12, ambush: "slides off a wet shelf and looks at you with both sides of its head.", glyph: "n", tint: "#7fae8a" },
     CreatureDef { key: "mudskipper", name: "mudskipper", hp: 18.0, attack: 3.0, xp: 45.0, aggressive: false, strike_seconds: 10, ambush: "walks up out of the puddle on its elbows, as if it had been asked.", glyph: "m", tint: "#8a7f5e" },
     CreatureDef { key: "hermit", name: "hermit", hp: 40.0, attack: 3.0, xp: 75.0, aggressive: false, strike_seconds: 11, ambush: "stands the inkwell it lives in up on six legs, and comes about slowly.", glyph: "h", tint: "#b08a6a" },
     CreatureDef { key: "axolotl", name: "axolotl", hp: 30.0, attack: 5.0, xp: 95.0, aggressive: true, strike_seconds: 9, ambush: "comes smiling out of the pool, pink as a gum, its frills opening like a book.", glyph: "x", tint: "#e3a3b4" },
@@ -2236,7 +2236,7 @@ pub fn register(world: &mut World, curves: Curves) {
                             format!("{} is gone, and nothing else is here to fight.", name.trim())
                         } else {
                             format!(
-                                "{} is gone (felled, or drifted off). Still here: {}. Name the one you mean; a bare `attack` takes the nearest.",
+                                "{} is not here (felled, drifted off, or left behind in the room you were put out of). Still here: {}. Name the one you mean; a bare `attack` takes the nearest.",
                                 name.trim(),
                                 still.join(", ")
                             )
@@ -2838,6 +2838,8 @@ pub fn register(world: &mut World, curves: Curves) {
                 // Every branch says when a bandage went (#12: it was spent in a fight
                 // and the reply never said so).
                 _ if current < max_hp(w, f.citizen) - 0.5 && engaged_with(w, f.citizen).is_some() => format!("{bandaged}You have {current:.0}/{:.0}. Nothing mends in a fight; `retreat` (it costs one parting blow), and it starts.", max_hp(w, f.citizen)),
+                // C9: under water it said "You are whole" at 28 of 30.
+                _ if current < max_hp(w, f.citizen) - 0.5 && super::tide::under(w, f.citizen) => format!("{bandaged}You have {current:.0}/{:.0}. Nothing mends under water: get above it (the Wrack Line is always dry), and it starts.", max_hp(w, f.citizen)),
                 _ if current < max_hp(w, f.citizen) - 0.5 && bleeding.is_some() => format!("{bandaged}You have {current:.0}/{:.0}. You are bleeding: nothing mends for {} more.", max_hp(w, f.citizen), human((bleeding.unwrap() as i64) - now.0)),
                 // R56: whole within a half point is whole; the eta rounded up past it.
                 Some(d) if d.0 > 0 && current < max_hp(w, f.citizen) - 0.5 => format!("{bandaged}You have {current:.0}/{:.0}. Full in {}.", max_hp(w, f.citizen), human(d.0)),

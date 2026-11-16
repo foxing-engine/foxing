@@ -11586,7 +11586,7 @@ fn the_night_batch_of_11_13_says_what_it_should() {
     .unwrap_err()
     .to_string();
     assert!(
-        err.contains("wisp-999999 is gone") && err.contains("Still here: "),
+        err.contains("wisp-999999 is not here") && err.contains("Still here: "),
         "{err}"
     );
     // The second homes are said by `where`, the nearer first.
@@ -12781,9 +12781,13 @@ fn the_drowned_wing_keeps_its_tide() {
         rooms::district_size(rooms::district_named("drowned wing").unwrap()),
         13
     );
-    // A new name is told what the water does; the Tide Table says when it is out.
-    let told = narrative(&w, "dave", 0).join(" ");
-    assert!(told.contains("the water hurts whoever stays"), "{told}");
+    // A new name is told what the water does, in the room's own text; the Tide
+    // Table says when it is out.
+    assert!(
+        out.summary.contains("the water hurts whoever stays"),
+        "{}",
+        out.summary
+    );
     let out = ok(&mut w, "dave", "read", json!(["table"]));
     assert!(out.summary.contains("low water in"), "{}", out.summary);
     assert!(out.summary.contains("Then: "), "{}", out.summary);
@@ -12832,12 +12836,35 @@ fn the_drowned_wing_keeps_its_tide() {
         whole - 2.0,
         "nothing mends under water"
     );
+    let rest = ok(&mut w, "dave", "rest", json!([]));
+    assert!(
+        rest.summary.contains("Nothing mends under water"),
+        "{}",
+        rest.summary
+    );
+    // A message through the gate is an arrival as far as a room is concerned: the
+    // clock is not started over by one (the first night it was, and the water
+    // never took two). A point every ten seconds, and two once a minute is past.
+    combat::on_arrival(&mut w, "dave", f.citizen, drip).unwrap();
+    for at in [54_000, 65_000, 76_000, 87_000, 98_000] {
+        w.fixed_now = Some(Timestamp(wet + at));
+        combat::on_arrival(&mut w, "dave", f.citizen, drip).unwrap();
+        w.tick();
+    }
+    let said = narrative(&w, "dave", before).join(" ");
+    assert!(said.contains("Under water: it takes 2"), "{said}");
+    assert_eq!(combat::hp(&w, f.citizen), whole - 8.0, "{said}");
+    assert_eq!(
+        said.matches("You have 30 seconds before it hurts").count(),
+        1,
+        "{said}"
+    );
     // The next room is a hand higher and has gone under half a minute behind this
     // one: a flooded room is walked into, and says what it is.
     let out = ok(&mut w, "dave", "travel", json!(["west"]));
     assert!(out.summary.contains("The Kelp Stacks"), "{}", out.summary);
     assert!(
-        out.summary.contains("This room is under water"),
+        out.summary.contains("this room is under water"),
         "{}",
         out.summary
     );
@@ -12845,9 +12872,10 @@ fn the_drowned_wing_keeps_its_tide() {
     // mends.
     put(&mut w, f.citizen, "wing-pool");
     assert!(!tide::under(&w, f.citizen));
-    w.fixed_now = Some(Timestamp(wet + 110_000));
+    let hurt = combat::hp(&w, f.citizen);
+    w.fixed_now = Some(Timestamp(wet + 160_000));
     w.tick();
-    assert!(combat::hp(&w, f.citizen) > whole - 2.0);
+    assert!(combat::hp(&w, f.citizen) > hurt);
 
     // The grate in the Sluice is a door and no exit.
     put(&mut w, f.citizen, "wing-sluice");
@@ -12905,6 +12933,33 @@ fn the_drowned_wing_keeps_its_tide() {
     assert_eq!(out.result["paid"], false, "{}", out.summary);
     assert!(
         out.summary.contains("You have read this page today"),
+        "{}",
+        out.summary
+    );
+
+    // At high water a walk asked for by name does not set out into it, the Wrack
+    // Line says which doors are under, and the door itself still goes in.
+    w.fixed_now = Some(Timestamp(tide::begins(k + 1) + 1_000));
+    put(&mut w, f.citizen, "wing-wrack");
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("Under water now: east (Reading Pool), south (Swollen Drawers)."),
+        "{}",
+        look.summary
+    );
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["The Sump"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("is under water now"), "{err}");
+    let out = ok(&mut w, "dave", "travel", json!(["east"]));
+    assert!(
+        out.summary.contains("The water is over you"),
         "{}",
         out.summary
     );

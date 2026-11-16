@@ -306,22 +306,21 @@ pub fn on_arrival(
     citizen: EntityId,
     room: EntityId,
 ) -> Result<(), String> {
+    // A message through the gate is an arrival too, as far as a room is concerned
+    // (a name logging in where something hunts is arriving): a clock already
+    // running on this citizen in this room is left to run. The first night's water
+    // started over with every message: the grace again, a point every seventeen
+    // seconds and never two, and the entry line said after the citizen had left.
+    if world.jobs.has(JOB_WATER, |p| {
+        p["citizen"] == citizen.0 && p["room"] == room.0
+    }) {
+        return Ok(());
+    }
     world.cancel(JOB_WATER, |p| p["citizen"] == citizen.0)?;
     let Some(height) = height_of(world, room) else {
         return Ok(());
     };
-    if key_of(world, room) == Some(WRACK) {
-        // The mild word, to a name that has not much to lose yet and all of it to lose.
-        let level = super::find_citizen(world, actor)
-            .map(|f| super::memory::level(world, f.window))
-            .unwrap_or(0.0);
-        if level < WARN_UNDER_LEVEL {
-            super::combat::narrate(
-                world,
-                actor,
-                "A word, since you are new to it: the rooms below this one go under with the tide, and the water hurts whoever stays. Read the Tide Table here (`read table`) before you go down, and come back up when a room says the water is at the sill. This room is always dry.",
-            );
-        }
+    if height >= 1.0 {
         return Ok(());
     }
     let now = world.now().0;
@@ -483,19 +482,51 @@ fn wash_up(world: &mut World, actor: &str, citizen: EntityId) -> Result<(), Stri
     Ok(())
 }
 
-/// One line for `look` in a room of the wing: where the water is.
-pub fn look_line(world: &World, room: EntityId) -> Option<String> {
+/// One line for `look` in a room of the wing: where the water is here, which of the
+/// doors lead into it now (a middle room is under while the room above it is dry,
+/// and the first visitor walked into one blind), and at the Wrack Line, to a name
+/// with little to lose and all of it to lose, the mild word.
+pub fn look_line(world: &World, actor: &str, room: EntityId) -> Option<String> {
     let height = height_of(world, room)?;
-    if height >= 1.0 {
-        return Some("The high-water mark runs along the wall at your shoulder: this room is always dry. The Tide Table hangs by the stair (`read table`).".to_string());
-    }
     let now = world.now().0;
-    Some(match floods_at(now, height, season(world)) {
-        None => "This room is under water. After half a minute of it you are hurt, a little and then more, and nothing mends until you are out; the Wrack Line is always dry.".to_string(),
-        Some(at) if at - now < 3 * 60_000 => "The water is at the sill, and coming in.".to_string(),
-        Some(at) if at - now < 10 * 60_000 => "The floor is wet and the water is on its way back: you can hear it in the next room.".to_string(),
-        Some(_) => "The floor is wet, and the water is well out.".to_string(),
-    })
+    let s = season(world);
+    let mut wet: Vec<String> = super::rooms::exits_of(world, room)
+        .into_iter()
+        .filter(|(_, to)| flooded(world, *to))
+        .map(|(via, to)| {
+            format!(
+                "{via} ({})",
+                plain_str(world, to, ROOM, "name")
+                    .unwrap_or("?")
+                    .trim_start_matches("The ")
+            )
+        })
+        .collect();
+    wet.sort();
+    let doors = if wet.is_empty() {
+        String::new()
+    } else {
+        format!(" Under water now: {}.", wet.join(", "))
+    };
+    if height >= 1.0 {
+        let new = super::find_citizen(world, actor)
+            .is_some_and(|f| super::memory::level(world, f.window) < WARN_UNDER_LEVEL);
+        return Some(format!(
+            "The high-water mark runs along the wall at your shoulder: this room is always dry. The Tide Table hangs by the stair (`read table`).{doors}{}",
+            if new {
+                " A word, since you are new to it: the rooms below go under with the tide, and the water hurts whoever stays. Read the table before you go down, and come back up when a room says the water is at the sill."
+            } else {
+                ""
+            }
+        ));
+    }
+    let here = match floods_at(now, height, s) {
+        None => "The water is over you: this room is under water. After half a minute of it you are hurt, a little and then more, and nothing mends until you are out; the Wrack Line is always dry.",
+        Some(at) if at - now < 3 * 60_000 => "The water is at the sill, and coming in.",
+        Some(at) if at - now < 10 * 60_000 => "The floor is wet and the water is on its way back: you can hear it in the next room.",
+        Some(_) => "The floor is wet, and the water is well out.",
+    };
+    Some(format!("{here}{doors}"))
 }
 
 /// What the Tide Table says: the next two low waters, roughly, and how good each is.

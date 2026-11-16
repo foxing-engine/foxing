@@ -860,7 +860,9 @@ pub const ROOMS: &[RoomDef] = &[
     },
     RoomDef {
         key: "wing-catalogue",
-        name: "The Card Catalogue, Awash",
+        // (It was "The Card Catalogue, Awash": the Stacks have a Card Catalogue, and
+        // a walk asked for by name left the wing for it.)
+        name: "The Swollen Drawers",
         description: "A hall of small drawers, ten thousand of them, every one swollen shut or burst open. The cards have come out and papered the floor in a grey felt a hand deep that moves when you step on it and goes on moving after. A drawer slides out by itself as you pass, drips, and slides back. Things that live in puddles have filed themselves here.",
         exits: &[("north", "wing-wrack"), ("east", "wing-kelp"), ("south", "wing-binder")],
         spawn: Some(("mudskipper", 2, 150)),
@@ -2304,7 +2306,7 @@ pub fn describe_as(
         text.push(' ');
         text.push_str(&t);
     }
-    if let Some(t) = super::tide::look_line(world, room) {
+    if let Some(t) = super::tide::look_line(world, actor, room) {
         text.push(' ');
         text.push_str(&t);
     }
@@ -2682,6 +2684,27 @@ fn walk(
     let mut last: Option<Outcome> = None;
     let mut stopped: Option<String> = None;
     for (i, step) in path.iter().enumerate() {
+        // C9: a walk asked for by name does not step out of the dry into water (the
+        // first visitor asked for the Sump and was walked four rooms down into it,
+        // every one of them flooded). The door itself, typed, still goes in; and a
+        // walk begun under water goes on through it, since that is the way out.
+        let here = w.store.entity(citizen).and_then(|c| c.parent);
+        let next = here.and_then(|h| exits_of(w, h).get(step).copied());
+        if let (Some(h), Some(n)) = (here, next) {
+            if super::tide::flooded(w, n) && !super::tide::flooded(w, h) {
+                let said = format!(
+                    "the next room ({step}: {}) is under water now; `travel {step}` goes in all the same, and the Tide Table at the Wrack Line says when it clears",
+                    super::door::room_name(w, n).trim_start_matches("The ")
+                );
+                if taken.is_empty() {
+                    return Err(foxing_registry::CommandError::precondition(format!(
+                        "You do not set out for {target}: {said}."
+                    )));
+                }
+                stopped = Some(said);
+                break;
+            }
+        }
         match w.call(ctx, "travel", &json!([step])) {
             Ok(out) => {
                 taken.push(step.clone());
