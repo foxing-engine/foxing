@@ -469,7 +469,12 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             // D32 a: at the third rung, one guess at the word every three minutes. A
             // story sent sooner is not weighed at all: no strike, no miss, no hint.
-            if within_hour && !wanted_early && super::secret::would_strike_any(w, &ctx.actor, creature) {
+            // D40c: a creature full for the hour weighs a guess at its word as one
+            // inside the teller's own hour does, and a story that carries the word
+            // is heard by it even then (`wants` had promised so).
+            let full = heard_this_hour(w, creature) >= STORIES_AN_HOUR;
+            let strikes = super::secret::would_strike(w, &ctx.actor, creature, &text);
+            if (within_hour || (full && !strikes)) && !wanted_early && super::secret::would_strike_any(w, &ctx.actor, creature) {
                 if let Some(ms) = super::secret::next_guess_in(w, &ctx.actor, creature) {
                     return Err(CommandError::precondition(format!(
                         "{name} weighs one guess at its third and last word from a name every three minutes, and weighed one of yours {}; it will weigh another in {}. That story was not weighed: it is neither a miss nor the word. (The story it wants is still heard, at plain pay.)",
@@ -485,14 +490,9 @@ pub fn register(world: &mut World, curves: Curves) {
                 if word_left {
                     super::secret::declined(w, &ctx.actor, creature, &text)?;
                 }
-                // R117: a story that carried a word of the pool, and was not it, is
-                // told so by the word, so the guess counts for something.
-                let carried = super::secret::as_told(&text, &super::secret::carried_of_pool(w, creature, &text));
-                let not_it = match carried.len() {
-                    0 => String::new(),
-                    1 => format!(" It carried {}; that is not the word.", carried[0]),
-                    _ => format!(" It carried {}; none of those is the word.", carried.join(", ")),
-                };
+                // R117, and D40c for every rung and source: a story that carried a
+                // word its word could be, and was not it, is told so by the word.
+                let not_it = super::secret::miss_said(w, &ctx.actor, creature, &text);
                 return Err(CommandError::precondition(format!(
                     "{name} is still turning your last story over: one an hour (its hour with you{}). {}{not_it}{}",
                     match hour_turns_in(w, &ctx.actor, creature) {
@@ -510,9 +510,16 @@ pub fn register(world: &mut World, curves: Curves) {
                         .unwrap_or_default()
                 )));
             }
-            if heard_this_hour(w, creature) >= STORIES_AN_HOUR && !bonus_only && !wanted_early {
+            if full && !bonus_only && !wanted_early && !strikes {
+                // D40c: a guess at its word is weighed all the same, and answered.
+                let word_left = super::secret::would_strike_any(w, &ctx.actor, creature);
+                if word_left {
+                    super::secret::declined(w, &ctx.actor, creature, &text)?;
+                }
+                let not_it = super::secret::miss_said(w, &ctx.actor, creature, &text);
                 return Err(CommandError::precondition(format!(
-                    "{name} has heard {STORIES_AN_HOUR} stories in its hour and is turning them over; it takes no more until that hour turns. `wants` names another."
+                    "{name} has heard {STORIES_AN_HOUR} stories in its hour and is turning them over; it takes no more until that hour turns{}. `wants` names another.{not_it}",
+                    if word_left { ", but for one that carries the word under the others, and it weighed that one for it" } else { "" }
                 )));
             }
             // The story is said, as itself.

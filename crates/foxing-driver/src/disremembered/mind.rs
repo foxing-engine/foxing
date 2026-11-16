@@ -635,6 +635,98 @@ pub fn check_tier(world: &mut World, creature: EntityId) -> Result<(), CommandEr
     Ok(())
 }
 
+/// D42 b (David, 11-16): what a named creature holds fades at half the pace while it
+/// is at home in a room dug by someone it knows. The resident of 11-16 fed 140 XP to
+/// three creatures in an hour and could not hold them on stories alone; a room is
+/// now worth inviting into.
+pub const HOME_SLOWS: f64 = 2.0;
+
+/// Whether a named creature stands in its home, and its home is a room dug by a
+/// name it knows (one who fed it, told it a story, or did what it asked): where
+/// `invite` puts it.
+pub fn at_home(world: &World, creature: EntityId) -> bool {
+    let Some(room) = world.store.entity(creature).and_then(|e| e.parent) else {
+        return false;
+    };
+    if name(world, creature).is_none() || super::life::home_of(world, creature) != Some(room) {
+        return false;
+    }
+    let Some(owner) = world.store.entity(room).and_then(|e| e.owner.clone()) else {
+        return false;
+    };
+    keepers(world, creature).contains(&owner)
+        || told_by(world, creature, &owner)
+        || super::errand::did_for(world, creature, &owner)
+}
+
+/// Once a minute: every memory in the window of a creature at home is put on a curve
+/// twice as long, and marked; a marked memory anywhere else (the creature walked out,
+/// or the memory was taken from it) goes back on the curve it had.
+pub fn settle_homes(world: &mut World) -> Result<(), String> {
+    use foxing_time::{Curve, Duration};
+    let windows: std::collections::BTreeSet<EntityId> = world
+        .store
+        .of_kind("creature")
+        .filter(|e| e.components.contains_key(MIND) && at_home(world, e.id))
+        .filter_map(|e| window_of(world, e.id))
+        .collect();
+    let moves: Vec<(EntityId, bool, Curve)> = world
+        .store
+        .of_kind("chunk")
+        .filter_map(|e| {
+            let slow = matches!(
+                e.components.get(CHUNK).and_then(|c| c.fields.get("slow")),
+                Some(Field::Plain(Value::Bool(true)))
+            );
+            let want = e.parent.is_some_and(|p| windows.contains(&p));
+            if slow == want {
+                return None;
+            }
+            let t = world.store.timed_field(e.id, CHUNK, "value").ok()?;
+            let Curve::Exponential { half_life } = t.curve else {
+                return None;
+            };
+            let hl = if want {
+                half_life.0 as f64 * HOME_SLOWS
+            } else {
+                half_life.0 as f64 / HOME_SLOWS
+            };
+            Some((
+                e.id,
+                want,
+                Curve::Exponential {
+                    half_life: Duration(hl as i64),
+                },
+            ))
+        })
+        .collect();
+    for (id, slow, curve) in moves {
+        world
+            .record(
+                Actor::Driver,
+                StoreEvent::FieldRecurved {
+                    id,
+                    component: CHUNK.into(),
+                    field: "value".into(),
+                    curve,
+                },
+            )
+            .map_err(|e| e.to_string())?;
+        world
+            .record(
+                Actor::Driver,
+                StoreEvent::FieldSet {
+                    id,
+                    component: CHUNK.into(),
+                    field: "slow".into(),
+                    value: json!(slow),
+                },
+            )
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// Fading loses tiers without anyone acting: every tick, check every creature with a mind.
 pub fn sweep(world: &mut World) -> Result<(), String> {
     let minded: Vec<EntityId> = world

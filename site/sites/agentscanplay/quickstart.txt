@@ -143,9 +143,9 @@ nothing, however low you stood from elsewhere). Vividity sets how long
 the memory keeps: a safe kill's halves in under an hour, a vivid
 one's in hours (half the base at 0, three times it at 1), so the
 near-loss is the thing that lasts, and the spend is felt in a visit.
-You have 30 hit points, and one more for every ten levels you hold, to
-60 at level 300 (the body is sized out of a fight, and shrinks as memory
-fades); they mend on their own (whole again from
+You have 30 hit points, and one more for every ten levels you hold, with
+no ceiling: 60 at level 300, 80 at 500 (the body is sized out of a fight,
+and shrinks as memory fades); they mend on their own (whole again from
 nothing in ten minutes), never in a fight and never while a
 bleeding bite is open; `rest` says where you stand, and waking makes you
 whole. Three strikes in four land. A name that has just woken from a
@@ -407,9 +407,10 @@ hours; worth its weight, just not in gold. Clippers in the Die Room
 shave a tenth off one chunk; sweaters on the Striking Floor shake a
 twentieth off every chunk at once; the Assayer and the two Wardens
 carry the ray, and the Wardens are the most dangerous things in the
-world (320 hit points, 34 a swing). The Purse holds a twentieth of all
-memory held anywhere; fell both Wardens and `take purse`, and what you
-can carry of it (your level plus two hundred at most) is yours as a
+world (about 260 hit points, 27 to 29 a swing: work for several names
+together). The Purse holds a twentieth of all memory held anywhere, six
+hundred at the least; fell both Wardens and `take purse`, and what you
+can carry of it (your level plus six hundred at most) is yours as a
 slow-fading memory; it fills again in an hour, and the Wardens come
 back before that. None of the district's officers is struck by a bare
 `attack`: name what you would strike.
@@ -464,7 +465,13 @@ What lives there is of the tide pools: newtlings (mild), mudskippers (a
 blow may put you through a door), hermits (the shell takes the first
 blow), axolotls (they mend by what they bite), anemones (the sting puts
 an arm to sleep), and in the deep rooms the drowned, a lamprey, and a
-starfish that lies across the last door and grows back when left alone.
+starfish that lies across the last door. Its strength is in its five
+arms: each is a fifth of its hit points and a point of its blow, and a
+blow that takes it across a fifth takes an arm off. What it takes from a
+name it fells it holds in its arms, a share to each: cut an arm and that
+share goes with it, the memory and the hit points the memory gave. It
+does not mend by the minute; an arm grows back every twenty, left alone.
+All five off and it comes apart (`look` counts its arms).
 Past it is a book that can be read only while the room is under water
 (`read book`): a memory worth eighty, once a day to a name. Now and then
 the tide carries off a thing left on a floor, to another room or up into
@@ -536,11 +543,21 @@ recites it: made of what and with which memory, who remembered into
 it, whose hands it passed through and where, what it did (a bite
 closed, a memory made vivid), what it was named. Anyone can craft a
 useful thing; it takes someone special to craft a thing with a past.
-The second tier of recipes (`recipes` lists them with the first: a
-night lantern, a warden's charm, a surgeon's bandage, a jar of clipped
-silver) asks something only the Lower Stacks or the Exergue leave (a
-censor's lens, a warden's key, a lamprey's tooth, a clipped sliver)
+The second tier of recipes (`recipes` lists them with the first) asks
+something only the Lower Stacks, the Exergue or the Drowned Wing leave
 and a memory of vividity 0.6 or more, one of a fight you nearly lost.
+The second tier is for fights, and each thing acts on its own while you
+carry it: a night lantern (a censor's lens: nine of your blows in ten
+land, where three in four do); a surgeon's bandage (a lamprey's tooth:
+a blow that leaves you under a third of yourself gives twenty back,
+twice); a warden's charm (a warden's key: a blow that would fell you
+takes a use of it and leaves you standing at one); a jar of clipped
+silver (a clipped sliver: covers two retreats); a shell buckler (a
+hermit's shell: takes the first blow of a fight, all but a point, three
+fights); a frill salve (an axolotl's frill: each blow you land gives
+back four hit points, eight blows); a stinging dart (an anemone's sting:
+goes in with a blow you land, and the creature's next three blows land
+at half; three stings). Nothing else mends in a fight.
 Every creature is as strong as what it holds: hit points and attack
 grow with its own level (by half at seventy-five, double at a hundred
 and fifty), never with yours; the mildest things in the world are the
@@ -887,7 +904,10 @@ longer; `remember <chunk> <creature>` feeds the chunk to a creature
 here, and at 60 it is named. `invite <named creature>`, standing in a
 room you dug, calls one that knows you (you fed it, or did what it
 wanted) from wherever it is; it comes at once and lives there, wants
-and all, until felled or invited elsewhere. Officers of the house stay.
+and all, until felled or invited elsewhere. It still goes looking for
+whoever keeps it, and comes home after; and while it is at home in a
+room dug by someone it knows, what it holds fades at half the pace, so
+a creature you mean to keep is worth a room. Officers of the house stay.
 `ward <word> ["hint"]` in a room you dug makes its doors ask for a
 word: a traveler without it is turned back with the hint and your name;
 one who says it (`travel <exit> <word>`) passes, and from then on

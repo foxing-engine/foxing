@@ -373,6 +373,39 @@ fn said(text: &str) -> String {
     stems_of(text).into_iter().collect::<Vec<_>>().join(" ")
 }
 
+/// D40c (David, 11-16): what a creature says of its word to a story it did not take
+/// (inside its hour with the teller, or full for the hour), at every rung and for a
+/// word of any source: which of the story's words it could have been. The first rung
+/// said so of a story it heard; a refused story said so only of a word the world
+/// lent, and a full creature said nothing, so the second word could not be scanned
+/// for (the detective of 11-16 struck none in ninety minutes). Empty when the teller
+/// has no word of this creature's left to find.
+pub fn miss_said(world: &World, actor: &str, creature: EntityId, text: &str) -> String {
+    if !would_strike_any(world, actor, creature) {
+        return String::new();
+    }
+    if let Some((n, heard)) = overreach(world, actor, creature, text) {
+        return format!(
+            " Of its word: that story carried {n} of the words it could be, and it hears {} to a story at this rung, so none of them was weighed.",
+            if heard == 1 { "one".to_string() } else { heard.to_string() }
+        );
+    }
+    match carried_candidates(world, actor, creature, text) {
+        Some(g) if g.is_empty() => {
+            " Of its word: that story carried none of the words it could be.".to_string()
+        }
+        Some(g) if g.len() == 1 => format!(
+            " Of its word: you said {}, which it could have been, and is not.",
+            as_told(text, &g)[0]
+        ),
+        Some(g) => format!(
+            " Of its word: you said {}, which it could have been; it is none of them.",
+            as_told(text, &g).join(" and ")
+        ),
+        None => String::new(),
+    }
+}
+
 /// Records a refused in-hour guess (D20 b). The same guess sent again is not a new
 /// miss (D32 a): the teller of 11-11 raised a tally from five to eight by resending.
 pub fn declined(

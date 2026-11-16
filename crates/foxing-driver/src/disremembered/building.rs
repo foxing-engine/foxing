@@ -1347,7 +1347,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.invite",
-            "Ask a named creature that knows you (you fed it, or told it what it wanted) to come and live in this dug room of yours. It comes at once from wherever it is and stays, as creatures do, until it is felled or invited elsewhere; its wants and stories go on here. Officers of the house do not come. A kept name's verb, in a room you own.",
+            "Ask a named creature that knows you (you fed it, or told it what it wanted) to come and live in this dug room of yours. It comes at once from wherever it is and stays, as creatures do, until it is felled or invited elsewhere; its wants and stories go on here, and while it is at home what it holds fades at half the pace (it still goes looking for whoever keeps it, and comes back). Officers of the house do not come. A kept name's verb, in a room you own.",
         )
         .param("creature", ParamType::Entity, true, "a named creature's name"),
         Box::new(|w: &mut World, ctx, args: &Args| {
@@ -1416,7 +1416,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
             super::combat::narrate_others(w, f.citizen, &format!("{given} the {kind} arrives from {from_name}, invited to live here."), &ctx.actor);
             w.notice(format!("**{given}** the {kind} went to live in {here_name} at **{}**'s invitation.", ctx.actor));
             Ok(Outcome::new(
-                format!("{given} the {kind} comes from {from_name} and settles in {here_name}. It lives here now: what it wants, it wants from here, and `wants` will say so."),
+                format!("{given} the {kind} comes from {from_name} and settles in {here_name}. It lives here now: what it wants, it wants from here, and `wants` will say so. It still goes looking for whoever keeps it, and comes back; and while it is at home here, what it holds fades at half the pace."),
                 json!({"creature": creature.0, "name": given, "from": from.map(|r| r.0), "room": here.0}),
             ))
         }),

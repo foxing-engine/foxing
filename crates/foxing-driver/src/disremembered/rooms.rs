@@ -2244,6 +2244,8 @@ pub fn describe_as(
                     Some(a) if a > 0.0 => format!(", hits {:.0}–{:.0}", a, a + 2.0),
                     _ => String::new(),
                 };
+                // D34: a starfish's arms, which are its strength.
+                let hits = format!("{hits}{}", super::starfish::arms_said(world, cid));
                 format!(
                     "{who} ({}/{}{hits}{holds}{yours}{shaken}{born}{named}{learned})",
                     hp_said(&c["hp"]),

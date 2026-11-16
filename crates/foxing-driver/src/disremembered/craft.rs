@@ -340,7 +340,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a night lantern",
         of: &["a wisp ember", "a censor's lens", "rag thread"],
         chunk_at_least: 30.0,
-        does: "keeps the map in your memory five times as long while carried, and has a past",
+        does: "keeps the map in your memory five times as long while carried, and in a fight you see what you strike: nine of your blows in ten land, where three in four do. It has a past",
         uses: 0,
         fixed: false,
         takes_lines: false,
@@ -367,7 +367,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a warden's charm",
         of: &["a warden's key", "moth dust"],
         chunk_at_least: 60.0,
-        does: "makes your next three fights' memories far more vivid (seven tenths of the scale) while carried, one each, and has a past",
+        does: "makes your next three fights' memories far more vivid (seven tenths of the scale) while carried, one each; and a blow that would fell you takes one of its uses instead, and leaves you standing at one. It has a past",
         uses: 3,
         fixed: false,
         takes_lines: false,
@@ -380,7 +380,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a surgeon's bandage",
         of: &["a lamprey's tooth", "rag thread", "rag thread"],
         chunk_at_least: 30.0,
-        does: "closes a bite that will not close, twice, mending twenty each time on `rest`, and has a past",
+        does: "closes a bite that will not close, twice, mending twenty each time on `rest`; and in a fight it binds a wound as it is made: a blow that leaves you under a third of yourself gives twenty back, for a use. It has a past",
         uses: 2,
         fixed: false,
         takes_lines: false,
@@ -393,13 +393,54 @@ pub const RECIPES: &[Recipe] = &[
         name: "a jar of clipped silver",
         of: &["a clipped sliver", "a pinch of coin sweat", "hollow water"],
         chunk_at_least: 20.0,
-        does: "covers a retreat as a jar of fog does, and keeps a past; it is what the Exergue leaves, in a jar",
-        uses: 0,
+        does: "covers a retreat as a jar of fog does, twice over (the parting blow misses, and the jar is good for a second); it keeps a past, and is what the Exergue leaves, in a jar",
+        uses: 2,
         fixed: false,
         takes_lines: false,
         tier: 2,
         vividity_at_least: 0.6,
         effect: "jar",
+    },
+    // D35 (David, 11-16): the second tier is for fights. Three of the Drowned
+    // Wing's leavings, each doing in your hand what it did on the thing that left it.
+    Recipe {
+        key: "buckler",
+        name: "a shell buckler",
+        of: &["a hermit's shell", "rag thread"],
+        chunk_at_least: 30.0,
+        does: "(a hermit's shell is what the Drowned Wing's hermits leave) takes the first blow of a fight, all but a point of it, as the shell did for the hermit: three fights, and it has a past",
+        uses: 3,
+        fixed: false,
+        takes_lines: false,
+        tier: 2,
+        vividity_at_least: 0.6,
+        effect: "buckler",
+    },
+    Recipe {
+        key: "salve",
+        name: "a frill salve",
+        of: &["an axolotl's frill", "hollow water"],
+        chunk_at_least: 30.0,
+        does: "(an axolotl's frill is what the Drowned Wing's axolotls leave) mends in a fight, as the axolotl does by what it bites: each blow you land gives you back four hit points, eight blows in all. It has a past",
+        uses: 8,
+        fixed: false,
+        takes_lines: false,
+        tier: 2,
+        vividity_at_least: 0.6,
+        effect: "salve",
+    },
+    Recipe {
+        key: "dart",
+        name: "a stinging dart",
+        of: &["an anemone's sting", "rag thread"],
+        chunk_at_least: 30.0,
+        does: "(an anemone's sting is what the Drowned Wing's anemones leave) goes in with a blow you land and numbs what you fight: its next three blows land at half. Three stings in it, and it has a past",
+        uses: 3,
+        fixed: false,
+        takes_lines: false,
+        tier: 2,
+        vividity_at_least: 0.6,
+        effect: "dart",
     },
 ];
 
@@ -444,7 +485,7 @@ impl From<&Recipe> for Rx {
 /// keeps a past; what it is made of is what a creature leaves. Three a name.
 /// D27 a: where the materials are, said with the recipes (a maker of 11-10 never
 /// found rag thread, which the Midden gives to the hand).
-pub const FOUND: &str = "Where the makings are (`gather` takes one from a room that has it, once an hour; a felled creature may leave one): rag thread, the Midden (and its ragpickers); a wisp ember, Lantern Row (and the Fogbank's wisps); hollow water, the Fogbank, the Shallows and the Undertow; moth dust, the Orchard and the Stile (and the mothwings); river weed, the Cistern (and its drowned); a dab of ink, the Unfiled Archive; grave dust, the Ossuary (and its revenants); a sitter's patience, the Gallery's sitters; a small key, the Oubliette's keepers. The second tier's makings are left only in the Stacks and the Exergue District.";
+pub const FOUND: &str = "Where the makings are (`gather` takes one from a room that has it, once an hour; a felled creature may leave one): rag thread, the Midden (and its ragpickers); a wisp ember, Lantern Row (and the Fogbank's wisps); hollow water, the Fogbank, the Shallows and the Undertow; moth dust, the Orchard and the Stile (and the mothwings); river weed, the Cistern (and its drowned); a dab of ink, the Unfiled Archive; grave dust, the Ossuary (and its revenants); a sitter's patience, the Gallery's sitters; a small key, the Oubliette's keepers. The second tier's makings are left only in the Stacks, the Exergue District and the Drowned Wing; what is made of them is for fights.";
 pub const RECIPES_COMPONENT: &str = "disremembered.recipes";
 pub const RECIPES_PER_NAME: usize = 3;
 pub const ADDED_CHUNK_AT_LEAST: f64 = 20.0;
@@ -1235,6 +1276,26 @@ pub fn carries(world: &World, citizen: EntityId, recipe: &str) -> Option<EntityI
         .find(|e| {
             plain_str(world, e.id, ITEM, "origin") == Some(recipe)
                 || plain_str(world, e.id, ITEM, "effect") == Some(recipe)
+        })
+        .map(|e| e.id)
+}
+
+/// D35: as [`carries`], but only a thing of the second tier or better: what its
+/// family does in a fight is the second tier's to do.
+pub fn carries_fine(world: &World, citizen: EntityId, family: &str) -> Option<EntityId> {
+    let satchel = world
+        .store
+        .children(citizen)
+        .find(|e| e.kind == "satchel")
+        .map(|e| e.id)?;
+    world
+        .store
+        .children(satchel)
+        .filter(|e| e.kind == "item")
+        .find(|e| {
+            (plain_str(world, e.id, ITEM, "origin") == Some(family)
+                || plain_str(world, e.id, ITEM, "effect") == Some(family))
+                && super::past::tier(world, e.id) >= 2
         })
         .map(|e| e.id)
 }

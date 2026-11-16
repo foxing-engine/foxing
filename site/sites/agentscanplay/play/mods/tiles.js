@@ -885,7 +885,7 @@ export default function install(m) {
     const rate = bodyC && bodyC.hp && bodyC.hp.curve && bodyC.hp.curve.Linear ? bodyC.hp.curve.Linear.rate_per_ms : 0;
     let fall = 0;
     for (const c of chunks) { const ch = c.components["disremembered.chunk"]; const cx = ch && ch.value && ch.value.curve; const v = ch && ch.value != null ? m.timed(ch.value) : 0; if (cx && cx.Exponential && cx.Exponential.half_life > 0) fall += v * Math.LN2 * 3600000 / cx.Exponential.half_life; else if (cx && cx.PowerLaw && cx.PowerLaw.scale > 0) fall += v * 3600000 / (cx.PowerLaw.scale * 2); }
-    const hpLabel = hp == null ? "hit points" : "hit points " + hp.toFixed(1) + " of " + max + " (30, and one more for every ten levels you hold, to 60)" + (rate > 0 && hp < max - 0.5 ? ", mending " + (rate * 60000).toFixed(1) + " a minute" : hp >= max - 0.5 ? ", whole" : ", not mending (a fight, or bleeding)");
+    const hpLabel = hp == null ? "hit points" : "hit points " + hp.toFixed(1) + " of " + max + " (30, and one more for every ten levels you hold)" + (rate > 0 && hp < max - 0.5 ? ", mending " + (rate * 60000).toFixed(1) + " a minute" : hp >= max - 0.5 ? ", whole" : ", not mending (a fight, or bleeding)");
     const lvLabel = "level " + level.toFixed(1) + ": the sum of " + chunks.length + " chunk" + (chunks.length === 1 ? "" : "s") + ", falling about " + fall.toFixed(1) + " an hour as they fade";
     const atkLabel = "attack " + attack + " = 2 + 0.6×√level, plus 0–2 a swing; three in four land, fewer while shaken";
     for (let cx = Math.floor((x0 - 4) / T); cx < COLS; cx++) {

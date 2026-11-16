@@ -33,8 +33,8 @@ const BAR_HALF_LIFE_S: i64 = 24 * 3600;
 const BAR_MIN_WORDS: usize = 12;
 /// The Purse: this share of all held memory, this much at least, capped on the taker.
 const PURSE_SHARE: f64 = 0.05;
-const PURSE_FLOOR: f64 = 120.0;
-const PURSE_OVER_LEVEL: f64 = 200.0;
+const PURSE_FLOOR: f64 = 600.0;
+const PURSE_OVER_LEVEL: f64 = 600.0;
 /// The Purse refills this long after it is taken.
 const PURSE_REFILL_MS: i64 = 3_600_000;
 
@@ -284,7 +284,7 @@ pub fn take_purse(
         format!(
             "You untie the cord. The Purse holds {holds:.0}; what you can carry of it is {worth:.0}, and it is yours: chunk-{} worth {worth:.0} XP, slow to fade. The sack is empty on its plinth; it fills again in an hour, and the Wardens come back before that.{}",
             chunk.0,
-            if worth < holds { " (A kill or a purse pays at most your level plus two hundred.)" } else { "" }
+            if worth < holds { " (The Purse pays at most your level plus six hundred.)" } else { "" }
         ),
         json!({"taken": true, "worth": worth, "held": holds, "chunk": chunk.0}),
     ))
@@ -448,7 +448,7 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
                 })
                 .unwrap_or_else(|| " It has never been taken.".to_string());
             format!(
-                "The Purse on its plinth{}: it holds {}. {} Warden{} stand{} over it; `take purse` past them, and what you can carry of it is yours (your level plus two hundred at most).{last}",
+                "The Purse on its plinth{}: it holds {}. {} Warden{} stand{} over it; `take purse` past them, and what you can carry of it is yours (your level plus six hundred at most). Each Warden is about 260 hit points and hits 27 to 29: work for several names together, not for one.{last}",
                 if holds <= 0.0 { ", slack" } else { "" },
                 if holds <= 0.0 { format!("nothing; it fills again in {}", super::combat::human(refills.map(|t| t - world.now().0).unwrap_or(0).max(0))) } else { format!("{holds:.0} XP, a twentieth of all the world remembers") },
                 match standing { 0 => "No".to_string(), 1 => "One".to_string(), n => n.to_string() },

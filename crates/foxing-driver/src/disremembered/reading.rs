@@ -510,6 +510,36 @@ pub fn settle(world: &mut World) -> Result<usize, String> {
             sets.push((e.id, "attack", def.attack));
         }
     }
+    // D37c: the Wardens that stood before they were taken down a little. Their
+    // figures grow from `base_hp`, so that is what is set, and `rescale` does the rest
+    // (a Warden holding what a fall gave it keeps the share that memory adds).
+    let wardens: Vec<EntityId> = world
+        .store
+        .of_kind("creature")
+        .filter(|e| plain_str(world, e.id, CREATURE, "name") == Some("warden"))
+        .map(|e| e.id)
+        .collect();
+    let mut rescaled = 0;
+    for id in wardens {
+        let Some(def) = super::combat::def_by_name("warden") else {
+            break;
+        };
+        if plain_num(world, id, CREATURE, "base_hp").is_some_and(|b| b > def.hp * 1.06) {
+            world
+                .record(
+                    Actor::Driver,
+                    StoreEvent::FieldSet {
+                        id,
+                        component: CREATURE.into(),
+                        field: "base_hp".into(),
+                        value: json!(def.hp),
+                    },
+                )
+                .map_err(|e| e.to_string())?;
+            super::combat::rescale(world, id).map_err(|e| e.to_string())?;
+            rescaled += 1;
+        }
+    }
     for (id, field, value) in &sets {
         world
             .record(
@@ -523,5 +553,5 @@ pub fn settle(world: &mut World) -> Result<usize, String> {
             )
             .map_err(|e| e.to_string())?;
     }
-    Ok(sets.len())
+    Ok(sets.len() + rescaled)
 }

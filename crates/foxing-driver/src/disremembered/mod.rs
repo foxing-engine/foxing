@@ -45,6 +45,7 @@ pub mod secret;
 pub mod session;
 pub mod speech;
 pub mod stacks;
+pub mod starfish;
 pub mod system;
 pub mod talk;
 pub mod tide;
@@ -209,6 +210,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // R240: the kind a memory was taken from in a fight ("mothwing"), when
             // its source is the creature's own ("Kennoch's story of…").
             .field("fought", FieldKind::Plain, Visibility::Owner)
+            // D42 b: kept by a creature at home in a room its feeder dug, and
+            // fading at half the pace while it is (`mind::settle_homes`).
+            .field("slow", FieldKind::Plain, Visibility::Public)
             .field("source", FieldKind::Plain, Visibility::Public)
             .field("tier", FieldKind::Plain, Visibility::Public)
             // What a taxed gift keeps of its half-life, when it was taxed.
@@ -474,7 +478,11 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // schema does not know is refused on replay, and the world does not open.
             .field("edge_mezzanine", FieldKind::Plain, Visibility::Owner)
             .field("edge_wing_wrack", FieldKind::Plain, Visibility::Owner)
-            .field("vivid_rule_said", FieldKind::Plain, Visibility::Owner),
+            .field("vivid_rule_said", FieldKind::Plain, Visibility::Owner)
+            // D42: said once a session: that memories can be shelved, and why a
+            // walkover fades in half an hour.
+            .field("shelve_said", FieldKind::Plain, Visibility::Owner)
+            .field("faint_said", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(ACCOUNT, 1).field(
             "passphrase_hash",
             FieldKind::Plain,
@@ -513,6 +521,11 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("holding", FieldKind::Plain, Visibility::Public)
             .field("attack", FieldKind::Plain, Visibility::Public)
             .field("xp", FieldKind::Plain, Visibility::Public)
+            // D34: when a starfish's last arm was cut or grew; the next is twenty
+            // minutes after.
+            .field("arm_at", FieldKind::Plain, Visibility::Public)
+            // D35: blows of its own still to land at half, from a stinging dart.
+            .field("numbed", FieldKind::Plain, Visibility::Public)
             // A hybrid's temperament and ambush line, and what it was born of; a seed
             // kind carries none of these and is read from its definition.
             .field("aggressive", FieldKind::Plain, Visibility::Public)

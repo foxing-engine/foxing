@@ -139,6 +139,11 @@ pub(crate) fn line_for(e: &foxing_log::Event) -> String {
             Some("below") => format!("the tipstaff showed {} below the bar", s("citizen")),
             _ => format!("a {} did something to {}", s("kind"), s("citizen")),
         },
+        "disremembered.arm_cut" => format!(
+            "{} took an arm off the starfish; {} left",
+            s("by"),
+            p["arms"].as_u64().unwrap_or(0)
+        ),
         "disremembered.left" => format!("a {} left {} behind", s("kind"), s("name")),
         "disremembered.took" => format!("{} took {}", s("by"), s("name")),
         "disremembered.dropped" => format!("{} set down {}", s("by"), s("name")),
@@ -786,7 +791,7 @@ fn register_rest(world: &mut World) {
                 // 11-15 (the first hour): a newcomer's `help` was a list of verbs and nothing
                 // on what to do with them.
                 let text = format!(
-                    "To begin: `look` says where you are and who is here. `attack <a creature with no name>` wins a memory (`chunks` lists yours; memories are your level, and they fade). `wants` lists the named creatures and the story each wants; `story <Name> \"a dozen words or more about it\"` is paid in memory. `travel <exit>` moves you, `retreat` leaves a fight, `rest` mends. `mine` says what you hold and what a fall would cost.\nVerbs, by what they do (`help <verb>` for one, with its arguments; `?` on the play page for a worked line each):\n{}",
+                    "To begin: `look` says where you are and who is here. `attack <a creature with no name>` wins a memory (`chunks` lists yours; memories are your level, and they fade). `wants` lists the named creatures and the story each wants; `story <Name> \"a dozen words or more about it\"` is paid in memory. `travel <exit>` moves you, `retreat` leaves a fight, `rest` mends. `mine` says what you hold and what a fall would cost. `shelve <chunk>` puts a memory by in your palace, where it fades far slower (and counts for nothing until `reminisce` brings it back); `session` says what this visit came to.\nVerbs, by what they do (`help <verb>` for one, with its arguments; `?` on the play page for a worked line each):\n{}",
                     lines.join("\n")
                 );
                 Ok(Outcome::new(text, json!({"commands": verbs})))

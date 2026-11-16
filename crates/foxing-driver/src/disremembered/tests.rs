@@ -8693,6 +8693,40 @@ fn a_room_welcomes_all_and_invites_a_named_creature_to_live_in_it() {
     // "It lives here now": home is the room, not the Fogbank it was named in, so
     // its business done it walks back here.
     assert_eq!(life::home_of(&w, named), Some(house));
+    // D42 b: at home in a room its feeder dug, what it holds fades at half the pace;
+    // out of it, as it did.
+    let chunk = w
+        .store
+        .children(mind::window_of(&w, named).unwrap())
+        .find(|e| e.kind == "chunk")
+        .map(|e| e.id)
+        .unwrap();
+    let plain_ms = memory::halving_ms(&w, chunk).unwrap();
+    assert!(mind::at_home(&w, named));
+    mind::settle_homes(&mut w).unwrap();
+    let home_ms = memory::halving_ms(&w, chunk).unwrap();
+    assert!((home_ms - 2 * plain_ms).abs() <= 2, "{plain_ms} {home_ms}");
+    mind::settle_homes(&mut w).unwrap();
+    assert_eq!(memory::halving_ms(&w, chunk).unwrap(), home_ms, "once only");
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: named,
+            parent: Some(fog),
+        },
+    )
+    .unwrap();
+    assert!(!mind::at_home(&w, named));
+    mind::settle_homes(&mut w).unwrap();
+    assert!((memory::halving_ms(&w, chunk).unwrap() - plain_ms).abs() <= 2);
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: named,
+            parent: Some(house),
+        },
+    )
+    .unwrap();
     let err = call(
         &mut w,
         "tyler",
@@ -12684,7 +12718,7 @@ fn a_body_grows_with_what_its_name_holds_and_mends_in_ten_minutes() {
     assert_eq!(combat::body_for_level(9.9), 30.0);
     assert_eq!(combat::body_for_level(100.0), 40.0);
     assert_eq!(combat::body_for_level(300.0), 60.0);
-    assert_eq!(combat::body_for_level(5000.0), 60.0);
+    assert_eq!(combat::body_for_level(5000.0), 530.0);
     let dir = tempfile::tempdir().unwrap();
     let mut w = open(dir.path(), Timestamp(0));
     login(&mut w, "dave", "test", PASS).unwrap();
@@ -13075,4 +13109,311 @@ fn the_postern_has_what_a_door_of_the_world_has() {
         "{}",
         chunks.summary
     );
+}
+
+#[test]
+fn the_starfish_keeps_its_strength_in_its_arms() {
+    // D34 (David, 11-16): five arms, each a fifth of it and a point of its blow;
+    // what it holds of the fallen is shed a share with each arm cut; an arm grows
+    // back in twenty minutes; all five off and it comes apart.
+    use super::{starfish, tide};
+    assert_eq!(starfish::arms_of(160.0, 160.0), 5);
+    assert_eq!(starfish::arms_of(128.1, 160.0), 5);
+    assert_eq!(starfish::arms_of(128.0, 160.0), 4);
+    assert_eq!(starfish::arms_of(0.5, 160.0), 1);
+    assert_eq!(starfish::arms_of(0.0, 160.0), 0);
+    let t0 = Timestamp(2_000_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let f = find_citizen(&w, "dave").unwrap();
+    // The Court at a low water that clears it.
+    let s = tide::season(&w);
+    let k = (tide::cycle_at(w.now().0) + 1..)
+        .find(|&c| tide::dry_in(c, 0.09, s).is_some())
+        .unwrap();
+    let (dry, _) = tide::dry_in(k, 0.09, s).unwrap();
+    w.fixed_now = Some(Timestamp(dry + 1_000));
+    let court = rooms::room_by_key(&w, "wing-court").unwrap();
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: f.citizen,
+            parent: Some(court),
+        },
+    )
+    .unwrap();
+    combat::fill(&mut w, court).unwrap();
+    let star = combat::creatures_in(&w, court)
+        .into_iter()
+        .find(|c| c.1 == "starfish")
+        .map(|c| c.0)
+        .expect("a starfish in the Court");
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(look.summary.contains("all five arms"), "{}", look.summary);
+    // It holds ninety of someone's: bigger by six tenths, and a point in the blow.
+    let fed = admin(&mut w, "dave", "earn", json!(["a fall", 90, 0.5]));
+    let fed = EntityId(fed.result["chunk"].as_u64().unwrap());
+    mind::give(&mut w, "dave", fed, star).unwrap();
+    let num =
+        |w: &World, field: &str| super::plain_num(w, star, super::CREATURE, field).unwrap_or(0.0);
+    let base = num(&w, "base_hp");
+    let grown = num(&w, "max_hp");
+    assert!((grown - (base * 1.6).round()).abs() < 1.5, "{base} {grown}");
+    assert_eq!(num(&w, "attack"), 10.0);
+    // A name that hits for thirty-odd: no blow crosses two fifths of it.
+    admin(&mut w, "dave", "earn", json!(["a long road", 3000]));
+    combat::recurve_mending(&mut w, f.citizen).unwrap();
+    let whole = combat::max_hp(&w, f.citizen);
+    assert_eq!(whole, 330.0, "no ceiling on a body (D36)");
+    combat::commit_hp(&mut w, f.citizen, whole).unwrap();
+    let mut first_cut = None;
+    for _ in 0..12 {
+        let aim = mind::name(&w, star).unwrap_or_else(|| "starfish".to_string());
+        let out = ok(&mut w, "dave", "attack", json!([aim]));
+        if out.summary.contains("of five left") {
+            first_cut = Some(out.summary.clone());
+            break;
+        }
+    }
+    let cut = first_cut.expect("an arm came off inside a dozen statements");
+    assert!(cut.contains("An arm comes off the starfish"), "{cut}");
+    assert!(cut.contains("four of five left"), "{cut}");
+    assert!(cut.contains("goes with it"), "{cut}");
+    assert_eq!(starfish::arms(&w, star), 4);
+    // A fifth of what it held went with the arm, and the body with it.
+    let held = mind::level(&w, star);
+    assert!((70.0..=73.0).contains(&held), "{held}");
+    assert!(num(&w, "max_hp") < grown - 10.0);
+    assert_eq!(
+        num(&w, "attack"),
+        8.0,
+        "a point for the arm, a point for the memory"
+    );
+    assert!(craft::things_in(&w, court)
+        .iter()
+        .any(|t| t["name"] == "a starfish arm"));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("four arms of five"),
+        "{}",
+        look.summary
+    );
+    // Left alone, nothing mends by the minute; at twenty an arm is back.
+    let back = ok(&mut w, "dave", "retreat", json!([]));
+    assert!(
+        back.summary.contains("an arm grows back every twenty"),
+        "{}",
+        back.summary
+    );
+    // (What it holds fades in seconds in a test world, and the body with it: the
+    // share of itself it has is what is compared.)
+    let share = |w: &World| num(w, "hp") / num(w, "max_hp");
+    let had = share(&w);
+    let hp = num(&w, "hp");
+    w.fixed_now = Some(Timestamp(w.now().0 + 10 * 60_000));
+    combat::regen(&mut w, 10 * 60_000).unwrap();
+    assert_eq!(num(&w, "hp"), hp, "no slow mending");
+    w.fixed_now = Some(Timestamp(w.now().0 + 11 * 60_000));
+    combat::regen(&mut w, 11 * 60_000).unwrap();
+    assert_eq!(starfish::arms(&w, star), 5);
+    assert!((share(&w) - had - 0.2).abs() < 0.02, "{had} {}", share(&w));
+    assert_eq!(num(&w, "attack"), 9.0);
+    // All five off: it holds nothing by then, and comes apart. (The road has faded
+    // in the twenty minutes; another.)
+    admin(&mut w, "dave", "earn", json!(["a long road", 3000]));
+    combat::commit_hp(&mut w, f.citizen, whole).unwrap();
+    let mut end = String::new();
+    for _ in 0..40 {
+        let aim = mind::name(&w, star).unwrap_or_else(|| "starfish".to_string());
+        let out = ok(&mut w, "dave", "attack", json!([aim]));
+        if out.result["killed"] == true {
+            end = out.summary.clone();
+            break;
+        }
+        assert!(
+            !out.summary.contains("you take its memory"),
+            "{}",
+            out.summary
+        );
+    }
+    assert!(end.contains("The last arm comes off."), "{end}");
+    assert!(end.contains("comes apart"), "{end}");
+    assert!(w.store.entity(star).is_none());
+}
+
+#[test]
+fn second_tier_things_are_for_fights() {
+    // D35 (David, 11-16: "level 2 crafts should be useful in a fight").
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let dave = find_citizen(&w, "dave").unwrap().citizen;
+    let s = craft::satchel(&mut w, "dave", dave).unwrap();
+    let vivid = |w: &mut World| {
+        let c = admin(w, "dave", "earn", json!(["lamprey", 80, 0.9]));
+        format!("chunk-{}", c.result["chunk"].as_u64().unwrap())
+    };
+    // By a night lantern's light nine blows in ten land.
+    assert_eq!(combat::to_hit(&w, dave), combat::HIT_BASE);
+    for m in ["a wisp ember", "a censor's lens", "rag thread"] {
+        conjure(&mut w, s, m);
+    }
+    let c = vivid(&mut w);
+    ok(&mut w, "dave", "craft", json!(["night-lantern", &c]));
+    assert_eq!(combat::to_hit(&w, dave), combat::HIT_LIT);
+    // The three of the Drowned Wing's leavings, and the surgeon's bandage.
+    for (recipe, of) in [
+        ("buckler", vec!["a hermit's shell", "rag thread"]),
+        ("salve", vec!["an axolotl's frill", "hollow water"]),
+        ("dart", vec!["an anemone's sting", "rag thread"]),
+        (
+            "surgeon-bandage",
+            vec!["a lamprey's tooth", "rag thread", "rag thread"],
+        ),
+        ("warden-charm", vec!["a warden's key", "moth dust"]),
+    ] {
+        for m in of {
+            conjure(&mut w, s, m);
+        }
+        let c = vivid(&mut w);
+        let out = ok(&mut w, "dave", "craft", json!([recipe, &c]));
+        assert!(out.result["tier"].as_u64().unwrap() >= 2, "{}", out.summary);
+    }
+    let recipes = ok(&mut w, "dave", "recipes", json!([]));
+    assert!(
+        recipes.summary.contains("a shell buckler"),
+        "{}",
+        recipes.summary
+    );
+    // A wisp, and its first blow of the fight: the buckler's, all but a point.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let fog = rooms::room_of(&w, dave).unwrap();
+    combat::fill(&mut w, fog).unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    let whole = combat::max_hp(&w, dave);
+    combat::commit_hp(&mut w, dave, whole).unwrap();
+    let (dmg, dead) = combat::creature_strikes(&mut w, wisp, dave).unwrap();
+    assert_eq!((dmg, dead), (1.0, false));
+    assert!(combat::strike_notes().contains("shell buckler took that one"));
+    // The next is the wisp's own; with a sting in it, half of its own.
+    let (dmg, _) = combat::creature_strikes(&mut w, wisp, dave).unwrap();
+    assert!(dmg >= 2.0, "{dmg}");
+    assert_eq!(combat::strike_notes(), "");
+    w.record(
+        Actor::Driver,
+        StoreEvent::FieldSet {
+            id: wisp,
+            component: super::CREATURE.into(),
+            field: "numbed".into(),
+            value: json!(1),
+        },
+    )
+    .unwrap();
+    let (dmg, _) = combat::creature_strikes(&mut w, wisp, dave).unwrap();
+    assert!(dmg <= 2.0, "{dmg}");
+    assert!(combat::strike_notes().contains("half a blow; it wears off now"));
+    // Under a third of yourself, the surgeon's bandage binds the wound as it lands.
+    combat::commit_hp(&mut w, dave, 9.0).unwrap();
+    let (dmg, dead) = combat::creature_strikes(&mut w, wisp, dave).unwrap();
+    assert!(!dead);
+    let said = combat::hit_said(dmg);
+    assert!(said.contains("binds it as it lands"), "{said}");
+    assert!(
+        combat::hp(&w, dave) > 9.0 - dmg + 15.0,
+        "{}",
+        combat::hp(&w, dave)
+    );
+    // The blow that would have been the last: the warden's charm takes it.
+    combat::commit_hp(&mut w, dave, 1.0).unwrap();
+    let (dmg, dead) = combat::creature_strikes(&mut w, wisp, dave).unwrap();
+    assert!(!dead, "the charm stood in");
+    let said = combat::hit_said(dmg);
+    assert!(said.contains("would have been the last of you"), "{said}");
+    assert_eq!(combat::hp(&w, dave).ceil(), 1.0);
+    // Your own blows: the dart goes in with one that lands, and the salve gives
+    // back four for it.
+    combat::commit_hp(&mut w, dave, 12.0).unwrap();
+    let hollows = rooms::room_by_key(&w, "shallows").unwrap();
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: dave,
+            parent: Some(hollows),
+        },
+    )
+    .unwrap();
+    combat::fill(&mut w, hollows).unwrap();
+    let mut said = String::new();
+    for _ in 0..10 {
+        combat::commit_hp(&mut w, dave, 12.0).unwrap();
+        let out = ok(&mut w, "dave", "attack", json!(["hollow"]));
+        said.push_str(&out.summary);
+        if said.contains("goes in with the blow") && said.contains("gives back 4") {
+            break;
+        }
+    }
+    assert!(
+        said.contains("stinging dart goes in with the blow"),
+        "{said}"
+    );
+    assert!(said.contains("frill salve gives back 4"), "{said}");
+    assert!(said.contains("half a blow"), "{said}");
+}
+
+#[test]
+fn a_creature_full_for_the_hour_still_answers_a_guess_at_its_word() {
+    // D40c: the second word could not be scanned for, because a refused story
+    // said nothing of the word unless the world had lent it, and a full creature
+    // said nothing at all.
+    use super::secret;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    for n in ["tyler", "polly", "mara", "june", "dave"] {
+        login(&mut w, n, "test", PASS).unwrap();
+        ok(&mut w, n, "travel", json!(["east"]));
+    }
+    admin(&mut w, "tyler", "stock", json!(["Quillon, Marrowgate"]));
+    let c = admin(&mut w, "tyler", "earn", json!(["wisp", 300, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([&c, "wisp"]));
+    let fog = rooms::room_of(&w, find_citizen(&w, "tyler").unwrap().citizen).unwrap();
+    let named = combat::creatures_in(&w, fog)
+        .into_iter()
+        .map(|c| c.0)
+        .find(|&c| mind::name(&w, c).is_some())
+        .unwrap();
+    let given = mind::name(&w, named).unwrap().to_string();
+    let (word, _, _) = secret::ensure(&mut w, named).unwrap().unwrap();
+    // Three stories from three names, none carrying a word it could be: full.
+    for n in ["polly", "mara", "june"] {
+        ok(&mut w, n, "story", json!([&given, "Once a candle was left burning on a sill that nobody owned, and it burned until the morning came."]));
+    }
+    // A guess from a fourth name is refused, weighed, and answered by the word.
+    let guess = ["lantern", "tide", "hinge"]
+        .into_iter()
+        .find(|g| *g != word)
+        .unwrap();
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "story",
+        json!([&given, format!("Once a {guess} was left out on a sill that nobody owned, and it stayed there until the morning came for it.")]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("has heard 3 stories in its hour"), "{err}");
+    assert!(
+        err.contains(&format!(
+            "Of its word: you said {guess}, which it could have been, and is not."
+        )),
+        "{err}"
+    );
+    assert!(w
+        .recent_events(50)
+        .iter()
+        .any(|e| e.kind == secret::DECLINED && e.payload["from"] == "dave"));
+    // And the story that carries it is heard, full or not.
+    let out = ok(&mut w, "dave", "story", json!([&given, format!("Once there was a {word} that nobody had counted, and it waited by the river for a name that would not come.")]));
+    assert_eq!(out.result["struck"]["word"], word, "{}", out.summary);
 }

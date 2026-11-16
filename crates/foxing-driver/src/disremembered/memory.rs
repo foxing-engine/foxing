@@ -338,6 +338,7 @@ pub fn sweep(world: &mut World) -> Result<(), String> {
             );
         }
     }
+    super::mind::settle_homes(world)?;
     super::craft::sweep(world)
 }
 
@@ -386,6 +387,17 @@ pub fn register(world: &mut World, curves: Curves) {
             let on_shelf = super::conclave::shelved(w, f.palace);
             let text = if on_shelf > 0.005 {
                 format!("{text}\nOn the shelf: {on_shelf:.2} (counts toward holding on the board and the Conclave's census; not toward attack until you reminisce).")
+            } else {
+                text
+            };
+            // D42 a: nothing a newcomer read said a memory can be put by (the resident
+            // of 11-16 learned it from the Docent at minute seventy). Said once a
+            // session, when the window first holds eight and the shelf nothing.
+            let text = if rows.len() >= 8 && on_shelf <= 0.005 && super::combat::first_this_session(w, &ctx.actor, f.citizen, "shelve_said") {
+                format!(
+                    "{text}\nEight memories or more, and every one of them fading: `shelve <chunk>` puts one by in your palace, where it fades far slower and counts for nothing until `reminisce <chunk>` brings it back. A vivid one is the one worth putting by{}.",
+                    if super::is_passing(w, f.citizen) { " (a kept name's verb: `keep` first)" } else { "" }
+                )
             } else {
                 text
             };

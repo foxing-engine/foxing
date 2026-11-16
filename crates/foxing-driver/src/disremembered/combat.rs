@@ -245,12 +245,14 @@ pub const CREATURES: &[CreatureDef] = &[
         tint: "#c0a060",
     },
     // The Exergue District: the tapster who weighs stories, the clippers and sweaters
-    // who shave what you carry, the Assayer, and the Wardens over the Purse.
+    // who shave what you carry, the Assayer, and the Wardens over the Purse. (D37c,
+    // 11-16: the Wardens were 320 and 34; "a wall, not a goal", and David took them
+    // down a little and made the Purse worth the trip.)
     CreatureDef { key: "tapster", name: "tapster", hp: 150.0, attack: 12.0, xp: 400.0, aggressive: false, strike_seconds: 10, ambush: "sets down the glass it was drying and looks at you the way a scale looks at a weight.", glyph: "t", tint: "#b07a4a" },
     CreatureDef { key: "clipper", name: "clipper", hp: 45.0, attack: 8.0, xp: 150.0, aggressive: true, strike_seconds: 9, ambush: "comes along the rack with its shears open.", glyph: "c", tint: "#9aa4ad" },
     CreatureDef { key: "sweater", name: "sweater", hp: 70.0, attack: 11.0, xp: 260.0, aggressive: true, strike_seconds: 9, ambush: "steps out from behind the press, shaking a leather bag that is not empty.", glyph: "s", tint: "#a08a5a" },
     CreatureDef { key: "assayer", name: "assayer", hp: 240.0, attack: 26.0, xp: 1200.0, aggressive: false, strike_seconds: 8, ambush: "lifts the glass bell off the balance and says that it will need a sample.", glyph: "A", tint: "#c8c0b0" },
-    CreatureDef { key: "warden", name: "warden", hp: 320.0, attack: 34.0, xp: 1500.0, aggressive: true, strike_seconds: 7, ambush: "does not move from the plinth, and reaches you anyway.", glyph: "W", tint: "#8a2a2a" },
+    CreatureDef { key: "warden", name: "warden", hp: 260.0, attack: 27.0, xp: 1500.0, aggressive: true, strike_seconds: 7, ambush: "does not move from the plinth, and reaches you anyway.", glyph: "W", tint: "#8a2a2a" },
     // The Wistful Trail: middling things, between the Shallows and the Stacks. The
     // sighs chatter, the footpads lighten what you carry, the picnicker's tea numbs,
     // the gardener's shears bleed, the longsight only looks.
@@ -264,7 +266,8 @@ pub const CREATURES: &[CreatureDef] = &[
     // newtling paid 30 at first, and two of them made a level of 57. Newtlings are mild; a
     // mudskipper's hop may put you through a door; a hermit's shell takes the first
     // blow; an axolotl mends by what it bites; an anemone's sting puts an arm to
-    // sleep. The starfish lies across the way to the Burning Shelf and waits.
+    // sleep. The starfish lies across the way to the Burning Shelf and waits; its
+    // strength is in its five arms (`starfish.rs`).
     CreatureDef { key: "newtling", name: "newtling", hp: 10.0, attack: 1.0, xp: 14.0, aggressive: false, strike_seconds: 12, ambush: "slides off a wet shelf and looks at you with both sides of its head.", glyph: "n", tint: "#7fae8a" },
     CreatureDef { key: "mudskipper", name: "mudskipper", hp: 18.0, attack: 3.0, xp: 42.0, aggressive: false, strike_seconds: 10, ambush: "walks up out of the puddle on its elbows, as if it had been asked.", glyph: "m", tint: "#8a7f5e" },
     CreatureDef { key: "hermit", name: "hermit", hp: 32.0, attack: 3.0, xp: 60.0, aggressive: false, strike_seconds: 11, ambush: "stands the inkwell it lives in up on six legs, and comes about slowly.", glyph: "h", tint: "#b08a6a" },
@@ -604,7 +607,9 @@ pub fn rescale(world: &mut World, creature: EntityId) -> Result<(), CommandError
     let base = plain_num(world, creature, CREATURE, "base_hp");
     let base_hp = base.unwrap_or(old_max);
     let new_max = (base_hp * (1.0 + level / 150.0)).round();
-    let new_attack = d.attack + (level / 75.0).floor();
+    // D34: a starfish's blow is a point lighter for each arm it lacks.
+    let new_attack =
+        (d.attack + (level / 75.0).floor() - super::starfish::blow_lost(world, creature)).max(1.0);
     let attack = plain_num(world, creature, CREATURE, "attack").unwrap_or(d.attack);
     // R107: what it holds, as a read field beside hp and attack (the level is
     // computed; `observe` had no way to it).
@@ -1010,7 +1015,6 @@ pub(crate) fn mend(world: &mut World, _creature: EntityId) -> Result<(), StoreEr
 /// censor unwinnable, since a body is whole from nothing in twelve.)
 pub const STACKS_MEND_MS: i64 = 20 * 60 * 1000;
 pub const GROUND_MEND_MS: i64 = 20 * 60 * 1000;
-pub const STARFISH_MEND_MS: i64 = 5 * 60 * 1000;
 /// The old one-shot mend, kept so a job already in the log replays without complaint.
 pub const JOB_MEND: &str = "disremembered.mend";
 /// The creatures' mending, every minute: each wounded creature nobody is fighting
@@ -1050,7 +1054,18 @@ pub fn shaken(world: &World, citizen: EntityId) -> Option<(f64, i64)> {
 
 /// The chance a strike lands, 0 to 1.
 pub fn to_hit(world: &World, citizen: EntityId) -> f64 {
-    (HIT_BASE - shaken(world, citizen).map(|(p, _)| p).unwrap_or(0.0)).clamp(0.05, 1.0)
+    (hit_base(world, citizen) - shaken(world, citizen).map(|(p, _)| p).unwrap_or(0.0))
+        .clamp(0.05, 1.0)
+}
+
+/// D35: by a second-tier lantern's light a strike lands nine in ten.
+pub const HIT_LIT: f64 = 0.9;
+fn hit_base(world: &World, citizen: EntityId) -> f64 {
+    if super::craft::carries_fine(world, citizen, "lantern").is_some() {
+        HIT_LIT
+    } else {
+        HIT_BASE
+    }
 }
 
 /// "Shaken: 4 strikes in 10 land, steadying over 3m 20s", or nothing.
@@ -1137,10 +1152,14 @@ pub fn regen(world: &mut World, elapsed_ms: i64) -> Result<usize, String> {
             succor_step(world, creature, hp, max)?;
             continue;
         }
-        let whole_ms = if kind == "starfish" {
-            // C9: an arm back a minute, left alone: whole in five.
-            STARFISH_MEND_MS
-        } else if super::stacks::TRICKS.iter().any(|(k, _)| *k == kind) {
+        // D34: a starfish does not mend by the minute; it grows an arm back in twenty.
+        if kind == super::starfish::KIND {
+            if super::starfish::regrow(world, creature)? {
+                n += 1;
+            }
+            continue;
+        }
+        let whole_ms = if super::stacks::TRICKS.iter().any(|(k, _)| *k == kind) {
             STACKS_MEND_MS
         } else {
             GROUND_MEND_MS
@@ -1464,14 +1483,14 @@ pub fn mending_rate(world: &World, citizen: EntityId) -> f64 {
 /// a half minutes for thirty points).
 pub const MEND_WHOLE_S: f64 = 600.0;
 /// A body grows with what its name holds: a point for every ten levels over the
-/// thirty everyone has, to sixty at level three hundred. Level fades, and so does
-/// the body. (Every name had thirty, and the top of the world hit for more than
-/// that in one blow.)
+/// thirty everyone has. Level fades, and so does the body. (Every name had thirty,
+/// and the top of the world hit for more than that in one blow.) D36, 11-16: no
+/// ceiling; it stopped at sixty, which a first sitting reached (level 300 in forty
+/// minutes), and David took the cap off.
 pub const HP_LEVELS_A_POINT: f64 = 10.0;
-pub const HP_MOST: f64 = 60.0;
 
 pub fn body_for_level(level: f64) -> f64 {
-    (super::MAX_HP + (level.max(0.0) / HP_LEVELS_A_POINT).floor()).min(HP_MOST)
+    super::MAX_HP + (level.max(0.0) / HP_LEVELS_A_POINT).floor()
 }
 
 /// The hit points this body is whole at, as last settled (`settle_body`).
@@ -1684,18 +1703,119 @@ pub fn attack_for_level(level: f64) -> f64 {
     BASE_ATTACK + (ATTACK_PER_ROOT_LEVEL * level.max(0.0).sqrt()).floor()
 }
 
+/// D35: what a second-tier bandage gives back when it binds a wound in a fight, and
+/// what a frill salve gives back for each blow its bearer lands.
+pub const FINE_BANDAGE_MENDS: f64 = 20.0;
+/// D42 c: from this level a walkover's kill line says why its memory is faint.
+pub const FAINT_SAID_FROM: f64 = 60.0;
+pub const SALVE_MENDS: f64 = 4.0;
+/// How many of a creature's blows a stinging dart halves.
+pub const DART_NUMBS: f64 = 3.0;
+
 /// The creature hits back. Returns the damage and whether the citizen died.
-fn creature_strikes(
+pub(crate) fn creature_strikes(
     world: &mut World,
     creature: EntityId,
     citizen: EntityId,
 ) -> Result<(f64, bool), StoreError> {
     let attack = plain_num(world, creature, CREATURE, "attack").unwrap_or(1.0);
-    let dmg = attack + world.roll(3) as f64 + TELL_BACK.with(|c| c.replace(0.0));
+    let mut dmg = attack + world.roll(3) as f64 + TELL_BACK.with(|c| c.replace(0.0));
+    // D35 (David, 11-16: "level 2 crafts should be useful in a fight"): what a name
+    // carries of the second tier acts as the blow lands, and the line says so.
+    let mut notes: Vec<String> = Vec::new();
+    let who = world
+        .store
+        .entity(citizen)
+        .and_then(|e| e.owner.clone())
+        .unwrap_or_default();
+    let ckind = plain_str(world, creature, CREATURE, "name")
+        .unwrap_or("creature")
+        .to_string();
+    let short = |n: String| {
+        n.trim_start_matches("a ")
+            .trim_start_matches("an ")
+            .to_string()
+    };
+    // A stinging dart's sting, still in it: this blow lands at half.
+    let numbed = plain_num(world, creature, CREATURE, "numbed").unwrap_or(0.0);
+    if numbed >= 1.0 {
+        dmg = (dmg / 2.0).ceil().max(1.0);
+        world.record(
+            Actor::Driver,
+            StoreEvent::FieldSet {
+                id: creature,
+                component: CREATURE.into(),
+                field: "numbed".into(),
+                value: json!(numbed - 1.0),
+            },
+        )?;
+        notes.push(if numbed >= 2.0 {
+            format!(
+                "the sting is still in it, and that was half a blow ({:.0} more at half)",
+                numbed - 1.0
+            )
+        } else {
+            "the sting is still in it, and that was half a blow; it wears off now".to_string()
+        });
+    }
+    // A shell buckler takes the first blow of a fight, all but a point of it.
+    if fight_rounds(world, citizen, creature) == 0 && dmg > 1.0 {
+        if let Some(b) = super::craft::carries(world, citizen, "buckler") {
+            if let Ok(name) =
+                super::craft::spend(world, &who, b, &format!("Took the first blow of a {ckind}"))
+            {
+                dmg = 1.0;
+                notes.push(format!(
+                    "your {} took that one, all but a point of it",
+                    short(name)
+                ));
+            }
+        }
+    }
     let before = hp(world, citizen);
-    let after = before - dmg;
+    let whole = max_hp(world, citizen);
+    let mut after = before - dmg;
+    let mut shown_after = after;
+    if after <= 0.0 {
+        // A second-tier charm stands between a name and the blow that would fell it.
+        if let Some(charm) = super::craft::carries_fine(world, citizen, "charm") {
+            if let Ok(name) = super::craft::spend(
+                world,
+                &who,
+                charm,
+                &format!("Took the blow of a {ckind} that would have been the last"),
+            ) {
+                after = 1.0;
+                shown_after = 1.0;
+                notes.push(format!(
+                    "that would have been the last of you, and your {} took it instead: you stand, at 1",
+                    short(name)
+                ));
+            }
+        }
+    } else if after < whole / 3.0 {
+        // A second-tier bandage binds a wound as it is made: twenty back.
+        if let Some(b) = super::craft::carries_fine(world, citizen, "bandage") {
+            if let Ok(name) = super::craft::spend(
+                world,
+                &who,
+                b,
+                &format!("Bound a wound from a {ckind} as it was made"),
+            ) {
+                let to = (after + FINE_BANDAGE_MENDS).min(whole);
+                notes.push(format!(
+                    "your {} binds it as it lands, {:.0} back: {:.0} of {whole:.0}",
+                    short(name),
+                    (to.ceil() - after.max(0.0).ceil()).max(0.0),
+                    to.ceil()
+                ));
+                after = to;
+            }
+        }
+    }
     commit_hp(world, citizen, after)?;
-    LAST_HIT.with(|c| c.set((before.ceil(), after.max(0.0).ceil(), max_hp(world, citizen))));
+    LAST_HIT.with(|c| c.set((before.ceil(), shown_after.max(0.0).ceil(), whole)));
+    HIT_NOTES.with(|c| *c.borrow_mut() = notes);
     // What this creature has done you, this fight: the vividity of the memory of
     // felling it is its share of your blood, not where the meter stood at the end
     // (a one-hit wisp after a lamprey's venom elsewhere once counted as near death).
@@ -1762,6 +1882,15 @@ thread_local! {
     /// ends, because you mend between strikes and a line that said only the end
     /// read as arithmetic gone wrong ("hits you for 4" and the number fell by 2).
     static LAST_HIT: std::cell::Cell<(f64, f64, f64)> = const { std::cell::Cell::new((0.0, 0.0, 30.0)) };
+    /// D35: what the things a name carries did as the last strike landed.
+    static HIT_NOTES: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// What carried things did at the last strike, as a clause after the blow's figures
+/// ("; your shell buckler took that one"), taken once.
+pub(crate) fn strike_notes() -> String {
+    let notes = HIT_NOTES.with(|c| std::mem::take(&mut *c.borrow_mut()));
+    notes.iter().map(|n| format!("; {n}")).collect()
 }
 
 /// "hits you for 4: 28 → 24 of 30", from the last strike.
@@ -1777,11 +1906,15 @@ pub(crate) fn hit_said(taken: f64) -> String {
     // R154: a killing blow is said whole, not clipped to what was left.
     if after <= 0.0 && taken.round() > shown.round() {
         return format!(
-            "hits you for {:.0}; {before:.0} of {whole:.0} was all you had",
-            taken.round()
+            "hits you for {:.0}; {before:.0} of {whole:.0} was all you had{}",
+            taken.round(),
+            strike_notes()
         );
     }
-    format!("hits you for {shown:.0}: {before:.0} \u{2192} {after:.0} of {whole:.0}")
+    format!(
+        "hits you for {shown:.0}: {before:.0} \u{2192} {after:.0} of {whole:.0}{}",
+        strike_notes()
+    )
 }
 
 /// Death: concussion, then wake at the Threshold at full health, disengaged.
@@ -2497,9 +2630,15 @@ pub fn register(world: &mut World, curves: Curves) {
                 dmg = 1.0;
             }
             let chp = (plain_num(w, creature, CREATURE, "hp").unwrap_or(0.0) - dmg).max(0.0);
+            let chp_before = plain_num(w, creature, CREATURE, "hp").unwrap_or(0.0);
             if landed {
                 w.record(Actor::Citizen(ctx.actor.clone()), StoreEvent::FieldSet { id: creature, component: CREATURE.into(), field: "hp".into(), value: json!(chp) }).map_err(internal)?;
             }
+            // D34: a blow that takes the starfish across a fifth takes an arm off it,
+            // and what the arm held of the fallen with it; the body is resized, so
+            // what is left is read again.
+            let arm = if landed { super::starfish::after_blow(w, &ctx.actor, creature, chp_before, chp)? } else { None };
+            let chp = if arm.is_some() && chp > 0.0 { plain_num(w, creature, CREATURE, "hp").unwrap_or(chp) } else { chp };
             // A fight begun by default is said, not silent: six bare `attack` lines
             // felled an inkling on the fourth and struck its neighbor on the fifth.
             let turned = args.str("creature").map_or(true, str::is_empty) && began.is_some();
@@ -2517,6 +2656,38 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             if shelled {
                 lines.push("The shell took that one, all but a point of it, and is cracked across: the next lands whole.".to_string());
+            }
+            if let Some(a) = arm {
+                lines.push(a);
+            }
+            // D35: a stinging dart goes in with a blow that lands on a thing with no
+            // sting in it, and a frill salve gives back a little for each that lands.
+            if landed && chp > 0.0 && plain_num(w, creature, CREATURE, "numbed").unwrap_or(0.0) < 1.0 {
+                if let Some(dart) = super::craft::carries(w, f.citizen, "dart") {
+                    let left = plain_num(w, dart, super::craft::ITEM, "uses").unwrap_or(1.0);
+                    let name = super::craft::spend(w, &ctx.actor, dart, &format!("Went into a {cname} with a blow"))?;
+                    w.record(Actor::Driver, StoreEvent::FieldSet { id: creature, component: CREATURE.into(), field: "numbed".into(), value: json!(DART_NUMBS) }).map_err(internal)?;
+                    lines.push(format!(
+                        "Your {} goes in with the blow: its next {DART_NUMBS:.0} blows land at half{}.",
+                        name.trim_start_matches("a "),
+                        if left > 1.5 { format!(" ({:.0} left of the dart)", left - 1.0) } else { " (that was the last of the dart)".to_string() }
+                    ));
+                }
+            }
+            if landed && hp(w, f.citizen) < max_hp(w, f.citizen) - 0.5 {
+                if let Some(salve) = super::craft::carries(w, f.citizen, "salve") {
+                    let left = plain_num(w, salve, super::craft::ITEM, "uses").unwrap_or(1.0);
+                    let name = super::craft::spend(w, &ctx.actor, salve, &format!("Gave back a little in a fight with a {cname}"))?;
+                    let to = (hp(w, f.citizen) + SALVE_MENDS).min(max_hp(w, f.citizen));
+                    commit_hp(w, f.citizen, to).map_err(internal)?;
+                    lines.push(format!(
+                        "Your {} gives back {SALVE_MENDS:.0} for the blow landed: {:.0} of {:.0}{}.",
+                        name.trim_start_matches("a "),
+                        to.ceil(),
+                        max_hp(w, f.citizen),
+                        if left > 1.5 { format!(" ({:.0} more in it)", left - 1.0) } else { " (and it is used up)".to_string() }
+                    ));
+                }
             }
             if let Some(r) = retargeted.take() {
                 lines.insert(0, r);
@@ -2635,8 +2806,12 @@ pub fn register(world: &mut World, curves: Curves) {
                     chunk.0,
                     vividity,
                     if vividity > 0.6 {
-                        if first_this_session(w, &ctx.actor, f.citizen, "vivid_rule_said") { " (the fight took most of your hit points, so the memory is vivid, and a vivid one fades slowly)" } else { " (vivid; it will last)" }
-                    } else { "" },
+                        if first_this_session(w, &ctx.actor, f.citizen, "vivid_rule_said") { " (the fight took most of your hit points, so the memory is vivid, and a vivid one fades slowly)".to_string() } else { " (vivid; it will last)".to_string() }
+                    } else if vividity < 0.15 && level >= FAINT_SAID_FROM && first_this_session(w, &ctx.actor, f.citizen, "faint_said") {
+                        // D42 c: fights fade as they did; the kill line says why, once
+                        // a session, and where a levelled name's memories last.
+                        format!(" (it barely touched you, so the memory is faint and will not keep: at your level {} is no fight. What lasts is a fight that costs you, a story the named want, a word carried, a telling in the Reading Rooms, or a charm carried into the fight)", super::mind::an(&cname))
+                    } else { String::new() },
                     match &left {
                         Some((id, n)) => format!(" It leaves {n} behind (item-{}); take it.", id.0),
                         // Say when the roll missed, so a visitor can tell a missed
@@ -2678,7 +2853,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.retreat", "Break off the fight. The creature gets one free strike as you go. A creature mends on the world's clock, whole from nothing in twenty minutes, faster than you (the Conclave's officers sooner); venom follows you out. Nothing mends in a fight; out of it you mend wherever you stand, and so does it. The reply says when each of you is whole and in rounds what a second stand would take, now and then."),
+        CommandSpec::new("disremembered.retreat", "Break off the fight. The creature gets one free strike as you go. A creature mends on the world's clock, whole from nothing in twenty minutes, faster than you (the Conclave's officers sooner); venom follows you out. Nothing mends in a fight but what a made thing of the second tier gives back (`recipes`); out of it you mend wherever you stand, and so does it. The reply says when each of you is whole and in rounds what a second stand would take, now and then."),
         Box::new(|w: &mut World, ctx, _| {
             let f = me(w, ctx)?;
             let Some(creature) = engaged_with(w, f.citizen) else {
@@ -2696,12 +2871,13 @@ pub fn register(world: &mut World, curves: Curves) {
             // D27: a jar of fog, opened as you turn: no parting blow, and the jar is
             // spent. (It did nothing before.)
             if let Some(jar) = super::craft::carries(w, f.citizen, "jar") {
+                let jar_left = plain_num(w, jar, super::craft::ITEM, "uses").unwrap_or(1.0);
                 let jname = super::craft::spend(w, &ctx.actor, jar, &format!("Covered a retreat from a {cname}"))?;
                 mend(w, creature).map_err(internal)?;
                 set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
                 end_fight(w, f.citizen).map_err(internal)?;
                 return Ok(Outcome::new(
-                    format!("You open {jname} as you turn. The {cname} strikes at where the fog says you are, and you are not there. The jar is spent; you are away with {:.0}/{:.0}.", hp_said(w, f.citizen), max_hp(w, f.citizen)),
+                    format!("You open {jname} as you turn. The {cname} strikes at where the fog says you are, and you are not there. {}; you are away with {:.0}/{:.0}.", if jar_left > 1.5 { "The jar is good for one more" } else { "The jar is spent" }, hp_said(w, f.citizen), max_hp(w, f.citizen)),
                     json!({"retreated": true, "jar": true, "taken": 0, "hp": hp(w, f.citizen)}),
                 ));
             }
@@ -2724,12 +2900,17 @@ pub fn register(world: &mut World, curves: Curves) {
             let cmax = plain_num(w, creature, CREATURE, "max_hp").unwrap_or(super::MAX_HP);
             let chp_now = plain_num(w, creature, CREATURE, "hp").unwrap_or(0.0);
             let ckind = plain_str(w, creature, CREATURE, "name").unwrap_or("").to_string();
-            let c_whole_ms = if super::stacks::TRICKS.iter().any(|(k, _)| *k == ckind) { STACKS_MEND_MS } else { GROUND_MEND_MS };
+            let c_whole_ms = if ckind == super::starfish::KIND { super::starfish::ARM_GROWS_MS * super::starfish::ARMS as i64 } else if super::stacks::TRICKS.iter().any(|(k, _)| *k == ckind) { STACKS_MEND_MS } else { GROUND_MEND_MS };
             let c_whole_in_ms = (((cmax - chp_now).max(0.0) / cmax) * c_whole_ms as f64) as i64;
             let me_whole_in_ms = ((max_hp(w, f.citizen) - hp(w, f.citizen)).max(0.0) / (max_hp(w, f.citizen) / MEND_WHOLE_S) * 1000.0) as i64;
             let mended = match super::stacks::trick_of(w, creature) {
                 Some(super::stacks::Trick::Enter) | Some(super::stacks::Trick::Below) => " It will be whole again by the time you come back; the Conclave keeps its order.".to_string(),
                 _ if chp_now <= 0.0 => String::new(),
+                _ if ckind == super::starfish::KIND => format!(
+                    " It does not mend by the minute: an arm grows back every twenty, left alone{}, and what was cut from it stays cut until then; you are whole in {}.",
+                    super::starfish::next_arm_in(w, creature).map(|ms| format!(" (the next in {})", human(ms))).unwrap_or_default(),
+                    human(me_whole_in_ms)
+                ),
                 _ => format!(
                     " It mends on the world's clock, whole in {}{}; you are whole in {}.",
                     super::combat::human(c_whole_in_ms),
@@ -2794,7 +2975,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     String::new()
                 }
             };
-            Ok(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}. You have {:.0}/{:.0}.{mended}{venom}{second}", hp_said(w, f.citizen), max_hp(w, f.citizen)), json!({"died": false, "hp": hp(w, f.citizen), "venom_left": venom_left})))
+            Ok(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}{}. You have {:.0}/{:.0}.{mended}{venom}{second}", strike_notes(), hp_said(w, f.citizen), max_hp(w, f.citizen)), json!({"died": false, "hp": hp(w, f.citizen), "venom_left": venom_left})))
         }),
     );
 
@@ -2866,7 +3047,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 // Where the body's size comes from, once it is more than everyone's.
                 if max_hp(w, f.citizen) > super::MAX_HP + 0.5 {
                     format!(
-                        " A body is whole at {:.0}, and one more for every ten levels held, to {HP_MOST:.0}; it is sized out of a fight.",
+                        " A body is whole at {:.0}, and one more for every ten levels held, with no ceiling; it is sized out of a fight.",
                         super::MAX_HP
                     )
                 } else {
