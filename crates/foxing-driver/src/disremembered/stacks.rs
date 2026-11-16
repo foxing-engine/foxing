@@ -177,6 +177,10 @@ pub const TRICKS: &[(&str, Trick)] = &[
     ("footpad", Trick::Clip),
     ("picnicker", Trick::Numb),
     ("gardener", Trick::Bleed),
+    // C9: the Drowned Wing.
+    ("mudskipper", Trick::Shove),
+    ("axolotl", Trick::Leech),
+    ("anemone", Trick::Numb),
     // X5: the library's own.
     ("bookworm", Trick::Leech),
     ("silverfish", Trick::Clip),

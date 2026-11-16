@@ -1022,7 +1022,10 @@ fn way_over(
     // (the Watch of 11-11 was walked through the Bog of Second Thoughts beside the
     // Meadow, and through the Shallows beside the Lane): doors are tried in that order.
     let danger = |room: EntityId| -> u8 {
-        if plain_str(world, room, ROOM, "key") == Some("trail-bog") {
+        // (And a room of the Drowned Wing while the water is over it.)
+        if plain_str(world, room, ROOM, "key") == Some("trail-bog")
+            || super::tide::flooded(world, room)
+        {
             2
         } else if super::combat::creatures_in(world, room)
             .iter()

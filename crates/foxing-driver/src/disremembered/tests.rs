@@ -8446,7 +8446,8 @@ fn a_room_takes_eight_doors_and_a_forgotten_one_is_unmade_on_the_round() {
     w.fixed_now = Some(t0.plus(Duration::seconds(10 * 86_400)));
     w.tick();
     let mut unmade = 0;
-    for _ in 0..600 {
+    // (Thirteen rooms more to walk since the Drowned Wing: the round is longer.)
+    for _ in 0..800 {
         let did = docent::round_step(&mut w).unwrap();
         unmade += did
             .iter()
@@ -12747,4 +12748,164 @@ fn a_plain_thing_left_lying_fades_fast_and_slowly_again_once_carried() {
     let then = mem(&w, b);
     w.fixed_now = Some(t0.plus(Duration::seconds(7200)));
     assert!(mem(&w, b) > then * 0.8, "{} then {}", then, mem(&w, b));
+}
+
+#[test]
+fn the_drowned_wing_keeps_its_tide() {
+    use super::tide;
+    let t0 = Timestamp(2_000_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let f = find_citizen(&w, "dave").unwrap();
+    let s = tide::season(&w);
+    // Set down in a room, as a walk would: the room's clocks start.
+    fn put(w: &mut World, citizen: EntityId, key: &str) -> EntityId {
+        let room = rooms::room_by_key(w, key).unwrap_or_else(|| panic!("no room {key}"));
+        w.record(
+            Actor::Driver,
+            StoreEvent::EntityMoved {
+                id: citizen,
+                parent: Some(room),
+            },
+        )
+        .unwrap();
+        combat::on_arrival(w, "dave", citizen, room).unwrap();
+        room
+    }
+    // The way in is a new door under the Undertow, and the wing is a district.
+    put(&mut w, f.citizen, "undertow");
+    let out = ok(&mut w, "dave", "travel", json!(["down"]));
+    assert!(out.summary.contains("The Wrack Line"), "{}", out.summary);
+    assert!(out.summary.contains("always dry"), "{}", out.summary);
+    assert_eq!(
+        rooms::district_size(rooms::district_named("drowned wing").unwrap()),
+        13
+    );
+    // A new name is told what the water does; the Tide Table says when it is out.
+    let told = narrative(&w, "dave", 0).join(" ");
+    assert!(told.contains("the water hurts whoever stays"), "{told}");
+    let out = ok(&mut w, "dave", "read", json!(["table"]));
+    assert!(out.summary.contains("low water in"), "{}", out.summary);
+    assert!(out.summary.contains("Then: "), "{}", out.summary);
+
+    // A middle room, a minute into its dry spell of a later tide: the floor is wet
+    // and the water out.
+    let k = tide::cycle_at(w.now().0) + 2;
+    let (dry, wet) = tide::dry_in(k, 0.36, s).unwrap();
+    w.fixed_now = Some(Timestamp(dry + 60_000));
+    let drip = put(&mut w, f.citizen, "wing-drip");
+    assert!(!tide::flooded(&w, drip));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("the water is well out"),
+        "{}",
+        look.summary
+    );
+    // A minute before it comes back the room says so; when it comes, the grace; and
+    // then it hurts, and nothing mends.
+    let before = events(&w);
+    w.fixed_now = Some(Timestamp(wet - 30_000));
+    ok(&mut w, "dave", "look", json!([]));
+    w.tick();
+    let said = narrative(&w, "dave", before).join(" ");
+    assert!(said.contains("The water is coming back"), "{said}");
+    w.fixed_now = Some(Timestamp(wet + 1_000));
+    ok(&mut w, "dave", "look", json!([]));
+    w.tick();
+    let said = narrative(&w, "dave", before).join(" ");
+    assert!(
+        said.contains("You have 30 seconds before it hurts"),
+        "{said}"
+    );
+    assert!(tide::under(&w, f.citizen));
+    let whole = combat::hp(&w, f.citizen);
+    w.fixed_now = Some(Timestamp(wet + 32_000));
+    w.tick();
+    w.fixed_now = Some(Timestamp(wet + 43_000));
+    w.tick();
+    let said = narrative(&w, "dave", before).join(" ");
+    assert!(said.contains("Under water: it takes 1"), "{said}");
+    assert_eq!(combat::hp(&w, f.citizen), whole - 2.0, "{said}");
+    w.fixed_now = Some(Timestamp(wet + 50_000));
+    assert_eq!(
+        combat::hp(&w, f.citizen),
+        whole - 2.0,
+        "nothing mends under water"
+    );
+    // The next room is a hand higher and has gone under half a minute behind this
+    // one: a flooded room is walked into, and says what it is.
+    let out = ok(&mut w, "dave", "travel", json!(["west"]));
+    assert!(out.summary.contains("The Kelp Stacks"), "{}", out.summary);
+    assert!(
+        out.summary.contains("This room is under water"),
+        "{}",
+        out.summary
+    );
+    // Up in the Reading Pool the water is still out: the clock stops and the body
+    // mends.
+    put(&mut w, f.citizen, "wing-pool");
+    assert!(!tide::under(&w, f.citizen));
+    w.fixed_now = Some(Timestamp(wet + 110_000));
+    w.tick();
+    assert!(combat::hp(&w, f.citizen) > whole - 2.0);
+
+    // The grate in the Sluice is a door and no exit.
+    put(&mut w, f.citizen, "wing-sluice");
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["grate"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("does not open from this side"),
+        "{err}"
+    );
+    let out = ok(&mut w, "dave", "read", json!(["grate"]));
+    assert!(out.summary.contains("Not yet."), "{}", out.summary);
+
+    // The starfish lies across the way to the shelf.
+    put(&mut w, f.citizen, "wing-court");
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["south"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("starfish lies across"), "{err}");
+
+    // The book: shut in the air, alight under water, and it pays once a day.
+    let k = (tide::cycle_at(w.now().0) + 1..)
+        .find(|&c| tide::dry_in(c, 0.06, s).is_some())
+        .unwrap();
+    let (dry, wet) = tide::dry_in(k, 0.06, s).unwrap();
+    w.fixed_now = Some(Timestamp((dry + wet) / 2));
+    let shelf = put(&mut w, f.citizen, "wing-shelf");
+    assert!(!tide::flooded(&w, shelf));
+    let out = ok(&mut w, "dave", "read", json!(["book"]));
+    assert!(
+        out.summary.contains("its pages will not part"),
+        "{}",
+        out.summary
+    );
+    assert_eq!(out.result["alight"], false);
+    w.fixed_now = Some(Timestamp(wet + 5_000));
+    ok(&mut w, "dave", "look", json!([]));
+    w.tick();
+    let before = level(&mut w, "dave");
+    let out = ok(&mut w, "dave", "read", json!(["book"]));
+    assert!(out.summary.contains("THE ASHEN WASTES"), "{}", out.summary);
+    assert_eq!(out.result["paid"], true, "{}", out.summary);
+    assert!(level(&mut w, "dave") > before + 70.0);
+    let out = ok(&mut w, "dave", "read", json!(["book"]));
+    assert_eq!(out.result["paid"], false, "{}", out.summary);
+    assert!(
+        out.summary.contains("You have read this page today"),
+        "{}",
+        out.summary
+    );
 }

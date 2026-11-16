@@ -47,6 +47,7 @@ pub mod speech;
 pub mod stacks;
 pub mod system;
 pub mod talk;
+pub mod tide;
 pub mod trail;
 pub mod weather;
 
@@ -456,6 +457,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("prev_session_at", FieldKind::Plain, Visibility::Owner)
             .field("prev_session_end", FieldKind::Plain, Visibility::Owner)
             .field("drop_rule_said", FieldKind::Plain, Visibility::Owner)
+            // C9: when the burning book last paid this name.
+            .field("burning_at", FieldKind::Plain, Visibility::Owner)
             .field("cap_rule_said", FieldKind::Plain, Visibility::Owner)
             // H9: a district's door has said its line this session.
             .field("edge_mudroom", FieldKind::Plain, Visibility::Owner)
@@ -470,6 +473,7 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // C2. Every district's door needs its field here: a write to one the
             // schema does not know is refused on replay, and the world does not open.
             .field("edge_mezzanine", FieldKind::Plain, Visibility::Owner)
+            .field("edge_wing_wrack", FieldKind::Plain, Visibility::Owner)
             .field("vivid_rule_said", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(ACCOUNT, 1).field(
             "passphrase_hash",
@@ -799,6 +803,7 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     combat::ensure_regen(world)?;
     morphos::ensure(world)?;
     trail::ensure(world)?;
+    tide::ensure(world)?;
     life::ensure(world)?;
     pilots::ensure(world)?;
     mind::ensure_wander(world)
@@ -1419,6 +1424,7 @@ pub fn register(world: &mut World, curves: Curves) {
     combat::register_mend(world);
     morphos::register(world);
     trail::register(world);
+    tide::register(world);
     life::register(world);
     pilots::register(world);
     combat::register(world, curves.clone());

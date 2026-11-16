@@ -259,6 +259,16 @@ pub const CREATURES: &[CreatureDef] = &[
     CreatureDef { key: "picnicker", name: "picnicker", hp: 30.0, attack: 5.0, xp: 100.0, aggressive: false, strike_seconds: 10, ambush: "sets down the teapot. \"You're late,\" it says, with no mouth to say it with.", glyph: "p", tint: "#d8b890" },
     CreatureDef { key: "longsight", name: "longsight", hp: 40.0, attack: 6.0, xp: 160.0, aggressive: false, strike_seconds: 9, ambush: "unfolds a neck as long as the hill and looks at you from very close.", glyph: "L", tint: "#9ab0c8" },
     CreatureDef { key: "gardener", name: "gardener", hp: 55.0, attack: 7.0, xp: 220.0, aggressive: false, strike_seconds: 9, ambush: "straightens from the border with the shears, and the shadow of the stuck sun does not move.", glyph: "G", tint: "#6a8a4a" },
+    // C9: the Drowned Wing, tide pools and amphibians. Newtlings are mild; a
+    // mudskipper's hop may put you through a door; a hermit's shell takes the first
+    // blow; an axolotl mends by what it bites; an anemone's sting puts an arm to
+    // sleep. The starfish lies across the way to the Burning Shelf and waits.
+    CreatureDef { key: "newtling", name: "newtling", hp: 12.0, attack: 2.0, xp: 30.0, aggressive: false, strike_seconds: 12, ambush: "slides off a wet shelf and looks at you with both sides of its head.", glyph: "n", tint: "#7fae8a" },
+    CreatureDef { key: "mudskipper", name: "mudskipper", hp: 18.0, attack: 3.0, xp: 45.0, aggressive: false, strike_seconds: 10, ambush: "walks up out of the puddle on its elbows, as if it had been asked.", glyph: "m", tint: "#8a7f5e" },
+    CreatureDef { key: "hermit", name: "hermit", hp: 40.0, attack: 3.0, xp: 75.0, aggressive: false, strike_seconds: 11, ambush: "stands the inkwell it lives in up on six legs, and comes about slowly.", glyph: "h", tint: "#b08a6a" },
+    CreatureDef { key: "axolotl", name: "axolotl", hp: 30.0, attack: 5.0, xp: 95.0, aggressive: true, strike_seconds: 9, ambush: "comes smiling out of the pool, pink as a gum, its frills opening like a book.", glyph: "x", tint: "#e3a3b4" },
+    CreatureDef { key: "anemone", name: "anemone", hp: 36.0, attack: 6.0, xp: 115.0, aggressive: true, strike_seconds: 9, ambush: "does not move at all; the floor where you put your foot is what moves.", glyph: "a", tint: "#c46a8a" },
+    CreatureDef { key: "starfish", name: "starfish", hp: 160.0, attack: 9.0, xp: 420.0, aggressive: false, strike_seconds: 8, ambush: "lifts one arm off the stone, the width of the door, and lets you see the underside of it.", glyph: "S", tint: "#d9824a" },
     // X5 (11-06): the library's own, on the floors between the door and the Stacks.
     // Each is as strong as what it holds (`rescale`), never as strong as you.
     CreatureDef { key: "lanternfly", name: "lanternfly", hp: 5.0, attack: 1.0, xp: 10.0, aggressive: false, strike_seconds: 12, ambush: "comes off a lantern and bumps you, once, as if by mistake.", glyph: "l", tint: "#f0d890" },
@@ -809,6 +819,9 @@ pub fn on_arrival(
     citizen: EntityId,
     room: EntityId,
 ) -> Result<(), String> {
+    // C9: a room of the Drowned Wing starts its water clock on whoever comes in, by
+    // any door (a walk, a shove, a waking); any other room stops one.
+    super::tide::on_arrival(world, actor, citizen, room)?;
     // The room may mend you at its own pace (the Closet): the curve follows the room.
     recurve_mending(world, citizen).map_err(|e| e.to_string())?;
     let hunters: Vec<EntityId> = creatures_in(world, room)
@@ -995,6 +1008,7 @@ pub(crate) fn mend(world: &mut World, _creature: EntityId) -> Result<(), StoreEr
 /// censor unwinnable, since a body is whole from nothing in twelve.)
 pub const STACKS_MEND_MS: i64 = 20 * 60 * 1000;
 pub const GROUND_MEND_MS: i64 = 20 * 60 * 1000;
+pub const STARFISH_MEND_MS: i64 = 5 * 60 * 1000;
 /// The old one-shot mend, kept so a job already in the log replays without complaint.
 pub const JOB_MEND: &str = "disremembered.mend";
 /// The creatures' mending, every minute: each wounded creature nobody is fighting
@@ -1121,7 +1135,10 @@ pub fn regen(world: &mut World, elapsed_ms: i64) -> Result<usize, String> {
             succor_step(world, creature, hp, max)?;
             continue;
         }
-        let whole_ms = if super::stacks::TRICKS.iter().any(|(k, _)| *k == kind) {
+        let whole_ms = if kind == "starfish" {
+            // C9: an arm back a minute, left alone: whole in five.
+            STARFISH_MEND_MS
+        } else if super::stacks::TRICKS.iter().any(|(k, _)| *k == kind) {
             STACKS_MEND_MS
         } else {
             GROUND_MEND_MS
@@ -1418,6 +1435,10 @@ pub fn mending_rate(world: &World, citizen: EntityId) -> f64 {
     }
     let now = world.now().0 as f64;
     if plain_num(world, citizen, BODY, "bleed_until").is_some_and(|u| u > now) {
+        return 0.0;
+    }
+    // C9: nothing mends under water.
+    if super::tide::under(world, citizen) {
         return 0.0;
     }
     let base = max_hp(world, citizen) / MEND_WHOLE_S;
@@ -2460,6 +2481,15 @@ pub fn register(world: &mut World, curves: Curves) {
             if telling.is_none() && told_kind && landed {
                 dmg = (dmg * super::reading::BLADE_SHARE).floor().max(1.0);
             }
+            // C9: a hermit's shell takes the first blow that lands on it whole, all
+            // but a point; cracked, it takes nothing more.
+            let shelled = cname == "hermit"
+                && landed
+                && plain_num(w, creature, CREATURE, "hp").unwrap_or(0.0)
+                    >= plain_num(w, creature, CREATURE, "max_hp").unwrap_or(f64::MAX) - 0.01;
+            if shelled {
+                dmg = 1.0;
+            }
             let chp = (plain_num(w, creature, CREATURE, "hp").unwrap_or(0.0) - dmg).max(0.0);
             if landed {
                 w.record(Actor::Citizen(ctx.actor.clone()), StoreEvent::FieldSet { id: creature, component: CREATURE.into(), field: "hp".into(), value: json!(chp) }).map_err(internal)?;
@@ -2478,6 +2508,9 @@ pub fn register(world: &mut World, curves: Curves) {
             }];
             if telling.is_none() && told_kind {
                 lines.push(super::reading::blade_said(&cname));
+            }
+            if shelled {
+                lines.push("The shell took that one, all but a point of it, and is cracked across: the next lands whole.".to_string());
             }
             if let Some(r) = retargeted.take() {
                 lines.insert(0, r);

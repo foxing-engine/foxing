@@ -5,6 +5,17 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-16 (C9, the Drowned Wing; one driver deploy, one site deploy; the first boot after it replays the log, a citizen field being new)
+- **Thirteen rooms under the Undertow** (`travel down`), a district of their own: the Wrack Line, the Reading Pool, the Card Catalogue Awash, the Sluice; the Kelp Stacks, the Binder's Tidepool, the Newt Scriptorium, the Long Table, the Drip Gallery; the Sump, the Barnacle Vault, the Starfish Court, the Burning Shelf.
+- **One tide**, computed from the clock: a cycle of forty minutes moved by up to four at either end (32 to 48), its low water kept back by the week, by the cycle and by the Fog Month, so that the Sump clears on every tide and the three rooms below it on some. Each room has a height; the upper are dry about seven tenths of a tide, the middle about four, the deep about two or less.
+- **The Tide Table** at the Wrack Line (`read table`): the next two low waters to the nearest five minutes and how good each is. `look` in a room says where the water is in words, and a room warns a minute before it goes under.
+- **Water**: thirty seconds of grace, then a point every ten seconds, a point more each minute, four at the most; nothing mends under it; a fall there is a fall. A name gone quiet under water is carried to the Wrack Line unhurt. A way asked of `where` keeps out of flooded rooms where another is as short.
+- **Creatures**: newtlings, mudskippers (shove), hermits (the shell takes the first blow that lands, all but a point), axolotls (leech), anemones (numb), with the drowned in the Sump and a lamprey in the Vault. **The starfish** (160 hit points, hits 9 to 11) lies across the door to the Burning Shelf, which is barred while it lives; left alone it is whole in five minutes, and it is back half an hour after it is felled.
+- **The burning book** (`read book` on the Burning Shelf): shut in the air; under water, a page about the Ashen Wastes and a memory worth eighty at vividity 0.9, once a day to a name.
+- **The tide's own round**, every five to eight minutes: a plain thing on a flooded floor goes one time in three to another room of the wing, the Undertow or the Shallows; at low water, one time in six and never more than two lying, it leaves a diver's bell jar (three times the grace, three uses), a page that stayed dry (`read page`: three low waters to the second) or a brine pearl.
+- **The Sluice's grate** to the sewer is a door that does not open (`travel grate`, `read grate`).
+- A name under level thirty is told at the Wrack Line what the water does. The quickstart, the guide and llms.txt have the district.
+
 11-15, late (six from David at the keyboard; one driver deploy, one site deploy)
 - **The first hours' card** has a `skip` beside `do it` (the step is marked skipped and the next comes up; doing it later still ticks it) and an × that closes the card (`?` on an empty line brings it back).
 - **Plain things left on a floor fade about ten times faster**: half gone in half an hour, swept inside ten hours, where a carried thing takes days. The sweep puts a plain thing lying in a room on the ground's curve and takes it off again once it is carried; a made, named or fixed thing, anything with a past, and the Midden's heap are left as they were.

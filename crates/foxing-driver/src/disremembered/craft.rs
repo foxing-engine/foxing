@@ -151,6 +151,14 @@ pub const MATERIALS: &[(&str, &str)] = &[
     ("shusher", "rag thread"),
     ("proofreader", "a dab of ink"),
     ("redactor", "rag thread"),
+    // C9: the Drowned Wing. The small ones leave what the water above leaves; the
+    // rest leave things of their own, for recipes not written yet.
+    ("newtling", "river weed"),
+    ("mudskipper", "hollow water"),
+    ("hermit", "a hermit's shell"),
+    ("axolotl", "an axolotl's frill"),
+    ("anemone", "an anemone's sting"),
+    ("starfish", "a starfish arm"),
 ];
 
 /// What can be made, of what, for what memory, and what it does.
@@ -2636,6 +2644,11 @@ pub fn register(world: &mut World, curves: Curves) {
             let f = me(w, ctx)?;
             let here = rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
             let arg = args.str("object").unwrap_or("").trim().to_string();
+            // C9: the Drowned Wing's own (the Tide Table, the grate, the burning
+            // book, a page that stayed dry). First, since the book pays.
+            if let Some(out) = super::tide::read(w, &ctx.actor, here, &arg)? {
+                return Ok(out);
+            }
             let when = |at: i64| -> String {
                 let ago = (w.now().0 - at).max(0) as f64 / 3_600_000.0;
                 if ago < 1.0 {

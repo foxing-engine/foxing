@@ -55,6 +55,7 @@ pub const DISTRICTS: &[District] = &[
     District { name: "the Exergue District", entry: "exergue-stair", blurb: "the mint under the clock: the coinage in circulation, a bar, and a guarded Purse" },
     District { name: "the Wistful Trail", entry: "trail-stile", blurb: "a walk north of the Orchard: a meadow, a well, a bog and a lookout" },
     District { name: "the Reading Rooms", entry: "mezzanine", blurb: "a mezzanine over the Archive: its creatures are fought by what you tell them, and told by what you fought" },
+    District { name: "the Drowned Wing", entry: "wing-wrack", blurb: "the library's wing that went under when the water came, below the Undertow: thirteen rooms the tide covers and uncovers, the deeper the briefer. Read the Tide Table before you go down" },
 ];
 
 fn district_index(key: &str) -> Option<usize> {
@@ -64,6 +65,7 @@ fn district_index(key: &str) -> Option<usize> {
         "fogbank" | "shallows" | "midden" | "ossuary" | "gallery" | "oubliette" => 2,
         "lantern-row" | "archive" | "namery" | "dead-letters" | "lamplighters-lane" | POSTERN => 3,
         "stairwell" | "cistern" | "undertow" => 4,
+        k if k.starts_with("wing-") => 11,
         "lower-stacks" | "catalogue" | "dark-reading-room" | "periodicals" | "dumbwaiter"
         | "overdue-desk" | "carrels" | "index-stair" | "bindery" | "tube-room" | "lost-things"
         | "acid-room" | "chart-room" | "censor-office" | "restoration" | "pulp-sump"
@@ -248,7 +250,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "undertow",
         name: "The Undertow",
         description: "A current under the Shallows, pulling at your knees toward somewhere it will not name. Light comes down green from the surface. Things that stood up in the water above lie down here.",
-        exits: &[("west", "cistern"), ("surface", "shallows")],
+        exits: &[("west", "cistern"), ("surface", "shallows"), ("down", "wing-wrack")],
         spawn: Some(("hollow", 1, 180)),
         former: &[],
         tint: "#2e6b5e",
@@ -826,6 +828,125 @@ pub const ROOMS: &[RoomDef] = &[
         spawn: Some(("longsight", 1, 300)),
         former: &[],
         tint: "#b8c8d8",
+    },
+    // C9: the Drowned Wing, below the Undertow. Three depths and one tide; `tide.rs`
+    // keeps the water. Laid out on a grid, three across, running south and down.
+    RoomDef {
+        key: "wing-wrack",
+        name: "The Wrack Line",
+        description: "The foot of a stair the water has never quite climbed. A line of weed, cork and swollen book-boards runs along the wall at shoulder height, and everything below it is wet and everything above it is merely damp. A slate in an oak frame hangs by the stair, chalked with figures. The air tastes of salt and old paste, and somewhere below you a great deal of water is deciding something.",
+        exits: &[("up", "undertow"), ("east", "wing-pool"), ("south", "wing-catalogue")],
+        spawn: None,
+        former: &[],
+        tint: "#3d6b66",
+    },
+    RoomDef {
+        key: "wing-pool",
+        name: "The Reading Pool",
+        description: "A reading room with its floor gone soft. The tables stand to their knees in a pool that fills from underneath, and green lamps still hang over them, unlit, each with a bead of water at the bottom of its shade that never falls. Open books lie face down on the water like sleeping gulls. Something small is reading one from below.",
+        exits: &[("west", "wing-wrack"), ("east", "wing-sluice"), ("south", "wing-kelp")],
+        spawn: Some(("newtling", 2, 120)),
+        former: &[],
+        tint: "#3f7a78",
+    },
+    RoomDef {
+        key: "wing-sluice",
+        name: "The Sluice",
+        description: "A brick channel where the wing empties itself twice an hour, loudly. The walls sweat. At the far end the channel goes under an iron grate furred green to the thickness of a sleeve, and beyond the grate a culvert runs off downhill into a dark that smells of the town's long digestion. The grate is shut from the other side.",
+        exits: &[("west", "wing-pool")],
+        spawn: Some(("newtling", 1, 180)),
+        former: &[],
+        tint: "#4a6f5c",
+    },
+    RoomDef {
+        key: "wing-catalogue",
+        name: "The Card Catalogue, Awash",
+        description: "A hall of small drawers, ten thousand of them, every one swollen shut or burst open. The cards have come out and papered the floor in a grey felt a hand deep that moves when you step on it and goes on moving after. A drawer slides out by itself as you pass, drips, and slides back. Things that live in puddles have filed themselves here.",
+        exits: &[("north", "wing-wrack"), ("east", "wing-kelp"), ("south", "wing-binder")],
+        spawn: Some(("mudskipper", 2, 150)),
+        former: &[],
+        tint: "#55786e",
+    },
+    RoomDef {
+        key: "wing-kelp",
+        name: "The Kelp Stacks",
+        description: "Shelving to the ceiling, and kelp has taken the shelves the way ivy takes a wall: brown straps of it hang from every upright, slick and heavy, and lie flat on the floor when the water is out, pointing the way it went. The books are still in there. You can see the spines through the weed, and the weed has learned some of the titles.",
+        exits: &[("north", "wing-pool"), ("west", "wing-catalogue"), ("east", "wing-drip"), ("south", "wing-scriptorium")],
+        spawn: Some(("hermit", 2, 200)),
+        former: &[],
+        tint: "#3c6650",
+    },
+    RoomDef {
+        key: "wing-drip",
+        name: "The Drip Gallery",
+        description: "A long gallery of portraits the damp has finished. Every face has run down to its collar and pooled in the bottom of its frame; what looks out now is the canvas. The ceiling drips into forty years of saucers, each one a different note, and the tune is nearly something. The floor shines. It is never dry here, only less wet.",
+        exits: &[("west", "wing-kelp"), ("south", "wing-long")],
+        spawn: Some(("mudskipper", 2, 180)),
+        former: &[],
+        tint: "#4f7480",
+    },
+    RoomDef {
+        key: "wing-binder",
+        name: "The Binder's Tidepool",
+        description: "The bindery's sink, grown into the room. A stone trough the length of the wall holds a pool the tide leaves behind each time, clear as a lens, with a floor of brass type and bone folders and one perfect anemone the color of binder's cloth. The glue pots have gone to barnacle. Something pink is smiling at you from under the press.",
+        exits: &[("north", "wing-catalogue"), ("east", "wing-scriptorium")],
+        spawn: Some(("axolotl", 1, 240)),
+        former: &[],
+        tint: "#5a7f7a",
+    },
+    RoomDef {
+        key: "wing-scriptorium",
+        name: "The Newt Scriptorium",
+        description: "Rows of slanted desks, each with its inkwell, and in each inkwell a newt. They have been at the manuscripts for years: every page on every desk is covered edge to edge in small wet footprints that are very nearly letters. The stools are slimed. The room smells of ink and pond, and it is hard to say which is which any more.",
+        exits: &[("north", "wing-kelp"), ("west", "wing-binder"), ("east", "wing-long"), ("south", "wing-sump")],
+        spawn: Some(("newtling", 3, 120)),
+        former: &[],
+        tint: "#476e62",
+    },
+    RoomDef {
+        key: "wing-long",
+        name: "The Long Table",
+        description: "One table, forty chairs, laid for a committee that was sitting when the water came. The minute book is open at the head of it, a block of grey pulp. Limpets hold down the agenda. In the middle of the cloth, where the flowers were, something has opened that is not a flower, and the chairs nearest it have been pushed back, from the inside of the room.",
+        exits: &[("north", "wing-drip"), ("west", "wing-scriptorium")],
+        spawn: Some(("anemone", 2, 300)),
+        former: &[],
+        tint: "#6a5a78",
+    },
+    RoomDef {
+        key: "wing-sump",
+        name: "The Sump",
+        description: "The lowest floor anyone admits to. The wing drains to here and no further: a round room, a drowned stair going on down into black water at its center, the walls furred and running. Your breath shows. What comes up the stair at low water has been down there a long time and was a reader once. The way on is past it.",
+        exits: &[("north", "wing-scriptorium"), ("east", "wing-vault"), ("south", "wing-court")],
+        spawn: Some(("drowned", 2, 240)),
+        former: &[],
+        tint: "#2f5560",
+    },
+    RoomDef {
+        key: "wing-vault",
+        name: "The Barnacle Vault",
+        description: "A strongroom, its door rusted open at the width of one person turned sideways. Inside, the deed boxes have grown a white crust like a second, better lock, and the shelves hold shapes that were ledgers. It is colder than the Sump and wetter than cold. Something ribbon-shaped keeps to the back of it, where the valuable things were.",
+        exits: &[("west", "wing-sump")],
+        spawn: Some(("lamprey", 1, 360)),
+        former: &[],
+        tint: "#3a4f66",
+    },
+    RoomDef {
+        key: "wing-court",
+        name: "The Starfish Court",
+        description: "The wing's old light well, floored in a mosaic of the zodiac that the water has rearranged. It is open to nothing now: the well goes up into rock. In the middle of the floor, an arm on each of five signs, lies a starfish the size of a reading room carpet, the orange of a dying coal, breathing through its skin. Behind it a door goes down. It is lying across the door.",
+        exits: &[("north", "wing-sump"), ("south", "wing-shelf")],
+        spawn: Some(("starfish", 1, 1800)),
+        former: &[],
+        tint: "#7a5a48",
+    },
+    RoomDef {
+        key: "wing-shelf",
+        name: "The Burning Shelf",
+        description: "A closet of a room under everything, one shelf cut into the rock at knee height, and on the shelf one book. The stone above it is scorched in the shape of a flame. Water stands in the corners even at the lowest tide, and beads on the walls, and runs; the book alone is dry, grey, cold, and shut. The room smells of wet ash. It has the patience of a thing that is only itself under water.",
+        exits: &[("north", "wing-court")],
+        spawn: None,
+        former: &[],
+        tint: "#6e4a3a",
     },
 ];
 
@@ -2183,6 +2304,10 @@ pub fn describe_as(
         text.push(' ');
         text.push_str(&t);
     }
+    if let Some(t) = super::tide::look_line(world, room) {
+        text.push(' ');
+        text.push_str(&t);
+    }
     // A fight on: said, with the rule you are under (a gate visitor read "You are
     // alone" with a hollow at its throat).
     if let Some(f) = super::find_citizen(world, actor) {
@@ -2413,6 +2538,10 @@ pub fn register(world: &mut World) {
                 exit
             };
             let Some(&to) = exits.get(&exit) else {
+                // C9: the grate in the Sluice is a door, and not an exit.
+                if let Some(said) = super::tide::no_exit(w, room, &exit) {
+                    return Err(foxing_registry::CommandError::precondition(said));
+                }
                 // R133: the exits as `look` says them, compass first and named.
                 let mut order: Vec<(&String, &EntityId)> = exits.iter().collect();
                 order.sort_by_key(|(e, _)| {
@@ -2440,6 +2569,10 @@ pub fn register(world: &mut World) {
                         "The Stacks stair (the Archive's `down`; not the Cistern Stair off Lantern Row, which asks nothing) asks a level of {STAIR_LEVEL:.0}, and you hold {level:.0}. What lives below hits for nine and ten a round; the Fogbank, the Orchard, the Sighing Meadow and the Reading Rooms up the other stair pay toward it, and `chunks` says where you stand."
                     )));
                 }
+            }
+            // C9: the starfish lies across the way to the Burning Shelf.
+            if let Some(said) = super::tide::bars(w, room, to) {
+                return Err(foxing_registry::CommandError::precondition(said));
             }
             // A warded door asks for a word: the room's owner, its keepers and the
             // welcomed pass; anyone else says the word once and is remembered.
