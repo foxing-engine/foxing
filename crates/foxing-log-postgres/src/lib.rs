@@ -76,26 +76,33 @@ CREATE INDEX IF NOT EXISTS events_archive_world_kind ON events_archive (world, k
 
 /// S16 (c): the log is two tables that are one log. `events` holds what the world
 /// reads day to day; `events_archive` holds the older events, moved there whole by
-/// [`archive`]. An event is in exactly one of them, and a world's events are numbered
-/// without a gap. So a read asks `events` first, and if what comes back begins at the
-/// very next event, that is the answer: the common read, of the tail, is the one
-/// statement it always was. If it begins later (or nothing comes back), the events
-/// between are in the archive, and both tables are read in one statement, so one snapshot: a
-/// move cannot hide an event from both. A reader
-/// that goes back past the archive's edge, a boot with no checkpoint above all, gets
-/// the whole log without knowing there is an archive. A build that reads only
-/// `events` must never be run on a log that has been archived: it would boot a world
-/// from the tail alone.
+/// [`archive`]. An event is in exactly one of them. Every read is one statement over
+/// both, so one snapshot (a move cannot hide an event from both, and the log may be
+/// inside a unit of appends): the archive's first `limit` rows past the cursor, then
+/// `events`' first `limit` rows past the cursor **or past the archive's edge,
+/// whichever is later**, and the first `limit` of the two together. A reader that
+/// goes back past the edge, a boot with no checkpoint above all, gets the whole log
+/// without knowing there is an archive. A build that reads only `events` must never
+/// be run on a log that has been archived: it would boot a world from the tail alone.
 ///
-/// (The first cut was one `UNION ALL ... ORDER BY seq LIMIT n`. PostgreSQL planned it
-/// as a sort of everything past the cursor: `/health`, which reads the first event,
-/// went from 0.3 s to 0.6 on the live world, and a whole replay took three times as
-/// long.)
-const READ_ONE: &str = "SELECT seq, at, kind, actor, cause, payload FROM events WHERE world = $1 AND seq > $2 ORDER BY seq LIMIT $3";
-const READ_BOTH: &str = "
-(SELECT seq, at, kind, actor, cause, payload FROM events_archive WHERE world = $1 AND seq > $2 ORDER BY seq LIMIT $3)
+/// Two shapes were tried and dropped on 11-15. One `UNION ALL ... ORDER BY seq LIMIT
+/// n` over the bare tables was planned as a sort of everything past the cursor
+/// (`/health`, which reads the first event, went from 0.3 s to 0.6 on the live
+/// world). Asking `events` first and the archive only on a gap was quick until a
+/// move: then a read from below the edge walked every moved row's dead index entry
+/// before it found a live one (a boot from a checkpoint took 47 s on the rehearsal's
+/// copy, until a vacuum would have cleared them). Starting `events` at the edge
+/// never touches them. (The edge is asked for as "the last row by the index", not
+/// `max(seq)`: on a table just filled, PostgreSQL answered `max` by reading every row.)
+const READ: &str = "
+(SELECT seq, at, kind, actor, cause, payload FROM events_archive
+  WHERE world = $1 AND seq > $2 ORDER BY seq LIMIT $3)
 UNION ALL
-(SELECT seq, at, kind, actor, cause, payload FROM events WHERE world = $1 AND seq > $2 ORDER BY seq LIMIT $3)
+(SELECT seq, at, kind, actor, cause, payload FROM events
+  WHERE world = $1
+    AND seq > GREATEST($2, coalesce(
+          (SELECT seq FROM events_archive WHERE world = $1 ORDER BY seq DESC LIMIT 1), 0))
+  ORDER BY seq LIMIT $3)
 ORDER BY seq LIMIT $3";
 
 /// The world's last event, from `events`, and from the archive if every event of the
@@ -128,17 +135,27 @@ pub fn archive(url: &str, world: &WorldId, through: u64) -> Result<u64, LogError
             "refusing to archive through {through}: the world's newest event is {head}, and it stays"
         )));
     }
+    // Where the archive ends now: a move starts above it, and never walks the dead
+    // index entries the moves before it left behind in `events`.
+    let from: i64 = tx
+        .query_one(
+            "SELECT coalesce((SELECT seq FROM events_archive WHERE world = $1 ORDER BY seq DESC LIMIT 1), 0)",
+            &[&world.0],
+        )
+        .map_err(storage)?
+        .get(0);
     let copied = tx
         .execute(
             "INSERT INTO events_archive (world, seq, at, kind, actor, cause, payload)
-             SELECT world, seq, at, kind, actor, cause, payload FROM events WHERE world = $1 AND seq <= $2",
-            &[&world.0, &(through as i64)],
+             SELECT world, seq, at, kind, actor, cause, payload FROM events
+              WHERE world = $1 AND seq <= $2 AND seq > $3",
+            &[&world.0, &(through as i64), &from],
         )
         .map_err(storage)?;
     let gone = tx
         .execute(
-            "DELETE FROM events WHERE world = $1 AND seq <= $2",
-            &[&world.0, &(through as i64)],
+            "DELETE FROM events WHERE world = $1 AND seq <= $2 AND seq > $3",
+            &[&world.0, &(through as i64), &from],
         )
         .map_err(storage)?;
     if copied != gone {
@@ -148,6 +165,15 @@ pub fn archive(url: &str, world: &WorldId, through: u64) -> Result<u64, LogError
     }
     tx.commit().map_err(storage)?;
     Ok(gone)
+}
+
+/// After a move: fresh statistics for both tables (a sample, cheap). The rows the
+/// move left dead in `events` are autovacuum's to clear; no read walks them.
+pub fn analyze(url: &str) -> Result<(), LogError> {
+    let mut client = Client::connect(url, NoTls).map_err(storage)?;
+    client
+        .batch_execute("ANALYZE events; ANALYZE events_archive;")
+        .map_err(storage)
 }
 
 /// How many events of `world` are in each table: `(archive, events)`.
@@ -566,24 +592,9 @@ fn read(
     cursor: Cursor,
     limit: usize,
 ) -> Result<Vec<Event>, LogError> {
-    let after = cursor.after as i64;
-    let mut rows = client
-        .query(READ_ONE, &[&world.0, &after, &(limit as i64)])
+    let rows = client
+        .query(READ, &[&world.0, &(cursor.after as i64), &(limit as i64)])
         .map_err(storage)?;
-    // The very next event, or nothing asked for: `events` had it all.
-    let whole = limit == 0
-        || rows
-            .first()
-            .is_some_and(|r| r.get::<_, i64>(0) == after + 1);
-    if !whole {
-        // What lies between is in the archive, if anywhere. Both tables in one
-        // statement, so one snapshot (and no transaction of its own: the log may be
-        // inside a unit of appends). Each table gives its first `limit` rows past
-        // the cursor by its own index; at most twice `limit` rows are then sorted.
-        rows = client
-            .query(READ_BOTH, &[&world.0, &after, &(limit as i64)])
-            .map_err(storage)?;
-    }
     rows.iter()
         .map(|row| {
             let actor: serde_json::Value = row.get(3);

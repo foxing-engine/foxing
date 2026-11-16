@@ -78,6 +78,7 @@ boot() { # $1: FOXING_CHECKPOINT
     sleep 0.5
   done
   echo "answering after $(( $(date +%s) - t )) s: $(grep -m1 'events in' "$WORK/driver-$1.log" | cut -c1-200)"
+  [ $(( $(date +%s) - t )) -lt 10 ] || [ "$1" = 0 ] || { echo "a slow boot from a checkpoint; its journal:"; head -8 "$WORK/driver-$1.log" | cut -c1-200; }
 }
 stop() { kill "$driver_pid" 2>/dev/null || true; wait "$driver_pid" 2>/dev/null || true; driver_pid=""; sleep 1; }
 ask() { # verb, args-json
@@ -135,10 +136,11 @@ for k, v in sorted(keys.items()):
     p, x, y = v[0]
     print(f"  {k}: {len(v)} (e.g. {p}: {str(x)[:40]} / {str(y)[:40]})")
 def names(j):
-    rows = j.get("board") or j.get("lines") or j.get("names") or []
-    return sorted((str(r.get("name")), round(float(r.get("earned") or 0), 1)) for r in rows if isinstance(r, dict))
+    # Less the rehearsal's own name, who arrived between the two boards.
+    rows = [r for r in j.get("citizens") or [] if isinstance(r, dict) and r.get("name") != "Gnarchivist"]
+    return sorted((str(r.get("name")), round(float(r.get("earned") or 0), 1), r.get("stories"), r.get("falls"), r.get("felled"), r.get("dug")) for r in rows)
 na, nb = names(a), names(b)
-print(f"names and what each has earned: {len(na)} and {len(nb)}; the same: {na == nb}")
+print(f"names, and what each has earned, told, fallen, felled and dug: {len(na)} and {len(nb)}; the same: {na == nb}")
 sys.exit(0 if na == nb and len(na) > 0 else 1)
 PY
 grep -i "panic" "$WORK"/driver-*.log | head -3 || true

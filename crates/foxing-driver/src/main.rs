@@ -181,13 +181,37 @@ fn main() {
             println!("archive: a dry run; nothing was moved. Say --yes to move them.");
             return;
         }
+        // A batch at a time, with a breath between. One transaction for all 1.33
+        // million (the rehearsal of 11-15) took 17 s, and for 25 s the live world,
+        // on the same PostgreSQL, answered nothing: its appends waited on the disk.
+        // Each batch is whole or not at all, an event is in one table or the other
+        // at every moment, and a run that stops is taken up where it stopped.
+        let batch: u64 = env_or("FOXING_ARCHIVE_BATCH", "20000")
+            .parse()
+            .unwrap_or(20_000)
+            .clamp(1_000, 500_000);
         let began = std::time::Instant::now();
-        let moved = foxing_log_postgres::archive(url, &id, through)
-            .unwrap_or_else(|e| fail("the move failed and nothing was moved", e.to_string()));
+        let mut moved = 0u64;
+        let mut edge = archived;
+        while edge < through {
+            edge = (edge + batch).min(through);
+            moved += foxing_log_postgres::archive(url, &id, edge).unwrap_or_else(|e| {
+                fail(
+                    &format!(
+                        "the move stopped at {edge} with {moved} moved; run it again to go on"
+                    ),
+                    e.to_string(),
+                )
+            });
+            std::thread::sleep(std::time::Duration::from_millis(400));
+        }
+        if let Err(e) = foxing_log_postgres::analyze(url) {
+            eprintln!("archive: the tables were not analyzed ({e}); the move stands");
+        }
         let (archived, live) = foxing_log_postgres::counts(url, &id)
             .unwrap_or_else(|e| fail("counting", e.to_string()));
         println!(
-            "archive: moved {moved} events in {:.1} s; {archived} in the archive, {live} in events",
+            "archive: moved {moved} events in {:.1} s, {batch} at a time; {archived} in the archive, {live} in events",
             began.elapsed().as_secs_f64()
         );
         match checkpoint::verify(&log, dir, &world_name, &schemas) {
