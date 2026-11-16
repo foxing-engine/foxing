@@ -468,10 +468,14 @@ starfish that lies across the last door and grows back when left alone.
 Past it is a book that can be read only while the room is under water
 (`read book`): a memory worth eighty, once a day to a name. Now and then
 the tide carries off a thing left on a floor, to another room or up into
-the Shallows, and now and then it leaves a thing of its own: a diver's
+the Shallows (half of what it takes it leaves against the grate in the
+Sluice), and now and then it leaves a thing of its own, as often as not
+in the Barnacle Vault: a diver's
 bell jar (three times the grace while carried), a page that stayed dry
-(`read page`: the low waters to the second), a brine pearl. The grate in
-the Sluice does not open. Not yet.
+(`read page`: the low waters to the second), a brine pearl. In the Sluice
+a brass gauge says which rooms the water is over now (`read gauge`), and
+in the Barnacle Vault a ledger says what was left in the boxes (`read
+ledger`). The grate in the Sluice does not open. Not yet.
 
 ## The world's own life
 

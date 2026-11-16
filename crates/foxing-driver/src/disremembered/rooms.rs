@@ -852,7 +852,7 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: "wing-sluice",
         name: "The Sluice",
-        description: "A brick channel where the wing empties itself twice an hour, loudly. The walls sweat. At the far end the channel goes under an iron grate furred green to the thickness of a sleeve, and beyond the grate a culvert runs off downhill into a dark that smells of the town's long digestion. The grate is shut from the other side.",
+        description: "The wing's drain, and it knows it. A brick channel runs the length of the room with a walkway either side, slick as a tongue, and twice an hour the whole wing goes through it: in from the culvert, grey and cold, and then out again with everything it picked up on the way. What it cannot carry through the bars it leaves against them, so the grate at the far end wears a beard of weed, cork, shelf-tickets and anything a reader put down on a floor downstairs. A brass staff is bolted to the wall, taller than you, with the name of every room in the wing cut into it at the height the water finds that room (`read gauge`). Beyond the grate a culvert goes off downhill into a dark that smells of the town's long digestion. The grate is shut from the other side.",
         exits: &[("west", "wing-pool")],
         spawn: Some(("newtling", 1, 180)),
         former: &[],
@@ -926,7 +926,7 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: "wing-vault",
         name: "The Barnacle Vault",
-        description: "A strongroom, its door rusted open at the width of one person turned sideways. Inside, the deed boxes have grown a white crust like a second, better lock, and the shelves hold shapes that were ledgers. It is colder than the Sump and wetter than cold. Something ribbon-shaped keeps to the back of it, where the valuable things were.",
+        description: "The library's strongroom. The door is a hand thick and rusted open at the width of one person turned sideways; you go in shoulder first, and the cold comes to meet you like a clerk. Three walls are deed boxes, floor to vault, each with its brass plate, and the barnacles have grown over every lock in a white crust that is a second lock and a better one. They click when the water leaves them, all at once, like a room of people putting down their pens. A deposit ledger lies chained to the counter, swollen to the size of a pillow and open where it was left (`read ledger`). The tide comes in here last of the dry rooms and leaves heavy things behind when it goes. Something ribbon-shaped keeps to the back, where the valuable things were, and has not decided about you.",
         exits: &[("west", "wing-sump")],
         spawn: Some(("lamprey", 1, 360)),
         former: &[],

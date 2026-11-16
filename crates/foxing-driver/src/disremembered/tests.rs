@@ -12910,6 +12910,16 @@ fn the_drowned_wing_keeps_its_tide() {
     );
     let out = ok(&mut w, "dave", "read", json!(["grate"]));
     assert!(out.summary.contains("Not yet."), "{}", out.summary);
+    // The Sluice's gauge says which rooms the water is over, and the Vault's
+    // ledger what was left in the boxes.
+    let out = ok(&mut w, "dave", "read", json!(["gauge"]));
+    assert!(out.summary.contains("Under it now: "), "{}", out.summary);
+    assert!(out.summary.contains("Clear of it: "), "{}", out.summary);
+    assert!(out.summary.contains("Burning Shelf"), "{}", out.summary);
+    put(&mut w, f.citizen, "wing-vault");
+    let out = ok(&mut w, "dave", "read", json!(["ledger"]));
+    assert!(out.summary.contains("TO BE KEPT WET"), "{}", out.summary);
+    assert!(out.summary.contains("Ashen Wastes"), "{}", out.summary);
 
     // The starfish lies across the way to the shelf.
     put(&mut w, f.citizen, "wing-court");

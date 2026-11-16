@@ -25,6 +25,7 @@ use std::collections::BTreeMap;
 pub const WRACK: &str = "wing-wrack";
 pub const SLUICE: &str = "wing-sluice";
 pub const COURT: &str = "wing-court";
+pub const VAULT: &str = "wing-vault";
 pub const SHELF: &str = "wing-shelf";
 
 /// A room of the wing and how high it stands: the water is over a room while the
@@ -665,12 +666,49 @@ pub fn read(
             table(world, false)
         ),
         Some(SLUICE) if a.is_empty() || named(&["grate", "sewer", "door", "gate", "bars"]) => "The grate is a door of iron bars as thick as your wrist, green and furred, hinged on the far side and barred on the far side. Beyond it a brick culvert goes away downhill in the dark, and something in it is moving slowly the other way. A plate on the lintel, half eaten: MUNICIPAL S—WER. NO ADM—. Nothing on this side opens it. Not yet.".to_string(),
+        Some(SLUICE) if named(&["gauge", "staff", "brass", "marks", "names"]) => gauge(world),
+        Some(VAULT) if a.is_empty() || named(&["ledger", "deposit", "book", "box", "plate", "deed", "counter"]) => "The deposit ledger is open at its last page, and the ink has spread into the paper and stayed legible, the way a bruise does. Box 7. The Night Reader. One starfish, small, in a jar of its own water, for the light well. In another hand, later: It has not stayed small. In a third, pressed hard: What is cut from it is back inside five minutes. All at once, or not at all. Box 12. Municipal Sewer Board. One key, iron, for the grate at the Sluice. Withdrawn. Not returned. Box 31. The Keeper of the Lowest Shelf. One book, bound in something that does not char. TO BE KEPT WET. Do not let it dry while a reader has it open. Box 40. Depositor's name burned out of the page, neatly, from the inside. One deed, to a lot in the Ashen Wastes. Below that the page is blank, and beaded with water, and patient.".to_string(),
         Some(SHELF) if a.is_empty() || named(&["book", "burning", "shelf", "fire", "flame"]) => {
             return burning_book(world, actor, &f, room).map(Some);
         }
         _ => return Ok(None),
     };
     Ok(Some(Outcome::new(text, json!({"room": key, "read": a}))))
+}
+
+/// The Sluice's gauge: every room of the wing cut into a brass staff at its height,
+/// and the water against it. Which rooms are under and which are clear, now; never
+/// when (the Tide Table keeps that). It gives the Sluice a reason to be walked to,
+/// and a new name a way to see the whole wing's water from one dry-shod place.
+fn gauge(world: &World) -> String {
+    let now = world.now().0;
+    let s = season(world);
+    let name = |key: &str| {
+        super::rooms::room_by_key(world, key)
+            .and_then(|r| plain_str(world, r, ROOM, "name"))
+            .unwrap_or("?")
+            .trim_start_matches("The ")
+            .to_string()
+    };
+    let (mut under, mut clear) = (Vec::new(), Vec::new());
+    for (key, h) in HEIGHTS.iter().filter(|(_, h)| *h < 1.0) {
+        if flooded_at(now, *h, s) {
+            under.push(name(key));
+        } else {
+            clear.push(name(key));
+        }
+    }
+    let list = |v: &[String]| match v.len() {
+        0 => "none of them".to_string(),
+        _ => v.join(", "),
+    };
+    let k = cycle_at(now);
+    format!(
+        "The gauge is a brass staff bolted to the brick, green where the water lives and bright where hands have been. Every room of the wing is cut into it at its own height, the Reading Pool near the top and the Burning Shelf a thumb above the floor, and the water stands against it, {}. Under it now: {}. Clear of it: {}. The staff says where the water is and never when: the slate at the Wrack Line keeps the hours.",
+        if now < low_water(k) { "going down" } else { "coming up" },
+        list(&under),
+        list(&clear)
+    )
 }
 
 /// The burning book: cold and shut in the air, alight and open under water. Read
@@ -813,7 +851,13 @@ fn round(world: &mut World) -> Result<(), String> {
             if world.roll(3) != 0 {
                 continue;
             }
-            let to = elsewhere[world.roll(elsewhere.len() as u32) as usize];
+            // Half of what the water takes it leaves against the Sluice's grate, the
+            // wing's drain: a room to look in for what was lost downstairs.
+            let sluice = super::rooms::room_by_key(world, SLUICE);
+            let to = match sluice {
+                Some(sl) if world.roll(2) == 0 => sl,
+                _ => elsewhere[world.roll(elsewhere.len() as u32) as usize],
+            };
             if to == *room {
                 continue;
             }
@@ -858,7 +902,13 @@ fn round(world: &mut World) -> Result<(), String> {
         .map(|(r, _)| *r)
         .collect();
     if lying < MOST_LEFT && !uncovered.is_empty() && world.roll(6) == 0 {
-        let room = uncovered[world.roll(uncovered.len() as u32) as usize];
+        // Half the time in the Barnacle Vault, when it is clear: the tide leaves
+        // heavy things where the valuable things were.
+        let vault = super::rooms::room_by_key(world, VAULT).filter(|v| uncovered.contains(v));
+        let room = match vault {
+            Some(v) if world.roll(2) == 0 => v,
+            _ => uncovered[world.roll(uncovered.len() as u32) as usize],
+        };
         let (name, origin, uses) = LEFT[world.roll(LEFT.len() as u32) as usize];
         let item = super::craft::make(
             world,
@@ -886,6 +936,20 @@ fn round(world: &mut World) -> Result<(), String> {
             &here,
             format!("The water, going out, has left something on the floor that it did not make: {name}."),
         );
+    }
+    // The Sluice is the wing's drain, and says so to whoever stands in it: the room
+    // "empties itself twice an hour, loudly", and a visitor heard nothing.
+    if let Some(sl) = super::rooms::room_by_key(world, SLUICE) {
+        let here = here_in(world, sl);
+        if !here.is_empty() {
+            let k = cycle_at(now);
+            let line = if now < low_water(k) {
+                "The channel is running out: the whole wing going past your feet toward the grate, grey and fast, and the bars combing it."
+            } else {
+                "The channel has turned: water is coming in through the grate from the culvert, slow and cold, and it smells of somewhere else."
+            };
+            super::combat::narrate_many(world, &here, line.to_string());
+        }
     }
     rearm(world)
 }
