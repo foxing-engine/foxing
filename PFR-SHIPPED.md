@@ -5,6 +5,10 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-16 (two from David at the keyboard; one driver deploy, one site deploy)
+- A row of "What the named want" (and of "What remembers you") walks there when clicked even where the page's own map has not walked the room: it sends `travel <the room's name>`, which the world walks by the remembered or signed way from wherever you stand. The row had offered the walk and the click did nothing; with no way at all, the click now says so.
+- The satchel stacks plain things of one kind as the ground does: "a wisp ember ×2 (item-168, item-171, 31–47% remembered)". A thing with a name, a maker, writing, a past or a holding stays its own entry. Up to four of a kind are each named by id, on the ground too; more are a range.
+
 11-16 (a body that grows with level, and mends in ten minutes; David's call; one driver deploy)
 - Hit points were 30 for every name while the world's blows ran from 1 to 36. A body is now whole at 30 and one more for every ten levels held, to 60 at level 300, and shrinks again as the memory fades. It is sized out of a fight (on arriving, on a fight's end, on waking), keeping what it has. Mending is whole from nothing in ten minutes at any size (it was twelve and a half); a basin is still three times that, and the Closet no slower than anywhere. `rest` says the rule once the body is over 30; every line that said "of 30" says the body's own figure. The quickstart, the guide and llms.txt say the same.
 

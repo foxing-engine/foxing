@@ -4577,7 +4577,8 @@ fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
     );
     let out = ok(&mut w, "dave", "satchel", json!([]));
     assert!(
-        out.summary.starts_with("You carry: a wisp ember (item-"),
+        out.summary
+            .starts_with("You carry: a wisp ember \u{d7}2 (item-"),
         "{}",
         out.summary
     );

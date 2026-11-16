@@ -1767,7 +1767,7 @@
       row.title = (r.way && r.way.length ? "click: walk there; " : "") + (r.story ? "shift-click: story " + r.name : "");
       row.addEventListener("click", (ev) => {
         if (ev.shiftKey && r.story) { prefill('story ' + r.name + ' "'); return; }
-        if (r.way && r.way.length) walkTo(r.room); else if (r.way && !r.way.length && r.story) prefill('story ' + r.name + ' "');
+        if (r.way && !r.way.length) { if (r.story) prefill('story ' + r.name + ' "'); } else walkTo(r.room, r.way, r.room_name);
       });
       frag.append(row);
     }
@@ -1784,7 +1784,7 @@
       const n = document.createElement("div"); n.className = "nm"; n.textContent = label; n.append(waySpan(way));
       const sb = document.createElement("span"); sb.className = "sub"; sb.textContent = sub; n.append(sb); row.append(n);
       if (bar != null) { const b = document.createElement("div"); b.className = "bar"; const i = document.createElement("i"); i.style.width = (Math.max(0, Math.min(1, bar)) * 100).toFixed(1) + "%"; b.append(i); row.append(b); }
-      if (room && way && way.length) { row.title = "click: walk there"; row.addEventListener("click", () => walkTo(room)); }
+      if (room && way && way.length) { row.title = "click: walk there"; row.addEventListener("click", () => walkTo(room, way, label)); }
       frag.append(row);
     };
     for (const r of rooms) {
@@ -1830,9 +1830,17 @@
     while (prev.get(at)) { const p = prev.get(at); steps.unshift(p.via); at = p.from; }
     return steps;
   }
-  function walkTo(target) {
-    const steps = routeTo(target); if (!steps || !steps.length) return;
-    const name = (atlas.rooms.find(r => r.id === target) || {}).name || "there";
+  // `way` is the world's own way there (remembered or by the signs), for a room the
+  // page's map has not walked: a row offered the walk and the click did nothing.
+  function walkTo(target, way, called) {
+    const steps = routeTo(target);
+    if (!steps || !steps.length) {
+      // The world walks it by name from wherever you stand now (the way the row
+      // shows was right when the row was drawn, and you may have moved since).
+      if (way && way.length && called) { chain = after(() => run("travel", [called])); return; }
+      print("No way there that you remember or the signs give. Walk nearer, and `where` says more.", "sys"); return;
+    }
+    const name = (atlas && atlas.rooms.find(r => r.id === target) || {}).name || called || "there";
     print("Walking to " + name + ": " + steps.join(", ") + ".", "sys");
     chain = after(async () => {
       for (const via of steps) {

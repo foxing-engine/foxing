@@ -1070,6 +1070,67 @@ pub fn item_line(v: &Value) -> String {
     )
 }
 
+/// A list of things with plain ones of one name folded into one entry with a count:
+/// "river weed ×12 (item-5491 … item-6082, 26–38% remembered)". A thing with a name,
+/// a maker, writing, a past or a holding is said on its own, by `one`.
+pub fn folded(things: &[Value], one: &dyn Fn(&Value) -> String) -> Vec<String> {
+    let plain = |t: &Value| {
+        t["given_name"].is_null()
+            && t["made_by"].is_null()
+            && t["text"].is_null()
+            && t["tier"].as_u64().unwrap_or(0) <= 1
+            && super::up(t["held"].as_f64().unwrap_or(0.0)) < 0.5
+    };
+    let mut lines: Vec<String> = Vec::new();
+    let mut seen: Vec<&str> = Vec::new();
+    for t in things {
+        let name = t["name"].as_str().unwrap_or("something");
+        if !plain(t) || seen.contains(&name) {
+            if !plain(t) {
+                lines.push(one(t));
+            }
+            continue;
+        }
+        let same: Vec<&Value> = things
+            .iter()
+            .filter(|o| plain(o) && o["name"].as_str() == Some(name))
+            .collect();
+        if same.len() < 2 {
+            lines.push(one(t));
+            continue;
+        }
+        seen.push(name);
+        let mems: Vec<f64> = same
+            .iter()
+            .map(|o| o["memory"].as_f64().unwrap_or(1.0))
+            .collect();
+        let (lo, hi) = (
+            mems.iter().cloned().fold(1.0, f64::min),
+            mems.iter().cloned().fold(0.0, f64::max),
+        );
+        let mem = if hi < 0.95 {
+            format!(", {:.0}\u{2013}{:.0}% remembered", lo * 100.0, hi * 100.0)
+        } else {
+            String::new()
+        };
+        // A few are each said (two read as a range of four: "item-168 … item-171").
+        let ids = if same.len() <= 4 {
+            same.iter()
+                .map(|o| format!("item-{}", o["id"]))
+                .collect::<Vec<_>>()
+                .join(", ")
+        } else {
+            format!(
+                "item-{} \u{2026} item-{}",
+                same[0]["id"],
+                same[same.len() - 1]["id"]
+            )
+        };
+        lines.push(format!("{name} \u{d7}{} ({ids}{mem})", same.len()));
+    }
+    lines
+}
+
 /// What lies here, for `look`: "On the ground: a wisp ember (item-9)." Plain drops of
 /// one name are folded ("river weed ×12 (item-5491 … item-6082, 26–38% remembered)"):
 /// the Threshold's floor once listed forty of them one by one (F26). A thing with a
@@ -1086,52 +1147,7 @@ pub fn ground_line(world: &World, room: EntityId) -> Option<String> {
         .collect();
     let awake = things.iter().any(|t| t["tier"].as_u64().unwrap_or(0) >= 3);
     let settled = awake && awake_here.iter().all(|a| a["settled"] == true);
-    let plain = |t: &Value| {
-        t["given_name"].is_null()
-            && t["made_by"].is_null()
-            && t["text"].is_null()
-            && t["tier"].as_u64().unwrap_or(0) <= 1
-            && super::up(t["held"].as_f64().unwrap_or(0.0)) < 0.5
-    };
-    let mut lines: Vec<String> = Vec::new();
-    let mut folded: Vec<&str> = Vec::new();
-    for t in &things {
-        let name = t["name"].as_str().unwrap_or("something");
-        if !plain(t) || folded.contains(&name) {
-            if !plain(t) {
-                lines.push(item_line(t));
-            }
-            continue;
-        }
-        let same: Vec<&Value> = things
-            .iter()
-            .filter(|o| plain(o) && o["name"].as_str() == Some(name))
-            .collect();
-        if same.len() < 2 {
-            lines.push(item_line(t));
-            continue;
-        }
-        folded.push(name);
-        let mems: Vec<f64> = same
-            .iter()
-            .map(|o| o["memory"].as_f64().unwrap_or(1.0))
-            .collect();
-        let (lo, hi) = (
-            mems.iter().cloned().fold(1.0, f64::min),
-            mems.iter().cloned().fold(0.0, f64::max),
-        );
-        let mem = if hi < 0.95 {
-            format!(", {:.0}\u{2013}{:.0}% remembered", lo * 100.0, hi * 100.0)
-        } else {
-            String::new()
-        };
-        lines.push(format!(
-            "{name} \u{d7}{} (item-{} \u{2026} item-{}{mem})",
-            same.len(),
-            same[0]["id"],
-            same[same.len() - 1]["id"]
-        ));
-    }
+    let lines = folded(&things, &item_line);
     Some(format!(
         "On the ground: {}.{}",
         lines.join(", "),
@@ -1880,10 +1896,10 @@ pub fn register(world: &mut World, curves: Curves) {
             let mut text = if things.is_empty() {
                 "Your satchel is empty. A creature that comes apart leaves something behind by the fight's length; take it, and recipes says what it makes.".to_string()
             } else {
-                format!(
-                    "You carry: {}.",
-                    things.iter().map(line).collect::<Vec<_>>().join(", ")
-                )
+                // Plain things of one kind are one entry with a count, as on the
+                // ground (five wisp embers were five entries).
+                let said = folded(&things, &line);
+                format!("You carry: {}.", said.join(", "))
             };
             // What a made thing does, beside it: a maker forgot what their own
             // bandage was for, and only `recipes` said (the Watch of 11-06).
