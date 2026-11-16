@@ -715,6 +715,13 @@ fn play(
             };
             let mut exits: Vec<(String, EntityId)> =
                 super::rooms::exits_of(world, here).into_iter().collect();
+            // A door that asks a word, or that something lies across, is not gone
+            // through by being pushed: a hollow's shove put a name inside a dug
+            // room whose door had refused it a minute before.
+            exits.retain(|(_, to)| {
+                super::building::ward_of(world, *to).is_none()
+                    && super::tide::bars(world, here, *to).is_none()
+            });
             // R203: a name in its first hour is not shoved into a room that hunts
             // (two of four newcomers met the Shallows this way, off their first
             // wisp); with no other door, it holds the frame and the fight goes on.
