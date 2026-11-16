@@ -656,7 +656,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.dig",
-            "Open a new room off this one, through a new exit, paid for with one of your chunks: the room is born with that memory's half-life and fades unless visited. Not at the Threshold: the Mudroom, west of it, is where the digging starts, and takes any number of doors. From each of the world's other rooms (the seed rooms) once; from your own, as you like. Every room but the Mudroom takes eight doors in all, and `look` says how many are left where some were dug. A kept name's verb (every name is kept unless it asked to be passing at the gate; the play page's names are kept).",
+            "A kept name's verb: a passing name sends `keep` first (every name is kept unless it asked to be passing at the gate; the play page's names are kept). Open a new room off this one, through a new exit, paid for with one of your chunks: the room is born with that memory's half-life and fades unless visited. Not at the Threshold: the Mudroom, west of it, is where the digging starts, and takes any number of doors. From each of the world's other rooms (the seed rooms) once; from your own, as you like. Every room but the Mudroom takes eight doors in all, and `look` says how many are left where some were dug.",
         )
         .param("exit", ParamType::String, true, "the new exit's name, not one this room has")
         .param("chunk", ParamType::Entity, true, "a chunk of yours; it is spent")
@@ -1403,6 +1403,11 @@ pub fn register(world: &mut World, curves: super::Curves) {
                 StoreEvent::EntityMoved { id: creature, parent: Some(here) },
             )
             .map_err(internal)?;
+            // "It lives here now": its home is this room, so that when its business
+            // with a keeper is done it comes back here and not to where it was first
+            // fed (the resident of 11-16 invited a wisp and found it gone inside a
+            // minute, walked "home" to the room it was named in).
+            let _ = super::life::set_home(w, creature, here);
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 INVITED,

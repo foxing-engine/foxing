@@ -8671,6 +8671,7 @@ fn a_room_welcomes_all_and_invites_a_named_creature_to_live_in_it() {
     )
     .unwrap_err();
     assert!(err.to_string().contains("room you dug"), "{err}");
+    life::set_home(&mut w, named, fog).unwrap();
     ok(&mut w, "tyler", "travel", json!(["hollow"]));
     let err = call(
         &mut w,
@@ -8689,6 +8690,9 @@ fn a_room_welcomes_all_and_invites_a_named_creature_to_live_in_it() {
     );
     let house = rooms::room_of(&w, find_citizen(&w, "tyler").unwrap().citizen).unwrap();
     assert_eq!(w.store.entity(named).and_then(|e| e.parent), Some(house));
+    // "It lives here now": home is the room, not the Fogbank it was named in, so
+    // its business done it walks back here.
+    assert_eq!(life::home_of(&w, named), Some(house));
     let err = call(
         &mut w,
         "tyler",

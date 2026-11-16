@@ -572,7 +572,7 @@ fn creature_hp(world: &World, c: EntityId) -> (f64, f64) {
     (hp, max)
 }
 
-fn home_of(world: &World, c: EntityId) -> Option<EntityId> {
+pub(super) fn home_of(world: &World, c: EntityId) -> Option<EntityId> {
     world
         .store
         .entity(c)
@@ -584,7 +584,7 @@ fn home_of(world: &World, c: EntityId) -> Option<EntityId> {
         })
 }
 
-fn set_home(world: &mut World, c: EntityId, r: EntityId) -> Result<(), String> {
+pub(super) fn set_home(world: &mut World, c: EntityId, r: EntityId) -> Result<(), String> {
     let mut changes = BTreeMap::new();
     changes.insert("home".into(), Field::Plain(json!(r.0)));
     super::bindery::set_fields(world, Actor::Driver, c, CREATURE, changes)

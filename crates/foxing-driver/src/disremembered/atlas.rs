@@ -1153,28 +1153,17 @@ fn loose(text: &str) -> String {
         .join(" ")
 }
 
-fn said_way(world: &World, from: EntityId, path: &[String]) -> String {
-    // A wicket on the way asks a word; said here so the walk is not stopped by
-    // surprise (a visitor was).
-    let wicket = if path.iter().any(|p| p == "wicket") {
-        " (the wicket asks for the word cut into the Wishing Well's rim: `travel wicket \"<word>\"`)"
-    } else {
-        ""
-    };
-    // The stair into the Lower Stacks asks a level; a way handed through it without
-    // a word dead-ended a new name four steps in (the Watch of 11-07).
+/// The rooms on a way that hunt, as a clause for whoever is handed the way; empty when
+/// none does. R219: a way through a room that hunts says so (two Watches were handed
+/// "over, south, south" through the Shallows with no word of it); 11-16: an errand's
+/// way says it too.
+pub(super) fn hunts_on(world: &World, from: EntityId, path: &[String]) -> String {
     let mut at = from;
-    let mut stair = "";
     let mut hunting: Vec<String> = Vec::new();
     for step in path {
         let Some(&to) = rooms::exits_of(world, at).get(step) else {
             break;
         };
-        if plain_str(world, to, ROOM, "key") == Some("lower-stacks") && step == "down" {
-            stair = " (the stair down asks a level of one hundred)";
-        }
-        // R219: a way through a room that hunts says so (two Watches were handed
-        // "over, south, south" through the Shallows with no word of it).
         let hunts_here = world
             .store
             .children(to)
@@ -1189,14 +1178,38 @@ fn said_way(world: &World, from: EntityId, path: &[String]) -> String {
         }
         at = to;
     }
-    let hunts = if hunting.is_empty() {
+    if hunting.is_empty() {
         String::new()
     } else {
         format!(
             " (through {}, where something hunts whoever stays; a name in its first hour is left alone)",
             hunting.join(" and ")
         )
+    }
+}
+
+fn said_way(world: &World, from: EntityId, path: &[String]) -> String {
+    // A wicket on the way asks a word; said here so the walk is not stopped by
+    // surprise (a visitor was).
+    let wicket = if path.iter().any(|p| p == "wicket") {
+        " (the wicket asks for the word cut into the Wishing Well's rim: `travel wicket \"<word>\"`)"
+    } else {
+        ""
     };
+    // The stair into the Lower Stacks asks a level; a way handed through it without
+    // a word dead-ended a new name four steps in (the Watch of 11-07).
+    let mut at = from;
+    let mut stair = "";
+    for step in path {
+        let Some(&to) = rooms::exits_of(world, at).get(step) else {
+            break;
+        };
+        if plain_str(world, to, ROOM, "key") == Some("lower-stacks") && step == "down" {
+            stair = " (the stair down asks a level of one hundred)";
+        }
+        at = to;
+    }
+    let hunts = hunts_on(world, from, path);
     match path.len() {
         0 => "you are there".to_string(),
         1 => format!("one step: {}{wicket}{stair}{hunts}", path[0]),

@@ -523,9 +523,10 @@ pub fn describe_as(world: &World, creature: EntityId, worded: bool) -> Option<St
                     // says so: `start` printed it to readers at the Threshold, who
                     // took "north, then annex" from the door.
                     format!(
-                        " (from {}: travel {}, then tell {to} \"{phrase}\")",
+                        " (from {}: travel {}, then tell {to} \"{phrase}\"){}",
                         plain_str(world, a, ROOM, "name").unwrap_or("where it stands"),
-                        p.join(", then ")
+                        p.join(", then "),
+                        super::atlas::hunts_on(world, a, &p)
                     )
                 })
                 .unwrap_or_default(),

@@ -618,6 +618,11 @@ const READ_VERBS: &[&str] = &[
     "messages",
     "petitions",
     "news",
+    // 11-16: the resident found `almanac messages` cost one where `chunks look
+    // messages` was free. These three change nothing either.
+    "almanac",
+    "letters",
+    "observe",
 ];
 
 const AFTER_DEATH: &[&str] = &[
