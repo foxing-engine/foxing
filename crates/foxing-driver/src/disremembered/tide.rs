@@ -520,9 +520,17 @@ pub fn look_line(world: &World, actor: &str, room: EntityId) -> Option<String> {
             }
         ));
     }
+    // Whether the tide is still going out: a deep room is never ten minutes from its
+    // water, and said "on its way back" from the moment it cleared, while the table
+    // said the water was falling.
+    let falling = now < low_water(cycle_at(now));
     let here = match floods_at(now, height, s) {
         None => "The water is over you: this room is under water. After half a minute of it you are hurt, a little and then more, and nothing mends until you are out; the Wrack Line is always dry.",
+        // The warning a minute out is said once, to whoever is listening; `look`
+        // says it too, to whoever asks.
+        Some(at) if at - now < 60_000 => "The water is over the sill: this room goes under inside a minute.",
         Some(at) if at - now < 3 * 60_000 => "The water is at the sill, and coming in.",
+        Some(at) if at - now < 10 * 60_000 && falling => "The floor is wet and the water is still going out; a room this low is not clear of it long.",
         Some(at) if at - now < 10 * 60_000 => "The floor is wet and the water is on its way back: you can hear it in the next room.",
         Some(_) => "The floor is wet, and the water is well out.",
     };
