@@ -5,6 +5,9 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-16 (S16 c on the live log)
+- The live world's 1,332,165 older events are in `events_archive`; 60,000 and what has come since are in `events`. Dumped first, verified before and after, moved in batches in 47 s; one 12.6 s stall forty seconds before the move. In S16, with what is owed.
+
 11-15 (S16 c built and rehearsed; three driver deploys; the live log not touched)
 - The log read as two tables, the batched move behind `foxing-driver archive` (a dry run without `--yes`), and `rehearse-archive` on a copy of the live log. Three rehearsals; what the first two found (a read planned as a sort, a move that stalled the live world's disk, dead index entries below the edge) is mended and the third was clean. In S16.
 
