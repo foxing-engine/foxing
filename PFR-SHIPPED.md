@@ -5,6 +5,13 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-15, late (six from David at the keyboard; one driver deploy, one site deploy)
+- **The first hours' card** has a `skip` beside `do it` (the step is marked skipped and the next comes up; doing it later still ticks it) and an × that closes the card (`?` on an empty line brings it back).
+- **Plain things left on a floor fade about ten times faster**: half gone in half an hour, swept inside ten hours, where a carried thing takes days. The sweep puts a plain thing lying in a room on the ground's curve and takes it off again once it is carried; a made, named or fixed thing, anything with a past, and the Midden's heap are left as they were.
+- **The satchel panel stacks** plain things of one kind as one tile with a count (the text did since earlier tonight; the picture did not), and **pages** at fifteen tiles.
+- **Hovering the picture** shows a tooltip at the pointer (hit points with the body's rule, level with how fast it is falling, attack with its sum; creatures, doors and things as before). The line under the picture is the room's description and no longer changes under the pointer.
+- **The verbs under the picture** are larger, outlined and filled, under a "Do" label, and no longer fade to a third's opacity.
+
 11-15, late (alpha; one driver deploy, one site deploy)
 - David called it: the first gate is met, and Disremembered and Foxing are alpha. "Pre-alpha" is "alpha" on the front page, the play page (its title, its header and its state line, which still says the world may be reset without notice), the guide, both llms.txt, the world card (`status`, and the engine's version "0.1.0 alpha"), the share image (redrawn), foxing.dev, the README, the driver's text-port banner and its OpenAPI description. CONTRIBUTING and SECURITY said things that had stopped being true (not yet playable; nothing deployed that holds anyone's data) and say what is.
 

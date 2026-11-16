@@ -1796,8 +1796,72 @@ pub fn ensure_fixtures(world: &mut World, curves: &Curves) -> Result<(), String>
     Ok(())
 }
 
+/// A plain thing left lying fades on this share of the active half-life as its
+/// scale, where a carried one has five times the half-life and more: half gone in
+/// half an hour, swept inside ten. (The floors filled: the Threshold listed eleven
+/// stone rolls and eleven ripe hours a week old.)
+pub const GROUND_SCALE: f64 = 0.5;
+
+/// Plain things on a room's floor are put on the ground's curve, and off it again
+/// once picked up. The Midden is the heap, and keeps what is swept into it.
+fn settle_ground(world: &mut World) -> Result<(), String> {
+    let curves = super::Curves::from_env();
+    let carried = curves.palace(0.5);
+    let ground = Curve::PowerLaw {
+        scale: foxing_time::Duration((curves.active_half_life.0 as f64 * GROUND_SCALE) as i64),
+        exponent: 1.0,
+    };
+    let midden = super::rooms::room_by_key(world, "midden");
+    let moves: Vec<(EntityId, Curve)> = world
+        .store
+        .of_kind("item")
+        .filter_map(|e| {
+            let c = e.components.get(ITEM)?;
+            let Some(Field::Timed(t)) = c.fields.get("memory") else {
+                return None;
+            };
+            // Only the two curves this pass deals: a fixture's, or any other, is left.
+            if t.curve != carried && t.curve != ground {
+                return None;
+            }
+            let plain = !matches!(c.fields.get("fixed"), Some(Field::Plain(Value::Bool(true))))
+                && matches!(
+                    c.fields.get("made_by"),
+                    None | Some(Field::Plain(Value::Null))
+                )
+                && matches!(
+                    c.fields.get("given_name"),
+                    None | Some(Field::Plain(Value::Null))
+                );
+            let on_floor = e.parent.is_some_and(|p| {
+                Some(p) != midden && world.store.entity(p).is_some_and(|r| r.kind == "room")
+            });
+            let want = if plain && on_floor { &ground } else { &carried };
+            (t.curve != *want).then(|| (e.id, want.clone()))
+        })
+        .collect();
+    for (id, curve) in moves {
+        if super::past::tier(world, id) > 1 {
+            continue;
+        }
+        world
+            .record(
+                Actor::Driver,
+                StoreEvent::FieldRecurved {
+                    id,
+                    component: ITEM.into(),
+                    field: "memory".into(),
+                    curve,
+                },
+            )
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// Things that have faded past the threshold are forgotten, wherever they lie.
 pub fn sweep(world: &mut World) -> Result<(), String> {
+    settle_ground(world)?;
     let now = world.now();
     let gone: Vec<(EntityId, String, Option<EntityId>)> = world
         .store

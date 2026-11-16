@@ -12711,3 +12711,40 @@ fn a_body_grows_with_what_its_name_holds_and_mends_in_ten_minutes() {
         rest.summary
     );
 }
+
+#[test]
+fn a_plain_thing_left_lying_fades_fast_and_slowly_again_once_carried() {
+    use super::craft;
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let door = rooms::room_by_key(&w, "threshold").unwrap();
+    let a = craft::leave_behind(&mut w, &Curves::from_env(), door, door, "wisp", 6)
+        .unwrap()
+        .unwrap()
+        .0;
+    let b = craft::leave_behind(&mut w, &Curves::from_env(), door, door, "wisp", 6)
+        .unwrap()
+        .unwrap()
+        .0;
+    ok(&mut w, "dave", "take", json!([format!("item-{}", a.0)]));
+    let mem = |w: &World, id: EntityId| {
+        w.store
+            .read_field(id, craft::ITEM, "memory", w.now())
+            .unwrap()
+            .as_f64()
+            .unwrap()
+    };
+    // The sweep puts the one on the floor on the ground's curve; the carried one is
+    // left on its own.
+    craft::sweep(&mut w).unwrap();
+    w.fixed_now = Some(t0.plus(Duration::seconds(3600)));
+    assert!(mem(&w, b) < 0.4, "on the floor an hour: {}", mem(&w, b));
+    assert!(mem(&w, a) > 0.8, "carried an hour: {}", mem(&w, a));
+    // Picked up, it fades as a carried thing does from where it had got to.
+    ok(&mut w, "dave", "take", json!([format!("item-{}", b.0)]));
+    craft::sweep(&mut w).unwrap();
+    let then = mem(&w, b);
+    w.fixed_now = Some(t0.plus(Duration::seconds(7200)));
+    assert!(mem(&w, b) > then * 0.8, "{} then {}", then, mem(&w, b));
+}

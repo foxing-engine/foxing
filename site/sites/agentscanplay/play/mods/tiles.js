@@ -127,10 +127,27 @@ export default function install(m) {
   hud.style.cssText = "font-size:12px;color:var(--dim);margin-top:6px;min-height:1.2em;line-height:1.3;max-height:2.6em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical";
   hud.textContent = "Log in to see the room.";
   const verbs = document.createElement("div");
-  verbs.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;margin-top:6px";
+  verbs.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;margin-top:6px";
   verbs.setAttribute("aria-label", "Verbs you have used lately");
-  wrap.append(canvas, menu);
-  panel.append(wrap, hud, verbs);
+  // What the pointer is over, said beside the pointer: the line under the picture is
+  // the room's own text and stays so (a hover once replaced it, and the page jumped).
+  const tip = document.createElement("div");
+  tip.hidden = true;
+  tip.setAttribute("role", "tooltip");
+  tip.style.cssText = "position:absolute;z-index:6;max-width:300px;pointer-events:none;background:rgba(18,26,37,.97);border:1px solid var(--dust,#d9b57a);border-radius:6px;padding:6px 9px;font-size:12px;line-height:1.4;color:var(--ink);box-shadow:0 6px 18px rgba(0,0,0,.5)";
+  function showTip(text, x, y) {
+    if (!text) { tip.hidden = true; return; }
+    tip.textContent = text; tip.hidden = false;
+    const w = wrap.clientWidth, h = wrap.clientHeight, tw = tip.offsetWidth, th = tip.offsetHeight;
+    tip.style.left = Math.max(2, Math.min(x + 14, w - tw - 2)) + "px";
+    tip.style.top = (y + 18 + th > h ? Math.max(2, y - th - 10) : y + 18) + "px";
+  }
+  function hideTip() { tip.hidden = true; }
+  const verbsLabel = document.createElement("div");
+  verbsLabel.textContent = "Do";
+  verbsLabel.style.cssText = "font:11px var(--mono,monospace);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:10px";
+  wrap.append(canvas, menu, tip);
+  panel.append(wrap, hud, verbsLabel, verbs);
   m.builtin("map", false);
   m.builtin("here", false);
   const ctx = canvas.getContext("2d");
@@ -181,13 +198,16 @@ export default function install(m) {
     const frag = document.createDocumentFragment();
     for (const [verb, mem] of rows.slice(0, 10)) {
       const b = document.createElement("button"); b.type = "button"; b.className = "way";
-      b.textContent = verb; b.style.opacity = Math.max(0.35, mem).toFixed(2);
+      b.textContent = verb;
+      // Large enough to be the first thing a hand finds; the fade is by color, not
+      // by going faint (a verb at a third's opacity read as switched off).
+      b.style.cssText = "font-size:14px;padding:6px 14px;border-radius:999px;border:1px solid var(--dust,#d9b57a);background:rgba(217,181,122," + (0.06 + 0.16 * mem).toFixed(2) + ");color:var(--ink);cursor:pointer;opacity:" + Math.max(0.7, mem).toFixed(2);
       b.title = (NOARG.has(verb) ? "run " + verb : "start a " + verb + " line") + "; fades unless used";
       b.addEventListener("click", () => { touch(verb); if (NOARG.has(verb)) m.command(verb, []); else m.prefill(PREFILL[verb] || (verb + " ")); });
       frag.append(b);
     }
     verbs.replaceChildren(frag);
-    verbs.hidden = rows.length === 0;
+    verbs.hidden = rows.length === 0; verbsLabel.hidden = verbs.hidden;
   }
   const verbTimer = setInterval(drawVerbs, 30000);
   drawVerbs();
@@ -865,7 +885,7 @@ export default function install(m) {
     const rate = bodyC && bodyC.hp && bodyC.hp.curve && bodyC.hp.curve.Linear ? bodyC.hp.curve.Linear.rate_per_ms : 0;
     let fall = 0;
     for (const c of chunks) { const ch = c.components["disremembered.chunk"]; const cx = ch && ch.value && ch.value.curve; const v = ch && ch.value != null ? m.timed(ch.value) : 0; if (cx && cx.Exponential && cx.Exponential.half_life > 0) fall += v * Math.LN2 * 3600000 / cx.Exponential.half_life; else if (cx && cx.PowerLaw && cx.PowerLaw.scale > 0) fall += v * 3600000 / (cx.PowerLaw.scale * 2); }
-    const hpLabel = hp == null ? "hp" : "hp " + hp.toFixed(1) + "/" + max + (rate > 0 && hp < max - 0.5 ? ", mending " + (rate * 60000).toFixed(1) + " a minute" : hp >= max - 0.5 ? ", whole" : ", not mending (a fight, or bleeding)");
+    const hpLabel = hp == null ? "hit points" : "hit points " + hp.toFixed(1) + " of " + max + " (30, and one more for every ten levels you hold, to 60)" + (rate > 0 && hp < max - 0.5 ? ", mending " + (rate * 60000).toFixed(1) + " a minute" : hp >= max - 0.5 ? ", whole" : ", not mending (a fight, or bleeding)");
     const lvLabel = "level " + level.toFixed(1) + ": the sum of " + chunks.length + " chunk" + (chunks.length === 1 ? "" : "s") + ", falling about " + fall.toFixed(1) + " an hour as they fade";
     const atkLabel = "attack " + attack + " = 2 + 0.6×√level, plus 0–2 a swing; three in four land, fewer while shaken";
     for (let cx = Math.floor((x0 - 4) / T); cx < COLS; cx++) {
@@ -901,13 +921,13 @@ export default function install(m) {
   }
   canvas.addEventListener("mousemove", (ev) => {
     wake(600);
-    const { h, x, y } = tileAt(ev);
+    const { h, x, y, px, py } = tileAt(ev);
     if (peek) return;
     const near = !h && scene && y >= WALL_TOP ? doorNear(x, y) : null;
     canvas.style.cursor = h || near ? "pointer" : "default";
-    hud.textContent = h ? h.label : near ? "walk " + near.via + " → " + near.name + " (click the floor by a door)" : (scene ? (scene.description || "") : "");
+    showTip(h ? h.label : near ? "walk " + near.via + " → " + near.name + " (click the floor by a door)" : "", px, py);
   });
-  canvas.addEventListener("mouseleave", () => { hud.textContent = scene ? (scene.description || "") : ""; });
+  canvas.addEventListener("mouseleave", hideTip);
   function closeMenu() { menu.hidden = true; menu.replaceChildren(); }
   // A drag on the picture looks at the atlas: while the pointer is down and has
   // moved, the picture gives way to what you remember of the map, your room at the
@@ -922,9 +942,9 @@ export default function install(m) {
     if (!dragged) { dragged = true; try { canvas.setPointerCapture(ev.pointerId); } catch (e) {} }
     const r = canvas.getBoundingClientRect(), k = W / r.width;
     peek = { dx: (ev.clientX - drag.x) * k, dy: (ev.clientY - drag.y) * k };
-    hud.textContent = "What you remember of the map; let go to come back to the room.";
+    showTip("What you remember of the map; let go to come back to the room.", ev.clientX - r.left, ev.clientY - r.top);
   });
-  const endDrag = () => { drag = null; peek = null; if (scene) hud.textContent = scene.description || ""; };
+  const endDrag = () => { drag = null; peek = null; hideTip(); };
   canvas.addEventListener("pointerup", endDrag); canvas.addEventListener("pointercancel", endDrag);
   // The peek: your floor's rooms as cells, dim as you forget them, the doors as lines.
   const PEEK_CELL = 26, PEEK_GAP = 10;
@@ -980,7 +1000,7 @@ export default function install(m) {
     if (!h) {
       // A click on the floor near a door walks through it.
       const ex = scene && y >= WALL_TOP ? doorNear(x, y) : null;
-      if (ex) { hud.textContent = "walk " + ex.via + " → " + ex.name; m.command("travel", [ex.via]); }
+      if (ex) { hideTip(); m.command("travel", [ex.via]); }
       return;
     }
     if (!h.menu || h.menu.length === 0) return;
@@ -995,7 +1015,7 @@ export default function install(m) {
     }
     const r = wrap.getBoundingClientRect();
     menu.style.left = Math.min(cx, r.width - 170) + "px"; menu.style.top = Math.min(cy, r.height - 40) + "px";
-    menu.hidden = false;
+    menu.hidden = false; hideTip();
   });
   document.addEventListener("click", (ev) => { if (!menu.hidden && !menu.contains(ev.target) && ev.target !== canvas) closeMenu(); });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeMenu(); });
@@ -1111,7 +1131,7 @@ export default function install(m) {
   // What you could make now: a row of buttons over the grid, one a thing.
   const satMake = document.createElement("div");
   satMake.style.cssText = "display:none;flex-wrap:wrap;gap:6px;margin:0 0 6px";
-  satPanel.append(satMake, satGrid, satNote);
+  satPanel.append(satMake, satGrid);
   const SAT_QUERY = {
     root: "self",
     select: {},
@@ -1119,6 +1139,29 @@ export default function install(m) {
     timed: "curve", commands: false,
   };
   let satchel = [];
+  // Plain things of one kind are one tile with a count; a thing with a name, a maker
+  // or uses left is its own. A page is fifteen tiles (three rows at the panel's width).
+  const SAT_PAGE = 15;
+  let satPage = 0;
+  function satStacks() {
+    const out = [], byName = new Map();
+    for (const it of satchel) {
+      const plain = !it.given && !it.made_by && !it.uses;
+      if (!plain) { out.push({ it, n: 1, all: [it] }); continue; }
+      const st = byName.get(it.name);
+      if (st) { st.n += 1; st.all.push(it); if (it.memory < st.it.memory) st.it = it; }
+      else { const fresh = { it, n: 1, all: [it] }; byName.set(it.name, fresh); out.push(fresh); }
+    }
+    return out;
+  }
+  const satPager = document.createElement("div");
+  satPager.style.cssText = "display:none;align-items:center;justify-content:space-between;gap:8px;margin:2px 0 4px;font-size:12px;color:var(--dim)";
+  const satPrev = document.createElement("button"), satNext = document.createElement("button"), satWhere = document.createElement("span");
+  for (const [b, label, step] of [[satPrev, "\u2039 back", -1], [satNext, "more \u203a", 1]]) {
+    b.type = "button"; b.className = "way"; b.textContent = label;
+    b.addEventListener("click", (e) => { e.stopPropagation(); satPage += step; drawSatchel(); });
+  }
+  satPager.append(satPrev, satWhere, satNext);
   // ---- what you could make: the world's own answer, asked quietly ----
   // `recipes` marks the ones you could make now (the things in hand and the memory
   // to spend); the panel lights, the things that go into one are ringed, and a
@@ -1139,8 +1182,10 @@ export default function install(m) {
     }, wait == null ? 900 : wait);
   }
   const recipesEvery = setInterval(() => { if (m.actor && !document.hidden) askRecipes(0); }, 90000);
+  satPanel.append(satPager, satNote);
   function closeSatMenu() { satMenu.hidden = true; }
-  function satTile(it) {
+  function satTile(stack) {
+    const it = stack.it, count = stack.n;
     const tile = document.createElement("button");
     tile.type = "button";
     tile.style.cssText = "width:46px;height:52px;padding:2px;border:1px solid var(--line,#334);border-radius:6px;background:rgba(18,26,37,.6);color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;font:inherit";
@@ -1152,7 +1197,15 @@ export default function install(m) {
     lab.style.cssText = "font-size:9px;line-height:1;max-width:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim)";
     lab.textContent = (it.given || it.name).replace(/^(a|an|the) /i, "");
     tile.append(ic, lab);
-    tile.title = (it.given ? it.given + ", " : "") + it.name + " (item-" + it.id + "), " + Math.round(it.memory * 100) + "% remembered" + (it.uses ? ", " + it.uses + " use" + (it.uses === 1 ? "" : "s") + " left" : "") + (it.made_by ? ", made by " + it.made_by : "") + ". Click: drop, read, give.";
+    if (count > 1) {
+      tile.style.position = "relative";
+      const badge = document.createElement("span");
+      badge.textContent = "\u00d7" + count;
+      badge.style.cssText = "position:absolute;top:1px;right:2px;font:10px var(--mono,monospace);color:var(--night,#121a25);background:var(--dust,#d9b57a);border-radius:6px;padding:0 3px;line-height:1.3";
+      tile.append(badge);
+    }
+    const lo = Math.min(...stack.all.map(x => x.memory)), hi = Math.max(...stack.all.map(x => x.memory));
+    tile.title = count > 1 ? it.name + " \u00d7" + count + ", " + Math.round(lo * 100) + (hi - lo > 0.005 ? "\u2013" + Math.round(hi * 100) : "") + "% remembered; a click acts on the most faded." + (it.effect ? " " + it.effect : "") : (it.given ? it.given + ", " : "") + it.name + " (item-" + it.id + "), " + Math.round(it.memory * 100) + "% remembered" + (it.uses ? ", " + it.uses + " use" + (it.uses === 1 ? "" : "s") + " left" : "") + (it.made_by ? ", made by " + it.made_by : "") + ". Click: drop, read, give.";
     // A thing that goes into something you could make now is ringed.
     const into = makeable.filter(r => (r.of || []).includes(it.name));
     if (into.length) {
@@ -1196,7 +1249,14 @@ export default function install(m) {
     }));
     if (!m.actor) { satNote.textContent = "Log in to see your satchel."; return; }
     if (!satchel.length) { satNote.textContent = "Empty. A creature that comes apart leaves something behind by the fight's length; take it, and recipes says what it makes."; return; }
-    for (const it of satchel) satGrid.append(satTile(it));
+    const stacks = satStacks();
+    const pages = Math.max(1, Math.ceil(stacks.length / SAT_PAGE));
+    satPage = Math.max(0, Math.min(pages - 1, satPage));
+    for (const st of stacks.slice(satPage * SAT_PAGE, (satPage + 1) * SAT_PAGE)) satGrid.append(satTile(st));
+    satPager.style.display = pages > 1 ? "flex" : "none";
+    satWhere.textContent = "page " + (satPage + 1) + " of " + pages;
+    satPrev.disabled = satPage === 0; satNext.disabled = satPage >= pages - 1;
+    satPrev.style.visibility = satPrev.disabled ? "hidden" : ""; satNext.style.visibility = satNext.disabled ? "hidden" : "";
     satNote.textContent = can.length
       ? "You could make " + can.slice(0, 3).map(r => r.name).join(" or ") + (can.length > 3 ? ", or " + (can.length - 3) + " more" : "") + " now, of the ringed things."
       : satchel.length + " thing" + (satchel.length === 1 ? "" : "s") + "; things fade slowly, and one under a third remembered is swept in time.";

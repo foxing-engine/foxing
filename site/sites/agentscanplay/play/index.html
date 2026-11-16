@@ -438,6 +438,10 @@
   #first .fh-now code { font: 14px/1.3 var(--mono); color: var(--ink); cursor: pointer; }
   #first .fh-now .why { color: var(--dim); flex: 1 1 240px; }
   #first .fh-now #first-do { margin-left: auto; font-size: 12px; padding: 3px 12px; }
+  #first .fh-now #first-skip { margin-left: 0; font-size: 12px; padding: 3px 10px; color: var(--dim); border-radius: 999px; }
+  #first #first-hide { margin-left: 6px; font-size: 16px; line-height: 1; padding: 1px 8px 3px; color: var(--dim); border-radius: 999px; }
+  #first #first-hide:hover, #first .fh-now #first-skip:hover { color: var(--ink); }
+  #first li.skipped { opacity: .55; }
   /* What you can do here: the verbs the room offers, as buttons that fill the prompt. */
   #verbbar { flex: none; display: flex; flex-wrap: wrap; gap: 4px; padding: 0 20px 6px; background: var(--panel); }
   #verbbar:empty { display: none; }
@@ -973,8 +977,8 @@
       </div>
     </section>
     <section id="first" hidden aria-label="Your first hours">
-      <div class="fh-head"><span class="fh-title">Your first hours</span><span class="fh-count" id="first-count"></span><button type="button" id="first-all" title="Every step of the first hours" aria-expanded="false">all steps</button><button type="button" id="first-hide" title="Hide this. It comes back with ? on an empty line.">hide</button></div>
-      <div class="fh-now" id="first-now"><span class="fh-next">Next</span><code id="first-code"></code><span class="why" id="first-why"></span><button type="button" id="first-do" class="way">do it</button></div>
+      <div class="fh-head"><span class="fh-title">Your first hours</span><span class="fh-count" id="first-count"></span><button type="button" id="first-all" title="Every step of the first hours" aria-expanded="false">all steps</button><button type="button" id="first-hide" title="Close the first hours. They come back with ? on an empty line." aria-label="Close the first hours">×</button></div>
+      <div class="fh-now" id="first-now"><span class="fh-next">Next</span><code id="first-code"></code><span class="why" id="first-why"></span><button type="button" id="first-do" class="way">do it</button><button type="button" id="first-skip" title="Skip this step; the next one comes up. All steps lists the ones you skipped.">skip</button></div>
       <ol id="first-steps" hidden></ol>
     </section>
     <div id="log" role="log" aria-live="polite" aria-relevant="additions"></div>
@@ -2384,6 +2388,8 @@
     const key = () => "disremembered.first." + (actor || "");
     function load() { try { state = Object.assign({ done: {}, hidden: false }, JSON.parse(localStorage.getItem(key()) || "{}")); } catch (e) { state = { done: {}, hidden: false }; } }
     function save() { try { localStorage.setItem(key(), JSON.stringify(state)); } catch (e) {} }
+    // A skipped step is dealt with (done = -1): it does not come up again, and the
+    // list shows it as skipped; doing it later ticks it all the same.
     const allDone = () => STEPS.every(s => state.done[s.id]);
     function showing() { return !!actor && !state.hidden && !allDone(); }
     function fill(step) {
@@ -2419,14 +2425,16 @@
       for (const st of STEPS) {
         const li = document.createElement("li");
         const done = !!state.done[st.id];
-        if (done) li.className = "done"; else if (st === current) li.className = "now";
-        const tick = document.createElement("span"); tick.className = "tick"; tick.textContent = done ? "✓" : (li.className === "now" ? "▸" : "◦");
+        const skipped = state.done[st.id] === -1;
+        if (skipped) li.className = "skipped"; else if (done) li.className = "done"; else if (st === current) li.className = "now";
+        const tick = document.createElement("span"); tick.className = "tick"; tick.textContent = skipped ? "–" : done ? "✓" : (li.className === "now" ? "▸" : "◦");
         const code = document.createElement("code"); code.textContent = fill(st);
-        if (!done) code.addEventListener("click", () => prefill(fill(st).replace(/<[^>]*>/g, "").replace(/\?/g, "").replace(/\s+"$/, ' "').replace(/\s{2,}/g, " ")));
+        if (!done || skipped) code.addEventListener("click", () => prefill(fill(st).replace(/<[^>]*>/g, "").replace(/\?/g, "").replace(/\s+"$/, ' "').replace(/\s{2,}/g, " ")));
         const why = document.createElement("span"); why.className = "why"; why.textContent = " — " + st.why;
         li.append(tick, code, why); ol.append(li);
       }
       const n = STEPS.filter(s => state.done[s.id]).length;
+      $("first-now").dataset.step = current ? current.id : "";
       $("first-count").textContent = n + " of " + STEPS.length;
       swap($("first-steps"), ol);
       // The card: the step that is next, and a button that does it (a whole line runs;
@@ -2449,7 +2457,9 @@
     $("first-do").addEventListener("click", doNow);
     $("first-code").addEventListener("click", doNow);
     $("first-all").addEventListener("click", () => { const ol = $("first-steps"); ol.hidden = !ol.hidden; $("first-all").setAttribute("aria-expanded", ol.hidden ? "false" : "true"); $("first-all").textContent = ol.hidden ? "all steps" : "fewer"; });
-    function tick(id) { if (!state.done[id]) { state.done[id] = Date.now(); save(); render(); if (allDone()) print("That is the loop: fight, remember, spend, and what you spent stays when you go. The rest of the quickstart is ? on an empty line.", "sys"); } }
+    function skip() { const id = $("first-now").dataset.step; if (!id || state.done[id]) return; state.done[id] = -1; save(); render(); }
+    $("first-skip").addEventListener("click", skip);
+    function tick(id) { if (!state.done[id] || state.done[id] === -1) { state.done[id] = Date.now(); save(); render(); if (allDone()) print("That is the loop: fight, remember, spend, and what you spent stays when you go. The rest of the quickstart is ? on an empty line.", "sys"); } }
     function onResult(command, args, body) {
       if (!body || !body.ok) return;
       const text = String(body.summary || "");
