@@ -654,6 +654,9 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
 
     // The night's falls: what the next one costs.
     let falls = super::death::recent_falls(world, f.citizen);
+    // The falls line is not a thing of yours: with only it, "What remembers
+    // you:" headed an empty list.
+    let owns = !lines.is_empty();
     if falls > 0 {
         lines.push(format!(
             "You have fallen {} tonight; the next fall takes {} the share of your memory the first did (a share of what you carry then, so the figure moves with you).",
@@ -721,6 +724,11 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
         format!(
             "Nothing in the world is yours yet: dig a room, feed a creature to sixty, make a thing, write in a book. Each stays after you go.{}",
             fall_now.clone().unwrap_or_default()
+        )
+    } else if !owns {
+        format!(
+            "Nothing in the world is yours yet: dig a room, feed a creature to sixty, make a thing, write in a book. Each stays after you go.\n{}",
+            lines.join("\n")
         )
     } else {
         format!(

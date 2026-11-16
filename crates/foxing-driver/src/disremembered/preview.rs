@@ -351,8 +351,12 @@ pub fn run_checked(
                                         // hunted of the shortest (the dry run said
                                         // "east, north, north, up" of a walk that
                                         // went by the Lane).
-                                        super::atlas::way_seeded(world, room?, t)
-                                            .or_else(|| super::errand::route(world, room?, t))
+                                        gate_way(
+                                            world,
+                                            existing.as_ref().map(|f| f.citizen),
+                                            room?,
+                                            t,
+                                        )
                                     })
                                     .is_some_and(|p| !p.is_empty()) =>
                             {
@@ -363,8 +367,12 @@ pub fn run_checked(
                                         // hunted of the shortest (the dry run said
                                         // "east, north, north, up" of a walk that
                                         // went by the Lane).
-                                        super::atlas::way_seeded(world, room?, t)
-                                            .or_else(|| super::errand::route(world, room?, t))
+                                        gate_way(
+                                            world,
+                                            existing.as_ref().map(|f| f.citizen),
+                                            room?,
+                                            t,
+                                        )
                                     })
                                     .unwrap_or_default();
                                 if let Some(r) = room {
@@ -940,4 +948,20 @@ pub fn text(p: &Value) -> String {
         p["note"].as_str().unwrap_or("")
     ));
     out
+}
+
+/// The way a named walk would take, as the gate picks it: the one the citizen
+/// remembers unless the signs give a shorter (the dry run gave the signs' way of a
+/// walk that then went by the remembered one).
+fn gate_way(
+    world: &World,
+    citizen: Option<EntityId>,
+    from: EntityId,
+    to: EntityId,
+) -> Option<Vec<String>> {
+    let hl = super::Curves::from_env().active_half_life.0 as f64 * super::atlas::ATLAS_HALF_LIVES;
+    citizen
+        .and_then(|c| super::atlas::best_way(world, c, from, to, hl).map(|(p, _)| p))
+        .or_else(|| super::atlas::way_seeded(world, from, to))
+        .or_else(|| super::errand::route(world, from, to))
 }

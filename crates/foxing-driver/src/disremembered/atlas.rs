@@ -954,12 +954,9 @@ pub fn best_way(
     half_life_ms: f64,
 ) -> Option<(Vec<String>, bool)> {
     let remembered = way(world, citizen, from, to, half_life_ms);
-    let signed = world
-        .store
-        .entity(to)
-        .is_some_and(|e| e.owner.is_none())
-        .then(|| way_seeded(world, from, to))
-        .flatten();
+    // A dug room is signed too, by the Mudroom and its door: `wants` gave that
+    // way and `where` and `travel` said there was none.
+    let signed = super::door::signed_way(world, from, to);
     match (remembered, signed) {
         (Some(r), Some(s)) if s.len() < r.len() => Some((s, true)),
         (Some(r), _) => Some((r, false)),

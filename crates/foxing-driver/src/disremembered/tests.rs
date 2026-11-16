@@ -5566,7 +5566,7 @@ fn death_costs_a_share_of_the_window_on_a_curve_of_level() {
     );
     assert!(
         d.said()
-            .contains("The second fall of the night: it costs half what the first did."),
+            .contains("The second fall of the night: it takes half the share the first did"),
         "{}",
         d.said()
     );

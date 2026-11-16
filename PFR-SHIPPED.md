@@ -5,6 +5,11 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-16 (the seventh Watch, of three, and the second batch of R; one driver deploy)
+- Gnotebook (words and the Docent), Gnarwhal (fights and falls) and Gnomad (places) tried the old R items one by one on the live world and said of each "still happens", "fixed" or "could not reach". Found fixed and struck: R101 (`rest`'s clock), R216 (`reply` with an empty text), the Tally Room's way (R138), `messages` recounting the welcome (R175), the fall's riddle line (R239), whole hit points in `look` (R211), the same word paragraph from every creature (R215), a room drawn twice on the map (R170).
+- Fixed from what still happened: a second fall says it takes "half the share" the first did, since the share is of what is held now (R210); a shaken creature struck again is named by the id typed, and the kill line says why one gets up and another comes apart, and says so when what you take is what it took from you (R211, R225); `look` shows what a creature holds once it keeps a fall's memory, where one with no mind yet read "holding 0" (R155); `mine` no longer heads an empty list "What remembers you:" when only the night's falls are under it (R157); the Docent, answering one of two questions by heart, says so (R142); the one-story-an-hour refusal says when the hour turns (R199); `where` and `travel` take the signed way to a dug room that `wants` already gave (R220); the dry run of a named walk takes the way the gate will (R218).
+- Not done: what a message cost, in the budget line (R176): the sentence failed the world's own checker. New small things are R249.
+
 11-16 (a first batch of R, small, with a Watch sent to say which of the old R items still happen; one driver deploy)
 - `chunks` says once what "(passing)" and "(taxed)" on a row mean (R208). The last-blow warning says a jar of fog is in `recipes` (R210). The R list had gone stale against six batches of fixes: several items' wording is no longer in the code. Three testers were sent to try twenty-odd of them on the live world; what they still find is the next batch.
 

@@ -1723,13 +1723,13 @@ impl Death {
         // something was lost, and the free fall says why it was free.
         if self.fall > 1 && self.lost.is_some() {
             out.push_str(&format!(
-                " The {} fall of the night: it costs {} what the first did.",
+                " The {} fall of the night: it takes {} the first did (a share of what you hold now, so more held is more taken).",
                 super::death::ordinal(self.fall),
                 match self.fall {
-                    2 => "half",
-                    3 => "a quarter",
-                    4 => "an eighth",
-                    _ => "almost nothing of",
+                    2 => "half the share",
+                    3 => "a quarter of the share",
+                    4 => "an eighth of the share",
+                    _ => "almost none of the share",
                 }
             ));
         } else if self.lost.is_none() {
@@ -2327,7 +2327,12 @@ pub fn register(world: &mut World, curves: Curves) {
             if let Some(ms) = super::mind::shaken_for(w, creature) {
                 return Err(CommandError::precondition(format!(
                     "{} is not itself yet and cannot be struck for {}; it stands up with nothing to take.",
-                    super::mind::display(w, creature),
+                    // By the id typed, where it has no name: "wisp" of two wisps
+                    // did not say which.
+                    match super::mind::name(w, creature) {
+                        Some(_) => super::mind::display(w, creature),
+                        None => format!("{}-{}", super::mind::display(w, creature), creature.0),
+                    },
                     human(ms)
                 )));
             }
@@ -2432,12 +2437,24 @@ pub fn register(world: &mut World, curves: Curves) {
                     } else {
                         String::new()
                     };
+                    // What a fall of your own gave it, come back.
+                    let returned = if source == format!("felling {}", ctx.actor) {
+                        " That is what it took from you when you fell, come back to you."
+                    } else {
+                        ""
+                    };
                     let halves = super::memory::halving_ms(w, chunk)
                         .map(|ms| format!(", halves every {}", human(ms)))
                         .unwrap_or_default();
                     lines.push(format!(
-                        "{who} goes down, and you take its memory of {source}: chunk-{} worth {worth:.1} XP, vividity {taken_vividity:.2}{halves}. It counts as your fight with a {cname}, where a fight is asked for (the Reading Rooms).{faded} It gets up again, holding {left:.0}, and will not be itself for {}.",
+                        "{who} goes down, and you take its memory of {source}: chunk-{} worth {worth:.1} XP, vividity {taken_vividity:.2}{halves}. It counts as your fight with a {cname}, where a fight is asked for (the Reading Rooms).{faded}{returned} It gets up again, {}, and will not be itself for {}.",
                         chunk.0,
+                        // Why this one got up and another came apart went unsaid.
+                        if left >= 0.5 {
+                            format!("holding {left:.0} (one that holds a memory loses a memory when it is felled, and stands; one holding nothing comes apart)")
+                        } else {
+                            "holding nothing now (that was its last memory: felled again, it comes apart)".to_string()
+                        },
                         super::mind::shaken_for(w, creature).map(human).unwrap_or_else(|| "a while".into())
                     ));
                     return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "creature_id": creature.0, "killed": false, "taken": chunk.0, "with": source, "xp": worth, "was": was, "left": left, "hp": hp(w, f.citizen)})));

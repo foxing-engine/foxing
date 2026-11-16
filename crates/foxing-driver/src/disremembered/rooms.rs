@@ -1450,7 +1450,11 @@ pub fn describe_as(
                 v["born_of"] = c["born_of"].clone();
                 v["mutation"] = c["mutation"].clone();
             }
-            if n["components"][super::mind::MIND].is_object() {
+            // One that has only ever kept what a fall gave it has a window and
+            // no mind yet: `look` said it held nothing.
+            if n["components"][super::mind::MIND].is_object()
+                || super::mind::window_of(world, id).is_some()
+            {
                 v["mind"] = super::mind::summary(world, id);
             }
             v

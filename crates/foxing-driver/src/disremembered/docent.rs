@@ -1529,7 +1529,13 @@ pub fn register(world: &mut World) {
                 &to,
                 match by_heart {
                     Some((verb, text)) => format!(
-                        "The Docent comes back without the page, on \"{short}\": \"No one is at the desk tonight to find that one. By heart, then, from `help {verb}`: {text}\""
+                        "The Docent comes back without the page, on \"{short}\": \"No one is at the desk tonight to find that one. By heart, then, from `help {verb}`: {text}{}\"",
+                        // Two questions in one got the answer to one, unsaid.
+                        if two_asked(&question) {
+                            " That is one of the things you asked; ask me the other by itself."
+                        } else {
+                            ""
+                        }
                     ),
                     None => format!(
                         "The Docent comes back without the page, on \"{short}\": \"No one is at the desk tonight to find that one. `help` has what I keep by heart; the room knows the rest.\""
@@ -1642,6 +1648,18 @@ pub fn first_arrival(world: &World, actor: &str) -> String {
 }
 
 /// The verb whose help shares the most words with the question, if any shares two.
+/// Whether a question reads as two: two question marks, or an `and` before a
+/// second asking word.
+fn two_asked(question: &str) -> bool {
+    let low = question.to_lowercase();
+    low.matches('?').count() > 1
+        || [
+            "what", "where", "how", "who", "why", "when", "which", "does", "do", "is", "can",
+        ]
+        .iter()
+        .any(|w| low.contains(&format!(" and {w} ")))
+}
+
 fn by_heart(world: &World, question: &str) -> Option<(String, String)> {
     let words: Vec<String> = question
         .to_lowercase()

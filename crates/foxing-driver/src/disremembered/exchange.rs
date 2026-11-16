@@ -109,6 +109,31 @@ pub fn told_this_hour(world: &World, actor: &str, creature: EntityId) -> bool {
     misses >= 2
 }
 
+/// How long until `told_this_hour` stops being true, when it is.
+pub fn hour_turns_in(world: &World, actor: &str, creature: EntityId) -> Option<i64> {
+    let now = world.now();
+    let mut plain: Option<i64> = None;
+    let mut misses: Vec<i64> = Vec::new();
+    for e in world.recent_events(2000).iter().filter(|e| {
+        e.kind == STORY
+            && e.payload["from"] == actor
+            && e.payload["creature"] == creature.0
+            && now.since(e.at).0 < STORY_COOLDOWN_MS
+    }) {
+        let left = STORY_COOLDOWN_MS - now.since(e.at).0;
+        if e.payload["struck"] == true || e.payload["early"] == true {
+            continue;
+        } else if e.payload["missed"] == true {
+            misses.push(left);
+        } else {
+            plain = Some(plain.map_or(left, |p| p.max(left)));
+        }
+    }
+    // Two misses close the hour; it opens when all but one have aged out.
+    misses.sort_unstable_by(|a, b| b.cmp(a));
+    [plain, misses.get(1).copied()].into_iter().flatten().max()
+}
+
 /// Whether `actor` has already been heard by `creature` inside this hour for the
 /// story it wanted, at plain pay (D19 b): once an hour, or the want is a farm (D24).
 pub fn heard_early_this_hour(world: &World, actor: &str, creature: EntityId) -> bool {
@@ -469,7 +494,11 @@ pub fn register(world: &mut World, curves: Curves) {
                     _ => format!(" It carried {}; none of those is the word.", carried.join(", ")),
                 };
                 return Err(CommandError::precondition(format!(
-                    "{name} is still turning your last story over: one an hour (its hour with you; `wants` says when it turns). {}{not_it}{}",
+                    "{name} is still turning your last story over: one an hour (its hour with you{}). {}{not_it}{}",
+                    match hour_turns_in(w, &ctx.actor, creature) {
+                        Some(ms) => format!(", which turns in {}", super::combat::human(ms)),
+                        None => "; `wants` says when it turns".to_string(),
+                    },
                     if word_left {
                         "A story that carries the word under the others is heard even now, for the bonus alone, and the one it wants is heard at plain pay; that one was neither."
                     } else {
