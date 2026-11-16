@@ -5,6 +5,9 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-15 (S16 c built and rehearsed; three driver deploys; the live log not touched)
+- The log read as two tables, the batched move behind `foxing-driver archive` (a dry run without `--yes`), and `rehearse-archive` on a copy of the live log. Three rehearsals; what the first two found (a read planned as a sort, a move that stalled the live world's disk, dead index entries below the edge) is mended and the third was clean. In S16.
+
 11-15 (S16 b, the verifier; one driver deploy, the first to restart inside a second)
 - `foxing-driver verify-checkpoint` and the `verify-checkpoint` server check. The live checkpoint verified against all 1.39 million events of the live log.
 
