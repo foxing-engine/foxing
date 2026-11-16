@@ -112,6 +112,12 @@ pub fn register(world: &mut World) {
                 // rooms in stopped asking.)
                 let here_with_it = super::docent::room(w) == Some(room);
                 let (line, id) = super::docent::ask(w, &ctx.actor, room, &text)?;
+                // C11: asked of the Gatekeeper, it is the Gatekeeper that takes it,
+                // and says where it goes. (The reply said "You ask the Docent", and
+                // the Docent had never heard of the one who was asked.)
+                let low = who.trim().trim_matches('"').to_lowercase();
+                let by_gate = ["gatekeeper", "the gatekeeper", "perrin", "latch", "perrin latch"]
+                    .contains(&low.as_str());
                 if id == 0 {
                     return Ok(Outcome::new(
                         format!("You ask the Docent, \"{text}\" {line}"),
@@ -126,6 +132,17 @@ pub fn register(world: &mut World) {
                     format!("You ask the Docent, \"{text}\" The Docent: \"{line}\" (It finds you within a few minutes, wherever you are, and names the question; {nth}.)")
                 } else {
                     format!("You ask after the Docent, \"{text}\" The question goes to the desk at the Threshold; the Docent comes to you with the page within a few minutes, wherever you are, and names the question ({nth}).")
+                };
+                let said = if by_gate {
+                    said.replacen("You ask after the Docent,", "You ask the Gatekeeper,", 1)
+                        .replacen("You ask the Docent,", "You ask the Gatekeeper,", 1)
+                        .replacen(
+                            "The question goes to the desk at the Threshold;",
+                            "Perrin Latch writes it in the gate's book and carries it round to the desk at the Threshold;",
+                            1,
+                        )
+                } else {
+                    said
                 };
                 return Ok(Outcome::new(
                     said,

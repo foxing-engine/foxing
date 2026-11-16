@@ -903,7 +903,10 @@ pub fn tidy(world: &mut World) -> Result<usize, String> {
         let in_room = world
             .store
             .entity(parent)
-            .is_some_and(|p| p.kind == "room" && p.id != threshold && Some(p.id) != midden);
+            .is_some_and(|p| p.kind == "room" && p.id != threshold && Some(p.id) != midden)
+            // C9: what lies in the Drowned Wing is the tide's to move. (A page that
+            // stayed dry, left by it in a deep room, was found at the Threshold.)
+            && super::tide::height_of(world, parent).is_none();
         // A fixture stays; so does a thing that is awake (the third tier): it is
         // not carried by one that does not want to go.
         if !in_room || super::craft::is_fixed(world, e.id) || super::past::tier(world, e.id) >= 3 {
@@ -1257,7 +1260,7 @@ pub fn round_step(world: &mut World) -> Result<Vec<String>, String> {
     }
     // Things left lying here: carried to the Threshold at once when the world is
     // empty (no one to miss them yet), else on a second sighting by the wider tidy.
-    if next != threshold && empty_world {
+    if next != threshold && empty_world && super::tide::height_of(world, next).is_none() {
         let lying: Vec<EntityId> = world
             .store
             .children(next)

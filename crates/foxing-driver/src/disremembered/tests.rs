@@ -13042,6 +13042,17 @@ fn the_postern_has_what_a_door_of_the_world_has() {
         json!(["gatekeeper", "where do the moths come from?"]),
     );
     assert!(!told.summary.contains("no one called"), "{}", told.summary);
+    assert!(
+        told.summary.starts_with("You ask the Gatekeeper,"),
+        "{}",
+        told.summary
+    );
+    assert!(
+        told.summary
+            .contains("Perrin Latch writes it in the gate's book"),
+        "{}",
+        told.summary
+    );
     // And at the front door the pointer is the Fogbank's, a step east.
     let door = rooms::arrival(&w).unwrap();
     w.record(

@@ -661,12 +661,13 @@ pub fn read(
     }
     let key = key_of(world, room).map(str::to_string);
     let text = match key.as_deref() {
-        Some(WRACK) if a.is_empty() || named(&["table", "tide", "board", "chalk"]) => format!(
+        Some(WRACK) if a.is_empty() || named(&["table", "tide", "board", "chalk", "slate"]) => format!(
             "The Tide Table is a slate in a swollen oak frame, chalked by nobody you will meet. {} Under it, smaller: THE FIGURES ARE THE WATER'S, AND THE WATER DOES NOT KEEP TO THEM. A tide is forty minutes, give or take eight; the upper rooms are dry most of one, the middle rooms under half of one, the deep rooms a few minutes at the bottom of it.",
             table(world, false)
         ),
         Some(SLUICE) if a.is_empty() || named(&["grate", "sewer", "door", "gate", "bars"]) => "The grate is a door of iron bars as thick as your wrist, green and furred, hinged on the far side and barred on the far side. Beyond it a brick culvert goes away downhill in the dark, and something in it is moving slowly the other way. A plate on the lintel, half eaten: MUNICIPAL S—WER. NO ADM—. Nothing on this side opens it. Not yet.".to_string(),
         Some(SLUICE) if named(&["gauge", "staff", "brass", "marks", "names"]) => gauge(world),
+        Some(COURT) if named(&["mosaic", "floor", "zodiac", "signs", "well"]) => "The mosaic is a zodiac, and the water has been at it: the tesserae lift with every tide and settle a little wrong, so the Scales now weigh a Fish against the Reader, and the Lamp has drifted into the house of the Crab. Twelve signs, and where a thirteenth has been set in later, in newer stone, a small five-pointed star at the foot of the door going down. The starfish lies with one arm on it. Someone drew this before there was anything to draw it from.".to_string(),
         Some(VAULT) if a.is_empty() || named(&["ledger", "deposit", "book", "box", "plate", "deed", "counter"]) => "The deposit ledger is open at its last page, and the ink has spread into the paper and stayed legible, the way a bruise does. Box 7. The Night Reader. One starfish, small, in a jar of its own water, for the light well. In another hand, later: It has not stayed small. In a third, pressed hard: What is cut from it is back inside five minutes. All at once, or not at all. Box 12. Municipal Sewer Board. One key, iron, for the grate at the Sluice. Withdrawn. Not returned. Box 31. The Keeper of the Lowest Shelf. One book, bound in something that does not char. TO BE KEPT WET. Do not let it dry while a reader has it open. Box 40. Depositor's name burned out of the page, neatly, from the inside. One deed, to a lot in the Ashen Wastes. Below that the page is blank, and beaded with water, and patient.".to_string(),
         Some(SHELF) if a.is_empty() || named(&["book", "burning", "shelf", "fire", "flame"]) => {
             return burning_book(world, actor, &f, room).map(Some);

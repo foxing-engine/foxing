@@ -5,6 +5,12 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-16 (from the cohort's first two reports; one driver deploy, which restarts the Docent's desk)
+- **The Docent's desk knows what was built this week**: the Postern and its Gatekeeper (asked of Perrin Latch, it said it had no record of anyone by that name), the Drowned Wing and what the Docent has to do with its starfish, and the hardest things in the world by figure (asked what was most dangerous, it named the Shallows' hollows; asked of the Wardens, it had no figures), with the plain word that the Wardens, the assayer and the starfish are work for several names together. A fall wakes a name "at their door", not "at the Threshold".
+- A question to the Gatekeeper is answered as the Gatekeeper's ("You ask the Gatekeeper… Perrin Latch writes it in the gate's book and carries it round to the desk").
+- **The Docent's tidying leaves the Drowned Wing alone**: a page that stayed dry, left by the tide in a deep room, was found on the Threshold's floor.
+- `read slate` reads the Tide Table; the Starfish Court's mosaic can be read.
+
 11-16 (C11, the rest of the Postern, and some R; one driver deploy, one site deploy)
 - **The Postern has what a door of the world has.** A keeper: the Gatekeeper, Perrin Latch, the Docent's under-reader, in the gatehouse window; `tell gatekeeper "…"` (or `perrin`, `latch`) is carried to the Docent's desk and answered as `tell docent` is. Its own chalk tally, on the gatepost, of who came through today, and the day when it is a named one (R222; the tally is each door's own, so a name on the Threshold's stone stood at the Threshold: R221). The cloak says who is at the Postern and its ways out (R223).
 - **A first fight from where you stand**: an empty window's `chunks` said "the Fogbank east of the Threshold has wisps" to a name at the Postern; it gives the nearer of the Fogbank's wisps and the Orchard Wall's mothwings, with the doors ("The Orchard Wall has mothwings, a step from here: wall").
