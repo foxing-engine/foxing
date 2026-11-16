@@ -332,7 +332,8 @@ fn death_is_a_concussion_and_a_walk_back() {
         "you wake at the Threshold"
     );
     let f = login(&mut w, "dave", "test", PASS).unwrap();
-    assert_eq!(combat::hp(&w, f.citizen), MAX_HP);
+    // Whole, at the size the level makes the body (thirty, and one for ten levels).
+    assert_eq!(combat::hp(&w, f.citizen), combat::max_hp(&w, f.citizen));
     assert!(combat::engaged_with(&w, f.citizen).is_none());
     let chunks = ok(&mut w, "dave", "chunks", json!([])).result["chunks"]
         .as_array()
@@ -12669,4 +12670,43 @@ fn a_boot_from_a_checkpoint_is_the_boot_from_the_whole_log() {
     // And one of another world, or of other schemas, does not load at all.
     assert!(checkpoint::load(files.path(), "elsewhere", &schemas).is_none());
     assert!(checkpoint::load(files.path(), "test", &Default::default()).is_none());
+}
+
+#[test]
+fn a_body_grows_with_what_its_name_holds_and_mends_in_ten_minutes() {
+    assert_eq!(combat::body_for_level(0.0), 30.0);
+    assert_eq!(combat::body_for_level(9.9), 30.0);
+    assert_eq!(combat::body_for_level(100.0), 40.0);
+    assert_eq!(combat::body_for_level(300.0), 60.0);
+    assert_eq!(combat::body_for_level(5000.0), 60.0);
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let rest = ok(&mut w, "dave", "rest", json!([]));
+    assert_eq!(rest.result["max_hp"], 30.0);
+    // A hundred and fifty levels held: the body is sized on the next step.
+    admin(&mut w, "dave", "earn", json!(["a long road", 150]));
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let rest = ok(&mut w, "dave", "rest", json!([]));
+    let max = rest.result["max_hp"].as_f64().unwrap();
+    assert!((40.0..=45.0).contains(&max), "{}", rest.summary);
+    // What it had stays; the rest mends, the whole of it inside ten minutes.
+    assert!(
+        rest.result["hp"].as_f64().unwrap() < max,
+        "{}",
+        rest.summary
+    );
+    assert!(
+        rest.summary.contains("one more for every ten levels"),
+        "{}",
+        rest.summary
+    );
+    w.fixed_now = Some(Timestamp(w.now().0 + 5 * 60_000));
+    let rest = ok(&mut w, "dave", "rest", json!([]));
+    assert_eq!(
+        rest.result["hp"].as_f64().unwrap().round(),
+        max,
+        "{}",
+        rest.summary
+    );
 }

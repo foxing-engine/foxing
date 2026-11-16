@@ -907,7 +907,7 @@ pub fn register(world: &mut World) {
                     "The venom works: {VENOM_DAMAGE:.0}, {:.0} \u{2192} {:.0} of {:.0}.{}",
                     (after + VENOM_DAMAGE).ceil(),
                     after.ceil(),
-                    super::MAX_HP,
+                    super::combat::max_hp(w, citizen),
                     if left == 1 {
                         " It is out of you now.".to_string()
                     } else {

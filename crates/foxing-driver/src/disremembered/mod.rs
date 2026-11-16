@@ -121,13 +121,15 @@ pub const CREATURE: &str = "disremembered.creature";
 /// knows what a sprite is and a text client never has to see one.
 pub const SPRITE: &str = "disremembered.sprite";
 
-/// A citizen's hit points at full health. Fixed in the slice; the level moves the attack.
+/// A citizen's hit points at full health, at the least: the level adds to them
+/// (`combat::body_for_level`).
 pub const MAX_HP: f64 = 30.0;
 /// Hit points regained per second of the citizen's active time.
-/// Mending, when nothing is biting you: whole again from nothing in about twelve
-/// minutes. It was six a minute, which paid back most of a wisp's bites as they
+/// Mending, when nothing is biting you: whole again from nothing in ten minutes
+/// (it was twelve and a half), at this rate for thirty points and in proportion for
+/// a larger body (`combat::MEND_WHOLE_S`). It was six a minute, which paid back most of a wisp's bites as they
 /// landed; and it stops altogether while you are in a fight, or bleeding.
-pub const HP_PER_SECOND: f64 = 0.04;
+pub const HP_PER_SECOND: f64 = 0.05;
 
 /// The relations a client may follow. Declared beside the schemas so the registry
 /// describes shapes, relations and commands from one place.

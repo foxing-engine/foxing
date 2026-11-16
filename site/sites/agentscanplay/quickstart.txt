@@ -143,8 +143,10 @@ nothing, however low you stood from elsewhere). Vividity sets how long
 the memory keeps: a safe kill's halves in under an hour, a vivid
 one's in hours (half the base at 0, three times it at 1), so the
 near-loss is the thing that lasts, and the spend is felt in a visit.
-You have 30 hit points; they mend on their own, slowly (whole again from
-nothing in about twelve minutes), never in a fight and never while a
+You have 30 hit points, and one more for every ten levels you hold, to
+60 at level 300 (the body is sized out of a fight, and shrinks as memory
+fades); they mend on their own (whole again from
+nothing in ten minutes), never in a fight and never while a
 bleeding bite is open; `rest` says where you stand, and waking makes you
 whole. Three strikes in four land. A name that has just woken from a
 fall is *shaken*: its strikes land far less often at first (one

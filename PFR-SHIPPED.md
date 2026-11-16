@@ -5,6 +5,9 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-16 (a body that grows with level, and mends in ten minutes; David's call; one driver deploy)
+- Hit points were 30 for every name while the world's blows ran from 1 to 36. A body is now whole at 30 and one more for every ten levels held, to 60 at level 300, and shrinks again as the memory fades. It is sized out of a fight (on arriving, on a fight's end, on waking), keeping what it has. Mending is whole from nothing in ten minutes at any size (it was twelve and a half); a basin is still three times that, and the Closet no slower than anywhere. `rest` says the rule once the body is over 30; every line that said "of 30" says the body's own figure. The quickstart, the guide and llms.txt say the same.
+
 11-16 (a deadlock at the log's door, and R176; one driver deploy)
 - Every open of the log ran its `CREATE INDEX IF NOT EXISTS` statements, which lock a table against writers before looking whether the index is there. An opener held `events` and waited for `events_archive` while an archive move held the archive and waited for `events`; the database ended one of the two. It showed as a test failing one whole-workspace run in three, and on the box it would have been a boot or a move failing. The open now runs the schema only where a table or index is missing. Looped 150 times beside the driver's suite with no failure (it had failed once in 41). A storage error carries the database's own message and code, where "db error" was all it said.
 - The budget line of a message that cost one says "this message cost one (reads alone are free)" (R176); the first wording was over the checker's twenty-five words.

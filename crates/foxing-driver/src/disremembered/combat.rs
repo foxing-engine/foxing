@@ -1134,7 +1134,7 @@ pub fn regen(world: &mut World, elapsed_ms: i64) -> Result<usize, String> {
                 if super::plain_str(world, r, super::ROOM, "name") == Some(CLOSET) {
                     CLOSET_HP_PER_SECOND / super::MAX_HP
                 } else if super::craft::fixture_of(world, r, "basin").is_some() {
-                    super::HP_PER_SECOND * BASIN_PACE / super::MAX_HP
+                    BASIN_PACE / MEND_WHOLE_S
                 } else {
                     0.0
                 }
@@ -1420,6 +1420,7 @@ pub fn mending_rate(world: &World, citizen: EntityId) -> f64 {
     if plain_num(world, citizen, BODY, "bleed_until").is_some_and(|u| u > now) {
         return 0.0;
     }
+    let base = max_hp(world, citizen) / MEND_WHOLE_S;
     // The Cartographer's Closet (a player's room off the Archive) says "you heal
     // about 6 HP a minute"; the owner made it so (2026-11-03): true in that room.
     let room = super::rooms::room_of(world, citizen);
@@ -1427,13 +1428,88 @@ pub fn mending_rate(world: &World, citizen: EntityId) -> f64 {
         .and_then(|r| super::plain_str(world, r, super::ROOM, "name"))
         .is_some_and(|n| n == CLOSET)
     {
-        return CLOSET_HP_PER_SECOND;
+        return CLOSET_HP_PER_SECOND.max(base);
     }
     // A basin standing in the room: three times the pace (D27; it was twice).
     if room.is_some_and(|r| super::craft::fixture_of(world, r, "basin").is_some()) {
-        return super::HP_PER_SECOND * BASIN_PACE;
+        return base * BASIN_PACE;
     }
-    super::HP_PER_SECOND
+    base
+}
+
+/// A body is whole from nothing in this long, whatever its size (it was twelve and
+/// a half minutes for thirty points).
+pub const MEND_WHOLE_S: f64 = 600.0;
+/// A body grows with what its name holds: a point for every ten levels over the
+/// thirty everyone has, to sixty at level three hundred. Level fades, and so does
+/// the body. (Every name had thirty, and the top of the world hit for more than
+/// that in one blow.)
+pub const HP_LEVELS_A_POINT: f64 = 10.0;
+pub const HP_MOST: f64 = 60.0;
+
+pub fn body_for_level(level: f64) -> f64 {
+    (super::MAX_HP + (level.max(0.0) / HP_LEVELS_A_POINT).floor()).min(HP_MOST)
+}
+
+/// The hit points this body is whole at, as last settled (`settle_body`).
+pub fn max_hp(world: &World, citizen: EntityId) -> f64 {
+    plain_num(world, citizen, BODY, "max_hp")
+        .unwrap_or(super::MAX_HP)
+        .max(super::MAX_HP)
+}
+
+/// Bring the body to the size its level makes it, out of a fight: the ceiling of
+/// its hit points moves, what it has now stays (less what no longer fits).
+fn settle_body(world: &mut World, citizen: EntityId) -> Result<(), StoreError> {
+    if engaged_with(world, citizen).is_some() {
+        return Ok(());
+    }
+    let Some(window) = world
+        .store
+        .children(citizen)
+        .find(|e| e.kind == "window")
+        .map(|e| e.id)
+    else {
+        return Ok(());
+    };
+    let target = body_for_level(super::memory::level(world, window));
+    if (target - max_hp(world, citizen)).abs() < 0.5 {
+        return Ok(());
+    }
+    let Some(mut fields) = world
+        .store
+        .entity(citizen)
+        .and_then(|e| e.components.get(BODY))
+        .map(|c| c.fields.clone())
+    else {
+        return Ok(());
+    };
+    let curve = match fields.get("hp") {
+        Some(Field::Timed(t)) => t.curve.clone(),
+        _ => return Ok(()),
+    };
+    let now_hp = hp(world, citizen).min(target);
+    fields.insert(
+        "hp".into(),
+        Field::Timed(
+            foxing_time::TimedValue::new(now_hp, world.now(), curve).with_bounds(
+                foxing_time::Bounds {
+                    floor: 0.0,
+                    ceiling: Some(target),
+                },
+            ),
+        ),
+    );
+    fields.insert("max_hp".into(), Field::Plain(json!(target)));
+    world.record(
+        Actor::Driver,
+        StoreEvent::ComponentSet {
+            id: citizen,
+            component: BODY.into(),
+            fields,
+        },
+    )?;
+    Ok(())
 }
 
 /// The one room where the field guide's healing figure is true.
@@ -1443,6 +1519,7 @@ pub const CLOSET_HP_PER_SECOND: f64 = 6.0 / 60.0;
 /// Set the body's mending to what it should be now (`mending_rate`): after a fight
 /// begins or ends, after a bleeding bite, when it staunches, on waking.
 pub fn recurve_mending(world: &mut World, citizen: EntityId) -> Result<(), StoreError> {
+    settle_body(world, citizen)?;
     let rate = mending_rate(world, citizen);
     // Nothing to write when the curve already runs at this rate (an arrival once
     // recorded the same curve again, and the world's reopening was no longer silent).
@@ -1595,7 +1672,7 @@ fn creature_strikes(
     let before = hp(world, citizen);
     let after = before - dmg;
     commit_hp(world, citizen, after)?;
-    LAST_HIT.with(|c| c.set((before.ceil(), after.max(0.0).ceil())));
+    LAST_HIT.with(|c| c.set((before.ceil(), after.max(0.0).ceil(), max_hp(world, citizen))));
     // What this creature has done you, this fight: the vividity of the memory of
     // felling it is its share of your blood, not where the meter stood at the end
     // (a one-hit wisp after a lamprey's venom elsewhere once counted as near death).
@@ -1661,12 +1738,12 @@ thread_local! {
     /// The hit points before and after the last strike, as a line says them: both
     /// ends, because you mend between strikes and a line that said only the end
     /// read as arithmetic gone wrong ("hits you for 4" and the number fell by 2).
-    static LAST_HIT: std::cell::Cell<(f64, f64)> = const { std::cell::Cell::new((0.0, 0.0)) };
+    static LAST_HIT: std::cell::Cell<(f64, f64, f64)> = const { std::cell::Cell::new((0.0, 0.0, 30.0)) };
 }
 
 /// "hits you for 4: 28 → 24 of 30", from the last strike.
 pub(crate) fn hit_said(taken: f64) -> String {
-    let (before, after) = LAST_HIT.with(|c| c.get());
+    let (before, after, whole) = LAST_HIT.with(|c| c.get());
     // R121: the figure is the one the two ends show, so A − N = B always; a
     // fractional blow (a kindled creature's) said "for 2" and the meter fell by 3.
     let shown = if before > after {
@@ -1677,15 +1754,11 @@ pub(crate) fn hit_said(taken: f64) -> String {
     // R154: a killing blow is said whole, not clipped to what was left.
     if after <= 0.0 && taken.round() > shown.round() {
         return format!(
-            "hits you for {:.0}; {before:.0} of {:.0} was all you had",
-            taken.round(),
-            super::MAX_HP
+            "hits you for {:.0}; {before:.0} of {whole:.0} was all you had",
+            taken.round()
         );
     }
-    format!(
-        "hits you for {shown:.0}: {before:.0} \u{2192} {after:.0} of {:.0}",
-        super::MAX_HP
-    )
+    format!("hits you for {shown:.0}: {before:.0} \u{2192} {after:.0} of {whole:.0}")
 }
 
 /// Death: concussion, then wake at the Threshold at full health, disengaged.
@@ -1931,7 +2004,7 @@ pub(crate) fn die(
             },
         )
         .map_err(internal)?;
-    commit_hp(world, f.citizen, super::MAX_HP).map_err(internal)?;
+    commit_hp(world, f.citizen, max_hp(world, f.citizen)).map_err(internal)?;
     // C6: the book remembers the fall.
     {
         let by = killer
@@ -2589,7 +2662,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
                 end_fight(w, f.citizen).map_err(internal)?;
                 return Ok(Outcome::new(
-                    format!("You open {jname} as you turn. The {cname} strikes at where the fog says you are, and you are not there. The jar is spent; you are away with {:.0}/{:.0}.", hp_said(w, f.citizen), super::MAX_HP),
+                    format!("You open {jname} as you turn. The {cname} strikes at where the fog says you are, and you are not there. The jar is spent; you are away with {:.0}/{:.0}.", hp_said(w, f.citizen), max_hp(w, f.citizen)),
                     json!({"retreated": true, "jar": true, "taken": 0, "hp": hp(w, f.citizen)}),
                 ));
             }
@@ -2614,7 +2687,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let ckind = plain_str(w, creature, CREATURE, "name").unwrap_or("").to_string();
             let c_whole_ms = if super::stacks::TRICKS.iter().any(|(k, _)| *k == ckind) { STACKS_MEND_MS } else { GROUND_MEND_MS };
             let c_whole_in_ms = (((cmax - chp_now).max(0.0) / cmax) * c_whole_ms as f64) as i64;
-            let me_whole_in_ms = ((super::MAX_HP - hp(w, f.citizen)) / super::HP_PER_SECOND * 1000.0) as i64;
+            let me_whole_in_ms = ((max_hp(w, f.citizen) - hp(w, f.citizen)).max(0.0) / (max_hp(w, f.citizen) / MEND_WHOLE_S) * 1000.0) as i64;
             let mended = match super::stacks::trick_of(w, creature) {
                 Some(super::stacks::Trick::Enter) | Some(super::stacks::Trick::Below) => " It will be whole again by the time you come back; the Conclave keeps its order.".to_string(),
                 _ if chp_now <= 0.0 => String::new(),
@@ -2661,7 +2734,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 // stand anyone could take).
                 let chp_then = (chp + cmax * (me_whole_in_ms as f64 / c_whole_ms as f64)).min(cmax);
                 let rounds_then = (chp_then / (mine * hit)).ceil().max(1.0);
-                let in_me_whole = (super::MAX_HP / its).floor();
+                let in_me_whole = (max_hp(w, f.citizen) / its).floor();
                 if chp > 0.0 {
                     format!(
                         " A second stand now would take about {rounds_now:.0} round{}{} to fell it, and you could stand about {in_me_now:.0} of its blows. Once you are whole it would take about {rounds_then:.0} round{} against the {chp_then:.0} hit points it will have by then, and you could stand about {in_me_whole:.0} blows{}{}.",
@@ -2682,7 +2755,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     String::new()
                 }
             };
-            Ok(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}. You have {:.0}/{:.0}.{mended}{venom}{second}", hp_said(w, f.citizen), super::MAX_HP), json!({"died": false, "hp": hp(w, f.citizen), "venom_left": venom_left})))
+            Ok(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}. You have {:.0}/{:.0}.{mended}{venom}{second}", hp_said(w, f.citizen), max_hp(w, f.citizen)), json!({"died": false, "hp": hp(w, f.citizen), "venom_left": venom_left})))
         }),
     );
 
@@ -2697,7 +2770,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 w.store
                     .timed_field(f.citizen, BODY, "hp")
                     .ok()
-                    .and_then(|t| t.active_time_to_reach(super::MAX_HP, now, &w.store.scopes_for(f.citizen).unwrap_or_default()))
+                    .and_then(|t| t.active_time_to_reach(max_hp(w, f.citizen), now, &w.store.scopes_for(f.citizen).unwrap_or_default()))
             };
             let mut eta = time_to_whole(w);
             let mut bleeding = plain_num(w, f.citizen, BODY, "bleed_until").filter(|&u| u > now.0 as f64);
@@ -2716,7 +2789,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     // D27: it mends as well as closes: ten hit points at once, a
                     // surgeon's twenty.
                     let gives = if super::past::tier(w, bandage) >= 2 { 20.0 } else { 10.0 };
-                    let to = (hp(w, f.citizen) + gives).min(super::MAX_HP);
+                    let to = (hp(w, f.citizen) + gives).min(max_hp(w, f.citizen));
                     commit_hp(w, f.citizen, to).map_err(internal)?;
                     recurve_mending(w, f.citizen).map_err(internal)?;
                     bleeding = None;
@@ -2731,17 +2804,26 @@ pub fn register(world: &mut World, curves: Curves) {
             let text = match eta {
                 // Every branch says when a bandage went (#12: it was spent in a fight
                 // and the reply never said so).
-                _ if current < super::MAX_HP - 0.5 && engaged_with(w, f.citizen).is_some() => format!("{bandaged}You have {current:.0}/{:.0}. Nothing mends in a fight; `retreat` (it costs one parting blow), and it starts.", super::MAX_HP),
-                _ if current < super::MAX_HP - 0.5 && bleeding.is_some() => format!("{bandaged}You have {current:.0}/{:.0}. You are bleeding: nothing mends for {} more.", super::MAX_HP, human((bleeding.unwrap() as i64) - now.0)),
+                _ if current < max_hp(w, f.citizen) - 0.5 && engaged_with(w, f.citizen).is_some() => format!("{bandaged}You have {current:.0}/{:.0}. Nothing mends in a fight; `retreat` (it costs one parting blow), and it starts.", max_hp(w, f.citizen)),
+                _ if current < max_hp(w, f.citizen) - 0.5 && bleeding.is_some() => format!("{bandaged}You have {current:.0}/{:.0}. You are bleeding: nothing mends for {} more.", max_hp(w, f.citizen), human((bleeding.unwrap() as i64) - now.0)),
                 // R56: whole within a half point is whole; the eta rounded up past it.
-                Some(d) if d.0 > 0 && current < super::MAX_HP - 0.5 => format!("{bandaged}You have {current:.0}/{:.0}. Full in {}.", super::MAX_HP, human(d.0)),
-                _ => format!("{bandaged}You have {current:.0}/{:.0}. You are whole.", super::MAX_HP),
+                Some(d) if d.0 > 0 && current < max_hp(w, f.citizen) - 0.5 => format!("{bandaged}You have {current:.0}/{:.0}. Full in {}.", max_hp(w, f.citizen), human(d.0)),
+                _ => format!("{bandaged}You have {current:.0}/{:.0}. You are whole.", max_hp(w, f.citizen)),
             };
             // R48: one line with hp, level and what you hit for.
             let level = super::memory::level(w, f.window);
             let text = format!(
-                "{text} Level {level:.1}; you hit for {:.0} (plus 0–2).",
-                attack_for_level(level)
+                "{text} Level {level:.1}; you hit for {:.0} (plus 0–2).{}",
+                attack_for_level(level),
+                // Where the body's size comes from, once it is more than everyone's.
+                if max_hp(w, f.citizen) > super::MAX_HP + 0.5 {
+                    format!(
+                        " A body is whole at {:.0}, and one more for every ten levels held, to {HP_MOST:.0}; it is sized out of a fight.",
+                        super::MAX_HP
+                    )
+                } else {
+                    String::new()
+                }
             );
             // The bog's clock, while standing in it (R40: it showed on the entry look only).
             let bog_line = super::rooms::room_of(w, f.citizen)
@@ -2749,7 +2831,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 .filter(|l| l.contains("takes a liking"))
                 .map(|l| format!(" {l}"))
                 .unwrap_or_default();
-            Ok(Outcome::new(format!("{text}{shaken_line}{bog_line}"), json!({"hp": current, "max_hp": super::MAX_HP, "full_in_seconds": eta.map(|d| d.0 / 1000), "bandage_spent": !bandaged.is_empty(), "to_hit": to_hit(w, f.citizen), "shaken_ms_left": shaken(w, f.citizen).map(|(_, l)| l)})))
+            Ok(Outcome::new(format!("{text}{shaken_line}{bog_line}"), json!({"hp": current, "max_hp": max_hp(w, f.citizen), "full_in_seconds": eta.map(|d| d.0 / 1000), "bandage_spent": !bandaged.is_empty(), "to_hit": to_hit(w, f.citizen), "shaken_ms_left": shaken(w, f.citizen).map(|(_, l)| l)})))
         }),
     );
 }
