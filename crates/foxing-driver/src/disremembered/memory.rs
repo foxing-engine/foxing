@@ -240,6 +240,19 @@ fn rows_text(rows: &[Value]) -> Vec<String> {
         })
         .collect();
     out.extend(rest_line(rows));
+    // R208: the marks a row may carry, said once under the rows that carry them.
+    let marked = |what: &str| {
+        rows.iter().take(ROWS_SHOWN).any(|r| match what {
+            "passing" => r["provenance"].as_str() == Some("passing"),
+            _ => r["taxed"].is_number(),
+        })
+    };
+    if marked("passing") {
+        out.push("(passing): earned while this name was a passing one. It is a memory like any other to you; the mark stays on it if it is given away, and a kept name can take only so many of those.".into());
+    }
+    if marked("taxed") {
+        out.push("(taxed): a gift taken past what a name may be given in a day; it fades faster than its kind (its row says how fast).".into());
+    }
     out
 }
 

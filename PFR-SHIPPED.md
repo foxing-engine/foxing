@@ -5,6 +5,9 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-16 (a first batch of R, small, with a Watch sent to say which of the old R items still happen; one driver deploy)
+- `chunks` says once what "(passing)" and "(taxed)" on a row mean (R208). The last-blow warning says a jar of fog is in `recipes` (R210). The R list had gone stale against six batches of fixes: several items' wording is no longer in the code. Three testers were sent to try twenty-odd of them on the live world; what they still find is the next batch.
+
 11-16 (S16 c on the live log)
 - The live world's 1,332,165 older events are in `events_archive`; 60,000 and what has come since are in `events`. Dumped first, verified before and after, moved in batches in 47 s; one 12.6 s stall forty seconds before the move. In S16, with what is owed.
 

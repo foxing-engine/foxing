@@ -2533,7 +2533,7 @@ pub fn register(world: &mut World, curves: Curves) {
             if let Some(a) = plain_num(w, creature, CREATURE, "attack").filter(|a| *a > 0.0) {
                 if engaged_with(w, f.citizen) == Some(creature) && hp(w, f.citizen) <= a + 2.0 {
                     lines.push(format!(
-                        "Its next blow could be your last (it hits {:.0}\u{2013}{:.0}): anything you do here but a killing strike draws one, `rest` and `retreat` among them; a jar of fog covers a retreat.",
+                        "Its next blow could be your last (it hits {:.0}\u{2013}{:.0}): anything you do here but a killing strike draws one, `rest` and `retreat` among them; a jar of fog covers a retreat (`recipes` says what one is made of).",
                         a,
                         a + 2.0
                     ));
