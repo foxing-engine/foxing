@@ -13425,3 +13425,83 @@ fn a_creature_full_for_the_hour_still_answers_a_guess_at_its_word() {
     let out = ok(&mut w, "dave", "story", json!([&given, format!("Once there was a {word} that nobody had counted, and it waited by the river for a name that would not come.")]));
     assert_eq!(out.result["struck"]["word"], word, "{}", out.summary);
 }
+
+#[test]
+fn a_room_answers_read_for_the_things_its_text_names() {
+    // D41: the Chart Room's maps, the Reserve's list, the Swollen Drawers' drawers.
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(1_000_000));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let dave = find_citizen(&w, "dave").unwrap().citizen;
+    for key in super::nouns::rooms() {
+        assert!(rooms::room_by_key(&w, key).is_some(), "no room {key}");
+    }
+    for (key, thing, has) in [
+        ("chart-room", "maps", "THE ASHEN WASTES"),
+        ("reserve", "the list", "dave: A First Hour."),
+        ("wing-catalogue", "drawers", "KEEP WET"),
+        ("tube-room", "canister", "Go down."),
+    ] {
+        let room = rooms::room_by_key(&w, key).unwrap();
+        w.record(
+            Actor::Driver,
+            StoreEvent::EntityMoved {
+                id: dave,
+                parent: Some(room),
+            },
+        )
+        .unwrap();
+        let out = ok(&mut w, "dave", "read", json!([thing]));
+        assert!(out.summary.contains(has), "{key}: {}", out.summary);
+    }
+    // And a thing no room names is refused as it was.
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "read",
+        json!(["teapot"])
+    )
+    .is_err());
+}
+
+#[test]
+fn a_first_hour_ends_aloud_and_a_retreat_says_what_it_costs() {
+    // D39c and D38.
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let head = events(&w);
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    assert!(!narrative(&w, "dave", head)
+        .iter()
+        .any(|l| l.contains("Your first hour is over")));
+    w.fixed_now = Some(t0.plus(Duration::seconds(3_700)));
+    let head = events(&w);
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let said = narrative(&w, "dave", head);
+    assert_eq!(
+        said.iter()
+            .filter(|l| l.contains("Your first hour is over"))
+            .count(),
+        1,
+        "{said:?}"
+    );
+    // In a fight, `rest` says what the way out costs.
+    let dave = find_citizen(&w, "dave").unwrap().citizen;
+    let fog = rooms::room_of(&w, dave).unwrap();
+    combat::fill(&mut w, fog).unwrap();
+    combat::commit_hp(&mut w, dave, 30.0).unwrap();
+    let mut rest = String::new();
+    for _ in 0..8 {
+        let out = ok(&mut w, "dave", "attack", json!([]));
+        if out.result["killed"] == true || out.result["died"] == true {
+            continue;
+        }
+        if combat::engaged_with(&w, dave).is_some() && combat::hp(&w, dave) < 29.0 {
+            rest = ok(&mut w, "dave", "rest", json!([])).summary;
+            break;
+        }
+    }
+    assert!(rest.contains("it costs one parting blow, 2 to 4"), "{rest}");
+}

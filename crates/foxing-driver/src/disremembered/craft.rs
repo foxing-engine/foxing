@@ -2751,6 +2751,19 @@ pub fn register(world: &mut World, curves: Curves) {
             if let Some(out) = super::door::read(w, here, &arg) {
                 return Ok(out);
             }
+            // D41: a thing the room's own text names (the Chart Room's maps, the
+            // Reserve's list), where nothing made or lying here is meant.
+            let carried = w
+                .store
+                .children(f.citizen)
+                .find(|e| e.kind == "satchel")
+                .map(|e| e.id)
+                .is_some_and(|s| resolve_item(w, &arg, s).is_ok());
+            if !carried && resolve_item(w, &arg, here).is_err() {
+                if let Some(out) = super::nouns::read(w, &ctx.actor, here, &arg) {
+                    return Ok(out);
+                }
+            }
             // A named creature is not a page: say so and point at `tell` (a keeper
             // read "There is no vellic here" with Vellic in the room).
             if let Some((c, room)) = super::mind::find_named(w, &arg) {

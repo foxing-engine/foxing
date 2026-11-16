@@ -5,6 +5,11 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-16 (the three small calls held for a Watch, shipped with the strike team; one driver deploy with a schema change)
+- **D38 · What the way out costs.** In a fight `rest` gives the parting blow's figure ("it costs one parting blow, 26 to 28, which could be the last of you: a jar of fog covers it"); a fall on the way out says a parting blow is a whole one; and `retreat`'s advice says "it will be whole before you are, so waiting buys nothing against it" of a thing that mends faster than you, where it said "rest until you are whole, then stand again".
+- **D39c · A first hour ends aloud**: one line at the name's first arrival or message after it ("what hunts, hunts you now…").
+- **D41 · Things the rooms name can be read**, a first batch of twelve rooms: the Pneumatic Room's canisters, the Chart Room's maps (the wing drawn dry, and a sheet lettered THE ASHEN WASTES), the Reserve's list (books about the reader, all marked REQUESTED), the cataloguer's entry, and in the wing the drawers' cards, the pool's books, the kelp's titles, the gallery's brass plates, the binder's type, the newts' pages, the committee's agenda and the Sump's stair. Each says only what is so elsewhere (the ledger's starfish, the Sewer Board's key, the book kept wet).
+
 11-16 (found on the live world after the six calls went out; one driver deploy)
 - **The Court keeps one starfish.** There were two: the first took a name from a fall, a named creature is not counted as a room's stock, and a second grew to lie across the same door. A starfish counts named or not, and the unnamed second is taken away at boot.
 - **The Wardens that the first pass missed are at their new figures**: one stood from before a base figure was kept and one was light enough to pass and still hit 34; both read 34 to 36 an hour after the change.

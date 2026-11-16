@@ -35,6 +35,7 @@ pub mod mind;
 pub mod morphos;
 pub mod namery;
 pub mod news;
+pub mod nouns;
 pub mod past;
 pub mod pilots;
 pub mod presence;
@@ -481,6 +482,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("vivid_rule_said", FieldKind::Plain, Visibility::Owner)
             // D42: said once a session: that memories can be shelved, and why a
             // walkover fades in half an hour.
+            // D39c: the named_at of the hour whose end was said to this name.
+            .field("grace_said", FieldKind::Plain, Visibility::Owner)
             .field("shelve_said", FieldKind::Plain, Visibility::Owner)
             .field("faint_said", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(ACCOUNT, 1).field(

@@ -836,6 +836,7 @@ pub fn on_arrival(
     // C9: a room of the Drowned Wing starts its water clock on whoever comes in, by
     // any door (a walk, a shove, a waking); any other room stops one.
     super::tide::on_arrival(world, actor, citizen, room)?;
+    hour_over(world, actor, citizen);
     // The room may mend you at its own pace (the Closet): the curve follows the room.
     recurve_mending(world, citizen).map_err(|e| e.to_string())?;
     let hunters: Vec<EntityId> = creatures_in(world, room)
@@ -1708,6 +1709,31 @@ pub const BASIN_PACE: f64 = 3.0;
 
 pub fn attack_for_level(level: f64) -> f64 {
     BASE_ATTACK + (ATTACK_PER_ROOT_LEVEL * level.max(0.0).sqrt()).floor()
+}
+
+/// D39c: a name's first hour ends unsaid, and two of the party of 11-16 were first
+/// hunted at the minute their run at the starfish began. Said once, at the name's
+/// first arrival or message after the hour, while the second hour lasts.
+fn hour_over(world: &mut World, actor: &str, citizen: EntityId) {
+    let Some(named) = plain_num(world, citizen, super::CITIZEN, "named_at") else {
+        return;
+    };
+    let age = world.now().0 - named as i64;
+    if !(super::kindle::GRACE_MS..2 * super::kindle::GRACE_MS).contains(&age)
+        || plain_num(world, citizen, super::CITIZEN, "grace_said") == Some(named)
+    {
+        return;
+    }
+    let mut changes = BTreeMap::new();
+    changes.insert("grace_said".into(), Field::Plain(json!(named)));
+    if super::set_citizen_fields(world, actor, citizen, changes).is_err() {
+        return;
+    }
+    narrate(
+        world,
+        actor,
+        "Your first hour is over, and with it the world's leave: what hunts, hunts you now. A room's `look` says what hunts whoever stays in it (the Shallows' hollows, the drowned, an anemone), and `where` and the signposts say which ways pass through such a room. Nothing else has changed.",
+    );
 }
 
 /// D35: what a second-tier bandage gives back when it binds a wound in a fight, and
@@ -2896,7 +2922,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 let d = die(w, &ctx.actor, &f, Some(creature))?;
                 let lost = d.lost.clone();
                 let msg = {
-                    format!("The {cname} catches you as you turn, for {taken:.0}. You go down.{}", d.said())
+                    format!("The {cname} catches you as you turn, for {taken:.0}: a parting blow is a whole one, and it was more than you had (a jar of fog covers one). You go down.{}", d.said())
                 };
                 return Ok(Outcome::new(msg, json!({"died": true, "lost": lost})));
             }
@@ -2975,7 +3001,8 @@ pub fn register(world: &mut World, curves: Curves) {
                         if in_me_whole < rounds_then {
                             "; not a fight for one name at this level. Alone: `rest`, then something milder (`where mothwing`), or come back holding more; with another name here it is two against one"
                         } else {
-                            ". The rounds allow for your misses. `rest` until you are whole, then stand again"
+                            // D38: said of a thing that is whole before you are.
+                            if c_whole_in_ms < me_whole_in_ms { ". The rounds allow for your misses. It will be whole before you are, so waiting buys nothing against it: a second stand is against all of it" } else { ". The rounds allow for your misses. `rest` until you are whole, then stand again" }
                         }
                     )
                 } else {
@@ -3038,7 +3065,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let text = match eta {
                 // Every branch says when a bandage went (#12: it was spent in a fight
                 // and the reply never said so).
-                _ if current < max_hp(w, f.citizen) - 0.5 && engaged_with(w, f.citizen).is_some() => format!("{bandaged}You have {current:.0}/{:.0}. Nothing mends in a fight; `retreat` (it costs one parting blow), and it starts.", max_hp(w, f.citizen)),
+                _ if current < max_hp(w, f.citizen) - 0.5 && engaged_with(w, f.citizen).is_some() => format!("{bandaged}You have {current:.0}/{:.0}. Nothing mends in a fight; `retreat` (it costs one parting blow{}), and it starts.", max_hp(w, f.citizen), match engaged_with(w, f.citizen).and_then(|c| plain_num(w, c, CREATURE, "attack")) { Some(a) if current <= a + 2.0 => format!(", {a:.0} to {:.0}, which could be the last of you: a jar of fog covers it", a + 2.0), Some(a) => format!(", {a:.0} to {:.0}", a + 2.0), None => String::new() }),
                 // C9: under water it said "You are whole" at 28 of 30.
                 _ if current < max_hp(w, f.citizen) - 0.5 && super::tide::under(w, f.citizen) => format!("{bandaged}You have {current:.0}/{:.0}. Nothing mends under water: get above it (the Wrack Line is always dry), and it starts.", max_hp(w, f.citizen)),
                 _ if current < max_hp(w, f.citizen) - 0.5 && bleeding.is_some() => format!("{bandaged}You have {current:.0}/{:.0}. You are bleeding: nothing mends for {} more.", max_hp(w, f.citizen), human((bleeding.unwrap() as i64) - now.0)),
