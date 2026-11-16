@@ -303,3 +303,36 @@ pub fn next_arm_in(world: &World, creature: EntityId) -> Option<i64> {
     let at = plain_num(world, creature, CREATURE, "arm_at")? as i64;
     Some((at + ARM_GROWS_MS - world.now().0).max(0))
 }
+
+/// On boot: a room keeps one starfish. Where a second grew beside one that had
+/// taken a name (the Court, 11-16), the unnamed one that nobody is fighting goes.
+pub fn settle(world: &mut World) -> Result<usize, String> {
+    let mut by_room: std::collections::BTreeMap<EntityId, Vec<EntityId>> = Default::default();
+    for e in world.store.of_kind("creature") {
+        if plain_str(world, e.id, CREATURE, "name") == Some(KIND) {
+            if let Some(room) = e.parent {
+                by_room.entry(room).or_default().push(e.id);
+            }
+        }
+    }
+    let mut gone = 0;
+    for (_, mut stars) in by_room {
+        if stars.len() < 2 {
+            continue;
+        }
+        // The one to keep: a named one, else the first.
+        stars.sort_by_key(|id| super::mind::name(world, *id).is_none());
+        for id in stars.into_iter().skip(1) {
+            if super::mind::name(world, id).is_some()
+                || super::combat::fought_by(world, id).is_some()
+            {
+                continue;
+            }
+            world
+                .record(Actor::Driver, StoreEvent::EntityRemoved { id })
+                .map_err(|e| e.to_string())?;
+            gone += 1;
+        }
+    }
+    Ok(gone)
+}

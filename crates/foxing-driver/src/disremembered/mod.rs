@@ -806,6 +806,9 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     if let Err(e) = reading::settle(world) {
         eprintln!("the Reading Rooms' kinds were not settled: {e}");
     }
+    if let Err(e) = starfish::settle(world) {
+        eprintln!("the starfish were not counted: {e}");
+    }
     building::reframe_all(world)?;
     economy::ensure(world)?;
     conclave::ensure(world)?;

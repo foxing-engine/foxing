@@ -510,7 +510,10 @@ fn short(world: &World, room: EntityId) -> bool {
     let here = creatures_in(world, room);
     kinds_of(world, room).iter().any(|(key, count)| {
         here.iter()
-            .filter(|c| &c.1 == key && super::mind::name(world, c.0).is_none())
+            .filter(|c| {
+                &c.1 == key
+                    && (key == super::starfish::KIND || super::mind::name(world, c.0).is_none())
+            })
             .count()
             < *count
     })
@@ -542,9 +545,13 @@ fn fill_kind(
     // unnamed count toward the figure, so a room with pilots in it still refills.
     // Its own kind, unnamed: a stranger that wandered in (a born "ragg" on the
     // Downward Stair) held the dust devil's one slot for a night.
+    // (But the starfish is one, named or not: it took a name from a fall on 11-16,
+    // and the Court grew a second to lie across the same door.)
     let have = creatures_in(world, room)
         .iter()
-        .filter(|c| c.1 == key && super::mind::name(world, c.0).is_none())
+        .filter(|c| {
+            c.1 == key && (key == super::starfish::KIND || super::mind::name(world, c.0).is_none())
+        })
         .count();
     // Not from empty: a boot fills every room to its figure exactly (the test worlds
     // count on it), and the extra comes on a refill of a room partly cleared.

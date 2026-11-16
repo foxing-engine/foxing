@@ -524,7 +524,14 @@ pub fn settle(world: &mut World) -> Result<usize, String> {
         let Some(def) = super::combat::def_by_name("warden") else {
             break;
         };
-        if plain_num(world, id, CREATURE, "base_hp").is_some_and(|b| b > def.hp * 1.06) {
+        // One that stood before `base_hp` was kept has none: its whole is its base.
+        let base = plain_num(world, id, CREATURE, "base_hp")
+            .or_else(|| plain_num(world, id, CREATURE, "max_hp"))
+            .unwrap_or(def.hp);
+        let heavy = base > def.hp * 1.06;
+        let hard = plain_num(world, id, CREATURE, "attack")
+            .is_some_and(|a| a > def.attack + (super::mind::level(world, id) / 75.0).floor() + 0.5);
+        if heavy {
             world
                 .record(
                     Actor::Driver,
@@ -536,6 +543,8 @@ pub fn settle(world: &mut World) -> Result<usize, String> {
                     },
                 )
                 .map_err(|e| e.to_string())?;
+        }
+        if heavy || hard {
             super::combat::rescale(world, id).map_err(|e| e.to_string())?;
             rescaled += 1;
         }

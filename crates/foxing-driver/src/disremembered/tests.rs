@@ -13160,6 +13160,14 @@ fn the_starfish_keeps_its_strength_in_its_arms() {
     let grown = num(&w, "max_hp");
     assert!((grown - (base * 1.6).round()).abs() < 1.5, "{base} {grown}");
     assert_eq!(num(&w, "attack"), 10.0);
+    // It has a name now, and is still the Court's one starfish: no second grows.
+    assert!(mind::name(&w, star).is_some());
+    assert_eq!(combat::fill(&mut w, court).unwrap(), 0);
+    // And a second that grew before that was so is taken away at boot.
+    let d = combat::def_by_name("starfish").unwrap();
+    combat::spawn_one(&mut w, court, d).unwrap();
+    assert_eq!(starfish::settle(&mut w).unwrap(), 1);
+    assert!(w.store.entity(star).is_some());
     // A name that hits for thirty-odd: no blow crosses two fifths of it.
     admin(&mut w, "dave", "earn", json!(["a long road", 3000]));
     combat::recurve_mending(&mut w, f.citizen).unwrap();
