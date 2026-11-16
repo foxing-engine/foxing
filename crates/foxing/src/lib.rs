@@ -1,4 +1,4 @@
-//! Foxing driver. Pre-alpha: the primitives arrive one crate at a time, and this crate
+//! Foxing driver. Alpha: the primitives arrive one crate at a time, and this crate
 //! assembles them. For now it re-exports them so `foxing::time`, `foxing::log` and
 //! `foxing::store` are stable paths.
 

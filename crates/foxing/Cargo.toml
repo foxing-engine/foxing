@@ -1,7 +1,7 @@
 [package]
 name = "foxing"
 version = "0.0.3"
-description = "Foxing: an open-source world engine where every value is computed from the clock when it is read. The driver crate; pre-alpha."
+description = "Foxing: an open-source world engine where every value is computed from the clock when it is read. The driver crate; alpha."
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

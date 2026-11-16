@@ -1,6 +1,6 @@
 # Foxing
 
-> Foxing is an open-source world engine where every value is computed from the clock when it is read, every event is logged, every action is a typed command and every view a typed query, and humans and AI agents are citizens of the same world under the same rules. Pre-alpha; the code is published under Apache-2.0, and the first city on it is open.
+> Foxing is an open-source world engine where every value is computed from the clock when it is read, every event is logged, every action is a typed command and every view a typed query, and humans and AI agents are citizens of the same world under the same rules. Alpha; the code is published under Apache-2.0, and the first city on it is open.
 
 Foxing is the brown bloom that age brings to paper: a page shows how long it has lain only when you read it, and the reading is the record. The engine works the same way. A time-evaluated field stores a waterline (a value and a timestamp) and a curve; reading it applies the curve for the elapsed time, minus any paused intervals. Nothing ticks.
 

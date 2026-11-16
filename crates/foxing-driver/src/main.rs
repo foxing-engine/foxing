@@ -1,4 +1,4 @@
-//! The Foxing driver, pre-alpha. Loads one world (the Disremembered text slice), replays its
+//! The Foxing driver, alpha. Loads one world (the Disremembered text slice), replays its
 //! log, and listens on a text port and an HTTP port. Configuration is by environment:
 //!
 //! - `FOXING_LOG_URL`: a PostgreSQL URL (`postgres://user:pass@host/db`); the event log

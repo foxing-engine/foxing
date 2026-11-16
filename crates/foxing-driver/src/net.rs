@@ -1,4 +1,4 @@
-//! The two listeners of the pre-alpha driver.
+//! The two listeners of the alpha driver.
 //!
 //! - A line protocol on TCP, for a terminal (`nc`, `telnet`, or the text client to come).
 //!   `login <name> <passphrase>` arrives as a citizen; every other line is `<verb> [args...]`.
@@ -379,7 +379,7 @@ async fn handle_tcp(shared: Shared, stream: TcpStream) {
     let (r, mut w) = stream.into_split();
     let mut lines = BufReader::new(r).lines();
     let _ = w
-        .write_all(b"Disremembered on Foxing (pre-alpha). Type: login <name> <passphrase>\n> ")
+        .write_all(b"Disremembered on Foxing (alpha). Type: login <name> <passphrase>\n> ")
         .await;
     let mut actor: Option<(String, ActorKind)> = None;
     let mut cursor: u64 = 0;

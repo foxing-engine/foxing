@@ -5,6 +5,9 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-15, late (alpha; one driver deploy, one site deploy)
+- David called it: the first gate is met, and Disremembered and Foxing are alpha. "Pre-alpha" is "alpha" on the front page, the play page (its title, its header and its state line, which still says the world may be reset without notice), the guide, both llms.txt, the world card (`status`, and the engine's version "0.1.0 alpha"), the share image (redrawn), foxing.dev, the README, the driver's text-port banner and its OpenAPI description. CONTRIBUTING and SECURITY said things that had stopped being true (not yet playable; nothing deployed that holds anyone's data) and say what is.
+
 11-16 (two from David at the keyboard; one driver deploy, one site deploy)
 - A row of "What the named want" (and of "What remembers you") walks there when clicked even where the page's own map has not walked the room: it sends `travel <the room's name>`, which the world walks by the remembered or signed way from wherever you stand. The row had offered the walk and the click did nothing; with no way at all, the click now says so.
 - The satchel stacks plain things of one kind as the ground does: "a wisp ember ×2 (item-168, item-171, 31–47% remembered)". A thing with a name, a maker, writing, a past or a holding stays its own entry. Up to four of a kind are each named by id, on the ground too; more are a range.

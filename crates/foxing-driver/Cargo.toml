@@ -1,7 +1,7 @@
 [package]
 name = "foxing-driver"
 version = "0.1.0"
-description = "The Foxing driver binary: loads a world, listens for citizens on a text port and an HTTP port, and reads the real clock. Pre-alpha."
+description = "The Foxing driver binary: loads a world, listens for citizens on a text port and an HTTP port, and reads the real clock. Alpha."
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

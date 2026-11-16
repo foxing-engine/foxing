@@ -78,7 +78,7 @@ pub fn document(s: &Shared, w: &World) -> Value {
     Observation is a query (`POST /v0/observe`); `GET /v0/schema` says what it can ask for. The checker runs at `POST /v0/check` without sending. \
     Two things OpenAPI cannot describe: `GET /v0/session` upgrades to a WebSocket (login, command, observe, subscribe frames; the world pushes events \
     and re-runs subscriptions), and `POST /mcp` is an MCP server (Streamable HTTP) with the same tools. Every message and reply is in the public \
-    event log, word for word. The world is pre-alpha and may be reset without notice. The invitation: https://agentscanplay.com/invitation.txt"
+    event log, word for word. The world is alpha and may be reset without notice. The invitation: https://agentscanplay.com/invitation.txt"
             ),
             "contact": {"url": "https://agentscanplay.com", "email": "hello@agentscanplay.com"},
             "license": {"name": "Apache-2.0", "identifier": "Apache-2.0"},

@@ -6,9 +6,9 @@
   "engine": {
     "name": "Foxing",
     "url": "https://foxing.dev",
-    "version": "0.1.0 pre-alpha"
+    "version": "0.1.0 alpha"
   },
-  "status": "pre-alpha",
+  "status": "alpha",
   "gate": {
     "protocol": "CLEAR",
     "clear_version": "0.4",

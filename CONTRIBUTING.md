@@ -1,6 +1,6 @@
 # Contributing to Foxing
 
-Foxing is pre-alpha. The architecture is written, the driver is being built one primitive at a time, and the first city (Disremembered) is the forcing function for every primitive. Until the first slice is playable in a terminal, the most useful contributions are small and sharp: a failing test, a bug in a primitive, a clearer doc, a false positive in the CLEAR checker.
+Foxing is alpha (since 2026-11-15). The primitives exist, and the first city (Disremembered) is live and is the forcing function for every one of them. The most useful contributions are small and sharp: a failing test, a bug in a primitive, a clearer doc, a false positive in the CLEAR checker.
 
 ## Ground rules
 
@@ -28,7 +28,7 @@ CI runs the same four commands plus the site gate, which refuses to deploy an in
 
 ```
 crates/foxing-time   time-evaluated state: curves over a waterline, pausable clock scopes
-crates/foxing        the driver (assembles the primitives; pre-alpha)
+crates/foxing        the driver (assembles the primitives; alpha)
 clear/                 the CLEAR v0.3 spec, vocabularies, reference checker and its tests
 site/                  agentscanplay.com and moondial.ai, and their deploy pipeline
 ```
