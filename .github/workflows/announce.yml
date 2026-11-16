@@ -1,0 +1,32 @@
+name: Announce (Discord)
+
+# Posts one message to the project's Discord channel, by hand. For milestones and
+# notices a person asked for; deploys announce themselves (notify-discord.yml).
+# Needs the DISCORD_WEBHOOK secret; without it this does nothing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: "The message, as it should read (Discord markdown; at most 2000 characters)"
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Post to Discord
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          MESSAGE: ${{ inputs.message }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "::notice::DISCORD_WEBHOOK secret is not set; skipping"
+            exit 0
+          fi
+          body=$(jq -n --arg c "$MESSAGE" '{content: $c, allowed_mentions: {parse: []}}')
+          curl -fsS -H "Content-Type: application/json" -d "$body" "$WEBHOOK"
