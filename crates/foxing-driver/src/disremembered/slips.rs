@@ -450,7 +450,7 @@ fn ask(world: &World, actor: &str, f: &Found, slip: &Slip, here: EntityId) -> As
                 let next = super::conclave::next_engrossed(world);
                 Asked::named(
                     "A reader asks: the Engrossing Room copies one statute a sitting, in the Book's own order, and begins the Book again at its end. Which statute is on the desks after the next midnight sitting?".to_string(),
-                    "the Book at the Lectern for the order (`read book`); for today's, the desks of the Engrossing Room (`read desk`, where the engrossers are not idle), or count: one statute a sitting from the Book's first, and the Mint Stair's steps say how many times the Conclave has sat",
+                    "the Book at the Lectern for the order (`read book`; `statutes` lists them in the same order); for today's, the desks of the Engrossing Room (`read desk`, where the engrossers are not idle), or count: one statute a sitting from the Book's first, and the Mint Stair's steps say how many times the Conclave has sat",
                     vec![next.to_string()],
                 )
             }

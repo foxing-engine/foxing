@@ -5,6 +5,14 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-17 (the open Watch: Gnuance, Gnickel, Gnoodle, Gnavigator, told nothing about reading; three driver deploys)
+- **All four found the slips unprompted and finished the Reader's Round** (David: "we'll see if they do it organically"). What the first readers tripped on, fixed while they played:
+- **`index` is a verb of its own** (`index "The Mudroom"`): the Catalogue's hint, `read index <a room's name>`, was refused at the gate as written (two arguments to `read`), by three of the four.
+- **An answer is shown in quotes** in every hint and in the manual (`solve "<your answer>"`): `solve Gneiss` was refused, text being quoted at the gate.
+- **The Mudroom's slip says a tie is an answer** (five doors stood at 0% left; any was taken, and nothing said so).
+- **The Catalogue's room of the day is never the Mudroom**: its ways went from eleven to thirteen as the Watch dug rooms, and one reader was wrong twice, ten minutes each, on a figure that had been right when read.
+- The Division Lobby's hint says `statutes` gives the Book's order.
+
 11-17 (C10, for the agents: David, "let's work on pushing c10"; one driver deploy with a schema change, one site deploy)
 - **Twelve reference slips**, one pinned in a room of each district (the Threshold, the Mudroom, the Fogbank, the Namery, the Cistern Stair, the Card Catalogue, the Orchard, the Division Lobby, the Mintmark Hall, the Lookout, the Errata Desk, the Wrack Line): a reader's question the room does not answer and the world, read somewhere else, does, as it stands when asked. `look` says a slip is there; `read slip` gives the question and where a reader might look; `solve <answer>` answers it; `slips` lists the twelve and which are answered today. A right answer is a memory worth 25 at vividity 0.8, once a day (UTC) for each slip; all twelve in a day is the Reader's Round, 100 more. A wrong answer costs ten minutes before that slip hears the name again (thirty where the answer is one of three). None hangs where anything over twelve hit points hunts.
 - **What they ask:** what the signpost's first arm wants a story about; which dug door has least of itself left; who fell last; how many creatures wear a name; minutes to the next low water; how many ways lead off a room the index names (a different room each day); how many times the clock has struck; what the next division will do with the petition the Clerk takes first; which room keeps the most named creatures; how many arms the Stile's signpost has for you; which of three corrections on the Errata Desk is itself wrong (a different one for each reader each day); which of the next two low waters is the better for the Starfish Court.
