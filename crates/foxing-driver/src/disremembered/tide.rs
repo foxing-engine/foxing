@@ -577,7 +577,19 @@ pub fn look_line(world: &World, actor: &str, room: EntityId) -> Option<String> {
         Some(at) if at - now < 10 * 60_000 => "The floor is wet and the water is on its way back: you can hear it in the next room.",
         Some(_) => "The floor is wet, and the water is well out.",
     };
-    Some(format!("{here}{doors}"))
+    // The Court's text has a starfish lying across the door; when it has come apart,
+    // the room says so until another drifts in.
+    let bare = if key_of(world, room) == Some(COURT)
+        && !world
+            .store
+            .children(room)
+            .any(|e| e.kind == "creature" && super::starfish::is(world, e.id))
+    {
+        " The starfish is not here: it came apart, and the five signs lie bare where its arms were. The door behind is clear, south, until another drifts in."
+    } else {
+        ""
+    };
+    Some(format!("{here}{doors}{bare}"))
 }
 
 /// What the Tide Table says: the next two low waters, roughly, and how good each is.
@@ -592,15 +604,23 @@ fn table(world: &World, exact: bool) -> String {
             continue;
         }
         let low = low_of(c, s);
-        // The deep rooms, by which of them this low water uncovers.
+        // The deep rooms, by which of them this low water uncovers; and of the Court,
+        // for how long (11-17: a party of three planned a strike to the table's minute
+        // and found the Court clear for three of them, the low in the middle).
+        let court = HEIGHTS
+            .iter()
+            .find(|(k, _)| *k == COURT)
+            .and_then(|(_, h)| dry_in(c, *h, s))
+            .map(|(from, to)| minutes(to - from))
+            .unwrap_or_else(|| "a moment".to_string());
         let depth = if low < 0.06 {
-            "a great low: every room clears, the lowest shelf for a moment"
+            format!("a great low: every room clears, the Starfish Court for {court} with the low in the middle of them, the lowest shelf for a moment")
         } else if low < 0.09 {
-            "a good low: the Starfish Court clears, and the shelf below it keeps its water"
+            format!("a good low: the Starfish Court clears for {court} with the low in the middle of them, and the shelf below it keeps its water")
         } else if low < 0.11 {
-            "a poor low: the Barnacle Vault clears and nothing below it"
+            "a poor low: the Barnacle Vault clears and nothing below it".to_string()
         } else {
-            "a neap: the Sump clears, and the three rooms below it keep their water"
+            "a neap: the Sump clears, and the three rooms below it keep their water".to_string()
         };
         let when = if exact {
             let m = (at - now) / 60_000;

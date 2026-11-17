@@ -356,7 +356,9 @@ pub fn raise(
     Ok(match (to, &name) {
         (3, Some(n)) => format!(" Something in the making took: {kind} came out awake. It is {n}; it has a past, and it will want things, and say so in its own way."),
         (3, None) => format!(" Something in the making took: {kind} came out awake, and the Namery had no name left for it. It has a past, and it will want things."),
-        _ => " Something in the making took: it came out with a past, which `read` will tell as it grows.".to_string(),
+        // 11-17: a plain bandage raised at the bench bound a blow for twenty, as a
+        // surgeon's does, and nothing had said it would.
+        _ => " Something in the making took: it came out with a past, which `read` will tell as it grows. That makes it a thing of the second tier, and what a second-tier thing of its kind does in a fight (`recipes`), it does.".to_string(),
     })
 }
 

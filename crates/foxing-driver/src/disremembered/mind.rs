@@ -526,6 +526,14 @@ pub fn check_tier(world: &mut World, creature: EntityId) -> Result<(), CommandEr
             want = want.min(t - 1);
         }
     }
+    // A starfish that has lost an arm keeps what it is called until it is whole or
+    // gone: the arm's share shed took Cobbin under the line mid-fight (11-17), and
+    // `attack Cobbin` found no such creature until a fall fed it its name back.
+    if super::starfish::is(world, creature)
+        && super::starfish::arms(world, creature) < super::starfish::ARMS
+    {
+        want = want.max(have);
+    }
     if want == have {
         return Ok(());
     }

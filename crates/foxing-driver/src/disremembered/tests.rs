@@ -12835,6 +12835,15 @@ fn the_drowned_wing_keeps_its_tide() {
     let out = ok(&mut w, "dave", "read", json!(["table"]));
     assert!(out.summary.contains("low water in"), "{}", out.summary);
     assert!(out.summary.contains("Then: "), "{}", out.summary);
+    // A low that clears the Court says for how long.
+    if out.summary.contains("a good low") || out.summary.contains("a great low") {
+        assert!(
+            out.summary.contains("Starfish Court")
+                && out.summary.contains("with the low in the middle of them"),
+            "{}",
+            out.summary
+        );
+    }
 
     // A middle room, a minute into its dry spell of a later tide: the floor is wet
     // and the water out.
@@ -13212,6 +13221,22 @@ fn the_starfish_keeps_its_strength_in_its_arms() {
         "{}",
         look.summary
     );
+    // Short an arm it keeps its name, whatever the arm's share took it under (11-17:
+    // Cobbin was nobody for half a minute mid-fight, and `attack Cobbin` found none).
+    let called = mind::name(&w, star).expect("named still");
+    let held: Vec<EntityId> = w
+        .store
+        .children(mind::window_of(&w, star).unwrap())
+        .filter(|e| e.kind == "chunk")
+        .map(|e| e.id)
+        .collect();
+    for id in held {
+        w.record(Actor::Driver, StoreEvent::EntityRemoved { id })
+            .unwrap();
+    }
+    mind::check_tier(&mut w, star).unwrap();
+    assert_eq!(mind::name(&w, star), Some(called));
+    assert_eq!(starfish::arms(&w, star), 4);
     // Left alone, nothing mends by the minute; at twenty an arm is back.
     let back = ok(&mut w, "dave", "retreat", json!([]));
     assert!(
@@ -13253,6 +13278,13 @@ fn the_starfish_keeps_its_strength_in_its_arms() {
     assert!(end.contains("The last arm comes off."), "{end}");
     assert!(end.contains("comes apart"), "{end}");
     assert!(w.store.entity(star).is_none());
+    // The room's text has it lying across the door; `look` says it is not.
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("The starfish is not here"),
+        "{}",
+        look.summary
+    );
 }
 
 #[test]
