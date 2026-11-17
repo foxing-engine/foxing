@@ -103,6 +103,17 @@ pub fn register(world: &mut World) {
                 }
                 return Ok(Outcome::new(format!("You say to Morphos, \"{text}\" {line}"), result));
             }
+            // R76b: the Under-Docent, at the foot of the Stacks' stair: its piece, by heart.
+            if super::under::is_named(&who) {
+                if !super::under::here(w, room) {
+                    return Err(CommandError::precondition("The Under-Docent keeps the foot of the Stacks' stair (the Lower Stacks, under the Archive) and does not hear you from here. `tell docent \"…\"` is heard anywhere.".to_string()));
+                }
+                let said = super::under::answer(&text);
+                return Ok(Outcome::new(
+                    format!("You ask the Under-Docent, \"{text}\" It turns the lamp up a little. {said}"),
+                    json!({"to": "under-docent", "by_heart": true}),
+                ));
+            }
             // The Docent, if it stands here: the question goes on its record and an
             // answer comes to you within the minute, wherever you are.
             if super::docent::is_named(&who) {

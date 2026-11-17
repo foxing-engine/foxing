@@ -1244,6 +1244,32 @@ pub fn register(world: &mut World, curves: Curves) {
                     json!({"here": here.0, "name": name}),
                 ));
             }
+            // R222: `where bench` named two rooms and not the Reading Bench, which is
+            // what a name woken at the Postern means by it: the bench first, then the
+            // rooms that answer to the word.
+            if who.trim().trim_start_matches("the ").eq_ignore_ascii_case("bench") {
+                let way = match super::rooms::room_by_key(w, super::rooms::POSTERN) {
+                    Some(p) if p == here => "it is here, under the lamp".to_string(),
+                    Some(p) => super::errand::route(w, here, p)
+                        .map(|r| format!("from here: {}", r.join(", ")))
+                        .unwrap_or_else(|| "`where Postern` is the way".to_string()),
+                    None => "`where Postern` is the way".to_string(),
+                };
+                let also: Vec<String> = rooms_matching(w, &who)
+                    .into_iter()
+                    .take(4)
+                    .filter_map(|r| plain_str(w, r, ROOM, "name").map(str::to_string))
+                    .collect();
+                let also = if also.is_empty() {
+                    String::new()
+                } else {
+                    format!(" Rooms answer to the word too: {} (`where \"<its whole name>\"` for the way).", also.join("; "))
+                };
+                return Ok(Outcome::new(
+                    format!("The Reading Bench stands at the Postern, the world's back gate; {way}. It hears one story from each name: `story bench \"…\"`.{also}"),
+                    json!({"who": who, "room": "postern"}),
+                ));
+            }
             let (what, room): (String, Option<EntityId>) = if super::docent::is_named(&who) {
                 ("The Docent".to_string(), super::docent::room(w))
             } else if let Some((c, r)) = super::mind::find_named(w, &who) {

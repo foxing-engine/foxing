@@ -13815,6 +13815,102 @@ fn a_slip_in_every_district_pays_for_reading() {
 }
 
 #[test]
+fn the_under_docent_says_its_piece_and_signs_say_the_way() {
+    // R76b: a second figure, at the foot of the Stacks' stair, by heart.
+    let t0 = Timestamp(2_000_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let dave = find_citizen(&w, "dave").unwrap();
+    let far = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "tell",
+        json!(["under-docent", "what hunts here"]),
+    )
+    .unwrap_err();
+    assert!(
+        far.to_string().contains("foot of the Stacks' stair"),
+        "{far}"
+    );
+    let stair = rooms::room_by_key(&w, "lower-stacks").unwrap();
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: dave.citizen,
+            parent: Some(stair),
+        },
+    )
+    .unwrap();
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("The Under-Docent stands at the foot of the stair"),
+        "{}",
+        look.summary
+    );
+    let hunts = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!(["under-docent", "what hunts here"]),
+    );
+    let lamprey = combat::def_by_name("lamprey").unwrap();
+    assert!(
+        hunts.summary.contains("the Acid Room keeps the lamprey")
+            && hunts
+                .summary
+                .contains(&format!("about {:.0} hit points", lamprey.hp)),
+        "{}",
+        hunts.summary
+    );
+    let tricks = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!(["Under-Docent", "the tricks"]),
+    );
+    assert!(tricks.summary.contains("Four tricks"), "{}", tricks.summary);
+    let other = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!(["under-docent", "what is the weather"]),
+    );
+    assert!(
+        other.summary.contains("no desk behind me"),
+        "{}",
+        other.summary
+    );
+
+    // R138: the Tally Room's text gives the Division Lobby's way by hand; it is held
+    // to the way the world works out.
+    let tally = rooms::ROOMS.iter().find(|r| r.key == "tally-room").unwrap();
+    let from = rooms::room_by_key(&w, "tally-room").unwrap();
+    let to = rooms::room_by_key(&w, "division-lobby").unwrap();
+    let way = atlas::way_seeded(&w, from, to).unwrap().join(", ");
+    assert!(
+        tally
+            .description
+            .contains(&format!("the Division Lobby, {way} (")),
+        "the Tally Room's sign says another way than {way}"
+    );
+
+    // R222: `where bench` offers the Reading Bench first.
+    let bench = ok(&mut w, "dave", "where", json!(["bench"]));
+    assert!(
+        bench
+            .summary
+            .starts_with("The Reading Bench stands at the Postern")
+            && bench
+                .summary
+                .contains("Rooms answer to the word too: The Restoration Bench"),
+        "{}",
+        bench.summary
+    );
+}
+
+#[test]
 fn second_tier_things_are_for_fights() {
     // D35 (David, 11-16: "level 2 crafts should be useful in a fight").
     let t0 = Timestamp(1_000_000);

@@ -71,6 +71,13 @@
   }
   /* The newest lines sit by the prompt; a short transcript hugs it instead of the top. */
   #log > :first-child { margin-top: auto; }
+  /* R12b: the transcript folded to a drawer (a setting, off by default): its last
+     lines show, and the log tab opens the whole of it. */
+  body.foldlog #log { flex: 0 0 auto; max-height: 4.6em; overflow: hidden; justify-content: flex-end; }
+  body.foldlog:not(.logopen) #log-tab { margin-top: auto; }
+  body.foldlog.logopen #log { flex: 1 1 auto; max-height: none; overflow-y: auto; }
+  #log-tab { align-self: flex-start; margin: 2px 22px 0; padding: 1px 10px; font: inherit; font-size: 12px; color: var(--dim, #8a8a8a); background: transparent; border: 1px solid currentColor; border-bottom: 0; border-radius: 4px 4px 0 0; cursor: pointer; }
+  #log-tab:hover { color: inherit; }
   #earlier { align-self: flex-start; margin: 0 0 12px; padding: 3px 10px; background: none; border: 1px dashed var(--line); border-radius: 3px; color: var(--dim); font: 12.5px/1.5 var(--mono); cursor: pointer; }
   #earlier:hover, #earlier:focus-visible { color: var(--ink); border-color: var(--dim); }
   body.at-door #earlier { display: none; }
@@ -830,7 +837,7 @@
 <body class="at-door">
 <header>
   <div class="title"><a href="/play/">Disremembered</a><small>on Foxing, alpha</small></div>
-  <div class="state"><span id="state"><b>Alpha.</b> The world may be reset without notice.</span><span id="settings-wrap"><button type="button" id="b-settings" title="Sound, alerts, the CLEAR behind each line, the mod that draws the scene">settings ▾</button><div id="settings-menu" hidden><label title="A sound and a flash when someone arrives where you are, when words reach you, or when something strikes; a browser notification when this tab is in the background."><input type="checkbox" id="alerts"> alerts</label><label title="The alert's sound">sound <select id="sound" aria-label="Alert sound"><option value="chime">chime</option><option value="knock">knock</option><option value="bell">bell</option><option value="none">silent</option></select></label><label title="Hide the narrator's repeats: the same room text twice, an answer you already heard."><input type="checkbox" id="compact"> compact transcript</label><label title="Every line you type becomes a CLEAR message and goes through the same gate an agent uses. Show the message and the world's reply."><input type="checkbox" id="showclear"> show the CLEAR</label><label title="A mod redraws what you see; the world is the same. See /play/mods/README.md to write one.">scene <select id="modpick" aria-label="UI mod"><option value="">plain terminal (no picture)</option><option value="url:">from a URL…</option></select></label><hr><button type="button" id="b-pass" title="Change your passphrase. Nothing recovers a lost one." hidden>passphrase</button><button type="button" id="b-save" title="Save this transcript as a text file" hidden>save</button><button type="button" id="b-leave" title="Leave: the room disremembers you now, and this tab forgets your passphrase" hidden>leave</button></div></span><span id="panels-wrap"><button type="button" id="b-panels" title="Which panels show. Drag any panel's corner to resize it; sizes are remembered in this browser.">panels ▾</button><div id="panels-menu" hidden></div></span><button type="button" id="b-guide" title="The player's guide: your first ten minutes, how memory, fighting, stories and making work, every verb (opens beside the game)">guide</button><button type="button" id="b-help" title="One worked line per verb (also: ? on an empty line)">?</button><button type="button" id="b-feedback" title="Say what you would change about this place: public under your name, read by the operator, credited in feedback.txt when it ships" hidden>feedback</button></div>
+  <div class="state"><span id="state"><b>Alpha.</b> The world may be reset without notice.</span><span id="settings-wrap"><button type="button" id="b-settings" title="Sound, alerts, the CLEAR behind each line, the mod that draws the scene">settings ▾</button><div id="settings-menu" hidden><label title="A sound and a flash when someone arrives where you are, when words reach you, or when something strikes; a browser notification when this tab is in the background."><input type="checkbox" id="alerts"> alerts</label><label title="The alert's sound">sound <select id="sound" aria-label="Alert sound"><option value="chime">chime</option><option value="knock">knock</option><option value="bell">bell</option><option value="none">silent</option></select></label><label title="Hide the narrator's repeats: the same room text twice, an answer you already heard."><input type="checkbox" id="compact"> compact transcript</label><label title="Fold the transcript into a drawer under a log tab, showing its last lines; the tab opens it. Off: the transcript stays open, as it always was."><input type="checkbox" id="foldlog"> fold the transcript</label><label title="Every line you type becomes a CLEAR message and goes through the same gate an agent uses. Show the message and the world's reply."><input type="checkbox" id="showclear"> show the CLEAR</label><label title="A mod redraws what you see; the world is the same. See /play/mods/README.md to write one.">scene <select id="modpick" aria-label="UI mod"><option value="">plain terminal (no picture)</option><option value="url:">from a URL…</option></select></label><hr><button type="button" id="b-pass" title="Change your passphrase. Nothing recovers a lost one." hidden>passphrase</button><button type="button" id="b-save" title="Save this transcript as a text file" hidden>save</button><button type="button" id="b-leave" title="Leave: the room disremembers you now, and this tab forgets your passphrase" hidden>leave</button></div></span><span id="panels-wrap"><button type="button" id="b-panels" title="Which panels show. Drag any panel's corner to resize it; sizes are remembered in this browser.">panels ▾</button><div id="panels-menu" hidden></div></span><button type="button" id="b-guide" title="The player's guide: your first ten minutes, how memory, fighting, stories and making work, every verb (opens beside the game)">guide</button><button type="button" id="b-help" title="One worked line per verb (also: ? on an empty line)">?</button><button type="button" id="b-feedback" title="Say what you would change about this place: public under your name, read by the operator, credited in feedback.txt when it ships" hidden>feedback</button></div>
 </header>
 <div id="feedback-box" hidden><label for="feedback-text">What would you change about this place? One or two sentences; it goes on the record under your name and the operator reads it.</label><textarea id="feedback-text" rows="3" maxlength="600" placeholder="The thing that felt good, the thing that stalled, the thing you would change…"></textarea><div class="fb-row"><button type="button" id="feedback-send">send</button><button type="button" id="feedback-cancel" class="plain">cancel</button><span id="feedback-count"></span></div></div>
 <div id="main">
@@ -981,6 +988,7 @@
       <div class="fh-now" id="first-now"><span class="fh-next">Next</span><code id="first-code"></code><span class="why" id="first-why"></span><button type="button" id="first-do" class="way">do it</button><button type="button" id="first-skip" title="Skip this step; the next one comes up. All steps lists the ones you skipped.">skip</button></div>
       <ol id="first-steps" hidden></ol>
     </section>
+    <button type="button" id="log-tab" hidden aria-expanded="false" title="The transcript, folded: open it, or turn the fold off in settings">log ▴</button>
     <div id="log" role="log" aria-live="polite" aria-relevant="additions"></div>
     <div id="hint"></div>
     <div id="verbbar" aria-label="What you can do here"></div>
@@ -1459,6 +1467,16 @@
     emit("logout");
   }
 
+  // R22b: one `help` voice. A name in the world is answered by the world's own `help`
+  // (what to do first, the verbs by what they are for); the page adds only what is
+  // the page's: its three words that are not verbs, and the keys.
+  function pageHelp() {
+    print("On this page, and not verbs of the world:", "sys");
+    const el = print("", "cmd"); el.innerHTML = "<b>clear</b><i></i> Clear this window.";
+    const el2 = print("", "cmd"); el2.innerHTML = "<b>logout</b><i></i> Forget your passphrase in this tab.";
+    const el3 = print("", "cmd"); el3.innerHTML = "<b>passphrase &lt;new&gt;</b><i></i> Change your passphrase. Not a verb: it never goes through the gate or into the log.";
+    print("Up and Down walk your history (matching what you have typed); Alt+Up/Down (or Ctrl+P/N) is the history always. The arrow keys walk the compass with Ctrl held, or when the prompt is not focused (click the picture first); on an empty line Left and Right walk west and east. !! repeats the last line; Ctrl+L clears, Ctrl+U empties the line. ? on an empty line opens the quickstart; click a name in the scene to tell, a creature to story or attack, a tile to go; with a verb and a space on the line (tell, story, attack, give a thing), a click on a figure fills in who.", "sys");
+  }
   async function help() {
     const { body } = await api("/v0/commands");
     if (!body) { print("The world did not answer.", "err"); return; }
@@ -1472,10 +1490,7 @@
       el.querySelector("i").textContent = params;
       el.append(c.description);
     }
-    const el = print("", "cmd"); el.innerHTML = "<b>clear</b><i></i> Clear this window.";
-    const el2 = print("", "cmd"); el2.innerHTML = "<b>logout</b><i></i> Forget your passphrase in this tab.";
-    const el3 = print("", "cmd"); el3.innerHTML = "<b>passphrase &lt;new&gt;</b><i></i> Change your passphrase. Not a verb: it never goes through the gate or into the log.";
-    print("Up and Down walk your history (matching what you have typed); Alt+Up/Down (or Ctrl+P/N) is the history always. The arrow keys walk the compass with Ctrl held, or when the prompt is not focused (click the picture first); on an empty line Left and Right walk west and east. !! repeats the last line; Ctrl+L clears, Ctrl+U empties the line. ? on an empty line opens the quickstart; click a name in the scene to tell, a creature to story or attack, a tile to go.", "sys");
+    pageHelp();
   }
 
   // ---- the scene ----
@@ -2664,6 +2679,22 @@
     if ($("alerts").checked) { beep("arrive"); if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); }
   });
   $("compact").addEventListener("change", () => { try { localStorage.setItem("disremembered.compact", $("compact").checked ? "1" : "0"); } catch (e) {} });
+  // R12b: the transcript as a drawer under a log tab, for a player the scene's
+  // bubbles already tell enough. A setting, off unless chosen.
+  function foldLog(on) {
+    document.body.classList.toggle("foldlog", on);
+    document.body.classList.remove("logopen");
+    const tab = $("log-tab"); tab.hidden = !on; tab.setAttribute("aria-expanded", "false"); tab.textContent = "log ▴";
+    if (on) log.scrollTop = log.scrollHeight;
+  }
+  $("foldlog").addEventListener("change", () => { try { localStorage.setItem("disremembered.foldlog", $("foldlog").checked ? "1" : "0"); } catch (e) {} foldLog($("foldlog").checked); });
+  $("log-tab").addEventListener("click", () => {
+    const open = document.body.classList.toggle("logopen");
+    $("log-tab").setAttribute("aria-expanded", open ? "true" : "false"); $("log-tab").textContent = open ? "log ▾" : "log ▴";
+    log.scrollTop = log.scrollHeight;
+  });
+  try { $("foldlog").checked = localStorage.getItem("disremembered.foldlog") === "1"; } catch (e) {}
+  foldLog($("foldlog").checked);
   try { $("alerts").checked = localStorage.getItem("disremembered.alerts") === "1"; $("compact").checked = localStorage.getItem("disremembered.compact") === "1"; } catch (e) {}
   // Words for you: tells, greetings and strikes, kept in a panel with an unread count.
   let unread = 0;
@@ -2973,7 +3004,7 @@
       else print((r.body && r.body.error) || "The world did not answer.", "err");
       return;
     }
-    if (verb === "help" && !rest.length) { await help(); return; }
+    if (verb === "help" && !rest.length) { if (actor) { await run("help", []); pageHelp(); } else { await help(); } return; }
     // A query is one argument, spaces and all (the words were split at the first space).
     if (verb === "observe" && actor && rest.length) { await run("observe", [rest.join(" ")]); return; }
     if (t === "?") { showHelp(); firstHours.unhide(); return; }

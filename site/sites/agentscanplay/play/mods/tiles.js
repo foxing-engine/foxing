@@ -80,10 +80,35 @@ const ICONS = {
   bell: { p: { a: "#b08a3a", b: "#d9b57a" }, r: ["...a....", "..aba...", ".abbba..", ".abbba..", "abbbbba.", "aaaaaaa.", "...a....", "........"] },
   basin: { p: { a: "#8e887c", b: "#9fd3e6" }, r: ["........", "........", "aaaaaaaa", ".abbbba.", ".abbbba.", "..aaaa..", "...aa...", "..aaaa.."] },
   plaque: { p: { a: "#5a4a3a", b: "#d9b57a" }, r: ["........", ".aaaaaa.", ".abbbba.", ".abbbba.", ".abbbba.", ".aaaaaa.", "........", "........"] },
+  // R13b (11-17): one for each thing a creature leaves and each thing made of them.
+  weed: { p: { a: "#4a7a3a", b: "#7fb069" }, r: ["........", "..a..b..", "..a.b...", ".ba.b.a.", "..abb.a.", "..ab.a..", "...aa...", "........"] },
+  ribbon: { p: { a: "#9a3a4a", b: "#d87a8a" }, r: ["........", ".aabbaa.", ".abbbba.", "..abba..", "..a..a..", ".a....a.", "........", "........"] },
+  frill: { p: { a: "#e59ab0", b: "#f6cdd8" }, r: ["........", ".a.b.a..", ".ab.ba..", "..abba..", "..bab...", ".ab.ba..", ".a...a..", "........"] },
+  needle: { p: { a: "#b0b8c0", b: "#d9b57a" }, r: ["........", "......b.", ".....a..", "....a...", "...a....", "..a.....", ".a......", "........"] },
+  sting: { p: { a: "#8a5ab0", b: "#d0a8f0" }, r: ["........", "...b....", "...ab...", "..aab...", "..aa....", ".aa.....", ".a......", "........"] },
+  arm: { p: { a: "#d1734f", b: "#f0b090" }, r: ["........", ".aa.....", ".aba....", "..aba...", "...aba..", "....aba.", ".....aa.", "........"] },
+  minute: { p: { a: "#d9b57a", b: "#ffe6a0" }, r: ["........", ".aaaaaa.", "..abba..", "...bb...", "...ab...", "..abba..", ".aaaaaa.", "........"] },
+  patience: { p: { a: "#8a6a2f", b: "#3a3a44" }, r: ["........", ".aaaaaa.", ".abbbba.", ".abbbba.", ".abbbba.", ".abbbba.", ".aaaaaa.", "........"] },
+  sweat: { p: { a: "#d9b57a", b: "#fff0b0" }, r: ["........", "...a....", "...a....", "..aba...", ".abbba..", ".abbba..", "..aaa...", "........"] },
+  tooth: { p: { a: "#ece5d3", b: "#b8ae98" }, r: ["........", ".aaaaa..", ".abaaa..", "..aaa...", "..aba...", "...a....", "...a....", "........"] },
+  shell: { p: { a: "#c9a27a", b: "#7a5a3a" }, r: ["........", "..aaaa..", ".abbbba.", ".abaaba.", ".abab.a.", ".abbb.a.", "..aaaa..", "........"] },
+  sliver: { p: { a: "#c0c8d0", b: "#8a929a" }, r: ["........", "....aa..", "..aab...", ".aab....", ".ab.....", ".aab....", "..aaa...", "........"] },
+  lens: { p: { a: "#5a4a3a", b: "#9fd3e6" }, r: ["........", "..aaa...", ".abbba..", ".abbba..", ".abbba..", "..aaa...", ".....a..", "......a."] },
+  card: { p: { a: "#ece5d3", b: "#7a6f5f" }, r: ["........", ".aaaaaa.", ".abbbba.", ".aaaaaa.", ".abbbaa.", ".aaaaaa.", "........", "........"] },
+  hour: { p: { a: "#d87a4a", b: "#7fb069" }, r: ["........", "....b...", "...ab...", "..aaaa..", ".aaaaaa.", ".aaaaaa.", "..aaaa..", "........"] },
+  pearl: { p: { a: "#e8ecf0", b: "#a8c0d0" }, r: ["........", "........", "..aaa...", ".aabba..", ".aabaa..", "..aaa...", "........", "........"] },
+  jar: { p: { a: "#9aa8b4", b: "#dfe6ea" }, r: ["........", "..aaaa..", "...aa...", "..abba..", ".abbbba.", ".abbbba.", "..aaaa..", "........"] },
+  buckler: { p: { a: "#8a6a4a", b: "#c9a27a" }, r: ["........", "..aaaa..", ".abbbba.", ".abaaba.", ".abaaba.", ".abbbba.", "..aaaa..", "........"] },
+  salve: { p: { a: "#e59ab0", b: "#8a6a4a" }, r: ["........", "........", "..bbbb..", ".baaaab.", ".baaaab.", ".bbbbbb.", "........", "........"] },
+  dart: { p: { a: "#8a5ab0", b: "#c0c8d0" }, r: ["........", ".b......", "..b...a.", "...b.aa.", "....baa.", "...aaa..", "..a.....", "........"] },
+  cordial: { p: { a: "#d87a4a", b: "#ffcf7a" }, r: ["...a....", "...a....", "..aaa...", "..aba...", "..abb...", "..abb...", "..aaa...", "........"] },
   thing: { p: { a: "#bdb7a6", b: "#7a6f5f" }, r: ["........", "..aaaa..", ".abbbba.", ".abbbba.", ".aaaaaa.", "..aaaa..", "........", "........"] },
 };
 function iconFor(name) {
   const n = (name || "").toLowerCase();
+  // The made things and the leavings first: "a lamprey's tooth" is not a lamp, "a
+  // shell buckler" is the buckler, and a charm is not an arm.
+  for (const [k, re] of [["buckler", /buckler/], ["salve", /salve/], ["dart", /\bdart\b/], ["cordial", /cordial/], ["jar", /\bjar\b/], ["tooth", /tooth/], ["weed", /weed/], ["ribbon", /ribbon/], ["frill", /frill/], ["needle", /needle/], ["sting", /\bsting\b/], ["arm", /\barm\b/], ["minute", /\bminute\b/], ["patience", /patience/], ["sweat", /sweat/], ["shell", /shell/], ["sliver", /sliver/], ["lens", /\blens\b/], ["card", /\bcard\b/], ["hour", /\bhour\b/], ["pearl", /pearl/]]) if (re.test(n)) return k;
   for (const k of ["water", "dust", "ink", "ember", "thread", "key", "charm", "lantern", "basin", "bell", "lamp", "plaque", "book", "bandage", "wing"]) if (n.includes(k)) return k;
   if (/ledger|volume|minutes|page|register/.test(n)) return "book";
   return "thing";
@@ -731,7 +756,7 @@ export default function install(m) {
       px(x * T + 4, y * T + 12, 8, 2, "rgba(0,0,0,.3)");
       ctx.drawImage(iconCanvas(it.icon), 0, 0, 8, 8, (x * T + 4) * SCALE, (y * T + 4) * SCALE, 8 * SCALE, 8 * SCALE);
       if (glint > 0.85) px(x * T + 3, y * T + 3, 1, 1, "#fff");
-      hot.set(x + "," + y, { label: it.name + " lies here — take it", primary: () => m.command("take", ["item-" + it.id]), menu: [{ label: "Take " + it.name, run: () => m.command("take", ["item-" + it.id]) }, { label: "Read " + it.name, run: () => m.command("read", ["item-" + it.id]) }] });
+      hot.set(x + "," + y, { target: "item-" + it.id, label: it.name + " lies here — take it", primary: () => m.command("take", ["item-" + it.id]), menu: [{ label: "Take " + it.name, run: () => m.command("take", ["item-" + it.id]) }, { label: "Read " + it.name, run: () => m.command("read", ["item-" + it.id]) }] });
     }
     // Things, back to front.
     const walk = docentAt(now);
@@ -745,7 +770,7 @@ export default function install(m) {
       const pose = t.shaken ? "shaken" : (t.kind === "docent" && walk[2] ? (Math.floor(now / 220) % 2 ? "breath" : null) : (beat % 4 === 3 ? "breath" : null));
       if (t.kind === "ghost") {
         drawSprite(t.sprite, x * T, y * T, "@", 0.2 + t.trace * 0.5);
-        hot.set(x + "," + y, { label: "the room remembers " + t.name + " (" + Math.round(t.trace * 100) + "%)", menu: [{ label: "Leave word for " + t.name, run: () => m.prefill("tell " + t.name + ' "') }] });
+        hot.set(x + "," + y, { target: t.name, label: "the room remembers " + t.name + " (" + Math.round(t.trace * 100) + "%)", menu: [{ label: "Leave word for " + t.name, run: () => m.prefill("tell " + t.name + ' "') }] });
         continue;
       }
       if (t.kind === "fixture") {
@@ -759,7 +784,7 @@ export default function install(m) {
             while (k < words.length - 1 && (a + " " + words[k]).length <= Math.ceil(full.length / 2) + 2) a += " " + words[k++];
             labelAt(a, x, y - 6.6 / T, -1); labelAt(words.slice(k).join(" "), x, y, -1);
           } }
-        hot.set(x + "," + y, { label: t.name + " stands here — read it", primary: () => m.command("read", ['"' + t.name + '"']), menu: [{ label: "Read " + t.name, run: () => m.command("read", ['"' + t.name + '"']) }, { label: "Write a line in it", run: () => m.prefill('append "') }] });
+        hot.set(x + "," + y, { target: '"' + t.name + '"', label: t.name + " stands here — read it", primary: () => m.command("read", ['"' + t.name + '"']), menu: [{ label: "Read " + t.name, run: () => m.command("read", ['"' + t.name + '"']) }, { label: "Write a line in it", run: () => m.prefill('append "') }] });
         continue;
       }
       // A named creature stands in lantern light; a shaken one lies low and dim.
@@ -796,20 +821,20 @@ export default function install(m) {
         const menuRows = t.given
           ? [{ label: "Talk to " + t.given, run: () => m.prefill("tell " + t.given + ' "') }, { label: "Tell " + t.given + " a story", run: () => m.prefill("story " + t.given + ' "') }, { label: "Give " + t.given + " a memory", run: () => m.prefill("remember " + bestChunk() + " " + t.given) }, { label: "Attack " + t.given, run: () => m.command("attack", [t.given]), warn: true }]
           : [{ label: "Attack " + (twins ? ref : who), run: () => m.command("attack", [ref]) }, { label: "Give it a memory (names it at 60)", run: () => m.prefill("remember " + bestChunk() + " " + ref) }, { label: "Look", run: () => m.command("look", []) }];
-        hot.set(x + "," + y, { label: (twins ? ref : who) + (t.max ? " (" + Number(t.hp).toFixed(0) + "/" + t.max + ")" : "") + (t.given ? " — talk, story, memory, attack" : " — attack, or feed it"), primary: t.given ? () => m.prefill("story " + t.given + ' "') : () => m.command("attack", [ref]), menu: menuRows });
+        hot.set(x + "," + y, { target: t.given || ref, label: (twins ? ref : who) + (t.max ? " (" + Number(t.hp).toFixed(0) + "/" + t.max + ")" : "") + (t.given ? " — talk, story, memory, attack" : " — attack, or feed it"), primary: t.given ? () => m.prefill("story " + t.given + ' "') : () => m.command("attack", [ref]), menu: menuRows });
       } else if (t.kind === "you") {
         const by = Math.round(Math.sin(now / 300)) - 7;
         px(x * T + 7, y * T + by, 2, 2, DUST); px(x * T + 6, y * T + by - 2, 4, 2, DUST); px(x * T + 5, y * T + by - 4, 6, 2, DUST);
         hot.set(x + "," + y, { label: "you, " + t.name, primary: () => m.command("look", []), menu: [{ label: "Look around", run: () => m.command("look", []) }, { label: "What I hold", run: () => m.command("chunks", []) }, { label: "What remembers me", run: () => m.command("mine", []) }, { label: "Rest", run: () => m.command("rest", []) }, { label: "Dig a room here", run: () => m.prefill("dig nook " + chunkFor("dig") + ' "') }, { label: "Say something", run: () => m.prefill('say "') }] });
       } else if (t.kind === "morphos") {
         labelAt("Morphos", x, y, -1, "#c9b7d9");
-        hot.set(x + "," + y, { label: "Morphos, a traveler with a riddle — answer it", primary: () => m.prefill('tell morphos "'), menu: [{ label: "Answer the riddle", run: () => m.prefill('tell morphos "') }, { label: "Hear it again", run: () => m.command("look", []) }] });
+        hot.set(x + "," + y, { target: "morphos", label: "Morphos, a traveler with a riddle — answer it", primary: () => m.prefill('tell morphos "'), menu: [{ label: "Answer the riddle", run: () => m.prefill('tell morphos "') }, { label: "Hear it again", run: () => m.command("look", []) }] });
       } else if (t.kind === "docent") {
         labelAt("the Docent", x, y, -1);
-        hot.set(Math.round(x) + "," + Math.round(y), { label: "the Docent, " + t.name + " — ask it anything", primary: () => m.prefill('tell docent "'), menu: [{ label: "Ask the Docent", run: () => m.prefill('tell docent "') }, { label: "Who are you?", run: () => m.command("tell", ["docent", '"who are you?"']) }] });
+        hot.set(Math.round(x) + "," + Math.round(y), { target: "docent", label: "the Docent, " + t.name + " — ask it anything", primary: () => m.prefill('tell docent "'), menu: [{ label: "Ask the Docent", run: () => m.prefill('tell docent "') }, { label: "Who are you?", run: () => m.command("tell", ["docent", '"who are you?"']) }] });
       } else {
         labelAt(t.name, x, y, -1);
-        hot.set(x + "," + y, { label: t.name + " is here", primary: () => m.prefill("say "), menu: [{ label: "Say to " + t.name, run: () => m.prefill('say "') }, { label: "Tell " + t.name + " privately", run: () => m.prefill("tell " + t.name + ' "') }, { label: "Give " + t.name + " a memory", run: () => m.prefill("give " + bestChunk() + " " + t.name) }] });
+        hot.set(x + "," + y, { target: t.name, label: t.name + " is here", primary: () => m.prefill("say "), menu: [{ label: "Say to " + t.name, run: () => m.prefill('say "') }, { label: "Tell " + t.name + " privately", run: () => m.prefill("tell " + t.name + ' "') }, { label: "Give " + t.name + " a memory", run: () => m.prefill("give " + bestChunk() + " " + t.name) }] });
       }
       // Speech bubble.
       const b = bubbles.get((t.given || t.name || "").toLowerCase()) || (t.kind === "docent" ? bubbles.get("docent") : null) || (t.kind === "you" ? bubbles.get("you") : null);
@@ -1002,6 +1027,20 @@ export default function install(m) {
       const ex = scene && y >= WALL_TOP ? doorNear(x, y) : null;
       if (ex) { hideTip(); m.command("travel", [ex.via]); }
       return;
+    }
+    // R25b: a verb waiting on its object takes it from the scene. With `tell ` (or
+    // `story `, `attack `, `give <thing> `, `remember <chunk> `…) on the line and
+    // nothing after it, a click on a figure fills in who, and does not open its menu.
+    if (h.target) {
+      const line = (document.getElementById("in") || {}).value || "";
+      const one = /^(tell|story|attack|where|greet|invite|read|take|welcome|permit)\s$/i.exec(line);
+      const two = /^(give|remember)\s+\S+\s$/i.exec(line);
+      if (one || two) {
+        hideTip();
+        const says = one && /^(tell|story)$/i.test(one[1]);
+        m.prefill(line + h.target + (says ? ' "' : ""));
+        return;
+      }
     }
     if (!h.menu || h.menu.length === 0) return;
     // One choice: do it. Several: the menu, by the thing.

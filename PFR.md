@@ -31,20 +31,9 @@ Each is designed and needs no decision. Say `R<n> hold` to keep one back.
 Away from Moondial and Entropic (the engine's and the game's old names): what is left
 is the box's half (Y1); the `MOONDIAL_*` fallbacks in the driver and the tools go in
 a release after Y1 has run.
-Left over, smaller pieces of larger things:
-- **R76b** (M) An Under-Docent at the Stacks' stair: a second figure for the Lower Stacks.
-- **R10b** (S) The shelf's "five times slower" measured 1.6x over an interval (it is a power law: half in 5x at first, a quarter at 15x). Still to check: per-chunk half-lives after a strike (none should move: a strike makes a new chunk).
 The play page's bigger pieces:
-- **R12b** (M) The transcript folded to a drawer with a "log" tab once bubbles carry the speech.
-- **R13b** (S) A sprite per thing a creature leaves (icons are by word now).
-- **R22b** (S) One `help` voice (the page's list and the world's line).
-- **R25b** (M) A verb's argument from the scene (click `tell`, then a creature); a creature's own verbs on its figure; the palette on the plain page; the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll; admin on the play page; a `remember` that keeps a room on your map.
-From the Night's Watch of 11-08:
-- **R138** (S) A sign that computes its way, as the Stile's step does (the Tally Room names the Division Lobby's way rightly now, seen 11-16).
-- **R140** (S; looked at 11-10, open: the source is built in one place (errand.rs, "carrying <sender>'s word to <receiver>"), so the two clauses are likely two memories, one carried each way; kept for a Watch to reproduce) A dug room's "Dug by Thistlecroft with the memory of carrying Corrowkin's word to Corrow" and "Kept in memory by Thistlecroft (with carrying Corrow's word to Corrowkin)" flip the word's direction between clauses: one of the two source strings is built backward.
-- **R144** (S) The Docent suggests `tell Wyndle "what is your word?"` minutes after Wyndle's name failed (it is wisp-6579); the by-heart and the model's briefing should read the creature's current display.
+- **R25b** (M) What is left of it: the palette on the plain page; the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll. (Admin on the play page and a `remember` that keeps a room on your map are off the list by David's word, 11-17.)
 From the Watch of six, 11-13, the night the second door opened (a newcomer, a faller, a teller, a walker, a manual reader on a kept name, a latecomer; all six woke at the Postern; see T16):
-- **R222** (S) What is left at the Postern: `where mothwing` from the Postern names the Wall and not the Orchard; `where bench` offers two other things first.
 - **R224** (S) An absent name gets two answers: `tell Gnashfall` (away) "They will hear it when they return", `tell Gnewelpost` (gone, forgotten on leaving) "There is no one called Gnewelpost", at a quarter, and `where` answers with the whole catalogue of what it can find. (`tell` says "The world has forgotten <name>" of one it knew lately, 11-14.) `where <name>` recommends `log`, and `log` takes a count, not a name. A word said in a room after you left it reaches you only if you walk back ("Said here lately"), never through `messages`.
 - **R226** (S) A long message's reply is cut "under the statement limit"; it now says what was cut (receipts first, then the last answers) and that every statement ran. What is left: cut the answers to reads before the answers to acts, which wants each line to know its statement.
 - **R227** (S) The quickstart, what is left: `reply` to a letter whose writer is forgotten too is not described; the first letter a visitor sees may be no. 2.
