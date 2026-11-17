@@ -5,6 +5,16 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-17 (the strike team: Gnarwhal, Gnomon, Gneiss; two driver deploys)
+- **The starfish fell**, at the second low water, about 01:38 UTC: the first arm to Gnarwhal at 01:32, the second and third to Gnomon, the fourth to Gneiss, the last to Gnomon. The first low (00:55) was lost: the captain alone in the Court, the quartermaster at the Wrack Line with the order unread. The way south opened and all three read the book.
+- **`messages` reads newest first.** A batch caps a statement's answer at twelve lines, and `messages` (a header and twelve rows, latest last) lost its newest row to the cap whenever it was sent with another read: the strike minute was the row cut.
+- **A starfish short an arm keeps its name.** The third arm's share took Cobbin under the naming line mid-fight, and `attack Cobbin` found "no such creature" until a fall fed it its name back.
+- **The Tide Table says how long the Court clears** ("a good low: the Starfish Court clears for about 3 minutes with the low in the middle of them").
+- **The Court says when the starfish is gone**: the room's text has it lying across the door, and `look` now adds that it came apart and the door is clear until another drifts in.
+- **A thing raised at the bench says it is of the second tier** and acts as one in a fight (a plain bandage that "came out with a past" bound a blow for twenty, as a surgeon's does, and nothing had said it would).
+- The Kelp Stacks answer `read shelving` (the room's text opens with it), the Swollen Drawers `read felt`, the Reading Pool `read pool`.
+- **Held, in the team's words:** the arm line ("clear progress"), the fog jar's retreat, `rest`'s parting-blow figure, `where <name>` for finding each other, the book.
+
 11-16 (the three small calls held for a Watch, shipped with the strike team; one driver deploy with a schema change)
 - **D38 · What the way out costs.** In a fight `rest` gives the parting blow's figure ("it costs one parting blow, 26 to 28, which could be the last of you: a jar of fog covers it"); a fall on the way out says a parting blow is a whole one; and `retreat`'s advice says "it will be whole before you are, so waiting buys nothing against it" of a thing that mends faster than you, where it said "rest until you are whole, then stand again".
 - **D39c · A first hour ends aloud**: one line at the name's first arrival or message after it ("what hunts, hunts you now…").

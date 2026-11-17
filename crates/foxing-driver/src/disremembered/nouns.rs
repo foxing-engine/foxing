@@ -37,12 +37,12 @@ const NOUNS: &[(&str, &[&str], &str)] = &[
     ),
     (
         "wing-catalogue",
-        &["drawer", "drawers", "card", "cards", "floor"],
+        &["drawer", "drawers", "card", "cards", "floor", "felt"],
         "You get a thumbnail under one card and lift it off the felt of the others. The ink has gone the brown of weak tea, and it is a catalogue card still: a title you nearly know, a shelf mark, and stamped across it in violet, WITHDRAWN TO THE LOWEST SHELF. KEEP WET. The next card says the same of another book. So do the ten after it. Whoever went down with the water took the catalogue's best things with them, and filed the fact.",
     ),
     (
         "wing-pool",
-        &["book", "books", "lamp", "lamps", "table", "tables"],
+        &["book", "books", "lamp", "lamps", "table", "tables", "pool"],
         "You turn one of the floating books face up. The pages have kept their words and let go of their order: it reads as well from the back. A small face comes up under it, reads two lines over your thumb with one eye and two with the other, and goes down again. It had been enjoying that one.",
     ),
     (
