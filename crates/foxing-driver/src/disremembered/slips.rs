@@ -9,7 +9,7 @@
 //! signpost's arm, the mud on a wall, the day's news, a register under the clock,
 //! the Tide Table, the Book), and several ask for two readings put together or for
 //! what will follow from what is written. `read slip` gives the question and says
-//! where a reader might look; `solve <words>` answers it; `slips` lists the twelve.
+//! where a reader might look; `solve "<words>"` answers it; `slips` lists the twelve.
 //! A right answer is a memory, once a day (UTC) to a name for each slip, and all
 //! twelve in a day is the Reader's Round. A wrong answer costs nothing but time:
 //! the slip will not hear that name again for ten minutes (thirty where the answer
@@ -401,14 +401,20 @@ fn ask(world: &World, actor: &str, f: &Found, slip: &Slip, here: EntityId) -> As
         ),
         // The Stacks: the index, used.
         "catalogue" => {
-            let rooms = super::rooms::ROOMS;
-            let def = &rooms[(seed(&["catalogue"], day(world)) % rooms.len() as u64) as usize];
+            // (Not the Mudroom: every room dug is a door off it, and the Watch of
+            // 11-17 dug it from eleven ways to thirteen while one reader was
+            // answering, twice wrong on a figure that had been right when read.)
+            let rooms: Vec<&super::rooms::RoomDef> = super::rooms::ROOMS
+                .iter()
+                .filter(|r| r.key != super::rooms::MUDROOM)
+                .collect();
+            let def = rooms[(seed(&["catalogue"], day(world)) % rooms.len() as u64) as usize];
             let ways = super::rooms::room_by_key(world, def.key)
                 .map(|r| super::rooms::exits_of(world, r).len())
                 .unwrap_or(def.exits.len());
             Asked::figure(
                 format!("A reader asks: the index has a card for every room. How many ways lead off {} tonight?", def.name),
-                "`index \"<the room's name>\"`, here (the name in quotes, as it is more than a word); or go and count",
+                "`index \"<the room's name>\"`, here (the name in quotes); or go and count",
                 ways as f64,
                 0.0,
             )
@@ -639,7 +645,7 @@ pub fn read(world: &World, actor: &str, room: EntityId, arg: &str) -> Option<Out
             super::combat::human(left)
         )
     } else {
-        format!(" `solve <your answer>` here answers it: a memory worth {SLIP_XP:.0} for a right one, once a day; a wrong one and the slip will not hear you for {} minutes.", if asked.choice { RETRY_CHOICE_MS } else { RETRY_MS } / 60_000)
+        format!(" `solve \"<your answer>\"` here answers it (in quotes, one word or several): a memory worth {SLIP_XP:.0} for a right one, once a day; a wrong one and the slip will not hear you for {} minutes.", if asked.choice { RETRY_CHOICE_MS } else { RETRY_MS } / 60_000)
     };
     Some(Outcome::new(
         format!(
@@ -663,7 +669,7 @@ fn answer(world: &mut World, ctx: &CallContext, text: &str) -> Result<Outcome, C
     };
     if text.trim().is_empty() {
         return Err(CommandError::precondition(
-            "Answer what? `read slip` gives the question; `solve <your answer>` answers it, in a few words.".to_string(),
+            "Answer what? `read slip` gives the question; `solve \"<your answer>\"` answers it, in a few words, in quotes.".to_string(),
         ));
     }
     let asked = ask(world, &ctx.actor, &f, slip, here);
@@ -777,7 +783,7 @@ fn list(world: &World, actor: &str) -> Outcome {
     let n = t.as_ref().map_or(0, |t| t.done.len());
     Outcome::new(
         format!(
-            "The reference slips, one pinned in each district: a reader's question that the room's own text does not answer and the world, read somewhere else, does. `read slip` there gives the question and where to look; `solve <your answer>` answers it. A right answer is a memory worth {SLIP_XP:.0}, once a day (UTC) for each slip; all twelve in a day is the Reader's Round, worth {ROUND_XP:.0} more. A wrong answer costs ten minutes before that slip hears you again, thirty where the answer is one of three. You have answered {n} of twelve today.\n{}",
+            "The reference slips, one pinned in each district: a reader's question that the room's own text does not answer and the world, read somewhere else, does. `read slip` there gives the question and where to look; `solve \"<your answer>\"` answers it (the answer in quotes). A right answer is a memory worth {SLIP_XP:.0}, once a day (UTC) for each slip; all twelve in a day is the Reader's Round, worth {ROUND_XP:.0} more. A wrong answer costs ten minutes before that slip hears you again, thirty where the answer is one of three. You have answered {n} of twelve today.\n{}",
             // Two to a line: a batch caps a statement's answer at twelve lines, and
             // thirteen lost the Drowned Wing's (found live, 11-17).
             lines
@@ -804,7 +810,7 @@ fn index(world: &World, subject: &str) -> Outcome {
     };
     if want.is_empty() {
         return Outcome::new(
-            "The index: ten thousand drawers, and a card in one of them for every name that has one, every creature that has earned one, every kind of creature, and every room. `index <a name, a creature's name, a kind, or a room>` pulls it, here; a subject of more than one word goes in quotes, `index \"The Mudroom\"`. The cards are kept from the public record, as it stands tonight: they do not say what a name holds or carries, which is the name's own.".to_string(),
+            "The index: ten thousand drawers, and a card in one of them for every name that has one, every creature that has earned one, every kind of creature, and every room. `index \"<a name, a creature's name, a kind, or a room>\"` pulls it, here, the subject in quotes: `index \"wisp\"`, `index \"The Mudroom\"`. The cards are kept from the public record, as it stands tonight: they do not say what a name holds or carries, which is the name's own.".to_string(),
             json!({"index": Value::Null}),
         );
     }
@@ -964,7 +970,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.index",
-            "The Card Catalogue's index of the public record, read in the Catalogue (the Lower Stacks): the card for a name, a creature with a name, a kind of creature, or a room, from the world as it stands. A subject of more than one word goes in quotes: index \"The Mudroom\". No subject: what the index holds. A read.",
+            "The Card Catalogue's index of the public record, read in the Catalogue (the Lower Stacks): the card for a name, a creature with a name, a kind of creature, or a room, from the world as it stands. The subject goes in quotes: index \"wisp\", index \"The Mudroom\". No subject: what the index holds. A read.",
         )
         .param("subject", ParamType::Text, false, "a name, a named creature, a kind of creature, or a room"),
         Box::new(|w: &mut World, ctx, args: &Args| {

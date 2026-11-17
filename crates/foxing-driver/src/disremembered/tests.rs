@@ -13640,7 +13640,7 @@ fn a_slip_in_every_district_pays_for_reading() {
     let catalogue = rooms::room_by_key(&w, "catalogue").unwrap();
     go(&mut w, dave.citizen, catalogue);
     let idx = ok(&mut w, "dave", "read", json!(["index"]));
-    assert!(idx.summary.contains("`index <a name"), "{}", idx.summary);
+    assert!(idx.summary.contains("`index \"<a name"), "{}", idx.summary);
     let card = ok(&mut w, "dave", "read", json!(["index tyler"]));
     assert!(
         card.summary.contains("tyler. A name") && card.summary.contains("Fallen 0 times in all"),
