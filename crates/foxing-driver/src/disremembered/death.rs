@@ -170,6 +170,18 @@ pub fn killer_keeps(
         curves,
     )?;
     let chunk = super::mind::disown(world, chunk)?;
+    // D44: a starfish takes it into one arm, the one that comes off next, and says so.
+    if super::starfish::is(world, killer) {
+        let thicker = super::starfish::took(world, killer, chunk)?;
+        let said = super::starfish::took_said(thicker);
+        super::combat::narrate(world, actor, said.clone());
+        super::combat::narrate_others(
+            world,
+            killer,
+            &format!("{actor} goes down to the starfish. {said}"),
+            actor,
+        );
+    }
     // On its record: who it felled.
     let mut felled: Vec<Value> = match plain(world, killer, "felled") {
         Some(Value::Array(a)) => a,

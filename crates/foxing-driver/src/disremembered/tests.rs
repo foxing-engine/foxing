@@ -13288,6 +13288,234 @@ fn the_starfish_keeps_its_strength_in_its_arms() {
 }
 
 #[test]
+fn a_fall_goes_into_one_arm_and_a_boss_is_shared() {
+    // D44 (David, 11-17: "recalculate xp per arm after a fall and distribute the new
+    // memory from a fall to an arm") and D43 ("boss fights in general should be an
+    // even split for everyone who engaged": a blow landed since it was last whole).
+    use super::{death, starfish, tide};
+    let t0 = Timestamp(2_000_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    for n in ["dave", "tyler", "ann"] {
+        login(&mut w, n, "test", PASS).unwrap();
+    }
+    let s = tide::season(&w);
+    let k = (tide::cycle_at(w.now().0) + 1..)
+        .find(|&c| tide::dry_in(c, 0.09, s).is_some())
+        .unwrap();
+    let (dry, _) = tide::dry_in(k, 0.09, s).unwrap();
+    w.fixed_now = Some(Timestamp(dry + 1_000));
+    let court = rooms::room_by_key(&w, "wing-court").unwrap();
+    for n in ["dave", "tyler", "ann"] {
+        let f = find_citizen(&w, n).unwrap();
+        w.record(
+            Actor::Driver,
+            StoreEvent::EntityMoved {
+                id: f.citizen,
+                parent: Some(court),
+            },
+        )
+        .unwrap();
+        // Bodies that can stand a few of its blows, and blows that cut.
+        admin(&mut w, n, "earn", json!(["a long road", 3000]));
+        combat::recurve_mending(&mut w, f.citizen).unwrap();
+        let whole = combat::max_hp(&w, f.citizen);
+        combat::commit_hp(&mut w, f.citizen, whole).unwrap();
+    }
+    combat::fill(&mut w, court).unwrap();
+    let star = combat::creatures_in(&w, court)
+        .into_iter()
+        .find(|c| c.1 == "starfish")
+        .map(|c| c.0)
+        .expect("a starfish in the Court");
+    let num =
+        |w: &World, field: &str| super::plain_num(w, star, super::CREATURE, field).unwrap_or(0.0);
+    let plain = num(&w, "max_hp");
+    assert!(combat::is_boss("starfish") && combat::is_boss("warden") && !combat::is_boss("wisp"));
+
+    // It fells tyler (as `die` has it keep what the fall cost): ninety, into the
+    // leading arm, which is the thicker by all of what ninety gives a body.
+    let curves = super::Curves::from_env();
+    let head = events(&w);
+    let kept = death::killer_keeps(&mut w, "tyler", star, 90.0, &curves)
+        .unwrap()
+        .expect("it keeps the fall");
+    assert_eq!(
+        super::plain_num(&w, kept, super::CHUNK, "arm"),
+        Some(4.0),
+        "the top of five, numbered from the bottom"
+    );
+    assert!((starfish::leading_holds(&w, star) - 90.0).abs() < 0.5);
+    let thicker = (plain * 90.0 / 150.0).round();
+    assert!(
+        (num(&w, "max_hp") - plain - thicker).abs() < 1.5,
+        "{plain} {}",
+        num(&w, "max_hp")
+    );
+    assert_eq!(num(&w, "hp"), num(&w, "max_hp"), "whole, and bigger");
+    assert_eq!(starfish::arms(&w, star), 5);
+    assert_eq!(num(&w, "attack"), 10.0, "a point for the ninety");
+    let told = narrative(&w, "tyler", head);
+    assert!(
+        told.iter()
+            .any(|l| l.contains("went into the arm it struck with")
+                && l.contains(&format!("thicker by {thicker:.0} hit points"))),
+        "{told:?}"
+    );
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("all five arms, the leading one thick with 90 of what it took"),
+        "{}",
+        look.summary
+    );
+    // A story it was told is in all its arms alike.
+    let story = admin(&mut w, "ann", "earn", json!(["a story", 50, 0.5]));
+    mind::give(
+        &mut w,
+        "ann",
+        EntityId(story.result["chunk"].as_u64().unwrap()),
+        star,
+    )
+    .unwrap();
+    assert!((mind::level(&w, star) - 140.0).abs() < 1.0);
+
+    // Dave and tyler cut at it. The first arm off is the thick one: it takes the
+    // whole ninety with it, and a fifth of the fifty; the four left are plain.
+    let aim = |w: &World| mind::name(w, star).unwrap_or_else(|| "starfish".to_string());
+    let mut cut = None;
+    for i in 0..40 {
+        let who = if i % 2 == 0 { "dave" } else { "tyler" };
+        let a = aim(&w);
+        let out = ok(&mut w, who, "attack", json!([a]));
+        if out.summary.contains("of five left") {
+            cut = Some(out.summary.clone());
+            break;
+        }
+    }
+    let cut = cut.expect("an arm came off");
+    assert!(cut.contains("four of five left"), "{cut}");
+    assert!(
+        cut.contains("100 of what it had taken"),
+        "the ninety and a fifth of fifty: {cut}"
+    );
+    assert_eq!(starfish::leading_holds(&w, star), 0.0);
+    assert!((mind::level(&w, star) - 40.0).abs() < 1.0);
+    assert_eq!(starfish::arms(&w, star), 4);
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("four arms of five"),
+        "{}",
+        look.summary
+    );
+    assert!(!look.summary.contains("thick with"), "{}", look.summary);
+    let mut by = combat::strikers(&w, star);
+    by.sort();
+    assert_eq!(by, vec!["dave".to_string(), "tyler".to_string()]);
+
+    // A fall now goes into the arm that leads now, and an arm that grows back grows
+    // behind it: the leading arm keeps its tally.
+    let kept = death::killer_keeps(&mut w, "tyler", star, 60.0, &curves)
+        .unwrap()
+        .unwrap();
+    assert_eq!(super::plain_num(&w, kept, super::CHUNK, "arm"), Some(3.0));
+    for id in [
+        find_citizen(&w, "dave").unwrap(),
+        find_citizen(&w, "tyler").unwrap(),
+    ] {
+        combat::end_fight(&mut w, id.citizen).unwrap();
+    }
+    for n in ["dave", "tyler"] {
+        let f = find_citizen(&w, n).unwrap();
+        combat::set_engaged(&mut w, n, f.citizen, None).unwrap();
+    }
+    let share = num(&w, "hp") / num(&w, "max_hp");
+    assert!(share < 0.95, "short an arm: {share}");
+    // (Fixed chunk values for the twenty minutes: a test world's fade in seconds.)
+    let lead = starfish::leading_holds(&w, star);
+    assert!((lead - 60.0).abs() < 0.5, "{lead}");
+    w.fixed_now = Some(Timestamp(w.now().0 + 21 * 60_000));
+    combat::regen(&mut w, 21 * 60_000).unwrap();
+    assert_eq!(starfish::arms(&w, star), 5, "an arm back");
+    assert_eq!(
+        super::plain_num(&w, star, super::CREATURE, "arm_lo"),
+        Some(-1.0),
+        "grown at the bottom"
+    );
+
+    // Whole again, a blow begins the list of who has struck it afresh.
+    w.fixed_now = Some(Timestamp(w.now().0 + 21 * 60_000));
+    combat::regen(&mut w, 21 * 60_000).unwrap();
+    assert_eq!(num(&w, "hp"), num(&w, "max_hp"));
+    for n in ["dave", "tyler", "ann"] {
+        let f = find_citizen(&w, n).unwrap();
+        admin(&mut w, n, "earn", json!(["a long road", 3000]));
+        let whole = combat::max_hp(&w, f.citizen);
+        combat::commit_hp(&mut w, f.citizen, whole).unwrap();
+    }
+    for who in ["dave", "ann"] {
+        for _ in 0..12 {
+            let a = aim(&w);
+            let out = ok(&mut w, who, "attack", json!([a]));
+            if out.result["landed"] == true || out.summary.contains("of five left") {
+                break;
+            }
+        }
+    }
+    let mut by = combat::strikers(&w, star);
+    by.sort();
+    assert_eq!(
+        by,
+        vec!["ann".to_string(), "dave".to_string()],
+        "tyler's blows were on the last fight"
+    );
+
+    // Dave takes the last arm. It is shared evenly between the two who landed a
+    // blow since it was whole, and ann is told where she stands.
+    let worth = num(&w, "xp");
+    let head = events(&w);
+    let before_ann = mind_level(&w, "ann");
+    let before_tyler = mind_level(&w, "tyler");
+    let mut end = None;
+    for _ in 0..80 {
+        let a = aim(&w);
+        let f = find_citizen(&w, "dave").unwrap();
+        let whole = combat::max_hp(&w, f.citizen);
+        combat::commit_hp(&mut w, f.citizen, whole).unwrap();
+        let out = ok(&mut w, "dave", "attack", json!([a]));
+        if out.result["killed"] == true {
+            end = Some(out);
+            break;
+        }
+    }
+    let end = end.expect("it came apart");
+    assert!(
+        end.summary.contains(&format!(
+            "an even share of {worth:.0} among the 2 who landed a blow on it since it was last whole, you and ann"
+        )),
+        "{}",
+        end.summary
+    );
+    assert!((end.result["xp"].as_f64().unwrap() - worth / 2.0).abs() < 0.1);
+    assert_eq!(end.result["shared_with"][0]["name"], "ann");
+    assert!((mind_level(&w, "ann") - before_ann - worth / 2.0).abs() < 1.0);
+    assert!((mind_level(&w, "tyler") - before_tyler).abs() < 1.0);
+    let told = narrative(&w, "ann", head);
+    assert!(
+        told.iter()
+            .any(|l| l.contains("came apart under dave's blow")
+                && l.contains("an even share of it is yours, one of 2")),
+        "{told:?}"
+    );
+}
+
+/// A name's level, read without a statement of its own (in a fight every statement
+/// draws a blow).
+fn mind_level(w: &World, name: &str) -> f64 {
+    let f = find_citizen(w, name).unwrap();
+    memory::level(w, f.window)
+}
+
+#[test]
 fn second_tier_things_are_for_fights() {
     // D35 (David, 11-16: "level 2 crafts should be useful in a fight").
     let t0 = Timestamp(1_000_000);

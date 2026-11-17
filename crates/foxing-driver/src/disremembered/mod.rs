@@ -214,6 +214,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // D42 b: kept by a creature at home in a room its feeder dug, and
             // fading at half the pace while it is (`mind::settle_homes`).
             .field("slow", FieldKind::Plain, Visibility::Public)
+            // D44: the arm of a starfish a memory taken in a fall went into.
+            .field("arm", FieldKind::Plain, Visibility::Public)
             .field("source", FieldKind::Plain, Visibility::Public)
             .field("tier", FieldKind::Plain, Visibility::Public)
             // What a taxed gift keeps of its half-life, when it was taxed.
@@ -527,6 +529,12 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // D34: when a starfish's last arm was cut or grew; the next is twenty
             // minutes after.
             .field("arm_at", FieldKind::Plain, Visibility::Public)
+            // D44: where a starfish's arms stand (how many, how much of the leading
+            // one, the number of the bottom one); D43: who has struck a boss.
+            .field("arms", FieldKind::Plain, Visibility::Public)
+            .field("arm_fill", FieldKind::Plain, Visibility::Public)
+            .field("arm_lo", FieldKind::Plain, Visibility::Public)
+            .field("struck_by", FieldKind::Plain, Visibility::Public)
             // D35: blows of its own still to land at half, from a stinging dart.
             .field("numbed", FieldKind::Plain, Visibility::Public)
             // A hybrid's temperament and ambush line, and what it was born of; a seed

@@ -336,6 +336,84 @@ pub const OFFICERS: &[&str] = &[
 ];
 /// A kill pays what the creature held, at most the delver's level plus this.
 pub const KILL_PAY_OVER_LEVEL: f64 = 60.0;
+
+/// D43 (David, 11-17: "boss fights in general should be an even split for everyone
+/// who engaged"): the kinds built as work for several names. A kill of one is
+/// shared evenly among the names that landed a blow on it since it was last whole
+/// (the party of 11-17 cut the starfish's arms one, two and one, and the name whose
+/// blow took the last had all 300 of it). Falling, retreating or being elsewhere
+/// when it comes apart forfeits nothing.
+pub const BOSSES: &[&str] = &["starfish", "warden", "assayer"];
+
+pub fn is_boss(kind: &str) -> bool {
+    BOSSES.contains(&kind)
+}
+
+/// The names that have landed a blow on this boss since it was last whole.
+pub fn strikers(world: &World, creature: EntityId) -> Vec<String> {
+    world
+        .store
+        .entity(creature)
+        .and_then(|e| e.components.get(CREATURE))
+        .and_then(|c| c.fields.get("struck_by"))
+        .and_then(|f| match f {
+            Field::Plain(Value::Array(a)) => Some(
+                a.iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect(),
+            ),
+            _ => None,
+        })
+        .unwrap_or_default()
+}
+
+/// A blow of `actor`'s is about to land on `creature`, which has `hp_before`: on a
+/// boss it is written down. A blow on a whole one begins the list again.
+fn struck(
+    world: &mut World,
+    actor: &str,
+    creature: EntityId,
+    kind: &str,
+    hp_before: f64,
+) -> Result<(), String> {
+    if !is_boss(kind) {
+        return Ok(());
+    }
+    let max = plain_num(world, creature, CREATURE, "max_hp").unwrap_or(f64::MAX);
+    let mut by = if hp_before >= max - 0.01 {
+        Vec::new()
+    } else {
+        strikers(world, creature)
+    };
+    if by.iter().any(|n| n == actor) && hp_before < max - 0.01 {
+        return Ok(());
+    }
+    by.retain(|n| n != actor);
+    by.push(actor.to_string());
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::FieldSet {
+                id: creature,
+                component: CREATURE.into(),
+                field: "struck_by".into(),
+                value: json!(by),
+            },
+        )
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+/// "you, Gnarwhal and Gneiss": the sharers of a kill, the one told first.
+fn sharers_said(names: &[String], me: &str) -> String {
+    let mut all = vec!["you".to_string()];
+    all.extend(names.iter().filter(|n| *n != me).cloned());
+    match all.len() {
+        1 => all.remove(0),
+        2 => all.join(" and "),
+        n => format!("{} and {}", all[..n - 1].join(", "), all[n - 1]),
+    }
+}
 pub const DEATH_SHARE_MAX: f64 = 0.5;
 /// The halving by falls of a night stops here: a quarter of the first fall's share.
 pub const FALL_FLOOR: f64 = 0.25;
@@ -608,15 +686,17 @@ pub fn rescale(world: &mut World, creature: EntityId) -> Result<(), CommandError
     let Some(kind) = plain_str(world, creature, CREATURE, "name").map(str::to_string) else {
         return Ok(());
     };
+    // D44: a starfish is sized arm by arm, each by its own tally.
+    if kind == super::starfish::KIND {
+        return super::starfish::resize(world, creature);
+    }
     let Some(d) = def(&kind) else { return Ok(()) };
     let level = super::mind::level(world, creature);
     let old_max = plain_num(world, creature, CREATURE, "max_hp").unwrap_or(d.hp);
     let base = plain_num(world, creature, CREATURE, "base_hp");
     let base_hp = base.unwrap_or(old_max);
     let new_max = (base_hp * (1.0 + level / 150.0)).round();
-    // D34: a starfish's blow is a point lighter for each arm it lacks.
-    let new_attack =
-        (d.attack + (level / 75.0).floor() - super::starfish::blow_lost(world, creature)).max(1.0);
+    let new_attack = (d.attack + (level / 75.0).floor()).max(1.0);
     let attack = plain_num(world, creature, CREATURE, "attack").unwrap_or(d.attack);
     // R107: what it holds, as a read field beside hp and attack (the level is
     // computed; `observe` had no way to it).
@@ -2665,13 +2745,16 @@ pub fn register(world: &mut World, curves: Curves) {
             let chp = (plain_num(w, creature, CREATURE, "hp").unwrap_or(0.0) - dmg).max(0.0);
             let chp_before = plain_num(w, creature, CREATURE, "hp").unwrap_or(0.0);
             if landed {
+                // D43: who has landed a blow on a boss since it was last whole.
+                struck(w, &ctx.actor, creature, &cname, chp_before).map_err(internal)?;
                 w.record(Actor::Citizen(ctx.actor.clone()), StoreEvent::FieldSet { id: creature, component: CREATURE.into(), field: "hp".into(), value: json!(chp) }).map_err(internal)?;
             }
             // D34: a blow that takes the starfish across a fifth takes an arm off it,
             // and what the arm held of the fallen with it; the body is resized, so
             // what is left is read again.
             let arm = if landed { super::starfish::after_blow(w, &ctx.actor, creature, chp_before, chp)? } else { None };
-            let chp = if arm.is_some() && chp > 0.0 { plain_num(w, creature, CREATURE, "hp").unwrap_or(chp) } else { chp };
+            // (Its hit points are its arms': read back whether or not one came off.)
+            let chp = if landed && cname == super::starfish::KIND { plain_num(w, creature, CREATURE, "hp").unwrap_or(chp) } else { chp };
             // A fight begun by default is said, not silent: six bare `attack` lines
             // felled an inkling on the fourth and struck its neighbor on the fifth.
             let turned = args.str("creature").map_or(true, str::is_empty) && began.is_some();
@@ -2804,14 +2887,36 @@ pub fn register(world: &mut World, curves: Curves) {
                 // sixty (the owner's call, 2026-11-02): a 169-XP name's first lamprey
                 // doubled it and the climb to 2,200 was seven fights.
                 let held = plain_num(w, creature, CREATURE, "xp").unwrap_or(0.0);
+                // D43: a boss is shared evenly among the names that landed a blow on
+                // it since it was last whole (those that are still names).
+                let mut sharers: Vec<String> = if is_boss(&cname) {
+                    strikers(w, creature).into_iter().filter(|n| *n == ctx.actor || super::find_citizen(w, n).is_some()).collect()
+                } else {
+                    Vec::new()
+                };
+                if !sharers.contains(&ctx.actor) {
+                    sharers.push(ctx.actor.clone());
+                }
+                let share = held / sharers.len() as f64;
+                let base_vividity = fight_vividity(w, f.citizen, creature);
                 let cap = super::memory::level(w, f.window) + KILL_PAY_OVER_LEVEL;
-                let xp = held.min(cap).max(0.0);
-                let capped_line = if held > cap + 0.5 {
+                let xp = share.min(cap).max(0.0);
+                let shared_line = if sharers.len() > 1 {
+                    format!("an even share of {held:.0} among the {} who landed a blow on it since it was last whole, {}", sharers.len(), sharers_said(&sharers, &ctx.actor))
+                } else {
+                    String::new()
+                };
+                let capped_line = if share > cap + 0.5 {
+                    let what = if sharers.len() > 1 { format!("{shared_line}; a share") } else { format!("it held {held:.0}; a kill") };
                     if first_this_session(w, &ctx.actor, f.citizen, "cap_rule_said") {
-                        format!(" (it held {held:.0}; a kill pays at most your level plus {KILL_PAY_OVER_LEVEL:.0})")
+                        format!(" ({what} pays at most your level plus {KILL_PAY_OVER_LEVEL:.0})")
+                    } else if sharers.len() > 1 {
+                        format!(" ({shared_line}; capped)")
                     } else {
                         format!(" (it held {held:.0}; capped)")
                     }
+                } else if sharers.len() > 1 {
+                    format!(" ({shared_line})")
                 } else {
                     String::new()
                 };
@@ -2827,6 +2932,21 @@ pub fn register(world: &mut World, curves: Curves) {
                 set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
                 end_fight(w, f.citizen).map_err(internal)?;
                 let chunk = super::memory::earn_chunk(w, &ctx.actor, f.window, &cname, xp, vividity, &curves)?;
+                // D43: the others' shares, wherever they are, each at most their own
+                // level plus sixty, as vivid as the fight was before any charm.
+                let room_name = plain_str(w, room, super::ROOM, "name").unwrap_or("somewhere").to_string();
+                let mut shared_with: Vec<Value> = Vec::new();
+                for name in sharers.iter().filter(|n| **n != ctx.actor) {
+                    let Some(o) = super::find_citizen(w, name) else { continue };
+                    let theirs = share.min(super::memory::level(w, o.window) + KILL_PAY_OVER_LEVEL).max(0.0);
+                    let c = super::memory::earn_chunk(w, name, o.window, &cname, theirs, base_vividity, &curves)?;
+                    let capped = if share > theirs + 0.5 { format!(" (the share was {share:.0}; one pays at most your level plus {KILL_PAY_OVER_LEVEL:.0})") } else { String::new() };
+                    narrate(w, name, format!(
+                        "Word from {room_name}: the {cname} came apart under {}'s blow. You landed a blow on it since it was last whole, so an even share of it is yours, one of {}: chunk-{} worth {theirs:.1} XP{capped}.",
+                        ctx.actor, sharers.len(), c.0
+                    ));
+                    shared_with.push(json!({"name": name, "chunk": c.0, "xp": (theirs * 10.0).round() / 10.0}));
+                }
                 // R98: the chunk's clock in the kill line, the figure a fighter
                 // compares kinds by; R100/R124: the worth to a tenth, the figure
                 // `chunks` lists ("worth 27.0" over a ledger of 26.8).
@@ -2854,7 +2974,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     },
                     throes.map(|t| format!(" {t}")).unwrap_or_default()
                 ));
-                return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "creature_id": creature.0, "killed": true, "chunk": chunk.0, "xp": xp, "vividity": vividity, "hp": my_hp, "left": left.as_ref().map(|(id, n)| json!({"item": id.0, "name": n}))})));
+                return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "creature_id": creature.0, "killed": true, "chunk": chunk.0, "xp": xp, "vividity": vividity, "hp": my_hp, "shared_with": shared_with, "left": left.as_ref().map(|(id, n)| json!({"item": id.0, "name": n}))})));
             }
 
             // It strikes back.

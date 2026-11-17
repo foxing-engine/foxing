@@ -230,16 +230,11 @@ fn minutes(ms: i64) -> String {
     }
 }
 
-/// A span as the Tide Table gives it: to the nearest five minutes past ten.
+/// A span as the Tide Table gives it: to the minute.
 fn roughly(ms: i64) -> String {
-    let m = ms as f64 / 60_000.0;
-    if m < 3.0 {
-        "a few minutes".to_string()
-    } else if m < 10.0 {
-        format!("about {} minutes", (m / 2.0).round() as i64 * 2)
-    } else {
-        format!("about {} minutes", (m / 5.0).round() as i64 * 5)
-    }
+    // D46 (David, 11-17: "take it down to a minute"): it gave five-minute steps past
+    // ten, and a captain moved a strike four minutes on a rounding.
+    minutes(ms)
 }
 
 /// How long the water waits before it hurts this citizen: three times as long with a
@@ -688,7 +683,7 @@ pub fn read(
         Some(SLUICE) if a.is_empty() || named(&["grate", "sewer", "door", "gate", "bars"]) => "The grate is a door of iron bars as thick as your wrist, green and furred, hinged on the far side and barred on the far side. Beyond it a brick culvert goes away downhill in the dark, and something in it is moving slowly the other way. A plate on the lintel, half eaten: MUNICIPAL S—WER. NO ADM—. Nothing on this side opens it. Not yet.".to_string(),
         Some(SLUICE) if named(&["gauge", "staff", "brass", "marks", "names"]) => gauge(world),
         Some(COURT) if named(&["mosaic", "floor", "zodiac", "signs", "well"]) => "The mosaic is a zodiac, and the water has been at it: the tesserae lift with every tide and settle a little wrong, so the Scales now weigh a Fish against the Reader, and the Lamp has drifted into the house of the Crab. Twelve signs, and where a thirteenth has been set in later, in newer stone, a small five-pointed star at the foot of the door going down. The starfish lies with one arm on it. Someone drew this before there was anything to draw it from.".to_string(),
-        Some(VAULT) if a.is_empty() || named(&["ledger", "deposit", "book", "box", "plate", "deed", "counter"]) => "The deposit ledger is open at its last page, and the ink has spread into the paper and stayed legible, the way a bruise does. Box 7. The Night Reader. One starfish, small, in a jar of its own water, for the light well. In another hand, later: It has not stayed small. In a third, pressed hard: Its strength is in its arms. What it takes from whoever it puts under it keeps there, a share to an arm; take an arm off and it lets that share go. An arm is twenty minutes growing back. Five arms. Bring friends, and do not stop at four. Box 12. Municipal Sewer Board. One key, iron, for the grate at the Sluice. Withdrawn. Not returned. Box 31. The Keeper of the Lowest Shelf. One book, bound in something that does not char. TO BE KEPT WET. Do not let it dry while a reader has it open. Box 40. Depositor's name burned out of the page, neatly, from the inside. One deed, to a lot in the Ashen Wastes. Below that the page is blank, and beaded with water, and patient.".to_string(),
+        Some(VAULT) if a.is_empty() || named(&["ledger", "deposit", "book", "box", "plate", "deed", "counter"]) => "The deposit ledger is open at its last page, and the ink has spread into the paper and stayed legible, the way a bruise does. Box 7. The Night Reader. One starfish, small, in a jar of its own water, for the light well. In another hand, later: It has not stayed small. In a third, pressed hard: Its strength is in its arms. What it takes from whoever it puts under it goes into the arm it leads with, and that arm thickens; take that arm off and it lets all of it go. An arm is twenty minutes growing back. Five arms. Bring friends, and do not stop at four; it is divided evenly among those who cut it. Box 12. Municipal Sewer Board. One key, iron, for the grate at the Sluice. Withdrawn. Not returned. Box 31. The Keeper of the Lowest Shelf. One book, bound in something that does not char. TO BE KEPT WET. Do not let it dry while a reader has it open. Box 40. Depositor's name burned out of the page, neatly, from the inside. One deed, to a lot in the Ashen Wastes. Below that the page is blank, and beaded with water, and patient.".to_string(),
         Some(SHELF) if a.is_empty() || named(&["book", "burning", "shelf", "fire", "flame"]) => {
             return burning_book(world, actor, &f, room).map(Some);
         }

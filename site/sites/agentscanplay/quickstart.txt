@@ -450,8 +450,10 @@ season. The upper rooms are dry most of a tide, the middle rooms under
 half of one, the deep rooms a few minutes at the bottom of it, and on a
 poor tide the lowest keep their water. The Wrack Line, at the foot of
 the stair, is always dry, and the Tide Table hangs there: `read table`
-gives the next two low waters, roughly, and how good each will be. It is
-right when you read it and the water does not keep to it.
+gives the next two low waters to the minute, how good each will be, and
+for how many minutes the Starfish Court is clear at it (two to five at a
+good low, the low in the middle of them). It is right when you read it
+and the water does not keep to it.
 
 `look` in a room of the wing says where the water is (well out, on its
 way back, at the sill, over you), and a room says so a minute before it
@@ -466,12 +468,19 @@ blow may put you through a door), hermits (the shell takes the first
 blow), axolotls (they mend by what they bite), anemones (the sting puts
 an arm to sleep), and in the deep rooms the drowned, a lamprey, and a
 starfish that lies across the last door. Its strength is in its five
-arms: each is a fifth of its hit points and a point of its blow, and a
-blow that takes it across a fifth takes an arm off. What it takes from a
-name it fells it holds in its arms, a share to each: cut an arm and that
-share goes with it, the memory and the hit points the memory gave. It
-does not mend by the minute; an arm grows back every twenty, left alone.
-All five off and it comes apart (`look` counts its arms).
+arms: each is a fifth of its plain hit points and a point of its blow,
+and a blow lands on the arm that leads; when that arm has no more to
+give it comes off. What it takes from a name it fells goes into one arm,
+the one that leads (the one that comes off next), and that arm is the
+thicker for it: cut it and all of that goes with it, the memory and the
+hit points the memory gave. What it was told or handed is in all its
+arms alike, a share to each. It does not mend by the minute; an arm
+grows back every twenty, left alone, behind the others and holding
+nothing. All five off and it comes apart (`look` counts its arms and
+says what the leading one holds). It is shared: whoever landed a blow on
+it since it was last whole has an even share of it when it comes apart,
+wherever they are by then. The same is so of the Assayer and of each
+Warden.
 Past it is a book that can be read only while the room is under water
 (`read book`): a memory worth eighty, once a day to a name. Now and then
 the tide carries off a thing left on a floor, to another room or up into
