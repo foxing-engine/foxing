@@ -2355,6 +2355,10 @@ pub fn describe_as(
         text.push(' ');
         text.push_str(&t);
     }
+    if let Some(t) = super::slips::look_line(world, actor, room) {
+        text.push(' ');
+        text.push_str(&t);
+    }
     // A fight on: said, with the rule you are under (a gate visitor read "You are
     // alone" with a hollow at its throat).
     if let Some(f) = super::find_citizen(world, actor) {

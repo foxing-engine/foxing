@@ -623,6 +623,8 @@ const READ_VERBS: &[&str] = &[
     "almanac",
     "letters",
     "observe",
+    // C10: where the twelve slips are and which are answered.
+    "slips",
 ];
 
 const AFTER_DEATH: &[&str] = &[

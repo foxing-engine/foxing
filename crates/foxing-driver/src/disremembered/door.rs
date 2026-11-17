@@ -59,7 +59,7 @@ pub(super) fn room_name(world: &World, room: EntityId) -> String {
 }
 
 /// The newest room anyone dug that still stands: the room and its digger.
-fn newest_dug(world: &World) -> Option<(EntityId, String)> {
+pub(super) fn newest_dug(world: &World) -> Option<(EntityId, String)> {
     world
         .store
         .of_kind("room")
@@ -67,6 +67,26 @@ fn newest_dug(world: &World) -> Option<(EntityId, String)> {
         .filter(|e| !plain_bool(world, e.id, ROOM, "hidden"))
         .max_by_key(|e| e.id.0)
         .map(|e| (e.id, e.owner.clone().unwrap_or_default()))
+}
+
+/// C10: the creature at the end of the signpost's first arm, and what it wants a
+/// story about (none when it wants nothing just now): the Threshold's slip asks.
+pub(super) fn first_arm(world: &World, here: EntityId) -> Option<(String, Option<String>)> {
+    let mut named: Vec<(usize, String, String, Option<String>)> = world
+        .store
+        .of_kind("creature")
+        .filter_map(|e| {
+            let name = mind::name(world, e.id)?;
+            let room = e.parent?;
+            let way = signed_way(world, here, room)?;
+            let story = super::errand::of(world, e.id).and_then(|x| x.story);
+            // (The arms sort by how far and then by their line, which begins with
+            // the way: the same order here.)
+            Some((way.len(), way.join(", then "), name, story))
+        })
+        .collect();
+    named.sort();
+    named.into_iter().next().map(|(_, _, n, s)| (n, s))
 }
 
 fn signpost(world: &World, here: EntityId) -> String {

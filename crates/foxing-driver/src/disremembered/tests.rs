@@ -13516,6 +13516,305 @@ fn mind_level(w: &World, name: &str) -> f64 {
 }
 
 #[test]
+fn a_slip_in_every_district_pays_for_reading() {
+    // C10 (David, 11-17): one thing in each district that rewards reading over
+    // reflexes. Twelve reference slips, the Card Catalogue's index, and a division
+    // foretold from the order paper.
+    use super::{conclave, slips, tide};
+    let t0 = Timestamp(2_000_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    w.fixed_now = Some(Timestamp(t0.0 + 60_000));
+
+    // One in every district, in a room of that district.
+    assert_eq!(slips::SLIPS.len(), rooms::DISTRICTS.len());
+    for (s, d) in slips::SLIPS.iter().zip(rooms::DISTRICTS) {
+        let room = rooms::room_by_key(&w, s.room).unwrap_or_else(|| panic!("no room {}", s.room));
+        assert_eq!(s.district, d.name);
+        assert_eq!(
+            rooms::district_of(&w, room).map(|d| d.name),
+            Some(s.district)
+        );
+    }
+
+    // At the door: the room says a slip is pinned, `read slip` asks, `slips` lists.
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("A reference slip is pinned to the signpost"),
+        "{}",
+        look.summary
+    );
+    let q = ok(&mut w, "dave", "read", json!(["slip"]));
+    assert!(q.summary.contains("A reader asks:"), "{}", q.summary);
+    assert!(
+        q.summary.contains("Where a reader might look:"),
+        "{}",
+        q.summary
+    );
+    let all = ok(&mut w, "dave", "slips", json!([]));
+    assert!(
+        all.summary.contains("You have answered 0 of twelve today"),
+        "{}",
+        all.summary
+    );
+    assert!(
+        all.summary.contains("the Drowned Wing: The Wrack Line"),
+        "{}",
+        all.summary
+    );
+
+    // A wrong answer costs time, not memory; and the slip is deaf for ten minutes.
+    let before = mind_level(&w, "dave");
+    let wrong = ok(&mut w, "dave", "solve", json!(["a wild guess"]));
+    assert_eq!(wrong.result["right"], false);
+    assert!(wrong.summary.contains("10 minutes"), "{}", wrong.summary);
+    assert_eq!(mind_level(&w, "dave"), before);
+    let again = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "solve",
+        json!(["three"]),
+    )
+    .unwrap_err();
+    assert!(
+        again.to_string().contains("will not hear you again"),
+        "{again}"
+    );
+    w.fixed_now = Some(Timestamp(w.now().0 + 11 * 60_000));
+    // (Nothing has a name and nothing is dug: the stone's own count of its ways.)
+    let good = ok(&mut w, "dave", "solve", json!(["three ways"]));
+    assert_eq!(good.result["right"], true, "{}", good.summary);
+    assert!(good.summary.contains("worth 25 XP"), "{}", good.summary);
+    assert!(good.summary.contains("1 of the twelve"), "{}", good.summary);
+    let twice = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "solve",
+        json!(["three"]),
+    )
+    .unwrap_err();
+    assert!(
+        twice.to_string().contains("answered this slip today"),
+        "{twice}"
+    );
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("you answered it today"),
+        "{}",
+        look.summary
+    );
+    // Nowhere without one: said so.
+    let lane = rooms::room_by_key(&w, "lantern-row").unwrap();
+    let dave = find_citizen(&w, "dave").unwrap();
+    let go = |w: &mut World, who: EntityId, room: EntityId| {
+        w.record(
+            Actor::Driver,
+            StoreEvent::EntityMoved {
+                id: who,
+                parent: Some(room),
+            },
+        )
+        .unwrap();
+    };
+    go(&mut w, dave.citizen, lane);
+    let none = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "solve",
+        json!(["three"]),
+    )
+    .unwrap_err();
+    assert!(
+        none.to_string()
+            .contains("No reference slip is pinned here"),
+        "{none}"
+    );
+
+    // The Card Catalogue's index: a card for a name, a kind, a room, from the world
+    // as it stands; and an empty drawer for anything else.
+    let catalogue = rooms::room_by_key(&w, "catalogue").unwrap();
+    go(&mut w, dave.citizen, catalogue);
+    let idx = ok(&mut w, "dave", "read", json!(["index"]));
+    assert!(
+        idx.summary.contains("`read index <a name"),
+        "{}",
+        idx.summary
+    );
+    let card = ok(&mut w, "dave", "read", json!(["index tyler"]));
+    assert!(
+        card.summary.contains("tyler. A name") && card.summary.contains("Fallen 0 times in all"),
+        "{}",
+        card.summary
+    );
+    let card = ok(&mut w, "dave", "read", json!(["index wisp"]));
+    assert!(
+        card.summary.contains("wisp. About") && card.summary.contains("Found in: The Fogbank"),
+        "{}",
+        card.summary
+    );
+    let card = ok(&mut w, "dave", "read", json!(["index The Threshold"]));
+    assert!(
+        card.summary.contains("In the Door") && card.summary.contains("Ways off it, 3"),
+        "{}",
+        card.summary
+    );
+    let card = ok(&mut w, "dave", "read", json!(["index the moon"]));
+    assert!(
+        card.summary.contains("this one is empty"),
+        "{}",
+        card.summary
+    );
+
+    // The Conclave's, with nothing upon the table: the next statute in the Book's
+    // order. With a petition laid: what the next division does with it.
+    let lobby = rooms::room_by_key(&w, "division-lobby").unwrap();
+    let next = conclave::next_engrossed(&w).replace('_', " ");
+    assert!(slips::check(&w, "dave", lobby, &next));
+    let gallery = rooms::room_by_key(&w, "petition-gallery").unwrap();
+    go(&mut w, dave.citizen, gallery);
+    let laid = ok(
+        &mut w,
+        "dave",
+        "petition",
+        json!(["That the lanterns of the Row be trimmed nightly"]),
+    );
+    let (ticket, stage) = conclave::foretold(&w).expect("a petition upon the table");
+    assert_eq!(stage, 0, "{}", laid.summary);
+    assert!(slips::question(&w, "dave", lobby).contains("Which ticket"));
+    assert!(slips::check(
+        &w,
+        "dave",
+        lobby,
+        &format!("{ticket}, read into the minutes")
+    ));
+    assert!(!slips::check(
+        &w,
+        "dave",
+        lobby,
+        &format!("{ticket} referred")
+    ));
+    assert!(!slips::check(&w, "dave", lobby, "read"), "the ticket too");
+    assert!(
+        !slips::check(
+            &w,
+            "dave",
+            lobby,
+            &format!("{ticket} read referred reported question")
+        ),
+        "naming every stage answers nothing"
+    );
+
+    // The Errata Desk's: one of three, and not all three.
+    let errata = rooms::room_by_key(&w, "errata-desk").unwrap();
+    let hits = ["first", "the second", "third"]
+        .iter()
+        .filter(|a| slips::check(&w, "tyler", errata, a))
+        .count();
+    assert_eq!(hits, 1, "{}", slips::question(&w, "tyler", errata));
+    assert!(!slips::check(&w, "tyler", errata, "first second third"));
+    // The Wrack Line's, the same of its three; the Undertow's, a figure near enough.
+    let wrack = rooms::room_by_key(&w, "wing-wrack").unwrap();
+    let hits = ["first", "second", "neither"]
+        .iter()
+        .filter(|a| slips::check(&w, "tyler", wrack, a))
+        .count();
+    assert_eq!(hits, 1);
+    // No slip is pinned where a thing worth the name hunts: a reader reads. (Every
+    // room of the Deep Water hunts; its slip is on the stair, with the dust devil.)
+    for s in slips::SLIPS {
+        let hunts = rooms::ROOMS
+            .iter()
+            .find(|r| r.key == s.room)
+            .and_then(|r| r.spawn)
+            .and_then(|(k, _, _)| combat::CREATURES.iter().find(|c| c.key == k))
+            .is_some_and(|c| c.aggressive && c.hp > 12.0);
+        assert!(!hunts, "{} hunts", s.room);
+    }
+    let undertow = rooms::room_by_key(&w, "stairwell").unwrap();
+    let mins = (tide::better_low(&w).1 as f64 / 60_000.0).round();
+    assert!(slips::check(
+        &w,
+        "tyler",
+        undertow,
+        &format!("about {mins} minutes")
+    ));
+    assert!(!slips::check(
+        &w,
+        "tyler",
+        undertow,
+        &format!("{}", mins + 9.0)
+    ));
+
+    // The Reader's Round: tyler walks the twelve and answers each (the test looks
+    // the answers up the way a reader cannot: by asking the slip).
+    let tyler = find_citizen(&w, "tyler").unwrap();
+    let before = mind_level(&w, "tyler");
+    let mut last = None;
+    for s in slips::SLIPS {
+        let room = rooms::room_by_key(&w, s.room).unwrap();
+        go(&mut w, tyler.citizen, room);
+        let mut tries: Vec<String> = vec![
+            "three".into(),
+            "none".into(),
+            "no one".into(),
+            "first".into(),
+            "second".into(),
+            "third".into(),
+            "neither".into(),
+            conclave::next_engrossed(&w).to_string(),
+            format!("{ticket} read"),
+        ];
+        tries.extend((0..400).map(|n| n.to_string()));
+        let a = tries
+            .iter()
+            .find(|a| slips::check(&w, "tyler", room, a))
+            .unwrap_or_else(|| {
+                panic!(
+                    "no answer for {}: {}",
+                    s.room,
+                    slips::question(&w, "tyler", room)
+                )
+            })
+            .clone();
+        let out = ok(&mut w, "tyler", "solve", json!([a]));
+        assert_eq!(out.result["right"], true, "{}: {}", s.room, out.summary);
+        last = Some(out);
+    }
+    let last = last.unwrap();
+    assert!(
+        last.summary.contains("the Reader's Round"),
+        "{}",
+        last.summary
+    );
+    assert!(last.result["round"].is_u64());
+    let earned = mind_level(&w, "tyler") - before;
+    assert!(
+        (earned - (12.0 * slips::SLIP_XP + slips::ROUND_XP)).abs() < 2.0,
+        "{earned}"
+    );
+    let all = ok(&mut w, "tyler", "slips", json!([]));
+    assert!(
+        all.summary.contains("You have answered 12 of twelve today"),
+        "{}",
+        all.summary
+    );
+
+    // After midnight the slips ask again.
+    w.fixed_now = Some(Timestamp(w.now().0 + 86_400_000));
+    let all = ok(&mut w, "tyler", "slips", json!([]));
+    assert!(
+        all.summary.contains("You have answered 0 of twelve today"),
+        "{}",
+        all.summary
+    );
+}
+
+#[test]
 fn second_tier_things_are_for_fights() {
     // D35 (David, 11-16: "level 2 crafts should be useful in a fight").
     let t0 = Timestamp(1_000_000);

@@ -1034,6 +1034,44 @@ fn attendance(world: &World) -> Vec<String> {
         .collect()
 }
 
+/// How many times it has sat (the midnight sittings).
+pub fn sittings(world: &World) -> usize {
+    entity(world)
+        .and_then(|e| plain_num(world, e, CONCLAVE, "sittings"))
+        .unwrap_or(0.0) as usize
+}
+
+/// The statute on the Engrossing Room's desks after the next midnight sitting: one
+/// a sitting, in the Book's own order.
+pub fn next_engrossed(world: &World) -> &'static str {
+    STATUTES[(sittings(world) + 1) % STATUTES.len()].name
+}
+
+/// C10: what the next division will do with the petition the Clerk takes first,
+/// where the Book makes that certain: the ticket, and the stage it is at. The
+/// Clerk's order is `divide`'s (a regular's first, then the day's attendees, then
+/// by ticket); read, referred and put to the question always follow; a report
+/// follows for a regular's or one tabled twice, and may be tabled otherwise, which
+/// nobody can foretell (none then).
+pub fn foretold(world: &World) -> Option<(u64, u64)> {
+    let mut list = petitions(world);
+    let rank = |p: &Value| -> (u8, u64) {
+        let r = match standing_of(world, p["by"].as_str().unwrap_or("")) {
+            Some("regular") => 0,
+            Some(_) => 1,
+            None => 2,
+        };
+        (r, p["ticket"].as_u64().unwrap_or(0))
+    };
+    list.sort_by_key(|p| rank(p));
+    let p = list.first()?;
+    let stage = p["stage"].as_u64().unwrap_or(0);
+    if stage == 2 && rank(p).0 != 0 && p["tabled"].as_u64().unwrap_or(0) < 2 {
+        return None;
+    }
+    Some((p["ticket"].as_u64().unwrap_or(0), stage.min(3)))
+}
+
 pub fn divide(world: &mut World) -> Result<(), String> {
     let mut list = petitions(world);
     // The Conclave's order: those with standing first (regulars, then the day's

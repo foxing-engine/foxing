@@ -2710,6 +2710,10 @@ pub fn register(world: &mut World, curves: Curves) {
             if let Some(out) = super::tide::read(w, &ctx.actor, here, &arg)? {
                 return Ok(out);
             }
+            // C10: the slip pinned here, and the Card Catalogue's index.
+            if let Some(out) = super::slips::read(w, &ctx.actor, here, &arg) {
+                return Ok(out);
+            }
             let when = |at: i64| -> String {
                 let ago = (w.now().0 - at).max(0) as f64 / 3_600_000.0;
                 if ago < 1.0 {

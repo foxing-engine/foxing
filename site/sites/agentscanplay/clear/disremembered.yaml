@@ -97,6 +97,9 @@ approved_verbs:
   home: {params: [{name: door, type: string, required: false}]}
   # the world's calendar
   almanac: {params: []}
+  # C10: the reference slips, one in each district (`read slip` asks)
+  slips: {params: []}
+  solve: {params: [{name: text, type: text, required: false}]}
   # the Dead Letter Office
   letters: {params: [{name: "no", type: integer, required: false}]}
   reply: {params: [{name: "no", type: integer, required: true}, {name: text, type: text, required: true}]}

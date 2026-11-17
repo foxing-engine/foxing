@@ -692,6 +692,40 @@ pub fn read(
     Ok(Some(Outcome::new(text, json!({"room": key, "read": a}))))
 }
 
+/// C10: of the next two low waters, the better for the Starfish Court: the one that
+/// clears it, or clears it the longer ("first", "second"), or "neither". And how
+/// long until the next low water, for the Undertow's slip.
+pub(super) fn better_low(world: &World) -> (&'static str, i64) {
+    let now = world.now().0;
+    let s = season(world);
+    let court = HEIGHTS
+        .iter()
+        .find(|(k, _)| *k == COURT)
+        .map(|(_, h)| *h)
+        .unwrap_or(0.09);
+    let lows: Vec<i64> = (cycle_at(now)..cycle_at(now) + 4)
+        .filter(|c| low_water(*c) > now)
+        .take(2)
+        .collect();
+    let clear = |c: Option<&i64>| -> i64 {
+        c.and_then(|c| dry_in(*c, court, s))
+            .map(|(from, to)| to - from)
+            .unwrap_or(0)
+    };
+    let (a, b) = (clear(lows.first()), clear(lows.get(1)));
+    let which = if a == 0 && b == 0 {
+        "neither"
+    } else if b > a {
+        "second"
+    } else {
+        "first"
+    };
+    (
+        which,
+        lows.first().map(|c| low_water(*c) - now).unwrap_or(0),
+    )
+}
+
 /// The Sluice's gauge: every room of the wing cut into a brass staff at its height,
 /// and the water against it. Which rooms are under and which are clear, now; never
 /// when (the Tide Table keeps that). It gives the Sluice a reason to be walked to,

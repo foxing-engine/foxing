@@ -44,6 +44,7 @@ pub mod reading;
 pub mod rooms;
 pub mod secret;
 pub mod session;
+pub mod slips;
 pub mod speech;
 pub mod stacks;
 pub mod starfish;
@@ -486,6 +487,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // walkover fades in half an hour.
             // D39c: the named_at of the hour whose end was said to this name.
             .field("grace_said", FieldKind::Plain, Visibility::Owner)
+            // C10: the reference slips a name has answered today, and when it
+            // last answered each wrongly.
+            .field("slips", FieldKind::Plain, Visibility::Owner)
             .field("shelve_said", FieldKind::Plain, Visibility::Owner)
             .field("faint_said", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(ACCOUNT, 1).field(
@@ -1462,6 +1466,7 @@ pub fn register(world: &mut World, curves: Curves) {
     talk::register(world);
     letters::register(world);
     almanac::register(world);
+    slips::register(world);
     exchange::register(world, curves.clone());
     errand::register(world);
     cloak::register(world);

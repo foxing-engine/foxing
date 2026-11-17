@@ -932,6 +932,49 @@ a bound room, or a book's maker, may `unbind` and have the appends back
 as they were. Stories a creature has nearly forgotten fold the same way,
 into "a sheaf of N stories" worth their sum.
 
+## The reference slips
+
+    slips                             [DO] Quillwake MUST slips.
+    read slip                         [DO] Quillwake MUST read slip.
+    solve three                       [DO] Quillwake MUST solve "three".
+    read index wisp                   [DO] Quillwake MUST read "index wisp".
+
+One thing in each district pays for reading and not for reflexes. A
+reference slip is pinned in one room of each of the twelve districts
+(`look` says so where one is; `slips` lists the rooms and which you have
+answered today): a reader's question that the room it hangs in does not
+answer and the world, read somewhere else, does. `read slip` gives the
+question and says where a reader might look; `solve <your answer>`
+answers it, in a few words (a name, a figure, a choice). None can be
+answered from yesterday: each asks for the world as it stands when it is
+asked. What the signpost's first arm wants. Which dug door has least of
+itself left. Who fell last. How many creatures wear a name. How long
+until low water. How many ways lead off a room the index names. How many
+times the clock has struck. What the next division will do with the
+petition the Clerk takes first (the order paper, a regular's standing
+and the stages settle it before the clock does). Which room keeps the
+most named creatures. How many arms a signpost has for you. Which of
+three corrections on the Errata Desk is itself wrong (a different one
+for each reader). Which of the next two low waters is the better for
+the Starfish Court.
+
+A right answer is a memory worth 25 at vividity 0.8, once a day (UTC)
+to a name for each slip, and all twelve in one day is the Reader's
+Round, 100 more. A wrong answer costs no memory: that slip will not
+hear you again for ten minutes, thirty where the answer is one of
+three, so reading is cheaper than guessing. No slip is pinned where
+anything worth the name hunts.
+
+The Card Catalogue in the Lower Stacks is a real index of the public
+record: `read index <subject>` there pulls the card for a name (when it
+was taken, how often it has fallen, the rooms it dug, the creatures it
+named, its standing in the Conclave), for a creature with a name (its
+kind, where it is kept, what it holds and wants), for a kind of
+creature (its hit points, its blow, its worth, where it is found), or
+for a room (its district, who dug it and how much is left, the ways off
+it, what stands in it tonight). The cards do not say what a name holds
+or carries.
+
 ## Read
 
     log                               [DO] Quillwake MUST log.
@@ -943,7 +986,7 @@ into "a sheaf of N stories" worth their sum.
 `feedback "…"` from the play page is the feedback button beside leave:
 a box, then this verb. `travel` says the room it reaches; a `look`
 right after it in the same message is carried by it and does not run.
-`messages` is what was said to you, latest last: words said to you in
+`messages` is what was said to you, newest first: words said to you in
 a room, words left for you while you were away (they are shown once at
 the top of your next arrival, and here after), a creature's answers,
 the Docent's. `session` is what has happened since you arrived: how

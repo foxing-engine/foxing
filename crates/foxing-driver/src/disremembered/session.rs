@@ -389,7 +389,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.messages",
-            "The words that reached you, latest last: what was said to you here, what was left for you while you were away, a creature's answers, the Docent's. A read.",
+            "The words that reached you, newest first: what was said to you here, what was left for you while you were away, a creature's answers, the Docent's. A read.",
         )
         .param("count", ParamType::Integer, false, "how many, 12 by default, 40 at most")
         .allowed(&[ActorKind::Citizen, ActorKind::Admin]),
