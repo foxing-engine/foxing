@@ -17,14 +17,12 @@ for you is marked **waits**: the M and L decisions not from an issue, and anythi
 where the lean is a coin flip. Nothing ships silently: the morning report lists what
 went by policy, with ids.
 
-## Decisions (D): one letter each; **waits** means yours, the rest go by policy
+- **ALPHA · what stands until beta** (called 11-15; the gates and how each was met are in the ledger). The reset warning stays until beta; beta brings deploy windows, and with them "no resets" and a tried restore. Capacity work stopped at five hundred names answered: S15 is for after alpha. Nothing else is a gate: no invites, cap, moderation or status page.
 
-From the cohort of 11-16 (six names, ninety minutes: three on the starfish, a detective, a resident, a hunter of the other bosses)
+## Decisions (D): one letter each; **waits** means yours, the rest go by policy
 
 Stories, errands and the word ladder
 - **D33 · The third word by meaning, not by token** (M/L; **waits**: David raised it 11-11, "use our haiku connection to do semantic analysis at level 3"). At the third rung the creature holds a meaning ("something lent and never returned"), and a story strikes it by being about that, in any words; a model reads the story against a fixed rubric and answers 0 to 3 with one line in the creature's voice. What it buys: no word list finds it, hints can be thematic, and the top rung is understanding, not search. What it costs, and how each is met: the verdict is late, so it arrives in `messages` the way the Docent's does and is never made under the world's lock; `check` cannot predict it, so rungs one and two stay lexical and only the top is a judgment; two like stories may be judged apart, so the rubric is fixed, the score coarse and the reason said; a story will address the judge, so the story goes in as data and a structured verdict comes out, tried first by a Watch member told to break it; when the model is not there the rung says the creature sleeps, and nothing guessable stands in for it. One judged story per creature per name per hour (the cost of an attempt is what D32 was about, and it caps the spend). a) **lean**: build it for the third rung as above, behind a switch, and send a teller and a breaker; b) the same, and the second rung too; c) no: the ladder stays lexical with D32 a.
-
-Economy and death
 
 ## Ready to ship (R): all ship on the Night's Watch by policy, in Claude's batches
 
@@ -51,30 +49,10 @@ From the Watch of six, 11-13, the night the second door opened (a newcomer, a fa
 - **R226** (S) A long message's reply is cut "under the statement limit"; it now says what was cut (receipts first, then the last answers) and that every statement ran. What is left: cut the answers to reads before the answers to acts, which wants each line to know its statement.
 - **R227** (S) The quickstart, what is left: `reply` to a letter whose writer is forgotten too is not described; the first letter a visitor sees may be no. 2.
 - **R244** (S) A wisp that holds a memory of yours shows in `look` with no id and cannot be aimed at by id. (`messages` stamped a creature's answers rightly on 11-16; no fix was made for it by name, so watch for it.)
-- **T20 · The world down for 21 minutes, 11-15 (07:51 to 08:12 UTC), by the load tests.** Boot read the whole log into memory twice (once for the store, once for jobs and folds). Six load runs in one evening took the log from 0.78 to 1.38 million events; at that size boot wanted 6.9 GB on a box of 7.7, the kernel killed the driver 26 s into every start, and neither the new build nor the rollback could come up. An hour before, a good build had been rolled back for taking 55 s to wake where the deploy waited 50 (the wait is five minutes now). Boot and folds now read a page of 5,000 at a time. **What it teaches:** a load test on the live world writes to the live log for ever, and boot cost grows with the log: before more big runs, load names need a log that can be dropped, or the log needs archiving (David, 11-15: "we'll have to deal with log archiving at some point"), and boot needs a snapshot. The outage was found by a health check after a deploy that reported nothing, not by a notice: a driver that cannot start cannot say so, so the deploy workflow should say it in Discord.
-- **T21 · The load world, and the log's archive (David, 11-15).** (1) **Load tests run on a load world**: a second driver on the box, its own PostgreSQL database dropped and made at every start, ports 7787 and 7788, held to 2.5 GB and a lesser share of the processors; `deploy/server/setup-load-world.sh` once as root (David: yes), then `tools/loadtest.sh` and the `Load test` workflow start it fresh, run, read its `ops`, and drop it. `WORLD=live` is for a last rehearsal only. The harness times `/health` from a separate process, since the generator's own round trips above two hundred names are mostly its own lag. (2) **The load events already in the live log are not cut out** (they are 600,000 of 1.38 million; events depend on one another, and a log cut in the middle may not replay). They go with everything else when the log is archived: **a checkpoint of the world's state, the events before it moved to a second table (David: a second table, kept queryable), boot from the checkpoint and what follows it.** Unwritten; it touches boot, which took the world down on 11-15, so it wants a design, a copy of the live log to rehearse on, and a replay that is compared with the state it replaces. (3) Load names (`Gnload…`) are left out of the board's count of names forgotten (David: yes).
-- **S16 · The log's archive: a checkpoint, a second table, a boot that does not replay everything** (M/L; alpha gate 3; David, 11-15: next, the design here, a second table kept queryable). **Not started.**
-  - **Why.** Boot replays every event: 1.39 million on 11-15, about a minute of nobody answered at every deploy, and it grows with every event for ever (it took the world down once, T20, when it grew past memory). 600,000 of those events are one evening's load tests, which cannot be cut out of the middle of a log whose events lean on each other.
-  - **What a checkpoint is.** One row in a new table `checkpoints (world, seq, at, driver, body)`: everything boot builds from the log, as it stood after event `seq`. That is four things, and the design stands or falls on the list being complete: (1) the store (it already serializes; its kind, parent and owner indexes are rebuilt on load, as they are skipped in the serialized form); (2) the pending jobs; (3) the three folds kept from the whole log: the board's, the citizens' (who has a name and a passphrase) and the waiting words' (`tells`); (4) the small things boot learns on the way: the log's head, what `seen` warmed. `body` is that, compressed.
-  - **Boot.** If a checkpoint exists for the world and this driver can read it: load it, then replay only the events after its `seq`, a page at a time as now. If there is none, or it does not load (another driver's shape, a schema that has since gained a field the body lacks, a body that does not parse): say so in the journal and replay the whole log as today. **The checkpoint is never the truth; the log is.** A driver must always be able to boot without one, and a deploy that changes the store's shape simply ignores the old checkpoint and writes a new one.
-  - **Writing one.** After a boot has finished and the world is answering, and then once a day at the quiet hour: under the world's lock only long enough to copy the state (the store clones; measured before it ships), serialized and written outside the lock. One kept per world, and the one before it, in case the newest will not load.
-  - **The second table.** `events_archive`, the same columns and indexes as `events`. Archiving moves every event at or before the checkpoint's `seq`, less a tail, from `events` to `events_archive` in one transaction (insert, delete, the checkpoint's row marked `archived_through`). The tail left in `events` is the last 60,000 events: the furthest back any verb reads today (`recent_events(60_000)`; the rest read 8,000 or fewer), so `messages`, `session`, `log`, `news` and the folds' tails answer as they do now without knowing the archive exists. The archive is read by nothing in the game; it is there for a query by hand, for `trace`, and for a full replay.
-  - **A full replay stays possible.** `foxing-driver replay --from-archive` (and the tests) reads `events_archive` then `events` and must arrive at the same store as the checkpoint plus tail. That comparison is the proof, and it is run before the first archive and by a workflow after every one.
-  - **What changes for the nightly backup.** It copies the log; it must copy both tables and the checkpoints, and a restore must be tried once (beta's gate, but the backup must not silently start missing two thirds of the history).
-  - **The order of work, each step shippable alone.** (a) Checkpoint written and read, archive untouched: boot falls from a minute to seconds, and the whole log is still in `events` if anything is wrong. (b) The comparison tool and workflow: a full replay against the newest checkpoint, on the load world's database with a copy of the live log (`pg_dump` of one world into `foxing_load`; David or a workflow, as root). (c) Only then the move to `events_archive`, first on that copy, then live at a quiet hour with the backup taken first.
-  - **What can go wrong, and what catches it.** A fold or a piece of state missing from the checkpoint: the comparison (b) differs, before anything is moved. A checkpoint a new build cannot read: boot falls back to the whole log (so (c) must keep that possible: with the archive in place the fallback reads both tables). A verb that reads further back than the tail: a test that walks every `recent_events` caller against a world whose older events are archived. The move interrupted: it is one transaction.
-  - **(a) shipped 11-15.** `checkpoint.rs`: a file beside the data, `checkpoint-<world>.json` and the one before it (a file and not the table first written here: the same for every kind of log, and already inside what the nightly backup copies). It holds the store, the pending jobs, the three folds, the schemas boot started from, and the place and time of its last event. Boot uses it when its format and schemas are this build's and the log has that event written at that time; otherwise it says why in the journal and replays everything. It is not tied to the build (every deploy is a boot): `checkpoint::FORMAT` is raised by hand when the same events would fold differently, and (b) is what catches a change that forgot. Written a minute after boot and daily. A test holds a boot from a checkpoint to a boot from the whole log: the same store with its indexes, jobs and folds; and a local world on PostgreSQL restarted both ways gave the same board and citizens' report (4,027 events replayed in place of 8,940). The first live boot after this deploy replays everything once more; the one after is the short one. `FOXING_CHECKPOINT=0` turns it off.
-  - **(a) on the live world, 11-15 19:56 UTC.** The first checkpoint: the world as of event 1,387,845, 4.1 MB, the lock held 55 ms. The restart after it: started and answering inside the same second, 77 events replayed where 1.39 million were, and not one `/health` probe missed (they ran every three seconds through the deploy). The process that replayed the whole log a page at a time peaked at 270 MB; the one before it, also paged, at 4.3 GB over ten hours, and what that was is not known (not boot: look at the board's fold and the citizens' report when next it is seen).
-  - **(b) shipped and run 11-15.** `foxing-driver verify-checkpoint`: the whole log replayed from its first event in a process of its own and held against the checkpoint at the checkpoint's event and again at the head: the store with its indexes, the pending jobs, the three folds. It reads and writes nothing; `Server check` with `verify-checkpoint` runs it on the box beside the live driver and fails when they differ. A test meddles with a checkpoint's store and its jobs and is told which. **On the live log, 22:06 UTC: verified**, 1,390,200 events replayed in 44 s, the same both ways at event 1,387,930 and at the head 2,270 events later. It ran against the live log itself and not a copy (it only reads); the copy is for (c), where events are moved. To do with it: run it after each deploy that touches a fold or the store's `apply` (that is what catches a `FORMAT` not raised), and before and after the first archive.
-  - **(c) built 11-15; not run on the live log.** The log is two tables that are one log: every read is of `events_archive` and `events` together in order (one statement, one snapshot), so a boot with no checkpoint, a fold's first read and the verifier get the whole log without knowing there is an archive (simpler and safer than the flag first written here). `foxing_log_postgres::archive` moves a world's events through a place in one transaction and never the newest; `foxing-driver archive` says what it would move (a dry run), and with `--yes` verifies the checkpoint against the whole log, moves everything older than the checkpoint less a tail of 60,000, and verifies again. Tests: an archived log reads whole across the edge, appends where it left off, and another world's events are untouched. Rehearsed on the workspace's PostgreSQL: 11,331 of 14,317 events moved, the board and the citizens' report the same before and after, every verb that reads back answered, a load played on top, and the board from the whole log (both tables) the same as from the checkpoint. `deploy/server/rehearse-archive.sh` (the `rehearse-archive` server check) does the same on the box with a copy of the live log, as the deploy user and without root: a schema of its own in the load database. **Before the live run:** (1) the rehearsal on the box passes; (2) **every release the box could roll back to reads both tables** (a build that reads only `events` would boot a world from the tail alone): so two deploys of this build or later must have gone out first; (3) a database backup taken; (4) David says go. After it: `VACUUM (ANALYZE) events` (the table keeps its size until then), and the nightly backup is checked to carry `events_archive`.
-  - **(c) rehearsed on a copy of the live log, three times, 11-15 23:34 to 00:15 UTC; the third clean.** The deploy user needs no root for it: a schema of its own in the load database, the live log copied in with one COPY (45 s, 1.39 million events). **Run 1** moved 1,330,205 events in 17 s and verified before and after, and found the read wrong: one `UNION ALL ... ORDER BY seq LIMIT n` was planned as a sort of everything past the cursor, and for 45 minutes the live world's `/health` (which reads the first event) took 0.5 to 0.65 s where it takes 0.3. **Run 2** found two things that would have hurt the live move. The one transaction, in another database on the same PostgreSQL, stopped the live world's own appends for about 25 s (a `/health` probe timed out at 20 s): **the move now goes 20,000 events at a time with a breath between, each batch whole or not at all, taken up where it stopped.** And after the move a read from below the edge walked every moved row's dead index entry (a boot from the checkpoint took 47 s): **every read now starts `events` at the archive's edge, in one statement**, and takes a tenth of a millisecond to a millisecond and a half on a 400,000-event log just moved. **Run 3:** 1,331,177 events moved in 45.5 s in batches; the checkpoint verified against both tables after the move and again after play; a boot from the checkpoint in 4 s and from the whole log in 44; every verb that reads back answered; all 140 names on the board with the same earned, told, fallen, felled and dug both ways; and the live world, probed every four seconds throughout, 0.32 s at the middle and 0.56 at its worst. The live log is untouched and nothing is archived. Left to do for the live run: a dump of `events` first, the move at a quiet hour, the verifier after, and the nightly backup looked at; David's go.
-  - **(c) DONE on the live log, 11-16 01:28 to 01:32 UTC (David: "let's go for it").** A dump first (`events-before-archive-20261116T012858Z.dump` beside the data, 409 MB, 14 s; `pg_restore --clean` is the way back, not rehearsed). The checkpoint verified against the log, twice, before. **1,332,165 events moved in 46.7 s, 20,000 at a time**; the checkpoint verified against both tables after. `events` holds 60,017 (1,332,166 on), `events_archive` 1,332,165. The live world, probed every three seconds: 0.33 s at the middle, and one probe of 12.6 s at 01:30:02, forty seconds before the move began and fifty after the dump ended (the dump's 409 MB reaching the disk is the likely cause; not shown). After: every verb that reads back answered, a line said and heard, and a restart booted from the checkpoint on the archived log with no probe missed. `events` still measures 1,255 MB until autovacuum has been through it. **Owed:** the nightly backup looked at (root: does it carry `events_archive`?); the dump file removed when David is content (it is inside what the backup copies); a restore from that dump tried once on the load database; the archive run again when `events` has grown (by hand for now: `Server check` → `archive-live`).
-  - **Decisions inside it, mine unless David says otherwise.** The tail is 60,000 events; checkpoints are daily and at boot; two are kept; load-test events are archived with the rest and not deleted.
-- **ALPHA · called 11-15 (David): the world is alpha.** The label is changed everywhere it is shown; the reset warning stays until beta (gate 2). The world card's `"prealpha"` block is `"humans"` now (David, 11-15). The gates as they were: (1) **Five hundred names at once at any usable level, even highly degraded: met** (11-15, on the load world: every command answered, about a second at the middle, 3.7 s at the 95th; David accepts it without a live rehearsal, and capacity work stops there: S15 (a) and (c) are for after alpha). (2) The reset warning stays until beta; beta brings deploy windows, and with them "no resets" and a tried restore. (3) **The log's archive: done** (S16, 11-15 and 11-16: boot from a checkpoint inside a second, the older events in a second table, the two held together by a verifier). (4) A deploy that fails says in Discord whether the world is up (shipped 11-15). (5) **The first hour is fixed before it is called alpha** (David): `help` opens with what to do and `wants` explains its pay notes (shipped 11-15); what a newcomer still trips on is R248's. (6) Nothing else is a gate: no invites, cap, moderation or status page. Open decisions: none but D33, which waits.
 - **R254** (S/M) The open Watch of 11-17 (Gnuance, Gnickel, Gnoodle, Gnavigator; no job given), what it found outside the slips. **The hour's sixty messages ended three of four evenings early**: each spent them in ten to twenty-five minutes (a free read batched with a counted statement costs a message, and a walk of the twelve slips is forty) and then waited thirty-five minutes or stopped; two could not reconcile the Budget line's figures (22.75 left, then 7). David's to weigh. **The Reading Rooms' rule is not in the room** (one fell at the Errata Desk: four `attack`s in a message, a quarter landing, "the Reading Rooms' things are fought by what you tell them" said only after the first blow; `look` there says only that the erratums keep to themselves). **The Stile's signpost says "somewhere you have been" of a room seen only from a door** (The Sighing Meadow, three of four; the Lookout's slip asks for the same count, so it is consistent and the word is wrong). **"Does not know you" in `look` an hour after "it knows you" in `wants`** (three of four; whether it forgot or the two lines read different things). **An errand another name has done still stands in `wants`** and costs the walk ("Gnavigator brought me that word already... Thank you for the walk", two of four, ten rooms through tide water). **A wanted story paid double twice inside five minutes** where `wants` says once an hour for each teller (each story brought a new want that paid double again; a full creature's fresh want is listed with only a trailing "(full for the hour)"). **The creature's word**: "you said none of the words it could be" before anything has said a word exists; "five letters or more" only after four tries; a plural is not a candidate; twenty-five minutes at one weighed guess in three for a word that then paid 2. **The Docent sent a name to Gedder "in the Fogbank"** when it lived in a dug room. `keep` says "Keep the passphrase; nothing recovers it" of a passphrase the name was never shown. A shout from the Hush arrived at the Lookout fourteen minutes later to nobody. A revenant cost 42 hit points and paid 1.6 (its row said "holding 2"): a trap more than a fault. `session` counted three things said by a name that had used no `say`. A wisp ember listed by `look` was gone at `take` with "no wisp ember here to speak of" (someone took it; say so).
 - **R253** (S) The strike team of 11-17, what is left. **One of three never had the first-hour line** (Gneiss, named 23:33:09, walked six rooms at 00:34 and was told nothing; the other two were told at 00:33): cause not found; it fell in its first hour and was fifteen minutes silent before the hour ended, and the other two were neither. **The Shaken spiral**: a name that fell went back in at three strikes in ten, then one in four, and fell three more times in six minutes, each walk back stopping at a hollow that a three-`attack` message then chained into the next creature (say in the fall's line how long until a swing is worth sending; consider `travel` not stopping for a creature that a shaken name cannot fight). **A message of three attacks at ten hit points** runs all three (the "next blow could be your last" line comes after the blow that made it so): stop a batch's later attacks when the last blow left a name where the next could fell it. **`travel` walks into the Sump** at six hit points with the warning in the text and no stop. `retreat south` is refused whole at the gate (an argument `retreat` does not take): say so in the refusal. A buckler's third fight spends it with no line saying it is spent. The wake of a passing name is the Threshold or the Postern and the manual says "your door".
 - **R252** (S) D41, what is left: twelve rooms answer `read` for the things their text names (the wing's nine, the Pneumatic Room, the Chart Room, the two Reserves); the rest of the Stacks, the Trail, the Clocktower and the ground floor do not yet. A batch a Watch. Each room has one text for all its nouns (the strike team noted `read desks` and `read footprints` as the same line): a second text for a room's second thing, where it has one.
-- **R251** (M) What is left of David's six calls of 11-16 (D34, D35, D36, D37c, D40c, D42; all live). **Seen on the live world 11-17:** four arms cut and what each shed, the starfish felled, the way south open and the book read by all three (80 each), a shell buckler taking a first blow, a jar of fog covering a retreat, a raised bandage binding for twenty, the first-hour line, `rest`'s parting-blow figure. **Still unseen:** an arm growing back (it fell inside one low), a salve, a dart, a lantern or a charm acting, a Warden fought at its new figures, the Purse taken at six hundred, a full creature answering a guess, a creature at home fading at half the pace over an hour, the shelve line at eight chunks. **Not built, and David's to call:** a recipe for the starfish arm (three lay on the Court's floor after the kill; one was taken) and for the brine pearl; whether the starfish's blows should miss one in four as a name's do; whether the way down opens when it has too few arms to lie across the door. **To watch (D43, D44, live 11-17, none of it seen in play yet):** every fall to a whole starfish goes into the same arm, the first to come off, so what earlier parties lost is one thick arm in front of four plain ones (a fall of 100 is about 107 hit points on that arm; "the arm holding least" is a one-line change if that reads wrong); a boss that holds memories and is felled still gives one memory to the striker alone and stands (only the coming apart is shared), and the Purse is its taker's; a share is capped at each name's own level plus sixty, so a low name's share of a Warden is mostly lost; one blow and a walk away earns a full share ("a tenth of the damage" was the other choice). **Also to watch:** a body has no ceiling now, so a name at level 2,000 has 230 hit points and the Wardens' 27 to 29 is a different sum for it; a night lantern found on Lantern Row's hook is second tier, so whoever carries it lands nine in ten; the starfish learns (it had a shove after three arms and a bite that will not close after four), which no text of its own says.
+- **R251** (M) What is left of David's six calls of 11-16 (D34, D35, D36, D37c, D40c, D42; all live). **Still unseen:** an arm growing back (it fell inside one low), a salve, a dart, a lantern or a charm acting, a Warden fought at its new figures, the Purse taken at six hundred, a full creature answering a guess, a creature at home fading at half the pace over an hour, the shelve line at eight chunks. **Not built, and David's to call:** a recipe for the starfish arm (three lay on the Court's floor after the kill; one was taken) and for the brine pearl; whether the starfish's blows should miss one in four as a name's do; whether the way down opens when it has too few arms to lie across the door. **To watch (D43, D44, live 11-17, none of it seen in play yet):** every fall to a whole starfish goes into the same arm, the first to come off, so what earlier parties lost is one thick arm in front of four plain ones (a fall of 100 is about 107 hit points on that arm; "the arm holding least" is a one-line change if that reads wrong); a boss that holds memories and is felled still gives one memory to the striker alone and stands (only the coming apart is shared), and the Purse is its taker's; a share is capped at each name's own level plus sixty, so a low name's share of a Warden is mostly lost; one blow and a walk away earns a full share ("a tenth of the damage" was the other choice). **Also to watch:** a body has no ceiling now, so a name at level 2,000 has 230 hit points and the Wardens' 27 to 29 is a different sum for it; a night lantern found on Lantern Row's hook is second tier, so whoever carries it lands nine in ten; the starfish learns (it had a shove after three arms and a bite that will not close after four), which no text of its own says.
 - **R250** (S) What is left from the resident of 11-16: a creature that knew a name a quarter of an hour ago "does not know you" with nothing said of forgetting ("no longer knows you" where it once did); a second `attack` in the message that felled the thing says "is not here (felled, drifted off…)" (say "you felled it a line ago"); the Gatekeeper's answer is the Docent's text unchanged (one desk, one voice: by design, but a line in his own would cost little); `help` and the first lines name neither `session` nor `shelve`; nobody signed the visitor book in 85 minutes; the same few unnamed creatures at the doors are fought over by four names at once. With R190 (a room of your own saying what your absence did, which `mine` does well and the room does not): the resident's first ask, as it was the builder's.
 - **R249** (S) What is left from the Watches of 11-16: a wounded wisp that `retreat` left did not drift off in a minute, so R169 is still unseen; the one-story-an-hour refusal that says when the hour turns was not reached (the wanted-story refusal came first), so it is unseen live, as are "holding nothing now" and the line for taking back what a fall gave a creature; the Docent's by-heart answer to two questions says it answered one and names the verb, not the question.
 - **R248** (S) What is left from the Watch of 11-14 (sixth): no strike on a hidden word has been seen live; the wait between weighed guesses is three minutes now (was ten). The cut-reply fall guard was not reached live and has no test of its own. (Looked at 11-16 and not faults: a bare `attack` that begins a fight says "You turn on …"; a blow is the kind's attack plus a fair die of three, and another tester's lampmoth hit 4.)
@@ -178,240 +156,9 @@ page keep these by verb. One world behind one lock is still the shape; what is l
 - **S4 · Readers do not wait on writers** (L). Public reads (`/v0/map`, `/v0/board`,
   cloak, observe) served from a snapshot swapped in after each write, so a read never
   takes the world's lock: what lets a hundred watchers cost nothing.
-- **S6 · A load test that is a Watch** (M; begun 11-13 on the live world, by David's
-  word). `tools/load.py <names> <minutes>`: passing names at a player's pace, six in
-  ten on a session with the play page's three subscriptions, two in ten through the
-  gate, two in ten at the plain command door; fighters, walkers and tellers; a steady
-  probe of `/v0/board` and `/health` beside them. The first batch, twenty names for
-  seven minutes at 315,000 events: 1,444 commands (3.4 a second), the world's share of
-  a reply 5 ms at the middle and 15 at the 95th (a gate message of three, 24), nobody
-  waiting on the lock past 55 ms, a keyboard round trip 104 ms at the middle and 205 at
-  the 95th, the probe flat, no reply other than 200. What it found: the pushes. Twelve
-  sessions were sent 63,854 frames, 57 MB, eleven kilobytes a second each, for 8,002
-  events written: every session is sent nearly every event (S5 is next, on this
-  evidence). Two of twelve sessions were closed from the far side mid-run with no
-  close frame (at four and six minutes; nginx's or the driver's doing is not known).
-  And the game's own limit came first, as S8 said: 182 of 269 strikes from eight
-  fighters found nothing to fight.
-  The second batch of twenty, with the box read beside it (the server check's
-  `vitals`, every five seconds): four cores and 7.7 GB, 98% idle through the run; the
-  driver 4% of one core at the middle and 8% at its worst, PostgreSQL under 1%, nginx
-  1%; memory flat at 0.8 GB; no wait on the disk; 16,900 pushes held the world 6.6 s
-  of 366. The log grew 6 MB for 7,500 events (about 800 bytes an event: a gigabyte for
-  every 1.3 million). Seen in passing, for S7: `shared_buffers` is PostgreSQL's
-  default 128 MB under a 362 MB table; the driver peaks at 2.3 GB while it replays the
-  log at boot and takes 21 s to do it; and every push to `crates/**` restarts it.
-  Fifty names, six minutes: 3,134 commands (8.4 a second), 66 events a second, every
-  reply a 200. The world's share of a reply 5 ms at the middle and 27 to 39 at the
-  95th; the wait for the lock 6 ms at the 95th and 55 at worst. The box 93% idle; the
-  driver 19% of one core at the middle and 31% at its worst (two and a half times the
-  names, four and a half times the CPU); PostgreSQL 1.3%, nginx 3%; memory flat. The
-  pushes are the curve: thirty sessions were sent 345,710 frames, 335 MB (nearly six
-  times the twenty's), and 92,000 pushes held the world's lock 38 s of 370, a tenth
-  of the run. On that curve a hundred names is most of a core and the lock held near
-  half the time by pushes alone: **S5 comes before a hundred.** (The test's own
-  machine, two cores reading 900 frames a second, is by now part of the round trip it
-  reports; the driver's figures are the ones to trust.)
-  Fifty again after S5 (a change read once and pushed only to the sessions it
-  concerns): the same 8.7 commands a second and 76 events a second; the driver 7% of
-  one core at the middle and 9% at its worst (it was 19 and 31); 53,770 frames and
-  29 MB to thirty sessions (346,000 and 335 MB); the pushes held the lock 5 s of 370
-  (38), and 81,765 of 102,000 wakings took no lock at all. The world's share of a
-  reply is unchanged (5 ms, 30 at the 95th: `tell` and `say` in a crowded room are the
-  slow verbs now, 33 and 18 ms at the middle, writing a line for every listener).
-  What the fifty found that is not speed: a room past a hundred things had no room
-  panel (mended the same day: a room says its fifty best remembered names and counts
-  the rest), and one session in thirty still drops mid-run.
-  Next: a hundred, then two hundred, each with `vitals` beside it.
-  **A hundred names, six minutes (11-14, after S5 and S9, at 415,000 events):** it
-  held. 6,353 commands (17 a second), 180 events a second, every reply a 200, no
-  session dropped. The world's share of a reply 5 to 9 ms at the middle and 36 to 76
-  at the 95th; the wait for the lock 16 to 20 ms at the 95th, 174 at worst; a
-  keyboard round trip 123 ms at the middle and 399 at the 95th, the gate's 335 and
-  611. The box 85% idle (four cores); the driver 44% of one core at the middle and
-  85% at its worst (twice the names of fifty, six times the CPU); PostgreSQL 3%,
-  nginx 3%; memory flat at 0.85 GB; no wait on the disk. Where it went:
-  `say` and `tell`. A `say` wrote 41 events and took 28 ms, a `tell` 76 events and
-  51 ms, nine tenths of it the log: 558 of them, a tenth of the commands, wrote half
-  of the run's 68,900 events. And the pushes again: 92,600 held the world's lock
-  102 s of 370, more than a quarter of the run (294,000 were passed over, S5's
-  doing); sixty sessions were sent 273,000 frames and 509 MB, 23 kB a second each,
-  389 MB of it `obs:room`, the whole room sent again on every change in it. Every
-  read (`chunks`, `map`, `time`) writes two events. The log grew 38 MB (560 bytes an
-  event; the disk is 150 GB, 3% used). Discord answered 429 to most of a hundred
-  "arrived for the first time" notices. 1,020 commands were refused, not broken down
-  (the test counts them and does not say why). **On this curve one core is full
-  near two hundred names**, and the lock, not the box, is the limit: S10 comes
-  before two hundred.
-  **A hundred again after S10 a and b (11-14, twice):** the same 16 to 17 commands a
-  second, and 62 events a second where there were 180 (23,200 for the run; 68,900).
-  A `say` 4.8 ms and four events (28 ms, 41), a `tell` 6.2 ms and five (51 ms, 76).
-  The world's share of a reply 5 to 8 ms at the middle and 12 to 29 at the 95th (36
-  to 76); the wait for the lock 6 to 7 ms at the 95th (16 to 20). The driver 27 to
-  30% of one core at the middle and 57 to 59% at its worst (44 and 85); the box 90%
-  idle. The pushes held the lock 45 to 55 s of 370 (102); sixty sessions were sent
-  306 to 349 MB (509), `obs:room` still 187 to 220 MB of it. The log grew 21 MB
-  (38). **One core is now full nearer three hundred names than two.** What is left
-  of the curve is `obs:room`: twice a second is still the whole room each time; the
-  next step is to send what changed (S11, unwritten until it is wanted).
-  **Two hundred (11-14, 21:18 to 21:24, after the fifth Watch's deploy):** 200 names,
-  120 of them on sessions, 6.2 minutes, 12,079 commands (32 a second), 47,470
-  events (127 a second). Nothing failed: `/health` and `board` answered every probe,
-  eight logins were turned away by the login limit (429) and nothing else was. The
-  world's share of a reply 4 to 8 ms at the middle and 12 to 33 at the 95th, worst
-  79; the wait for the lock 11 ms at the 95th, worst 128. The driver 78% of one
-  core on average and over 100% at its worst (it has more than one thread; the box
-  never under 52% idle), PostgreSQL 3%, appends 0.7 ms. **The pushes held the lock
-  165 s of 370** (45%), and 120 sessions were sent 882 MB: `obs:room` 423 MB,
-  `store.component_set` 189, narrative 118, `say` 60. So two hundred hold with
-  replies still quick, and the lock is the limit as foretold: the pushes would fill
-  it somewhere past three hundred. S11 (send what changed in a room, not the room)
-  is now the next thing a larger crowd needs. The arrivals went to Discord as a
-  crowd for the first time, and read well (David, 11-14).
-  **S11, shipped 11-14 (David: build it now, test on the live world):** a session is
-  sent an observation only when it differs from the last one sent; the play page asks
-  for patches (`"patch": true` on subscribe) and is sent what changed, by node; and
-  somebody else's change waits 0.5 s in a room of up to forty things, 1 s to a
-  hundred, 2 s beyond (one's own is still sent at once). Three hundred names next.
-  **Three hundred (11-14, 16:45 to 16:51, on S11):** 300 names, 180 on sessions, 6.3
-  minutes, 14,195 commands (38 a second), 59,767 events (158 a second). Nothing
-  failed (27 logins turned away by the login limit, as before; every probe
-  answered), but it is past the knee: the world's own share of a reply is as it was
-  (5 to 8 ms at the middle, 15 to 34 at the 95th; lock wait 14 ms at the 95th), and
-  a reply's round trip from here went from 0.13 s at the middle (two hundred) to
-  0.68 s, 2.6 s at the 95th, `/health` 0.68 s. The driver 111% of a core on average,
-  121 at its worst; the box 55% idle; PostgreSQL under 10%. S11 did what it was for:
-  `obs:room` 199 MB to 180 sessions (423 MB to 120), with the load test's sessions
-  not asking for patches. **What holds the lock now is the events, not the rooms:**
-  the pushes took it 347,000 times and held it 217 s of 378 (57%), each session
-  reading and redacting the same events for itself on every change; the events are
-  also most of the 881 MB sent (`component_set` 287, narrative 223, `say` 91).
-  **S13 (unwritten):** read and redact a change's events once for all sessions
-  (one pass under the lock, a per-viewer filter outside it), and stop sending a
-  session the `component_set` events its patched subscription already carries.
-  Until then the honest figure is two hundred names with quick replies, three
-  hundred with slow ones.
-  **S13 a, shipped 11-14 (the goal David set: five hundred names, and alpha):** each
-  event is judged once when its change is announced (can its entity be observed,
-  whose is it, who may see each field), and a session filters and cuts the events
-  for its own viewer with no lock; it takes the world's lock only to run an
-  observation that is due. Still to do under S13: not sending a session the
-  `component_set` events its patched room already carries.
-  **Three hundred again (11-14, 18:53 to 18:59, on S13 a):** 14,737 commands, nothing
-  failed (41 logins at the login limit). The sessions took the lock 71,000 times
-  where they had taken it 347,000, and a reply's round trip from here fell from
-  0.68 s to 0.43 s at the middle (2.6 to 1.9 s at the 95th). **But the lock was held
-  as long as before, 207 s of 378:** each hold is now an observation and nothing
-  else, 2.9 ms apiece, and the wait for the lock rose to 23 ms at the 95th. So what
-  costs is running a crowded room's observation once for every session in it, each
-  time it changes. The driver 130% of a core, the box 47% idle, PostgreSQL to 37%.
-  **S14 (unwritten, the next step to five hundred):** one observation of a room per
-  change, shared by the sessions in it (the public form once, each viewer's own
-  fields laid over it), or the observations run beside the world rather than under
-  its lock. And a load test from a box that is not this workspace, to tell the
-  world's slowness from the relay's.
-  **S14, shipped 11-14 (David: yes):** a room is run once for a change and shared.
-  The query engine runs it as a stranger (signed in, owning nothing) and notes
-  whom that cannot serve: the owner of anything in view with a field a stranger is
-  not shown, and everyone when a relation ran past its breadth. A session it
-  serves is answered from the one run; the rest are run on their own as before.
-  The play page's room query reads only public fields, so a room serves everyone
-  in it. A test holds the shared run to each viewer's own for three queries.
-  **Three hundred on S14, from a runner (11-14, 19:53; the harness's first run):**
-  16,959 commands, no errors at all (the tunnel goes around the login limit), a
-  reply's round trip 0.27 s at the middle and 2.2 s at the 95th. The first cut of
-  S14 shared almost nothing (a kept room was trusted only to the log's next event
-  anywhere); the second keeps a room until something in it changes. With the
-  observations timed by kind, the 190 s the lock was held went: rooms run for one
-  viewer alone 91 s (19,457 at 4.7 ms: every room past its breadth of a hundred,
-  where nobody shared), rooms shared 38 s (32,807), `me` 18 s (42,624). So the
-  packed rooms are what is left, and a room past its breadth is now shared by
-  every name the shared run kept (the order of what is kept is the order found,
-  no longer the asker first). An index of what each actor owns replaced a walk of
-  every citizen on each command and observation.
-  **And again with packed rooms shared (11-14, 20:03, from a runner):** no better.
-  15,901 commands, no errors, a round trip 0.36 s at the middle and 2.9 s at the
-  95th; the lock held 194 s of 378; rooms run for one viewer alone still 16,374 at
-  4.85 ms (79 s), shared 29,943 (35 s), `me` 37,959 (15 s). One wait for the lock
-  of 8.3 s, cause not found (not a push: their worst hold was 57 ms). A packed
-  room's observation measured on the workspace's machine, release build, 160
-  names: 0.42 ms, of which ranking the names is 0.07. So the same work costs ten
-  times as much on the box, under load, as here; and in a room of a hundred and
-  fifty names a hundred are still answered alone. **What is left is structural,
-  and David's to choose (S15):** (a) the world behind a read-write lock, so
-  observations run side by side on the box's four cores and only commands take it
-  whole; (b) a box with dedicated cores; (c) serve a name trimmed out of a packed
-  room from the shared run with its own node put in. Three hundred names hold with
-  no errors and a median reply near a third of a second; five hundred are not there.
-  **Five hundred (11-14, 22:06, from a runner; David: "let's yolo it"):** the world
-  stayed up and nothing was refused or lost (one session dropped on a ping), and it
-  was not playable: 13,480 commands (35 a second, fewer than three hundred made),
-  a reply's round trip 3.6 s at the middle and 11 s at the 95th, `/health` 4.8 s.
-  **The wait is not in the world and not at the lock:** a command's own time was
-  as ever (5 ms at the middle), the wait for the lock 42 ms at the 95th, the driver
-  105% of a core and the box 57% idle. The pushes held the lock 208 s of 390. So a
-  request waits seconds before any handler starts: the sessions take the world's
-  lock on the async runtime's own worker threads, and with three hundred of them
-  queued on it the four workers are all stood waiting and nothing else is picked
-  up. **S15 is therefore first: (0) keep the lock off the runtime's workers (more
-  workers at once; then the sessions' observations on blocking threads), before
-  (a) the read-write lock or (b) a larger box.**
-  **Five hundred, twice more, and what it really was (11-14, 22:27 and 22:35):**
-  forty-eight runtime workers changed nothing in the generator's figures (4 s at
-  the middle). Then the world timed from the workspace while a runner drove five
-  hundred names: `/health` 0.29 to 0.32 s and `board` about 0.5 s, **the same as with
-  nobody there**, for the last two minutes at full crowd; and one minute of stalls
-  of 2 to 10 s before it. So (1) the generator's own round trips above two hundred
-  names are mostly the generator (one Python loop reading a gigabyte of frames),
-  and (2) the stall was the departure sweep: a quarter of an hour after a restart
-  everyone the process has not heard from since goes, all in one tick under the
-  lock, and each run tonight came a quarter of an hour after a deploy (the 8 s and
-  11 s waits for the lock were this). A tick now sees off or forgets twelve names
-  at most. To prove: five hundred with the sweep landing mid-run, timed from
-  outside the generator throughout.
-  **Five hundred, timed from outside the whole run (11-15, 07:05 and 07:34 UTC):**
-  the earlier reading was wrong. `/health` took 2 to 14 s for as long as five
-  hundred names were in the world and 0.3 s the moment they left; the departure
-  sweep was a real stall and not the cause. Two things found in the path and
-  changed: every command announced its change by taking `announced` and then
-  waiting for the world's lock while holding it, so every reply queued behind that
-  wait (now a change is flagged and carried by whoever is announcing); and a
-  session that fell behind the announcements was answered from the log under the
-  world's lock on every wake (65,224 of 67,584 pushes at five hundred; a slow
-  reader cost everybody the lock): it now drops what it missed, is told, and has
-  its subscriptions sent again. The second of these is live as of 08:12 and not
-  yet measured.
-  **Five hundred on the load world (11-15, 09:15 UTC; the first run that wrote
-  nothing to the live log):** 24,667 commands in 6.3 minutes (65 a second, where the
-  runs before made 35), every one answered 200, no errors. `/health` timed by a
-  separate process every 2 s: 0.98 s at the middle, 3.7 s at the 95th, 12 s at the
-  worst, 56 of 115 over a second (before the two changes: 2 to 14 s throughout).
-  The generator's own round trips 1.0 s at the middle and 3.4 s at the 95th. The
-  wait for the lock is now where the time shows, 405 ms at the 95th: the queue is
-  at the lock and measured, no longer hidden behind `announced`. The live world,
-  timed from the workspace throughout: 0.31 s at the middle, 0.53 s at the worst,
-  as with nobody next door. The box 29% idle at its lowest, 1.3 GB used. **So five
-  hundred names are answered, every one, about a second apiece: degraded and
-  usable, on an empty load world.** Still to say it of the live world: one
-  rehearsal with `WORLD=live` (its log is larger and its rooms more), David's to
-  call. What would make it quick and not only usable is S15 (a) or (c). The
-  harness did not read the load world's `ops` (the token line; to mend).
-  **A second place to test from:** `tools/loadtest.sh <names> <minutes>` on any
-  machine with SSH to the box (an SSH tunnel to the driver's own port, around
-  nginx's per-address limits), and the same as a hand-run workflow, `Load test`.
-  **The dropped sessions were the test's, not the world's.** Eight and nine of sixty
-  sessions were reset mid-run in these two runs (none in the run before, two of
-  twelve and one of thirty in earlier ones). The driver now says in its journal why
-  a session ended, and the vitals check reads it: each was "reading from the client
-  failed: Connection reset without closing handshake", and the test machine's own
-  outbound relay logged the same seventeen closes as its own ("tunnel closed, code
-  1012, server_draining"). nginx and the driver were bystanders. A load test from
-  this workspace cannot hold sixty long connections without losing some; the
-  figures above are the driver's and are unaffected.
-- **S10 · What a hundred found, what is left** (a and b are live, 11-14).
-  - *c · A read writes two events*: answered 11-14 (a): kept. The gate's record of every message and reply, reads included, is the promise.
-  - *d · A lab arrival in Discord:* left as it is, by David's word (11-13): he
-    wants to see arrivals for now.
+- **S6 · The load tests, what is left** (the record of every run, twenty names to five hundred, is in the ledger). Five hundred names are answered, every one, about a second apiece, on an empty load world (11-15): degraded and usable, which met alpha's first gate. Load tests run on the load world (`tools/loadtest.sh <names> <minutes>`, or the `Load test` workflow) and write nothing to the live log; `WORLD=live` is for one last rehearsal, David's to call. The harness's read of the load world's `ops` was mended on 11-15 and has not been run since.
+- **S15 · Quick, and not only usable, at five hundred** (L; **waits**, for after alpha). What was left when the runs stopped was structural, and David's to choose: (a) the world behind a read-write lock, so observations run side by side on the box's four cores and only commands take it whole; (b) a box with dedicated cores; (c) serve a name trimmed out of a packed room from the shared run with its own node put in.
+- **S16 · The log's archive, what is owed** (the checkpoint, the verifier and the second table are live, 11-15 and 11-16; the design and the record of each step are in the ledger). The nightly backup looked at, as root: does it carry `events_archive` and the checkpoints? The dump taken before the move (`events-before-archive-20261116T012858Z.dump`, 409 MB, beside the data and inside what the backup copies) removed when David is content. A restore from that dump tried once on the load database (`pg_restore --clean` is the way back and has not been rehearsed). The archive run again when `events` has grown: by hand for now (`Server check` → `archive-live`, David's go each time), to be automated. `verify-checkpoint` run after each deploy that touches a fold or the store's `apply`. Not explained: a process that replayed the whole log peaked at 4.3 GB over ten hours where the next peaked at 270 MB (look at the board's fold and the citizens' report when next it is seen). Decisions inside it, Claude's unless David says otherwise: the tail is 60,000 events; checkpoints daily and at boot; two kept; load-test events archived with the rest.
 - **S7 · The box** (yours, later). One VPS runs the driver, PostgreSQL, nginx, the
   Docent and the Bindery. Before a second box: PostgreSQL's settings for the log
   table (it is append-only), a connection pool, and the driver built in release with
@@ -426,18 +173,17 @@ page keep these by verb. One world behind one lock is still the shape; what is l
   the new build (read-only, beside the running driver) before the switch, and stop
   there if it fails. It needs memory for two drivers at boot (2.5 GB each on a
   7.7 GB box), so it wants S7's look at boot memory first.
-- Order: S6 at two hundred; S4, S9. S2b when you choose.
+- Order: S4, S9; S15 after alpha. S2b when you choose.
 
-## Content (C): expansions, planned 11-12 at David's ask; C3 is live, the rest is not built
+## Content (C): expansions, planned 11-12 at David's ask; C3, C9, C10 and C11 are live in a first cut
 
-What the world has now: ten districts, about seventy rooms of its own, some thirty
+What the world has now: twelve districts, eighty-seven rooms of its own, forty-four
 kinds of creature, two tiers of recipes, the errand and the word ladder, the Conclave,
-Morphos twice a day. What the Watches keep finding is where it is thin, and that is
+Morphos twice a day, a tide, twelve reference slips. What the Watches keep finding is where it is thin, and that is
 where this starts: the door is crowded, the middle is empty, and almost nothing asks
 for two names at once. Sizes are for a first cut that a Watch can play. Say `C4
 brief` for a page on one, or answer the lettered ones.
 
-- **C11 · The Postern** (done 11-16: the Gatekeeper, the gate's own tally and day, the cloak's line for it, and a first-fight pointer from where a name stands). *Not done and not planned:* a name coming back from away is where it left the world, as now, not at its door.
 - **C2 · The Reading Rooms, what is left** (M; the first cut is live, 11-13: six
   rooms up a stair from the Archive, their creatures fought by tellings of fights
   you remember, a proofreader that strikes for repeats, a lampmoth that takes a
@@ -450,8 +196,9 @@ brief` for a page on one, or answer the lettered ones.
     leaves (moth dust, ink, thread), nothing of their own; the Docent does not know the rooms by heart; the play page has no button for a
     telling; a named one of these kinds is a listener like any other, and whether
     that is right is undecided; the pilots do not tend the Mezzanine.
-- **C4 · Things for two** (M). The Wardens (320 hit points) are the only fight sized
-  for company, and `retreat` already says "bring another name". Three small ones on
+- **C4 · Things for two** (M). The Wardens (260 hit points), the Assayer and the
+  starfish are the fights sized for company, each shared evenly among the names
+  that struck it (11-17), and `retreat` already says "bring another name". Three small ones on
   the way there: a bell in the Clocktower that takes two hands in the same minute, a
   door on the Trail with a key in each of two rooms, a creature that only takes a
   story told in two voices (one name starts it, another ends it within the hour).
@@ -483,10 +230,10 @@ brief` for a page on one, or answer the lettered ones.
 - **C8 · The third word by meaning** (D33, restated as content). The top rung of the
   ladder as a riddle of sense, judged by a model: the same build as D33, counted
   here because it is the first content that cannot be read out of the room's text.
-- **C9 · The Drowned Wing** (live 11-16, and through two Watches). The tide, the table, the water's sums, the walk's refusal, the grate and the starfish's bar have all been seen to do what they say. What is left: (a) **unseen live**: the starfish felled and the book read (no Watch name can), a great low and a neap, the three- and four-a-tick stages, the tide carrying a thing off or leaving one (none in an hour: the round may be too shy at one in three and one in six), a quiet name carried up; (b) **yours to weigh**: `retreat` tells a name to rest and stand again against a creature that mends before it does (the hermit, the anemone); an axolotl or an anemone is too much for a name near level 50, which is what the wing's upper rooms make of a newcomer; the world's own arrival lines ("had not expected you…") repeat across the wing and are not damp; a fall mends you whole and costs a point or two at that level, so falling is cheaper than resting nine minutes; (c) **to build**: recipes for the four new materials and the brine pearl, pictures for the wing on the play page, the sewer, the Ashen Wastes.
+- **C9 · The Drowned Wing, what is left** (live 11-16; the starfish felled and the book read 11-17). (a) **Unseen live**: an arm growing back, a great low and a neap, the three- and four-a-tick stages, the tide carrying a thing off or leaving one (none in an hour: the round may be too shy at one in three and one in six), a quiet name carried up. (b) **Yours to weigh**: an axolotl or an anemone is too much for a name near level 50, which is what the wing's upper rooms make of a newcomer; the world's own arrival lines ("had not expected you…") repeat across the wing and are not damp; a fall mends you whole and costs a point or two at that level, so falling is cheaper than resting nine minutes. (c) **To build**: recipes for the starfish arm and the brine pearl (R251), pictures for the wing on the play page, the sewer, the Ashen Wastes.
 - **C10 · For the agents, what is left** (live 11-17: twelve reference slips, one in a room of each district; `read slip`, `solve "<answer>"`, `slips`; and the Card Catalogue's `index "<subject>"`).
   - *Played, 11-17, by a Watch told nothing about reading:* all four found the slips unprompted inside their first six messages (the Fogbank's `look` line, or `slips` in the help), all four made the Reader's Round their first goal, and all four finished it, in 35 to 60 messages, with three wrong answers among forty-eight. "The best thing here"; "I would come back for it daily"; "a real treasure hunt across every district".
-  - **D47 · What the Round pays a newcomer** (S, David's). Each of the four took 400 from the slips inside its unhunted first hour and stood at level 450 to 520 before its first real fight (one was 523 at minute eleven); two then walked straight into fights worth 245 and 148. The slips were chosen "because they were the best XP per message I could see". **(a)** Leave it: it taught all four the whole map and none of it is a fight. **(b)** Pay less: 15 a slip and 60 for the Round (240 a day). **(c)** Pay by reach: 10 for the three that are one reading (the Door's, the Diggings', the Wilds'), 25 for the rest, the Round as it is. **(d)** A slip pays in full the first time a name ever answers it and half on later days. *Lean (d) with (c)*: the first Round is the tour and should feel like one; the daily one should not out-earn an evening's fights.
+  - *The pay stands* (David, 11-17: "leave it, we'll check for balance later"): 25 a slip and 100 for the Round. Each of the four first readers took 400 inside its unhunted first hour and stood at level 450 to 520 before a real fight; to look at again when balance is.
   - *Thin, and known to be:* the Library's and the Exergue's are answered from the same register; the Deep Water's and the Wing's from the same table. A second question for each slip, turning by the day, would stop the *method* being a thing told once.
   - *Not in the first cut:* the Docent knows the slips exist and where to look, not their answers; the play page has no button for `solve`, `slips` or `index`; the board does not show the Round; the index has no card for a made thing, a recipe or a statute.
 - Claude's order, if left to it: C11's rest, then C4. What it needs from you
@@ -587,12 +334,6 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   trademark filing checklist and a consult; the LLC; Tyler's crates, server and Glama
   maintainer access.
 - **Y5** Show HN, with a log dump, when the game is further along.
-- **Y6** Done on the boxes by David, 11-13 (his word; Claude cannot reach the apex
-  host to see the headers): text compressed on the site box
-  (`/etc/nginx/conf.d/gzip-text.conf`), `/play/mods/` served with
-  `Cache-Control: public, max-age=300, must-revalidate`, and the analytics timers
-  re-run. The box was ahead of the repo by that file and seven
-  lines of `nginx-agentscanplay.conf`; both are in `site/deploy/` since 11-14.
 
 ## Backlog (B), by area: pulled into R when its turn comes; say `B<n> next` to pull one
 
@@ -692,6 +433,7 @@ The world
 
 ## What the cohorts taught (T): durable; read before briefing a cohort
 
+- **T20 · The world down for 21 minutes, 11-15 (07:51 to 08:12 UTC), by the load tests.** Boot read the whole log into memory twice (once for the store, once for jobs and folds). Six load runs in one evening took the log from 0.78 to 1.38 million events; at that size boot wanted 6.9 GB on a box of 7.7, the kernel killed the driver 26 s into every start, and neither the new build nor the rollback could come up. An hour before, a good build had been rolled back for taking 55 s to wake where the deploy waited 50 (the wait is five minutes now). Boot and folds now read a page of 5,000 at a time. **What it teaches:** a load test on the live world writes to the live log for ever, and boot cost grows with the log: before more big runs, load names need a log that can be dropped, or the log needs archiving (David, 11-15: "we'll have to deal with log archiving at some point"), and boot needs a snapshot. The outage was found by a health check after a deploy that reported nothing, not by a notice: a driver that cannot start cannot say so, so the deploy workflow should say it in Discord.
 - **T16** (11-13, six on the live world, three minutes apart, the night a new door opened) Six find what four do not: three of the six reported the same break (an exit named `in`, which the gate's grammar drops) within fifteen minutes, and it was mended while the last three were still arriving. Name nothing an exit, a verb or a thing that the grammar treats as a small word (in, on, at, to, of, by: `foxing-clear`'s list); test every new exit through the gate, not only at the keyboard. A tester will not pace itself: told to play for thirty minutes, four finished in under ten of the world's. If time matters (a creature's hour, a ten-minute rule), give sleeps between named steps. With somebody standing at the Threshold all evening, all six woke at the Postern: the split is by who is in each room at that moment, and a Watch meant to try both doors needs one tester sent to stand at the gate first. A fix deployed mid-Watch is seen by the testers still out (one noted the exit change its name under it), which is a fair price; say in the brief that it may happen.
 - **T17** (11-14, the world down eight minutes) A new district took the live world down on its second deploy. The first walk into a district writes a field on the citizen named for its door (`edge_mezzanine`); the field was not in the schema; the running driver took the write, and the next boot refused to replay it. The rollback failed the same way, because the event was already in the log: a rollback cannot save a world from a write the older build cannot read either. What caught it was not a test: the test world never restarts. Now one does (`every_district_s_door_is_in_the_schema_and_the_world_reopens`). The wider rule: a write to a field the schema does not know should be refused when it is made, not when it is replayed (S9), and any change that adds a room, a district or a field wants one walk through it and a restart on a local world with a file log before it is pushed.
 - **T18** (11-14, four up the stair, each with one part) Four testers with four different parts found more than six with one: none overlapped except where it mattered (three measured pay, and agreed). The one given the manual first and told to predict before measuring confirmed the formula to the point in eight of eight and found every place the manual was silent; do that for every new rule with a figure in it. The dry run was wrong five ways on the new verb because only one of the gate's checks had been copied into it: a new refusal belongs in one function that both ask. A brief's own figures must be read off the world, not remembered (the brief said the Fogbank keeps two; it had five). A tester will bleed itself on purpose for a rule that rewards blood (ten `say "hi"` in a fight to make a memory vivid): any rule that pays for risk will be farmed by the cheapest risk. Staggered three minutes apart, the last report came back sixty-eight minutes after the first tester started; tell the owner it is an hour.
