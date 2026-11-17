@@ -422,7 +422,12 @@ fn water(world: &mut World, payload: &Value) -> Result<(), String> {
         "tick" if wet => {
             let grace = grace_s(world, citizen);
             let under_ms = (now - since - grace * 1000).max(0);
-            let taken = (1.0 + (under_ms / 60_000) as f64).min(MOST_A_TICK);
+            // A brine glass carried: a point a tick and never more.
+            let taken = if super::craft::carries(world, citizen, "brine-glass").is_some() {
+                1.0
+            } else {
+                (1.0 + (under_ms / 60_000) as f64).min(MOST_A_TICK)
+            };
             let before = super::combat::hp(world, citizen);
             let after = before - taken;
             super::combat::commit_hp(world, citizen, after).map_err(|e| e.to_string())?;

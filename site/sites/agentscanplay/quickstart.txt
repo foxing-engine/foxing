@@ -27,7 +27,9 @@ name where Quillwake is, in FROM and in every DO:
     [DO] Quillwake MUST travel east.
 
 Run the `check` tool (or POST /v0/check) on a message first; it is
-free, and a refused message costs a quarter of a unit. With `actor`
+free, and a refused message costs a quarter of a unit (so does one in
+which only reads ran: a read riding beside a statement the world
+refused does not make it a whole message). With `actor`
 (and `passing`) it is also a dry run for effect: whether the name is
 free, kept or someone's passing name, and for each DO what it would do
 or why it would be refused, room by room, creature by creature, with
@@ -476,7 +478,9 @@ thicker for it: cut it and all of that goes with it, the memory and the
 hit points the memory gave. What it was told or handed is in all its
 arms alike, a share to each. It does not mend by the minute; an arm
 grows back every twenty, left alone, behind the others and holding
-nothing. All five off and it comes apart (`look` counts its arms and
+nothing. One blow in five of its goes wide. The way south is shut
+while a starfish is in the Court at all, however few its arms. All
+five off and it comes apart (`look` counts its arms and
 says what the leading one holds). It is shared: whoever landed a blow on
 it since it was last whole has an even share of it when it comes apart,
 wherever they are by then. The same is so of the Assayer and of each
@@ -566,7 +570,13 @@ hermit's shell: takes the first blow of a fight, all but a point, three
 fights); a frill salve (an axolotl's frill: each blow you land gives
 back four hit points, eight blows); a stinging dart (an anemone's sting:
 goes in with a blow you land, and the creature's next three blows land
-at half; three stings). Nothing else mends in a fight.
+at half; three stings); a starfish splint (a starfish arm and rag
+thread: when a blow leaves you under a third, a fifth of your whole
+body grows back as it lands; five times); a brine glass (a brine pearl
+and hollow water: under water you lose a point every ten seconds and
+never more). Nothing else mends in a fight. In a message of several
+attacks, once a blow leaves you where the next could be your last, the
+attacks after it are held and everything else runs.
 Every creature is as strong as what it holds: hit points and attack
 grow with its own level (by half at seventy-five, double at a hundred
 and fifty), never with yours; the mildest things in the world are the

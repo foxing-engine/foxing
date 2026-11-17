@@ -442,6 +442,33 @@ pub const RECIPES: &[Recipe] = &[
         vividity_at_least: 0.6,
         effect: "dart",
     },
+    // David, 11-17 ("go ahead and propose the new recipes"): the Court's two.
+    Recipe {
+        key: "splint",
+        name: "a starfish splint",
+        of: &["a starfish arm", "rag thread"],
+        chunk_at_least: 30.0,
+        does: "(a starfish arm is what lies in the Starfish Court when one is cut) grows you back as the arm would have grown: when a blow leaves you under a third, a fifth of your whole body returns as it lands. Five times, and it has a past",
+        uses: 5,
+        fixed: false,
+        takes_lines: false,
+        tier: 2,
+        vividity_at_least: 0.6,
+        effect: "splint",
+    },
+    Recipe {
+        key: "brine-glass",
+        name: "a brine glass",
+        of: &["a brine pearl", "hollow water"],
+        chunk_at_least: 30.0,
+        does: "(a brine pearl is what a great low leaves in the wing's deepest rooms) keeps the water off you while carried: under water you lose a point every ten seconds and never more, however long you stay. It has a past",
+        uses: 0,
+        fixed: false,
+        takes_lines: false,
+        tier: 2,
+        vividity_at_least: 0.6,
+        effect: "brine",
+    },
 ];
 
 /// A recipe as the bench reads it: the world's own (`RECIPES`) or one a kept name

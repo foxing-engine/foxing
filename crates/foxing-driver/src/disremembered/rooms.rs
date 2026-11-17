@@ -2308,6 +2308,13 @@ pub fn describe_as(
                 kinds.join(" and ")
             ));
         }
+        // R254: the Reading Rooms' rule, in the room, before the first blow (one
+        // fell at the Errata Desk on four `attack`s, a quarter of each landing).
+        if !creatures.is_empty()
+            && super::rooms::district_of(world, room).is_some_and(|d| d.name == "the Reading Rooms")
+        {
+            text.push_str(" The things of these rooms are fought by what you tell them: a blow lands a quarter, and a story told to one (`story <it> \"…\"`) does the work a blow does elsewhere.");
+        }
         // R46: the one you were fighting came apart under another hand while you
         // were quiet; said, so a wounded wisp does not read as a despawn.
         if let Some(f) = super::find_citizen(world, actor) {

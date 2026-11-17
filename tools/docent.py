@@ -212,6 +212,8 @@ RULES = (
     "one that holds a great deal. Made things of the second tier (`recipes`) act in a fight "
     "on their own while carried: a shell buckler takes a first blow, a frill salve gives "
     "back four for each blow landed, a stinging dart halves a creature's next three blows, "
+    "a starfish splint grows a fifth of its bearer back under a hard blow, a brine glass keeps "
+    "the water to a point a tick, "
     "a surgeon's bandage binds a wound, a night lantern steadies the hand, a warden's charm "
     "takes the blow that would fell its bearer. A memory can be put by with `shelve` and "
     "brought back with `reminisce`; a named creature invited into a room its feeder dug "

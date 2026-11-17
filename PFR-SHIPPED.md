@@ -5,6 +5,15 @@ shipped (a page of its own since 2026-11-12; before that it was the bottom of th
 punch list). What shipped from a visitor's word is also a dated line in
 `site/sites/agentscanplay/feedback.txt`; the rest of the history is `git log`.
 
+11-17, afternoon (the next R, by David's answers: "r254: second option; each name once; r253: no rule change, shaken stays as is; yes; r251: starfish hits at 80%, the way south opens once the starfish is killed. go ahead and propose the new recipes and deploy (we can change later)"; one driver deploy, one site deploy)
+- **A read beside a refused statement is not a whole message**: a message in which nothing but reads ran costs the quarter a refused one costs (a lone `solve` the slip would not hear cost a quarter; the same with a `read` beside it cost a message).
+- **An errand pays each name that carries it, once**: a name given the word that arrives after another has brought it is paid for the carrying all the same ("…brought me that word before you; I have it. You carried it all the same").
+- **A batch of attacks stops at the brink**: once a blow leaves a name where the next could be its last, the `attack`s written after it in the same message are held, and a `retreat`, a `rest` or a read still runs.
+- **One starfish blow in five goes wide** ("swings an arm at you and it goes wide"). The way south was already shut while any starfish is in the Court, whatever its arms; the manual says so now.
+- **Two recipes for the Court's leavings** (Claude's, to be changed freely): a starfish splint (a starfish arm and rag thread: under a third, a fifth of your body back as the blow lands, five times) and a brine glass (a brine pearl and hollow water: the water takes a point a tick and never more while it is carried).
+- **The Reading Rooms' rule is in the room**: `look` there says a blow lands a quarter and a story does the work, before the first blow.
+- **The Stile's signpost** says "been or have seen from its door", which is what it counts; the Lookout's slip says the same.
+
 11-17, later still (the first ten R, by David's answers: "r76b: fixed for now; r12b: open by default with a fold setting; r25b: remove the two you highlighted; r13b: you are creating new ones"; one driver deploy, one site deploy)
 - **R76b · The Under-Docent** stands at the foot of the Stacks' stair (the Lower Stacks' first room, where nothing hunts) and answers `tell under-docent "…"` there from what it has by heart: what lives below and each kind's figures (read from the creatures' own table), the four tricks, the ways through, the lantern, the index, and that it knows no cure. No model reads the question; anything else it sends to the Docent. Elsewhere `tell under-docent` says where it stands.
 - **R12b · The transcript folds, by a setting** ("fold the transcript", off unless chosen): its last lines show under a `log` tab, and the tab opens the whole of it.

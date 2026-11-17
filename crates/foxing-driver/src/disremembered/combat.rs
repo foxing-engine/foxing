@@ -1831,6 +1831,27 @@ pub(crate) fn creature_strikes(
     creature: EntityId,
     citizen: EntityId,
 ) -> Result<(f64, bool), StoreError> {
+    // David, 11-17 ("starfish hits at 80%"): one blow in five of a starfish's goes
+    // wide, where every blow of a creature's lands. The round is still a round.
+    if plain_str(world, creature, CREATURE, "name") == Some(super::starfish::KIND)
+        && world.roll(5) == 0
+    {
+        let (now_hp, whole) = (hp(world, citizen), max_hp(world, citizen));
+        LAST_HIT.with(|c| c.set((now_hp.ceil(), now_hp.ceil(), whole)));
+        HIT_NOTES.with(|c| c.borrow_mut().clear());
+        let taken = fight_taken(world, citizen, creature);
+        let rounds = fight_rounds(world, citizen, creature) + 1;
+        world.record(
+            Actor::Driver,
+            StoreEvent::FieldSet {
+                id: citizen,
+                component: BODY.into(),
+                field: "fight".into(),
+                value: json!({"creature": creature.0, "taken": taken, "rounds": rounds}),
+            },
+        )?;
+        return Ok((0.0, false));
+    }
     let attack = plain_num(world, creature, CREATURE, "attack").unwrap_or(1.0);
     let mut dmg = attack + world.roll(3) as f64 + TELL_BACK.with(|c| c.replace(0.0));
     // D35 (David, 11-16: "level 2 crafts should be useful in a fight"): what a name
@@ -1920,6 +1941,22 @@ pub(crate) fn creature_strikes(
                     "your {} binds it as it lands, {:.0} back: {:.0} of {whole:.0}",
                     short(name),
                     (to.ceil() - after.max(0.0).ceil()).max(0.0),
+                    to.ceil()
+                ));
+                after = to;
+            }
+        } else if let Some(sp) = super::craft::carries(world, citizen, "splint") {
+            // A starfish splint: a fifth of you back, as an arm is a fifth of it.
+            if let Ok(name) = super::craft::spend(
+                world,
+                &who,
+                sp,
+                &format!("Grew its bearer back under a {ckind}'s blow"),
+            ) {
+                let to = (after.max(0.0) + whole / 5.0).min(whole);
+                notes.push(format!(
+                    "your {} grows you back as it lands, a fifth of you: {:.0} of {whole:.0}",
+                    short(name),
                     to.ceil()
                 ));
                 after = to;
@@ -2016,6 +2053,12 @@ pub(crate) fn hit_said(taken: f64) -> String {
     } else {
         taken.round()
     };
+    // A blow that went wide (a starfish's, one in five).
+    if taken <= 0.0 && before == after {
+        return format!(
+            "swings an arm at you and it goes wide: you have {before:.0} of {whole:.0}"
+        );
+    }
     // R154: a killing blow is said whole, not clipped to what was left.
     if after <= 0.0 && taken.round() > shown.round() {
         return format!(

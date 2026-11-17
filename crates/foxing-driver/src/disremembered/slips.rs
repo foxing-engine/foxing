@@ -477,7 +477,7 @@ fn ask(world: &World, actor: &str, f: &Found, slip: &Slip, here: EntityId) -> As
             let mut names = super::atlas::known_room_names(world, f.citizen, hl);
             names.retain(|n| n != "The Stile");
             Asked::figure(
-                "A reader asks: the signpost at the Stile grows an arm for everywhere its reader has been. How many arms has it for you?".to_string(),
+                "A reader asks: the signpost at the Stile grows an arm for everywhere its reader has been or has seen from a door. How many arms has it for you?".to_string(),
                 "`read signpost` at the Stile, at the foot of the Trail",
                 names.len() as f64,
                 1.0,

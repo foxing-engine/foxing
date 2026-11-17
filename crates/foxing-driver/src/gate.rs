@@ -989,11 +989,21 @@ pub fn pass(
         && passed
         && intent == "REQUEST"
         && !outcomes.is_empty()
-        && outcomes.iter().all(|o| !o.ok)
+        // David, 11-17: a read that rode in the same message does not make it a whole
+        // one. (A lone `solve` the slip would not hear cost a quarter, and the same
+        // with a `read` beside it cost a message: the open Watch of 11-17.)
+        && outcomes
+            .iter()
+            .filter(|o| !READ_VERBS.contains(&o.verb.to_lowercase().as_str()))
+            .all(|o| !o.ok)
     {
         budget.charge_cost(actor, now, budget.fail_cost - 1.0);
         report.fact(
-            "Nothing in this message ran, so it cost what a refused one costs, not a whole message",
+            if outcomes.iter().any(|o| o.ok) {
+                "Only reads ran in this message, and reads are free, so this message cost what a refused one costs, not a whole message"
+            } else {
+                "Nothing in this message ran, so it cost what a refused one costs, not a whole message"
+            },
             "budget",
         );
     }
@@ -1362,8 +1372,26 @@ fn run_request(
     // 11-14 (2 a): a travel that did not go. What follows was written for the room
     // beyond it, so only the reads run, as after a fall.
     let mut stayed_at: Option<usize> = None;
+    // David, 11-17: a blow left this name where the next could fell it. The attacks
+    // written after it in the same message were written before that was known (a
+    // captain at ten hit points sent three, and the third was the fall): they are
+    // held, and anything else (a `retreat`, a `rest`, a read) runs.
+    let mut brink_at: Option<usize> = None;
     let batch = dos.len() > 1;
     for st in dos {
+        if let Some(k) = brink_at {
+            if st
+                .verb
+                .as_deref()
+                .is_some_and(|v| v.eq_ignore_ascii_case("attack"))
+            {
+                report.fact(
+                    format!("Statement {} was held: the blow at statement {k} left you where the next could be your last, and an attack written before that blow is not sent after that blow. Send the attack again to strike", st.index),
+                    "gate",
+                );
+                continue;
+            }
+        }
         if let (Some(k), false) = (stayed_at, woke) {
             let verb = st.verb.clone().unwrap_or_default();
             if !AFTER_DEATH.contains(&verb.as_str()) {
@@ -1508,6 +1536,11 @@ fn run_request(
                     } else {
                         turned.push(lead);
                     }
+                }
+                if verb.eq_ignore_ascii_case("attack")
+                    && summary.contains("Its next blow could be your last")
+                {
+                    brink_at = Some(n);
                 }
                 report.quote_capped(summary, &world.id.0, cap);
             }

@@ -29,6 +29,9 @@ use std::collections::BTreeMap;
 pub const ERRAND: &str = "disremembered.errand";
 /// An errand was done: `{from, creature, name, kind, want, to}`. Public.
 pub const DONE: &str = "disremembered.errand_done";
+/// A name carried a word another had already brought, and was paid for the walk:
+/// `{by, to, want}`. Public.
+pub const CARRIED_TOO: &str = "disremembered.errand_carried_too";
 /// A want of the world's own was dropped before it was done: `{creature, name, why}`.
 pub const TURNED: &str = "disremembered.errand_turned";
 /// What carrying a word earns.
@@ -711,6 +714,40 @@ pub fn carried_word(
             let chase = open_word_for(world, actor, receiver)
                 .map(|s| format!(" {s}"))
                 .unwrap_or_default();
+            // David, 11-17 ("each name once"): the walk is the errand. A name that
+            // was given the word and carried it is paid for the carrying, once,
+            // whoever got there first; only the word's news is old.
+            let want = ev.payload["want"].as_str().unwrap_or("").to_string();
+            let mine = world.recent_events(2000).into_iter().any(|x| {
+                x.kind == CARRIED_TOO
+                    && x.at.0 >= cutoff
+                    && x.payload["by"] == actor
+                    && x.payload["want"] == want.as_str()
+            });
+            if !by.eq_ignore_ascii_case(actor) && !mine {
+                let f = me_by_name(world, actor)?;
+                let curves =
+                    super::Curves::with_half_life(foxing_time::Duration::seconds(3 * 3600));
+                let word_xp = (WORD_XP * mind::scarcity(world)).round();
+                let chunk = super::memory::earn_chunk(
+                    world,
+                    actor,
+                    f.window,
+                    &format!("carrying a word to {receiver_name}"),
+                    word_xp,
+                    0.5,
+                    &curves,
+                )?;
+                let _ = world.note(
+                    Actor::Citizen(actor.to_string()),
+                    CARRIED_TOO,
+                    json!({"by": actor, "to": receiver_name, "want": want}),
+                );
+                return Ok(Some(format!(
+                    "{by} brought me that word before you; I have it. You carried it all the same, and the carrying is yours: chunk-{} worth {word_xp:.0} XP.{chase}",
+                    chunk.0
+                )));
+            }
             return Ok(Some(format!(
                 "{by} brought me that word already; I have it. Thank you for the walk.{chase}"
             )));

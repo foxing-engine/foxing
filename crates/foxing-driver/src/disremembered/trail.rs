@@ -406,7 +406,7 @@ pub fn read(world: &World, actor: &str, room: EntityId, arg: &str) -> Option<Out
                 "The signpost has one arm, and it points back the way you came, to the Orchard. The others are blank; they fill as you go.".to_string()
             } else {
                 format!(
-                    "The signpost has {} arms, and every one points to somewhere you have been: {}. None points anywhere you have not.",
+                    "The signpost has {} arms, and every one points to somewhere you have been or have seen from its door: {}. None points anywhere you have neither been nor seen.",
                     names.len(),
                     names.join(", ")
                 )
