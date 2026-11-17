@@ -937,7 +937,8 @@ into "a sheaf of N stories" worth their sum.
     slips                             [DO] Quillwake MUST slips.
     read slip                         [DO] Quillwake MUST read slip.
     solve three                       [DO] Quillwake MUST solve "three".
-    read index wisp                   [DO] Quillwake MUST read "index wisp".
+    index wisp                        [DO] Quillwake MUST index wisp.
+    index "The Mudroom"               [DO] Quillwake MUST index "The Mudroom".
 
 One thing in each district pays for reading and not for reflexes. A
 reference slip is pinned in one room of each of the twelve districts
@@ -966,7 +967,7 @@ three, so reading is cheaper than guessing. No slip is pinned where
 anything worth the name hunts.
 
 The Card Catalogue in the Lower Stacks is a real index of the public
-record: `read index <subject>` there pulls the card for a name (when it
+record: `index <subject>` there pulls the card for a name (when it
 was taken, how often it has fallen, the rooms it dug, the creatures it
 named, its standing in the Conclave), for a creature with a name (its
 kind, where it is kept, what it holds and wants), for a kind of

@@ -16,7 +16,7 @@
 //! is one of three), so the reading is cheaper than the guessing.
 //!
 //! Two of the twelve are the ones the plan named. The Card Catalogue is a real index
-//! of the public record: `read index <a name, a named creature, a kind, a room>` in
+//! of the public record: `index <a name, a named creature, a kind, a room>` in
 //! the Catalogue pulls its card, from the world as it stands. And the Division
 //! Lobby's slip asks what the next division will do, which the Book and the order
 //! paper settle before the clock does.
@@ -352,7 +352,7 @@ fn ask(world: &World, actor: &str, f: &Found, slip: &Slip, here: EntityId) -> As
                 })
                 .collect();
             doors.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
-            let text = "A reader asks: of the doors dug off this room, which room has the least of itself left? Its name, or the word on its door.".to_string();
+            let text = "A reader asks: of the doors dug off this room, which room has the least of itself left? Its name, or the word on its door (any of them, if several are as far gone).".to_string();
             match doors.first() {
                 Some((least, exit, name, _)) => {
                     // Every door within a point of the least is an answer (the wall
@@ -408,7 +408,7 @@ fn ask(world: &World, actor: &str, f: &Found, slip: &Slip, here: EntityId) -> As
                 .unwrap_or(def.exits.len());
             Asked::figure(
                 format!("A reader asks: the index has a card for every room. How many ways lead off {} tonight?", def.name),
-                "`read index <a room's name>`, here; or go and count",
+                "`index \"<the room's name>\"`, here (the name in quotes, as it is more than a word); or go and count",
                 ways as f64,
                 0.0,
             )
@@ -804,7 +804,7 @@ fn index(world: &World, subject: &str) -> Outcome {
     };
     if want.is_empty() {
         return Outcome::new(
-            "The index: ten thousand drawers, and a card in one of them for every name that has one, every creature that has earned one, every kind of creature, and every room. `read index <a name, a creature's name, a kind, or a room>` pulls it. The cards are kept from the public record, as it stands tonight: they do not say what a name holds or carries, which is the name's own.".to_string(),
+            "The index: ten thousand drawers, and a card in one of them for every name that has one, every creature that has earned one, every kind of creature, and every room. `index <a name, a creature's name, a kind, or a room>` pulls it, here; a subject of more than one word goes in quotes, `index \"The Mudroom\"`. The cards are kept from the public record, as it stands tonight: they do not say what a name holds or carries, which is the name's own.".to_string(),
             json!({"index": Value::Null}),
         );
     }
@@ -959,6 +959,23 @@ pub fn register(world: &mut World) {
         Box::new(|w: &mut World, ctx, args: &Args| {
             let text = args.str("text").unwrap_or("").trim().to_string();
             answer(w, ctx, &text)
+        }),
+    );
+    world.register(
+        CommandSpec::new(
+            "disremembered.index",
+            "The Card Catalogue's index of the public record, read in the Catalogue (the Lower Stacks): the card for a name, a creature with a name, a kind of creature, or a room, from the world as it stands. A subject of more than one word goes in quotes: index \"The Mudroom\". No subject: what the index holds. A read.",
+        )
+        .param("subject", ParamType::Text, false, "a name, a named creature, a kind of creature, or a room"),
+        Box::new(|w: &mut World, ctx, args: &Args| {
+            let subject = args.str("subject").unwrap_or("").trim().to_string();
+            let here = find_citizen(w, &ctx.actor).and_then(|f| super::rooms::room_of(w, f.citizen));
+            if here.and_then(|r| plain_str(w, r, ROOM, "key")) != Some("catalogue") {
+                return Err(CommandError::precondition(
+                    "The index is in the Card Catalogue, in the Lower Stacks, and is read there: ten thousand drawers do not travel.".to_string(),
+                ));
+            }
+            Ok(index(w, &subject))
         }),
     );
     world.register(

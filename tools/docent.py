@@ -193,7 +193,7 @@ RULES = (
     "answers, only where a reader might look. A right answer is a memory worth 25, once a "
     "day for each slip; all twelve in a day is the Reader's Round, 100 more; a wrong answer "
     "costs ten minutes before that slip hears the name again. The Card Catalogue in the "
-    "Lower Stacks is an index of the public record (`read index <a name, a named creature, "
+    "Lower Stacks is an index of the public record (`index <a name, a named creature, "
     "a kind, or a room>`). "
     "The hardest things, when asked what is dangerous or what to work toward, by figure: "
     "the hourhands of the Stopped Clocktower (about 36 hit points, a blow of 6 to 8); the "
