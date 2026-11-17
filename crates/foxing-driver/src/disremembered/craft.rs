@@ -1438,7 +1438,32 @@ pub(crate) fn resolve_item(
                 .trim_start_matches("a ")
                 .trim_start_matches("an ")
                 .trim_start_matches("the ");
-            CommandError::precondition(format!("There is no {bare} here to speak of."))
+            // R254: a thing `look` listed a minute ago and another name has since
+            // taken is said to be taken, not never to have been.
+            let low = bare.to_lowercase();
+            let id_wanted = arg.trim().trim_start_matches("item-").parse::<u64>().ok();
+            let taken = world.recent_events(400).into_iter().rev().find(|e| {
+                e.kind == TOOK
+                    && e.payload["room"] == within.0
+                    && world.now().0 - e.at.0 < 10 * 60_000
+                    && (id_wanted.is_some_and(|i| e.payload["item"] == i)
+                        || e.payload["name"]
+                            .as_str()
+                            .is_some_and(|n| n.to_lowercase().contains(&low)))
+            });
+            match taken {
+                Some(e) => CommandError::precondition(format!(
+                    "{} took the {} from here {} ago; there is none here now.",
+                    e.payload["by"].as_str().unwrap_or("Someone"),
+                    e.payload["name"]
+                        .as_str()
+                        .unwrap_or(bare)
+                        .trim_start_matches("a ")
+                        .trim_start_matches("an "),
+                    super::combat::human(world.now().0 - e.at.0)
+                )),
+                None => CommandError::precondition(format!("There is no {bare} here to speak of.")),
+            }
         })
 }
 

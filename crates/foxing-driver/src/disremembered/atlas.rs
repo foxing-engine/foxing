@@ -1278,7 +1278,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 let present = super::presence::is_here(w, cz.citizen);
                 if !present {
                     return Ok(Outcome::new(
-                        format!("{spelled} is not in the world now; the rooms remember them a while, and `log` keeps their words."),
+                        format!("{spelled} is not in the world now; the rooms remember them a while, and `messages` keeps what they said to you."),
                         json!({"who": spelled, "present": false}),
                     ));
                 }

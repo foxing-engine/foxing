@@ -65,6 +65,11 @@ const NOUNS: &[(&str, &[&str], &str)] = &[
     ),
     (
         "wing-scriptorium",
+        &["desk", "desks", "inkwell", "inkwells", "stool", "stools", "newt", "newts"],
+        "Each desk has a name cut into its lip where a wrist would rest, and none of the names is a newt's. The inkwell at the nearest is full to the brim with something that is mostly pond. The newt in it lets you look, then puts its foot in the ink and goes back to the page it was on, which is yours to read if you ask for the footprints.",
+    ),
+    (
+        "wing-scriptorium",
         &["manuscript", "manuscripts", "page", "pages", "footprint", "footprints", "desk", "desks", "inkwell"],
         "The footprints are very nearly letters, and on one page, where a newt has walked the same line for years, they are letters: when the vault clicks the water has gone. You read it twice. It is the only true sentence in the room, and the newt that wrote it is watching you from the inkwell to see whether you are going to spoil it.",
     ),
@@ -77,6 +82,77 @@ const NOUNS: &[(&str, &[&str], &str)] = &[
         "wing-sump",
         &["stair", "stairs", "water", "wall", "walls"],
         "The stair is cut with the same dates the Clocktower's stair has, running the other way, and the last one above the water is tomorrow's. You count nine steps down before the black takes them. Something has worn the middle of each step hollow going down, and not coming up.",
+    ),
+    // R252, the batch of 11-17: the Stacks' ground floor and the Clocktower.
+    (
+        "archive",
+        &["ledger", "ledgers", "shelf", "shelves", "book", "books", "ink", "page", "pages"],
+        "You take a ledger down and open it flat. The first line holds for as long as you look at it: \"{you}, admitted.\" Then the ink lifts, a word at a time, and goes up past your face to the rafters, where a good deal of ink is already going round. What is left on the page is the ruling and one pencil note in the margin that ink cannot lift: told upstairs, not struck.",
+    ),
+    (
+        "archive",
+        &["stair", "stairs", "mezzanine", "rafters", "rafter"],
+        "The iron stair has a plate on its first riser, and the plate is not ink, so it stays: READING ROOMS. CREATURES ARE TOLD HERE AND NOT STRUCK. Someone has scratched under it with a key: they listen better than they look.",
+    ),
+    (
+        "lantern-row",
+        &["lantern", "lanterns", "hook", "hooks", "row", "glass"],
+        "Each lantern has a tag wired to its hook, and each tag has a column of dates in it, every one in a different hand, the newest still tacky. The nearest tag's last line is today's and the hand is yours. The lantern lights while you read and is dark again before you have let the tag go.",
+    ),
+    (
+        "clocktower",
+        &["clock", "clocks", "face", "faces", "hour", "hours", "dial", "dials"],
+        "North says a quarter past four. East says noon, or midnight. South has lost its small hand and says only that it is ten to something. West is the nearest to right and is wrong by the length of your visit so far, which it was a moment ago as well.",
+    ),
+    (
+        "clocktower",
+        &["works", "work", "spring", "gear", "gears", "wheel", "wheels", "stair", "stairs", "date", "dates"],
+        "The works are stopped and not run down: the spring is tight, the wheels are clean, and a little brass plate on the frame says WOUND, with a date under it that is today's. The stair round the works is cut with dates on every tread, going up in order, and the top one that can be read is yesterday's.",
+    ),
+    (
+        "overdue-desk",
+        &["ledger", "fine", "fines", "column", "book", "desk"],
+        "The column is in one hand and it is patient. Most lines are names you do not know and sums that have been carried so often that the carrying is most of the sum. Near the foot: \"{you}: one memory, borrowed at the door, not yet returned. Accruing.\" The line under it is being written as you read, and the pen is not in the room.",
+    ),
+    (
+        "overdue-desk",
+        &["bell"],
+        "The bell is engraved round its rim, small, where a hand would cover it: RING FOR ATTENTION. Under that, smaller: ATTENTION IS ALSO DUE. It rings while you are reading it, and the fines go up.",
+    ),
+    (
+        "bindery",
+        &["press", "presses", "book", "binding", "spine", "glue", "pot", "pots", "page", "pages"],
+        "What is in the press has a spine and boards and no pages you would call pages: they are stitched in as signatures and they are warm. The title is blocked on the spine in gold that has not set, and it reads \"{you}\" for as long as you look straight at it, and something longer when you look away.",
+    ),
+    (
+        "bindery",
+        &["guillotine", "blade", "trimmings", "trimming"],
+        "The guillotine's bed is ruled in inches down one side and in years down the other. The trimmings in the bin under it are margins: clean strips, every one of them blank, with the places where something was written cut exactly away.",
+    ),
+    (
+        "restoration",
+        &["book", "page", "pages", "fiber", "fibre", "tissue", "bench"],
+        "The page under the tissue is a room's description, and you know the room: you came through it to get here. Half of it has been mended back, fiber by fiber, and reads as it read when you stood there. The other half is the paler paper of the patch, with the words not yet laid in. A fiber moves while you watch, and one more word is so.",
+    ),
+    (
+        "restoration",
+        &["tweezers", "brush", "brushes", "hands", "hand"],
+        "The tweezers lift, set down a fiber, and lift again, at the pace of someone who is not being paid by the hour. There is a card propped against the brush jar, printed: WORK IN PROGRESS. PLEASE DO NOT REMEMBER THE BENCH. Under it in pencil: a room that is visited keeps better. Thank you.",
+    ),
+    (
+        "lost-things",
+        &["tag", "name", "nametag", "label"],
+        "The name tag says {you}, in the lettering the Docent's desk uses, and has a pin through it that has never been through cloth. On the back, in pencil: \"Handed in. Finder did not leave a name.\"",
+    ),
+    (
+        "lost-things",
+        &["umbrella", "umbrellas", "glove", "gloves", "spectacles", "shoe", "shelf", "shelves", "ticket", "tickets"],
+        "Every thing on the shelves has a ticket tied to it, with FOUND and a place, and a line for CLAIMED BY that is blank on all of them. The umbrellas were found in the Fogbank. The single shoe was found on a stair. The spectacles were found, the ticket says, on someone, who did not want them back.",
+    ),
+    (
+        "ossuary",
+        &["niche", "niches", "rock", "wall", "walls", "dust"],
+        "Each niche has a number cut over it and nothing in it, and no dust in it either, which in this building is the stranger thing. There is one mark in the whole room, on the sill of the nearest niche: a tally, four strokes and a bar, very fresh, and a sixth stroke begun.",
     ),
 ];
 

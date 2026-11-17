@@ -420,6 +420,9 @@ pub const FALL_FLOOR: f64 = 0.25;
 pub const DEATH_SCALE: f64 = 300.0;
 /// Something was lost to a death: `{citizen, lost: [{chunk, source, value}], share}`.
 pub const DIED: &str = "disremembered.died";
+/// A creature came apart under a name's blow (R250: a second `attack` aimed at it by
+/// id in the same message is told so).
+pub const FELLED: &str = "disremembered.felled";
 
 /// The share of the window a death costs at this level.
 pub fn death_share(level: f64) -> f64 {
@@ -2527,12 +2530,22 @@ pub fn register(world: &mut World, curves: Curves) {
                                 None => format!("{}-{}", c.1, c.0 .0),
                             })
                             .collect();
+                        let gone_id = name.trim().rsplit_once('-').and_then(|(_, d)| d.parse::<u64>().ok());
+                        let mine = w.recent_events(200).iter().any(|e| {
+                            e.kind == FELLED
+                                && e.payload["by"] == ctx.actor
+                                && gone_id.is_some_and(|i| e.payload["creature"] == i)
+                        });
+                        let gone = if mine {
+                            format!("You felled {} already: it came apart under your blow and that memory is yours.", name.trim())
+                        } else {
+                            format!("{} is not here (felled, drifted off, or left behind in the room you were put out of).", name.trim())
+                        };
                         return Err(CommandError::precondition(if still.is_empty() {
-                            format!("{} is gone, and nothing else is here to fight.", name.trim())
+                            format!("{gone} Nothing else is here to fight.")
                         } else {
                             format!(
-                                "{} is not here (felled, drifted off, or left behind in the room you were put out of). Still here: {}. Name the one you mean; a bare `attack` takes the nearest.",
-                                name.trim(),
+                                "{gone} Still here: {}. Name the one you mean; a bare `attack` takes the nearest.",
                                 still.join(", ")
                             )
                         }));
@@ -3017,6 +3030,11 @@ pub fn register(world: &mut World, curves: Curves) {
                     },
                     throes.map(|t| format!(" {t}")).unwrap_or_default()
                 ));
+                let _ = w.note(
+                    Actor::Citizen(ctx.actor.clone()),
+                    FELLED,
+                    json!({"by": ctx.actor, "creature": creature.0, "kind": cname, "room": room.0}),
+                );
                 return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "creature_id": creature.0, "killed": true, "chunk": chunk.0, "xp": xp, "vividity": vividity, "hp": my_hp, "shared_with": shared_with, "left": left.as_ref().map(|(id, n)| json!({"item": id.0, "name": n}))})));
             }
 

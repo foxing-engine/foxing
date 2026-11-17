@@ -106,8 +106,9 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
         let story = errand.as_ref().and_then(|x| x.story.clone());
         let word = errand.as_ref().and_then(|x| x.word.clone());
         let word_to = errand.as_ref().and_then(|x| x.word_to.clone());
-        let knows_you =
-            mind::regard(world, e.id, actor).is_some_and(|r| !r.contains("does not know you"));
+        let knows_you = mind::regard(world, e.id, actor).is_some_and(|r| {
+            !r.contains("does not know you") && !r.contains("no longer knows you")
+        });
         let mut want_said: Vec<String> = Vec::new();
         let told = story.is_some() && super::exchange::told_this_hour(world, actor, e.id);
         // A want that turned since this session began is said to have: a visitor
@@ -143,7 +144,7 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
                 // Full from others: said here, so the list does not send you to a
                 // creature that refuses (the Watch of 11-06).
                 format!(
-                    "a story about {s}{turned} (full for the hour: it has heard {} from others; only a story that carries a word of its you have not found is heard before then)",
+                    "full for the hour (it has heard {} from others; only a story that carries a word of its you have not found is heard before then). When the hour turns: a story about {s}{turned}",
                     super::exchange::STORIES_AN_HOUR
                 )
             } else {
@@ -240,7 +241,7 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
     // 11-15 (the first hour): what the pay notes mean, said once.
     if summary.contains("pays double") {
         summary.push_str(&format!(
-            "\nPays double: the story a creature wants pays twice what any other story pays it (`story <Name> \"a dozen words or more about it\"`), once an hour for each teller.{}",
+            "\nPays double: the story a creature wants pays twice what any other story pays it (`story <Name> \"a dozen words or more about it\"`), once an hour from each creature for each teller (a second creature's want pays double in the same hour; the same creature's new want waits for its hour with you to turn).{}",
             if scarcity > 1.0 {
                 format!(" {scarcity:.1}× while names are few: every want pays that much more while few named creatures are awake.")
             } else {

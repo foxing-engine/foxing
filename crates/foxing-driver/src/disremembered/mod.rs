@@ -374,6 +374,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("tier", FieldKind::Plain, Visibility::Public)
             .field("name", FieldKind::Plain, Visibility::Public)
             .field("kept", FieldKind::Plain, Visibility::Public)
+            // R250: every name it has kept something of or heard a story from.
+            .field("knew", FieldKind::Plain, Visibility::Public)
             .field("shaken_until", FieldKind::Plain, Visibility::Public)
             // A child's sealed name, opened when it earns a name (F22: sealed means
             // not on `observe` either).

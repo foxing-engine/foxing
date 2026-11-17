@@ -616,6 +616,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let vivid = (0.4 + 0.5 * long).max(if struck.is_some() { 0.8 } else { 0.0 });
             let earned = super::memory::earn_chunk(w, &ctx.actor, f.window, &format!("telling {name} a story"), paid, vivid, &curves)?;
             let level = super::up(mind::level(w, creature));
+            mind::met(w, creature, &ctx.actor)?;
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 STORY,
@@ -635,7 +636,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     // R214: a story heard and not the word says so, every time: two
                     // Watches' tellers could not tell a wrong guess from one unweighed.
                     None => match &guessed {
-                        Some(g) if g.is_empty() => " Of my word: you said none of the words it could be.".to_string(),
+                        Some(g) if g.is_empty() => " Of my word (I keep one, and a story that says it is paid more): you said none of the words it could be. A longer word of this room, five letters or more, and not a plural.".to_string(),
                         Some(g) if g.len() == 1 => format!(" Of my word: you said {}, which it could have been, and is not.", super::secret::as_told(&text, g)[0]),
                         Some(g) => format!(" Of my word: you said {}, which it could have been; it is none of them.", super::secret::as_told(&text, g).join(" and ")),
                         None => String::new(),

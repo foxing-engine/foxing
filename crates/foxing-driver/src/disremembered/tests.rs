@@ -14101,6 +14101,11 @@ fn a_room_answers_read_for_the_things_its_text_names() {
         ("reserve", "the list", "dave: A First Hour."),
         ("wing-catalogue", "drawers", "KEEP WET"),
         ("tube-room", "canister", "Go down."),
+        ("clocktower", "the works", "WOUND"),
+        ("clocktower", "clock faces", "quarter past four"),
+        ("lost-things", "name tag", "says dave"),
+        ("wing-scriptorium", "desks", "wrist"),
+        ("wing-scriptorium", "footprints", "vault clicks"),
     ] {
         let room = rooms::room_by_key(&w, key).unwrap();
         w.record(

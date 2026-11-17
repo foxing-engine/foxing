@@ -257,6 +257,32 @@ pub fn shaken_for(world: &World, creature: EntityId) -> Option<i64> {
         .filter(|ms| *ms > 0)
 }
 
+/// How many names a creature is remembered to have known.
+const KNEW_MAX: usize = 40;
+
+/// Whether this creature ever kept something of `actor`'s, or a story of theirs.
+pub fn knew(world: &World, creature: EntityId, actor: &str) -> bool {
+    mind_field(world, creature, "knew")
+        .and_then(Value::as_array)
+        .is_some_and(|a| a.iter().any(|n| n == actor))
+}
+
+/// A story told is a name known: marked, so a later "does not know you" can say it
+/// once did.
+pub(crate) fn met(world: &mut World, creature: EntityId, actor: &str) -> Result<(), CommandError> {
+    if knew(world, creature, actor) {
+        return Ok(());
+    }
+    let mut knew_now = mind_field(world, creature, "knew")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    knew_now.push(json!(actor));
+    let mut changes = BTreeMap::new();
+    changes.insert("knew".into(), Field::Plain(Value::Array(knew_now)));
+    set_mind(world, Actor::Driver, creature, changes)
+}
+
 /// `set_mind`, for the modules beside this one (the hidden word).
 pub(crate) fn set_mind_pub(
     world: &mut World,
@@ -286,6 +312,25 @@ fn set_mind(
         fields.insert("kept".into(), Field::Plain(json!([])));
     }
     fields.extend(changes);
+    // R250: who it has ever kept, so that forgetting can be said as forgetting.
+    let mut knew: Vec<Value> = match fields.get("knew") {
+        Some(Field::Plain(Value::Array(a))) => a.clone(),
+        _ => Vec::new(),
+    };
+    if let Some(Field::Plain(Value::Array(kept))) = fields.get("kept") {
+        for k in kept {
+            if let Some(by) = k["by"].as_str() {
+                if !knew.iter().any(|n| n == by) {
+                    knew.push(json!(by));
+                }
+            }
+        }
+    }
+    if knew.len() > KNEW_MAX {
+        let cut = knew.len() - KNEW_MAX;
+        knew.drain(..cut);
+    }
+    fields.insert("knew".into(), Field::Plain(Value::Array(knew)));
     world
         .record(
             actor,
@@ -830,6 +875,8 @@ pub fn regard(world: &World, creature: EntityId, actor: &str) -> Option<String> 
         // A story is enough to be known, under any kind of name; a passing visitor
         // read "does not know you" right after its story was kept.
         format!("{n} the {kind} knows you: it holds your story.")
+    } else if knew(world, creature, actor) {
+        format!("{n} the {kind} no longer knows you: what it held of yours has gone from it. A story told to it would change that.")
     } else if keepers.is_empty() {
         format!("{n} the {kind} does not know you; a story told to it would change that.")
     } else {

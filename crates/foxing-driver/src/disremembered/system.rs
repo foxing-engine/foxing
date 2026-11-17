@@ -467,7 +467,7 @@ pub fn register(world: &mut World) {
             );
             super::set_citizen_fields(w, &ctx.actor, f.citizen, fields)?;
             Ok(Outcome::new(
-                format!("The name {} is kept: yours until thirty days of silence. Keep the passphrase; nothing recovers it.", ctx.actor),
+                format!("The name {} is kept: yours until thirty days of silence. The passphrase you chose when you first signed in still opens it, and nothing recovers a lost one.", ctx.actor),
                 json!({"name": ctx.actor, "kept": true}),
             ))
         }),

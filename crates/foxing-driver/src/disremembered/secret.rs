@@ -392,7 +392,7 @@ pub fn miss_said(world: &World, actor: &str, creature: EntityId, text: &str) -> 
     }
     match carried_candidates(world, actor, creature, text) {
         Some(g) if g.is_empty() => {
-            " Of its word: that story carried none of the words it could be.".to_string()
+            " Of its word (each named creature keeps one, and a story that says it is paid more): that story carried none of the words it could be. A longer word of its room, five letters or more, and not a plural.".to_string()
         }
         Some(g) if g.len() == 1 => format!(
             " Of its word: you said {}, which it could have been, and is not.",
