@@ -286,7 +286,9 @@ pub fn summary(world: &World, actor: &str) -> Result<Outcome, CommandError> {
     ))
 }
 
-/// The words that reached you, latest last.
+/// The words that reached you. The rows are oldest first; the text is newest first,
+/// since a batch caps a statement's answer at twelve lines and the line the cap cut
+/// was the newest (11-17: a captain's strike minute, read as not delivered).
 pub fn messages(world: &World, actor: &str, count: usize) -> Outcome {
     let count = count.clamp(1, MESSAGES_MAX);
     let recent = world.recent_events(MESSAGES_SPAN);
@@ -338,6 +340,7 @@ pub fn messages(world: &World, actor: &str, count: usize) -> Outcome {
     } else {
         let lines: Vec<String> = rows
             .iter()
+            .rev()
             .map(|r| {
                 let when = ago(world, r["at"].as_i64().unwrap_or(0));
                 match r["kind"].as_str() {
@@ -366,7 +369,7 @@ pub fn messages(world: &World, actor: &str, count: usize) -> Outcome {
             })
             .collect();
         format!(
-            "Words for you, the last {} of {total}:\n{}",
+            "Words for you, the last {} of {total}, newest first:\n{}",
             rows.len(),
             lines.join("\n")
         )

@@ -7898,10 +7898,12 @@ fn a_session_is_summed_and_the_words_that_reached_you_are_kept() {
     );
     assert!(s.summary.contains("1 said, 2 heard"), "{}", s.summary);
     assert_eq!(s.result["counts"]["heard"], 2);
-    // The words, latest last, with when: the one left while away and the one said here.
+    // The words, newest first (a batch cuts a long answer at the foot), with when: the
+    // one left while away and the one said here.
     let m = ok(&mut w, "dave", "messages", json!([]));
     assert!(
-        m.summary.starts_with("Words for you, the last 3 of 3:\n"),
+        m.summary
+            .starts_with("Words for you, the last 3 of 3, newest first:\n"),
         "{}",
         m.summary
     );
@@ -7917,13 +7919,17 @@ fn a_session_is_summed_and_the_words_that_reached_you_are_kept() {
         m.summary
     );
     assert!(
-        m.summary.ends_with("tyler said to you, \"good\""),
+        m.summary
+            .lines()
+            .nth(1)
+            .is_some_and(|l| l.ends_with("tyler said to you, \"good\"")),
         "{}",
         m.summary
     );
     let m = ok(&mut w, "dave", "messages", json!([1]));
     assert!(
-        m.summary.starts_with("Words for you, the last 1 of 3:"),
+        m.summary
+            .starts_with("Words for you, the last 1 of 3, newest first:"),
         "{}",
         m.summary
     );

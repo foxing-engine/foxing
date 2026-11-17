@@ -47,7 +47,10 @@ const NOUNS: &[(&str, &[&str], &str)] = &[
     ),
     (
         "wing-kelp",
-        &["spine", "spines", "title", "titles", "book", "books", "kelp", "weed"],
+        &[
+            "spine", "spines", "title", "titles", "book", "books", "kelp", "weed", "shelving",
+            "shelves", "shelf", "strap", "straps",
+        ],
         "You part the straps. The spines are all there, shut hard as mussels, and the kelp has grown over the gilt of each title in the shape of the letters, so that it reads them out when the water moves it: TIDES, A TABLE. ON THE KEEPING OF STARFISH IN SMALL JARS. THE SEWER BOARD: MINUTES. The last is a gap where a book was taken, lately; the weed has not learned what to say there yet.",
     ),
     (
