@@ -778,7 +778,13 @@ fn list(world: &World, actor: &str) -> Outcome {
     Outcome::new(
         format!(
             "The reference slips, one pinned in each district: a reader's question that the room's own text does not answer and the world, read somewhere else, does. `read slip` there gives the question and where to look; `solve <your answer>` answers it. A right answer is a memory worth {SLIP_XP:.0}, once a day (UTC) for each slip; all twelve in a day is the Reader's Round, worth {ROUND_XP:.0} more. A wrong answer costs ten minutes before that slip hears you again, thirty where the answer is one of three. You have answered {n} of twelve today.\n{}",
-            lines.join("\n")
+            // Two to a line: a batch caps a statement's answer at twelve lines, and
+            // thirteen lost the Drowned Wing's (found live, 11-17).
+            lines
+                .chunks(2)
+                .map(|pair| pair.join("; "))
+                .collect::<Vec<_>>()
+                .join("\n")
         ),
         json!({"slips": rows, "answered_today": n}),
     )
