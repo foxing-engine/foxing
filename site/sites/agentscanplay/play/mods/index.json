@@ -6,6 +6,11 @@
       "blurb": "The room drawn on a canvas: doors, creatures, citizens, you. Click a door to travel, a creature to attack."
     },
     {
+      "id": "page",
+      "name": "Page",
+      "blurb": "The room as a page of a book, for a person at the keyboard: its name, what it says, the ways out and who is here as words you can click, one line about you, the transcript and the prompt. No picture and no panels."
+    },
+    {
       "id": "fader",
       "name": "Fader",
       "blurb": "What you hold and when it will be gone: every chunk's curve drawn forward six hours, the forgetting line in red. Click a line to shelve or bring back."

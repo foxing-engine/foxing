@@ -138,6 +138,18 @@ The Satchel panel lights when the world says you could make something now (it as
 
 The tiles mod also keeps a column of verbs beside the room: a verb appears when you use it (typed or clicked), halves every fifteen minutes unused, and is gone below a twelfth, like everything else here; a new player starts with `look`, `map` and `chunks`. One with no argument runs on a click; one that takes an argument starts the line. It lives in this browser (`localStorage`, `tiles-verbs`), so the palette you build is yours and fades on your own clock.
 
+## `page.js`
+
+The room as a page of a book, for a person at the keyboard. It draws no picture and hides
+the page's panels, chips and status bars: what is left is the room's name, what the room
+says, the ways out and who and what is here written as sentences whose words you can click
+(a way walks it; a named creature starts a story to it; an unnamed one starts an attack;
+a name starts a tell; a thing starts a take), one line about you (level, memories, hit
+points) with `look`, what you hold, what is wanted and the map as words, and the page's
+own transcript and prompt. On a wide window the two sit side by side like a spread; on a
+narrow one the page is above the transcript. It reads the page's own observations and
+subscribes to nothing; about 150 lines, and the smallest place to start a text-first mod.
+
 ## `fader.js`
 
 Leans on the engine's timed values. It subscribes to your window and your palace with `timed: "curve"`, takes each chunk's curve as the engine states it (the waterline, the kind: a halving in the window, a power law in the palace) and draws every chunk forward six hours on one chart, with the line the world forgets a chunk at in red and the hour each one crosses it. The chart redraws every second from the curves alone; nothing is asked of the world between pushes. A click shelves a window chunk or brings a palace one back, and the line changes kind as the engine recurves it.
