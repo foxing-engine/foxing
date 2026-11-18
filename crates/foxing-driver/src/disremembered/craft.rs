@@ -513,6 +513,22 @@ impl From<&Recipe> for Rx {
 /// D27 a: where the materials are, said with the recipes (a maker of 11-10 never
 /// found rag thread, which the Midden gives to the hand).
 pub const FOUND: &str = "Where the makings are (`gather` takes one from a room that has it, once an hour; a felled creature may leave one): rag thread, the Midden (and its ragpickers); a wisp ember, Lantern Row (and the Fogbank's wisps); hollow water, the Fogbank, the Shallows and the Undertow; moth dust, the Orchard and the Stile (and the mothwings); river weed, the Cistern (and its drowned); a dab of ink, the Unfiled Archive; grave dust, the Ossuary (and its revenants); a sitter's patience, the Gallery's sitters; a small key, the Oubliette's keepers. The second tier's makings are left only in the Stacks, the Exergue District and the Drowned Wing; what is made of them is for fights.";
+/// R208: where a first-tier making is, said beside "You lack" (the whole list is at
+/// the foot of `recipes`, and a newcomer read the first line and not the foot).
+fn making_is(m: &str) -> Option<&'static str> {
+    Some(match m.trim_start_matches("a ").trim_start_matches("an ") {
+        "rag thread" => "the Midden",
+        "wisp ember" => "Lantern Row, or the Fogbank's wisps",
+        "hollow water" => "the Fogbank, the Shallows, the Undertow",
+        "moth dust" => "the Orchard, the Stile",
+        "river weed" => "the Cistern",
+        "dab of ink" => "the Unfiled Archive",
+        "grave dust" => "the Ossuary",
+        "sitter's patience" => "the Gallery's sitters",
+        "small key" => "the Oubliette's keepers",
+        _ => return None,
+    })
+}
 pub const RECIPES_COMPONENT: &str = "disremembered.recipes";
 pub const RECIPES_PER_NAME: usize = 3;
 pub const ADDED_CHUNK_AT_LEAST: f64 = 20.0;
@@ -1773,7 +1789,7 @@ pub fn append_object(
     // them back one per line, and the Bindery counts lines and credits hands.
     // The Exergue's plaque stamps the hour on every line (the strip where the date goes).
     let more = if display(world, item) == "the Exergue" {
-        format!("{} UTC: {more}", super::system::clock(world.now().0))
+        format!("{} UTC: {more}", super::system::stamp(world.now().0))
     } else {
         more
     };
@@ -2318,7 +2334,9 @@ pub fn register(world: &mut World, curves: Curves) {
             for r in &all_recipes(w) {
                 let missing: Vec<&str> = r.of.iter().map(String::as_str).filter(|m| !have.iter().any(|h| h == m)).collect();
                 let asks = r.chunk_at_least * super::economy::rate(w, "price");
-                let can = missing.is_empty() && level >= asks;
+                // R213: a fixture takes any chunk (D12), so it lacks memory only when
+                // there is none at all; the line said "any" and then "you lack".
+                let can = missing.is_empty() && if r.fixed { level > 0.0 } else { level >= asks };
                 lines.push(format!(
                     "  {:<8} {}{}{}: of {}{}; {}.{}",
                     r.key,
@@ -2326,12 +2344,15 @@ pub fn register(world: &mut World, curves: Curves) {
                     if r.fixed { " (a fixture)" } else { "" },
                     r.by.as_deref().map(|b| format!(" (a recipe {b} wrote)")).unwrap_or_default(),
                     r.of.join(" and "),
-                    if r.chunk_at_least > 0.0 && r.fixed { format!(" and a chunk (any; one worth {asks:.0} or more makes it last longest){}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else if r.chunk_at_least > 0.0 { format!(" and a chunk worth {asks:.0} or more{}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else { String::new() },
+                    if r.chunk_at_least > 0.0 && r.fixed { format!(" and a chunk (any; one worth {asks:.0} or more makes it last longest){}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else if r.chunk_at_least > 0.0 { format!(" and a chunk worth {asks:.0} or more (the whole chunk is spent, whatever it is worth: offer the smallest that will do){}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else { String::new() },
                     r.does.trim_end_matches('.'),
                     if can { " You could make this now.".to_string() } else if !missing.is_empty() {
                         let said: Vec<String> = missing.iter().map(|m| match spent_lately.iter().find(|(sm, _)| sm == m) {
                             Some((_, made)) => format!("{m} (spent on {made} just now)"),
-                            None => m.to_string(),
+                            None => match making_is(m) {
+                                Some(at) => format!("{m} ({at})"),
+                                None => m.to_string(),
+                            },
                         }).collect();
                         format!(" You lack {}.", said.join(" and "))
                     } else { " You lack the memory to spend.".to_string() }
@@ -2626,7 +2647,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 let arg = args.str("chunk").unwrap_or("").trim().to_string();
                 if arg.is_empty() {
                     return Err(CommandError::precondition(format!(
-                        "{} takes a chunk worth {:.0} or more; name one (craft {} chunk-N).",
+                        "{} takes a chunk worth {:.0} or more, and spends the whole of the one you give; name one (craft {} chunk-N).",
                         r.name, r.chunk_at_least, r.key
                     )));
                 }

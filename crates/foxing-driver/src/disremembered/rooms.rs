@@ -1863,7 +1863,7 @@ pub fn describe_as(
         }
         if more_doors > 0 {
             text.push_str(&format!(
-                " ({more_doors} more dug doors are on the wall, and each still opens by its word: `read doors` is the whole wall.)"
+                " (Shown of the dug doors: yours, the three newest, and the three with the most left of them now, so the line changes as rooms fade and are fed. {more_doors} more dug doors are on the wall, and each still opens by its word: `read doors` is the whole wall.)"
             ));
         }
     }

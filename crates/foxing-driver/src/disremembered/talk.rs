@@ -287,13 +287,24 @@ pub fn register(world: &mut World) {
                 } else {
                     "they are at a keyboard, and see it now"
                 };
+                // R208 (David, 11-17: yes): when they last did anything, so a word
+                // sent to a name gone quiet is not waited on.
+                let acted = w
+                    .last_active(&target)
+                    .map(|t| format!(" and last acted {} ago", super::combat::human(w.now().0 - t.0)))
+                    .unwrap_or_default();
                 return Ok(Outcome::new(
-                    format!("{target} is elsewhere; the word goes to them ({how}): \"{text}\""),
+                    format!("{target} is elsewhere{acted}; the word goes to them ({how}): \"{text}\""),
                     json!({"to": target, "text": text, "delivered": true, "elsewhere": true, "gate": super::combat::through_the_gate(w, &target)}),
                 ));
             }
             Ok(Outcome::new(
-                format!("{target} is not here. They will hear it when they return: \"{text}\""),
+                format!(
+                    "{target} is not here{}. They will hear it when they return: \"{text}\"",
+                    w.last_active(&target)
+                        .map(|t| format!(" (away; last acted {} ago)", super::combat::human(w.now().0 - t.0)))
+                        .unwrap_or_default()
+                ),
                 json!({"to": target, "text": text, "delivered": false}),
             ))
         }),

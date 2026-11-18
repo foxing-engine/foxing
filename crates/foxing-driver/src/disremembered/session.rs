@@ -306,7 +306,14 @@ pub fn messages(world: &World, actor: &str, count: usize) -> Outcome {
                 json!({"at": e.at.0, "from": who, "text": p["text"], "kind": "said"})
             }
             k if k == super::talk::TELL && p["to"] == actor => {
-                json!({"at": e.at.0, "from": p["from"], "text": p["text"], "kind": "left", "re": p["re"]})
+                // R241: the room the word was left from, by name, while it stands.
+                let room = p["room"]
+                    .as_u64()
+                    .and_then(|r| {
+                        super::plain_str(world, foxing_store::EntityId(r), super::ROOM, "name")
+                    })
+                    .map(str::to_string);
+                json!({"at": e.at.0, "from": p["from"], "text": p["text"], "kind": "left", "re": p["re"], "room": room})
             }
             k if k == super::combat::NARRATIVE
                 && p["to"] == actor
@@ -353,8 +360,12 @@ pub fn messages(world: &World, actor: &str, count: usize) -> Outcome {
                         r["text"].as_str().unwrap_or("")
                     ),
                     Some("left") => format!(
-                        "{when}: {} left word for you: \"{}\"",
+                        "{when}: {} left word for you{}: \"{}\"",
                         r["from"].as_str().unwrap_or("?"),
+                        r["room"]
+                            .as_str()
+                            .map(|n| format!(" from {n}"))
+                            .unwrap_or_default(),
                         r["text"].as_str().unwrap_or("")
                     ),
                     Some("docent") | Some("conclave") => {

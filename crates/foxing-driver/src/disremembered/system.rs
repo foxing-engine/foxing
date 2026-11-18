@@ -20,6 +20,21 @@ pub(crate) fn clock(at: i64) -> String {
     )
 }
 
+/// A moment as a ledger keeps it, UTC, with its day: "11-17 18:30". For lines that
+/// are read on later days (R213: a plaque line stamped 09:51 was read at 09:09 the
+/// next morning, and the hour alone looked like the wrong clock).
+pub(crate) fn stamp(at: i64) -> String {
+    // Days since the epoch to a civil month and day (Howard Hinnant's algorithm).
+    let z = at.div_euclid(86_400_000) + 719_468;
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    format!("{month:02}-{day:02} {}", clock(at))
+}
+
 pub(crate) fn line_for(e: &foxing_log::Event) -> String {
     let p = &e.payload;
     let s = |k: &str| p[k].as_str().unwrap_or("?").to_string();

@@ -329,7 +329,24 @@ fn call(s: &Shared, name: &str, args: &Value, ip: &str) -> Value {
                                 .findings
                                 .iter()
                                 .filter(|f| f.severity == foxing_clear::ERROR)
-                                .map(|f| f.rule.clone())
+                                // R212: the rule with where and why, as the gate says
+                                // it (nineteen statements failed "CL-I6" bare).
+                                .map(|f| {
+                                    let why: String = f
+                                        .message
+                                        .split(['.', ';'])
+                                        .next()
+                                        .unwrap_or("")
+                                        .split_whitespace()
+                                        .take(14)
+                                        .collect::<Vec<_>>()
+                                        .join(" ");
+                                    if why.is_empty() {
+                                        format!("{} at {}", f.rule, f.r#where)
+                                    } else {
+                                        format!("{} at {}: {why}", f.rule, f.r#where)
+                                    }
+                                })
                                 .collect();
                             let p = crate::disremembered::preview::run_checked(
                                 &w,

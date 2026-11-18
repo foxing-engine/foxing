@@ -1290,11 +1290,18 @@ fn rejection(result: &CheckResult, report: &mut Report) {
     }
     // D18 (a): a message runs whole or not at all; a score between is a count of
     // statements that passed, not partial credit, and the line says so.
+    // R246: "scored 100 Legibility" beside "ran none of it" read as a contradiction:
+    // the score counts sentences that read well, and a rule of form can fail apart
+    // from that.
     report.fact(
-        format!(
-            "The message scored {} Legibility and the world ran none of it: a message runs whole or not at all",
-            result.score
-        ),
+        if result.score >= 100 {
+            "Every statement read well (100 Legibility) and the message still broke the rule named above, so the world ran none of it: a message runs whole or not at all".to_string()
+        } else {
+            format!(
+                "The message scored {} Legibility and the world ran none of it: a message runs whole or not at all",
+                result.score
+            )
+        },
         "clear_check",
     );
     if result.findings.iter().any(|f| f.rule == "CL-I5") {

@@ -321,7 +321,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     "bindery",
                     "the Binding Ledger",
                     "the Bindery",
-                    &format!("{} UTC: wrote the past of {name}, {} characters", super::system::clock(w.now().0), text.chars().count()),
+                    &format!("{} UTC: wrote the past of {name}, {} characters", super::system::stamp(w.now().0), text.chars().count()),
                 );
                 return Ok(Outcome::new(
                     format!("The past of {name} is written: {text}"),
@@ -370,7 +370,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 "the Bindery",
                 &format!(
                     "{} UTC: bound {name} ({kind}), {} hand{} folded in, {} characters to {}",
-                    super::system::clock(w.now().0),
+                    super::system::stamp(w.now().0),
                     hands.as_array().map(|h| h.len()).unwrap_or(0),
                     if hands.as_array().map(|h| h.len()).unwrap_or(0) == 1 { "" } else { "s" },
                     before.chars().count(),

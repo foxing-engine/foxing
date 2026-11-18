@@ -502,11 +502,19 @@ pub fn take(
             StoreEvent::EntityRemoved { id: pick },
         )
         .map_err(internal)?;
+    // R247: a story a creature held, won in a fight, read in `chunks` as a story
+    // told to its winner. The name says where it came from.
+    let kept_as = if source.contains("'s story of ") && !source.contains(" (taken from ") {
+        let k = plain_str(world, creature, CREATURE, "name").unwrap_or("creature");
+        format!("{source} (taken from {})", an(k))
+    } else {
+        source.clone()
+    };
     let id = super::memory::earn_chunk(
         world,
         killer,
         killer_window,
-        &source,
+        &kept_as,
         worth,
         vividity,
         curves,

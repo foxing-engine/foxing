@@ -118,6 +118,7 @@ pub fn run_checked(
     // step forward; a dug room's way out is a door like any other (R84).
     let mut trail: Vec<EntityId> = world.came_from(actor).into_iter().collect();
     let mut next_virtual = u64::MAX - 1;
+    let mut fed: std::collections::BTreeSet<u64> = Default::default();
     let ctx = CallContext {
         actor: actor.to_string(),
         kind: ActorKind::Citizen,
@@ -468,7 +469,7 @@ pub fn run_checked(
                                         (true, format!("tells {who} the story it wants, inside its hour with you: heard once, at plain pay"))
                                     }
                                 } else {
-                                    (true, format!("inside {who}'s hour with you: heard only if it carries its word, which a dry run does not say; if not, refused at a quarter and counted as a try at the word"))
+                                    (true, format!("inside {who}'s hour with you: heard only if it carries its word, which a dry run does not say; if not, refused at a quarter; it is weighed as a try at the word only when three minutes have passed since your last weighed one"))
                                 }
                             }
                             Some(_) => {
@@ -726,7 +727,17 @@ pub fn run_checked(
                     }
                 }
                 "shelve" | "reminisce" | "remember" => match my_chunk(&arg(0)) {
-                    Ok(_) => (true, format!("runs {verb} on {}", arg(0))),
+                    Ok(_) => {
+                        // R212: what this message remembers into a thing, for a
+                        // `name` further down it.
+                        if verb == "remember" {
+                            if let Ok(i) = arg(1).trim().trim_start_matches("item-").parse::<u64>()
+                            {
+                                fed.insert(i);
+                            }
+                        }
+                        (true, format!("runs {verb} on {}", arg(0)))
+                    }
                     Err(why) => (false, format!("refused: {why}")),
                 },
                 "give" | "trade"
@@ -818,6 +829,10 @@ pub fn run_checked(
                                 },
                                 "name" => match super::craft::name_check(world, actor, item) {
                                     Ok(()) => (true, format!("names {called}")),
+                                    Err(e) if fed.contains(&item.0) && e.to_string().contains(" holds ") => (
+                                        true,
+                                        format!("names {called}, if what this message remembers into it brings it to {:.0}: the dry run does not add a chunk to what a thing holds", super::craft::NAME_AT),
+                                    ),
                                     Err(e) => (
                                         false,
                                         format!("refused: {}", e.to_string().trim_end_matches('.')),

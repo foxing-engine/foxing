@@ -110,7 +110,7 @@ pub fn trick_said(t: Trick) -> &'static str {
         Trick::Numb => "its bite puts your arm to sleep",
         Trick::Leech => "it mends by what it bites",
         Trick::Maw => "it bites twice in a breath",
-        Trick::Bleed => "its bite will not close for a while",
+        Trick::Bleed => "its bite will not close for a while (one bite in two)",
     }
 }
 
@@ -805,7 +805,7 @@ fn play(
                 TRICK,
                 json!({"trick": "leech", "creature": creature.0, "kind": kind, "citizen": actor, "mended": mended - hp}),
             );
-            Ok((Some(format!("The {kind} is the better for the bite: it mends by what it took ({mended:.0} of {max:.0}).")), false))
+            Ok((Some(format!("The {kind} is the better for the bite: it mends by what it took, {hp:.0} to {mended:.0} of {max:.0}: the count a line back was before the mend.")), false))
         }
         Trick::Bleed => {
             if world.roll(ONE_IN) != 0 {

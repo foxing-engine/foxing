@@ -322,7 +322,7 @@ pub fn record_dealt(
         "the Namery",
         &format!(
             "{} UTC: {name}, to {}{}{}",
-            super::system::clock(world.now().0),
+            super::system::stamp(world.now().0),
             super::mind::an(kind),
             if keepers.is_empty() {
                 String::new()

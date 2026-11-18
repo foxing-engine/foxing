@@ -4526,7 +4526,7 @@ fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
     );
     assert!(
         out.summary
-            .contains("You lack a wisp ember and rag thread."),
+            .contains("You lack a wisp ember (Lantern Row, or the Fogbank's wisps) and rag thread (the Midden)."),
         "{}",
         out.summary
     );
@@ -6870,7 +6870,8 @@ fn where_finds_a_way_you_remember_and_travel_takes_a_room_name() {
     );
     assert!(
         out.summary
-            .starts_with("tyler is elsewhere; the word goes to them ("),
+            .starts_with("tyler is elsewhere and last acted ")
+            && out.summary.contains("; the word goes to them ("),
         "{}",
         out.summary
     );
@@ -7913,8 +7914,8 @@ fn a_session_is_summed_and_the_words_that_reached_you_are_kept() {
         m.summary
     );
     assert!(
-        m.summary
-            .contains("tyler left word for you: \"come back west when you can\""),
+        m.summary.contains("tyler left word for you from ")
+            && m.summary.contains(": \"come back west when you can\""),
         "{}",
         m.summary
     );

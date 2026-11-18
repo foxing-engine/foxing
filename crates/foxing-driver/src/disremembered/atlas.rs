@@ -1390,6 +1390,16 @@ pub fn register(world: &mut World, curves: Curves) {
                         json!({"who": who, "room": "postern"}),
                     ));
                 }
+                // R215: a name the Register lists and no creature bears now (it was
+                // taken back, or its bearer came apart) is said to be that.
+                if super::namery::used(w).iter().any(|u| {
+                    u["name"].as_str().is_some_and(|n| n.eq_ignore_ascii_case(who.trim()))
+                }) {
+                    return Err(CommandError::precondition(format!(
+                        "{} is in the Register of Names, and nothing bears the name now: it was given once and has gone back, with the creature that had it or without. Nothing called that can be gone to.",
+                        who.trim()
+                    )));
+                }
                 return Err(CommandError::precondition(format!(
                     "Nothing called {who} that you could go to: a creature's given name, a citizen in the world now, a room's name (or one word of it), a kind of creature (where ragpicker), or one of the world's own books."
                 )));
