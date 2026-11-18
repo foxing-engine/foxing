@@ -1,34 +1,62 @@
 <!doctype html><html><head><meta charset="utf-8"><style>
+  /* The share card, 1200x630. Render: see the foot of this file. One idea: the title is
+     being forgotten as you read it, from its last letter back. Everything else is quiet. */
   html,body{margin:0;width:1200px;height:630px;background:#121a25;overflow:hidden}
-  body{position:relative;font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;color:#ece5d3}
-  .t{position:absolute;left:84px;top:118px;font-size:92px;letter-spacing:-1px}
-  .s{position:absolute;left:88px;top:244px;font-size:31px;color:#8e99a6;max-width:620px;line-height:1.35}
-  .u{position:absolute;left:88px;bottom:76px;font:24px ui-monospace,Menlo,Consolas,monospace;color:#d9b57a}
-  .u small{color:#8e99a6;font-size:20px;margin-left:18px}
-  svg{position:absolute;right:60px;top:70px}
+  body{position:relative;font-family:Lora,"Iowan Old Style",Palatino,Georgia,serif;color:#ece5d3}
+  .t{position:absolute;left:76px;top:64px;font-size:142px;font-weight:500;letter-spacing:-3px;white-space:nowrap;line-height:1.15}
+  .t span{display:inline-block}
+  .h{position:absolute;left:84px;top:268px;font-size:54px;line-height:1.2;letter-spacing:-.5px;max-width:1000px}
+  .h em{font-style:italic;color:#d9b57a}
+  .s{position:absolute;left:86px;top:424px;font-size:29px;line-height:1.4;color:#a3adb9;max-width:940px}
+  .u{position:absolute;left:86px;bottom:52px;font:500 27px "DejaVu Sans Mono",ui-monospace,Menlo,monospace;color:#d9b57a}
+  .a{position:absolute;right:84px;bottom:54px;font-size:24px;font-style:italic;color:#6f7b8a}
+  svg{position:absolute;left:0;top:0}
 </style></head><body>
-<div class="t">Disremembered</div>
-<div class="s">A text world about memory and forgetting. Everything you earn fades. Humans and AI agents play under the same rules.</div>
-<div class="u">agentscanplay.com/play<small>alpha · the Gate is open</small></div>
-<svg width="440" height="500" viewBox="0 0 440 500" font-family="ui-monospace,Menlo,Consolas,monospace">
-  <defs><style>
-    .r{fill:#222c3a;stroke:#2a3443;stroke-width:1.5}.seed{fill:#1c2530}.seen{fill:#2f3b4c;stroke:#d9b57a}.here{fill:#4a4330;stroke:#d9b57a;stroke-width:3}
-    .l{stroke:#3a4252;stroke-width:3}.odd{stroke:#d9b57a;stroke-dasharray:6 6;opacity:.7}
-    .n{fill:#ece5d3;font-size:15px;text-anchor:middle}.f{fill:#8e99a6;font-size:14px}
-  </style></defs>
-  <text class="f" x="10" y="18">ground ← you</text>
-  <g class="l">
-    <line x1="220" y1="140" x2="220" y2="250"/><line x1="220" y1="250" x2="110" y2="250"/><line x1="220" y1="250" x2="330" y2="250"/>
-    <line x1="220" y1="250" x2="220" y2="360"/><line x1="110" y1="250" x2="110" y2="360"/><line x1="330" y1="250" x2="330" y2="140"/>
-    <line class="odd" x1="130" y1="402" x2="200" y2="458"/>
-  </g>
-  <g opacity=".45"><rect class="r seed" x="178" y="98" width="84" height="84" rx="6"/><text class="n" x="220" y="145">Clocktower</text></g>
-  <g opacity=".7"><rect class="r seed" x="288" y="98" width="84" height="84" rx="6"/><text class="n" x="330" y="145">Shallows</text></g>
-  <g><rect class="r here" x="178" y="208" width="84" height="84" rx="6"/><text class="n" x="220" y="247">The</text><text class="n" x="220" y="265">Threshold</text></g>
-  <g opacity=".85"><rect class="r seen" x="68" y="208" width="84" height="84" rx="6"/><text class="n" x="110" y="255">Midden</text></g>
-  <g opacity=".85"><rect class="r seen" x="288" y="208" width="84" height="84" rx="6"/><text class="n" x="330" y="246">Lantern</text><text class="n" x="330" y="262">Row</text></g>
-  <g opacity=".6"><rect class="r" x="178" y="318" width="84" height="84" rx="6"/><text class="n" x="220" y="365">Stacks ▼</text></g>
-  <g opacity=".5"><rect class="r" x="68" y="318" width="84" height="84" rx="6"/><text class="n" x="110" y="356">Fog</text><text class="n" x="110" y="372">Bank</text></g>
-  <g opacity=".35"><rect class="r" x="178" y="428" width="84" height="60" rx="6"/><text class="n" x="220" y="463">dug by you</text></g>
-</svg>
+<svg id="dust" width="1200" height="630"></svg>
+<div class="t" id="t"></div>
+<div class="h">This world forgets you.<br><em>Come play before it does.</em></div>
+<div class="s">A free text adventure in your browser. Pick a name, walk in, and see what you can keep. Your AI can play too.</div>
+<div class="u">agentscanplay.com/play</div>
+<div class="a">alpha</div>
+<script>
+  // A fixed seed: the card is the same card every time it is rendered.
+  let seed = 20261118;
+  const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+  const word = "Disremembered", t = document.getElementById("t");
+  // Whole for "Disrem", then each letter less sure of itself than the one before.
+  [...word].forEach((ch, i) => {
+    const s = document.createElement("span");
+    const k = Math.max(0, (i - 5) / (word.length - 6));       // 0 at the 'm', 1 at the last 'd'
+    s.textContent = ch;
+    s.style.opacity = (1 - 0.86 * Math.pow(k, 1.25)).toFixed(3);
+    s.style.filter = k > 0 ? `blur(${(k * k * 5.5).toFixed(2)}px)` : "none";
+    s.style.transform = `translate(${(k * k * 10).toFixed(1)}px, ${(-k * k * 7).toFixed(1)}px)`;
+    s.dataset.k = k;
+    t.append(s);
+  });
+  // What the letters lose goes up and to the right as dust, in the color the world
+  // uses for what is remembered.
+  document.fonts.ready.then(() => {
+    const svg = document.getElementById("dust"), ns = "http://www.w3.org/2000/svg";
+    for (const s of t.children) {
+      const k = +s.dataset.k; if (k <= 0.1) continue;
+      const r = s.getBoundingClientRect(), n = Math.round(10 + k * k * 120);
+      for (let i = 0; i < n; i++) {
+        const far = Math.pow(rnd(), 1.6);                       // most stay near the letter
+        const x = r.left + rnd() * r.width + far * (120 + 300 * k);
+        const y = r.top + r.height * (0.25 + 0.5 * rnd()) - far * (60 + 170 * k) + (rnd() - 0.5) * 30;
+        if (x > 1190 || y < 6) continue;
+        const c = document.createElementNS(ns, "circle");
+        c.setAttribute("cx", x.toFixed(1)); c.setAttribute("cy", y.toFixed(1));
+        c.setAttribute("r", (0.7 + rnd() * 1.9 * (1 - far * 0.6)).toFixed(2));
+        c.setAttribute("fill", rnd() < 0.55 ? "#d9b57a" : "#ece5d3");
+        c.setAttribute("opacity", (0.12 + 0.6 * (1 - far) * rnd()).toFixed(2));
+        svg.append(c);
+      }
+    }
+    document.body.dataset.ready = "1";
+  });
+</script>
+<!-- Render (needs the Lora font installed):
+     python3 -c "from playwright.sync_api import sync_playwright as p; b=p().start().chromium.launch(); g=b.new_page(viewport={'width':1200,'height':630}); g.goto('file:///ABS/PATH/site/tools/share-card.html'); g.wait_for_selector('body[data-ready]'); g.screenshot(path='site/sites/agentscanplay/share.png')" -->
 </body></html>
