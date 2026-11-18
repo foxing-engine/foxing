@@ -246,6 +246,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // The room it was dug from, and what memory paid for it.
             .field("origin", FieldKind::Plain, Visibility::Public)
             .field("dug_with", FieldKind::Plain, Visibility::Public)
+            // R190: what a room had faded to when a visit last renewed it: {at, memory}.
+            .field("was", FieldKind::Plain, Visibility::Public)
             // H19: when it was dug (ms), for the Mudroom's wall. Rooms dug before
             // 11-12 have none.
             .field("dug_at", FieldKind::Plain, Visibility::Public)

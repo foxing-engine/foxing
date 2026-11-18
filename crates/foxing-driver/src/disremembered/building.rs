@@ -163,10 +163,17 @@ pub fn visited(world: &mut World, room: EntityId) -> Result<(), String> {
     let Some(hl) = half_life(world, room) else {
         return Ok(());
     };
-    if memory(world, room).is_some_and(|m| m > 0.999) {
+    let was = memory(world, room).unwrap_or(1.0);
+    if was > 0.999 {
         return Ok(());
     }
     let mut fields = BTreeMap::new();
+    // R190: what the room had faded to when this visit brought it back, for the
+    // line its owner reads on arrival.
+    fields.insert(
+        "was".into(),
+        Field::Plain(json!({"at": world.now().0, "memory": was})),
+    );
     fields.insert(
         "memory".into(),
         Field::Timed(TimedValue::new(
@@ -187,6 +194,30 @@ pub fn visited(world: &mut World, room: EntityId) -> Result<(), String> {
         )
         .map(|_| ())
         .map_err(|e| e.to_string())
+}
+
+/// R190: " It had faded to 97% while you were away; your coming back brings it
+/// whole." for a room this very arrival renewed, or nothing.
+pub fn brought_back(world: &World, room: EntityId) -> String {
+    let was = match world
+        .store
+        .entity(room)
+        .and_then(|e| e.components.get(ROOM))
+        .and_then(|c| c.fields.get("was"))
+    {
+        Some(Field::Plain(v)) => v.clone(),
+        _ => return String::new(),
+    };
+    let fresh = was["at"]
+        .as_i64()
+        .is_some_and(|at| world.now().0 - at < 15_000);
+    match was["memory"].as_f64() {
+        Some(m) if fresh && m < 0.995 => format!(
+            " It had faded to {:.0}% while nobody stood in it; your coming back brings it whole.",
+            m * 100.0
+        ),
+        _ => String::new(),
+    }
 }
 
 /// The description as a visitor finds it: whole while the room is remembered, its first
@@ -364,8 +395,11 @@ pub(crate) fn may_edit(
     if granted(world, room, "permits", &ctx.actor) {
         Ok(())
     } else {
+        // R191: whose it is, and what would let you.
         Err(CommandError::precondition(format!(
-            "{} does not have this room's owner's permission.",
+            "This room is {}'s, and {} does not have their permission to change it (its owner gives it with `permit {}`). `mine` lists the rooms that are yours.",
+            e.owner.as_deref().unwrap_or("someone else"),
+            ctx.actor,
             ctx.actor
         )))
     }
@@ -471,6 +505,8 @@ pub const DUG: &str = "disremembered.dug";
 /// A line was appended to a room's description or a book's pages:
 /// `{by, kind, target, name, owner|maker, chars}`. Public.
 pub const APPENDED: &str = "disremembered.appended";
+/// A room's description was set by `by`: `{by, room}`. Public.
+pub const DESCRIBED: &str = "disremembered.described";
 
 /// How many rooms `actor` has dug off `from`.
 fn dug_from(world: &World, actor: &str, from: EntityId) -> usize {
@@ -1102,6 +1138,12 @@ pub fn register(world: &mut World, curves: super::Curves) {
             let mut fields = BTreeMap::new();
             fields.insert("description".into(), Field::Plain(json!(text)));
             set_room_fields(w, &ctx.actor, here, fields)?;
+            // R189: on the record as a line written, for `session`.
+            let _ = w.note(
+                Actor::Citizen(ctx.actor.clone()),
+                DESCRIBED,
+                json!({"by": ctx.actor, "room": here.0}),
+            );
             visited(w, here).map_err(internal)?;
             Ok(Outcome::new(
                 format!("The room is now described: {text}"),

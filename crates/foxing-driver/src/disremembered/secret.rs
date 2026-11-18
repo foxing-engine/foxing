@@ -447,6 +447,12 @@ pub fn declined(
 /// How many stories `actor` has told this creature since its word was last struck
 /// (or ever, at the first rung) that did not carry the word: the misses. A story
 /// refused inside the hour counts as one (D20 b).
+/// R199: how many of `actor`'s tries at this creature's current word are on the
+/// record, for the refusal that weighs one more.
+pub fn tries(world: &World, actor: &str, creature: EntityId) -> usize {
+    misses(world, actor, creature)
+}
+
 fn misses(world: &World, actor: &str, creature: EntityId) -> usize {
     let events = world.recent_events(4000);
     let last_struck = events
@@ -742,12 +748,34 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
 
 /// Whether `text` carries the creature's word; if so, by `actor` for the first time,
 /// the bonus, the word and the level, the strike recorded and the next word set.
+#[cfg(test)]
 pub fn strike(
     world: &mut World,
     actor: &str,
     creature: EntityId,
     text: &str,
 ) -> Result<Option<(f64, String, u8)>, CommandError> {
+    strike_as(world, actor, creature, text, false)
+}
+
+/// R199 (David, 11-18): a story heard as the one the creature wanted is weighed
+/// against its word whole, however many of the rung's words it carries, on the rungs
+/// drawn from what it wanted or was told (a hint there quotes a sentence, and a story
+/// that carried the sentence was turned away for carrying too much of it). The last
+/// rung, drawn from the room, keeps its one word to a story (D29).
+pub fn wanted_waives(world: &World, creature: EntityId) -> bool {
+    field(world, creature)
+        .is_some_and(|v| matches!(v["from"].as_str(), Some("wanted") | Some("told")))
+}
+
+pub fn strike_as(
+    world: &mut World,
+    actor: &str,
+    creature: EntityId,
+    text: &str,
+    wanted: bool,
+) -> Result<Option<(f64, String, u8)>, CommandError> {
+    let waived = wanted && wanted_waives(world, creature);
     let Some((word, level, struck)) = ensure(world, creature)? else {
         return Ok(None);
     };
@@ -759,7 +787,7 @@ pub fn strike(
         .split(|c: char| !c.is_alphanumeric() && c != '\'')
         .map(|w| w.trim_matches('\'').to_lowercase())
         .any(|w| !w.is_empty() && super::errand::stem(&w) == stem);
-    if !hit || overreach(world, actor, creature, text).is_some() {
+    if !hit || (!waived && overreach(world, actor, creature, text).is_some()) {
         return Ok(None);
     }
     let bonus = BONUS[(level.clamp(1, LEVELS) - 1) as usize];

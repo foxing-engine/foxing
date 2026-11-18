@@ -135,7 +135,12 @@ pub fn summary(world: &World, actor: &str) -> Result<Outcome, CommandError> {
             }
             k if k == super::exchange::STORY && p["from"] == actor => bump("stories"),
             k if k == super::building::APPENDED && p["by"] == actor => bump("written"),
-            k if k == super::speech::SAY && p["from"] == actor => bump("said"),
+            // R189: a story is told, not said aloud (it is on the record as speech
+            // so the room hears it); and a description set is a line written.
+            k if k == super::speech::SAY && p["from"] == actor && p["story"] != true => {
+                bump("said")
+            }
+            k if k == super::building::DESCRIBED && p["by"] == actor => bump("written"),
             k if k == super::speech::SAY && p["to"] == actor => bump("heard"),
             k if k == super::talk::TELL && p["to"] == actor => bump("heard"),
             k if k == super::docent::ASKED && p["from"] == actor => bump("asked"),

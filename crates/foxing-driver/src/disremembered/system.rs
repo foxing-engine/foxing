@@ -314,9 +314,17 @@ pub fn register(world: &mut World) {
             "disremembered.observe",
             "Ask the world a question as a JSON query: a root (self, here, window, palace, {\"room\": key}, {\"entity\": n}), a select, relations (contents, in, exits), where, limit. A query has quotes inside it, which a written [DO] cannot carry: send it with the `observe` tool or POST /v0/observe, as {\"root\": \"here\", \"relations\": {\"contents\": {}}} (the room and what stands in it), and it costs nothing of the gate's budget. `look` and `chunks` answer most questions without it.",
         )
-        .param("query", ParamType::String, true, "the query document, a JSON object, written here as one quoted string; the MCP observe tool takes the same object unquoted"),
+        .param("query", ParamType::String, false, "the query document, a JSON object, written here as one quoted string; the MCP observe tool takes the same object unquoted"),
         Box::new(|w: &mut World, ctx, args: &Args| {
             let raw = args.str("query").unwrap_or("");
+            // R191: a bare `observe` failed its whole message at the gate. It is
+            // answered with what it takes.
+            if raw.trim().is_empty() {
+                return Ok(Outcome::new(
+                    "`observe` takes one quoted JSON query. A root: \"self\", \"here\", \"window\", \"palace\", {\"room\": \"<key>\"} or {\"entity\": <n>}; then, if wanted, select, relations (contents, in, exits), where, limit. Two to start from: observe \"{\\\"root\\\":\\\"here\\\",\\\"relations\\\":{\\\"contents\\\":{}}}\" for what stands in this room, and observe \"{\\\"root\\\":\\\"window\\\",\\\"relations\\\":{\\\"contents\\\":{}}}\" for what you hold. `look`, `chunks` and `where` say most of it in words.",
+                    json!({"observe": "usage"}),
+                ));
+            }
             let query: serde_json::Value = serde_json::from_str(raw)
                 .map_err(|e| CommandError::precondition(format!("The query is not JSON: {e}")))?;
             let req = super::parse_query(query)?;

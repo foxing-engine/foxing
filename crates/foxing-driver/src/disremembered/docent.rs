@@ -263,10 +263,14 @@ fn creature_slot(world: &World, actor: &str) -> String {
         return String::new();
     };
     let list = v["wants"].as_array().cloned().unwrap_or_default();
-    let Some(w) = list
-        .iter()
-        .find(|w| w["story"].is_string() || w["word"].is_string())
-    else {
+    // R200: not one that was just felled and "is not itself yet" (a newcomer was
+    // sent to it and turned away).
+    let Some(w) = list.iter().find(|w| {
+        (w["story"].is_string() || w["word"].is_string())
+            && !w["creature"]
+                .as_u64()
+                .is_some_and(|c| super::mind::shaken(world, EntityId(c)))
+    }) else {
         return String::new();
     };
     let name = w["name"].as_str().unwrap_or("someone");
@@ -1453,7 +1457,10 @@ pub fn report(world: &World) -> Value {
             // the world's rooms from where the asker stands, the rooms they remember,
             // and where each kind lives (an answer once said the Midden was on no
             // route it held, with the Midden one door from the asker).
-            let routes = here.map(|r| super::atlas::routes_from(world, r)).unwrap_or_default();
+            // R200: from where the answer will find them, not where they asked: two
+            // answers gave the way from a room the asker had already left.
+            let routes_room = now_in.or(here);
+            let routes = routes_room.map(|r| super::atlas::routes_from(world, r)).unwrap_or_default();
             let remembered = f.as_ref().map(|f| super::atlas::known_room_names(world, f.citizen, hl)).unwrap_or_default();
             // The asker's record, as `log` would show it to them: a question about a
             // key just taken, or a name just dealt, is answered from what happened,
@@ -1470,6 +1477,7 @@ pub fn report(world: &World) -> Value {
                 "wants": wants["wants"],
                 "newest_room": room_slot(world),
                 "routes": routes,
+                "routes_from": routes_room.and_then(|r| plain_str(world, r, ROOM, "name")),
                 "remembered": remembered,
                 "homes": super::rooms::homes(),
                 "record": record,

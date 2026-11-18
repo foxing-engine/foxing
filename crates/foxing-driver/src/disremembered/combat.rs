@@ -3299,6 +3299,14 @@ pub fn register(world: &mut World, curves: Curves) {
                     eta = time_to_whole(w);
                 }
             }
+            // R197: a bandage carried on a `rest` that needs none said nothing, and its
+            // bearer took it for broken.
+            if bandaged.is_empty() && bleeding.is_none() && current < max_hp(w, f.citizen) - 0.5 {
+                if let Some(b) = super::craft::carries(w, f.citizen, "bandage") {
+                    let called = super::craft::display(w, b);
+                    bandaged = format!("(Your {} stays in the satchel: it is for a bite that will not close, and you have none.) ", called.trim_start_matches("a ").trim_start_matches("an "));
+                }
+            }
             let shaken_line = shaken_said(w, f.citizen).map(|l| format!(" {l}")).unwrap_or_default();
             // An arm put to sleep by a bite was said once, with no figure, and `rest`
             // did not say it at all.

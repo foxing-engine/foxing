@@ -315,7 +315,8 @@ def context(q):
         lines.append(q["newest_room"])
     routes = q.get("routes") or []
     if routes:
-        lines.append("Signed routes from where the asker stands (the world's own rooms, nearest first): " + "; ".join(
+        stands = q.get("routes_from")
+        lines.append(f"Signed routes from where the asker stands NOW{' (' + stands + ')' if stands else ''}, which is where your answer finds them; give every way from there, never from the room they asked in (the world's own rooms, nearest first): " + "; ".join(
             f"{r.get('room')}: {', '.join(r.get('way') or [])}" for r in routes[:40]))
     if q.get("remembered"):
         lines.append("Rooms the asker remembers walking: " + ", ".join(q["remembered"][:30]) + ".")

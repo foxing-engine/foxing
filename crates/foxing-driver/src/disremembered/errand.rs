@@ -461,6 +461,34 @@ pub fn describe(world: &World, creature: EntityId) -> Option<String> {
     describe_as(world, creature, true)
 }
 
+/// R195: how long a creature's want still stands, for a sign read a walk away from
+/// it (" (for about 10 minutes more; sooner if someone meets it)"), or nothing for a
+/// want that does not turn.
+pub fn stands_for(world: &World, creature: EntityId) -> String {
+    let Some(e) = of(world, creature) else {
+        return String::new();
+    };
+    if e.story.is_none() || !rotatable(&e.story_by) || e.story_at <= 0 {
+        return String::new();
+    }
+    let until = if e.story_until > 0 {
+        e.story_until
+    } else {
+        e.story_at + ROTATION_MS
+    };
+    let ms = (until - world.now().0).max(0);
+    if ms < 3_600_000 {
+        let m = ((ms + 299_999) / 300_000 * 5).max(5);
+        format!(" (for about {m} minutes more; sooner if someone meets it)")
+    } else {
+        let h = (ms + 3_599_999) / 3_600_000;
+        format!(
+            " (for about {h} hour{} more; sooner if someone meets it)",
+            if h == 1 { "" } else { "s" }
+        )
+    }
+}
+
 /// As [`describe`], and with `worded` false the word itself is left out: the giver
 /// says it to whoever stands with it or tells it (D30).
 pub fn describe_as(world: &World, creature: EntityId, worded: bool) -> Option<String> {

@@ -252,15 +252,25 @@ pub fn run_checked(
         }) {
             // The checker fails this on CL-I6; the dry run once said "ok, runs take"
             // for a bare `take` the verdict then refused.
+            // R201: in the gate's words and count (`tell` with a name and no text
+            // read "needs an argument (text)" here and "needs 2" at the gate).
+            let all: Vec<String> = spec
+                .map(|s| {
+                    s.params
+                        .iter()
+                        .filter(|p| p.required)
+                        .map(|p| p.name.clone())
+                        .collect()
+                })
+                .unwrap_or_default();
             (
                 false,
                 format!(
-                    "refused: {verb} needs {} ({})",
-                    if missing.len() == 1 {
-                        "an argument"
-                    } else {
-                        "arguments"
-                    },
+                    "refused: {verb} needs {} argument{} ({}); the DO gives {} (missing: {})",
+                    all.len(),
+                    if all.len() == 1 { "" } else { "s" },
+                    all.join(", "),
+                    args.len(),
                     missing.join(", ")
                 ),
             )

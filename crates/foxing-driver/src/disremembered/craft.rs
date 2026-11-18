@@ -1427,25 +1427,51 @@ pub(crate) fn resolve_item(
         .trim_start_matches("a ")
         .trim_start_matches("the ")
         .to_string();
+    // R163: the best match, not the first: the whole name, then a whole word of it,
+    // then a part of a word (`read charm` read Charmkin over the moth charm just
+    // made); between equals, a thing someone made, then the newest.
+    let score = |n: &str| -> u8 {
+        let n = n.to_lowercase();
+        let bare = n
+            .trim_start_matches("a ")
+            .trim_start_matches("an ")
+            .trim_start_matches("the ");
+        if n == want || bare == want {
+            3
+        } else if bare
+            .split(|c: char| !c.is_alphanumeric() && c != '\'')
+            .any(|w| w == want)
+            || bare.starts_with(&format!("{want} "))
+            || bare.ends_with(&format!(" {want}"))
+            || bare.contains(&format!(" {want} "))
+        {
+            2
+        } else if n.contains(&want) {
+            1
+        } else {
+            0
+        }
+    };
     world
         .store
         .children(within)
         .filter(|e| e.kind == "item")
-        .find(|e| {
-            let by_kind = plain_str(world, e.id, ITEM, "name")
-                .map(|n| {
-                    let n = n.to_lowercase();
-                    n == want || n.trim_start_matches("a ") == want || n.contains(&want)
-                })
-                .unwrap_or(false);
-            let by_given = plain_str(world, e.id, ITEM, "given_name")
-                .map(|n| {
-                    let n = n.to_lowercase();
-                    n == want || n.trim_start_matches("the ") == want || n.contains(&want)
-                })
-                .unwrap_or(false);
-            by_kind || by_given
+        .filter_map(|e| {
+            let s = plain_str(world, e.id, ITEM, "name")
+                .map(score)
+                .unwrap_or(0)
+                .max(
+                    plain_str(world, e.id, ITEM, "given_name")
+                        .map(score)
+                        .unwrap_or(0),
+                );
+            (s > 0).then(|| {
+                let made = plain_str(world, e.id, ITEM, "made_by").is_some();
+                ((s, made, e.id.0), e)
+            })
         })
+        .max_by_key(|(k, _)| *k)
+        .map(|(_, e)| e)
         .map(|e| e.id)
         .ok_or_else(|| {
             // R213: "There is no a small key here".
@@ -2360,7 +2386,12 @@ pub fn register(world: &mut World, curves: Curves) {
                 list.push(json!({"recipe": r.key, "name": r.name, "of": r.of, "chunk_at_least": asks, "vividity_at_least": r.vividity_at_least, "tier": r.tier, "does": r.does, "uses": r.uses, "fixed": r.fixed, "by": r.by, "could_make": can, "missing": missing}));
             }
             Ok(Outcome::new(
-                format!("What can be made (craft <recipe> [<chunk>]; a kept name adds one with recipe):\n{}\n{FOUND}", lines.join("\n")),
+                format!(
+                    "What can be made (craft <recipe> [<chunk>]; a kept name adds one with recipe):\n{}\n{FOUND}{}",
+                    lines.join("\n"),
+                    // R197: a name that holds nothing is told where a chunk comes from.
+                    if level <= 0.0 { " A chunk is a memory: your first comes from a first fight won, or a first story told (`chunks` lists what you hold)." } else { "" }
+                ),
                 json!({"recipes": list, "found": FOUND}),
             ))
         }),
@@ -2919,6 +2950,18 @@ pub fn register(world: &mut World, curves: Curves) {
                         .and_then(|o| all_recipes(w).into_iter().find(|r| r.key == o))
                         .map(|r| format!(" It {}.", r.does.trim_end_matches('.')))
                         .unwrap_or_default();
+                    // R197: a lantern's "three times as long" beside `map`'s "half
+                    // every 12.0 hours" read as two rules. The figure, both ways.
+                    let does = if plain_str(w, item, ITEM, "origin")
+                        .and_then(|o| all_recipes(w).into_iter().find(|r| r.key == o))
+                        .is_some_and(|r| r.effect == "lantern")
+                    {
+                        let base = super::Curves::from_env().active_half_life.0 as f64 * super::atlas::ATLAS_HALF_LIVES / 3_600_000.0;
+                        let times = if tier >= 2 { 5.0 } else { 3.0 };
+                        format!("{does} In hours: a room fades from your map by half every {:.1} with this in hand, where it is {base:.1} without (the figure `map` gives is the one in force).", base * times)
+                    } else {
+                        does
+                    };
                     return Ok(Outcome::new(
                         format!(
                             "{called} (item-{}){}:{does} {past}",

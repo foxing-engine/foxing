@@ -100,7 +100,10 @@ fn signpost(world: &World, here: EntityId) -> String {
             let way = signed_way(world, here, room)?;
             let kind = plain_str(world, e.id, CREATURE, "name").unwrap_or("creature");
             let want = match super::errand::of(world, e.id).and_then(|x| x.story) {
-                Some(s) => format!("wants a story about {s}"),
+                Some(s) => format!(
+                    "wants a story about {s}{}",
+                    super::errand::stands_for(world, e.id)
+                ),
                 None => "wants nothing just now, and will listen anyway".to_string(),
             };
             let by = if way.is_empty() {

@@ -519,7 +519,10 @@ pub fn register(world: &mut World, curves: Curves) {
                 let not_it = super::secret::miss_said(w, &ctx.actor, creature, &text);
                 return Err(CommandError::precondition(format!(
                     "{name} has heard {STORIES_AN_HOUR} stories in its hour and is turning them over; it takes no more until that hour turns{}. `wants` names another.{not_it}",
-                    if word_left { ", but for one that carries the word under the others, and it weighed that one for it" } else { "" }
+                    if word_left {
+                        let n = super::secret::tries(w, &ctx.actor, creature);
+                        format!(", but for one that carries the word under the others, and it weighed that one for it ({n} tr{} of yours at this word so far)", if n == 1 { "y" } else { "ies" })
+                    } else { String::new() }
                 )));
             }
             // The story is said, as itself.
@@ -556,11 +559,12 @@ pub fn register(world: &mut World, curves: Curves) {
             // want that stands were two, and one reply said both).
             let missed = if wanted || wanted_early { None } else { super::errand::why_missed(w, creature, &text) };
             // The word under the others: a story that carries it pays the level's bonus.
-            let over = super::secret::overreach(w, &ctx.actor, creature, &text);
+            let as_wanted = (wanted || wanted_early) && super::secret::wanted_waives(w, creature);
+            let over = if as_wanted { None } else { super::secret::overreach(w, &ctx.actor, creature, &text) };
             // R214: what the story carried of the words its word could be, taken
             // before the strike moves the word on.
             let guessed = super::secret::carried_candidates(w, &ctx.actor, creature, &text);
-            let struck = super::secret::strike(w, &ctx.actor, creature, &text)?;
+            let struck = super::secret::strike_as(w, &ctx.actor, creature, &text, as_wanted)?;
             // The grace, said right: the first miss of the hour spends nothing; the
             // second spends it ("once" on both read as a lie, the Watch of 11-07). A
             // story heard for the word spends no hour at all, and is not a miss on the
@@ -657,11 +661,13 @@ pub fn register(world: &mut World, curves: Curves) {
                 // The creature's answer reaches the teller as it reaches the room, a
                 // narrator line, so the outcome does not repeat it.
                 format!(
-                    "You tell {display} a story of {words} words, and it answers.{}{}{heard_line} You remember the telling: chunk-{} worth {paid:.1} XP{}.{}",
+                    "You tell {display} a story of {words} words, and it answers.{}{}{heard_line} You remember the telling: chunk-{} worth {paid:.1} XP{}. {display} keeps half as much, {:.1}, as its own memory of the story.{}",
                     if wanted_early { " It was the story it wanted, heard inside its hour with you at plain pay (once an hour); the want stands, and told again when its hour turns it pays double. A story counts as the wanted one by what it is about, meant so or not, and that was this hour's one early hearing." } else if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
                     struck.as_ref().map(|(b, _, l)| format!(" It carried the word under the others, the {} of three: {}, and vivid.", ["first", "second", "third"][(*l as usize).clamp(1, 3) - 1], if bonus_only { format!("heard inside its hour with you, so the bonus alone, {paid:.1} XP: {} of what a story pays", match (b * 10.0).round() as i64 { 15 => "half again".to_string(), 20 => "as much again".to_string(), 25 => "one and a half times again".to_string(), _ => format!("{:.1} times", b - 1.0) }) } else { format!("{b:.1} times the pay, {paid:.1} XP") })).unwrap_or_default(),
                     earned.0,
                     if vivid > 0.4 { format!(", vividity {vivid:.2}{}", if long > 0.0 && struck.is_none() { " (length buys vividity, to 0.90 at two hundred words)" } else { "" }) } else { String::new() },
+                    // R160: the teller's pay and the creature's keep are two figures.
+                    paid / 2.0,
                     missed.as_deref().map(|m| format!(" {m}")).unwrap_or_default()
                 ),
                 json!({"creature": creature.0, "name": name, "words": words, "distinct": distinct, "earned": earned.0, "xp": paid, "kept": kept.0, "level": level, "wanted": wanted, "wanted_early": wanted_early, "missed": missed, "repeats": repeats, "struck": struck.as_ref().map(|(b, w, l)| json!({"word": w, "level": l, "bonus": b}))}),

@@ -5996,7 +5996,10 @@ fn a_memory_taken_from_a_creature_is_minted_at_what_it_is_worth_now() {
         "{}",
         what[0]
     );
-    assert_eq!(what[1], "refused: take needs an argument (item)");
+    assert_eq!(
+        what[1],
+        "refused: take needs 1 argument (item); the DO gives 0 (missing: item)"
+    );
     assert_eq!(what[2], "refused: look takes 0 arguments; the DO gives 1");
     assert_eq!(what[3], "refused: there is no wisp ember here to take");
     assert!(

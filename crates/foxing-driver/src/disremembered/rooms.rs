@@ -1715,11 +1715,12 @@ pub fn describe_as(
                 super::building::half_life_of(world, room),
             ) {
                 text.push_str(&format!(
-                    " Yours: {:.0}% remembered, halving every {}; {} of {} doors left.",
+                    " Yours: {:.0}% remembered, halving every {}; {} of {} doors left.{}",
                     mem * 100.0,
                     super::combat::human(hl.0),
                     super::building::MAX_EXITS.saturating_sub(exits.len()),
-                    super::building::MAX_EXITS
+                    super::building::MAX_EXITS,
+                    super::building::brought_back(world, room)
                 ));
             }
         }
@@ -1790,9 +1791,10 @@ pub fn describe_as(
                 super::building::half_life_of(world, room),
             ) {
                 text.push_str(&format!(
-                    " Yours: {:.0}% remembered, halving every {}.",
+                    " Yours: {:.0}% remembered, halving every {}.{}",
                     mem * 100.0,
-                    super::combat::human(hl.0)
+                    super::combat::human(hl.0),
+                    super::building::brought_back(world, room)
                 ));
             }
         }
