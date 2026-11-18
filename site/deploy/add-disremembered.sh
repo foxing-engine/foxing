@@ -11,6 +11,25 @@ CERT_EMAIL=${CERT_EMAIL:?set CERT_EMAIL}
 DEPLOY="$APP_DIR/current/deploy"
 ok() { printf '  ok  %s\n' "$*"; }
 
+# A block that already answers for the name (the forward to agentscanplay.com that was
+# here first) would win over the new one or fight it. One that names only this domain is
+# switched off (its file stays in sites-available); one that shares a file with another
+# site is yours to edit, and the script stops and says where.
+for f in /etc/nginx/sites-enabled/*; do
+  [ -e "$f" ] || continue
+  [ "$(basename "$f")" = disremembered ] && continue
+  grep -q 'disremembered\.com' "$f" || continue
+  others=$(grep -hE '^\s*server_name' "$f" | tr -s ' ;' '\n' | grep -E '\.' | grep -v 'disremembered\.com' || true)
+  if [ -z "$others" ]; then
+    rm -f "$f" && ok "switched off the old block for this name: $f (the file it pointed at is kept)"
+  else
+    echo "  !!  $f names disremembered.com beside other sites:"
+    grep -nE 'disremembered\.com' "$f" | sed 's/^/        /'
+    echo "      Take disremembered.com out of that file (and any server block that is only for it), then run this again."
+    exit 1
+  fi
+done
+
 install -m 644 "$DEPLOY/nginx-disremembered.conf" /etc/nginx/sites-available/disremembered
 ln -sfn /etc/nginx/sites-available/disremembered /etc/nginx/sites-enabled/disremembered
 nginx -t && systemctl reload nginx && ok "disremembered.com answering on port 80"
