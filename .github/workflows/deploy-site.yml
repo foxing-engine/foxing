@@ -9,6 +9,8 @@ on:
       - "crates/foxing-clear/**"
       - "crates/foxing-clear-wasm/**"
       - ".github/workflows/deploy-site.yml"
+      - "deploy/secure-updates.sh"
+      - "deploy/security-report.sh"
   workflow_dispatch:
 
 concurrency:
@@ -114,7 +116,16 @@ jobs:
           REL="$(date -u +%Y%m%d%H%M%S)-${GITHUB_SHA::7}"
           echo "REL=$REL" >> "$GITHUB_ENV"
           ssh vps "mkdir -p $APP_DIR/releases/$REL"
+          # The security upkeep script rides along (one copy, kept in /deploy).
+          cp ../deploy/secure-updates.sh deploy/
           rsync -az --exclude '__pycache__/' sites deploy analytics "vps:$APP_DIR/releases/$REL/"
 
       - name: Switch, health-check, prune
         run: ssh vps "bash -s -- $REL" < deploy/remote-deploy.sh
+
+      # What the box owes in security upkeep, on every deploy: warnings land on the
+      # run's summary. Read-only, and never fails the deploy.
+      - name: Security posture
+        if: always()
+        continue-on-error: true
+        run: ssh vps "bash -s -- agentscanplay.com disremembered.com foxing.dev" < ../deploy/security-report.sh

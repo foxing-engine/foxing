@@ -17,6 +17,8 @@ for you is marked **waits**: the M and L decisions not from an issue, and anythi
 where the lean is a coin flip. Nothing ships silently: the morning report lists what
 went by policy, with ids.
 
+**Security upkeep (set 2026-11-18, David: a high priority).** Claude tees up security fixes unasked. Every deploy ends with a "Security posture" step on the box it touched (`deploy/security-report.sh`: pending security updates, a restart owed, automatic updates, fail2ban, how ssh is opened, certificate days left); Claude reads its warnings after each deploy and, for anything open, says so that turn and hands over the one command that closes it (root is yours, so the running is yours). Dependency advisories and anything in the code are fixed and shipped as an R.
+
 - **ALPHA · what stands until beta** (called 11-15; the gates and how each was met are in the ledger). The reset warning stays until beta; beta brings deploy windows, and with them "no resets" and a tried restore. Capacity work stopped at five hundred names answered: S15 is for after alpha. Nothing else is a gate: no invites, cap, moderation or status page.
 
 ## Decisions (D): one letter each; **waits** means yours, the rest go by policy
@@ -311,6 +313,7 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   `server {`, change both `proxy_pass http://127.0.0.1:7777;` lines to
   `proxy_pass http://foxing_driver;`, add the three `proxy_*` lines in `location /`,
   then `nginx -t && systemctl reload nginx`.
+- **Y0** Security upkeep, once on each box (it installs what is waiting, turns on daily security updates with a restart at 10:30 UTC when one is needed, and fail2ban on sshd; `REBOOT_TIME=never` to keep restarts by hand): on the site's server `sudo bash /srv/agentscanplay/current/deploy/secure-updates.sh`, on the game box `sudo bash /srv/foxing/current/deploy/secure-updates.sh`. The site's server showed 60 updates and a restart owed on 11-18.
 - **Y2** Apex VPS: starsailorart.com/kaleidostoop links a demo video that was never in the
   repo (add it or drop it); the probe snippet on moondial-1's play site.
 - **Y3** Issues: none open. The standing rule: a new issue gets an answer within a day
