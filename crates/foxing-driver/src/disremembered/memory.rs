@@ -74,6 +74,13 @@ pub fn earn_chunk(
             },
         )
         .map_err(internal)?;
+    // The world's leave ends at level 100: said with the memory that crossed it, not
+    // a message later (Gnash walked into the Shallows in between, 11-18).
+    if let Some(f) = super::find_citizen(world, actor) {
+        if f.window == window {
+            super::combat::leave_by_level(world, actor, f.citizen);
+        }
+    }
     Ok(id)
 }
 

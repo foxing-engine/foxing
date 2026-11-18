@@ -14143,6 +14143,8 @@ fn the_leave_ends_at_level_one_hundred_for_good() {
     login(&mut w, "dave", "test", PASS).unwrap();
     let f = find_citizen(&w, "dave").unwrap();
     assert!(combat::sheltered(&w, f.citizen));
+    // Said with the memory that crosses the line, not a message later.
+    let head = events(&w);
     let chunk = super::memory::earn_chunk(
         &mut w,
         "dave",
@@ -14157,7 +14159,6 @@ fn the_leave_ends_at_level_one_hundred_for_good() {
         !combat::sheltered(&w, f.citizen),
         "level 100 is not sheltered"
     );
-    let head = events(&w);
     ok(&mut w, "dave", "travel", json!(["east"]));
     let said = narrative(&w, "dave", head);
     assert_eq!(

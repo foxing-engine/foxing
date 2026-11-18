@@ -526,6 +526,7 @@ fn making_is(m: &str) -> Option<&'static str> {
         "grave dust" => "the Ossuary",
         "sitter's patience" => "the Gallery's sitters",
         "small key" => "the Oubliette's keepers",
+        "catalogue card" => "the Stacks' cataloguers leave one",
         _ => return None,
     })
 }
@@ -2222,7 +2223,15 @@ pub fn register(world: &mut World, curves: Curves) {
                     json!({"item": id.0, "name": super::door::SPADE, "from": "rack"}),
                 ));
             }
-            let item = resolve_item(w, args.str("item").unwrap_or(""), room)?;
+            // A thing you took yourself a moment ago is said as yours ("Gnettle took
+            // the rag thread" to Gnettle, 11-18).
+            let item = resolve_item(w, args.str("item").unwrap_or(""), room).map_err(|e| {
+                let said = e.to_string();
+                match said.strip_prefix(&format!("{} took the ", ctx.actor)) {
+                    Some(rest) => CommandError::precondition(format!("You took the {} It is in your satchel (`satchel`).", rest.replace("; there is none here now.", ": there is none here now."))),
+                    None => e,
+                }
+            })?;
             if is_fixed(w, item) {
                 // The Purse in the Strongroom is the one fixture that can be taken, and
                 // only past its Wardens.
@@ -2339,6 +2348,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 .iter()
                 .filter_map(|t| t["name"].as_str().map(str::to_string))
                 .collect();
+            let passing = super::is_passing(w, f.citizen);
             let level = super::memory::level(w, f.window);
             // R76: what you spent on a thing in the last ten minutes is said as spent,
             // not lacked ("You lack rag thread" the moment the thread became a bandage).
@@ -2367,7 +2377,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     "  {:<8} {}{}{}: of {}{}; {}.{}",
                     r.key,
                     r.name,
-                    if r.fixed { " (a fixture)" } else { "" },
+                    if r.fixed && passing { " (a fixture: a kept name's to place, so `keep` first)" } else if r.fixed { " (a fixture)" } else { "" },
                     r.by.as_deref().map(|b| format!(" (a recipe {b} wrote)")).unwrap_or_default(),
                     r.of.join(" and "),
                     if r.chunk_at_least > 0.0 && r.fixed { format!(" and a chunk (any; one worth {asks:.0} or more makes it last longest){}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else if r.chunk_at_least > 0.0 { format!(" and a chunk worth {asks:.0} or more (the whole chunk is spent, whatever it is worth: offer the smallest that will do){}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else { String::new() },
@@ -2387,10 +2397,11 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             Ok(Outcome::new(
                 format!(
-                    "What can be made (craft <recipe> [<chunk>]; a kept name adds one with recipe):\n{}\n{FOUND}{}",
+                    "What can be made (craft <recipe> [<chunk>]; a kept name adds one with recipe):{}\n{}\n{FOUND}",
+                    // R197: a name that holds nothing is told where a chunk comes
+                    // from, first (at the foot it sat under twenty-five recipes).
+                    if level <= 0.0 { " A chunk is a memory, and you hold none yet: your first comes from a first fight won, or a first story told (`chunks` lists what you hold)." } else { "" },
                     lines.join("\n"),
-                    // R197: a name that holds nothing is told where a chunk comes from.
-                    if level <= 0.0 { " A chunk is a memory: your first comes from a first fight won, or a first story told (`chunks` lists what you hold)." } else { "" }
                 ),
                 json!({"recipes": list, "found": FOUND}),
             ))

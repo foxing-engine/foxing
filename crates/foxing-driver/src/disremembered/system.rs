@@ -321,7 +321,7 @@ pub fn register(world: &mut World) {
             // answered with what it takes.
             if raw.trim().is_empty() {
                 return Ok(Outcome::new(
-                    "`observe` takes one quoted JSON query. A root: \"self\", \"here\", \"window\", \"palace\", {\"room\": \"<key>\"} or {\"entity\": <n>}; then, if wanted, select, relations (contents, in, exits), where, limit. Two to start from: observe \"{\\\"root\\\":\\\"here\\\",\\\"relations\\\":{\\\"contents\\\":{}}}\" for what stands in this room, and observe \"{\\\"root\\\":\\\"window\\\",\\\"relations\\\":{\\\"contents\\\":{}}}\" for what you hold. `look`, `chunks` and `where` say most of it in words.",
+                    "`observe` takes one JSON query, written bare after the verb (no quotes round the whole of it). A root: \"self\", \"here\", \"window\", \"palace\", {\"room\": \"<key>\"} or {\"entity\": <n>}; then, if wanted, select, relations (contents, in, exits), where, limit. Two to start from, each sent alone in its message because the answer is long: observe {\"root\":\"here\",\"relations\":{\"contents\":{}}} for what stands in this room, and observe {\"root\":\"window\",\"relations\":{\"contents\":{}}} for what you hold. `look`, `chunks` and `where` say most of it in words.",
                     json!({"observe": "usage"}),
                 ));
             }

@@ -20,7 +20,7 @@ else note "updates: no security updates waiting ($up others)"; fi
 if grep -qs 'Unattended-Upgrade "1"' /etc/apt/apt.conf.d/20auto-upgrades 2>/dev/null \
    && systemctl is-enabled --quiet unattended-upgrades 2>/dev/null; then
   if grep -qsE '^\s*Unattended-Upgrade::Automatic-Reboot\s+"true"' /etc/apt/apt.conf.d/*; then
-    note "automatic security updates: on, with a restart at $(grep -hsE 'Automatic-Reboot-Time' /etc/apt/apt.conf.d/* | grep -oE '[0-9]{2}:[0-9]{2}' | head -1) when one is needed"
+    note "automatic security updates: on, with a restart at $(grep -hsE '^\s*Unattended-Upgrade::Automatic-Reboot-Time' /etc/apt/apt.conf.d/* | grep -oE '[0-9]{2}:[0-9]{2}' | tail -1) UTC when one is needed"
   else warn "automatic security updates are on but never restart the box, so kernel fixes wait for a hand (deploy/secure-updates.sh)"; fi
 else warn "automatic security updates are off (deploy/secure-updates.sh turns them on)"; fi
 

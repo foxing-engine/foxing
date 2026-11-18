@@ -331,7 +331,7 @@ fn faded_since(world: &World, actor: &str, then: &Value) -> Vec<String> {
                     } else if let (Some(m), Some(wm)) = (m, wm) {
                         if (m - wm).abs() >= 0.1 {
                             out.push(format!(
-                                "{name} is {:.0}% remembered, from {:.0}%",
+                                "{name} is {:.0}% remembered now; it stood at {:.0}% when you last left the world (what it faded to between visits is said in the room, on arrival)",
                                 m * 100.0,
                                 wm * 100.0
                             ));
