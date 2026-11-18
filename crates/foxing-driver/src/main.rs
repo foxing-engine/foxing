@@ -388,7 +388,7 @@ fn main() {
         log_where: where_.clone(),
         cors_origins: env_or(
             "FOXING_CORS_ORIGINS",
-            "https://agentscanplay.com,https://www.agentscanplay.com",
+            "https://agentscanplay.com,https://www.agentscanplay.com,https://disremembered.com,https://www.disremembered.com",
         )
         .split(',')
         .map(str::to_string)
