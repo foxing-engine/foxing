@@ -1102,11 +1102,29 @@ fn is_debris(name: &str, key: &str) -> bool {
 /// seed rooms as doors no one would take).
 pub const FORGOTTEN_UNDER: f64 = 0.01;
 pub const FORGOTTEN_FOR_MS: f64 = 86_400_000.0;
+/// A fixture in the room holds the Docent off, and no longer for good (David, 11-18:
+/// "fixtures introduce significant delay"; four doors stood at 0% on the Mudroom's
+/// wall, one of them 114 hours old): a week under the mark, where a bare room has a
+/// day.
+pub const FORGOTTEN_FOR_FIXTURE_MS: f64 = 7.0 * 86_400_000.0;
 
-/// Whether a dug room has been under [`FORGOTTEN_UNDER`] for a day: its memory
-/// halves on its own half-life, so the mark it would have to be under now is the
-/// threshold halved over the day. A room with a fixture, a named creature, or anyone
-/// in it is never forgotten this way.
+/// Whether a room at `mem`, halving every `hl` ms, has been under
+/// [`FORGOTTEN_UNDER`] for `for_ms`. It crossed the mark `hl * log2(mark / mem)` ago.
+/// (The older test, a second mark halved over the wait, underflowed on a short
+/// half-life, and a day and a week came to the same floor.)
+pub(crate) fn under_for(mem: f64, hl: f64, for_ms: f64) -> bool {
+    if mem >= FORGOTTEN_UNDER {
+        return false;
+    }
+    if mem <= 0.0 {
+        return true;
+    }
+    hl * (FORGOTTEN_UNDER / mem).log2() >= for_ms
+}
+
+/// Whether a dug room is forgotten: under a hundredth remembered for a day, or for a
+/// week if a fixture stands in it. A room with a named creature or anyone in it is
+/// never forgotten this way.
 fn is_forgotten(world: &World, room_id: EntityId) -> bool {
     let Some(mem) = super::building::memory(world, room_id) else {
         return false;
@@ -1115,20 +1133,25 @@ fn is_forgotten(world: &World, room_id: EntityId) -> bool {
         .map(|d| d.0 as f64)
         .unwrap_or(3_600_000.0)
         .max(60_000.0);
-    // Floored: on a short half-life the mark underflows to nothing, and a room at
-    // nothing must still be under it.
-    let mark = (FORGOTTEN_UNDER * 0.5f64.powf(FORGOTTEN_FOR_MS / hl)).max(1e-12);
-    if mem >= mark {
-        return false;
-    }
     if anyone_here(world, room_id) {
         return false;
     }
-    let kept = world.store.children(room_id).any(|e| {
-        (e.kind == "item" && super::craft::is_fixed(world, e.id))
-            || (e.kind == "creature" && super::mind::name(world, e.id).is_some())
-    });
-    !kept
+    let mut fixture = false;
+    for e in world.store.children(room_id) {
+        if e.kind == "creature" && super::mind::name(world, e.id).is_some() {
+            return false;
+        }
+        fixture |= e.kind == "item" && super::craft::is_fixed(world, e.id);
+    }
+    under_for(
+        mem,
+        hl,
+        if fixture {
+            FORGOTTEN_FOR_FIXTURE_MS
+        } else {
+            FORGOTTEN_FOR_MS
+        },
+    )
 }
 
 fn anyone_here(world: &World, room_id: EntityId) -> bool {
@@ -1227,7 +1250,7 @@ pub fn round_step(world: &mut World) -> Result<Vec<String>, String> {
     super::rooms::docent_came(world, next);
     let empty_world = !anyone_in_the_world(world);
     // Test debris: a dug room named like one, with no one in it, is unmade; so is a
-    // dug room forgotten a day (under a hundredth remembered, nothing kept in it).
+    // dug room forgotten a day (under a hundredth remembered; a week with a fixture).
     let debris = is_debris(&name, &key) && !anyone_here(world, next);
     let forgotten = !debris
         && next != threshold

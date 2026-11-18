@@ -14135,6 +14135,47 @@ fn a_room_answers_read_for_the_things_its_text_names() {
 }
 
 #[test]
+fn a_fixture_delays_the_unmaking_and_does_not_prevent_it() {
+    let hl = 38.0 * 60_000.0; // a new room's half-life
+    let at = |ms: f64| 0.5f64.powf(ms / hl);
+    // It crosses a hundredth about four hours in.
+    let crossed = hl * 100f64.log2();
+    assert!(!docent::under_for(
+        at(crossed - 60_000.0),
+        hl,
+        docent::FORGOTTEN_FOR_MS
+    ));
+    assert!(!docent::under_for(
+        at(crossed + 23.0 * 3_600_000.0),
+        hl,
+        docent::FORGOTTEN_FOR_MS
+    ));
+    assert!(docent::under_for(
+        at(crossed + 25.0 * 3_600_000.0),
+        hl,
+        docent::FORGOTTEN_FOR_MS
+    ));
+    // With a fixture: not after two days, not after six, after a week and a bit.
+    assert!(!docent::under_for(
+        at(crossed + 48.0 * 3_600_000.0),
+        hl,
+        docent::FORGOTTEN_FOR_FIXTURE_MS
+    ));
+    assert!(!docent::under_for(
+        at(crossed + 6.0 * 86_400_000.0),
+        hl,
+        docent::FORGOTTEN_FOR_FIXTURE_MS
+    ));
+    assert!(docent::under_for(
+        at(crossed + 7.1 * 86_400_000.0),
+        hl,
+        docent::FORGOTTEN_FOR_FIXTURE_MS
+    ));
+    // Faded to nothing at all is forgotten.
+    assert!(docent::under_for(0.0, hl, docent::FORGOTTEN_FOR_FIXTURE_MS));
+}
+
+#[test]
 fn the_leave_ends_at_level_one_hundred_for_good() {
     // David, 11-17: the first hour's leave ends at level 100, whichever comes first,
     // and does not come back.

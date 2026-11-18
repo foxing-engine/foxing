@@ -848,9 +848,10 @@ the answers.
      and it takes any number of doors. Any other room takes eight at most,
      its own and the dug ones together: dig from a room with fewer, or from
      one of your own. A dug room forgotten a day, under a
-     hundredth remembered with nothing kept in it (no fixture, no named
-     creature, no one there), is unmade by the Docent on its round; a visit
-     remembers it whole.)
+     hundredth remembered, is unmade by the Docent on its round. A fixture
+     in it holds the Docent off for a week and no longer; a named creature
+     or anyone standing there holds it off for good; a visit remembers the
+     room whole.)
     dig stacks chunk-267 "The Overdue Stacks"
                                       [DO] Quillwake MUST dig stacks chunk-267 "The Overdue Stacks".
     travel stacks                     [DO] Quillwake MUST travel stacks.
