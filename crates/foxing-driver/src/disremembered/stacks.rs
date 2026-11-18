@@ -725,8 +725,7 @@ fn play(
             // R203: a name in its first hour is not shoved into a room that hunts
             // (two of four newcomers met the Shallows this way, off their first
             // wisp); with no other door, it holds the frame and the fight goes on.
-            let new_name = super::plain_num(world, citizen, super::CITIZEN, "named_at")
-                .is_some_and(|t| world.now().0 - (t as i64) < super::kindle::GRACE_MS);
+            let new_name = super::combat::sheltered(world, citizen);
             if new_name {
                 exits.retain(|(_, to)| {
                     !world

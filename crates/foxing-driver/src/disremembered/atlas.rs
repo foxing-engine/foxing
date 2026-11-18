@@ -1182,7 +1182,7 @@ pub(super) fn hunts_on(world: &World, from: EntityId, path: &[String]) -> String
         String::new()
     } else {
         format!(
-            " (through {}, where something hunts whoever stays; a name in its first hour is left alone)",
+            " (through {}, where something hunts whoever stays; a name in its first hour and under level 100 is left alone)",
             hunting.join(" and ")
         )
     }

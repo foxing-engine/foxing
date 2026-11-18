@@ -919,6 +919,7 @@ pub fn on_arrival(
     // C9: a room of the Drowned Wing starts its water clock on whoever comes in, by
     // any door (a walk, a shove, a waking); any other room stops one.
     super::tide::on_arrival(world, actor, citizen, room)?;
+    leave_by_level(world, actor, citizen);
     hour_over(world, actor, citizen);
     // The room may mend you at its own pace (the Closet): the curve follows the room.
     recurve_mending(world, citizen).map_err(|e| e.to_string())?;
@@ -1794,6 +1795,58 @@ pub fn attack_for_level(level: f64) -> f64 {
     BASE_ATTACK + (ATTACK_PER_ROOT_LEVEL * level.max(0.0).sqrt()).floor()
 }
 
+/// The level at which the world's leave ends, whatever the clock says (David, 11-17:
+/// a reader took nine slips to level 290 in a quarter of an hour and walked the Lower
+/// Stacks untouched). The Stacks stair asks the same figure.
+pub const LEAVE_ENDS_AT: f64 = 100.0;
+
+/// Whether the world still leaves this name alone: inside its first hour, never yet
+/// at level 100. Reaching 100 ends it for good (`grace_ended`), and a later fall or
+/// fading does not bring it back.
+pub fn sheltered(world: &World, citizen: EntityId) -> bool {
+    let young = plain_num(world, citizen, super::CITIZEN, "named_at")
+        .is_some_and(|t| world.now().0 - (t as i64) < super::kindle::GRACE_MS);
+    if !young || plain_num(world, citizen, super::CITIZEN, "grace_ended").is_some() {
+        return false;
+    }
+    let level = plain_str(world, citizen, super::CITIZEN, "name")
+        .map(str::to_string)
+        .and_then(|n| super::find_citizen(world, &n))
+        .map_or(0.0, |f| super::memory::level(world, f.window));
+    level < LEAVE_ENDS_AT
+}
+
+/// Marks the leave ended for a name that has reached level 100 inside its first
+/// hour, and says so once. Called wherever a name arrives or acts.
+pub fn leave_by_level(world: &mut World, actor: &str, citizen: EntityId) {
+    let Some(named) = plain_num(world, citizen, super::CITIZEN, "named_at") else {
+        return;
+    };
+    if world.now().0 - named as i64 >= super::kindle::GRACE_MS
+        || plain_num(world, citizen, super::CITIZEN, "grace_ended").is_some()
+    {
+        return;
+    }
+    let Some(f) = super::find_citizen(world, actor) else {
+        return;
+    };
+    if super::memory::level(world, f.window) < LEAVE_ENDS_AT {
+        return;
+    }
+    let mut changes = BTreeMap::new();
+    changes.insert("grace_ended".into(), Field::Plain(json!(world.now().0)));
+    // The hour's own ending is not said a second time.
+    changes.insert("grace_said".into(), Field::Plain(json!(named)));
+    if super::set_citizen_fields(world, actor, citizen, changes).is_err() {
+        return;
+    }
+    narrate(
+        world,
+        actor,
+        "You have reached level 100, and the world's leave ends there, before your first hour is out and for good: what hunts, hunts you now. A room's `look` says what hunts whoever stays in it (the Shallows' hollows, the drowned, an anemone), and `where` and the signposts say which ways pass through such a room. Nothing else has changed.",
+    );
+}
+
 /// D39c: a name's first hour ends unsaid, and two of the party of 11-16 were first
 /// hunted at the minute their run at the starfish began. Said once, at the name's
 /// first arrival or message after the hour, while the second hour lasts.
@@ -2436,8 +2489,8 @@ pub fn register(world: &mut World, curves: Curves) {
             // and was ambushed by Sorrel in the Clocktower an hour later.)
             // Nor a name in its first hour: a hollow in the Shallows took a newcomer
             // from thirty to nothing between two gate lines, before they could act.
-            let new_name = super::plain_num(w, citizen, super::CITIZEN, "named_at")
-                .is_some_and(|t| w.now().0 - (t as i64) < super::kindle::GRACE_MS);
+            leave_by_level(w, &actor, citizen);
+            let new_name = sheltered(w, citizen);
             if new_name
                 || super::mind::shaken(w, creature)
                 || super::mind::keepers(w, creature)
@@ -2487,7 +2540,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the more of your blood that fight took, the more vivid the memory and the longer it lasts (a one-blow kill is barely remembered). While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour. A new name's first grind: Lantern Row's lanternflies (5 hp, hits 1–3; north), the Orchard's mothwings (6 hp, hits 1–3; east, north, north from the Threshold, or one step along the wall from the Postern) or the Fogbank's wisps (8 hp, hits 2–4; east); the Shallows' hollows between them hunt and hit 4–6. A creature's figures grow with what it holds, never with your level. Two of a kind in a room are written with their ids (wisp-80, wisp-81) so either can be named; alone, it is just the wisp.")
+        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the more of your blood that fight took, the more vivid the memory and the longer it lasts (a one-blow kill is barely remembered). While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour, or that has reached level 100 inside it (the leave ends there for good). A new name's first grind: Lantern Row's lanternflies (5 hp, hits 1–3; north), the Orchard's mothwings (6 hp, hits 1–3; east, north, north from the Threshold, or one step along the wall from the Postern) or the Fogbank's wisps (8 hp, hits 2–4; east); the Shallows' hollows between them hunt and hit 4–6. A creature's figures grow with what it holds, never with your level. Two of a kind in a room are written with their ids (wisp-80, wisp-81) so either can be named; alone, it is just the wisp.")
             .param("creature", ParamType::Entity, false, "a creature name from look; defaults to the one you are fighting, else an unnamed one here. A named creature is never struck by default."),
         Box::new(move |w: &mut World, ctx, args| {
             let f = me(w, ctx)?;

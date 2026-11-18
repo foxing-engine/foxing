@@ -490,6 +490,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // walkover fades in half an hour.
             // D39c: the named_at of the hour whose end was said to this name.
             .field("grace_said", FieldKind::Plain, Visibility::Owner)
+            // When the leave ended by level (100) inside the first hour; for good.
+            .field("grace_ended", FieldKind::Plain, Visibility::Owner)
             // C10: the reference slips a name has answered today, and when it
             // last answered each wrongly.
             .field("slips", FieldKind::Plain, Visibility::Owner)

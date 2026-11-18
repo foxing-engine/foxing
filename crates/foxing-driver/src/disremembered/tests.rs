@@ -14131,6 +14131,53 @@ fn a_room_answers_read_for_the_things_its_text_names() {
 }
 
 #[test]
+fn the_leave_ends_at_level_one_hundred_for_good() {
+    // David, 11-17: the first hour's leave ends at level 100, whichever comes first,
+    // and does not come back.
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let f = find_citizen(&w, "dave").unwrap();
+    assert!(combat::sheltered(&w, f.citizen));
+    let chunk = super::memory::earn_chunk(
+        &mut w,
+        "dave",
+        f.window,
+        "a slip answered",
+        120.0,
+        1.0,
+        &curves(),
+    )
+    .unwrap();
+    assert!(
+        !combat::sheltered(&w, f.citizen),
+        "level 100 is not sheltered"
+    );
+    let head = events(&w);
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let said = narrative(&w, "dave", head);
+    assert_eq!(
+        said.iter()
+            .filter(|l| l.contains("You have reached level 100"))
+            .count(),
+        1,
+        "{said:?}"
+    );
+    // The memory goes; the leave does not come back.
+    w.record(Actor::Driver, StoreEvent::EntityRemoved { id: chunk })
+        .unwrap();
+    assert!(super::memory::level(&w, f.window) < 100.0);
+    assert!(!combat::sheltered(&w, f.citizen));
+    // And the hour's own ending is not said on top of it.
+    w.fixed_now = Some(t0.plus(Duration::seconds(3_700)));
+    let head = events(&w);
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    assert!(!narrative(&w, "dave", head)
+        .iter()
+        .any(|l| l.contains("Your first hour is over")));
+}
+
+#[test]
 fn a_first_hour_ends_aloud_and_a_retreat_says_what_it_costs() {
     // D39c and D38.
     let t0 = Timestamp(1_000_000);

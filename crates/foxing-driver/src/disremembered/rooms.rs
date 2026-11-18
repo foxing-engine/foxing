@@ -2276,8 +2276,7 @@ pub fn describe_as(
             // R123: a name in its first hour is left alone, and told so (a Watch
             // stood seventy seconds in the Shallows and read the line as a lie).
             let new_name = super::find_citizen(world, actor)
-                .and_then(|f| super::plain_num(world, f.citizen, super::CITIZEN, "named_at"))
-                .is_some_and(|t| world.now().0 - (t as i64) < super::kindle::GRACE_MS);
+                .is_some_and(|f| super::combat::sheltered(world, f.citizen));
             text.push_str(&format!(
                 " The {} hunt{} whoever stays: {} you {} to {} seconds in, unless you have gone{}.",
                 hunters.join(" and "),
@@ -2290,7 +2289,7 @@ pub fn describe_as(
                 super::combat::AMBUSH_SECONDS_LOW,
                 super::combat::AMBUSH_SECONDS_HIGH,
                 if new_name {
-                    "; not you yet: a name in its first hour is left alone"
+                    "; not you yet: a name in its first hour is left alone, until the hour is out or it reaches level 100, and after that for good"
                 } else {
                     ""
                 }
@@ -2792,8 +2791,7 @@ fn walk(
                     .unwrap_or_default();
                 // R193: a name in its first hour is left alone (the room says "not
                 // you yet"), so nothing has noticed it and the walk goes on.
-                let new_name = super::plain_num(w, citizen, super::CITIZEN, "named_at")
-                    .is_some_and(|t| w.now().0 - (t as i64) < super::kindle::GRACE_MS);
+                let new_name = super::combat::sheltered(w, citizen);
                 let noticed = !new_name
                     && w.jobs.has(super::combat::JOB_AMBUSH, |p| {
                         p["citizen"] == me
