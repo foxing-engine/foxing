@@ -96,7 +96,7 @@ const NOUNS: &[(&str, &[&str], &str)] = &[
     ),
     (
         "lantern-row",
-        &["lantern", "lanterns", "hook", "hooks", "row", "glass"],
+        &["lantern", "lanterns", "hook", "hooks", "row", "glass", "tag", "tags"],
         "Each lantern has a tag wired to its hook, and each tag has a column of dates in it, every one in a different hand, the newest still tacky. The nearest tag's last line is today's and the hand is yours. The lantern lights while you read and is dark again before you have let the tag go.",
     ),
     (
@@ -151,7 +151,7 @@ const NOUNS: &[(&str, &[&str], &str)] = &[
     ),
     (
         "ossuary",
-        &["niche", "niches", "rock", "wall", "walls", "dust"],
+        &["niche", "niches", "rock", "wall", "walls", "dust", "tally", "sill", "mark", "number", "numbers", "stroke", "strokes"],
         "Each niche has a number cut over it and nothing in it, and no dust in it either, which in this building is the stranger thing. There is one mark in the whole room, on the sill of the nearest niche: a tally, four strokes and a bar, very fresh, and a sixth stroke begun.",
     ),
 ];

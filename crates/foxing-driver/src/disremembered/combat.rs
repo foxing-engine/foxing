@@ -2523,12 +2523,12 @@ pub fn register(world: &mut World, curves: Curves) {
                     // message, and once felled what a storyteller was keeping).
                     if by_name.is_none() && kind_only.is_some() {
                         let _ = &mut retargeted;
+                        // Unnamed only: a named one beside "a bare `attack` takes the
+                        // nearest" read as a thing to strike (Gnarl, 11-17).
                         let still: Vec<String> = here
                             .iter()
-                            .map(|c| match super::mind::name(w, c.0) {
-                                Some(n) => n,
-                                None => format!("{}-{}", c.1, c.0 .0),
-                            })
+                            .filter(|c| super::mind::name(w, c.0).is_none())
+                            .map(|c| format!("{}-{}", c.1, c.0 .0))
                             .collect();
                         let gone_id = name.trim().rsplit_once('-').and_then(|(_, d)| d.parse::<u64>().ok());
                         let mine = w.recent_events(200).iter().any(|e| {
@@ -2542,7 +2542,7 @@ pub fn register(world: &mut World, curves: Curves) {
                             format!("{} is not here (felled, drifted off, or left behind in the room you were put out of).", name.trim())
                         };
                         return Err(CommandError::precondition(if still.is_empty() {
-                            format!("{gone} Nothing else is here to fight.")
+                            format!("{gone} Nothing unnamed is left here to fight.")
                         } else {
                             format!(
                                 "{gone} Still here: {}. Name the one you mean; a bare `attack` takes the nearest.",
@@ -2660,7 +2660,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 let where_ = format!("{where_}{refill}{elsewhere}{stacks_hint}");
                 let officers: Vec<String> = here.iter().filter(|c| super::mind::name(w, c.0).is_none() && plain_str(w, c.0, CREATURE, "name").is_some_and(|k| OFFICERS.contains(&k))).map(|c| super::mind::display(w, c.0)).collect();
                 return Err(CommandError::precondition(if here.is_empty() { format!("There is nothing here to fight.{where_}") } else if args.str("creature").map_or(true, str::is_empty) && !officers.is_empty() {
-                    format!("Nothing here is struck by accident: {} {} an officer of the house, named in `attack` or left alone.", officers.join(" and "), if officers.len() == 1 { "is" } else { "are" })
+                    format!("Nothing here is struck by accident: {} {} an officer of the house, and a bare `attack` never picks one. Name the one you mean (`attack {}`), or leave it alone.", officers.join(" and "), if officers.len() == 1 { "is" } else { "are" }, officers[0])
                 } else if args.str("creature").map_or(true, str::is_empty) && here.iter().all(|c| super::mind::shaken(w, c.0)) {
                     // Down and up again: not itself yet, not nameless. "has a name" was
                     // said of a hollow that had none, and the visitor guessed at names.
@@ -3067,8 +3067,19 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.retreat", "Break off the fight. The creature gets one free strike as you go. A creature mends on the world's clock, whole from nothing in twenty minutes, faster than you (the Conclave's officers sooner); venom follows you out. Nothing mends in a fight but what a made thing of the second tier gives back (`recipes`); out of it you mend wherever you stand, and so does it. The reply says when each of you is whole and in rounds what a second stand would take, now and then."),
-        Box::new(|w: &mut World, ctx, _| {
+        CommandSpec::new("disremembered.retreat", "Break off the fight. The creature gets one free strike as you go. A creature mends on the world's clock, whole from nothing in twenty minutes, faster than you (the Conclave's officers sooner); venom follows you out. Nothing mends in a fight but what a made thing of the second tier gives back (`recipes`); out of it you mend wherever you stand, and so does it. The reply says when each of you is whole and in rounds what a second stand would take, now and then.")
+            .param("way", ParamType::String, false, "not needed: `retreat` breaks off where you stand, and `travel` walks"),
+        Box::new(|w: &mut World, ctx, args| {
+            // R253: `retreat south` was refused whole at the gate. A way is heard and
+            // not walked: the reply says so.
+            let way_note = match args.str("way").map(str::trim).filter(|s| !s.is_empty()) {
+                Some(way) => format!(" (`retreat` only breaks off, where you stand; `travel {way}` is the walking.)"),
+                None => String::new(),
+            };
+            let noted = |mut o: Outcome| {
+                o.summary.push_str(&way_note);
+                o
+            };
             let f = me(w, ctx)?;
             let Some(creature) = engaged_with(w, f.citizen) else {
                 // R66: a hunter closing but not yet on you is not a fight; `travel`
@@ -3090,10 +3101,10 @@ pub fn register(world: &mut World, curves: Curves) {
                 mend(w, creature).map_err(internal)?;
                 set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
                 end_fight(w, f.citizen).map_err(internal)?;
-                return Ok(Outcome::new(
+                return Ok(noted(Outcome::new(
                     format!("You open {jname} as you turn. The {cname} strikes at where the fog says you are, and you are not there. {}; you are away with {:.0}/{:.0}.", if jar_left > 1.5 { "The jar is good for one more" } else { "The jar is spent" }, hp_said(w, f.citizen), max_hp(w, f.citizen)),
                     json!({"retreated": true, "jar": true, "taken": 0, "hp": hp(w, f.citizen)}),
-                ));
+                )));
             }
             let (taken, dead) = creature_strikes(w, creature, f.citizen).map_err(internal)?;
             mend(w, creature).map_err(internal)?;
@@ -3190,7 +3201,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     String::new()
                 }
             };
-            Ok(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}{}. You have {:.0}/{:.0}.{mended}{venom}{second}", strike_notes(), hp_said(w, f.citizen), max_hp(w, f.citizen)), json!({"died": false, "hp": hp(w, f.citizen), "venom_left": venom_left})))
+            Ok(noted(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}{}. You have {:.0}/{:.0}.{mended}{venom}{second}", strike_notes(), hp_said(w, f.citizen), max_hp(w, f.citizen)), json!({"died": false, "hp": hp(w, f.citizen), "venom_left": venom_left}))))
         }),
     );
 

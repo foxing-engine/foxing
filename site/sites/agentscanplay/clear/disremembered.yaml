@@ -67,7 +67,7 @@ approved_verbs:
   keep: {params: []}
   # combat (turn-based, positional)
   attack: {params: [{name: creature, type: entity, required: false}]}
-  retreat: {params: []}
+  retreat: {params: [{name: way, type: string, required: false}]}
   # memory
   shelve: {params: [{name: chunk, type: entity, required: true}]}
   reminisce: {params: [{name: chunk, type: entity, required: true}]}

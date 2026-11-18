@@ -144,7 +144,7 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
                 // Full from others: said here, so the list does not send you to a
                 // creature that refuses (the Watch of 11-06).
                 format!(
-                    "full for the hour (it has heard {} from others; only a story that carries a word of its you have not found is heard before then). When the hour turns: a story about {s}{turned}",
+                    "nothing from you yet: it is full for the hour (it has heard {} from others; only a story that carries a word of its you have not found is heard before then). When the hour turns, a story about {s}{turned}",
                     super::exchange::STORIES_AN_HOUR
                 )
             } else {
@@ -241,7 +241,7 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
     // 11-15 (the first hour): what the pay notes mean, said once.
     if summary.contains("pays double") {
         summary.push_str(&format!(
-            "\nPays double: the story a creature wants pays twice what any other story pays it (`story <Name> \"a dozen words or more about it\"`), once an hour from each creature for each teller (a second creature's want pays double in the same hour; the same creature's new want waits for its hour with you to turn).{}",
+            "\nPays double: the story a creature wants pays twice what any other story pays it (`story <Name> \"a dozen words or more about it\"`), once an hour from each creature for each teller. A second creature's want pays double in the same hour. The same creature's new want, told inside its hour with you, is heard once at plain pay and not again until the hour turns.{}",
             if scarcity > 1.0 {
                 format!(" {scarcity:.1}× while names are few: every want pays that much more while few named creatures are awake.")
             } else {
