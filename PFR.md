@@ -294,11 +294,10 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
     by night, sighs by day), the page's light, the Fogbank's fog by the hour.
   - **X15** (XL, brief wanted) A travelling market: the Exergue's tapster walks a circuit
     of the ground floor, the slate with it, trade where it stands.
-  - **X16** (M, **in work, 11-18**) Stories travel and wear. When a named creature's
-    business brings it into a room with another, it passes on a story it holds, shorter
-    and a little wrong each time; the one told to Tinsel turns up a day on in Kennoch's
-    mouth, as "someone at the door's". A teller can follow their own story across the
-    world and is paid for setting it right. Questions with David.
+  - **X16** (M, **shipped 11-18**; what is left) Stories travel and wear: live, and
+    unseen in play. Left: a line in `look` when a creature here holds a story at second
+    hand (today only `tales` and the telling itself say so); whether one hop a day and
+    a five-day life are the right pace; a Watch to follow one story across two rooms.
   - **X17** (S/M) They notice you were gone. A creature that knew a name greets its
     return with what happened between (who told it something, who felled its neighbor,
     that it nearly lost you); after a week's silence it writes (`letters`). Makes "no

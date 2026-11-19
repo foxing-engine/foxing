@@ -14176,6 +14176,145 @@ fn a_fixture_delays_the_unmaking_and_does_not_prevent_it() {
 }
 
 #[test]
+fn a_story_travels_wears_is_set_right_claimed_and_let_go() {
+    // X16 (David, 11-18): the teller's own words, worn by the hand; the name wears by
+    // chance; told again it is set right and paid once; nameless, anyone may claim it.
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    for who in ["dave", "tyler"] {
+        ok(&mut w, who, "travel", json!(["east"]));
+        ok(&mut w, who, "travel", json!(["south"]));
+    }
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    // Two named listeners in one room: the Midden's ragpicker, and a wisp walked in
+    // from the Fogbank.
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: wisp,
+            parent: Some(midden),
+        },
+    )
+    .unwrap();
+    let mut named = Vec::new();
+    for (id, kind, ..) in combat::creatures_in(&w, midden) {
+        let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+        let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+        ok(
+            &mut w,
+            "tyler",
+            "remember",
+            json!([c, format!("{kind}-{}", id.0)]),
+        );
+        named.push((id, mind::name(&w, id).unwrap()));
+    }
+    assert_eq!(named.len(), 2, "the Midden keeps two ragpickers");
+    let (a, a_name) = named[0].clone();
+    let (b, b_name) = named[1].clone();
+    let tale = "Once there was a lantern that would not go out, though every hand that carried it forgot why they had picked it up.";
+    ok(&mut w, "dave", "story", json!([&a_name, tale]));
+    let held = tales::of(&w, a);
+    assert_eq!(held.len(), 1);
+    assert_eq!(
+        (held[0].text.as_str(), held[0].hops, held[0].whose),
+        (tale, 0, 0)
+    );
+    // First hand, nothing to set right: a second telling is only a story.
+    assert!(tales::retold(&mut w, "dave", a, tale).unwrap().is_none());
+
+    // It passes the story on, once, and the copy is shorter and not the same.
+    let head = events(&w);
+    assert!(tales::pass(&mut w, a).unwrap());
+    assert!(!tales::pass(&mut w, a).unwrap(), "one telling a day");
+    let copy = tales::of(&w, b);
+    assert_eq!(copy.len(), 1);
+    assert_eq!(copy[0].id, held[0].id);
+    assert_eq!(copy[0].hops, 1);
+    assert!(copy[0].text != tale);
+    assert!(
+        copy[0].text.split_whitespace().count() < tale.split_whitespace().count(),
+        "{}",
+        copy[0].text
+    );
+    let said = narrative(&w, "dave", head).join(" ");
+    assert!(
+        said.contains(&format!("tells {b_name}")) && said.contains("a story, dave's."),
+        "{said}"
+    );
+    let list = ok(&mut w, "tyler", "tales", json!([]));
+    assert!(
+        list.summary.contains("one hand on") && list.summary.contains("first hand"),
+        "{}",
+        list.summary
+    );
+
+    // Its teller sets the worn copy right, and is paid for that once.
+    let before = level(&mut w, "dave");
+    let out = ok(&mut w, "dave", "story", json!([&b_name, tale]));
+    assert!(
+        out.summary.contains("has it right again, and as yours"),
+        "{}",
+        out.summary
+    );
+    assert_eq!(out.result["mended"], true);
+    assert!(level(&mut w, "dave") > before + 3.0);
+    let mended = tales::of(&w, b);
+    assert_eq!(
+        (mended[0].text.as_str(), mended[0].hops, mended[0].whose),
+        (tale, 0, 0)
+    );
+    assert!(
+        tales::retold(&mut w, "dave", b, tale).unwrap().is_none(),
+        "whole again"
+    );
+
+    // The name worn off, anyone may tell it as their own; a name still on it holds.
+    assert!(tales::retold(&mut w, "tyler", a, tale).unwrap().is_none());
+    tales::wear_names(&mut w, a, 2);
+    let out = ok(&mut w, "tyler", "story", json!([&a_name, tale]));
+    assert!(
+        out.summary.contains("will pass it on as tyler's"),
+        "{}",
+        out.summary
+    );
+    assert_eq!(out.result["claimed"], true);
+    assert_eq!(tales::of(&w, a)[0].credit, "tyler");
+    // And its first teller takes it back.
+    let out = ok(&mut w, "dave", "story", json!([&a_name, tale]));
+    assert!(
+        out.summary.contains("had been telling it as tyler's"),
+        "{}",
+        out.summary
+    );
+    assert_eq!(tales::of(&w, a)[0].credit, "dave");
+
+    // Nobody mends it for five days: the copies are let go, and the last one is news.
+    w.fixed_now = Some(t0.plus(Duration::seconds(6 * 86_400)));
+    let head = events(&w);
+    tales::prune(&mut w).unwrap();
+    assert!(tales::of(&w, a).is_empty() && tales::of(&w, b).is_empty());
+    let lost: Vec<_> = w
+        .log
+        .read_all(&w.id, foxing_log::Cursor::START)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == tales::LOST)
+        .collect();
+    assert_eq!(
+        lost.len(),
+        1,
+        "one story, said once however many copies went"
+    );
+    assert!(narrative(&w, "dave", head)
+        .iter()
+        .any(|l| l.contains("it is disremembered")));
+}
+
+#[test]
 fn the_leave_ends_at_level_one_hundred_for_good() {
     // David, 11-17: the first hour's leave ends at level 100, whichever comes first,
     // and does not come back.

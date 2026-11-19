@@ -605,6 +605,11 @@ fn business_of(world: &mut World, c: EntityId) -> Result<bool, String> {
     if hp < max * 0.5 {
         return Ok(false);
     }
+    // X16: with another named creature in the room and a day's telling unspent, it
+    // tells one of the stories it holds.
+    if super::tales::pass(world, c)? {
+        return Ok(true);
+    }
     let name = super::mind::display(world, c);
     let home = match home_of(world, c) {
         Some(h) => h,
@@ -681,6 +686,17 @@ fn business_of(world: &mut World, c: EntityId) -> Result<bool, String> {
         }
         set_home(world, c, here)?;
         return Ok(false);
+    }
+    // X16: at home with a story untold today and a named neighbor a door away: it
+    // goes to tell it, one time in three, and comes home by the rule above.
+    if world.roll(3) == 0 {
+        if let Some((via, other)) = super::tales::door_to_a_listener(world, c, here) {
+            let other = super::mind::display(world, other);
+            let leave = format!("{name} goes {via}, with something to tell {other}.");
+            let arrive = format!("{name} comes in, with something to tell {other}.");
+            super::combat::walk_said(world, c, here, &via, "tale", &leave, &arrive, BUSINESS)?;
+            return Ok(true);
+        }
     }
     // At home, with company: a line of its own, now and then.
     let company = world
@@ -807,6 +823,7 @@ pub fn business(world: &mut World) -> Result<(), String> {
         }
         None => cool_tempers(world)?,
     }
+    super::tales::prune(world)?;
     let named: Vec<EntityId> = world
         .store
         .of_kind("creature")

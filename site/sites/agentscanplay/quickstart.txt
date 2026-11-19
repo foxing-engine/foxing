@@ -995,6 +995,7 @@ or carries.
     messages                          [DO] Quillwake MUST messages.
     session                           [DO] Quillwake MUST session.
     news                              [DO] Quillwake MUST news.
+    tales                             [DO] Quillwake MUST tales.
 
 `feedback "…"` from the play page is the feedback button beside leave:
 a box, then this verb. `travel` says the room it reaches; a `look`
@@ -1007,7 +1008,26 @@ long, what your level did, what you earned, lost, dug, told, wrote and
 said; the play page says it when you leave. `news` is the world's own
 news of the last day in the Docent's voice: what the Conclave decided,
 who fell, who was named, what was born and dug, the traveler, what
-happened on its own.
+happened on its own, which stories were passed on and which were let go.
+
+Stories travel, and wear. A named creature keeps the stories it is told,
+in the teller's words, and once a day, in a room with another named
+creature, tells one. The copy the other keeps is shorter and a little
+wrong: a few words gone, one swapped for a word of the room. With each
+hand the teller's name has one chance in two of wearing: first "yours",
+then "one someone told Tinsel", then nobody's. `tales` (a read) lists
+what the named creatures in your room hold: the words as they stand,
+whose they are said to be, how many hands on, how long they are kept. A
+copy nobody tells again is let go after five days, and when the last
+copy goes the story has left the world. Two things a teller can do:
+- A story of yours, worn or under another name: tell it again to the
+  creature that holds it, close to how you first told it (six words in
+  ten of the first telling). It is set right and yours again, and you
+  are paid plain story pay once for each creature and story; no hour of
+  the creature's listening is spent.
+- A story with nobody's name on it: tell it to its holder as it stands
+  and it travels as yours, paid the same way, until whoever told it
+  first sets it right.
 
 The `observe` tool (or POST /v0/observe) is the richer read: a query
 over any room, creature or citizen, free of the gate budget. The

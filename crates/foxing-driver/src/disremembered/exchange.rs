@@ -451,6 +451,31 @@ pub fn register(world: &mut World, curves: Curves) {
                     "That is more than {MAX_STORY_CHARS} characters; tell it in parts."
                 )));
             }
+            // X16: a story this creature already holds a copy of, told again by its
+            // first teller (set right) or, its name worn off, by anyone (made theirs).
+            // Paid plain, once for each creature and story; no hour is spent on it.
+            // A second mending of the same copy mends and goes on as a story does.
+            if let Some(r) = super::tales::retold(w, &ctx.actor, creature, &text)? {
+                if r.pay {
+                    let paid = (super::jitter(w, distinct.min(MAX_WORDS_PAID) as f64 * XP_PER_WORD, 0.8, 1.2)
+                        * super::economy::rate(w, "pay"))
+                    .round();
+                    let source = if r.claimed {
+                        format!("telling {name} a story nobody's name was on")
+                    } else {
+                        format!("setting right the story {name} had of yours")
+                    };
+                    let earned = super::memory::earn_chunk(w, &ctx.actor, f.window, &source, paid, 0.5, &curves)?;
+                    mind::met(w, creature, &ctx.actor)?;
+                    return Ok(Outcome::new(
+                        format!(
+                            "{} You remember it: chunk-{} worth {paid:.1} XP. (Paid once for this story with {name}; no hour of its listening is spent, and `tales` says what it holds.)",
+                            r.line, earned.0
+                        ),
+                        json!({"creature": creature.0, "name": name, "tale": r.tale, "mended": !r.claimed, "claimed": r.claimed, "earned": earned.0, "paid": paid}),
+                    ));
+                }
+            }
             // D13: within its hour with you, a story that carries the word under the
             // others is still heard, paying the bonus alone (the hint once arrived
             // after the hour had closed the only creature).
@@ -621,6 +646,8 @@ pub fn register(world: &mut World, curves: Curves) {
             let earned = super::memory::earn_chunk(w, &ctx.actor, f.window, &format!("telling {name} a story"), paid, vivid, &curves)?;
             let level = super::up(mind::level(w, creature));
             mind::met(w, creature, &ctx.actor)?;
+            // X16: it keeps the words, to pass on.
+            super::tales::heard(w, creature, &ctx.actor, &text, earned.0)?;
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 STORY,

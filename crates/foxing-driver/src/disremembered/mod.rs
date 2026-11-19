@@ -49,6 +49,7 @@ pub mod speech;
 pub mod stacks;
 pub mod starfish;
 pub mod system;
+pub mod tales;
 pub mod talk;
 pub mod tide;
 pub mod trail;
@@ -378,6 +379,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("kept", FieldKind::Plain, Visibility::Public)
             // R250: every name it has kept something of or heard a story from.
             .field("knew", FieldKind::Plain, Visibility::Public)
+            // X16: the stories it keeps to tell, and when it last told one.
+            .field("tales", FieldKind::Plain, Visibility::Public)
+            .field("tale_told_at", FieldKind::Plain, Visibility::Public)
             .field("shaken_until", FieldKind::Plain, Visibility::Public)
             // A child's sealed name, opened when it earns a name (F22: sealed means
             // not on `observe` either).
@@ -1474,6 +1478,7 @@ pub fn register(world: &mut World, curves: Curves) {
     letters::register(world);
     almanac::register(world);
     slips::register(world);
+    tales::register(world);
     exchange::register(world, curves.clone());
     errand::register(world);
     cloak::register(world);

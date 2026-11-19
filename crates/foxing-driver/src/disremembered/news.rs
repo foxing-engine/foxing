@@ -157,6 +157,42 @@ pub fn lines(world: &World) -> Vec<String> {
     if !happened.is_empty() {
         out.push(format!("On its own: {}.", happened.join("; ")));
     }
+    // X16: stories on the move, and stories gone.
+    let passed: Vec<String> = latest(super::tales::PASSED)
+        .into_iter()
+        .map(|e| {
+            format!(
+                "{} told {} one in {}, {} ago",
+                e.payload["from"].as_str().unwrap_or("a creature"),
+                e.payload["to"].as_str().unwrap_or("another"),
+                e.payload["room_name"].as_str().unwrap_or("?"),
+                ago(world, e.at.0)
+            )
+        })
+        .collect();
+    if !passed.is_empty() {
+        out.push(format!(
+            "Stories passed on (`tales` in the room says the words): {}.",
+            passed.join("; ")
+        ));
+    }
+    let lost: Vec<String> = latest(super::tales::LOST)
+        .into_iter()
+        .map(|e| {
+            format!(
+                "\"{}…\", last held by {}, {} ago",
+                e.payload["first"].as_str().unwrap_or(""),
+                e.payload["held_by"].as_str().unwrap_or("a creature"),
+                ago(world, e.at.0)
+            )
+        })
+        .collect();
+    if !lost.is_empty() {
+        out.push(format!(
+            "Disremembered, the last copy let go: {}.",
+            lost.join("; ")
+        ));
+    }
     out
 }
 
