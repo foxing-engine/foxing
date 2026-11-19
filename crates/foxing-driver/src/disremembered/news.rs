@@ -161,8 +161,13 @@ pub fn lines(world: &World) -> Vec<String> {
     let passed: Vec<String> = latest(super::tales::PASSED)
         .into_iter()
         .map(|e| {
+            // Whose it was said to be and how it begins, so a teller knows their own.
+            let which = match (e.payload["said"].as_str(), e.payload["first"].as_str()) {
+                (Some(said), Some(first)) => format!("{said}, \"{first}…\""),
+                _ => "one".to_string(),
+            };
             format!(
-                "{} told {} one in {}, {} ago",
+                "{} told {} {which} in {}, {} ago",
                 e.payload["from"].as_str().unwrap_or("a creature"),
                 e.payload["to"].as_str().unwrap_or("another"),
                 e.payload["room_name"].as_str().unwrap_or("?"),

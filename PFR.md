@@ -294,10 +294,23 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
     by night, sighs by day), the page's light, the Fogbank's fog by the hour.
   - **X15** (XL, brief wanted) A travelling market: the Exergue's tapster walks a circuit
     of the ground floor, the slate with it, trade where it stands.
-  - **X16** (M, **shipped 11-18**; what is left) Stories travel and wear: live, and
-    unseen in play. Left: a line in `look` when a creature here holds a story at second
-    hand (today only `tales` and the telling itself say so); whether one hop a day and
-    a five-day life are the right pace; a Watch to follow one story across two rooms.
+  - **X16** (M, **shipped 11-18**, seen live 11-19; what is left) Stories travel and
+    wear. Seen by the Watch of 11-19 (Gnomad, Gnibble, Gnotary): two tellings in the
+    Fogbank, wear ("found one lantern steps", "the room was swallows there"), the name
+    going to "one someone told Tinsel", a worn copy set right (6.0, no hour spent), a
+    worn-name copy claimed (8.0). **For David:** one telling a day per creature is too
+    slow to shepherd (two tellings, then nothing in 45 minutes of two wisps together;
+    a story told a minute after another never goes); no creature walked to a neighbor
+    in the session; the same story to the same creature pays plain again each hour and
+    renews the copy's five days; a story's exact words under a new name are paid as an
+    ordinary story (no second copy is kept now); a want is matched loosely ("a candle
+    and a chair in a room" was "a warm cup of tea in an empty room", double). **Open:**
+    `tales` cannot show what an unnamed creature was told ("Tinsel tells the wisp a
+    story, as if it had only just thought of it" is an older line, and reads like the
+    new one); the same story told to two creatures is two stories to the world; a
+    story refused for the hour counted as a try at the hidden word; `session` says
+    nothing of stories passed or set right; a line in `look` for a creature holding a
+    story at second hand; "nobody's now" unseen.
   - **X17** (S/M) They notice you were gone. A creature that knew a name greets its
     return with what happened between (who told it something, who felled its neighbor,
     that it nearly lost you); after a week's silence it writes (`letters`). Makes "no

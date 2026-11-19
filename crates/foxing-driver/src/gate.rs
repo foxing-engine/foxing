@@ -272,6 +272,14 @@ impl Report {
                 return true;
             }
             let Some(q) = text.find('"').and_then(|a| {
+                // Only a line of speech is said once. A creature's telling of a
+                // story quotes the story, and a `tales` in the same reply quotes it
+                // too: the telling was dropped, and nobody in the room saw a story
+                // pass (the Watch of 11-19).
+                let lead = &text[..a];
+                if !(lead.contains(" say") || lead.contains(" said") || lead.contains(" shout")) {
+                    return None;
+                }
                 text.rfind('"')
                     .filter(|b| *b > a + 12)
                     .map(|b| &text[a + 1..b])

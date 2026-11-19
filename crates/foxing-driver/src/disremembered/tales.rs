@@ -190,11 +190,12 @@ pub fn heard(
     actor: &str,
     text: &str,
     id: u64,
-) -> Result<(), CommandError> {
+) -> Result<String, CommandError> {
     let keys = super::exchange::story_words(text);
     let mut tales = of(world, creature);
     let first = super::mind::name(world, creature).unwrap_or_default();
     let now = world.now().0;
+    let said;
     if let Some(t) = tales
         .iter_mut()
         .find(|t| t.credit == actor && t.whose == 0 && share(&t.keys, &keys) >= ALIKE)
@@ -202,7 +203,21 @@ pub fn heard(
         t.text = text.trim().to_string();
         t.at = now;
         t.hops = 0;
+        said = " It had this one of yours already, and keeps this telling in its place, for five days more.".to_string();
+    } else if let Some(t) = tales.iter().find(|t| {
+        t.whose == 0
+            && t.credit != actor
+            && share(&t.keys, &keys) >= 0.8
+            && share(&keys, &t.keys) >= 0.8
+    }) {
+        // The words of a story it holds under another name: heard, and not kept a
+        // second time (one creature held one story three times, as three names').
+        return Ok(format!(
+            " It has this one already, as {}'s, and keeps that one: a story with a name on it is not taken by telling it.",
+            t.credit
+        ));
     } else {
+        said = " It will keep your words, and may tell them to another named creature: `tales` here says what it holds.".to_string();
         tales.push(Tale {
             id,
             by: actor.to_string(),
@@ -216,7 +231,15 @@ pub fn heard(
             paid: Vec::new(),
         });
     }
-    keep(world, creature, tales, None)
+    keep(world, creature, tales, None)?;
+    Ok(said)
+}
+
+/// Whether `creature` holds a story under `actor`'s name: it knows them by it.
+pub fn holds_of(world: &World, creature: EntityId, actor: &str) -> bool {
+    of(world, creature)
+        .iter()
+        .any(|t| t.whose == 0 && t.credit == actor)
 }
 
 /// The copy the next creature keeps: a seventh of the words gone (one at least,
@@ -256,6 +279,8 @@ fn worn(world: &mut World, text: &str, room: EntityId) -> String {
             .collect();
         words[i] = format!("{new}{tail}");
     }
+    // A dropped word can leave its neighbors the same ("in the the room").
+    words.dedup_by(|b, a| a.to_lowercase() == b.to_lowercase());
     let mut out = words.join(" ");
     if !out.ends_with(['.', '!', '?', '"']) {
         out = out.trim_end_matches([',', ';', ':']).to_string();
@@ -326,15 +351,38 @@ pub fn pass(world: &mut World, c: EntityId) -> Result<bool, String> {
             world,
             c,
             &format!(
-                "{teller} tells {hearer} a story, {said}. {hearer} says it back to be sure, and has it nearly: \"{text}\""
+                "{teller} tells {hearer} a story, {said}. {hearer} gives it back to be sure, and has it nearly: \"{text}\""
             ),
         );
+        let first: String = tale
+            .text
+            .split_whitespace()
+            .take(6)
+            .collect::<Vec<_>>()
+            .join(" ");
+        let room_name = plain_str(world, here, ROOM, "name")
+            .unwrap_or("a room")
+            .to_string();
         let _ = world.note(
             Actor::Driver,
             PASSED,
             json!({"from": super::mind::name(world, c), "to": super::mind::name(world, other), "room": here.0,
-                   "room_name": plain_str(world, here, ROOM, "name"), "tale": tale.id, "hops": tale.hops + 1, "whose": whose}),
+                   "room_name": room_name, "tale": tale.id, "hops": tale.hops + 1, "whose": whose,
+                   "said": said, "first": first}),
         );
+        // Its first teller hears of it, wherever they stand: where their story has
+        // gone is the start of the chase (nobody could learn a story of theirs was
+        // out in the world, the Watch of 11-19).
+        let teller_at = find_citizen(world, &tale.by)
+            .filter(|f| super::presence::is_here(world, f.citizen))
+            .map(|f| super::rooms::room_of(world, f.citizen));
+        if teller_at.is_some_and(|r| r != Some(here)) {
+            super::combat::narrate(
+                world,
+                &tale.by,
+                format!("Word reaches you: {teller} has told {hearer} a story of yours (\"{first}…\") in {room_name}, and {hearer} has it worn. `tales` there says how; told again to {hearer} as you first told it, it is set right."),
+            );
+        }
         return Ok(true);
     }
     Ok(false)
@@ -566,7 +614,7 @@ fn list(world: &World, actor: &str) -> Result<Outcome, CommandError> {
             json!({"tales": []}),
         ));
     }
-    lines.push("A story passed on loses words, and with each hand its teller's name may wear off. Yours, worn: tell it again to the creature that holds it, as you first told it, and it is set right and paid once. One with nobody's name on it: tell it to its holder as it stands and it is yours, until its first teller sets it right.".to_string());
+    lines.push("A story passed on loses words, and with each hand its teller's name may wear off. Yours, worn: tell it again to the creature that holds it, as you first told it, and it is set right and paid once. One with no teller's name on it (\"one someone told…\", \"nobody's now\"): tell it to its holder as it stands and it is yours, until its first teller sets it right. One with a name on it is not taken by telling it. A creature tells one story a day, the newest it holds that the other lacks.".to_string());
     Ok(Outcome::new(lines.join("\n"), json!({"tales": data})))
 }
 

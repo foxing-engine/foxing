@@ -377,7 +377,7 @@ pub fn register(world: &mut World, curves: Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.story",
-            "Tell a named creature here a story, at least a dozen words. It keeps the story as a memory of its own, and you come away with one: the way to earn without striking anything. One story an hour per creature, from the story that opened the hour; inside it, the one it wants is still heard once at plain pay (double when the hour turns), and one that carries its hidden word is heard for the word's bonus alone. A first miss of what it wants spends nothing; a second spends the hour. A creature without a name does not understand you, except in the Reading Rooms over the Archive, where a story is the blow: there it is a telling, of a fight you still remember, naming what you fought, with no hour to wait between tellings and a blow back for each (the card on the Mezzanine says how).",
+            "Tell a named creature here a story, at least a dozen words. It keeps the story as a memory of its own, and keeps your words to tell to other named creatures, worn a little each time (`tales` says what the creatures in a room hold), and you come away with one: the way to earn without striking anything. One story an hour per creature, from the story that opened the hour; inside it, the one it wants is still heard once at plain pay (double when the hour turns), and one that carries its hidden word is heard for the word's bonus alone. A first miss of what it wants spends nothing; a second spends the hour. A creature without a name does not understand you, except in the Reading Rooms over the Archive, where a story is the blow: there it is a telling, of a fight you still remember, naming what you fought, with no hour to wait between tellings and a blow back for each (the card on the Mezzanine says how).",
         )
         .param("creature", ParamType::Entity, true, "a named creature here, or a thing of the Reading Rooms")
         .param("text", ParamType::Text, true, "the story, quoted"),
@@ -647,7 +647,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let level = super::up(mind::level(w, creature));
             mind::met(w, creature, &ctx.actor)?;
             // X16: it keeps the words, to pass on.
-            super::tales::heard(w, creature, &ctx.actor, &text, earned.0)?;
+            let tale_said = super::tales::heard(w, creature, &ctx.actor, &text, earned.0)?;
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 STORY,
@@ -688,7 +688,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 // The creature's answer reaches the teller as it reaches the room, a
                 // narrator line, so the outcome does not repeat it.
                 format!(
-                    "You tell {display} a story of {words} words, and it answers.{}{}{heard_line} You remember the telling: chunk-{} worth {paid:.1} XP{}. {display} keeps half as much, {:.1}, as its own memory of the story.{}",
+                    "You tell {display} a story of {words} words, and it answers.{}{}{heard_line} You remember the telling: chunk-{} worth {paid:.1} XP{}. {display} keeps half as much, {:.1}, as its own memory of the story.{tale_said}{}",
                     if wanted_early { " It was the story it wanted, heard inside its hour with you at plain pay (once an hour); the want stands, and told again when its hour turns it pays double. A story counts as the wanted one by what it is about, meant so or not, and that was this hour's one early hearing." } else if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
                     struck.as_ref().map(|(b, _, l)| format!(" It carried the word under the others, the {} of three: {}, and vivid.", ["first", "second", "third"][(*l as usize).clamp(1, 3) - 1], if bonus_only { format!("heard inside its hour with you, so the bonus alone, {paid:.1} XP: {} of what a story pays", match (b * 10.0).round() as i64 { 15 => "half again".to_string(), 20 => "as much again".to_string(), 25 => "one and a half times again".to_string(), _ => format!("{:.1} times", b - 1.0) }) } else { format!("{b:.1} times the pay, {paid:.1} XP") })).unwrap_or_default(),
                     earned.0,

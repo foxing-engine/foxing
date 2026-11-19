@@ -883,6 +883,10 @@ pub fn regard(world: &World, creature: EntityId, actor: &str) -> Option<String> 
         // A story is enough to be known, under any kind of name; a passing visitor
         // read "does not know you" right after its story was kept.
         format!("{n} the {kind} knows you: it holds your story.")
+    } else if super::tales::holds_of(world, creature, actor) {
+        // It holds a story under this name: that is knowing (a creature holding a
+        // name's story told it "no longer knows you", the Watch of 11-19).
+        format!("{n} the {kind} knows you: it holds a story of yours, and may tell it.")
     } else if knew(world, creature, actor) {
         format!("{n} the {kind} no longer knows you: what it held of yours has gone from it. A story told to it would change that.")
     } else if keepers.is_empty() {
