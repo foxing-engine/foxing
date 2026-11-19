@@ -172,4 +172,11 @@ The night over the room. The moon's phase is the Clocktower's half-life rate (fu
   tell (`tales`). It stands larger for what it holds, in steps (150, 400, 1000). An old
   one (it has said so) is gray and slow; an heir in its first week is small. The hover
   line says the same in words.
-
+- **Sprites at 32 pixels.** The twelve creatures and characters of the world's atlas
+  (citizen, Docent, wisp, hollow, mothwing, inkling, ragpicker, revenant, sitter,
+  drowned, hourhand, keeper) are drawn at 32 by 32 in `HI`, at the head of tiles.js;
+  `site/tools/sprites32/make.py` builds them (a small painter, shapes lit from the
+  upper left) and renders a contact sheet. A frame with no 32-pixel drawing (the
+  Stacks, the Exergue and the Trail's creatures in `EXTRA`) is its 16-pixel frame
+  doubled with its corners eased (Scale2x). A room is still twenty tiles of sixteen:
+  a sprite fills the same square with four times the pixels.
