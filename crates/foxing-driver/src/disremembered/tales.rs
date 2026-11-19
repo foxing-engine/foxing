@@ -499,6 +499,26 @@ pub fn prune(world: &mut World) -> Result<(), String> {
     Ok(())
 }
 
+/// X6: the Court puts a story back under its first teller's name.
+pub fn restore(
+    world: &mut World,
+    creature: EntityId,
+    by: &str,
+    against: &str,
+) -> Result<bool, CommandError> {
+    let mut tales = of(world, creature);
+    let Some(t) = tales
+        .iter_mut()
+        .find(|t| t.by == by && t.credit == against && t.whose == 0)
+    else {
+        return Ok(false);
+    };
+    t.credit = by.to_string();
+    t.at = world.now().0;
+    keep(world, creature, tales, None)?;
+    Ok(true)
+}
+
 /// What a second telling did to a copy the creature held.
 pub struct Retold {
     pub line: String,
@@ -530,7 +550,12 @@ pub fn retold(
     });
     let claim = || {
         tales.iter().position(|t| {
-            t.by != actor
+            // X6: a story the Court has put back is not taken while that ruling is
+            // remembered.
+            let guarded = super::mind::name(world, creature)
+                .is_some_and(|n| super::court::guards_story(world, &n, &t.by).is_some());
+            !guarded
+                && t.by != actor
                 && t.whose >= 1
                 && share(&super::exchange::story_words(&t.text), &told) >= ALIKE
         })

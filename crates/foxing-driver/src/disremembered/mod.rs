@@ -17,6 +17,7 @@ pub mod building;
 pub mod cloak;
 pub(crate) mod combat;
 pub mod conclave;
+pub mod court;
 pub mod craft;
 pub mod death;
 pub mod docent;
@@ -361,6 +362,10 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("mend", FieldKind::Plain, Visibility::Public)
             .field("struck_at", FieldKind::Plain, Visibility::Public)
             .field("strikes", FieldKind::Plain, Visibility::Public),
+        // X6: the Court of Lethe's Docket: its cases and rulings, and the next number.
+        ComponentSchema::new(court::COURT, 1)
+            .field("cases", FieldKind::Plain, Visibility::Public)
+            .field("next", FieldKind::Plain, Visibility::Public),
         // The Conclave's book: the statutes memory moves under, the hoards as of
         // the last strike, and when it last sat.
         ComponentSchema::new(conclave::CONCLAVE, 1)
@@ -1489,6 +1494,7 @@ pub fn register(world: &mut World, curves: Curves) {
     almanac::register(world);
     slips::register(world);
     tales::register(world);
+    court::register(world);
     exchange::register(world, curves.clone());
     errand::register(world);
     cloak::register(world);

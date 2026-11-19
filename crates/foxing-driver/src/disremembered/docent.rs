@@ -1510,6 +1510,8 @@ pub fn report(world: &World) -> Value {
         .collect();
     json!({
         "open": open,
+        // X6: the cases before the Court's bench, for the same model to judge.
+        "court": super::court::pending(world),
         "docent": {"name": NAME, "story": STORY},
         "answered": field(world, "answered").unwrap_or(json!(0)),
         "tidied": field(world, "tidied").unwrap_or(json!(0)),

@@ -634,6 +634,7 @@ const READ_VERBS: &[&str] = &[
     // C10: where the twelve slips are and which are answered.
     "slips",
     "tales",
+    "docket",
     "index",
 ];
 

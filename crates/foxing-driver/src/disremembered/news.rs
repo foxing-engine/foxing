@@ -157,6 +157,26 @@ pub fn lines(world: &World) -> Vec<String> {
     if !happened.is_empty() {
         out.push(format!("On its own: {}.", happened.join("; ")));
     }
+    // X6: what the Court of Lethe decided.
+    let ruled: Vec<String> = latest(super::court::RULED)
+        .into_iter()
+        .map(|e| {
+            format!(
+                "case {}, {} against {}, {}, {} ago",
+                e.payload["case"],
+                e.payload["by"].as_str().unwrap_or("a name"),
+                e.payload["against"].as_str().unwrap_or("another"),
+                e.payload["verdict"].as_str().unwrap_or("decided"),
+                ago(world, e.at.0)
+            )
+        })
+        .collect();
+    if !ruled.is_empty() {
+        out.push(format!(
+            "The Court of Lethe decided (`docket <n>` reads one): {}.",
+            ruled.join("; ")
+        ));
+    }
     // X18: who is old, and who has gone.
     let old: Vec<String> = latest(super::age::OLD)
         .into_iter()

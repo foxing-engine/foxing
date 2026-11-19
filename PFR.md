@@ -257,11 +257,17 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   retirement (a creature past a level walks to a room of its own and stops fighting),
   last words (a felled named creature says one line from what it held), a creature's
   `felled` told as a story; pixel sprites for the six (the page draws their glyph).
-- **X6 · The Court of Lethe** (the judicial branch; the Conclave writes, the Clocktower
-  moves, the Court decides between names). Brief wanted: who may bring a case (a
-  wronged name, a room's owner, the Docent), what a judgment can do (restore a chunk,
-  strike a name from the Roll, unmake a dug room, exile a creature), and whether the
-  Court forgets its own rulings on the world's curve.
+- **X6 · The Court of Lethe** (**shipped 11-19**; what is left). The judicial branch
+  is live and unseen in play: five kinds of case the record can check, a fee and an
+  errand, a day to answer, a model on the bench that refers to the Conclave half the
+  time, a judgment that puts right, a Docket that forgets. Left: **free pleas**, with
+  the right item or quest (David: in the future); the bench has not sat on a live
+  case (the first one shows whether the worker's judgment lands and reads well); a
+  referred case comes back on ANY petition of the petitioner's decided after the
+  referral, not one that names the case; a passing name cannot be pleaded against
+  once the world forgets it; the "thing" case reaches back only as far as the recent
+  log (a day or so); the Court's room has no creature, no fixtures and no `read`
+  nouns; the Conclave's minutes do not record a referral.
 - **X7 · Unions** (factionalism without factions). Brief wanted: standing a name earns
   by what it does, not what it joins (diggers, storytellers, keepers, delvers), with a
   voice at the Conclave and a share of something; no banners, no enemies, a name may

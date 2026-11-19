@@ -996,6 +996,10 @@ or carries.
     session                           [DO] Quillwake MUST session.
     news                              [DO] Quillwake MUST news.
     tales                             [DO] Quillwake MUST tales.
+    docket                            [DO] Quillwake MUST docket.
+    docket <n>                        [DO] Quillwake MUST docket 3.
+    plead <kind> <against> "<what>"   [DO] Quillwake MUST plead story Gnarl "Tinsel".
+    defend <case> "<answer>"          [DO] Quillwake MUST defend 3 "It had nobody's name on it.".
 
 `feedback "…"` from the play page is the feedback button beside leave:
 a box, then this verb. `travel` says the room it reaches; a `look`
@@ -1009,6 +1013,36 @@ said; the play page says it when you leave. `news` is the world's own
 news of the last day in the Docent's voice: what the Conclave decided,
 who fell, who was named, what was born and dug, the traveler, what
 happened on its own, which stories were passed on and which were let go.
+
+The Court of Lethe decides between names. It is through the one door
+behind AYE and NO in the Division Lobby (`door` from there). A kept name
+standing in it brings a case: plead <kind> <against> "<what>". Five
+kinds, each one the world's own record can check:
+- story: a story of yours another name tells as their own. <what> is
+  the creature that holds it.
+- line: a line another name wrote in a room or a book of yours. <what>
+  is some of its words.
+- name: a name another put on an object you made, or that stands in a
+  room of yours. <what> is the name.
+- thing: a thing left by a creature you felled and taken by another
+  name inside two minutes. <what> is the thing.
+- roll: your own name on the Roll of Hoards. <against> is conclave.
+The fee is the least memory you hold. The plea is then lodged, not
+entered: carry it to the Unfiled Archive for the record's stamp, and back
+to the Court; arriving does both. The other name is told wherever they
+stand and has a day to answer from anywhere (defend <case> "..."). The
+bench then grants, denies, or refers you to the Conclave, which it does
+often and at most once to a case: lay a petition at the Petitioners'
+Gallery, and when the Conclave has decided it, either way, the case
+comes back and must be decided. A judgment puts right and fines nobody:
+the story is told as yours again, the thing is handed back if it is
+still carried, the line or the name is struck, the name comes off the
+Roll. Both names are told and keep a small memory of having seen it
+through. `docket` (a read, from anywhere) lists open cases and
+remembered rulings, and `docket <n>` reads one. A ruling holds only
+while it is remembered: each reading keeps it two weeks more; unread, it
+is forgotten, binds nobody, and the matter can be brought afresh. One
+open case to a name at a time.
 
 A named creature ends one of two ways. Nobody feeds it: what it holds
 fades, and it loses its name. Or it is kept, and grows old. Twenty-one

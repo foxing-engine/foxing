@@ -14176,6 +14176,200 @@ fn a_fixture_delays_the_unmaking_and_does_not_prevent_it() {
 }
 
 #[test]
+fn the_court_of_lethe_hears_a_case_through_and_forgets_it() {
+    // X6 (David, 11-18): a case the record can check; a fee and an errand; a judge
+    // who may send it to the Conclave once; a judgment that puts right; a ruling that
+    // holds while it is read.
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    for who in ["dave", "tyler"] {
+        ok(&mut w, who, "travel", json!(["east"]));
+        ok(&mut w, who, "travel", json!(["south"]));
+    }
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 200, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    let name = mind::name(&w, rag).unwrap();
+    let tale = "Once there was a lantern that would not go out, though every hand that carried it forgot why they had picked it up.";
+    ok(&mut w, "dave", "story", json!([&name, tale]));
+    // The name worn off, tyler tells it as his own.
+    tales::wear_names(&mut w, rag, 2);
+    ok(&mut w, "tyler", "story", json!([&name, tale]));
+    assert_eq!(tales::of(&w, rag)[0].credit, "tyler");
+
+    // Only in the Court, and the fee is the least memory held.
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "plead",
+        json!(["story", "tyler", &name])
+    )
+    .is_err());
+    admin(&mut w, "dave", "bring", json!(["dave", "court-of-lethe"]));
+    let court = rooms::room_by_key(&w, "court-of-lethe").unwrap();
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("The Docket hangs by the Clerk's window: 0 cases open"),
+        "{}",
+        look.summary
+    );
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "plead",
+        json!(["quarrel", "tyler", &name])
+    )
+    .is_err());
+    let held = level(&mut w, "dave");
+    let out = ok(&mut w, "dave", "plead", json!(["story", "tyler", &name]));
+    assert!(
+        out.summary.contains("lodges your plea as case 1")
+            && out.summary.contains("Lodged is not entered"),
+        "{}",
+        out.summary
+    );
+    assert!(level(&mut w, "dave") < held, "the fee was taken");
+    assert!(
+        call(
+            &mut w,
+            "dave",
+            ActorKind::Citizen,
+            "plead",
+            json!(["story", "tyler", &name])
+        )
+        .is_err(),
+        "one case at a time"
+    );
+
+    // The errand: the Archive's stamp, then back.
+    let archive = rooms::room_by_key(&w, "archive").unwrap();
+    court::on_arrival(&mut w, "dave", court).unwrap();
+    assert_eq!(
+        court::cases(&w)[0]["stage"],
+        "lodged",
+        "not entered without the stamp"
+    );
+    court::on_arrival(&mut w, "dave", archive).unwrap();
+    assert_eq!(court::cases(&w)[0]["stage"], "stamped");
+    let head = events(&w);
+    court::on_arrival(&mut w, "dave", court).unwrap();
+    assert_eq!(court::cases(&w)[0]["stage"], "entered");
+    assert!(narrative(&w, "tyler", head)
+        .join(" ")
+        .contains("has entered case 1 against you"));
+
+    // The other name answers, and the case is before the bench with the record.
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "defend",
+        json!([1, "it is mine"])
+    )
+    .is_err());
+    ok(
+        &mut w,
+        "tyler",
+        "defend",
+        json!([1, "I found it with nobody's name on it."]),
+    );
+    let bench = court::pending(&w);
+    assert_eq!(bench.len(), 1);
+    assert_eq!(bench[0]["record_bears_it_out"], true);
+    assert_eq!(bench[0]["may_refer"], true);
+
+    // Referred once: the Conclave decides a petition of the petitioner's, and the
+    // case comes back and cannot be sent again.
+    court::judge(
+        &mut w,
+        1,
+        "referred",
+        "The Court wants a Resolution of the Conclave first.",
+        "test",
+    )
+    .unwrap();
+    assert_eq!(court::cases(&w)[0]["stage"], "referred");
+    court::tick(&mut w).unwrap();
+    assert_eq!(court::cases(&w)[0]["stage"], "referred");
+    w.fixed_now = Some(t0.plus(Duration::seconds(600)));
+    conclave::decide_for_test(&mut w, "dave");
+    court::tick(&mut w).unwrap();
+    assert_eq!(court::cases(&w)[0]["stage"], "heard");
+    assert!(court::judge(&mut w, 1, "referred", "Again.", "test").is_err());
+
+    // Granted: the story is dave's again, both are told and keep a memory.
+    let (d0, t0_level) = (level(&mut w, "dave"), level(&mut w, "tyler"));
+    let head = events(&w);
+    court::judge(&mut w, 1, "granted", "The record is plain.", "test").unwrap();
+    assert_eq!(tales::of(&w, rag)[0].credit, "dave");
+    assert!(level(&mut w, "dave") > d0 + 10.0 && level(&mut w, "tyler") > t0_level + 4.0);
+    let said = narrative(&w, "tyler", head).join(" ");
+    assert!(
+        said.contains("has decided case 1, dave against tyler: granted"),
+        "{said}"
+    );
+    // While the ruling is remembered the story is not taken by telling it, and the
+    // matter is not brought twice.
+    tales::wear_names(&mut w, rag, 2);
+    assert!(tales::retold(&mut w, "tyler", rag, tale).unwrap().is_none());
+    let again = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "plead",
+        json!(["story", "tyler", &name]),
+    )
+    .unwrap_err();
+    assert!(
+        again.to_string().contains("has decided this already"),
+        "{again}"
+    );
+    let read = ok(&mut w, "tyler", "docket", json!([1]));
+    assert!(
+        read.summary.contains("The Court: The record is plain.")
+            && read.summary.contains("kept two weeks more"),
+        "{}",
+        read.summary
+    );
+
+    // A case nobody answers and nobody judges: heard after a day, and six hours on
+    // the record decides it.
+    let out = ok(
+        &mut w,
+        "dave",
+        "plead",
+        json!(["roll", "conclave", "I hold very little"]),
+    );
+    assert!(out.summary.contains("case 2"), "{}", out.summary);
+    court::on_arrival(&mut w, "dave", archive).unwrap();
+    court::on_arrival(&mut w, "dave", court).unwrap();
+    w.fixed_now = Some(t0.plus(Duration::seconds(600 + 86_400 + 60)));
+    court::tick(&mut w).unwrap();
+    assert_eq!(court::cases(&w)[1]["stage"], "heard");
+    w.fixed_now = Some(t0.plus(Duration::seconds(600 + 86_400 + 7 * 3600)));
+    court::tick(&mut w).unwrap();
+    let c2 = court::cases(&w)[1].clone();
+    assert_eq!(
+        (c2["stage"].as_str(), c2["verdict"].as_str()),
+        (Some("decided"), Some("denied"))
+    );
+    assert_eq!(c2["judge"], "the record");
+
+    // Fifteen days unread, both are forgotten, and bind nobody.
+    w.fixed_now = Some(t0.plus(Duration::seconds(17 * 86_400)));
+    court::tick(&mut w).unwrap();
+    assert!(court::cases(&w).is_empty());
+    assert!(tales::retold(&mut w, "tyler", rag, tale).unwrap().is_some());
+}
+
+#[test]
 fn a_kept_creature_grows_old_takes_a_niche_and_leaves_an_heir() {
     // X18 (David, 11-18): old by time spent named; time can be bought, less each
     // time; a niche that is read is kept; an heir where it lived.

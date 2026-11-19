@@ -73,7 +73,7 @@ fn district_index(key: &str) -> Option<usize> {
         "orchard" | "clocktower" | "orchard-wall" => 6,
         "escapement-stair" | "petition-gallery" | "robing-room" | "tally-room" | "brass-rail"
         | "book-lectern" | "roll-hall" | "session-benches" | "division-lobby" | "minute-room"
-        | "engrossing-room" => 7,
+        | "engrossing-room" | "court-of-lethe" => 7,
         "exergue-stair" | "counting-bar" | "die-room" | "striking-floor" | "assay-office"
         | "mintmark-hall" | "purse-room" | "exergue" => 8,
         k if k.starts_with("trail-") => 9,
@@ -655,10 +655,20 @@ pub const ROOMS: &[RoomDef] = &[
         key: "division-lobby",
         name: "The Division Lobby",
         description: "A narrow corridor, with two doors at one end marked AYE and NO in gold. Behind the paint they are one door. At the far end, a clerk's desk holds a tally book ruled in a single column.",
-        exits: &[("east", "session-benches")],
+        exits: &[("east", "session-benches"), ("door", "court-of-lethe")],
         spawn: None,
         former: &[],
         tint: "#3a2e2e",
+    },
+    // X6: the judicial branch, through the one door behind AYE and NO.
+    RoomDef {
+        key: "court-of-lethe",
+        name: "The Court of Lethe",
+        description: "A long room with a channel of slow water down the middle of the floor, bridged in one place by the bar. The bench is on the far side and nobody has been seen to cross to it. On this side: a Clerk's window with a brass grille, a rack of rubber stamps worn smooth, and the Docket under glass, where the oldest entries have gone the color of the paper. A notice in two hands: JUDGMENT IS GIVEN IN THE ORDER RECEIVED and, under it, smaller, AND KEPT FOR AS LONG AS ANYONE READS IT.",
+        exits: &[("out", "division-lobby")],
+        spawn: None,
+        former: &[],
+        tint: "#2e3a3a",
     },
     RoomDef {
         key: "minute-room",
@@ -2363,6 +2373,10 @@ pub fn describe_as(
         text.push(' ');
         text.push_str(&t);
     }
+    if let Some(t) = super::court::look_line(world, room) {
+        text.push(' ');
+        text.push_str(&t);
+    }
     if let Some(t) = super::age::look_line(world, room) {
         text.push(' ');
         text.push_str(&t);
@@ -2671,6 +2685,8 @@ pub fn register(world: &mut World) {
             super::docent::on_arrival(w, &ctx.actor).map_err(internal)?;
             // Morphos, if it stands here, asks whoever comes in.
             super::morphos::on_arrival(w, &ctx.actor, to).map_err(internal)?;
+            // X6: a plea on its errand is stamped at the Archive and entered at the Court.
+            super::court::on_arrival(w, &ctx.actor, to).map_err(internal)?;
             // The Bog of Second Thoughts starts its clock on whoever steps in.
             super::trail::on_arrival(w, &ctx.actor, f.citizen, to, Some(room)).map_err(internal)?;
             // A bell standing here rings for whoever comes in; the rooms next door hear.

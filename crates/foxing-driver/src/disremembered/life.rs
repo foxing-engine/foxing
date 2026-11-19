@@ -826,6 +826,8 @@ pub fn business(world: &mut World) -> Result<(), String> {
     super::tales::prune(world)?;
     // X18: who is old, who goes to the Ossuary, which niche is swept.
     super::age::tick(world)?;
+    // X6: the Court's stages that move by time.
+    super::court::tick(world)?;
     let named: Vec<EntityId> = world
         .store
         .of_kind("creature")

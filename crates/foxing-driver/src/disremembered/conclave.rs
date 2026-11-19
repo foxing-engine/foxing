@@ -473,6 +473,42 @@ pub fn note_hoards(world: &mut World, dash: &Value) -> Result<(), String> {
     write(world, changes).map(|_| ())
 }
 
+/// X6: the Court takes a name off the Roll, until the next sitting counts again.
+pub fn strike_from_roll(world: &mut World, actor: &str) -> Result<bool, String> {
+    let mut hoards = match book(world, "hoards") {
+        Some(Value::Object(m)) => m,
+        _ => return Ok(false),
+    };
+    if hoards.remove(actor).is_none() {
+        return Ok(false);
+    }
+    let mut changes = BTreeMap::new();
+    changes.insert("hoards".into(), Value::Object(hoards));
+    write(world, changes)?;
+    Ok(true)
+}
+
+/// For tests: a petition of `by`'s entered as decided now.
+#[cfg(test)]
+pub fn decide_for_test(world: &mut World, by: &str) {
+    let mut decided = book(world, "decided")
+        .and_then(|v| v.as_array().cloned())
+        .unwrap_or_default();
+    decided.push(json!({"ticket": 99, "by": by, "text": "in the matter before the Court", "granted": false, "at": world.now().0}));
+    let mut changes = BTreeMap::new();
+    changes.insert("decided".into(), Value::Array(decided));
+    write(world, changes).unwrap();
+}
+
+/// X6: a petition of `by`'s decided since `since`, if the Conclave has decided one.
+pub fn decided_since(world: &World, by: &str, since: i64) -> Option<Value> {
+    book(world, "decided")?
+        .as_array()?
+        .iter()
+        .find(|d| d["by"] == by && d["at"].as_i64().is_some_and(|t| t > since))
+        .cloned()
+}
+
 /// A hoard's share, if `actor` is one.
 pub fn hoard_share_of(world: &World, actor: &str) -> Option<f64> {
     book(world, "hoards").and_then(|h| h[actor].as_f64())
