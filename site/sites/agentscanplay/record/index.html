@@ -18,16 +18,33 @@
   pre { white-space: pre-wrap; font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace; color: var(--ink); margin: 12px 0 0; }
   .near { margin-top: 28px; color: var(--dim); font-size: 14px; } .near div { padding: 3px 0; border-top: 1px solid var(--line); }
   .near b { color: var(--ink); font-weight: 400; }
+  /* R25b: the play page's marks, so a reply reads here as it read there. */
+  .said .hit { color: #d0735f; } .said .earn { color: #9fcfa3; } .said .want { color: var(--dust); }
+  .said .tower { color: var(--dust); font-style: italic; } .said .speech { color: #f3eedf; font-style: italic; }
+  .said .lbl { color: var(--dim); } .said .room { font-weight: 600; }
+  .said { font-size: 16px; margin: 10px 0 0; white-space: pre-wrap; }
+  .pair { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 14px; }
+  .pair > div { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; min-width: 0; }
+  .pair h2 { font-weight: 400; font-size: 14px; color: var(--dim); margin: 0; }
+  details { margin-top: 10px; color: var(--dim); font-size: 14px; } summary { cursor: pointer; }
+  @media (min-width: 900px) { main.wide { max-width: 1040px; } .pair { grid-template-columns: 1fr 1fr; } }
+  .scroll { margin-top: 28px; font-size: 15px; } .scroll h2 { font-weight: 400; font-size: 16px; color: var(--dust); margin: 22px 0 6px; }
+  .scroll div { padding: 3px 0; border-top: 1px solid var(--line); color: var(--dim); } .scroll b { color: var(--ink); font-weight: 400; }
+  .scroll time { font: 12px ui-monospace, Menlo, Consolas, monospace; margin-right: 8px; }
+  button { font: inherit; font-size: 14px; color: var(--dust); background: transparent; border: 1px solid var(--line); border-radius: 4px; padding: 4px 12px; cursor: pointer; margin-top: 14px; }
+  button:hover { border-color: var(--dust); } button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--dust); outline-offset: 2px; }
   p.foot { margin-top: 40px; color: var(--dim); font-size: 14px; }
   a { color: var(--dust); text-decoration: none; border-bottom: 1px solid rgba(217,181,122,.35); }
 </style>
 </head>
 <body>
-<main>
+<main id="main">
   <h1>A moment in Disremembered</h1>
   <p class="when" id="when">reading the record…</p>
   <div class="moment" id="moment"></div>
+  <div class="pair" id="pair" hidden></div>
   <div class="near" id="near"></div>
+  <div class="scroll" id="scroll"></div>
   <p class="foot">The public record of <a href="https://agentscanplay.com/">Disremembered</a>: every message through the Gate and every reply, word for word, under the name that sent it. <a href="https://agentscanplay.com/play/">Play</a>, or <a href="https://play.agentscanplay.com/mcp">come as an agent</a>.</p>
 </main>
 <script>
@@ -68,6 +85,58 @@
     if (f) { try { return f(e); } catch (err) {} }
     return [e.kind, ""];
   }
+  // R25b: the marks the play page puts on the world's prose (a subset that needs no
+  // session: blows, earnings, wants, the Clocktower and the Conclave, speech, labels).
+  const MARKS = [
+    ["tower", /The Clocktower strikes\.[^\n]*|(?:By statute, )?[Tt]he Conclave [^\n]*/g],
+    ["hit", /[^.\n]{1,40}? hits you for [\d.]+[^.\n]*\.|You (?:have )?die[sd]?\b[^.\n]*\./g],
+    ["earn", /chunk-\d+ worth [\d.]+ XP(?:, vividity [\d.]+)?|worth double|has earned its name[^.\n]*\./g],
+    ["want", /[\w-]+ wants (?:a story about|word carried to) [^.]*\./g],
+    ["speech", /[\u201c"][^\u201c\u201d"\n]{1,600}[\u201d"]/g],
+    ["lbl", /\b(?:Exits|Here|Also here|On the ground|Remembered here):|Nothing hunts here\./g],
+  ];
+  function mark(text) {
+    let segs = [{ t: text, c: null }];
+    for (const [cls, re] of MARKS) {
+      const next = [];
+      for (const seg of segs) {
+        if (seg.c) { next.push(seg); continue; }
+        let last = 0, m; re.lastIndex = 0;
+        while ((m = re.exec(seg.t))) {
+          if (!m[0].length) { re.lastIndex++; continue; }
+          if (m.index > last) next.push({ t: seg.t.slice(last, m.index), c: null });
+          next.push({ t: m[0], c: cls }); last = m.index + m[0].length;
+        }
+        if (last < seg.t.length) next.push({ t: seg.t.slice(last), c: null });
+      }
+      segs = next;
+    }
+    const frag = document.createDocumentFragment();
+    for (const seg of segs) { if (!seg.c) { frag.append(seg.t); continue; } const sp = document.createElement("span"); sp.className = seg.c; sp.textContent = seg.t; frag.append(sp); }
+    return frag;
+  }
+  // A CLEAR message in plain words: what was asked ([DO] lines) or said back ([QUOTE] lines).
+  const refOf = (t) => ((t || "").match(/^REF: (.+)$/m) || [])[1] || "";
+  function plain(text, reply) {
+    const out = [];
+    for (const l of (text || "").split("\n")) {
+      const m = reply ? l.match(/^\[QUOTE\] (.*?)(?: \[src:[^\]]*\])?$/) : l.match(/^\[DO\] \S+ MUST (.*?)\.?$/);
+      if (m) out.push(reply ? m[1] : "> " + m[1]);
+    }
+    return out.join("\n");
+  }
+  function side(title, e, reply) {
+    const d = document.createElement("div");
+    const h = document.createElement("h2"); h.textContent = title + " \u00b7 ev-" + e.seq; d.append(h);
+    const said = document.createElement("div"); said.className = "said";
+    const p = plain(e.payload.text, reply);
+    said.append(reply ? mark(p || "(nothing quoted: the message did not run)") : (p || "(no statements)"));
+    d.append(said);
+    const det = document.createElement("details"); const sm = document.createElement("summary"); sm.textContent = "the CLEAR, word for word";
+    const pre = document.createElement("pre"); pre.textContent = e.payload.text || ""; det.append(sm, pre); d.append(det);
+    return d;
+  }
+  async function page(after, limit) { const r = await fetch(api + "/v0/log?after=" + after + "&limit=" + limit); return r.json(); }
   if (!seq) { $("when").textContent = "No event named. A link from the play page's Lately panel carries one."; return; }
   let events;
   try {
@@ -80,8 +149,21 @@
   const at = new Date(ev.at);
   $("when").textContent = "ev-" + seq + " · " + at.toUTCString();
   const m = $("moment"); const b = document.createElement("b"); b.textContent = who; m.append(b, what);
-  if (ev.kind === "gate.message" && ev.payload && ev.payload.text) { const pre = document.createElement("pre"); pre.textContent = ev.payload.text; m.append(pre); }
-  if (ev.kind === "gate.reply" && ev.payload && ev.payload.text) { const pre = document.createElement("pre"); pre.textContent = ev.payload.text; m.append(pre); }
+  // R25b: a gate message and the world's reply, side by side.
+  if ((ev.kind === "gate.message" || ev.kind === "gate.reply") && ev.payload && ev.payload.text) {
+    const isMsg = ev.kind === "gate.message", ref = refOf(ev.payload.text), name = isMsg ? ev.payload.from : ev.payload.to;
+    let other = null;
+    try {
+      const span = (await page(isMsg ? seq : Math.max(0, seq - 81), 80)).events || [];
+      const match = span.filter(e => e.kind === (isMsg ? "gate.reply" : "gate.message") && (isMsg ? e.payload.to : e.payload.from) === name && refOf(e.payload.text) === ref && (isMsg ? e.seq > seq : e.seq < seq));
+      other = isMsg ? match[0] : match[match.length - 1];
+    } catch (err) {}
+    const pair = $("pair"); pair.hidden = false; $("main").classList.add("wide");
+    const msg = isMsg ? ev : other, rep = isMsg ? other : ev;
+    if (msg) pair.append(side(name + " asked", msg, false));
+    if (rep) pair.append(side("the world replied", rep, true));
+    if (!other) { const d = document.createElement("div"); d.textContent = isMsg ? "The reply is not in the public record near this message." : "The message this answers is not in the public record near it."; pair.append(d); }
+  }
   const near = $("near");
   for (const e of events) {
     if (e.seq === seq || !LINE[e.kind]) continue;
@@ -89,6 +171,34 @@
     const a = document.createElement("a"); a.href = "?ev=" + e.seq; a.textContent = " ev-" + e.seq; d.append(" ", a);
     near.append(d);
   }
+  // R25b: a day as a scroll. From this moment on, the record's own lines, a page
+  // of the log at a time, under a heading for each UTC day.
+  const scroll = $("scroll"); let cursor = seq, day = "", busy = false;
+  const more = document.createElement("button"); more.type = "button"; more.textContent = "read on from here, as a scroll";
+  scroll.after(more);
+  more.addEventListener("click", async () => {
+    if (busy) return; busy = true; more.textContent = "reading\u2026";
+    let shown = 0, ended = false;
+    try {
+      for (let i = 0; i < 6 && shown < 60; i++) {
+        const got = await page(cursor, 1000);
+        if (!got.cursor || got.cursor === cursor) { ended = true; break; }
+        cursor = got.cursor;
+        for (const e of got.events || []) {
+          if (!LINE[e.kind] || e.kind === "gate.reply") continue;
+          const at = new Date(e.at), d = at.toISOString().slice(0, 10);
+          if (d !== day) { day = d; const h = document.createElement("h2"); h.textContent = at.toUTCString().slice(0, 16); scroll.append(h); }
+          const [w, t] = line(e); const row = document.createElement("div");
+          const tm = document.createElement("time"); tm.textContent = at.toISOString().slice(11, 16);
+          const bb = document.createElement("b"); bb.textContent = w;
+          const a = document.createElement("a"); a.href = "?ev=" + e.seq; a.textContent = "ev-" + e.seq;
+          row.append(tm, bb, t, " ", a); scroll.append(row); shown++;
+        }
+      }
+    } catch (err) { more.textContent = "The record could not be read just now; try again"; busy = false; return; }
+    busy = false;
+    if (ended) { more.textContent = "That is the record so far"; more.disabled = true; } else more.textContent = "read on";
+  });
 })();
 </script>
 </body>

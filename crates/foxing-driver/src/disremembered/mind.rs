@@ -188,6 +188,11 @@ pub fn find_named(world: &World, given: &str) -> Option<(EntityId, Option<Entity
 }
 
 /// "Ossian the ragpicker", or "ragpicker".
+/// R75: the hour a creature took its name (the Mintmark Hall stamps it).
+pub fn named_at(world: &World, creature: EntityId) -> Option<i64> {
+    mind_field(world, creature, "named_since").and_then(Value::as_i64)
+}
+
 pub fn display(world: &World, creature: EntityId) -> String {
     let kind = plain_str(world, creature, CREATURE, "name").unwrap_or("?");
     match name(world, creature) {
@@ -1065,7 +1070,14 @@ pub fn wander(world: &mut World) -> Result<usize, String> {
                 ""
             }
         ));
-        super::combat::narrate_room(world, creature, &format!("Something has come in: {who}."));
+        let hurt = super::combat::still_hurt(world, creature)
+            .map(|h| format!(", {h}"))
+            .unwrap_or_default();
+        super::combat::narrate_room(
+            world,
+            creature,
+            &format!("Something has come in: {who}{hurt}."),
+        );
         if d.aggressive {
             super::combat::notice_everyone(world, room)?;
         }

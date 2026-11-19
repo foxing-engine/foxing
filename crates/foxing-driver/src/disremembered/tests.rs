@@ -14728,3 +14728,73 @@ fn a_first_hour_ends_aloud_and_a_retreat_says_what_it_costs() {
     }
     assert!(rest.contains("it costs one parting blow, 2 to 4"), "{rest}");
 }
+
+#[test]
+fn the_batch_of_the_nineteenth_reads_rooms_counts_fog_and_assays() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // R175: bare `read` is the room, wherever you stand.
+    let bare = ok(&mut w, "dave", "read", json!([]));
+    let here = ok(&mut w, "dave", "read", json!(["here"]));
+    assert!(
+        bare.summary.starts_with("The Threshold, whole: "),
+        "{}",
+        bare.summary
+    );
+    assert_eq!(bare.summary, here.summary);
+    // R74: the cue that leads, and "a river of ink" is ink.
+    assert_eq!(
+        super::craft::gather_cue("a river of ink under the shelves").map(|c| c.1),
+        Some("a dab of ink")
+    );
+    assert_eq!(
+        super::craft::gather_cue("moss on the well").map(|c| c.1),
+        Some("moth dust")
+    );
+    assert!(super::craft::all_recipes(&w)
+        .iter()
+        .any(|r| r.key == "smoked-lens"));
+    assert!(super::craft::all_recipes(&w)
+        .iter()
+        .any(|r| r.key == "ribbon-marker"));
+    // R173: short, a room says what has gone since you walked out of it.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let got = ok(&mut w, "dave", "gather", json!([]));
+    let item = format!("item-{}", got.result["item"]);
+    ok(&mut w, "dave", "drop", json!([item]));
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    admin(&mut w, "dave", "bring", json!(["tyler", "fogbank"]));
+    ok(&mut w, "tyler", "take", json!([item]));
+    let back = ok(&mut w, "dave", "travel", json!(["east"]));
+    assert!(
+        back.summary
+            .contains("The Fogbank, not as you left it: hollow water is gone"),
+        "{}",
+        back.summary
+    );
+    // R75: the Purse's share is a statute, at the figure it always was.
+    assert!((super::conclave::statute(&w, "purse_share") - 0.05).abs() < 1e-9);
+    // R75: the Assayer answers `tell` with an assay.
+    admin(&mut w, "dave", "bring", json!(["dave", "assay-office"]));
+    let said = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!(["assayer", "what am I worth?"]),
+    );
+    assert!(
+        said.summary.contains("The Assayer lifts the bell"),
+        "{}",
+        said.summary
+    );
+    // R75: the slate is the tapster's.
+    admin(&mut w, "dave", "bring", json!(["dave", "counting-bar"]));
+    let slate = ok(&mut w, "dave", "read", json!(["slate"]));
+    assert!(
+        slate.summary.contains("in the tapster's chalk"),
+        "{}",
+        slate.summary
+    );
+}

@@ -40,7 +40,7 @@ Away from Moondial and Entropic (the engine's and the game's old names): what is
 is the box's half (Y1); the `MOONDIAL_*` fallbacks in the driver and the tools go in
 a release after Y1 has run.
 The play page's bigger pieces:
-- **R25b** (M) What is left of it: the palette on the plain page; the same marks on the record page; the record page showing a gate message's reply beside it and a day as a scroll. (Admin on the play page and a `remember` that keeps a room on your map are off the list by David's word, 11-17.)
+- **R25b** (S) What is left of it: "the palette on the plain page" (Claude could not tell which palette was meant, 11-19: the verb column the tiles mod keeps, or the page's colors; David to say).
 From the Watch of six, 11-13, the night the second door opened (a newcomer, a faller, a teller, a walker, a manual reader on a kept name, a latecomer; all six woke at the Postern; see T16):
 - **R224** (S) An absent name gets two answers: `tell Gnashfall` (away) "They will hear it when they return", `tell Gnewelpost` (gone, forgotten on leaving) "There is no one called Gnewelpost", at a quarter, and `where` answers with the whole catalogue of what it can find. A word said in a room after you left it reaches you only if you walk back ("Said here lately"), never through `messages`.
 - **R226** (S) A long message's reply is cut "under the statement limit"; it now says what was cut (receipts first, then the last answers) and that every statement ran. What is left: cut the answers to reads before the answers to acts, which wants each line to know its statement.
@@ -69,18 +69,11 @@ From the live Watch of 11-10:
 
 From the Night's Watch of 11-10 (on a local copy):
 - **R163** (S) A short name now finds the best match (whole name, then a whole word, then a part; a made thing first, then the newest); the reply does not yet say which it chose when two fit.
-- **R165** (S) A fixture's `read` gives only its line ("a lamp (item-166), whole (1 line)…") where a carried thing recites its life; and a spent charm cannot be read at all ("There is no item-197 here to speak of"): a fixture's past is read like any made thing's, and a spent thing leaves its last line where it was spent.
-- **R167** (S) The room text after a memory is fed to a dug room says "Kept in memory by Gnarrowby (with wisp, telling Loam a story): the memory of a creature of theirs, fed to it": the clause is the creature's, said of a room.
-- **R168** (S) "The fog gives up shapes: 2 wisps" with one wisp in `look` (a named one beside it was counted, or one had gone): count what arrives.
-- **R169** (S) A wisp drifts in at "0.3/8.3": a wounded one that left comes back unmended and reads as a new spawn; say "comes back, still hurt", or mend it away.
-- **R170** (S) The map draws the Mezzanine and the Stopped Clocktower side by side though no door joins them (11-16; no room is drawn twice now).
-- **R173** (S) A thing that lay in a room and is gone on the next short arrival leaves no line ("as you left it" over a room missing its charm): short, a room says what has changed since ("Charmkin is gone").
-- **R175** (S) `read` with no thing means the room's page in the Conclave's rooms and "Nothing here has writing on it" in the Bar: one meaning, said in `help read`.
 
 From the Night's Watch of 11-06:
 Pulled from the backlog 11-05 ("B19 yes, B21 yes, B22 yes"), each in pieces the Watch can take a batch at a time:
-- **R74** (M; B19) Crafting, second tier: an usher's ribbon (a thing that lets you choose the room an usher shows you to) and a censor's lens (halves the ray) as recipes from Stacks drops; desires beyond rooms (a hand not met, a story told near it); a thing's past as a want; a sprite per tier on the page; `gather` reading the first cue ("a river of ink" gives ink).
-- **R75** (M; B21) The Exergue, next: a bar story's weight by its money words; the Assayer answering `tell` with your holding's assay; the Wardens' respawn lengthening each taking; the Purse's share as a statute; the sweater's bag and the clippers' filings as things; the Mintmark Hall stamping kept things with their hour; atlas frames for the eight; the slate in the tapster's voice.
+- **R74** (M; B19) Crafting, second tier, what is left: desires beyond rooms (a hand not met, a story told near it); a thing's past as a want; a sprite per tier on the page. (The ribbon marker, the smoked lens and `gather`'s cue shipped 11-19.)
+- **R75** (M; B21) The Exergue, what is left: the sweater's bag and the clippers' filings as things; atlas frames for the eight. (The other six shipped 11-19.)
 - Kept on purpose, not to be tidied: `nginx-moondial.conf` (moondial.ai redirects to foxing.dev), the
   `/clear/entropic.yaml` redirect, the postgres schema-lock constant, the host's name
   moondial-1, TRADEMARK.md's history line, the repo's local folder name.

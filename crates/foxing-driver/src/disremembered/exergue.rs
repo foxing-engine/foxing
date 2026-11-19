@@ -27,12 +27,15 @@ pub const WEIGHED: &str = "disremembered.weighed";
 pub const PURSE_TAKEN: &str = "disremembered.purse_taken";
 
 /// What a bar story pays: little, and slow to fade.
-const BAR_XP_PER_WORD: f64 = 0.12;
+/// R75: by its money words. Half the old weight for length, and the rest for each
+/// different word about money in it (the same word twice weighs once).
+const BAR_XP_PER_WORD: f64 = 0.06;
+const BAR_XP_PER_MONEY_WORD: f64 = 0.75;
 const BAR_XP_MAX: f64 = 12.0;
 const BAR_HALF_LIFE_S: i64 = 24 * 3600;
 const BAR_MIN_WORDS: usize = 12;
-/// The Purse: this share of all held memory, this much at least, capped on the taker.
-const PURSE_SHARE: f64 = 0.05;
+/// The Purse: a share of all held memory (the statute `purse_share`), this much at
+/// least, capped on the taker.
 const PURSE_FLOOR: f64 = 600.0;
 const PURSE_OVER_LEVEL: f64 = 600.0;
 /// The Purse refills this long after it is taken.
@@ -156,7 +159,12 @@ pub fn bar_story(
         ));
     }
     // Paid by weight (the words), in a coin that is not gold: few XP, a day to halve.
-    let weight = (words.len() as f64 * BAR_XP_PER_WORD)
+    let money_kinds = distinct
+        .iter()
+        .filter(|w| MONEY.contains(&w.as_str()))
+        .count();
+    let weight = (words.len() as f64 * BAR_XP_PER_WORD
+        + money_kinds as f64 * BAR_XP_PER_MONEY_WORD)
         .clamp(3.0, BAR_XP_MAX)
         .round();
     let curves = super::Curves::with_half_life(foxing_time::Duration::seconds(BAR_HALF_LIFE_S));
@@ -192,11 +200,11 @@ pub fn bar_story(
     );
     Ok(Outcome::new(
         format!(
-            "You tell the tapster a story of {} words, {money} of them about money. It weighs it, and chalks the figure: {weight:.0} ounces. You remember the telling: chunk-{} worth {weight:.0} XP, which halves in a day instead of hours. Worth its weight; just not in gold.",
+            "You tell the tapster a story of {} words, {money} of them about money ({money_kinds} different: the money in it is most of what it weighs). It weighs it, and chalks the figure: {weight:.0} ounces. You remember the telling: chunk-{} worth {weight:.0} XP, which halves in a day instead of hours. Worth its weight; just not in gold.",
             words.len(),
             chunk.0
         ),
-        json!({"weighed": true, "words": words.len(), "money_words": money, "xp": weight, "earned": chunk.0, "half_life_ms": BAR_HALF_LIFE_S * 1000}),
+        json!({"weighed": true, "words": words.len(), "money_words": money, "money_kinds": money_kinds, "xp": weight, "earned": chunk.0, "half_life_ms": BAR_HALF_LIFE_S * 1000}),
     ))
 }
 
@@ -210,13 +218,83 @@ pub fn purse_holds(world: &World) -> (f64, Option<i64>) {
         .find(|e| e.kind == PURSE_TAKEN)
         .map(|e| e.at.0);
     if let Some(at) = taken_at {
-        if world.now().0 - at < PURSE_REFILL_MS {
-            return (0.0, Some(at + PURSE_REFILL_MS));
+        // R75: as long empty as the Wardens are away, which is longer each taking.
+        let refill = (PURSE_REFILL_MS as f64 * taking_stretch(world)) as i64;
+        if world.now().0 - at < refill {
+            return (0.0, Some(at + refill));
         }
     }
     let dash = super::economy::dashboard(world);
     let held = dash["held"].as_f64().unwrap_or(0.0);
-    ((held * PURSE_SHARE).max(PURSE_FLOOR).round(), None)
+    (
+        (held * super::conclave::statute(world, "purse_share"))
+            .max(PURSE_FLOOR)
+            .round(),
+        None,
+    )
+}
+
+/// R75: the Wardens' return lengthens with each taking. Half again for every time
+/// the Purse was taken in the last week (six at most: about eleven times), and the
+/// Purse stays empty as much longer, so it is never taken past no one.
+pub fn taking_stretch(world: &World) -> f64 {
+    let week_ago = world.now().0 - 7 * 86_400_000;
+    let takings = world
+        .recent_events(8000)
+        .iter()
+        .filter(|e| e.kind == PURSE_TAKEN && e.at.0 >= week_ago)
+        .count()
+        .min(6);
+    // The first taking is at the plain figure.
+    1.5f64.powi(takings.saturating_sub(1) as i32)
+}
+
+/// R75: the Assayer answers `tell` with an assay of what the asker holds.
+pub fn assay(world: &World, window: EntityId) -> (String, serde_json::Value) {
+    let now = world.now();
+    let mut chunks: Vec<(u64, String, f64)> = world
+        .store
+        .children(window)
+        .filter(|e| e.kind == "chunk")
+        .filter_map(|e| {
+            let v = world
+                .store
+                .read_field(e.id, CHUNK, "value", now)
+                .ok()?
+                .as_f64()?;
+            (v >= 0.05).then(|| {
+                (
+                    e.id.0,
+                    plain_str(world, e.id, CHUNK, "source")
+                        .unwrap_or("?")
+                        .to_string(),
+                    v,
+                )
+            })
+        })
+        .collect();
+    chunks.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+    let total: f64 = chunks.iter().map(|c| c.2).sum();
+    let level = super::memory::level(world, window);
+    let aim = level.max(0.0) / (level.max(0.0) + super::stacks::AIM_SCALE);
+    let said = match chunks.first() {
+        None => "\"Nothing in the pan. Come back holding something and I will tell you what it is worth, and then, the Office being what it is, what half of it is worth.\"".to_string(),
+        Some((id, source, v)) => {
+            let fine = v / total.max(0.01);
+            format!(
+                "\"Your holding, assayed: {} memor{} weighing {total:.1} in all. The heaviest is chunk-{id} ({source}) at {v:.1}, which is {:.0} parts in a hundred of you{}. The Office keeps a sample of what it weighs: my ray halves one memory, and at your level it finds the heaviest {:.0} times in a hundred; the rest of the time it falls by weight. Put the heaviest on your shelf before you raise a hand here (`remember chunk-{id}`), or do not raise one.\"",
+                chunks.len(),
+                if chunks.len() == 1 { "y" } else { "ies" },
+                fine * 100.0,
+                if fine > 0.5 { ", most of your weight in one coin" } else { "" },
+                aim * 100.0
+            )
+        }
+    };
+    (
+        format!("The Assayer lifts the bell off the balance and weighs you without asking. {said}"),
+        json!({"to": "assayer", "assay": {"chunks": chunks.len(), "total": (total * 10.0).round() / 10.0, "heaviest": chunks.first().map(|c| json!({"chunk": c.0, "source": c.1, "value": (c.2 * 10.0).round() / 10.0})), "ray_finds_heaviest": (aim * 1000.0).round() / 1000.0}}),
+    )
 }
 
 fn wardens_standing(world: &World, room: EntityId) -> usize {
@@ -282,8 +360,9 @@ pub fn take_purse(
     ));
     Ok(Outcome::new(
         format!(
-            "You untie the cord. The Purse holds {holds:.0}; what you can carry of it is {worth:.0}, and it is yours: chunk-{} worth {worth:.0} XP, slow to fade. The sack is empty on its plinth; it fills again in an hour, and the Wardens come back before that.{}",
+            "You untie the cord. The Purse holds {holds:.0}; what you can carry of it is {worth:.0}, and it is yours: chunk-{} worth {worth:.0} XP, slow to fade. The sack is empty on its plinth; it fills again in {}, and the Wardens come back before that. Each taking in a week keeps them, and it, away half as long again.{}",
             chunk.0,
+            super::combat::human((PURSE_REFILL_MS as f64 * taking_stretch(world)) as i64),
             if worth < holds { " (The Purse pays at most your level plus six hundred.)" } else { "" }
         ),
         json!({"taken": true, "worth": worth, "held": holds, "chunk": chunk.0}),
@@ -376,9 +455,10 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
                     )
                 })
                 .collect();
+            // R75: the slate in the tapster's voice (it was a notice in the house's).
             format!(
-                "The slate behind the bar, chalked in columns: {}. The tapster weighs a story about money (`story tapster \"…\"`, a dozen different words or more, one an hour) and pays its weight in a coin that halves in a day, not in hours. Worth its weight; just not in gold.",
-                if rows.is_empty() { "nothing weighed today".to_string() } else { rows.join("; ") }
+                "The slate behind the bar, in the tapster's chalk: \"{} I weigh a story about money. A dozen different words or it is not a story; the money in it is most of the weight, and saying 'coin' twice weighs once. One an hour from each of you. I pay in a coin that halves in a day, where the rest of what you carry halves in hours. Worth its weight. Not in gold; do not ask.\" (`story tapster \"…\"`)",
+                if rows.is_empty() { "Weighed today: nothing weighed today, and the glass is dry.".to_string() } else { format!("Weighed today: {}.", rows.join("; ")) }
             )
         }
         "die-room" if named(&["die", "dies", "rack", "coin"]) => {
@@ -408,22 +488,31 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
                         .parent
                         .and_then(|r| plain_str(world, r, ROOM, "name"))
                         .unwrap_or("nowhere");
-                    rows.push(format!("{n} the {kind}, {room_name}"));
+                    // R75: stamped with its hour.
+                    let at = super::mind::named_at(world, e.id)
+                        .map(|t| format!(", struck {}", super::system::stamp(t)))
+                        .unwrap_or_default();
+                    rows.push(format!("{n} the {kind}, {room_name}{at}"));
                 }
             }
             let mut fixtures: Vec<String> = Vec::new();
             for e in world.store.of_kind("room") {
                 for v in super::craft::fixtures_in(world, e.id) {
                     if let Some(n) = v["given_name"].as_str() {
+                        let at = v["id"]
+                            .as_u64()
+                            .and_then(|id| super::past::first_at(world, EntityId(id)))
+                            .map(|t| format!(", struck {}", super::system::stamp(t)))
+                            .unwrap_or_default();
                         fixtures.push(format!(
-                            "{n} ({})",
+                            "{n} ({}{at})",
                             plain_str(world, e.id, ROOM, "name").unwrap_or("?")
                         ));
                     }
                 }
             }
             format!(
-                "The register in its iron frames, every kept thing in the world under its mark. The named ({}): {}. The fixtures ({}): {}.",
+                "The register in its iron frames, every kept thing in the world under its mark and the hour it was struck (UTC). The named ({}): {}. The fixtures ({}): {}.",
                 rows.len(),
                 if rows.is_empty() { "none".to_string() } else { rows.join("; ") },
                 fixtures.len(),
@@ -450,7 +539,7 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
             format!(
                 "The Purse on its plinth{}: it holds {}. {} Warden{} stand{} over it; `take purse` past them, and what you can carry of it is yours (your level plus six hundred at most). Each Warden is about 260 hit points and hits 27 to 29: work for several names together, not for one.{last}",
                 if holds <= 0.0 { ", slack" } else { "" },
-                if holds <= 0.0 { format!("nothing; it fills again in {}", super::combat::human(refills.map(|t| t - world.now().0).unwrap_or(0).max(0))) } else { format!("{holds:.0} XP, a twentieth of all the world remembers") },
+                if holds <= 0.0 { format!("nothing; it fills again in {}", super::combat::human(refills.map(|t| t - world.now().0).unwrap_or(0).max(0))) } else { format!("{holds:.0} XP: {:.0} parts in a hundred of all the world remembers, by statute (`statutes`: purse_share), and never under six hundred", super::conclave::statute(world, "purse_share") * 100.0) },
                 match standing { 0 => "No".to_string(), 1 => "One".to_string(), n => n.to_string() },
                 if standing == 1 { "" } else { "s" },
                 if standing == 1 { "s" } else { "" }

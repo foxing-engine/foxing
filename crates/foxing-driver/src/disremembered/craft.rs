@@ -87,7 +87,7 @@ pub const SEED_FIXTURES: &[(&str, &str, &str, &str, bool)] = &[
         "purse-room",
         "plaque",
         "the Purse",
-        "A sack of worn leather on a plinth, tied with a cord that has been untied before. It holds a twentieth of everything the world remembers, and the Wardens hold it.",
+        "A sack of worn leather on a plinth, tied with a cord that has been untied before. It holds a share of everything the world remembers, set by statute, and the Wardens hold it.",
         false,
     ),
     (
@@ -348,6 +348,33 @@ pub const RECIPES: &[Recipe] = &[
         vividity_at_least: 0.6,
         effect: "lantern",
     },
+    // R74: the two the Stacks' own leavings were waiting for.
+    Recipe {
+        key: "ribbon-marker",
+        name: "a ribbon marker",
+        of: &["an usher's ribbon", "rag thread"],
+        chunk_at_least: 20.0,
+        does: "(an usher's ribbon is what the Stacks' ushers leave) is tied to the room it is made in: while you carry it, an usher or a shusher that takes your elbow shows you there and nowhere else, twice. Make it where you would rather be shown to. It has a past",
+        uses: 2,
+        fixed: false,
+        takes_lines: false,
+        tier: 2,
+        vividity_at_least: 0.6,
+        effect: "ribbon",
+    },
+    Recipe {
+        key: "smoked-lens",
+        name: "a smoked lens",
+        of: &["a censor's lens", "a wisp ember"],
+        chunk_at_least: 20.0,
+        does: "(a censor's lens is what the Stacks' censors leave) halves the ray: while you carry it, a ray of forgetfulness takes half of what it would have (a censor's a quarter of the chunk, a cataloguer's a third), three times. It has a past",
+        uses: 3,
+        fixed: false,
+        takes_lines: false,
+        tier: 2,
+        vividity_at_least: 0.6,
+        effect: "lens",
+    },
     // C6: the commonplace book. You forget; a book you carry does not.
     Recipe {
         key: "commonplace",
@@ -566,6 +593,43 @@ pub const GATHERABLE: &[(&[&str], &str)] = &[
         "a wisp ember",
     ),
 ];
+
+/// R74: which of a room's words the hand closes on. The cue that comes first in
+/// the text, not the first in the table ("ink" then "river" gave river weed
+/// whatever the room led with); and "a river of ink" is ink, the thing it is of.
+/// The Mudroom's rack still comes before anything.
+pub fn gather_cue(text: &str) -> Option<(&'static str, &'static str)> {
+    if let Some((cues, m)) = GATHERABLE
+        .first()
+        .filter(|(cues, _)| cues.iter().any(|c| text.contains(c)))
+    {
+        return Some((cues[0], m));
+    }
+    let mut found: Vec<(usize, &'static str, &'static str)> = GATHERABLE
+        .iter()
+        .flat_map(|(cues, m)| {
+            cues.iter()
+                .filter_map(move |c| text.find(c).map(|at| (at, *c, *m)))
+        })
+        .collect();
+    found.sort();
+    let (at, cue, material) = *found.first()?;
+    // "<cue> of <another cue>": the second is what there is to take.
+    let rest = &text[at + cue.len()..];
+    let of = rest
+        .strip_prefix("s of ")
+        .or_else(|| rest.strip_prefix(" of "))
+        .map(|r| r.trim_start_matches("the ").trim_start_matches("a "));
+    if let Some(r) = of {
+        if let Some((_, c2, m2)) = found
+            .iter()
+            .find(|(_, c, m)| *m != material && r.starts_with(c))
+        {
+            return Some((c2, m2));
+        }
+    }
+    Some((cue, material))
+}
 
 fn offers_of(world: &World, citizen: EntityId) -> Vec<Value> {
     world
@@ -1374,6 +1438,33 @@ pub fn spend(
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
     if uses <= 1 {
+        // R165: a spent thing leaves its last line with whoever spent it (a spent
+        // charm read "There is no item-197 here to speak of").
+        if let Some(f) = super::find_citizen(world, actor) {
+            let mut spent = match world
+                .store
+                .entity(f.citizen)
+                .and_then(|e| e.components.get(super::CITIZEN))
+                .and_then(|c| c.fields.get("spent"))
+            {
+                Some(Field::Plain(Value::Array(a))) => a.clone(),
+                _ => Vec::new(),
+            };
+            spent.push(json!({
+                "item": item.0,
+                "name": display(world, item),
+                "deed": deed,
+                "room": room.and_then(|r| plain_str(world, r, super::ROOM, "name")).unwrap_or("nowhere"),
+                "at": world.now().0,
+            }));
+            let from = spent.len().saturating_sub(12);
+            let mut changes = BTreeMap::new();
+            changes.insert(
+                "spent".to_string(),
+                Field::Plain(Value::Array(spent.split_off(from))),
+            );
+            let _ = super::set_citizen_fields(world, actor, f.citizen, changes);
+        }
         world
             .record(
                 Actor::Citizen(actor.to_string()),
@@ -2480,7 +2571,7 @@ pub fn register(world: &mut World, curves: Curves) {
             // The Threshold gives nothing (its text names the fog and the lanterns as
             // ways to go, not things to take).
             let text = if plain_str(w, here, super::ROOM, "key") == Some(rooms::ARRIVAL) { String::new() } else { text };
-            let Some((cue, material)) = GATHERABLE.iter().find(|(cues, _)| cues.iter().any(|c| text.contains(c))).map(|(cues, m)| (cues.iter().find(|c| text.contains(*c)).copied().unwrap_or(""), *m)) else {
+            let Some((cue, material)) = gather_cue(&text) else {
                 return Err(CommandError::precondition(
                     "Nothing here comes away in the hand. Rooms with water or fog, shelves or ink, moths or moss, rags, bones, a river, or a lantern give something; read the room.",
                 ));
@@ -2763,6 +2854,10 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             if r.effect != r.key {
                 let mut changes = BTreeMap::new();
+                // R74: a ribbon marker is tied to the room it is made in.
+                if r.effect == "ribbon" {
+                    changes.insert("tied_to".into(), Field::Plain(json!(here.0)));
+                }
                 changes.insert("effect".into(), Field::Plain(json!(r.effect)));
                 set_item_fields(w, Actor::Citizen(ctx.actor.clone()), item, changes)?;
             }
@@ -2813,7 +2908,7 @@ pub fn register(world: &mut World, curves: Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.read",
-            "Read a thing whole: a book or plaque standing here, something lying here, or a thing you carry; its text line by line, who wrote in it, and whether the Bindery bound it. `read here` reads the room's own description the same way. With nothing named, what can be read here.",
+            "Read a thing whole: a book or plaque standing here, something lying here, or a thing you carry; its text line by line, who wrote in it, and whether the Bindery bound it. Bare `read` (or `read here`) reads the room: its description whole, the house's page where the room keeps one, and what else here can be read.",
         )
         .param("object", ParamType::Entity, false, "item-12, its name, or `here` for the room"),
         Box::new(|w: &mut World, ctx, args: &Args| {
@@ -2863,17 +2958,25 @@ pub fn register(world: &mut World, curves: Curves) {
             // In the Conclave's house, the Book, the Minutes, the slate, the tally: the
             // house's own pages come first (eleven rooms of books once read "Nothing
             // here has writing on it").
-            if let Some(out) = super::conclave::read(w, here, &arg) {
-                return Ok(out);
-            }
-            if let Some(out) = super::exergue::read(w, here, &arg) {
-                return Ok(out);
-            }
-            if let Some(out) = super::trail::read(w, &ctx.actor, here, &arg) {
-                return Ok(out);
-            }
-            if let Some(out) = super::door::read(w, here, &arg) {
-                return Ok(out);
+            // R175: bare `read` means the room everywhere (it was the house's page in
+            // the Conclave's rooms and "Nothing here has writing on it" in the Bar).
+            // The room whole, then the house's own page where there is one, then what
+            // else here can be read; `read here` is the same reading.
+            let bare = arg.is_empty() || arg.eq_ignore_ascii_case("here") || arg.eq_ignore_ascii_case("room");
+            let mut page: Option<Outcome> = None;
+            for out in [
+                super::conclave::read(w, here, if bare { "" } else { &arg }),
+                super::exergue::read(w, here, if bare { "" } else { &arg }),
+                super::trail::read(w, &ctx.actor, here, if bare { "" } else { &arg }),
+                super::door::read(w, here, if bare { "" } else { &arg }),
+            ]
+            .into_iter()
+            .flatten()
+            {
+                if !bare {
+                    return Ok(out);
+                }
+                page.get_or_insert(out);
             }
             // D41: a thing the room's own text names (the Chart Room's maps, the
             // Reserve's list), where nothing made or lying here is meant.
@@ -2900,7 +3003,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     )));
                 }
             }
-            if arg.is_empty() {
+            if bare {
                 let mut names: Vec<String> = fixtures_in(w, here)
                     .iter()
                     .chain(things_in(w, here).iter())
@@ -2915,14 +3018,6 @@ pub fn register(world: &mut World, curves: Curves) {
                             .map(|v| format!("{} (item-{}, carried)", v["given_name"].as_str().unwrap_or(v["name"].as_str().unwrap_or("something")), v["id"])),
                     );
                 }
-                let text = if names.is_empty() {
-                    "Nothing here has writing on it; `read here` reads the room.".to_string()
-                } else {
-                    format!("To read here: {}; and `read here` for the room.", names.join("; "))
-                };
-                return Ok(Outcome::new(text, json!({"readable": names})));
-            }
-            if arg.eq_ignore_ascii_case("here") || arg.eq_ignore_ascii_case("room") {
                 let name = plain_str(w, here, super::ROOM, "name").unwrap_or("this room").to_string();
                 let text = plain_str(w, here, super::ROOM, "description").unwrap_or("").to_string();
                 let hands = match w.store.entity(here).and_then(|e| e.components.get(super::ROOM)).and_then(|c| c.fields.get("hands")) {
@@ -2934,20 +3029,56 @@ pub fn register(world: &mut World, curves: Curves) {
                     _ => None,
                 };
                 let who = if hands.is_empty() { String::new() } else { format!(" Hands in it: {}.", hands.join(", ")) };
+                let (page_said, page_result) = match page {
+                    Some(p) => (format!(" Its page: {}", p.summary), p.result),
+                    None => (String::new(), Value::Null),
+                };
+                let also = if names.is_empty() { String::new() } else { format!(" Also to read here: {}.", names.join("; ")) };
                 return Ok(Outcome::new(
-                    format!("{name}, whole: {text}{who}{}", bound_said(bound)),
-                    json!({"room": here.0, "name": name, "text": text, "hands": hands}),
+                    format!("{name}, whole: {text}{who}{}{page_said}{also}", bound_said(bound)),
+                    json!({"room": here.0, "name": name, "text": text, "hands": hands, "page": page_result, "readable": names}),
                 ));
             }
             // Carried, then standing or lying here.
-            let item = w
+            let found = w
                 .store
                 .children(f.citizen)
                 .find(|e| e.kind == "satchel")
                 .map(|e| e.id)
                 .and_then(|s| resolve_item(w, &arg, s).ok())
                 .map(Ok)
-                .unwrap_or_else(|| resolve_item(w, &arg, here))?;
+                .unwrap_or_else(|| resolve_item(w, &arg, here));
+            let item = match found {
+                Ok(i) => i,
+                Err(e) => {
+                    // R165: a thing of yours that is spent still has its last line.
+                    let low = arg.to_lowercase();
+                    let id_wanted = low.trim_start_matches("item-").parse::<u64>().ok();
+                    let last = match w.store.entity(f.citizen).and_then(|c| c.components.get(super::CITIZEN)).and_then(|c| c.fields.get("spent")) {
+                        Some(Field::Plain(Value::Array(a))) => a
+                            .iter()
+                            .rev()
+                            .find(|s| match id_wanted {
+                                Some(i) => s["item"] == i,
+                                None => s["name"].as_str().is_some_and(|n| n.to_lowercase().contains(&low)),
+                            })
+                            .cloned(),
+                        _ => None,
+                    };
+                    let Some(s) = last else { return Err(e) };
+                    return Ok(Outcome::new(
+                        format!(
+                            "{} (item-{}) is spent, and gone. Its last line, in {}, {}: {}.",
+                            s["name"].as_str().unwrap_or("something"),
+                            s["item"],
+                            s["room"].as_str().unwrap_or("nowhere"),
+                            when(s["at"].as_i64().unwrap_or(0)),
+                            s["deed"].as_str().unwrap_or("it was used").trim_end_matches('.')
+                        ),
+                        json!({"spent": s}),
+                    ));
+                }
+            };
             let called = display(w, item);
             let text = plain_str(w, item, ITEM, "text").unwrap_or("").to_string();
             let maker = plain_str(w, item, ITEM, "made_by").map(str::to_string);
@@ -3028,6 +3159,11 @@ pub fn register(world: &mut World, curves: Curves) {
             };
             let who = if who.is_empty() || lines.len() > 1 { who } else { format!(" {who}") };
             let binding = if bound.is_some() { bound_said(bound) } else if lines.len() > 1 { " Not yet bound.".to_string() } else { String::new() };
+            // R165: a fixture's past is read like any made thing's, after its page.
+            let binding = match super::past::read(w, item).filter(|_| is_fixed(w, item)) {
+                Some(past) => format!("{binding} Its past: {past}"),
+                None => binding,
+            };
             Ok(Outcome::new(
                 format!("{called} (item-{}), whole ({} line{}):{body}{who}{binding}", item.0, lines.len(), if lines.len() == 1 { "" } else { "s" }),
                 json!({"item": item.0, "name": called, "text": text, "lines": lines, "maker": maker, "hands": hands}),

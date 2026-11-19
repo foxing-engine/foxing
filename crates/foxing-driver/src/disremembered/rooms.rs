@@ -772,7 +772,7 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: "purse-room",
         name: "The Purse Room",
-        description: "A round vault door stands open on a room the size of a confessional. In the middle, on a plinth, the Purse: a sack of worn leather that holds a twentieth of everything the world remembers, and knows it. Two Wardens stand either side of the plinth. They have never left it. They do not intend to.",
+        description: "A round vault door stands open on a room the size of a confessional. In the middle, on a plinth, the Purse: a sack of worn leather that holds a statute's share of everything the world remembers, and knows it. Two Wardens stand either side of the plinth. They have never left it. They do not intend to.",
         exits: &[("out", "mintmark-hall"), ("down", "exergue")],
         spawn: Some(("warden", 2, 1500)),
         former: &[],
@@ -1644,7 +1644,15 @@ pub fn describe_as(
         }
     };
     let mut text = if brief {
-        format!("{name}, as you left it (`look` has the page).")
+        // R173: short, a room says what has gone and what has come since.
+        match super::find_citizen(world, actor)
+            .and_then(|f| super::atlas::changed_since(world, f.citizen, room))
+        {
+            Some(changed) => {
+                format!("{name}, not as you left it: {changed} (`look` has the page).")
+            }
+            None => format!("{name}, as you left it (`look` has the page)."),
+        }
     } else {
         format!("{name}. {desc}")
     };
@@ -1772,7 +1780,7 @@ pub fn describe_as(
                 .collect();
             if !keepers.is_empty() {
                 text.push_str(&format!(
-                    " Kept in memory by {}: the memory of a creature of theirs, fed to it.",
+                    " Kept in memory by {}: memories of theirs, fed to this room so that it lasts.",
                     keepers.join(", ")
                 ));
             }
@@ -2658,6 +2666,7 @@ pub fn register(world: &mut World) {
             // A warded door asks for a word: the room's owner, its keepers and the
             // welcomed pass; anyone else says the word once and is remembered.
             super::building::pass_ward(w, ctx, to, args.str("word").unwrap_or(""))?;
+            super::atlas::note_left(w, f.citizen, room);
             w.record(
                 Actor::Citizen(ctx.actor.clone()),
                 StoreEvent::EntityMoved {

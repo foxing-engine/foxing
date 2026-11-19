@@ -115,6 +115,11 @@ pub fn push(
 /// carrying fold into one sentence of rooms; a setting-down and a taking-up in the
 /// same room by the same hand fold into "set down and taken up again"; feeds say
 /// what the memory was and how vivid.
+/// R75: the hour a thing's record begins (the Mintmark Hall stamps it).
+pub fn first_at(world: &World, item: EntityId) -> Option<i64> {
+    past_of(world, item).first().and_then(|v| v["at"].as_i64())
+}
+
 pub fn recital(world: &World, item: EntityId) -> String {
     let past = past_of(world, item);
     let folded = plain_num(world, item, ITEM, "past_folded").unwrap_or(0.0) as u64;

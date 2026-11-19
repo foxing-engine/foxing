@@ -751,7 +751,8 @@ fn register_rest(world: &mut World) {
                 super::mind::WANDERED,
                 json!({"creature": creature.0, "kind": kind, "room": room.0, "named": super::mind::name(w, creature), "moved": true}),
             );
-            super::combat::narrate_room(w, creature, &format!("Something has come in: {shown}."));
+            let hurt = super::combat::still_hurt(w, creature).map(|h| format!(", {h}")).unwrap_or_default();
+            super::combat::narrate_room(w, creature, &format!("Something has come in: {shown}{hurt}."));
             if super::combat::is_aggressive(w, creature) {
                 super::combat::notice_everyone(w, room).map_err(internal)?;
             }

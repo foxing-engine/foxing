@@ -437,6 +437,93 @@ fn seen(world: &World, citizen: EntityId) -> BTreeMap<u64, i64> {
         .unwrap_or_default()
 }
 
+/// R173: what lay and stood in a room, by a key that outlives a rename: the things
+/// on its floor, its fixtures, and its named creatures.
+fn roll_of(world: &World, room: EntityId) -> BTreeMap<String, String> {
+    let mut out = BTreeMap::new();
+    for v in super::craft::things_in(world, room)
+        .iter()
+        .chain(super::craft::fixtures_in(world, room).iter())
+    {
+        if let Some(id) = v["id"].as_u64() {
+            out.insert(
+                format!("item-{id}"),
+                super::craft::display(world, EntityId(id)),
+            );
+        }
+    }
+    for (c, _, _, _) in super::combat::creatures_in(world, room) {
+        if super::mind::name(world, c).is_some() {
+            out.insert(format!("creature-{}", c.0), super::mind::display(world, c));
+        }
+    }
+    out
+}
+
+/// R173: a citizen walks out of a room; what was in it is kept for the hour a
+/// short arrival lasts, so the short arrival can say what has changed.
+pub fn note_left(world: &mut World, citizen: EntityId, room: EntityId) {
+    let now = world.now().0;
+    let mut left = match world
+        .store
+        .entity(citizen)
+        .and_then(|e| e.components.get(ATLAS))
+        .and_then(|c| c.fields.get("left"))
+    {
+        Some(Field::Plain(Value::Object(m))) => m.clone(),
+        _ => Map::new(),
+    };
+    left.retain(|_, v| now - v["at"].as_i64().unwrap_or(0) < 3_600_000);
+    left.insert(
+        room.0.to_string(),
+        json!({"at": now, "here": roll_of(world, room)}),
+    );
+    let mut fields = BTreeMap::new();
+    fields.insert("left".to_string(), Field::Plain(Value::Object(left)));
+    let _ = super::bindery::set_fields(world, Actor::Driver, citizen, ATLAS, fields);
+}
+
+/// R173: what has gone from a room, and what has come, since the citizen walked
+/// out of it ("as you left it" was said over a room missing its charm).
+pub fn changed_since(world: &World, citizen: EntityId, room: EntityId) -> Option<String> {
+    let was = match world
+        .store
+        .entity(citizen)
+        .and_then(|e| e.components.get(ATLAS))
+        .and_then(|c| c.fields.get("left"))
+    {
+        Some(Field::Plain(v)) => v[room.0.to_string()]["here"].as_object().cloned()?,
+        _ => return None,
+    };
+    let is = roll_of(world, room);
+    let gone: Vec<String> = was
+        .iter()
+        .filter(|(k, _)| !is.contains_key(*k))
+        .filter_map(|(_, v)| v.as_str().map(str::to_string))
+        .collect();
+    let come: Vec<String> = is
+        .iter()
+        .filter(|(k, _)| !was.contains_key(*k))
+        .map(|(_, v)| v.clone())
+        .collect();
+    let mut said = Vec::new();
+    if !gone.is_empty() {
+        said.push(format!(
+            "{} {} gone",
+            gone.join(", "),
+            if gone.len() == 1 { "is" } else { "are" }
+        ));
+    }
+    if !come.is_empty() {
+        said.push(format!(
+            "{} {} here now",
+            come.join(", "),
+            if come.len() == 1 { "is" } else { "are" }
+        ));
+    }
+    (!said.is_empty()).then(|| said.join("; "))
+}
+
 /// Mark a room seen by a citizen, now. Called wherever a room is described to them.
 /// The numbers a citizen's map gives its rooms, dealt once each in the order the
 /// rooms came into view and never moved: a visitor steering by "room 08" found it
@@ -493,7 +580,13 @@ pub fn mark_seen(world: &mut World, actor: &str, room: EntityId) -> Result<(), C
         }
     }
     let obj: Map<String, Value> = m.iter().map(|(k, v)| (k.to_string(), json!(v))).collect();
-    let mut fields = BTreeMap::new();
+    // From what the component holds: a set replaces it whole, and `left` is kept.
+    let mut fields = world
+        .store
+        .entity(f.citizen)
+        .and_then(|e| e.components.get(ATLAS))
+        .map(|c| c.fields.clone())
+        .unwrap_or_default();
     fields.insert("seen".into(), Field::Plain(Value::Object(obj)));
     fields.insert(
         "codes".into(),
@@ -813,6 +906,49 @@ pub fn remembered_map(
                     summary.push_str(&format!(
                         "\nOne step apart, though not drawn side by side: {}.",
                         apart.join("; ")
+                    ));
+                }
+                // R170: and the other way about. Two rooms the grid set side by
+                // side with no door between them (the Mezzanine and the Stopped
+                // Clocktower) read as neighbors; said, by their numbers.
+                let mut walled: Vec<String> = Vec::new();
+                for r in in_window.iter() {
+                    let Some(id) = r["id"].as_u64() else { continue };
+                    let Some((x, y)) = cell_of(id) else { continue };
+                    for (dx, dy) in [(1, 0), (0, 1)] {
+                        let Some(other) = in_window
+                            .iter()
+                            .filter_map(|o| o["id"].as_u64())
+                            .find(|o| cell_of(*o) == Some((x + dx, y + dy)))
+                        else {
+                            continue;
+                        };
+                        let joined = rooms::exits_of(world, EntityId(id))
+                            .values()
+                            .any(|t| t.0 == other)
+                            || rooms::exits_of(world, EntityId(other))
+                                .values()
+                                .any(|t| t.0 == id);
+                        if joined {
+                            continue;
+                        }
+                        if let (Some(a), Some(b)) = (code_of(id), code_of(other)) {
+                            walled.push(format!("{a}|{b}"));
+                        }
+                    }
+                }
+                if !walled.is_empty() {
+                    walled.sort();
+                    let more = walled.len().saturating_sub(6);
+                    walled.truncate(6);
+                    summary.push_str(&format!(
+                        "\nSide by side on the grid with no door between: {}{}.",
+                        walled.join("; "),
+                        if more > 0 {
+                            format!("; and {more} more")
+                        } else {
+                            String::new()
+                        }
                     ));
                 }
                 if !beyond.is_empty() {

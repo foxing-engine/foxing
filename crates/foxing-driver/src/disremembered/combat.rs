@@ -654,16 +654,30 @@ fn fill_kind(
             .into_iter()
             .next()
             .and_then(|(_, to)| plain_str(world, to, super::ROOM, "name").map(str::to_string));
+        // R168: "shapes: 2 wisps" over a `look` with one (or three, a named one
+        // beside them). The line counts what came, and then what stands here.
+        let standing = creatures_in(world, room)
+            .iter()
+            .filter(|c| c.1 == key)
+            .count();
         let line = match (key.as_str(), from) {
             ("wisp", _) => format!(
-                "The fog gives up {}: {} wisp{}.",
+                "The fog gives up {}: {} wisp{}{}.",
                 if spawned == 1 { "a shape" } else { "shapes" },
                 if spawned == 1 {
                     "a".to_string()
                 } else {
                     spawned.to_string()
                 },
-                if spawned == 1 { "" } else { "s" }
+                if spawned == 1 { "" } else { "s" },
+                if standing == spawned {
+                    String::new()
+                } else {
+                    format!(
+                        "; {standing} stand{} here now",
+                        if standing == 1 { "s" } else { "" }
+                    )
+                }
             ),
             (k, Some(place)) => format!(
                 "Something comes in from {place}: {}.",
@@ -812,6 +826,12 @@ fn schedule_respawn(world: &mut World, room: EntityId) -> Result<(), String> {
     // couple of minutes", never on the minute.
     let secs = (super::jitter(world, secs, RESPAWN_LOW, RESPAWN_HIGH)
         * super::economy::rate(world, "respawn")) as i64;
+    // R75: the Wardens are longer coming back each time the Purse is taken.
+    let secs = if plain_str(world, room, super::ROOM, "key") == Some("purse-room") {
+        (secs as f64 * super::exergue::taking_stretch(world)) as i64
+    } else {
+        secs
+    };
     let due = world.now().plus(foxing_time::Duration::seconds(secs));
     world
         .schedule_once(JOB_RESPAWN, due, json!({"room": room.0}), |p| {
@@ -1449,10 +1469,17 @@ fn walk(
         opp => format!("from the {opp}"),
     };
     let (leave, arrive) = if why == "home" {
-        (
-            format!("{name} goes {via}, mended, the way it came."),
-            format!("{name} comes back {from_where}, whole again."),
-        )
+        // R169: one that goes home unmended says so at both doors.
+        match still_hurt(world, creature) {
+            Some(hurt) => (
+                format!("{name} goes {via}, the way it came, {hurt}."),
+                format!("{name} comes back {from_where}, {hurt}."),
+            ),
+            None => (
+                format!("{name} goes {via}, mended, the way it came."),
+                format!("{name} comes back {from_where}, whole again."),
+            ),
+        }
     } else {
         (
             format!("{name} limps off {via}, toward somewhere it remembers it can mend."),
@@ -1460,6 +1487,14 @@ fn walk(
         )
     };
     walk_said(world, creature, from, via, why, &leave, &arrive, SUCCORED)
+}
+
+/// R169: a wounded creature that arrives is said to be one ("a wisp drifts in at
+/// 0.3/8.3" read as a new spawn): "still hurt (0.3 of 8.3)", or nothing if whole.
+pub fn still_hurt(world: &World, creature: EntityId) -> Option<String> {
+    let max = plain_num(world, creature, CREATURE, "max_hp")?;
+    let hp = plain_num(world, creature, CREATURE, "hp").unwrap_or(max);
+    (hp < max - 0.05).then(|| format!("still hurt ({hp:.1} of {max:.1})"))
 }
 
 /// A creature takes a door with lines of the caller's: the room it leaves hears

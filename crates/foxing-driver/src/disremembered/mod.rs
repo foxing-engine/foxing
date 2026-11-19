@@ -299,6 +299,7 @@ pub fn schemas() -> Vec<ComponentSchema> {
         // A citizen's memory of the map: room id to when they last stood in it.
         ComponentSchema::new(atlas::ATLAS, 1)
             .field("seen", FieldKind::Plain, Visibility::Owner)
+            .field("left", FieldKind::Plain, Visibility::Owner)
             .field("codes", FieldKind::Plain, Visibility::Owner),
         // A citizen's standing trade offers: `{to, mine, theirs, at}`.
         ComponentSchema::new(craft::OFFERS_COMPONENT, 1).field(
@@ -327,6 +328,7 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // what it holds (memory remembered into it), and who kept it; the
             // world's own open books take any hand.
             .field("fixed", FieldKind::Plain, Visibility::Public)
+            .field("tied_to", FieldKind::Plain, Visibility::Public)
             .field("given_name", FieldKind::Plain, Visibility::Public)
             .field("text", FieldKind::Plain, Visibility::Public)
             .field("held", FieldKind::Timed, Visibility::Public)
@@ -513,6 +515,7 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("grace_said", FieldKind::Plain, Visibility::Owner)
             // When the leave ended by level (100) inside the first hour; for good.
             .field("grace_ended", FieldKind::Plain, Visibility::Owner)
+            .field("spent", FieldKind::Plain, Visibility::Owner)
             // C10: the reference slips a name has answered today, and when it
             // last answered each wrongly.
             .field("slips", FieldKind::Plain, Visibility::Owner)

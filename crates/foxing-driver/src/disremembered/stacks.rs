@@ -352,6 +352,26 @@ fn play(
             let Some(&to) = rooms.get(world.roll(rooms.len().max(1) as u32) as usize) else {
                 return Ok((None, false));
             };
+            // R74: a ribbon marker carried, and the usher shows you to the room it
+            // was tied in (if that room still stands, and is not this one).
+            let marker = super::craft::carries(world, citizen, "ribbon").and_then(|m| {
+                let tied = super::plain_num(world, m, super::craft::ITEM, "tied_to")
+                    .map(|n| EntityId(n as u64))?;
+                (Some(tied) != here && world.store.entity(tied).is_some_and(|e| e.kind == "room"))
+                    .then_some((m, tied))
+            });
+            let (to, by_ribbon) = match marker {
+                Some((m, tied)) => {
+                    let _ = super::craft::spend(
+                        world,
+                        actor,
+                        m,
+                        &format!("Showed a {kind} where to show you"),
+                    );
+                    (tied, true)
+                }
+                None => (to, false),
+            };
             super::combat::leave_fight(world, actor, citizen)?;
             world
                 .record(
@@ -374,9 +394,11 @@ fn play(
                 json!({"trick": "ushered", "creature": creature.0, "kind": kind, "citizen": actor, "to": to.0, "room_name": rname}),
             );
             Ok((
-                Some(format!(
-                    "The {kind} takes your elbow and the shelves go past very fast. You are in {rname}."
-                )),
+                Some(if by_ribbon {
+                    format!("The {kind} takes your elbow, sees the ribbon marker, and shows you where it was tied. You are in {rname}.")
+                } else {
+                    format!("The {kind} takes your elbow and the shelves go past very fast. You are in {rname}.")
+                }),
                 true,
             ))
         }
@@ -446,6 +468,16 @@ fn play(
             let was = value_of(world, id);
             // The cataloguer takes two thirds; a censor, half.
             let keep = if kind == "cataloguer" { 1.0 / 3.0 } else { 0.5 };
+            // R74: a smoked lens carried halves the taking, for a use.
+            let lens = super::craft::carries(world, citizen, "lens");
+            let keep = if lens.is_some() {
+                1.0 - (1.0 - keep) / 2.0
+            } else {
+                keep
+            };
+            if let Some(l) = lens {
+                let _ = super::craft::spend(world, actor, l, &format!("Dimmed a {kind}'s ray"));
+            }
             world
                 .record(
                     Actor::Driver,
@@ -484,7 +516,15 @@ fn play(
                         ""
                     },
                     id.0,
-                    if keep < 0.5 { "a third of" } else { "half" },
+                    if lens.is_some() && keep < 0.7 {
+                        "two thirds of (the smoked lens took half the ray)"
+                    } else if lens.is_some() {
+                        "three quarters of (the smoked lens took half the ray)"
+                    } else if keep < 0.5 {
+                        "a third of"
+                    } else {
+                        "half"
+                    },
                     was * keep
                 )),
                 false,

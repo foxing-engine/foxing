@@ -134,6 +134,14 @@ pub const STATUTES: &[StatuteDef] = &[
         high: 1_000_000.0,
         what: "how much memory (XP) may sit on one name's shelf (the palace); a shelf at the limit takes nothing more",
     },
+    // R75: the Purse's share, which was a figure in the Exergue's own hand.
+    StatuteDef {
+        name: "purse_share",
+        default: 0.05,
+        low: 0.01,
+        high: 0.2,
+        what: "the share of all held memory that the Purse of the Exergue holds (never under six hundred), past its two Wardens",
+    },
 ];
 
 fn def(name: &str) -> Option<&'static StatuteDef> {
@@ -371,6 +379,8 @@ fn prose(name: &str, from: f64, to: f64) -> String {
         ("hoard_tax", false) => format!("The Conclave eases the hoard tax from {from:.2} to {to:.2}. A hoard's new memory will thin more slowly. This is not forgiveness. The Roll remembers."),
         ("shelf_limit", true) => format!("The Conclave lengthens the shelf. One palace may now hold {to:.0}, where it held {from:.0}. The Conclave trusts the shelf to bear it."),
         ("shelf_limit", false) => format!("The Conclave shortens the shelf from {from:.0} to {to:.0}. What already sits past the limit stays where it sits, and the shelf takes nothing more. The Conclave does not reach onto shelves."),
+        ("purse_share", true) => format!("The Conclave fattens the Purse of the Exergue from {} to {} of all that is held. The Wardens have been told. The Wardens did not remark upon it.", pct(from), pct(to)),
+        ("purse_share", false) => format!("The Conclave thins the Purse of the Exergue from {} to {} of all that is held. The Wardens stand over it as before. The Conclave does not pay them by the ounce.", pct(from), pct(to)),
         _ => format!("The Conclave moves {name} from {from} to {to}."),
     }
 }

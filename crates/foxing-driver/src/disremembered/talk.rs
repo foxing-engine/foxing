@@ -114,6 +114,15 @@ pub fn register(world: &mut World) {
                     json!({"to": "under-docent", "by_heart": true}),
                 ));
             }
+            // R75: the Assayer, at its balance: an assay of what you hold, whatever
+            // you said to it.
+            if matches!(who.to_lowercase().trim_start_matches("the ").trim(), "assayer")
+                && super::combat::creatures_in(w, room).iter().any(|c| c.1 == "assayer")
+            {
+                let (said, result) = super::exergue::assay(w, f.window);
+                super::combat::narrate_many(w, &others_here(w, room, &ctx.actor), format!("{} says something to the Assayer, and is weighed for it.", ctx.actor));
+                return Ok(Outcome::new(format!("You say to the Assayer, \"{text}\" {said}"), result));
+            }
             // The Docent, if it stands here: the question goes on its record and an
             // answer comes to you within the minute, wherever you are.
             if super::docent::is_named(&who) {
