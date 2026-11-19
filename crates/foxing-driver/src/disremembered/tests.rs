@@ -713,13 +713,33 @@ fn the_world_moves_on_its_own() {
         "the fog refilled on its own (one refill in six brings an extra)"
     );
 
+    // R258: in its leave a name at the keyboard is not struck by the clock.
+    let calm = ok(&mut w, "dave", "attack", json!(["wisp"]));
+    assert!(
+        calm.summary
+            .contains("It strikes back only when you strike"),
+        "{}",
+        calm.summary
+    );
+    let hp_calm = combat::hp(&w, f.citizen);
+    let head_calm = events(&w);
+    w.fixed_now = Some(t0.plus(Duration::seconds(97 + 19)));
+    w.tick();
+    assert!(
+        combat::hp(&w, f.citizen) >= hp_calm,
+        "no blow from the clock"
+    );
+    assert!(narrative(&w, head_calm).is_empty());
+    ok(&mut w, "dave", "retreat", json!([]));
+    combat::end_leave(&mut w, "dave", f.citizen);
+
     // Engage a wisp and wait: it strikes on its own every 12 s or so (six to
     // eighteen) and says so.
     let head = events(&w);
     let round = ok(&mut w, "dave", "attack", json!(["wisp"]));
     assert_eq!(round.result["killed"], json!(false), "{}", round.summary);
     let hp_after_round = combat::hp(&w, f.citizen);
-    w.fixed_now = Some(t0.plus(Duration::seconds(97 + 19)));
+    w.fixed_now = Some(t0.plus(Duration::seconds(97 + 19 + 19)));
     assert_eq!(w.tick(), 1, "one strike job due");
     assert!(
         combat::hp(&w, f.citizen) < hp_after_round + 1.9,
@@ -5850,8 +5870,9 @@ fn the_named_confide_in_the_unnamed_when_names_are_few() {
     // its eight (by half at seventy-five), and still hits 2–4 under seventy-five.
     let wisp_hp = look
         .summary
-        .split("wisp (")
+        .split("Here: wisp")
         .nth(1)
+        .and_then(|t| t.split('(').nth(1))
         .and_then(|t| t.split('/').next())
         .and_then(|n| n.parse::<f64>().ok())
         .unwrap_or(0.0);

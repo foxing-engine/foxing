@@ -1954,7 +1954,14 @@ pub fn describe_as(
         text.push(' ');
         text.push_str(&standing);
     }
-    if let Some(ground) = super::craft::ground_line(world, room) {
+    // R259: short, a floor of more than three things is counted, not listed (a
+    // return to the Threshold scrolled a phone with its whole floor).
+    let on_floor = super::craft::things_in(world, room).len();
+    if brief && on_floor > 3 {
+        text.push_str(&format!(
+            " On the ground: {on_floor} things (`look` lists them)."
+        ));
+    } else if let Some(ground) = super::craft::ground_line(world, room) {
         text.push(' ');
         text.push_str(&ground);
     }
@@ -2143,6 +2150,11 @@ pub fn describe_as(
                     Some(n) => format!("{n} the {kind}"),
                     // Two of a kind: written with their ids, so either can be named.
                     None if twins > 1 => format!("{kind}-{}", c["id"]),
+                    // R244: one that holds a memory is worth aiming at by its id,
+                    // twin or no (it showed with none, and could not be).
+                    None if c["mind"]["level"].as_f64().map(super::up).unwrap_or(0.0) >= 0.5 => {
+                        format!("{kind}-{}", c["id"])
+                    }
                     None => kind.to_string(),
                 };
                 // R108: one state word a row, the worse first: shaken over failing
@@ -2406,6 +2418,8 @@ pub fn describe_as(
                 super::mind::display(world, foe),
                 if super::combat::through_the_gate(world, actor) {
                     "once for every statement you write while you stand here"
+                } else if super::combat::unhurried(world, actor) {
+                    "back only when you strike, while your first hour lasts"
                 } else {
                     "on its own every few seconds while you stand here"
                 }

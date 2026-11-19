@@ -912,6 +912,9 @@ fn clock_line(world: &World, creature: EntityId, actor: &str) -> String {
     if through_the_gate(world, actor) {
         return "It strikes once for every statement you write while you stand here; retreat ends that.".to_string();
     }
+    if unhurried(world, actor) {
+        return "It strikes back only when you strike, while your first hour lasts (or until you reach level 100): take your time, and read. After that it will strike on its own every few seconds. `retreat` ends the fight.".to_string();
+    }
     format!("It strikes on its own every {secs} seconds or so while you stand here, typing or not; retreat ends that.")
 }
 
@@ -986,6 +989,25 @@ fn schedule_strike(
             |p| p["creature"] == creature.0 && p["citizen"] == citizen.0,
         )
         .map(|_| ())
+}
+
+#[cfg(test)]
+pub fn end_leave(world: &mut World, actor: &str, citizen: EntityId) {
+    let mut changes = BTreeMap::new();
+    changes.insert(
+        "grace_ended".to_string(),
+        Field::Plain(json!(world.now().0)),
+    );
+    super::set_citizen_fields(world, actor, citizen, changes).unwrap();
+}
+
+/// R258 (David, 11-19: option a): a name still in its leave, at a keyboard, is not
+/// struck by the clock. A wisp struck every 12 seconds while a newcomer read, and a
+/// first fight was at 1 of 30 before its second line was typed. A creature strikes
+/// back when struck, and that is all, until the hour is out or level 100 is reached.
+pub fn unhurried(world: &World, actor: &str) -> bool {
+    !through_the_gate(world, actor)
+        && super::find_citizen(world, actor).is_some_and(|f| sheltered(world, f.citizen))
 }
 
 /// Whether a name's last door was the gate or MCP: an agent writing messages, with
@@ -2486,6 +2508,14 @@ pub fn register(world: &mut World, curves: Curves) {
             if through_the_gate(w, &actor) {
                 return Ok(());
             }
+            // R258: nor a name in its leave; the clock keeps running unheard, so
+            // the first strike after the leave ends is a clock's.
+            if unhurried(w, &actor) {
+                if engaged_with(w, citizen) == Some(creature) {
+                    return schedule_strike(w, &actor, citizen, creature);
+                }
+                return Ok(());
+            }
             let Some((over, _)) = round(w, &c, creature, citizen, &actor)? else {
                 return Ok(());
             };
@@ -2657,7 +2687,14 @@ pub fn register(world: &mut World, curves: Curves) {
                 // by default, nor a child: one was felled at the Threshold by "attack".
                 // The Conclave's officers (and the Stacks' keepers) are struck only by
                 // name: a bare `attack` at the Bar picked the 158-hp tipstaff.
-                _ => engaged_with(w, f.citizen).filter(|id| here.iter().any(|c| c.0 == *id) && !super::mind::shaken(w, *id)).or_else(|| here.iter().find(|c| super::mind::name(w, c.0).is_none() && super::kindle::born_at(w, c.0).is_none() && !super::mind::shaken(w, c.0) && !plain_str(w, c.0, CREATURE, "name").is_some_and(|k| OFFICERS.contains(&k))).map(|c| c.0)),
+                _ => engaged_with(w, f.citizen).filter(|id| here.iter().any(|c| c.0 == *id) && !super::mind::shaken(w, *id)).or_else(|| {
+                    // R258: the one already hurt, before a whole one (a bare `attack`
+                    // after a `retreat` turned on a full wisp beside one at 2 of 8).
+                    here.iter()
+                        .filter(|c| super::mind::name(w, c.0).is_none() && super::kindle::born_at(w, c.0).is_none() && !super::mind::shaken(w, c.0) && !plain_str(w, c.0, CREATURE, "name").is_some_and(|k| OFFICERS.contains(&k)))
+                        .min_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal))
+                        .map(|c| c.0)
+                }),
             };
             if let Some(c) = target {
                 if let Some(born) = super::kindle::born_at(w, c) {

@@ -589,7 +589,7 @@ pub const GATHERABLE: &[(&[&str], &str)] = &[
     (&["rag", "cloth", "midden", "linen"], "rag thread"),
     (&["grave", "bone", "ossuary", "tomb"], "grave dust"),
     (
-        &["lantern", "ember", "wick", "fire", "hearth"],
+        &["lantern", "lamp", "ember", "wick", "fire", "hearth"],
         "a wisp ember",
     ),
 ];

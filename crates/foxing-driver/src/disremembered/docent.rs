@@ -884,6 +884,10 @@ fn answer(
 /// The Docent's round, on the wander clock: things left lying in rooms where no one
 /// stands are carried to the Threshold and set down there, said aloud; a thing is
 /// carried on its second sighting, so a thing just dropped is left a pass.
+/// R259: the heap keeps this many of each plain thing; the rest rots, this many a pass.
+const MIDDEN_KEEPS: usize = 5;
+const MIDDEN_ROTS_PER_PASS: usize = 25;
+
 /// A plain drop at the Threshold remembered under this share is swept into the Midden.
 pub const SWEEP_UNDER: f64 = 0.3;
 
@@ -1019,6 +1023,44 @@ pub fn tidy(world: &mut World) -> Result<usize, String> {
                         if swept == 1 { "" } else { "s" }
                     ),
                 );
+            }
+        }
+        // R259 (David, 11-19: option c): the heap keeps a handful of each plain
+        // thing and the rest rots (59 moth dust, 31 embers and 81 ripe hours lay
+        // free to `take`, past what `gather` rations). The most faded go first.
+        let mut by_name: BTreeMap<String, Vec<(f64, EntityId)>> = BTreeMap::new();
+        for t in super::craft::things_in(world, midden).iter().filter(|t| {
+            t["given_name"].is_null()
+                && t["made_by"].is_null()
+                && t["tier"].as_u64().unwrap_or(0) <= 1
+        }) {
+            if let (Some(id), Some(name)) = (t["id"].as_u64(), t["name"].as_str()) {
+                by_name
+                    .entry(name.to_string())
+                    .or_default()
+                    .push((t["memory"].as_f64().unwrap_or(1.0), EntityId(id)));
+            }
+        }
+        let mut rotted = 0;
+        let mut where_said: Option<EntityId> = None;
+        for (_, mut of_a_kind) in by_name {
+            of_a_kind.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+            for (_, item) in of_a_kind.into_iter().skip(MIDDEN_KEEPS) {
+                if rotted >= MIDDEN_ROTS_PER_PASS {
+                    break;
+                }
+                if where_said.is_none() {
+                    where_said = Some(item);
+                    super::combat::narrate_room(
+                        world,
+                        item,
+                        "The heap settles. What it had too much of rots down into it, past taking.",
+                    );
+                }
+                world
+                    .record(Actor::Driver, StoreEvent::EntityRemoved { id: item })
+                    .map_err(|e| e.to_string())?;
+                rotted += 1;
             }
         }
     }

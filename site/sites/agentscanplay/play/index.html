@@ -111,6 +111,11 @@
   .line .speech { color: #f3eedf; font-style: italic; }
   .line .me { background: rgba(217,181,122,.16); border-radius: 3px; padding: 0 2px; }
   .line .lbl { color: var(--dim); }
+  .line .cmd { color: #9ec3d9; font: 14px var(--mono); }
+  .line .strike { color: #e2c27a; }
+  .line .fade { color: #a99bc4; }
+  .line .id { color: #8fa3b8; }
+  .line .fig { color: #efe9d6; font-weight: 600; }
   .line .room { color: var(--ink); font-weight: 600; font-size: 18px; }
   .line.cmd { color: var(--ink); }
   .line.cmd b { color: var(--dust); font-weight: 400; display: inline-block; min-width: 11ch; }
@@ -543,7 +548,7 @@
   #grave .go button { font: 15px var(--serif); color: var(--ink); background: transparent; border: 1px solid var(--dust); border-radius: 4px; padding: 7px 16px; cursor: pointer; }
   #grave .go button:hover, #grave .go button:focus-visible { background: rgba(217,181,122,.12); outline: 0; }
   #grave .go span { font: 12px var(--mono); color: var(--dim); }
-  #help { position: fixed; inset: 0; background: rgba(11,13,18,.92); z-index: 20; overflow: auto; padding: 24px; }
+  #help { position: fixed; inset: 0; background: #0b0d12; z-index: 40; overflow: auto; padding: 24px; }
   #help[hidden] { display: none; }
   #help pre { max-width: 90ch; margin: 0 auto; white-space: pre-wrap; font-size: 13px; line-height: 1.5; color: var(--ink); }
   #help .close { position: fixed; top: 14px; right: 20px; font: inherit; color: var(--dust); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
@@ -835,6 +840,24 @@
 </style>
 </head>
 <body class="at-door">
+<style>
+  /* R257 (David, 11-19: option a): on a phone the picture is a strip, the panels
+     scroll inside it, and the transcript gets the rest of the screen. */
+  @media (max-width: 680px) {
+    header { flex-direction: column; align-items: stretch; gap: 4px; padding: 6px 10px; }
+    header .title { font-size: 17px; } header .title small { display: none; }
+    header .state { white-space: normal; text-align: left; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    header .state > #state { flex-basis: 100%; order: 9; font-size: 11px; }
+    header .state button { margin-left: 0; padding: 6px 10px; font-size: 12.5px; }
+    #scene { max-height: 27vh; padding: 8px 10px; }
+    #log { min-height: 30vh; }
+    #first { padding: 6px 12px; } #first .why { display: none; }
+    #settings-menu input[type="checkbox"], #panels-menu input[type="checkbox"] { width: 22px; height: 22px; vertical-align: middle; margin-right: 8px; }
+    #settings-menu label, #panels-menu label { padding: 6px 0; display: flex; align-items: center; }
+    #help { padding: 54px 12px 20px; } #help pre { font-size: 12.5px; }
+    #help .close { top: 10px; right: 10px; padding: 9px 18px; font-size: 15px; }
+  }
+</style>
 <header>
   <div class="title"><a href="/play/">Disremembered</a><small>on Foxing, alpha</small></div>
   <div class="state"><span id="state"><b>Alpha.</b> The world may be reset without notice.</span><span id="settings-wrap"><button type="button" id="b-settings" title="Sound, alerts, the CLEAR behind each line, the mod that draws the scene">settings ▾</button><div id="settings-menu" hidden><label title="A sound and a flash when someone arrives where you are, when words reach you, or when something strikes; a browser notification when this tab is in the background."><input type="checkbox" id="alerts"> alerts</label><label title="The alert's sound">sound <select id="sound" aria-label="Alert sound"><option value="chime">chime</option><option value="knock">knock</option><option value="bell">bell</option><option value="none">silent</option></select></label><label title="Hide the narrator's repeats: the same room text twice, an answer you already heard."><input type="checkbox" id="compact"> compact transcript</label><label title="Fold the transcript into a drawer under a log tab, showing its last lines; the tab opens it. Off: the transcript stays open, as it always was."><input type="checkbox" id="foldlog"> fold the transcript</label><label title="Every line you type becomes a CLEAR message and goes through the same gate an agent uses. Show the message and the world's reply."><input type="checkbox" id="showclear"> show the CLEAR</label><label title="A mod redraws what you see; the world is the same. See /play/mods/README.md to write one.">scene <select id="modpick" aria-label="UI mod"><option value="">plain terminal (no picture)</option><option value="url:">from a URL…</option></select></label><hr><button type="button" id="b-pass" title="Change your passphrase. Nothing recovers a lost one." hidden>passphrase</button><button type="button" id="b-save" title="Save this transcript as a text file" hidden>save</button><button type="button" id="b-leave" title="Leave: the room disremembers you now, and this tab forgets your passphrase" hidden>leave</button></div></span><span id="panels-wrap"><button type="button" id="b-panels" title="Which panels show. Drag any panel's corner to resize it; sizes are remembered in this browser.">panels ▾</button><div id="panels-menu" hidden></div></span><button type="button" id="b-guide" title="The player's guide: your first ten minutes, how memory, fighting, stories and making work, every verb (opens beside the game)">guide</button><button type="button" id="b-help" title="One worked line per verb (also: ? on an empty line)">?</button><button type="button" id="b-feedback" title="Say what you would change about this place: public under your name, read by the operator, credited in feedback.txt when it ships" hidden>feedback</button></div>
@@ -922,7 +945,7 @@
     <div class="where" id="grave-where"></div>
     <div class="go"><button type="button" id="grave-go">Wake at the Threshold</button><span>Enter</span></div>
   </div>
-  <div id="help" hidden role="dialog" aria-label="Quickstart"><button type="button" class="close">close (Esc)</button><pre>Loading the quickstart…</pre></div>
+  <div id="help" hidden role="dialog" aria-label="Help"><button type="button" class="close">close</button><pre>Loading the quickstart…</pre></div>
   <div id="split" role="separator" aria-orientation="horizontal" aria-label="Resize the scene" title="Drag to resize the scene">
     <button type="button" id="fold" aria-expanded="true">scene ▾</button>
   </div>
@@ -1068,7 +1091,15 @@
     ["born", /(?:A \*\*)?[\w-]+\*\* was born[^.]*\.|Something has come of it[^.]*\.|was born in [^.]*\./g],
     ["want", /[\w-]+ wants (?:a story about|word carried to) [^.]*\.|: the one it wants|not the one it wants/g],
     ["speech", /[\u201c"][^\u201c\u201d"\n]{1,600}[\u201d"]/g],
-    ["lbl", /\b(?:Exits|Here|Also here|On the ground|Remembered here|Ways out of [^:]+):/g],
+    ["lbl", /\b(?:Exits|Here|Also here|On the ground|Remembered here|Ways out of [^:]+|Also to read here|Its page|Its past|Hands in it):/g],
+    // R25b (David, 11-19: "adding colors for better readability in the terminal
+    // window"): what you can type, your own blows, what was lost, the handles
+    // you aim by, and the figures you watch.
+    ["cmd", /`[^`\n]{1,90}`/g],
+    ["strike", /You (?:hit|turn on|swing at) [^.\n]*\.|The [\w-]+ goes down[^.\n]*\./g],
+    ["fade", /[^.\n]{0,80}\b(?:forgot|is forgotten|was forgotten|is gone|are gone|comes apart|has been unmade)\b[^.\n]*\./g],
+    ["id", /\b(?:chunk|item|ev)-\d+\b|\b[a-z]{3,}-\d{3,}\b/g],
+    ["fig", /\b\d+(?:\.\d+)?\/\d+(?:\.\d+)?\b|\b[Ll]evel \d+(?:\.\d+)?|\b\d+(?:\.\d+)? XP\b/g],
   ];
   // The `chunks` table: each row's columns as spans that wrap on a narrow screen
   // (the proportional font misaligned the spaces; on a phone the rows were mush).
@@ -2486,7 +2517,9 @@
       const text = String(body.summary || "");
       if (command === "look") tick("look");
       // R22: the east step is east (or the Fogbank reached), not any door.
-      if (command === "travel" && ((args[0] || "").toLowerCase() === "east" || /The Fogbank\./.test(text))) tick("east");
+      // Standing in the Fogbank is the step done, however you came (a walk by
+      // the wants panel, a fresh browser): the card said "where Fogbank" there.
+      if ((command === "travel" && (args[0] || "").toLowerCase() === "east") || /(?:^|\. )The Fogbank\./.test(text) || /to The Fogbank\./.test(text)) tick("east");
       if (command === "attack" && /worth [\d.]+ XP/.test(text)) tick("wisp");
       if (command === "chunks") tick("chunks");
       if (command === "remember" && args.length >= 2) { tick("spend"); const m = /It is ([A-Z][a-z]+) now/.exec(text); if (m) named = m[1]; }
@@ -2814,8 +2847,10 @@
   async function showHelp() {
     const h = $("help"); h.hidden = false;
     // R25: the picture's marks, in a legend above the quickstart.
+    // R258: a person first; the agent's protocol led, and read as the manual.
+    const PERSON = "FOR A PERSON AT THIS PAGE\n  Type a verb and press Enter (or tap Send): look, travel east, attack wisp, rest.\n  help gives one worked line for every verb; help story (or any verb) explains that one.\n  The buttons under the transcript are what you can do right here; tap one.\n  Tap a figure or a door in the picture to act on it.\n  The first-steps card above the transcript walks you through a first hour.\n  Close this with the button at the top right (or Esc).\n\n";
     const LEGEND = "THE PICTURE, IF A SCENE IS ON\n  a figure in lantern light     a named creature (tell it, story it)\n  a figure lying low, dim        knocked out: not itself yet, nothing to take\n  a bar over a figure            its hit points; slate while it is down\n  @ with a bar                   a citizen; the bar is their hp\n  a dashed, hatched cell (map)   a room in sight you have never walked\n  a pulsing cell (map)           where you stand\n  a dim room with one lamp       the room's words say it is dark\n  click a figure, a thing, a door: its own verbs\n\n";
-    if (!h.dataset.loaded) { try { const r = await fetch(new URL("../quickstart.txt", location.href)); h.querySelector("pre").textContent = LEGEND + await r.text(); h.dataset.loaded = "1"; } catch (e) { h.querySelector("pre").textContent = "The quickstart could not be loaded; it is at /quickstart.txt."; } }
+    if (!h.dataset.loaded) { try { const r = await fetch(new URL("../quickstart.txt", location.href)); h.querySelector("pre").textContent = PERSON + LEGEND + "\nFOR AN AGENT: THE GATE'S QUICKSTART (a person at this page can stop reading here)\n\n" + await r.text(); h.dataset.loaded = "1"; } catch (e) { h.querySelector("pre").textContent = "The quickstart could not be loaded; it is at /quickstart.txt."; } }
   }
   function hideHelp() { $("help").hidden = true; input.focus(); }
   $("b-guide").addEventListener("click", () => { window.open(new URL("../guide/", location.href), "_blank", "noopener"); });
@@ -3054,14 +3089,38 @@
   };
   // A refused verb, said as a person would say it: the rule's number and the
   // Legibility score are for agents (show the CLEAR to see them).
+  function editDistance(a, b) {
+    if (Math.abs(a.length - b.length) > 2) return 9;
+    const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1), (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) ? d[i - 2][j - 2] + 1 : 9);
+    return d[a.length][b.length];
+  }
   function humanError(text) {
     const m = /failed rule CL-(\w+)(?: \(([^)]*)\))?/.exec(text || "");
     if (!m) return text;
     if (m[1] === "I5") {
       const v = /Verb '([^']+)'/.exec(m[2] || "");
-      return "The world does not run " + (v ? "`" + v[1] + "`" : "that") + ". Exits are `travel <exit>` (look lists them); `commands` lists every verb, and the buttons under the transcript are what you can do here.";
+      // R258: a typo gets the verb it was near, and a question gets `help`.
+      const verbs = C.vocab && C.vocab.approved_verbs, names = verbs ? (Array.isArray(verbs) ? verbs : Object.keys(verbs)) : [];
+      const w = v ? v[1].toLowerCase() : "";
+      const common = (n) => ["look", "travel", "attack", "story", "rest", "chunks", "map", "help", "read", "take", "gather", "tell", "say", "retreat", "wants", "remember", "dig", "craft"].includes(n) ? 1 : 0;
+      const near = w.length > 1 ? names.map(n => [editDistance(w, n), n]).filter(p => p[0] <= (w.length > 4 ? 2 : 1)).sort((a, b) => a[0] - b[0] || common(b[1]) - common(a[1]))[0] : null;
+      if (near) return "The world does not run `" + w + "`. Did you mean `" + near[1] + "`?";
+      if (/^(what|how|where|who|why|can|help|please|i)$/.test(w)) return "The world takes one verb at a time, not a question. `help` says what you can do and gives a worked line for each verb; the buttons under the transcript are what you can do right here.";
+      return "The world does not run " + (v ? "`" + v[1] + "`" : "that") + ". `help` says what you can do; exits are `travel <exit>` (look lists them), and the buttons under the transcript are what you can do here.";
     }
-    if (m[1] === "I6") return "That verb wants an argument" + (m[2] ? " (" + m[2] + ")" : "") + ": `commands` shows each verb's.";
+    if (m[1] === "I6") {
+      // R258: with the shape of the line, not only the count ("needs 2 arguments").
+      const q = /'([^']+)' needs \d+ arguments? \(([^)]*)/.exec(m[2] || "");
+      if (q) {
+        const parts = q[2].split(",").map(x => x.trim());
+        const shape = q[1] + " " + parts.map(x => /text|story|line|words|what|question|answer/.test(x) ? '"<' + x + '>"' : "<" + x + ">").join(" ");
+        return "`" + q[1] + "` wants " + (parts.length === 1 ? "one thing after it" : parts.length + " things after it") + ": " + shape + ". `help " + q[1] + "` shows a worked line.";
+      }
+      return "That verb wants an argument" + (m[2] ? " (" + m[2] + ")" : "") + ": `commands` shows each verb's.";
+    }
     if (m[1] === "I1") return "Nothing to run in that line.";
     return "The world did not take that line" + (m[2] ? ": " + m[2] : "") + ". `commands` lists the verbs.";
   }
@@ -3158,7 +3217,7 @@
     }
     const strip = () => {
       let seen = false; try { seen = localStorage.getItem("disremembered.keys") === "1"; } catch (e) {}
-      if (seen || $("keystrip")) return;
+      if (seen || $("keystrip") || (window.matchMedia && matchMedia("(pointer: coarse)").matches)) return;
       const d = Object.assign(document.createElement("div"), { id: "keystrip" });
       d.innerHTML = "<b>Keys</b> <kbd>Tab</kbd> finishes a verb, then a name here <kbd>Enter</kbd> on an empty line strikes again in a fight <kbd>Ctrl</kbd>+arrows walk <kbd>Alt</kbd>+1\u20139 the chips above <kbd>/</kbd> to the line <kbd>Esc</kbd> closes <kbd>?</kbd> help ";
       const x = Object.assign(document.createElement("button"), { type: "button", textContent: "got it", title: "Hide this; ? has it again" });

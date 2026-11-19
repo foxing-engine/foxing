@@ -1260,8 +1260,9 @@ export default function install(m) {
     floats.push({ text, x: x * T + 8, y: y * T - 2, t0: performance.now(), color, big: !!big });
   }
   function onResult(command, args, body) {
-    touch(command);
+    // Only a verb the world ran joins the column (`lok` became a button).
     if (!body || !body.ok) return;
+    touch(command);
     const r = body.result || {};
     // Who the result is about: the one it was done to. By id where the world gives
     // one, then by name; `remember <chunk> <whom>` and `give <chunk> <whom>` name them
