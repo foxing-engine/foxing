@@ -294,6 +294,36 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
     by night, sighs by day), the page's light, the Fogbank's fog by the hour.
   - **X15** (XL, brief wanted) A travelling market: the Exergue's tapster walks a circuit
     of the ground floor, the slate with it, trade where it stands.
+  - **X16** (M, **in work, 11-18**) Stories travel and wear. When a named creature's
+    business brings it into a room with another, it passes on a story it holds, shorter
+    and a little wrong each time; the one told to Tinsel turns up a day on in Kennoch's
+    mouth, as "someone at the door's". A teller can follow their own story across the
+    world and is paid for setting it right. Questions with David.
+  - **X17** (S/M) They notice you were gone. A creature that knew a name greets its
+    return with what happened between (who told it something, who felled its neighbor,
+    that it nearly lost you); after a week's silence it writes (`letters`). Makes "no
+    longer knows you" the end of something that was said on the way.
+  - **X18** (L) Old age and the Ossuary. A named creature that has held memories long
+    enough grows old, says so, and one day walks to the Ossuary and takes a numbered
+    niche (the room's tally becomes true); an heir of its kind holds a scrap of its
+    stories. Generations, and a graveyard worth the walk.
+  - **X19** (M, with X14) The lamplighter. At dusk a creature walks Lantern Row lighting
+    the lanterns; felled or kept from it, the row is dark and rooms fade faster from
+    every map that night, unless a name lights them. A daily job anyone can take up, and
+    a reason to keep an unnamed creature alive.
+  - **X20** (S) Lost and Found, for real. What a name drops, or leaves lying when it
+    falls, is carried there by the Docent with a ticket saying where it was found, and
+    is claimed there. The room's text already says exactly this.
+  - **X21** (M) The fog that walks. Some evenings of the Fog Month a bank rolls from the
+    Fogbank through three or four rooms over an hour: inside it `look` hides names and
+    one exit, and wisps come with it. Weather that moves, and that names warn each
+    other of.
+  - **X22** (M) The weekly binding. Every story said aloud at the Reading Bench in a set
+    hour is bound that night into one volume in the Bindery, its tellers named; a volume
+    a week, and old ones fade unless read. A reason to be in the world at the same hour.
+  - **X23** (S) A plaque that fades with its holder. The name that leads the board has a
+    plaque at the Threshold as vivid as what that name holds now; gone quiet, it dims and
+    another's takes its place. The board as a place.
 
 ## Your side (Y): only you can
 
