@@ -1424,7 +1424,13 @@ pub fn spend(
         .entity(item)
         .and_then(|e| e.parent)
         .and_then(|s| world.store.entity(s))
-        .and_then(|s| s.parent);
+        .and_then(|s| s.parent)
+        // A carried thing: satchel, citizen, room (it read "in nowhere").
+        .and_then(|p| match world.store.entity(p) {
+            Some(e) if e.kind == "room" => Some(p),
+            Some(e) => e.parent,
+            None => None,
+        });
     super::past::push(
         world,
         actor,
@@ -2780,8 +2786,10 @@ pub fn register(world: &mut World, curves: Curves) {
                 let arg = args.str("chunk").unwrap_or("").trim().to_string();
                 if arg.is_empty() {
                     return Err(CommandError::precondition(format!(
-                        "{} takes a chunk worth {:.0} or more, and spends the whole of the one you give; name one (craft {} chunk-N).",
-                        r.name, r.chunk_at_least, r.key
+                        "{} takes a chunk worth {:.0} or more at today's prices, and spends the whole of the one you give; name one (craft {} chunk-N).",
+                        r.name,
+                        (r.chunk_at_least * super::economy::rate(w, "price")).max(1.0),
+                        r.key
                     )));
                 }
                 let chunk = super::memory::resolve_chunk(w, ctx, &arg, &[f.window])?;
@@ -2986,6 +2994,43 @@ pub fn register(world: &mut World, curves: Curves) {
                 .find(|e| e.kind == "satchel")
                 .map(|e| e.id)
                 .is_some_and(|s| resolve_item(w, &arg, s).is_ok());
+            // R165: a thing of yours that is spent still has its last line (asked
+            // by name, a spent charm read the room's signpost instead).
+            let spent_line = || -> Option<Outcome> {
+                let low = arg.to_lowercase();
+                let low = low.trim_start_matches("the ").trim_start_matches("a ").trim_start_matches("an ").to_string();
+                if low.is_empty() {
+                    return None;
+                }
+                let id_wanted = low.trim_start_matches("item-").parse::<u64>().ok();
+                let s = match w.store.entity(f.citizen).and_then(|c| c.components.get(super::CITIZEN)).and_then(|c| c.fields.get("spent")) {
+                    Some(Field::Plain(Value::Array(a))) => a
+                        .iter()
+                        .rev()
+                        .find(|s| match id_wanted {
+                            Some(i) => s["item"] == i,
+                            None => s["name"].as_str().is_some_and(|n| n.to_lowercase().contains(&low)),
+                        })
+                        .cloned(),
+                    _ => None,
+                }?;
+                Some(Outcome::new(
+                    format!(
+                        "{} (item-{}) is spent, and gone. Its last line, in {}, {}: {}.",
+                        s["name"].as_str().unwrap_or("something"),
+                        s["item"],
+                        s["room"].as_str().unwrap_or("nowhere"),
+                        when(s["at"].as_i64().unwrap_or(0)),
+                        s["deed"].as_str().unwrap_or("it was used").trim_end_matches('.')
+                    ),
+                    json!({"spent": s}),
+                ))
+            };
+            if !carried && resolve_item(w, &arg, here).is_err() {
+                if let Some(out) = spent_line() {
+                    return Ok(out);
+                }
+            }
             if !carried && resolve_item(w, &arg, here).is_err() {
                 if let Some(out) = super::nouns::read(w, &ctx.actor, here, &arg) {
                     return Ok(out);
@@ -3017,6 +3062,18 @@ pub fn register(world: &mut World, curves: Curves) {
                             .filter(|v| v["text"].as_str().is_some_and(|t| !t.is_empty()))
                             .map(|v| format!("{} (item-{}, carried)", v["given_name"].as_str().unwrap_or(v["name"].as_str().unwrap_or("something")), v["id"])),
                     );
+                }
+                // What the room's own text offers to `read`: its signpost, the slip
+                // pinned here, the boots, a chart (three of the Watch of 11-19 were
+                // promised "what else here can be read" and shown none of these).
+                for word in ["signpost", "slip", "boots"].into_iter().chain(super::nouns::names_for(w, here)) {
+                    let answers = super::slips::read(w, &ctx.actor, here, word).is_some()
+                        || super::door::read(w, here, word).is_some()
+                        || super::trail::read(w, &ctx.actor, here, word).is_some()
+                        || super::nouns::read(w, &ctx.actor, here, word).is_some();
+                    if answers {
+                        names.push(format!("the {word} (`read {word}`)"));
+                    }
                 }
                 let name = plain_str(w, here, super::ROOM, "name").unwrap_or("this room").to_string();
                 let text = plain_str(w, here, super::ROOM, "description").unwrap_or("").to_string();
@@ -3050,34 +3107,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 .unwrap_or_else(|| resolve_item(w, &arg, here));
             let item = match found {
                 Ok(i) => i,
-                Err(e) => {
-                    // R165: a thing of yours that is spent still has its last line.
-                    let low = arg.to_lowercase();
-                    let id_wanted = low.trim_start_matches("item-").parse::<u64>().ok();
-                    let last = match w.store.entity(f.citizen).and_then(|c| c.components.get(super::CITIZEN)).and_then(|c| c.fields.get("spent")) {
-                        Some(Field::Plain(Value::Array(a))) => a
-                            .iter()
-                            .rev()
-                            .find(|s| match id_wanted {
-                                Some(i) => s["item"] == i,
-                                None => s["name"].as_str().is_some_and(|n| n.to_lowercase().contains(&low)),
-                            })
-                            .cloned(),
-                        _ => None,
-                    };
-                    let Some(s) = last else { return Err(e) };
-                    return Ok(Outcome::new(
-                        format!(
-                            "{} (item-{}) is spent, and gone. Its last line, in {}, {}: {}.",
-                            s["name"].as_str().unwrap_or("something"),
-                            s["item"],
-                            s["room"].as_str().unwrap_or("nowhere"),
-                            when(s["at"].as_i64().unwrap_or(0)),
-                            s["deed"].as_str().unwrap_or("it was used").trim_end_matches('.')
-                        ),
-                        json!({"spent": s}),
-                    ));
-                }
+                Err(e) => return Err(e),
             };
             let called = display(w, item);
             let text = plain_str(w, item, ITEM, "text").unwrap_or("").to_string();
@@ -3160,7 +3190,7 @@ pub fn register(world: &mut World, curves: Curves) {
             let who = if who.is_empty() || lines.len() > 1 { who } else { format!(" {who}") };
             let binding = if bound.is_some() { bound_said(bound) } else if lines.len() > 1 { " Not yet bound.".to_string() } else { String::new() };
             // R165: a fixture's past is read like any made thing's, after its page.
-            let binding = match super::past::read(w, item).filter(|_| is_fixed(w, item)) {
+            let binding = match super::past::read(w, item).filter(|p| is_fixed(w, item) && !p.contains("Nothing is recorded")) {
                 Some(past) => format!("{binding} Its past: {past}"),
                 None => binding,
             };

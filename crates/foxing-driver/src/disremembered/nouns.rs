@@ -179,6 +179,16 @@ pub fn read(world: &World, actor: &str, room: EntityId, arg: &str) -> Option<Out
     ))
 }
 
+/// The first word each of a room's read things answers to, for bare `read`'s list.
+pub fn names_for(world: &World, room: EntityId) -> Vec<&'static str> {
+    let key = plain_str(world, room, ROOM, "key").unwrap_or("");
+    NOUNS
+        .iter()
+        .filter(|(k, names, _)| *k == key && !names.is_empty())
+        .map(|(_, names, _)| names[0])
+        .collect()
+}
+
 #[cfg(test)]
 pub fn rooms() -> Vec<&'static str> {
     NOUNS.iter().map(|(k, _, _)| *k).collect()

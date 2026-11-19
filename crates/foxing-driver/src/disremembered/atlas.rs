@@ -453,9 +453,12 @@ fn roll_of(world: &World, room: EntityId) -> BTreeMap<String, String> {
         }
     }
     for (c, _, _, _) in super::combat::creatures_in(world, room) {
-        if super::mind::name(world, c).is_some() {
-            out.insert(format!("creature-{}", c.0), super::mind::display(world, c));
-        }
+        // Named or not: "as you left it" was said over a Fogbank short a wisp.
+        let said = match super::mind::name(world, c) {
+            Some(_) => super::mind::display(world, c),
+            None => format!("a {}", super::mind::display(world, c)),
+        };
+        out.insert(format!("creature-{}", c.0), said);
     }
     out
 }

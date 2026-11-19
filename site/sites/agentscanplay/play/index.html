@@ -2392,7 +2392,7 @@
     const STEPS = [
       { id: "look", line: "look", why: "See where you are, and what is here." },
       { id: "east", line: "travel east", why: "The Fogbank, where the wisps drift. Each room is a step; the tiles are the exits." },
-      { id: "wisp", line: "attack wisp", why: "A wisp has 8 hit points and bites for 2 to 4. Pop one and you remember it: a chunk worth about 15." },
+      { id: "wisp", line: "attack wisp", why: "A wisp has 8 hit points and bites for 2 to 4. Pop one and you take the memory it holds: about 15 from a fresh one, less from one that was felled lately (look says what each is worth)." },
       { id: "chunks", line: "chunks", why: "What you hold, and how fast it fades. Your level is the sum of what has not faded yet." },
       { id: "spend", line: "remember chunk-? wisp", why: "Spend a memory before it fades: feed it to a creature. At 60 the creature takes a name of its own." },
       { id: "story", line: 'story <named creature> "…"', why: "A named creature (fed to sixty: `wants` lists them and the way there) takes a story of a dozen words or more, pays for it, and answers with a line of its own." },
@@ -2426,6 +2426,12 @@
         return "dig " + name + " " + id + ' "';
       }
       if (step.id === "story") return "story " + (named || "<named creature>") + ' "';
+      // A name that woke at the Postern has no east: the card's first tap failed
+      // ("There is no exit 'east'"). `where` gives the walk from wherever this is.
+      if (step.id === "east") {
+        const exits = ((subs.room && subs.room.root && subs.room.root.relations && subs.room.root.relations.exits) || []).map(ex => ex.via.toLowerCase());
+        if (exits.length && !exits.includes("east")) return "where Fogbank";
+      }
       return step.line;
     }
     function render() {

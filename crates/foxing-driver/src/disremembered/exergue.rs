@@ -200,7 +200,7 @@ pub fn bar_story(
     );
     Ok(Outcome::new(
         format!(
-            "You tell the tapster a story of {} words, {money} of them about money ({money_kinds} different: the money in it is most of what it weighs). It weighs it, and chalks the figure: {weight:.0} ounces. You remember the telling: chunk-{} worth {weight:.0} XP, which halves in a day instead of hours. Worth its weight; just not in gold.",
+            "You tell the tapster a story of {} words, {money} of them about money ({money_kinds} different: the money in it is most of what it weighs). It weighs it, and chalks the figure: {weight:.0} ounces. You remember the telling: chunk-{} worth {weight:.0} XP, the slowest coin there is to fade: a day and more to halve, where the rest of what you carry halves in hours (`chunks` has its figure). Worth its weight; just not in gold.",
             words.len(),
             chunk.0
         ),
@@ -282,11 +282,12 @@ pub fn assay(world: &World, window: EntityId) -> (String, serde_json::Value) {
         Some((id, source, v)) => {
             let fine = v / total.max(0.01);
             format!(
-                "\"Your holding, assayed: {} memor{} weighing {total:.1} in all. The heaviest is chunk-{id} ({source}) at {v:.1}, which is {:.0} parts in a hundred of you{}. The Office keeps a sample of what it weighs: my ray halves one memory, and at your level it finds the heaviest {:.0} times in a hundred; the rest of the time it falls by weight. Put the heaviest on your shelf before you raise a hand here (`remember chunk-{id}`), or do not raise one.\"",
+                "\"Your holding, assayed: {} memor{} weighing {total:.1} in all. The heaviest is chunk-{id} ({source}) at {v:.1}, which is {:.0} parts in a hundred of you{}; half of it is {:.1}. The Office keeps a sample of what it weighs: my ray halves one memory, and at your level it finds the heaviest {:.0} times in a hundred; the rest of the time it falls by weight. Put the heaviest on your shelf before you raise a hand here (`remember chunk-{id}`), or do not raise one.\"",
                 chunks.len(),
                 if chunks.len() == 1 { "y" } else { "ies" },
                 fine * 100.0,
                 if fine > 0.5 { ", most of your weight in one coin" } else { "" },
+                v / 2.0,
                 aim * 100.0
             )
         }
@@ -457,7 +458,7 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
                 .collect();
             // R75: the slate in the tapster's voice (it was a notice in the house's).
             format!(
-                "The slate behind the bar, in the tapster's chalk: \"{} I weigh a story about money. A dozen different words or it is not a story; the money in it is most of the weight, and saying 'coin' twice weighs once. One an hour from each of you. I pay in a coin that halves in a day, where the rest of what you carry halves in hours. Worth its weight. Not in gold; do not ask.\" (`story tapster \"…\"`)",
+                "The slate behind the bar, in the tapster's chalk: \"{} I weigh a story about money. A dozen different words or it is not a story; the money in it is most of the weight, and saying 'coin' twice weighs once. One an hour from each of you. I pay in a coin that takes a day and more to halve, where the rest of what you carry halves in hours. Worth its weight. Not in gold; do not ask.\" (`story tapster \"…\"`)",
                 if rows.is_empty() { "Weighed today: nothing weighed today, and the glass is dry.".to_string() } else { format!("Weighed today: {}.", rows.join("; ")) }
             )
         }
@@ -489,7 +490,7 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
                         .and_then(|r| plain_str(world, r, ROOM, "name"))
                         .unwrap_or("nowhere");
                     // R75: stamped with its hour.
-                    let at = super::mind::named_at(world, e.id)
+                    let at = super::age::named_since(world, e.id)
                         .map(|t| format!(", struck {}", super::system::stamp(t)))
                         .unwrap_or_default();
                     rows.push(format!("{n} the {kind}, {room_name}{at}"));
@@ -512,7 +513,7 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
                 }
             }
             format!(
-                "The register in its iron frames, every kept thing in the world under its mark and the hour it was struck (UTC). The named ({}): {}. The fixtures ({}): {}.",
+                "The register in its iron frames, every kept thing in the world under its mark, with the hour it was struck (UTC) where the record kept one. The named ({}): {}. The fixtures ({}): {}.",
                 rows.len(),
                 if rows.is_empty() { "none".to_string() } else { rows.join("; ") },
                 fixtures.len(),
