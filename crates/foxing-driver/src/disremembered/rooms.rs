@@ -2363,6 +2363,10 @@ pub fn describe_as(
         text.push(' ');
         text.push_str(&t);
     }
+    if let Some(t) = super::age::look_line(world, room) {
+        text.push(' ');
+        text.push_str(&t);
+    }
     if let Some(t) = super::under::look_line(world, room) {
         text.push(' ');
         text.push_str(&t);

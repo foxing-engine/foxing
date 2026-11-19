@@ -157,6 +157,53 @@ pub fn lines(world: &World) -> Vec<String> {
     if !happened.is_empty() {
         out.push(format!("On its own: {}.", happened.join("; ")));
     }
+    // X18: who is old, and who has gone.
+    let old: Vec<String> = latest(super::age::OLD)
+        .into_iter()
+        .filter(|e| {
+            e.payload["goes_at"]
+                .as_i64()
+                .is_some_and(|t| t > world.now().0)
+        })
+        .map(|e| {
+            format!(
+                "{} the {} in {}, who goes in {}",
+                e.payload["name"].as_str().unwrap_or("one"),
+                e.payload["kind"].as_str().unwrap_or("creature"),
+                e.payload["room_name"].as_str().unwrap_or("?"),
+                super::combat::human(e.payload["goes_at"].as_i64().unwrap_or(0) - world.now().0)
+            )
+        })
+        .collect();
+    if !old.is_empty() {
+        out.push(format!("Old, and saying so: {}.", old.join("; ")));
+    }
+    let passed: Vec<String> = latest(super::age::PASSED)
+        .into_iter()
+        .map(|e| {
+            let heir = match (
+                e.payload["heir"].as_str(),
+                e.payload["heir_kept_name"].as_bool(),
+            ) {
+                (Some(_), Some(true)) => "; a younger one has its name".to_string(),
+                (Some(h), _) => format!("; its heir is {h}"),
+                _ => String::new(),
+            };
+            format!(
+                "{} the {}, niche {}, {} ago{heir}",
+                e.payload["name"].as_str().unwrap_or("one"),
+                e.payload["kind"].as_str().unwrap_or("creature"),
+                e.payload["niche"],
+                ago(world, e.at.0)
+            )
+        })
+        .collect();
+    if !passed.is_empty() {
+        out.push(format!(
+            "Gone to the Ossuary (`read niche` there): {}.",
+            passed.join("; ")
+        ));
+    }
     // X16: stories on the move, and stories gone.
     let passed: Vec<String> = latest(super::tales::PASSED)
         .into_iter()

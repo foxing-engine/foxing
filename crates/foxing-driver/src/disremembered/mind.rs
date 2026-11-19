@@ -140,6 +140,15 @@ pub fn level(world: &World, creature: EntityId) -> f64 {
         .unwrap_or(0.0)
 }
 
+trait NoneOrNull {
+    fn is_none_or_null(&self) -> bool;
+}
+impl NoneOrNull for Option<&Value> {
+    fn is_none_or_null(&self) -> bool {
+        self.map_or(true, |v| v.is_null())
+    }
+}
+
 fn mind_field<'a>(world: &'a World, creature: EntityId, field: &str) -> Option<&'a Value> {
     match world
         .store
@@ -645,6 +654,10 @@ pub fn check_tier(world: &mut World, creature: EntityId) -> Result<(), CommandEr
         }
     }
     changes.insert("name".into(), Field::Plain(json!(given)));
+    // X18: the day it was first named, kept through a name lost and taken back.
+    if given.is_some() && mind_field(world, creature, "named_since").is_none_or_null() {
+        changes.insert("named_since".into(), Field::Plain(json!(world.now().0)));
+    }
     // Who fed it to its name: the last feeder at the moment it crossed, kept so the
     // answer does not drift to whoever fed it last (it told two keepers each had).
     if want > have && given.is_some() && name(world, creature).is_none() {

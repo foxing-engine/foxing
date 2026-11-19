@@ -14176,6 +14176,137 @@ fn a_fixture_delays_the_unmaking_and_does_not_prevent_it() {
 }
 
 #[test]
+fn a_kept_creature_grows_old_takes_a_niche_and_leaves_an_heir() {
+    // X18 (David, 11-18): old by time spent named; time can be bought, less each
+    // time; a niche that is read is kept; an heir where it lived.
+    let t0 = Timestamp(1_000_000);
+    let day = 86_400;
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    for who in ["dave", "tyler"] {
+        ok(&mut w, who, "travel", json!(["east"]));
+        ok(&mut w, who, "travel", json!(["south"]));
+    }
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let rag = combat::creatures_in(&w, midden)[0].0;
+    let c = admin(&mut w, "tyler", "earn", json!(["hollow", 200, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([c, "ragpicker"]));
+    let name = mind::name(&w, rag).unwrap();
+    let tale = "Once there was a lantern that would not go out, though every hand that carried it forgot why they had picked it up.";
+    ok(&mut w, "dave", "story", json!([&name, tale]));
+    assert!(age::ages(&w, rag));
+    assert_eq!(age::named_since(&w, rag), Some(t0.0));
+
+    // Twenty days: not old. Twenty-one: it says so, and `look` says when it goes.
+    w.fixed_now = Some(t0.plus(Duration::seconds(20 * day)));
+    age::tick(&mut w).unwrap();
+    assert!(age::old_since(&w, rag).is_none());
+    w.fixed_now = Some(t0.plus(Duration::seconds(21 * day + 60)));
+    let head = events(&w);
+    age::tick(&mut w).unwrap();
+    assert!(age::old_since(&w, rag).is_some());
+    let said = narrative(&w, "dave", head).join(" ");
+    assert!(
+        said.contains("\"I am old,\"") && said.contains("in three days"),
+        "{said}"
+    );
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("is old, and goes to the Ossuary in"),
+        "{}",
+        look.summary
+    );
+    // Time bought: a week, and it is not old; then half a week.
+    assert_eq!(age::extend(&mut w, rag).unwrap(), 7 * day * 1000);
+    assert!(age::old_since(&w, rag).is_none());
+    assert_eq!(age::extend(&mut w, rag).unwrap(), 7 * day * 1000 / 2);
+    w.fixed_now = Some(t0.plus(Duration::seconds(31 * day)));
+    age::tick(&mut w).unwrap();
+    assert!(
+        age::old_since(&w, rag).is_none(),
+        "ten and a half days bought"
+    );
+    // Old again, and three days on it goes: a niche, and an heir where it lived.
+    w.fixed_now = Some(t0.plus(Duration::seconds(32 * day)));
+    age::tick(&mut w).unwrap();
+    assert!(age::old_since(&w, rag).is_some());
+    w.fixed_now = Some(t0.plus(Duration::seconds(34 * day)));
+    age::tick(&mut w).unwrap();
+    assert!(w.store.entity(rag).is_some(), "three days' warning");
+    w.fixed_now = Some(t0.plus(Duration::seconds(35 * day + 60)));
+    let head = events(&w);
+    age::tick(&mut w).unwrap();
+    assert!(w.store.entity(rag).is_none(), "it has gone");
+    let kept = age::niches(&w);
+    assert_eq!(kept.len(), 1);
+    assert_eq!(kept[0]["n"], 1);
+    assert_eq!(kept[0]["name"], name.as_str());
+    assert_eq!(kept[0]["keepers"][0], "tyler");
+    let said = narrative(&w, "dave", head).join(" ");
+    assert!(said.contains("gets up for the last time"), "{said}");
+    let heirs: Vec<_> = combat::creatures_in(&w, midden)
+        .into_iter()
+        .filter(|(id, ..)| mind::name(&w, *id).is_some())
+        .collect();
+    assert_eq!(heirs.len(), 1, "an heir, named");
+    let heir = heirs[0].0;
+    let left = tales::of(&w, heir);
+    assert_eq!(left.len(), 1, "one of the old one's stories");
+    assert_eq!(left[0].hops, 1);
+    assert!(left[0].text != tale);
+    assert!(mind::level(&w, heir) >= 60.0);
+    let look = ok(&mut w, "dave", "look", json!([]));
+    if kept[0]["heir_kept_name"] == true {
+        assert_eq!(mind::name(&w, heir).unwrap(), name);
+    } else {
+        assert!(mind::name(&w, heir).unwrap() != name);
+        assert!(
+            look.summary
+                .contains(&format!("is the heir of {name} (niche 1")),
+            "{}",
+            look.summary
+        );
+    }
+
+    // In the Ossuary the niche is listed, and read; reading keeps it.
+    let ossuary = rooms::room_by_key(&w, "ossuary").unwrap();
+    let dave = find_citizen(&w, "dave").unwrap().citizen;
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: dave,
+            parent: Some(ossuary),
+        },
+    )
+    .unwrap();
+    assert!(age::look_line(&w, ossuary)
+        .unwrap()
+        .contains(&format!("1 ({name} the ragpicker)")));
+    w.fixed_now = Some(t0.plus(Duration::seconds(45 * day)));
+    let out = age::read(&mut w, ossuary, "niche 1").unwrap().unwrap();
+    assert!(
+        out.summary
+            .contains(&format!("Cut on the sill: {name} the ragpicker."))
+            && out.summary.contains("Kept at the end by tyler.")
+            && out
+                .summary
+                .contains("The stories it held began: \"Once there was a lantern"),
+        "{}",
+        out.summary
+    );
+    assert!(age::read(&mut w, ossuary, "niche 9").unwrap().is_err());
+    // Read on the tenth day, it outlasts the fourteenth; unread after, it is swept.
+    w.fixed_now = Some(t0.plus(Duration::seconds(52 * day)));
+    age::tick(&mut w).unwrap();
+    assert_eq!(age::niches(&w).len(), 1);
+    w.fixed_now = Some(t0.plus(Duration::seconds(60 * day)));
+    age::tick(&mut w).unwrap();
+    assert!(age::niches(&w).is_empty(), "swept clean");
+}
+
+#[test]
 fn a_story_travels_wears_is_set_right_claimed_and_let_go() {
     // X16 (David, 11-18): the teller's own words, worn by the hand; the name wears by
     // chance; told again it is set right and paid once; nameless, anyone may claim it.

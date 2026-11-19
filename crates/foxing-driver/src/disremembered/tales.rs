@@ -388,6 +388,27 @@ pub fn pass(world: &mut World, c: EntityId) -> Result<bool, String> {
     Ok(false)
 }
 
+/// X18: an heir is left one of the old one's stories, worn as a telling wears it,
+/// with whatever name it carried.
+pub fn bequeath(
+    world: &mut World,
+    heir: EntityId,
+    tale: &Tale,
+    room: EntityId,
+) -> Result<(), CommandError> {
+    let text = worn(world, &tale.text, room);
+    let copy = Tale {
+        hops: tale.hops + 1,
+        text,
+        at: world.now().0,
+        paid: Vec::new(),
+        ..tale.clone()
+    };
+    let mut theirs = of(world, heir);
+    theirs.push(copy);
+    keep(world, heir, theirs, None)
+}
+
 /// A door from `here` into a room where a named creature stands that lacks a story
 /// `c` could tell, for a creature at home with a day's telling unspent.
 pub fn door_to_a_listener(

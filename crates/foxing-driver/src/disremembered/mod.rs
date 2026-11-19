@@ -7,6 +7,7 @@
 //! The rule the slice is built around: your level is the sum of what has not faded, your
 //! attack follows your level, and the fights you almost lost last longest.
 
+pub mod age;
 pub mod almanac;
 pub mod ask;
 pub mod atlas;
@@ -249,6 +250,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("dug_with", FieldKind::Plain, Visibility::Public)
             // R190: what a room had faded to when a visit last renewed it: {at, memory}.
             .field("was", FieldKind::Plain, Visibility::Public)
+            // X18: the Ossuary's kept niches.
+            .field("niches", FieldKind::Plain, Visibility::Public)
             // H19: when it was dug (ms), for the Mudroom's wall. Rooms dug before
             // 11-12 have none.
             .field("dug_at", FieldKind::Plain, Visibility::Public)
@@ -382,6 +385,13 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // X16: the stories it keeps to tell, and when it last told one.
             .field("tales", FieldKind::Plain, Visibility::Public)
             .field("tale_told_at", FieldKind::Plain, Visibility::Public)
+            // X18: when it was first named, when it said it was old, time bought
+            // for it, and whose heir it is ({name, niche}).
+            .field("named_since", FieldKind::Plain, Visibility::Public)
+            .field("old_since", FieldKind::Plain, Visibility::Public)
+            .field("life_bought", FieldKind::Plain, Visibility::Public)
+            .field("life_extra_ms", FieldKind::Plain, Visibility::Public)
+            .field("heir_of", FieldKind::Plain, Visibility::Public)
             .field("shaken_until", FieldKind::Plain, Visibility::Public)
             // A child's sealed name, opened when it earns a name (F22: sealed means
             // not on `observe` either).

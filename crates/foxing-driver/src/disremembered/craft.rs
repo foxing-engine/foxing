@@ -2829,6 +2829,11 @@ pub fn register(world: &mut World, curves: Curves) {
             if let Some(out) = super::slips::read(w, &ctx.actor, here, &arg) {
                 return Ok(out);
             }
+            // X18: a kept niche in the Ossuary, read by number or by name (with none
+            // kept, the room's own text for its niches answers further down).
+            if let Some(out) = super::age::read(w, here, &arg) {
+                return out;
+            }
             let when = |at: i64| -> String {
                 let ago = (w.now().0 - at).max(0) as f64 / 3_600_000.0;
                 if ago < 1.0 {

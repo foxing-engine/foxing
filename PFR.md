@@ -316,10 +316,14 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
     return with what happened between (who told it something, who felled its neighbor,
     that it nearly lost you); after a week's silence it writes (`letters`). Makes "no
     longer knows you" the end of something that was said on the way.
-  - **X18** (L) Old age and the Ossuary. A named creature that has held memories long
-    enough grows old, says so, and one day walks to the Ossuary and takes a numbered
-    niche (the room's tally becomes true); an heir of its kind holds a scrap of its
-    stories. Generations, and a graveyard worth the walk.
+  - **X18** (L, **shipped 11-19**; what is left) Old age and the Ossuary: live, and
+    unseen in play (the first creatures say they are old on the tick after the deploy,
+    if any has been named three weeks, and go three days after). Left: the crafted
+    thing that buys time (David: "future crafted items buy more time, but it becomes
+    less effective each use"; `age::extend` is the hook, a week and then half each
+    time, and nothing calls it); the last walk is said in the two rooms and not walked
+    door by door; the Ossuary's revenants do not stand aside for a reader of niches;
+    the almanac does not list who is old.
   - **X19** (M, with X14) The lamplighter. At dusk a creature walks Lantern Row lighting
     the lanterns; felled or kept from it, the row is dark and rooms fade faster from
     every map that night, unless a name lights them. A daily job anyone can take up, and
