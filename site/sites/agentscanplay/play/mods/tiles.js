@@ -279,8 +279,12 @@ export default function install(m) {
   }
   // `pose`: "breath" is the second idle frame (the top ten rows a pixel lower, the
   // feet where they were); "shaken" lies tilted and low, trembling.
-  function drawSprite(sprite, x, y, fallbackText, alpha, pose) {
-    const img = sprite && (sprite.atlas === m.atlasName || EXTRA[sprite.frame]) ? frameCanvas(sprite.frame, spriteTint(sprite)) : null;
+  // `size` scales it about its feet (a creature that holds much stands larger, a new
+  // heir smaller); `wash` is a tint over its own (an old one goes gray).
+  function drawSprite(sprite, x, y, fallbackText, alpha, pose, size, wash) {
+    const img = sprite && (sprite.atlas === m.atlasName || EXTRA[sprite.frame]) ? frameCanvas(sprite.frame, wash || spriteTint(sprite)) : null;
+    const sized = size && size !== 1;
+    if (sized) { ctx.save(); ctx.translate((x + 8) * SCALE, (y + 16) * SCALE); ctx.scale(size, size); ctx.translate(-(x + 8) * SCALE, -(y + 16) * SCALE); }
     if (alpha != null) ctx.globalAlpha = alpha;
     if (img && pose === "shaken") {
       const tremor = (Math.floor(performance.now() / 140) % 3) - 1;
@@ -298,11 +302,29 @@ export default function install(m) {
       ctx.fillText((sprite && sprite.glyph) || fallbackText || "?", (x + 8) * SCALE, (y + 8) * SCALE);
     }
     ctx.globalAlpha = 1;
+    if (sized) ctx.restore();
   }
   function px(x, y, w, h, color) { ctx.fillStyle = color; ctx.fillRect(Math.round(x * SCALE), Math.round(y * SCALE), Math.round(w * SCALE), Math.round(h * SCALE)); }
 
   // ---- colors ----
   function hex(c) { const n = parseInt((c || "#666666").slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+  // Any CSS color as [r, g, b], for the glow of a thing in its own color.
+  const rgbCache = new Map();
+  function rgbOf(c) {
+    if (rgbCache.has(c)) return rgbCache.get(c);
+    let out = [217, 181, 122];
+    try {
+      const k = document.createElement("canvas"); k.width = k.height = 1;
+      const kg = k.getContext("2d"); kg.fillStyle = c; kg.fillRect(0, 0, 1, 1);
+      const d = kg.getImageData(0, 0, 1, 1).data; out = [d[0], d[1], d[2]];
+    } catch (e) {}
+    rgbCache.set(c, out);
+    return out;
+  }
+  // The sheet of night the lights wear holes in; and whether the reader has asked
+  // for stillness (then nothing drifts or flickers).
+  let shade2 = null;
+  const STILL = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   function shade([r, g, b], k, mix = 0) { const t = (v) => Math.round(Math.max(0, Math.min(255, v * k * (1 - mix) + 236 * mix))); return "rgb(" + t(r) + "," + t(g) + "," + t(b) + ")"; }
   function hash(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
   function rnd(seed, i) { return (hash(seed + ":" + i) % 1000) / 1000; }
@@ -367,7 +389,13 @@ export default function install(m) {
         const mind = n.components["disremembered.mind"];
         const given = mind && mind.name ? mind.name : null;
         const shaken = mind && mind.shaken_until && m.timed ? (typeof mind.shaken_until === "number" ? mind.shaken_until > Date.now() : false) : false;
-        things.push({ id: n.id, kind: "creature", name: c.name, given, hp: c.hp, max: c.max_hp, holding: c.xp, shaken, sprite: s, tile: SLOTS[hash(n.id) % SLOTS.length] });
+        // What its mind says of it, for the picture: old (it has said so), an heir
+        // (and how lately it stood up), and whether it holds a story to tell.
+        const old = !!(mind && mind.old_since > 0);
+        const heirOf = mind && mind.heir_of && mind.heir_of.name ? mind.heir_of.name : null;
+        const young = !!(heirOf && mind.named_since && Date.now() - mind.named_since < 7 * 86400000);
+        const tales = mind && Array.isArray(mind.tales) ? mind.tales.length : 0;
+        things.push({ id: n.id, kind: "creature", name: c.name, given, hp: c.hp, max: c.max_hp, holding: c.xp, shaken, old, heirOf, young, tales, sprite: s, tile: SLOTS[hash(n.id) % SLOTS.length] });
       } else if (n.kind === "citizen") {
         const name = (n.components["disremembered.citizen"] || {}).name || "?";
         const p = n.components["disremembered.presence"];
@@ -761,10 +789,16 @@ export default function install(m) {
     // Things, back to front.
     const walk = docentAt(now);
     const things = [...scene.things].sort((a, b) => (a.kind === "docent" ? walk[1] : a.tile[1]) - (b.kind === "docent" ? walk[1] : b.tile[1]));
+    // What gives light, gathered as the room is drawn and spent in the lighting pass.
+    const lights = [];
+    for (const ex of scene.exits) if (ex.kind !== "signpost") lights.push({ x: ex.tile[0] * T + 8, y: Math.max(10, ex.tile[1] * T + 6), r: 20, k: 0.55 });
+    for (const it of scene.items) lights.push({ x: it.tile[0] * T + 8, y: it.tile[1] * T + 8, r: 11, k: 0.5 });
+    for (const t of things) if (t.kind === "fixture") { const lit = /lamp|lantern|candle|star/i.test(t.name); lights.push({ x: t.tile[0] * T + 8, y: t.tile[1] * T + 9, r: lit ? 48 : 26, k: 0.85, warm: lit ? 0.12 : 0 }); }
     for (const t of things) {
       let [x, y] = t.tile;
       if (t.kind === "docent") [x, y] = walk;
-      const bob = t.kind === "creature" && !t.shaken ? Math.round(Math.sin(now / 420 + hash(t.id) % 7)) : 0;
+      // An old creature moves slower.
+      const bob = t.kind === "creature" && !t.shaken ? Math.round(Math.sin(now / (t.old ? 900 : 420) + hash(t.id) % 7)) : 0;
       // Two idle frames: a breath every so often, each on its own beat; a walker steps.
       const beat = Math.floor((now + (hash(t.id) % 13) * 100) / 700);
       const pose = t.shaken ? "shaken" : (t.kind === "docent" && walk[2] ? (Math.floor(now / 220) % 2 ? "breath" : null) : (beat % 4 === 3 ? "breath" : null));
@@ -787,16 +821,47 @@ export default function install(m) {
         hot.set(x + "," + y, { target: '"' + t.name + '"', label: t.name + " stands here — read it", primary: () => m.command("read", ['"' + t.name + '"']), menu: [{ label: "Read " + t.name, run: () => m.command("read", ['"' + t.name + '"']) }, { label: "Write a line in it", run: () => m.prefill('append "') }] });
         continue;
       }
-      // A named creature stands in lantern light; a shaken one lies low and dim.
+      // How it stands: larger for what it holds (in steps, so the pixels stay
+      // square), smaller for an heir in its first week.
+      const held = t.kind === "creature" && t.holding != null ? Number(t.holding) : 0;
+      let size = held >= 1000 ? 1.375 : held >= 400 ? 1.25 : held >= 150 ? 1.125 : 1;
+      if (t.young) size *= 0.8;
+      // Its own color, from its name: every named creature has one, on the ring it
+      // stands in and the pip by its shoulder.
+      const hue = t.given ? hash(t.given) % 360 : 0;
+      const own = "hsl(" + hue + "," + (t.old ? 12 : 62) + "%,66%)";
+      // A named creature stands in a ring of its color; a shaken one lies low and dim.
       if (t.kind === "creature" && t.given) {
-        ctx.fillStyle = "rgba(217,181,122,.14)"; ctx.beginPath(); ctx.ellipse((x * T + 8) * SCALE, (y * T + 14.5) * SCALE, 10 * SCALE, 3.4 * SCALE, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "rgba(217,181,122,.4)"; ctx.lineWidth = SCALE * 0.6; ctx.stroke();
+        ctx.fillStyle = "hsla(" + hue + "," + (t.old ? 10 : 60) + "%,66%,.13)"; ctx.beginPath(); ctx.ellipse((x * T + 8) * SCALE, (y * T + 14.5) * SCALE, 10 * size * SCALE, 3.4 * size * SCALE, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "hsla(" + hue + "," + (t.old ? 10 : 60) + "%,66%,.5)"; ctx.lineWidth = SCALE * 0.6; ctx.stroke();
       }
-      px(x * T + 3, y * T + 14, 10, 2, "rgba(0,0,0,.35)");
+      // A soft shadow under whatever stands, wider under the larger.
+      ctx.fillStyle = "rgba(0,0,0,.32)"; ctx.beginPath(); ctx.ellipse((x * T + 8) * SCALE, (y * T + 15) * SCALE, 5.5 * size * SCALE, 1.6 * size * SCALE, 0, 0, Math.PI * 2); ctx.fill();
       const flash = flashes.get(t.id) > now;
-      if (t.kind === "docent" && walk[2]) px(x * T + 5, y * T + 15, 6, 1, "rgba(0,0,0,.2)");
-      drawSprite(t.sprite, x * T, y * T + bob, t.kind === "creature" ? (t.name || "?")[0].toUpperCase() : "@", t.shaken ? 0.55 : 1, pose);
+      // An old one has gone gray.
+      drawSprite(t.sprite, x * T, y * T + bob, t.kind === "creature" ? (t.name || "?")[0].toUpperCase() : "@", t.shaken ? 0.55 : 1, pose, size, t.old ? "#a9adb3" : null);
       if (flash) { ctx.globalCompositeOperation = "source-atop"; px(x * T, y * T + bob, T, T, "rgba(255,255,255,.75)"); ctx.globalCompositeOperation = "source-over"; }
+      // Light: you carry some, a named creature stands in some, and the kinds that
+      // burn (wisps, lanternflies, lampmoths, embers) give their own, in their color,
+      // more of it the more they hold.
+      if (t.kind === "you") lights.push({ x: x * T + 8, y: y * T + 9, r: 64, k: 1, warm: 0.07 });
+      else if (t.kind === "docent") lights.push({ x: x * T + 8, y: y * T + 9, r: 42, k: 0.9, warm: 0.07 });
+      else if (t.kind === "citizen" || t.kind === "morphos") lights.push({ x: x * T + 8, y: y * T + 9, r: 36, k: 0.8 });
+      else if (t.kind === "creature") {
+        const burns = /wisp|lantern|lamp|ember|glow|moth|spark|star/i.test(t.name || "");
+        const f = t.sprite && frameData(t.sprite.frame);
+        const color = (t.sprite && t.sprite.tint && /^#/.test(t.sprite.tint) ? t.sprite.tint : f && Object.values(f.p)[0]) || "#bfe6f2";
+        const more = Math.min(18, Math.sqrt(held) * 0.9);
+        if (burns && !t.shaken) lights.push({ x: x * T + 8, y: y * T + 8 + bob, r: 24 + more, k: 0.85, color, glow: t.old ? 0.12 : 0.26, seed: hash(t.id) % 97 });
+        else if (t.given) lights.push({ x: x * T + 8, y: y * T + 9, r: 26 + more * 0.6, k: 0.7, color: own, glow: 0.07 });
+        else lights.push({ x: x * T + 8, y: y * T + 9, r: 13, k: 0.35 });
+        // The marks of its state: a pip of its color at its shoulder; a page if it
+        // holds a story to tell.
+        if (t.given) {
+          px(x * T - 2, y * T + 3 + bob, 4, 4, NIGHT); px(x * T - 1, y * T + 4 + bob, 2, 2, own);
+          if (t.tales > 0) { px(x * T + 14, y * T + 2 + bob, 5, 6, NIGHT); px(x * T + 15, y * T + 3 + bob, 3, 4, INK); px(x * T + 16, y * T + 4 + bob, 1, 1, SLATE); px(x * T + 15, y * T + 5 + bob, 2, 1, SLATE); }
+        }
+      }
       if (t.kind === "creature") {
         if (t.max) {
           const frac = Math.max(0, Math.min(1, t.hp / t.max));
@@ -804,7 +869,8 @@ export default function install(m) {
           // A knocked-out (shaken) creature's bar is slate: it is down, whatever it holds.
           px(x * T + 2, y * T - 3 + bob, Math.round(12 * frac), 2, t.shaken ? SLATE : frac > 0.5 ? MOSS : frac > 0.25 ? DUST : EMBER);
         }
-        const who = t.given ? t.given + " the " + t.name : "the " + t.name;
+        const state = (t.old ? ", old" : "") + (t.young ? ", heir of " + t.heirOf : "") + (t.tales > 0 ? ", holds " + (t.tales === 1 ? "a story" : t.tales + " stories") : "");
+        const who = (t.given ? t.given + " the " + t.name : "the " + t.name) + state;
         // Beside another of its kind, this one is wisp-4958: a tap on the left wisp
         // once struck the right one, and the world says it that way too.
         const twins = things.filter(o => o.kind === "creature" && o.name === t.name && !o.given).length > 1;
@@ -840,10 +906,58 @@ export default function install(m) {
       const b = bubbles.get((t.given || t.name || "").toLowerCase()) || (t.kind === "docent" ? bubbles.get("docent") : null) || (t.kind === "you" ? bubbles.get("you") : null);
       if (b && b.until > now) bubble(b.text, x, y, b.until - now);
     }
-    // Lighting: a vignette, warmer where the lantern is; a fading room goes dark.
-    const g = ctx.createRadialGradient(canvas.width / 2, canvas.height * 0.55, canvas.width * 0.2, canvas.width / 2, canvas.height * 0.55, canvas.width * 0.75);
-    g.addColorStop(0, "rgba(18,26,37,0)"); g.addColorStop(1, "rgba(18,26,37,.45)");
-    ctx.fillStyle = g; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Atmosphere under the dark: dust that rises through whatever light there is, and
+    // in a room of fog or water, banks that drift across it.
+    const drift = STILL ? 0 : now;
+    for (let i = 0; i < 22; i++) {
+      const sx = rnd(scene.id, 300 + i), sy = rnd(scene.id, 340 + i), sp = 0.4 + rnd(scene.id, 380 + i);
+      const mx = sx * W + Math.sin(drift / 3800 + i * 1.7) * 5;
+      const span = H - WALL_TOP * T - 4;
+      const my = H - 2 - ((sy * span + drift / 260 * sp) % span);
+      ctx.globalAlpha = 0.16 + 0.22 * Math.abs(Math.sin(drift / 1900 + i));
+      px(mx, my, 1, 1, i % 5 === 0 ? DUST : INK);
+    }
+    ctx.globalAlpha = 1;
+    if (scene.motif === "fog" || scene.motif === "water") {
+      for (let i = 0; i < 4; i++) {
+        const fw = (70 + rnd(scene.id, 400 + i) * 80) * SCALE, fh = (9 + rnd(scene.id, 410 + i) * 9) * SCALE;
+        const speed = (i % 2 ? 1 : -1) * (0.004 + rnd(scene.id, 420 + i) * 0.006);
+        const span = canvas.width + fw * 2;
+        const fx = ((rnd(scene.id, 430 + i) * span + drift * speed * SCALE) % span + span) % span - fw;
+        const fy = (WALL_TOP * T + 14 + rnd(scene.id, 440 + i) * (H - WALL_TOP * T - 30)) * SCALE;
+        const fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, fw);
+        fg.addColorStop(0, scene.motif === "fog" ? "rgba(214,222,230,.13)" : "rgba(150,190,210,.08)"); fg.addColorStop(1, "rgba(214,222,230,0)");
+        ctx.save(); ctx.translate(fx, fy); ctx.scale(1, fh / fw); ctx.translate(-fx, -fy);
+        ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(fx, fy, fw, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      }
+    }
+    // Lighting: the room is dark, and what stands in it is seen by what gives light.
+    // A sheet of night with a hole worn in it at every light; then each burning
+    // thing's own color laid over, flickering.
+    if (!shade2 || shade2.width !== canvas.width || shade2.height !== canvas.height) { shade2 = document.createElement("canvas"); shade2.width = canvas.width; shade2.height = canvas.height; }
+    const dg = shade2.getContext("2d");
+    dg.globalCompositeOperation = "source-over"; dg.clearRect(0, 0, shade2.width, shade2.height);
+    dg.fillStyle = "rgba(9,13,20," + (scene.motif === "lanterns" ? 0.46 : 0.6) + ")"; dg.fillRect(0, 0, shade2.width, shade2.height);
+    dg.globalCompositeOperation = "destination-out";
+    const flick = (l) => l.seed == null || STILL ? 1 : 1 + 0.06 * Math.sin(now / 170 + l.seed) + 0.035 * Math.sin(now / 61 + l.seed * 3);
+    for (const l of lights) {
+      const r = l.r * flick(l) * SCALE, cx = l.x * SCALE, cy = l.y * SCALE;
+      const lg = dg.createRadialGradient(cx, cy, r * 0.15, cx, cy, r);
+      lg.addColorStop(0, "rgba(0,0,0," + l.k + ")"); lg.addColorStop(1, "rgba(0,0,0,0)");
+      dg.fillStyle = lg; dg.beginPath(); dg.arc(cx, cy, r, 0, Math.PI * 2); dg.fill();
+    }
+    ctx.drawImage(shade2, 0, 0);
+    ctx.globalCompositeOperation = "lighter";
+    for (const l of lights) {
+      if (!l.glow && !l.warm) continue;
+      const r = l.r * 0.8 * flick(l) * SCALE, cx = l.x * SCALE, cy = l.y * SCALE;
+      const [cr, cg, cb] = l.color ? rgbOf(l.color) : [217, 181, 122];
+      const a = (l.glow || l.warm) * (l.seed == null ? 1 : flick(l));
+      const lg = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      lg.addColorStop(0, "rgba(" + cr + "," + cg + "," + cb + "," + a.toFixed(3) + ")"); lg.addColorStop(1, "rgba(" + cr + "," + cg + "," + cb + ",0)");
+      ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
     if (mem < 0.999) { ctx.fillStyle = "rgba(18,26,37," + ((1 - mem) * 0.7).toFixed(2) + ")"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
     if (hurt > now) { const k = (hurt - now) / 500; ctx.strokeStyle = "rgba(209,115,79," + (k * 0.8).toFixed(2) + ")"; ctx.lineWidth = 6 * SCALE * k; ctx.strokeRect(0, 0, canvas.width, canvas.height); }
     // Floats: blows and gains.
@@ -1086,7 +1200,7 @@ export default function install(m) {
     root: "here",
     select: { "disremembered.room": ["name", "key", "memory", "description", "bound"], "disremembered.sprite": "*" },
     relations: {
-      contents: { kinds: ["citizen", "creature", "docent", "morphos", "item"], select: { "disremembered.docent": ["name"], "disremembered.morphos": ["name", "present"], "disremembered.citizen": ["name"], "disremembered.creature": ["name", "hp", "max_hp", "xp"], "disremembered.item": ["name", "given_name", "fixed"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace"], "disremembered.mind": ["name", "tier", "shaken_until"] } },
+      contents: { kinds: ["citizen", "creature", "docent", "morphos", "item"], select: { "disremembered.docent": ["name"], "disremembered.morphos": ["name", "present"], "disremembered.citizen": ["name"], "disremembered.creature": ["name", "hp", "max_hp", "xp"], "disremembered.item": ["name", "given_name", "fixed"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace"], "disremembered.mind": ["name", "tier", "shaken_until", "old_since", "heir_of", "named_since", "tales"] } },
       exits: { select: { "disremembered.room": ["name"], "disremembered.sprite": "*" } },
     },
     timed: "curve", commands: false,

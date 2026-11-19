@@ -157,3 +157,19 @@ Leans on the engine's timed values. It subscribes to your window and your palace
 ## `sky.js`
 
 The night over the room. The moon's phase is the Clocktower's half-life rate (full at 1.0, waning as memory thins); the fog along the ground is the worth rate; the stars are whoever is in the room (gold citizens, pale named creatures, faint unnamed ones), winking out as they go; a comet crosses when something is born anywhere; the sky flares red when something strikes you; and when the Clocktower strikes, the moon shivers and what it said drifts across. It reads the public `/v0/economy` once a minute and the page's own room observation, and sends nothing through the gate: a mod can be pure weather.
+
+## What tiles draws beyond the sprites (11-19)
+
+- **Light.** The room is dark, and a sheet of night is laid over it with a hole worn
+  at every light: you, the Docent, a named creature, a fixture (wider for a lamp or a
+  lantern), a door, a thing on the floor. The kinds that burn (wisp, lanternfly,
+  lampmoth, ember) give light in their own color, more of it the more they hold, and it
+  flickers. Dust rises through the lit air; a room of fog or water has banks that
+  drift. A reader who has asked for reduced motion gets the light and none of the
+  movement.
+- **State.** A named creature stands in a ring of a color taken from its name, with a
+  pip of that color at its shoulder, and a small page beside it if it holds a story to
+  tell (`tales`). It stands larger for what it holds, in steps (150, 400, 1000). An old
+  one (it has said so) is gray and slow; an heir in its first week is small. The hover
+  line says the same in words.
+
