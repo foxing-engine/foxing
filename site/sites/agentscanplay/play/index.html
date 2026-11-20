@@ -1273,6 +1273,11 @@
         }
         if (f.type === "event") {
           const e = f.event;
+          // The cursor follows the session. It was set at the welcome and never
+          // again, so when the socket dropped (a deploy) the polling that took over
+          // asked for everything since you logged in, and printed the whole session
+          // a second time (David, 11-19).
+          if (typeof e.seq === "number" && e.seq > cursor) cursor = e.seq;
           if (e.kind === "disremembered.narrative" && e.payload && (e.payload.to === actor || (Array.isArray(e.payload.to) && e.payload.to.includes(actor)))) { heard(e.payload.text); }
           if (e.kind === "disremembered.died" && e.payload && e.payload.citizen === actor) fell(e.payload);
           lately(e);
@@ -1364,6 +1369,7 @@
       if (status === 401) { print(body.error, "err"); logout(); return; }
       if (!body || !body.ok) return;
       for (const e of body.observation.events || []) {
+        if (typeof e.seq === "number" && e.seq <= cursor) continue;
         if (e.kind === "disremembered.narrative" && e.payload && (e.payload.to === actor || (Array.isArray(e.payload.to) && e.payload.to.includes(actor)))) heard(e.payload.text);
         if (e.kind === "disremembered.died" && e.payload && e.payload.citizen === actor) fell(e.payload);
         lately(e);
