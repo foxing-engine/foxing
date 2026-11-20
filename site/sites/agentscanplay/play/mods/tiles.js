@@ -963,10 +963,15 @@ export default function install(m) {
           labelAt(t.given, x, y, -1, DUST);
           ctx.globalAlpha = 1;
         } else if (t.given) labelAt(t.given, x, y, -1, INK);
-        const menuRows = t.given
+        // The house's officers are not fought and not fed: the menu offered
+        // "Attack the crier" and "Give it a memory (names it at 60)".
+        const OFFICER = ["crier", "clerk", "bailiff", "tipstaff", "engrosser", "cataloguer", "censor", "usher", "keeper"].includes(t.name);
+        const menuRows = OFFICER && !t.given
+          ? [{ label: "Look", run: () => m.command("look", []) }, { label: "Read the room", run: () => m.command("read", []) }]
+          : t.given
           ? [{ label: "Talk to " + t.given, run: () => m.prefill("tell " + t.given + ' "') }, { label: "Tell " + t.given + " a story", run: () => m.prefill("story " + t.given + ' "') }, { label: "Give " + t.given + " a memory", run: () => m.prefill("remember " + bestChunk() + " " + t.given) }, { label: "Attack " + t.given, run: () => m.command("attack", [t.given]), warn: true }]
           : [{ label: "Attack " + (twins ? ref : who), run: () => m.command("attack", [ref]) }, { label: "Give it a memory (names it at 60)", run: () => m.prefill("remember " + bestChunk() + " " + ref) }, { label: "Look", run: () => m.command("look", []) }];
-        hot.set(x + "," + y, { target: t.given || ref, label: (twins ? ref : who) + (t.max ? " (" + Number(t.hp).toFixed(0) + "/" + t.max + ")" : "") + (t.given ? " — talk, story, memory, attack" : " — attack, or feed it"), primary: t.given ? () => m.prefill("story " + t.given + ' "') : () => m.command("attack", [ref]), menu: menuRows });
+        hot.set(x + "," + y, { target: t.given || ref, label: (twins ? ref : who) + (t.max ? " (" + Number(t.hp).toFixed(0) + "/" + t.max + ")" : "") + (t.given ? " — talk, story, memory, attack" : " — attack, or feed it"), primary: t.given ? () => m.prefill("story " + t.given + ' "') : OFFICER ? () => m.command("look", []) : () => m.command("attack", [ref]), menu: menuRows });
       } else if (t.kind === "you") {
         const by = Math.round(Math.sin(now / 300)) - 7;
         px(x * T + 7, y * T + by, 2, 2, DUST); px(x * T + 6, y * T + by - 2, 4, 2, DUST); px(x * T + 5, y * T + by - 4, 6, 2, DUST);

@@ -2478,6 +2478,13 @@ pub fn describe_as(
             ));
         }
     }
+    if !brief {
+        if let Some(t) = super::courthouse::tattoo_of(world, actor) {
+            text.push_str(&format!(
+                " Your forearm reads \"{t}\", in the Bailiff's hand."
+            ));
+        }
+    }
     text.push_str(&if others.is_empty() {
         // "You are alone" beside a named creature that greets you read as a
         // contradiction: alone of citizens, said so when something is here.
@@ -2490,10 +2497,14 @@ pub fn describe_as(
         // X6: what the Bailiff wrote on a forearm is read by whoever looks.
         let inked: Vec<String> = others
             .iter()
-            .map(|n| match super::courthouse::tattoo_of(world, n) {
-                Some(t) => format!("{n} (a forearm inked \"{t}\")"),
-                None => n.clone(),
-            })
+            .map(
+                |n| match super::courthouse::tattoo_of(world, n.split(" (").next().unwrap_or(n)) {
+                    // (The list writes "Gnisi (through the gate)", and the name was
+                    // looked up whole: nobody read the first two tattoos.)
+                    Some(t) => format!("{n}, a forearm inked \"{t}\""),
+                    None => n.clone(),
+                },
+            )
             .collect();
         let shown = &inked[..inked.len().min(super::NAMES_SHOWN)];
         match others.len() - shown.len() {

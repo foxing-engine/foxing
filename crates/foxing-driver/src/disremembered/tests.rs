@@ -14376,7 +14376,7 @@ fn the_court_of_lethe_hears_a_case_through_and_forgets_it() {
     assert!(level(&mut w, "dave") > d0 + 10.0 && level(&mut w, "tyler") > t0_level + 4.0);
     let said = narrative(&w, "tyler", head).join(" ");
     assert!(
-        said.contains("has decided case 1, dave against tyler: granted"),
+        said.contains("Case 1, dave against tyler, is decided: granted"),
         "{said}"
     );
     // While the ruling is remembered the story is not taken by telling it, and the
@@ -14948,7 +14948,7 @@ fn the_bailiff_writes_on_a_hand_raised_in_the_courtroom() {
     let seen = ok(&mut w, "tyler", "look", json!([]));
     assert!(
         seen.summary
-            .contains(&format!("dave (a forearm inked \"{wears}\")")),
+            .contains(&format!("a forearm inked \"{wears}\"")),
         "{}",
         seen.summary
     );
@@ -15005,4 +15005,61 @@ fn a_seed_exit_the_seed_has_moved_follows_it() {
     assert_eq!(rooms::exits_of(&w, lobby).get("door"), Some(&court));
     rooms::ensure_rooms(&mut w).unwrap();
     assert_eq!(rooms::exits_of(&w, lobby).get("door"), Some(&hall));
+}
+
+#[test]
+fn the_court_record_sees_a_line_appended_to_a_room() {
+    // The first case before the Court (the Watch of 11-20) was denied with the line
+    // standing in the room: the record read two fields the append never wrote.
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    court::calm_for_test(&mut w);
+    for _ in 0..2 {
+        admin(&mut w, "dave", "earn", json!(["wisp", 30, 0.5]));
+    }
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 30, 0.5]));
+    let chunk = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    admin(&mut w, "dave", "bring", json!(["dave", "orchard-wall"]));
+    ok(&mut w, "dave", "dig", json!(["nook", chunk, "Daves Nook"]));
+    ok(&mut w, "dave", "travel", json!(["nook"]));
+    ok(&mut w, "dave", "permit", json!(["tyler"]));
+    admin(&mut w, "tyler", "bring", json!(["tyler", "orchard-wall"]));
+    ok(&mut w, "tyler", "travel", json!(["nook"]));
+    ok(
+        &mut w,
+        "tyler",
+        "append",
+        json!(["The damp corner could pass for modern art if you squint"]),
+    );
+    admin(&mut w, "dave", "bring", json!(["dave", "filing-window"]));
+    let out = ok(
+        &mut w,
+        "dave",
+        "plead",
+        json!(["line", "tyler", "damp corner could pass"]),
+    );
+    assert_eq!(out.result["record_bears_it_out"], true, "{}", out.summary);
+    assert!(
+        !out.summary.contains("will not help you"),
+        "{}",
+        out.summary
+    );
+    // And a plea the record does not bear out is told so at the window.
+    login(&mut w, "sam", "test", PASS).unwrap();
+    admin(&mut w, "sam", "earn", json!(["wisp", 30, 0.5]));
+    admin(&mut w, "sam", "bring", json!(["sam", "filing-window"]));
+    let out = ok(
+        &mut w,
+        "sam",
+        "plead",
+        json!(["line", "tyler", "a line that was never written"]),
+    );
+    assert!(
+        out.summary
+            .contains("the record as it stands will not help you"),
+        "{}",
+        out.summary
+    );
 }

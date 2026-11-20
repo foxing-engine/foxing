@@ -28,7 +28,7 @@ pub const STAIR: &str = "appeal-stair";
 const SLOT_MS: i64 = 10 * 60_000;
 /// A sitting: seconds from the bell to the first line, and between lines.
 pub const BELL_S: i64 = 20;
-pub const LINE_S: i64 = 14;
+pub const LINE_S: i64 = 18;
 pub const ADJOURNED_S: i64 = 75;
 /// What attending a sitting to its end is worth to a name that is no party to it.
 pub const GALLERY_XP: f64 = 3.0;
@@ -150,6 +150,12 @@ const REALM_REBUTS: &[&str] = &[
     "The Realm's Attorney produces an exhibit, holds it up to the gallery, and is told by the Clerk that it is the Realm's own lunch. \"THE REALM WITHDRAWS THE EXHIBIT AND RESERVES ITS POSITION ON THE LUNCH.\"",
     "The Realm's Attorney: \"THE REALM RESTS.\" It does not sit down. \"THE REALM RESTS STANDING.\"",
 ];
+const DEFENDER_AGAIN: &[&str] = &[
+    "The Semi-Public Defender half rises. \"If I may. I have nothing to add. I rose to see whether I had.\" It sits. It rises again. \"I would add that I have a matter in the next court, if there were a next court.\"",
+    "The Semi-Public Defender finds, in the file, a sandwich, and holds it up, and is told by the Clerk that it is not evidence. \"I did not offer it as evidence,\" says the Semi-Public Defender, with dignity, and puts it back in the file.",
+    "The Semi-Public Defender: \"I object to my learned friend's volume.\" The Realm's Attorney: \"THE REALM'S VOLUME IS A MATTER OF RECORD.\" The Clerk confirms that it is, and has been since the fourth sitting.",
+    "The Semi-Public Defender asks leave to consult its client, is reminded which one, consults the wrong one anyway, by letter, and reports that they are well.",
+];
 const DEFENDER_WRONG: &[&str] = &[
     "Mr. Tallow",
     "the widow Oakes",
@@ -166,6 +172,9 @@ const GALLERY: &[&str] = &[
     "The Crier of the List has come as far as the door to listen, been asked by a look whether the List is crying itself, and gone back.",
     "An engrosser has come down from the Conclave and stands in the doorway taking the whole thing down in a large clear hand, for no one.",
     "The gallery leans, all together, the way wheat does.",
+    "A bookworm in the front row has eaten the corner of its order of proceedings and is reading the rest with interest.",
+    "Somebody in the gallery has brought knitting. Somebody else has brought a second somebody, to explain it to. The explanation is wrong and nobody corrects it.",
+    "From the gallery: \"Speak up!\" From the Realm's Attorney: \"THE REALM HAS NEVER BEEN ASKED THAT.\"",
 ];
 const LOST_THREADS: &[&str] = &[
     "and it puts the Court in mind of a ferry there used to be, which went to the far bank only when the ferryman had somebody to disagree with, and the Court has always thought that a lesson, though of what precisely",
@@ -216,7 +225,13 @@ pub fn script(world: &mut World, c: &Value, drawn: &[String]) -> Vec<Value> {
         },
         LINE_S,
     );
+    let (_, facts) = super::court::record(world, c);
+    line(
+        format!("The Clerk reads the record, which is the only witness this Court calls, and which is carried in on a cushion: \"{facts}\" The Clerk sets it down. The record is thanked, and does not acknowledge it."),
+        LINE_S,
+    );
     line(pick(world, REALM_REBUTS).to_string(), LINE_S);
+    line(pick(world, DEFENDER_AGAIN).to_string(), LINE_S);
     line(pick(world, GALLERY).to_string(), LINE_S);
     // The Court is prone to error at every stage, its own sittings among them.
     if mishap(world, 3) {
@@ -227,13 +242,16 @@ pub fn script(world: &mut World, c: &Value, drawn: &[String]) -> Vec<Value> {
         line("A door opens on the far side of the water. The Bailiff: \"All sit.\" Nothing is said about where the Court has been. There is a smell of toast.".to_string(), LINE_S);
     }
     let lost = pick(world, LOST_THREADS);
-    let head: String = opinion
-        .split_whitespace()
-        .take(9)
-        .collect::<Vec<_>>()
-        .join(" ");
+    // (Nine words of the opinion led into it, and stopped mid-phrase: "has examined
+    // the record in, which is a principle". It read as a fault.)
+    let head = pick(world, &[
+        "This Court has been asked to say what is to be done, and it will say it, but it will first say why,",
+        "The Court has the plea, and the answer, and the record, and has read all three, the record twice,",
+        "Before the Court gives its ruling it wishes to observe, as it has observed before,",
+        "The Court will be short. It is always short. The matter before it is not a hard one,",
+    ]);
     line(
-        format!("The judge, from over the water, in no hurry: \"{head}, {lost}.\" A silence. \"Where was I.\" The Clerk, not looking up: \"Case {n}, if it please the Court. The ruling.\" \"The ruling. Yes.\""),
+        format!("The judge, from over the water, in no hurry: \"{head} {lost}.\" A silence. \"Where was I.\" The Clerk, not looking up: \"Case {n}, if it please the Court. The ruling.\" \"The ruling. Yes.\""),
         LINE_S,
     );
     line(format!("The judge: \"{opinion}\""), LINE_S);

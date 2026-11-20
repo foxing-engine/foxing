@@ -645,6 +645,13 @@ fn read_on(world: &mut World, n: u64) -> Result<(), String> {
     let line = c["script"].as_array().and_then(|a| a.get(step)).cloned();
     match line {
         Some(l) => {
+            if step == 3 || step == 7 {
+                super::courthouse::say_in(
+                    world,
+                    super::courthouse::HALL,
+                    &format!("Through the arch marked COURT: a voice in capitals, a murmur, the Bailiff saying nothing very loudly. The Court is still sitting on case {n}, and there is room in the gallery."),
+                );
+            }
             super::courthouse::say_in(world, ROOM_KEY, l["t"].as_str().unwrap_or(""));
             c["step"] = json!(step + 1);
             let wait = l["w"].as_i64().unwrap_or(super::courthouse::LINE_S).max(1);
@@ -1278,7 +1285,7 @@ pub fn register(world: &mut World) {
             }
             if !at(w, &ctx.actor, ROOM_KEY) {
                 return Err(CommandError::precondition(format!(
-                    "An answer is given in the Courtroom of the Court of Lethe, at the dock: behind the door in the Division Lobby, across the Hall of Lost Steps, through the arch marked COURT (`where \"Court of Lethe\"`). You have {} left to give it.",
+                    "An answer is given in the Courtroom of the Court of Lethe, at the dock: behind the door in the Division Lobby, across the Hall of Lost Steps, through the arch marked COURT (`travel court` from the Hall; `where \"Court of Lethe\"` from anywhere else). You have {} left to give it.",
                     super::combat::human((c["answer_by"].as_i64().unwrap_or(0) - w.now().0).max(0))
                 )));
             }

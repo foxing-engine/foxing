@@ -208,6 +208,21 @@ const NOUNS: &[(&str, &[&str], &str)] = &[
     // X6, 11-20: the courthouse.
     (
         "lost-steps",
+        &["list", "board", "crier"],
+        "The List is one sheet, pinned at the corners, ruled by hand. What is on it today the room tells you when you `look`; `docket` reads the whole Docket from anywhere. At the foot, printed: CASES ARE CALLED IN THE ORDER RECEIVED, EXCEPT AS OTHERWISE. The Crier of the List stands beside it with a handbell and a coat that rustles. It cries a case once, when the Court sits on it, and has been known to practice under its breath.",
+    ),
+    (
+        "court-of-lethe",
+        &["docket", "glass", "case"],
+        "The Docket under glass: every case the Court still remembers, in the Clerk's hand, the oldest gone the color of the paper. The glass is to keep fingers off it and does. `docket` reads it from anywhere, and `docket <n>` reads one case whole; a ruling that is read is kept two weeks more, and one that nobody reads fades off the sheet and binds nobody.",
+    ),
+    (
+        "court-of-lethe",
+        &["dock", "water", "channel", "bench", "tables", "table", "files", "cup"],
+        "The dock is a railed square with a worn place where hands go. From it you can see the Realm's Attorney's table, where the files are stacked by weight; the Semi-Public Defender's, where forty files share one ribbon and the cup has a skin on it; and, over the water, the bench, which is higher than it needs to be and lit from somewhere behind. The water in the channel moves, slowly, from the bench's side to yours. Things said from over there arrive a little late.",
+    ),
+    (
+        "lost-steps",
         &["clock", "hand"],
         "The clock has one hand and no numbers. You watch it and it does not move, and then you look away and back and it has. It is not telling the hour. It is telling you how long you have been in this hall, and it is a little ahead.",
     ),
@@ -218,7 +233,7 @@ const NOUNS: &[(&str, &[&str], &str)] = &[
     ),
     (
         "filing-window",
-        &["card", "hours", "cards", "pigeonholes", "forms"],
+        &["card", "hours", "cards", "pigeonholes", "forms", "window", "grille", "shutter", "clerk", "stamps"],
         "The card of hours has been corrected in three inks and each correction corrects the last. What can be made out: the window is open when it is open. The second card says FORMS NOT KEPT AT THIS WINDOW ARE KEPT ELSEWHERE, and somebody waiting has added in pencil: the Crier has them, in the Hall, in its coat. The pigeonholes behind the grille are numbered 7-B, 12, 3 (pink), 40-A and 9, and every one of them is empty, and dusted.",
     ),
     (
@@ -233,7 +248,7 @@ const NOUNS: &[(&str, &[&str], &str)] = &[
     ),
     (
         "court-of-lethe",
-        &["notice", "notices", "inkpot", "bailiff"],
+        &["notice", "notices", "inkpot", "bailiff", "bar"],
         "The third hand on the notice is the Bailiff's: NOTHING IS STRUCK IN THIS ROOM BUT THE RECORD. The inkpot at its belt has a brass cap on a chain and a crust of blue-black round the neck. Whoever raises a hand in here leaves with something written on them, in a round clerk's hand, that the Bailiff thought suited. It does not wash off. Nobody has yet found what does.",
     ),
     (
