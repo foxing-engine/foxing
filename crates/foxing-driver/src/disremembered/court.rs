@@ -333,12 +333,27 @@ fn find_line(world: &World, by: &str, against: &str, low: &str) -> Option<Line> 
         {
             return None;
         }
-        let room = EntityId(e.payload["room"].as_u64()?);
-        let added = e.payload["added"].as_str()?;
-        (owner_of(world, room).as_deref() == Some(by)
-            && added.to_lowercase().contains(low)
-            && plain_str(world, room, ROOM, "description").is_some_and(|d| d.contains(added)))
-        .then(|| Line::Room(room, added.to_string()))
+        let room = EntityId(
+            e.payload["room"]
+                .as_u64()
+                .or_else(|| e.payload["target"].as_u64())?,
+        );
+        if owner_of(world, room).as_deref() != Some(by) {
+            return None;
+        }
+        let described = plain_str(world, room, ROOM, "description")?;
+        match e.payload["added"].as_str() {
+            Some(added) => (added.to_lowercase().contains(low) && described.contains(added))
+                .then(|| Line::Room(room, added.to_string())),
+            // An append from before the event carried its words: the sentence of
+            // the room that holds the words complained of, the other name having
+            // written in that room.
+            None => described
+                .split_inclusive(['.', '!', '?'])
+                .map(str::trim)
+                .find(|sentence| sentence.to_lowercase().contains(low))
+                .map(|sentence| Line::Room(room, sentence.to_string())),
+        }
     })
 }
 
@@ -544,7 +559,22 @@ fn decide(world: &mut World, c: &mut Value, verdict: &str, opinion: &str, judge:
             } else {
                 String::new()
             };
-            super::combat::narrate(world, &who, format!("{said}{kept} (`docket {n}` at the Court reads the ruling, and a ruling read is a ruling kept.)"));
+            // A party in the Courtroom has just heard the opinion read out: the
+            // word of it does not say it all again (the first case's petitioner
+            // got the ruling twice in one breath).
+            let said = if at(world, &who, ROOM_KEY) {
+                format!(
+                    "Case {n}, {by} against {against}, is decided: {verdict}.{}",
+                    if did.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" {did}")
+                    }
+                )
+            } else {
+                said.clone()
+            };
+            super::combat::narrate(world, &who, format!("{said}{kept} (`docket {n}` reads the ruling from anywhere, and a ruling read is a ruling kept.)"));
         }
     }
     world.notice(format!(
@@ -1100,7 +1130,7 @@ pub fn register(world: &mut World) {
             "Bring a case before the Court of Lethe, at its Filing Window in the window's hours, as a kept name: plead <kind> <against> \"<what>\". The kinds: story (a story of yours another name tells as their own; what: the creature that holds it), line (a line another wrote in a room or book of yours; what: some of its words), name (a name another put on an object of yours; what: the name), thing (a thing left by a creature you felled, taken by another; what: the thing), roll (your name on the Roll of Hoards; against: conclave). The fee is the least memory you hold. The plea is then carried to the Unfiled Archive to be stamped, and back to the window (and wherever else it turns out to be wanted), and the other name has a day to answer in the Courtroom. The Court then sits, aloud, and a bell says when. A judgment puts right and fines nobody.",
         )
         .param("kind", ParamType::String, true, "story, line, name, thing or roll")
-        .param("against", ParamType::String, true, "the other name, or conclave for the Roll")
+        .param("against", ParamType::Entity, true, "the other name, or conclave for the Roll")
         .param("what", ParamType::Text, true, "the creature, the words, the name or the thing, quoted")
         .allowed(&[ActorKind::Citizen, ActorKind::Admin]),
         Box::new(|w: &mut World, ctx, args: &Args| {
@@ -1195,6 +1225,7 @@ pub fn register(world: &mut World) {
                 c["form"] = json!(num);
             }
             move_stage(w, &mut c, "lodged");
+            let (borne_out, facts) = record(w, &c);
             all.push(c);
             write(w, all, Some(n + 1)).map_err(CommandError::precondition)?;
             let ticket = super::courthouse::paper(
@@ -1209,16 +1240,21 @@ pub fn register(world: &mut World) {
             };
             Ok(Outcome::new(
                 format!(
-                    "The Clerk of the Court takes the fee, your least memory (chunk-{} worth {worth:.1}), weighs it, and lodges your plea as case {n}: {} against {against}, in the matter of {} (\"{what}\"). {}{errand}",
+                    "The Clerk of the Court takes the fee, your least memory (chunk-{} worth {worth:.1}), weighs it, and lodges your plea as case {n}: {} against {against}, in the matter of {} (\"{what}\"). {}{errand}{}",
                     chunk.0,
                     ctx.actor,
                     kind_said(&kind),
                     match ticket {
                         Some(t) => format!("A numbered ticket is torn off and pushed under the grille (item-{}, in your satchel). ", t.0),
                         None => String::new(),
+                    },
+                    if borne_out {
+                        String::new()
+                    } else {
+                        format!(" The Clerk, who is not asked, remarks that the record as it stands will not help you ({facts}), that the Court grants nothing against the record, and that the record may yet change before the Court sits; `docket {n}` reads it as it stands.")
                     }
                 ),
-                json!({"case": n, "stage": "lodged", "fee": worth, "form": form.map(|f| f.0)}),
+                json!({"case": n, "stage": "lodged", "fee": worth, "form": form.map(|f| f.0), "record_bears_it_out": borne_out}),
             ))
         }),
     );

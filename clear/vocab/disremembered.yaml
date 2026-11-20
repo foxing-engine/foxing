@@ -100,7 +100,7 @@ approved_verbs:
   # C10: the reference slips, one in each district (`read slip` asks)
   slips: {params: []}
   tales: {params: []}
-  plead: {params: [{name: kind, type: string, required: true}, {name: against, type: string, required: true}, {name: what, type: text, required: true}]}
+  plead: {params: [{name: kind, type: string, required: true}, {name: against, type: entity, required: true}, {name: what, type: text, required: true}]}
   defend: {params: [{name: case, type: integer, required: true}, {name: text, type: text, required: true}]}
   docket: {params: [{name: case, type: integer, required: false}]}
   murmur: {params: []}

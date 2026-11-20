@@ -1256,7 +1256,10 @@ pub fn register(world: &mut World, curves: super::Curves) {
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 APPENDED,
-                json!({"by": ctx.actor, "kind": "room", "target": here.0, "name": plain_str(w, here, ROOM, "name"), "owner": owner, "chars": more.chars().count()}),
+                // "room" and "added" are what the Court of Lethe's record reads (the
+                // first case before it was denied for want of them: the line stood
+                // in the room and the record could not see it).
+                json!({"by": ctx.actor, "kind": "room", "target": here.0, "room": here.0, "added": more, "name": plain_str(w, here, ROOM, "name"), "owner": owner, "chars": more.chars().count()}),
             );
             Ok(Outcome::new(
                 format!("The room is now described: {joined}"),
