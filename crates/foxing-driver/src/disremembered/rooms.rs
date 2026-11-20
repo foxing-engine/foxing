@@ -2673,6 +2673,27 @@ pub fn register(world: &mut World) {
                     )));
                 }
             }
+            // R253 (David, 11-19: option a): under a third of your hit points, the
+            // first step into a room where something hunts stops with the warning;
+            // `travel <exit> anyway` goes in. (A name walked into the Sump at six
+            // with the warning in the room's text and nothing in its way.)
+            if !super::combat::sheltered(w, f.citizen) && !args.str("word").is_some_and(|x| x.eq_ignore_ascii_case("anyway")) {
+                let hp = super::combat::hp(w, f.citizen);
+                let whole = super::combat::max_hp(w, f.citizen);
+                let hunter = super::combat::creatures_in(w, to)
+                    .into_iter()
+                    .find(|c| super::combat::is_aggressive(w, c.0) && !super::mind::shaken(w, c.0));
+                if let Some(h) = hunter.filter(|_| hp < whole / 3.0) {
+                    return Err(foxing_registry::CommandError::precondition(format!(
+                        "You have {hp:.0} of {whole:.0}, and something hunts in {}: {} is in there now and will be on you as you come in. `rest` here first, or `travel {exit} anyway` to go in all the same.",
+                        plain_str(w, to, ROOM, "name").unwrap_or("there"),
+                        match super::mind::name(w, h.0) {
+                            Some(_) => super::mind::display(w, h.0),
+                            None => format!("a {}", super::mind::display(w, h.0)),
+                        }
+                    )));
+                }
+            }
             // C9: the starfish lies across the way to the Burning Shelf.
             if let Some(said) = super::tide::bars(w, room, to) {
                 return Err(foxing_registry::CommandError::precondition(said));

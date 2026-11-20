@@ -854,6 +854,8 @@
     #first { padding: 6px 12px; } #first .why { display: none; }
     #settings-menu input[type="checkbox"], #panels-menu input[type="checkbox"] { width: 22px; height: 22px; vertical-align: middle; margin-right: 8px; }
     #settings-menu label, #panels-menu label { padding: 6px 0; display: flex; align-items: center; }
+    .row .sub.want { white-space: normal; overflow: visible; }
+    header .state #state { white-space: normal; overflow: visible; }
     #help { padding: 54px 12px 20px; } #help pre { font-size: 12.5px; }
     #help .close { top: 10px; right: 10px; padding: 9px 18px; font-size: 15px; }
   }
@@ -2856,7 +2858,13 @@
   $("b-guide").addEventListener("click", () => { window.open(new URL("../guide/", location.href), "_blank", "noopener"); });
   $("b-help").addEventListener("click", showHelp);
   $("help").querySelector(".close").addEventListener("click", hideHelp);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("help").hidden) hideHelp(); });
+  // R258: `?` no longer holds the prompt: a letter typed while it is open closes
+  // it and goes to the line (a person typed `help` at it for thirty seconds).
+  document.addEventListener("keydown", (e) => {
+    if ($("help").hidden) return;
+    if (e.key === "Escape") { hideHelp(); return; }
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") { hideHelp(); input.focus(); }
+  });
   // Header buttons: passphrase, save the transcript, leave.
   $("b-pass").addEventListener("click", () => { const n = window.prompt("A new passphrase (8+ characters). Nothing recovers a lost one; a name unspoken thirty days is forgotten.", ""); if (n === null) return; chain = after(() => handle("passphrase " + n)); });
   $("b-save").addEventListener("click", () => {

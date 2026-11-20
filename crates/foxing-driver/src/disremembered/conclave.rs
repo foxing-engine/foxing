@@ -140,7 +140,7 @@ pub const STATUTES: &[StatuteDef] = &[
         default: 0.05,
         low: 0.01,
         high: 0.2,
-        what: "the share of all held memory that the Purse of the Exergue holds (never under six hundred), past its two Wardens",
+        what: "the share of all held memory that sits in the Purse, a sack in the Purse Room at the foot of the Exergue (never under six hundred). Two Wardens guard it; `take purse` once both are felled takes it",
     },
 ];
 

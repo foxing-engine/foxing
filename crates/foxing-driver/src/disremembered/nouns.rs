@@ -154,6 +154,57 @@ const NOUNS: &[(&str, &[&str], &str)] = &[
         &["niche", "niches", "rock", "wall", "walls", "dust", "tally", "sill", "mark", "number", "numbers", "stroke", "strokes"],
         "Each niche has a number cut over it and nothing in it, and no dust in it either, which in this building is the stranger thing. There is one mark in the whole room, on the sill of the nearest niche: a tally, four strokes and a bar, very fresh, and a sixth stroke begun.",
     ),
+    // R252, the batch of 11-19: where a first hour goes, and the Reading Rooms.
+    (
+        "fogbank",
+        &["fog", "path", "stone", "stones"],
+        "You crouch and read the path, since the fog will not be read. The stone is worn in two lines: one goes in from the Threshold and comes back, many times over; the other goes in and stops. Between them somebody has scratched, small, with a nail: THEY HOLD WHAT THEY TOOK. HIT THE ONE THAT TOOK YOURS.",
+    ),
+    (
+        "shallows",
+        &["water", "sand", "surface", "reflection"],
+        "The water is still enough to read, and what is written on it is the sky, which here is one moon and no stars. Under that, in the sand, a line of small prints goes out from the edge and does not come back. They are your size. You check: you have not been out there. Not yet, or not that you hold.",
+    ),
+    (
+        "lamplighters-lane",
+        &["ladder", "ladders", "post", "posts", "lamp", "lamps"],
+        "The nearest ladder has a tag wired to its top rung: PROPERTY OF THE LAMPLIGHTER. BACK DIRECTLY. The tag is brown at the edges. On the post behind it, in fresh chalk, today's tally: every lamp in the lane, lit, and a tick beside each. Somebody still does it. You have never met them and you are standing in their work.",
+    ),
+    (
+        "orchard-wall",
+        &["wall", "windfall", "windfalls", "fruit", "grass", "stone", "stones"],
+        "One stone in the wall is cut, where the rest are only stacked: THIS WALL KEEPS NOTHING IN. Below it the windfalls lie in the grass where they dropped, green and hard, each with one small bite out of it, as if something keeps hoping. The moths work them over anyway. A moth is the mildest thing here that will give you something to remember.",
+    ),
+    (
+        "orchard",
+        &["tree", "trees", "fruit", "label", "labels", "branch", "branches", "row", "rows"],
+        "Every tree has a zinc label on a wire, and every label is an hour: A QUARTER PAST, THE ONE BEFORE DINNER, THE LAST OF THE LIGHT. The fruit under each is that hour, nearly. You hold one and it is warm on the side that faced the afternoon. It does not come off the branch. What falls on its own can be picked up; the rest is not ready and has not been for a long time.",
+    ),
+    (
+        "midden",
+        &["heap", "pile", "rags", "keys", "names", "verse"],
+        "You turn the top of the heap over with your foot. A key to a door that has been bricked up. A name on a luggage label, not yours, you think. Rags, a great many, which is most of what forgetting leaves and the one thing here worth a maker's while (`gather`). The heap keeps a handful of each plain thing and the rest rots down into it; what lives in it sorts the rest, and has opinions about where things go.",
+    ),
+    (
+        "mezzanine",
+        &["card", "newel", "post", "notice", "stair"],
+        "The card on the newel post, in a librarian's capitals: READING ROOMS. NOTHING HERE IS STRUCK TO ANY PURPOSE; IT IS TOLD. TELL A CREATURE OF A FIGHT YOU STILL REMEMBER, NAMING WHAT YOU FOUGHT, A DOZEN WORDS OR MORE (`story <creature> \"...\"`). NEW WORDS LAND HARDER. EVERY TELLING DRAWS A BLOW BACK. THE LAMPMOTHS ARE KINDEST; BEGIN THERE. Under it, in pencil: nothing asks your level at this stair.",
+    ),
+    (
+        "proof-room",
+        &["proof", "proofs", "galley", "galleys", "pencil", "wall", "walls", "marks"],
+        "The nearest galley is a fight, set in type, and somebody's: \"I hit it and it hit me and I hit it and it hit me.\" Every second \"hit\" is ringed in pencil with a line out to the margin, and in the margin, each time, pressed harder: rep. rep. REP. At the foot, initialed: a word said twice is a mark, and my marks land. Say it another way.",
+    ),
+    (
+        "lamp-table",
+        &["lamp", "table", "shade", "moth", "moths", "wings"],
+        "Under the green shade the table is scored with small neat lines, tens of them, each the length of a moth. Beside the newest somebody has written what it was: THE ONE I NEARLY LOST. A lampmoth takes that kind and no other, a fight you only just came through (`remember <chunk> lampmoth`), keeps it warm under its wings while the lamp burns, and leaves you one that lasts.",
+    ),
+    (
+        "returns-cage",
+        &["trolley", "trolleys", "book", "books", "slip", "cage", "wire"],
+        "Every book on the trolleys has a date slip in the back, and every slip says the same thing in a different hand: DUE BACK ELSEWHERE. You open one at random. It is a guide to the Reading Rooms, and the page it falls open at is this room, with a note in the margin: if one takes your elbow, go where it shows you. The fight is over and you kept what you had.",
+    ),
 ];
 
 /// What `read <a thing this room's text names>` gives, if the room names it.

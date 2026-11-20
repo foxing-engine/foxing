@@ -55,7 +55,7 @@ approved_verbs:
   read: {params: [{name: object, type: entity, required: false}]}
   take: {params: [{name: item, type: entity, required: true}]}
   drop: {params: [{name: item, type: entity, required: true}]}
-  recipes: {params: []}
+  recipes: {params: [{name: which, type: string, required: false}]}
   craft: {params: [{name: recipe, type: string, required: true}, {name: chunk, type: entity, required: false}]}
   recipe: {params: [{name: name, type: string, required: true}, {name: of, type: string, required: true}, {name: of2, type: string, required: false}, {name: of3, type: string, required: false}, {name: does, type: string, required: false}]}
   gather: {params: []}

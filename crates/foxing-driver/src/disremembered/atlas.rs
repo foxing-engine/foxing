@@ -1539,6 +1539,15 @@ pub fn register(world: &mut World, curves: Curves) {
                         who.trim()
                     )));
                 }
+                // R224: a name the world knew lately and let go gets that answer
+                // (it got the whole catalogue of what `where` can find).
+                if let Some(ago) = super::talk::let_go(w, who.trim()) {
+                    return Err(CommandError::precondition(format!(
+                        "The world has forgotten {}: a passing name, gone quiet and let go {} ago. It is nowhere to go to.",
+                        who.trim(),
+                        super::combat::human(ago)
+                    )));
+                }
                 return Err(CommandError::precondition(format!(
                     "Nothing called {who} that you could go to: a creature's given name, a citizen in the world now, a room's name (or one word of it), a kind of creature (where ragpicker), or one of the world's own books."
                 )));

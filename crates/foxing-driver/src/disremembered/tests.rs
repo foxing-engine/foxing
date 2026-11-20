@@ -4536,7 +4536,7 @@ fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
         "{}",
         out.summary
     );
-    let out = ok(&mut w, "dave", "recipes", json!([]));
+    let out = ok(&mut w, "dave", "recipes", json!(["all"]));
     assert!(
         out.summary.contains(
             "lantern  a lantern: of a wisp ember and rag thread and a chunk worth 10 or more"
@@ -6133,7 +6133,7 @@ fn a_made_thing_can_be_named_once_it_holds_sixty_and_a_fixture_stands_in_a_room_
     let look = ok(&mut w, "dave", "look", json!([]));
     assert!(
         look.summary
-            .contains("Standing here: the Ledger of Fines, a visitor book (item-")
+            .contains("Standing here: the Ledger of Fines (item-")
             && look.summary.contains("open to any hand"),
         "{}",
         look.summary
@@ -9511,7 +9511,7 @@ fn a_kept_name_writes_recipes_the_bench_then_knows() {
     .unwrap_err();
     assert!(err.to_string().contains("already"), "{err}");
     // Listed with the rest, with who wrote it; anyone crafts it for a chunk worth 20.
-    let list = ok(&mut w, "tyler", "recipes", json!([]));
+    let list = ok(&mut w, "tyler", "recipes", json!(["all"]));
     assert!(
         list.summary.contains(
             "tin-whistle a tin whistle (a recipe dave wrote): of rag thread and a small key"
@@ -14817,5 +14817,49 @@ fn the_batch_of_the_nineteenth_reads_rooms_counts_fog_and_assays() {
         slate.summary.contains("in the tapster's chalk"),
         "{}",
         slate.summary
+    );
+}
+
+#[test]
+fn recipes_are_short_and_a_hurt_name_is_stopped_at_a_hunting_door() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // R258: bare `recipes` is short; `recipes all` is the wall; one by its key.
+    let short = ok(&mut w, "dave", "recipes", json!([]));
+    assert!(
+        short.summary.contains("You could make nothing just now"),
+        "{}",
+        short.summary
+    );
+    assert!(
+        short.summary.contains("bandage (a bandage)"),
+        "{}",
+        short.summary
+    );
+    let all = ok(&mut w, "dave", "recipes", json!(["all"]));
+    assert!(all.summary.len() > short.summary.len() * 3);
+    let one = ok(&mut w, "dave", "recipes", json!(["bandage"]));
+    assert!(
+        one.summary.contains("rag thread") && !one.summary.contains("lantern"),
+        "{}",
+        one.summary
+    );
+    // R253: under a third, the first step into a room where something hunts stops.
+    let f = find_citizen(&w, "dave").unwrap();
+    combat::end_leave(&mut w, "dave", f.citizen);
+    admin(&mut w, "dave", "bring", json!(["dave", "wing-scriptorium"]));
+    combat::commit_hp(&mut w, f.citizen, 4.0).unwrap();
+    let stopped = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["south"]),
+    );
+    let said = format!("{stopped:?}");
+    assert!(
+        said.contains("something hunts in The Sump") && said.contains("travel south anyway"),
+        "{said}"
     );
 }

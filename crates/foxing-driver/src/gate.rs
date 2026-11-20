@@ -183,6 +183,8 @@ pub struct Report {
     /// precondition. In the CLEAR, not in the prose.
     #[serde(skip)]
     receipts: Vec<usize>,
+    /// R226: the lines that answer a read, which are cut before an act's answer.
+    reads: Vec<usize>,
 }
 
 /// The most lines a reply carries; the vocabulary's statement limit less room for a
@@ -199,6 +201,7 @@ impl Report {
             r#ref: r#ref.map(str::to_string),
             lines: Vec::new(),
             receipts: Vec::new(),
+            reads: Vec::new(),
         }
     }
 
@@ -307,20 +310,35 @@ impl Report {
         // R247: a fall is never among what is cut. The lines that say it move up
         // into the reply, in their order, in place of the last of the others.
         let mut cut_answers = 0;
+        let mut cut_reads = 0;
         if keep.len() > MAX_REPLY_LINES {
             let falls = |i: &usize| {
                 matches!(&self.lines[*i], Line::Quote { text, .. } | Line::Fact { text, .. }
                     if text.contains("You go down") || text.contains("You wake at") || text.contains(" fell at statement "))
             };
-            let must: Vec<usize> = keep[MAX_REPLY_LINES..]
-                .iter()
-                .copied()
-                .filter(|i| falls(i))
-                .take(MAX_REPLY_LINES / 2)
-                .collect();
             cut_answers = keep.len() - MAX_REPLY_LINES;
-            keep.truncate(MAX_REPLY_LINES - must.len());
-            keep.extend(must);
+            // R226: the answers to reads go before the answers to acts (a read can
+            // be sent again; what an act did cannot be asked for twice), the last
+            // read first.
+            let reads: Vec<usize> = keep
+                .iter()
+                .rev()
+                .copied()
+                .filter(|i| self.reads.contains(i) && !falls(i))
+                .take(cut_answers)
+                .collect();
+            keep.retain(|i| !reads.contains(i));
+            cut_reads = reads.len();
+            if keep.len() > MAX_REPLY_LINES {
+                let must: Vec<usize> = keep[MAX_REPLY_LINES..]
+                    .iter()
+                    .copied()
+                    .filter(|i| falls(i))
+                    .take(MAX_REPLY_LINES / 2)
+                    .collect();
+                keep.truncate(MAX_REPLY_LINES - must.len());
+                keep.extend(must);
+            }
         }
         let shown = keep.len().min(MAX_REPLY_LINES);
         for &i in &keep[..shown] {
@@ -341,9 +359,11 @@ impl Report {
                 // R226: which, as far as a reply can say: the receipts, then the
                 // last answers. Everything ran; `log` has what was cut.
                 match (omitted_receipts > 0, cut_answers > 0) {
-                    (true, true) => ", the receipts first and then the last answers; every statement ran",
+                    (true, true) if cut_reads == cut_answers => ", the receipts first and then answers to reads (send those again); every statement ran",
+                    (true, true) => ", the receipts first, then answers to reads, then the last answers; every statement ran",
                     (true, false) => ", receipts only; every answer is here",
-                    (false, _) => ", the last answers; every statement ran",
+                    (false, _) if cut_reads == cut_answers => ", answers to reads only (send those again); every statement ran",
+                    (false, _) => ", answers to reads and then the last answers; every statement ran",
                 }
             ));
         }
@@ -1558,6 +1578,9 @@ fn run_request(
                     && summary.contains("Its next blow could be your last")
                 {
                     brink_at = Some(n);
+                }
+                if READ_VERBS.contains(&verb.to_lowercase().as_str()) {
+                    report.reads.push(report.lines.len());
                 }
                 report.quote_capped(summary, &world.id.0, cap);
             }

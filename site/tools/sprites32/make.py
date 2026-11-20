@@ -189,7 +189,54 @@ s.line(28, 29, 30, 31, 'y'); s.px(31, 30, 'y'); s.line(25, 31, 25, 31, 'o'); s.l
 s.rect(9, 29, 4, 2, 'G'); s.rect(17, 29, 4, 2, 'G'); s.rect(9, 30, 4, 1, 'k'); s.rect(17, 30, 4, 1, 'k')
 out['keeper'] = s.out()
 
-order = ['citizen', 'docent', 'wisp', 'hollow', 'mothwing', 'inkling', 'ragpicker', 'revenant', 'sitter', 'drowned', 'hourhand', 'keeper']
+# ---- lanternfly: a small dark fly, glass wings, and a lit lamp where its tail should be
+s = Spr({'W': '#eef4f2', 'w': '#b9cfd0', 'v': '#7f9aa0', 'k': '#1d1a16', 'b': '#4a3d2c', 'n': '#2e261c', 'Y': '#fff3c0', 'y': '#f4c95d', 'o': '#c98a2b', 'r': '#8a5a1e', 'e': '#f6e7b8'})
+s.ell(8, 11, 6.5, 4.2, 'Wwv'); s.ell(24, 11, 6.5, 4.2, 'wvv')            # fore wings
+s.ell(9.5, 17, 4.6, 3, 'Wwv'); s.ell(22.5, 17, 4.6, 3, 'wvv')            # hind wings
+s.line(4, 11, 13, 12, 'v'); s.line(19, 12, 28, 11, 'v'); s.line(7, 17, 13, 16, 'v'); s.line(19, 16, 25, 17, 'v')
+s.ell(16, 8.5, 3.4, 3.2, 'bnk')                                          # head
+s.px(14, 8, 'e'); s.px(18, 8, 'e'); s.line(14, 5, 11, 2, 'k'); s.line(18, 5, 21, 2, 'k'); s.px(10, 2, 'b'); s.px(22, 2, 'b')
+s.ell(16, 14, 3.2, 4, 'bnk')                                             # thorax
+s.line(13, 13, 9, 15, 'k'); s.line(19, 13, 23, 15, 'k')
+s.ell(16, 23, 5.2, 6.2, 'Yyo')                                           # the lamp
+s.ell(16, 22, 2.4, 3, 'Y'); s.rect(13, 17, 6, 1, 'r'); s.rect(13, 28, 6, 1, 'r'); s.line(11, 19, 11, 27, 'r'); s.line(21, 19, 21, 27, 'r')
+s.px(16, 30, 'o'); s.px(16, 31, 'r')
+for (x, y) in ((8, 24), (24, 22), (6, 28), (26, 27)): s.px(x, y, 'y')    # light, loose
+out['lanternfly'] = s.out()
+
+# ---- bookworm: a fat green worm with spectacles, halfway out of the book it is eating
+s = Spr({'G': '#c9e39a', 'g': '#8fbf5a', 'd': '#55803a', 'k': '#1f2a16', 'P': '#f4ecd6', 'p': '#d9cdb0', 'q': '#a89a7c', 'C': '#a8452f', 'c': '#7a2f20', 'x': '#4a1c14', 'e': '#f6f6ee', 'l': '#d1a04a'})
+s.poly([(2, 22), (30, 22), (31, 30), (1, 30)], 'Ccx')                    # the cover
+s.poly([(3, 19), (16, 21), (16, 28), (3, 27)], 'Ppq'); s.poly([(16, 21), (29, 19), (29, 27), (16, 28)], 'ppq')
+for y in (22, 24, 26): s.line(5, y - 1, 14, y, 'q'); s.line(18, y, 27, y - 1, 'q')
+s.line(16, 21, 16, 28, 'q')
+s.ell(21, 22.5, 3, 2.4, 'k')                                             # the hole it came out of
+for i, (x, y, r) in enumerate(((21, 20, 3.6), (20, 16.5, 3.8), (18, 13, 4), (16, 9.5, 4.2))):
+    s.ell(x, y, r, r * 0.9, 'Ggd')
+s.ell(14.5, 6.5, 4.8, 4.6, 'Ggd')                                        # head
+s.line(17, 18, 23, 18, 'd'); s.line(15, 15, 21, 14, 'd'); s.line(13, 11, 20, 11, 'd')
+s.rect(10, 5, 4, 3, 'l'); s.rect(15, 5, 4, 3, 'l'); s.rect(11, 6, 2, 1, 'e'); s.rect(16, 6, 2, 1, 'e'); s.px(14, 6, 'l'); s.px(12, 6, 'k'); s.px(17, 6, 'k')
+s.line(12, 9, 16, 9, 'k'); s.px(11, 2, 'd'); s.px(17, 1, 'd'); s.line(12, 3, 12, 2, 'd'); s.line(16, 2, 17, 2, 'd')
+for (x, y) in ((6, 17), (9, 15), (26, 16)): s.px(x, y, 'P'); s.px(x + 1, y + 1, 'p')   # crumbs of page
+out['bookworm'] = s.out()
+
+# ---- proofreader: thin, standing, a green eyeshade, a blue pencil as long as an arm, a galley trailing
+s = Spr({'S': '#e9e2d0', 's': '#c8bea6', 't': '#8d846e', 'k': '#201c18', 'V': '#7fc48f', 'v': '#3f8a56', 'f': '#e6cdb0', 'F': '#c4a888', 'B': '#6f9ad8', 'b': '#3d62a8', 'P': '#f6f1e2', 'p': '#d6cfba', 'r': '#b0442c', 'w': '#3a3630', 'W': '#55504a'})
+s.poly([(11, 13), (21, 13), (22, 28), (10, 28)], 'Wwk')                  # a long waistcoat
+s.rect(14, 13, 4, 12, 'S'); s.line(16, 14, 16, 24, 's'); s.px(16, 16, 'k'); s.px(16, 19, 'k'); s.px(16, 22, 'k')
+s.ell(16, 8, 4.4, 4.8, 'fFF')                                            # the face
+s.rect(10, 5, 12, 2, 'V'); s.rect(9, 6, 14, 1, 'v'); s.rect(11, 3, 10, 2, 'k')   # the eyeshade
+s.px(14, 8, 'k'); s.px(18, 8, 'k'); s.line(14, 11, 18, 11, 'k')
+s.ell(8.5, 18, 1.8, 5.5, 'Wwk'); s.ell(23.5, 17, 1.8, 5, 'wkk')
+s.rect(7, 22, 3, 2, 'f'); s.rect(23, 20, 3, 2, 'f')
+s.line(25, 21, 30, 6, 'B'); s.line(26, 21, 31, 6, 'b'); s.px(30, 5, 'r'); s.px(31, 4, 'k'); s.px(25, 22, 'F')   # the pencil
+s.poly([(2, 20), (9, 20), (9, 31), (2, 31)], 'Ppp')                      # the galley
+for y in (22, 24, 26, 28): s.line(3, y, 7, y, 't')
+s.line(4, 24, 8, 23, 'b'); s.px(8, 26, 'b'); s.px(3, 28, 'b')            # its marks
+s.rect(11, 28, 4, 3, 'w'); s.rect(17, 28, 4, 3, 'w'); s.rect(11, 30, 4, 1, 'k'); s.rect(17, 30, 4, 1, 'k')
+out['proofreader'] = s.out()
+
+order = ['citizen', 'docent', 'wisp', 'hollow', 'mothwing', 'inkling', 'ragpicker', 'revenant', 'sitter', 'drowned', 'hourhand', 'keeper', 'lanternfly', 'bookworm', 'proofreader']
 json.dump(out, open(sys.argv[1] + '/atlas32.json', 'w'))
 sheet(out, sys.argv[1] + '/sheet32.png', 6, order=order)
 sheet(out, sys.argv[1] + '/sheet32-small.png', 2, bg=(92, 98, 104), order=order)

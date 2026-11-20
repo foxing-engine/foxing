@@ -554,6 +554,9 @@ fn making_is(m: &str) -> Option<&'static str> {
         "sitter's patience" => "the Gallery's sitters",
         "small key" => "the Oubliette's keepers",
         "catalogue card" => "the Stacks' cataloguers leave one",
+        // R259: said with the stair, which a newcomer cannot pass.
+        "usher's ribbon" => "the ushers of the Carrels leave one, down the Stacks stair, which asks level 100",
+        "censor's lens" => "the censors of the Censor's Office leave one, down the Stacks stair, which asks level 100",
         _ => return None,
     })
 }
@@ -1127,7 +1130,12 @@ pub fn fixtures_line(world: &World, room: EntityId) -> Option<String> {
         .iter()
         .map(|v| {
             let kind = v["name"].as_str().unwrap_or("something");
+            // R208: the world's own fixtures go by their names alone (the Exergue,
+            // a wall-long plaque, was "the Exergue, a visitor book"), and do not
+            // say what they hold (the Purse "holding 60" beside a page saying 600).
+            let worlds_own = v["made_by"].is_null() && v["given_name"].is_string();
             let who = match v["given_name"].as_str() {
+                Some(n) if worlds_own => n.to_string(),
                 Some(n) => format!("{n}, {kind}"),
                 None => kind.to_string(),
             };
@@ -1148,7 +1156,7 @@ pub fn fixtures_line(world: &World, room: EntityId) -> Option<String> {
             let is_book = v["text"].as_str().is_some_and(|t| t.contains(" | "))
                 || (v["made_by"].is_null()
                     && v["name"].as_str().is_some_and(|n| n.contains("book")));
-            let held = if held >= 0.5 && !is_book {
+            let held = if held >= 0.5 && !is_book && !worlds_own {
                 format!(", holding {held:.0}")
             } else {
                 String::new()
@@ -1497,6 +1505,52 @@ pub fn spend(
             .map_err(internal)?;
     }
     Ok(name)
+}
+
+/// R163: when a short name fit two differently named things, the reply says which
+/// was taken and what else it fit. Nothing for an id, or when only one name fits.
+pub(crate) fn also_fits(
+    world: &World,
+    arg: &str,
+    holders: &[EntityId],
+    chosen: EntityId,
+) -> String {
+    let want = arg.trim().to_lowercase();
+    let want = want
+        .trim_start_matches("a ")
+        .trim_start_matches("the ")
+        .to_string();
+    if want.is_empty() || want.trim_start_matches("item-").parse::<u64>().is_ok() {
+        return String::new();
+    }
+    let mine = display(world, chosen);
+    let mut others: Vec<String> = Vec::new();
+    for h in holders {
+        for v in things_in(world, *h)
+            .iter()
+            .chain(fixtures_in(world, *h).iter())
+        {
+            let Some(id) = v["id"].as_u64() else { continue };
+            let called = display(world, EntityId(id));
+            if id != chosen.0
+                && called != mine
+                && called.to_lowercase().contains(&want)
+                && !others.iter().any(|o| o.starts_with(&called))
+            {
+                others.push(format!("{called} (item-{id})"));
+            }
+        }
+    }
+    if others.is_empty() {
+        return String::new();
+    }
+    others.truncate(3);
+    format!(
+        " (\"{}\" also fits {}; this is {mine}, item-{}. Its number chooses.)",
+        arg.trim(),
+        others.join(" and "),
+        chosen.0
+    )
 }
 
 pub(crate) fn resolve_item(
@@ -2436,9 +2490,13 @@ pub fn register(world: &mut World, curves: Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.recipes",
-            "What can be made: each thing, what it is made of, the memory it costs, and what it does. Marks the ones you could make now.",
-        ),
-        Box::new(|w: &mut World, ctx, _| {
+            "What can be made. Bare: what you could make now in full, and the rest in a line each (its name and what you lack). `recipes all` gives every recipe in full; `recipes <recipe>` gives one.",
+        )
+        .param("which", ParamType::String, false, "`all` for every recipe in full, or one recipe's key or name"),
+        Box::new(|w: &mut World, ctx, args: &Args| {
+            // R258 (David, 11-19: option a): the whole list was a wall.
+            let which = args.str("which").map(|x| x.trim().to_lowercase()).unwrap_or_default();
+            let whole = which == "all";
             let f = me(w, ctx)?;
             let s = satchel(w, &ctx.actor, f.citizen)?;
             let have: Vec<String> = things_in(w, s)
@@ -2463,6 +2521,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 })
                 .collect();
             let mut lines = Vec::new();
+            let mut short: Vec<String> = Vec::new();
             let mut list = Vec::new();
             for r in &all_recipes(w) {
                 let missing: Vec<&str> = r.of.iter().map(String::as_str).filter(|m| !have.iter().any(|h| h == m)).collect();
@@ -2470,6 +2529,15 @@ pub fn register(world: &mut World, curves: Curves) {
                 // R213: a fixture takes any chunk (D12), so it lacks memory only when
                 // there is none at all; the line said "any" and then "you lack".
                 let can = missing.is_empty() && if r.fixed { level > 0.0 } else { level >= asks };
+                let asked = !which.is_empty() && (r.key.to_lowercase() == which || r.name.to_lowercase().contains(&which));
+                if !whole && !which.is_empty() && !asked {
+                    continue;
+                }
+                if !whole && !asked && !can {
+                    short.push(format!("{} ({})", r.key, r.name));
+                    list.push(json!({"recipe": r.key, "name": r.name, "of": r.of, "chunk_at_least": asks, "tier": r.tier, "fixed": r.fixed, "could_make": false, "missing": missing}));
+                    continue;
+                }
                 lines.push(format!(
                     "  {:<8} {}{}{}: of {}{}; {}.{}",
                     r.key,
@@ -2491,6 +2559,30 @@ pub fn register(world: &mut World, curves: Curves) {
                     } else { " You lack the memory to spend.".to_string() }
                 ));
                 list.push(json!({"recipe": r.key, "name": r.name, "of": r.of, "chunk_at_least": asks, "vividity_at_least": r.vividity_at_least, "tier": r.tier, "does": r.does, "uses": r.uses, "fixed": r.fixed, "by": r.by, "could_make": can, "missing": missing}));
+            }
+            if !which.is_empty() && !whole && lines.is_empty() {
+                return Err(foxing_registry::CommandError::precondition(format!(
+                    "No recipe is called '{which}'. Bare `recipes` lists them by key; `recipes all` gives every one in full."
+                )));
+            }
+            if !whole && !which.is_empty() {
+                return Ok(Outcome::new(lines.join("\n").trim_start().to_string(), json!({"recipes": list})));
+            }
+            if !whole {
+                let head = if lines.is_empty() {
+                    "You could make nothing just now.".to_string()
+                } else {
+                    format!("What you could make now (craft <recipe> [<chunk>]):\n{}", lines.join("\n"))
+                };
+                return Ok(Outcome::new(
+                    format!(
+                        "{head}{}\nThe rest, {} of them, by key (`recipes <key>` says what one does and where its makings are; `recipes all` gives every one in full): {}.",
+                        if level <= 0.0 { " A chunk is a memory, and you hold none yet: your first comes from a first fight won, or a first story told (`chunks` lists what you hold)." } else { "" },
+                        short.len(),
+                        short.join("; ")
+                    ),
+                    json!({"recipes": list}),
+                ));
             }
             Ok(Outcome::new(
                 format!(
@@ -3193,6 +3285,11 @@ pub fn register(world: &mut World, curves: Curves) {
             let binding = match super::past::read(w, item).filter(|p| is_fixed(w, item) && !p.contains("Nothing is recorded")) {
                 Some(past) => format!("{binding} Its past: {past}"),
                 None => binding,
+            };
+            let binding = {
+                let mut holders = vec![here];
+                holders.extend(w.store.children(f.citizen).find(|e| e.kind == "satchel").map(|e| e.id));
+                format!("{binding}{}", also_fits(w, &arg, &holders, item))
             };
             Ok(Outcome::new(
                 format!("{called} (item-{}), whole ({} line{}):{body}{who}{binding}", item.0, lines.len(), if lines.len() == 1 { "" } else { "s" }),
