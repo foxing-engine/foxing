@@ -2521,6 +2521,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 })
                 .collect();
             let mut lines = Vec::new();
+            let by_key = all_recipes(w).iter().any(|r| r.key.to_lowercase() == which);
             let mut short: Vec<String> = Vec::new();
             let mut list = Vec::new();
             for r in &all_recipes(w) {
@@ -2529,7 +2530,9 @@ pub fn register(world: &mut World, curves: Curves) {
                 // R213: a fixture takes any chunk (D12), so it lacks memory only when
                 // there is none at all; the line said "any" and then "you lack".
                 let can = missing.is_empty() && if r.fixed { level > 0.0 } else { level >= asks };
-                let asked = !which.is_empty() && (r.key.to_lowercase() == which || r.name.to_lowercase().contains(&which));
+                // A key asked for is that recipe alone (`recipes bandage` gave the
+                // surgeon's too); a word of a name finds every name with it.
+                let asked = !which.is_empty() && if by_key { r.key.to_lowercase() == which } else { r.name.to_lowercase().contains(&which) };
                 if !whole && !which.is_empty() && !asked {
                     continue;
                 }
