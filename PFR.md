@@ -248,17 +248,7 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   retirement (a creature past a level walks to a room of its own and stops fighting),
   last words (a felled named creature says one line from what it held), a creature's
   `felled` told as a story; pixel sprites for the six (the page draws their glyph).
-- **X6 · The Court of Lethe** (**shipped 11-19**; what is left). The judicial branch
-  is live and unseen in play: five kinds of case the record can check, a fee and an
-  errand, a day to answer, a model on the bench that refers to the Conclave half the
-  time, a judgment that puts right, a Docket that forgets. Left: **free pleas**, with
-  the right item or quest (David: in the future); the bench has not sat on a live
-  case (the first one shows whether the worker's judgment lands and reads well); a
-  referred case comes back on ANY petition of the petitioner's decided after the
-  referral, not one that names the case; a passing name cannot be pleaded against
-  once the world forgets it; the "thing" case reaches back only as far as the recent
-  log (a day or so); the Court's room has no creature, no fixtures and no `read`
-  nouns; the Conclave's minutes do not record a referral.
+- **X6 · The Court of Lethe** (**shipped 11-19; a courthouse from 11-20**; what is left). Five rooms behind the Division Lobby's door: the Hall of Lost Steps, the Filing Window, the Courtroom, the Cells of Record and the Appeal Stair. A plea is brought at the window in its hours, may be short a form, is stamped at the Archive, may come back smudged, and is entered; the answer is given in the Courtroom; the Court then sits aloud for a few minutes (a bell, the Realm's Attorney, the Semi-Public Defender, the gallery, a judge who loses the thread) and the ruling lands with the gavel. A hand raised in the Courtroom is answered by the Bailiff, who writes a name on its owner. Left: **the bench has still not sat on a live case** (a Watch should bring one through); **free pleas**, with the right item or quest; the sitting's lines are fixed text with a few variants each, and the Docent's model could write the opining for each case; the judge's forgotten thread is one of five; the Realm's Attorney and the Semi-Public Defender are voices, not creatures (a room spawns one kind); only named creatures are drawn to a sitting; a banner on the play page when the Court sits; a referred case comes back on ANY petition of the petitioner's decided after the referral; a passing name cannot be pleaded against once the world forgets it; the "thing" case reaches back only as far as the recent log; the Conclave's minutes do not record a referral; a tattooed name is not told of it by `look` (others read it; the wearer learns of it once).
 - **X7 · Unions** (factionalism without factions). Brief wanted: standing a name earns
   by what it does, not what it joins (diggers, storytellers, keepers, delvers), with a
   voice at the Conclave and a share of something; no banners, no enemies, a name may
@@ -338,6 +328,10 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
   - **X23** (S) A plaque that fades with its holder. The name that leads the board has a
     plaque at the Threshold as vivid as what that name holds now; gone quiet, it dims and
     another's takes its place. The board as a place.
+  - **X24** (M) How a tattoo comes off. The Bailiff's name on a forearm "does not wash off, and nobody has yet found what does" (David, 11-20: file it as future content). A quest, a craft, a ruling, a price; and whether the next one costs more.
+  - **X25** (M) The evidence locker. A steel door in the Cells of Record, three padlocks, a docket blacked out by the Censor's Office but for "AND THE OTHER THING", and something behind it shifting its weight (David, 11-20: a reference now, for future hijinks). What is in it, who may sign it out, and what a case can do with it.
+  - **X26** (M) The jury. Twelve empty seats in the Courtroom, RESERVED, with an M pencilled in the twelfth (David, 11-20: where problematic characters like Morphos may sit in the future). Who is empanelled, how a jury changes a sitting, and what it does to a verdict.
+  - **X27** (M) Appeals. A door as tall as a boot at the top of the Appeal Stair, locked; whoever goes through goes on their knees, as a supplicant (David, 11-20). What opens it, what is on the other side, and what an appeal can undo.
 
 ## Your side (Y): only you can
 

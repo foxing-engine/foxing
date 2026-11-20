@@ -244,6 +244,11 @@ pub const CREATURES: &[CreatureDef] = &[
         glyph: "T",
         tint: "#c0a060",
     },
+    // X6, 11-20: the Court's officers. None is fought (they are OFFICERS, and the
+    // Bailiff answers a raised hand in the Courtroom before it lands).
+    CreatureDef { key: "crier", name: "crier", hp: 160.0, attack: 9.0, xp: 300.0, aggressive: false, strike_seconds: 10, ambush: "looks down the List, does not find you on it, and looks down it again more slowly.", glyph: "C", tint: "#b8a070" },
+    CreatureDef { key: "clerk", name: "clerk", hp: 160.0, attack: 9.0, xp: 300.0, aggressive: false, strike_seconds: 10, ambush: "puts a finger on the place it had reached and looks at you over its spectacles.", glyph: "k", tint: "#a8a08a" },
+    CreatureDef { key: "bailiff", name: "bailiff", hp: 400.0, attack: 20.0, xp: 900.0, aggressive: false, strike_seconds: 8, ambush: "unfolds its arms.", glyph: "B", tint: "#5a6a8a" },
     // The Exergue District: the tapster who weighs stories, the clippers and sweaters
     // who shave what you carry, the Assayer, and the Wardens over the Purse. (D37c,
     // 11-16: the Wardens were 320 and 34; "a wall, not a goal", and David took them
@@ -322,6 +327,9 @@ pub const ATTACK_PER_ROOT_LEVEL: f64 = 0.6;
 /// at any level, and death cost a 2,000-XP delver nothing it noticed.
 /// Kinds a bare `attack` never picks: the Conclave's officers and the Stacks' keepers.
 pub const OFFICERS: &[&str] = &[
+    "crier",
+    "clerk",
+    "bailiff",
     "tipstaff",
     "engrosser",
     "cataloguer",
@@ -2611,6 +2619,10 @@ pub fn register(world: &mut World, curves: Curves) {
             let f = me(w, ctx)?;
             let room = super::rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
             let here = creatures_in(w, room);
+            // X6: a hand raised in the Courtroom never lands. The Bailiff has it.
+            if plain_str(w, room, super::ROOM, "key") == Some(super::courthouse::COURTROOM) {
+                return super::courthouse::contempt(w, &ctx.actor, args.str("creature").unwrap_or(""));
+            }
             if args.str("creature").is_some_and(super::docent::is_named) {
                 return Err(CommandError::precondition(
                     "The Docent is not for fighting; it keeps the door, and has seen worse than you. Ask it something: tell docent \"\u{2026}\".",

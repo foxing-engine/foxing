@@ -73,7 +73,8 @@ fn district_index(key: &str) -> Option<usize> {
         "orchard" | "clocktower" | "orchard-wall" => 6,
         "escapement-stair" | "petition-gallery" | "robing-room" | "tally-room" | "brass-rail"
         | "book-lectern" | "roll-hall" | "session-benches" | "division-lobby" | "minute-room"
-        | "engrossing-room" | "court-of-lethe" => 7,
+        | "engrossing-room" | "court-of-lethe" | "lost-steps" | "filing-window"
+        | "cells-of-record" | "appeal-stair" => 7,
         "exergue-stair" | "counting-bar" | "die-room" | "striking-floor" | "assay-office"
         | "mintmark-hall" | "purse-room" | "exergue" => 8,
         k if k.starts_with("trail-") => 9,
@@ -655,20 +656,58 @@ pub const ROOMS: &[RoomDef] = &[
         key: "division-lobby",
         name: "The Division Lobby",
         description: "A narrow corridor, with two doors at one end marked AYE and NO in gold. Behind the paint they are one door. At the far end, a clerk's desk holds a tally book ruled in a single column.",
-        exits: &[("east", "session-benches"), ("door", "court-of-lethe")],
+        exits: &[("east", "session-benches"), ("door", "lost-steps")],
         spawn: None,
         former: &[],
         tint: "#3a2e2e",
     },
-    // X6: the judicial branch, through the one door behind AYE and NO.
+    // X6: the judicial branch, through the one door behind AYE and NO. From 11-20 a
+    // courthouse (David: "more razzle dazzle and more rooms"): a hall to wait in, a
+    // window to file at, the Courtroom, the Cells of Record, and a stair to a door.
+    RoomDef {
+        key: "lost-steps",
+        name: "The Hall of Lost Steps",
+        description: "A long hall of worn flags where people wait to be called and walk up and down while they do it; the stone is dished in two lines the length of the room. Benches along both walls, each carved by somebody with time: initials, tallies, one careful drawing of a door. A clock over the far arch has one hand, and what it shows is how long you have been here. Under it the day's List is pinned to a board, and the Crier of the List stands beside it not crying anything. Ways off the hall, each with a painted hand pointing: the WINDOW, the COURT, the CELLS, and a narrow STAIR.",
+        exits: &[("out", "division-lobby"), ("window", "filing-window"), ("court", "court-of-lethe"), ("cells", "cells-of-record"), ("stair", "appeal-stair")],
+        spawn: Some(("crier", 1, 600)),
+        former: &[],
+        tint: "#34302c",
+    },
+    RoomDef {
+        key: "filing-window",
+        name: "The Filing Window",
+        description: "A room the width of a queue. At the end of it, a window with a brass grille and a wooden shutter, and behind the grille the Clerk of the Court, a rack of rubber stamps worn smooth, and pigeonholes for forms numbered in no order anyone has found. A card hangs in the window giving the hours, in a hand that has been corrected in three inks. A second card says FORMS NOT KEPT AT THIS WINDOW ARE KEPT ELSEWHERE. This is where a case is brought (`plead`), and where a stamped plea is brought back.",
+        exits: &[("hall", "lost-steps")],
+        spawn: Some(("clerk", 1, 600)),
+        former: &[],
+        tint: "#3a342a",
+    },
     RoomDef {
         key: "court-of-lethe",
         name: "The Court of Lethe",
-        description: "A long room with a channel of slow water down the middle of the floor, bridged in one place by the bar. The bench is on the far side and nobody has been seen to cross to it. On this side: a Clerk's window with a brass grille, a rack of rubber stamps worn smooth, and the Docket under glass, where the oldest entries have gone the color of the paper. A notice in two hands: JUDGMENT IS GIVEN IN THE ORDER RECEIVED and, under it, smaller, AND KEPT FOR AS LONG AS ANYONE READS IT.",
-        exits: &[("out", "division-lobby")],
-        spawn: None,
+        description: "The Courtroom. A channel of slow water runs down the middle of the floor, bridged in one place by the bar. The bench is on the far side and nobody has been seen to cross to it; the judge is a voice from over there. On this side: the dock, a table for the Realm's Attorney stacked to the height of a person, a smaller table for the Semi-Public Defender with forty files on it and a cold cup, the public gallery on tiers, and the Docket under glass. Along one wall a jury box of twelve seats stands empty, the cushions still dented; a card on its rail says RESERVED and does not say for whom. A door behind the bench is marked ROBING. The Bailiff stands by the bar with its arms folded and an inkpot at its belt. A notice in two hands: JUDGMENT IS GIVEN IN THE ORDER RECEIVED and, under it, smaller, AND KEPT FOR AS LONG AS ANYONE READS IT. A third hand has added: NOTHING IS STRUCK IN THIS ROOM BUT THE RECORD.",
+        exits: &[("out", "lost-steps")],
+        spawn: Some(("bailiff", 1, 600)),
         former: &[],
         tint: "#2e3a3a",
+    },
+    RoomDef {
+        key: "cells-of-record",
+        name: "The Cells of Record",
+        description: "Down a turn of stair, a corridor of barred alcoves, each with a shelf and a ticket. This is where the Court puts what it strikes: a name taken off a thing, a line cut from a wall, each kept under its case number for as long as the ruling is remembered and not a day longer. Most of the alcoves are swept. At the far end is a steel door with a wheel on it, stenciled EVIDENCE, and a hasp with three padlocks of three different makes; something behind it shifts its weight now and then.",
+        exits: &[("hall", "lost-steps")],
+        spawn: None,
+        former: &[],
+        tint: "#2a2e34",
+    },
+    RoomDef {
+        key: "appeal-stair",
+        name: "The Appeal Stair",
+        description: "A stair that climbs steeply and gets narrower as it goes, so that by the top step you have turned sideways. It ends at a wall, and in the wall, at the height of your knee, is a door about as tall as a boot: paneled, varnished, with a brass knocker the size of a thumbnail and a keyhole. It is locked. A plate above it, which you must stoop to read, says APPEALS. Whoever goes through that door goes through it on their knees.",
+        exits: &[("hall", "lost-steps")],
+        spawn: None,
+        former: &[],
+        tint: "#3a3030",
     },
     RoomDef {
         key: "minute-room",
@@ -1343,6 +1382,19 @@ pub fn ensure_rooms(world: &mut World) -> Result<(), String> {
         for (name, key) in def.exits {
             match exits.get(*name).and_then(Value::as_u64) {
                 None => {
+                    exits.insert(name.to_string(), json!(ids[key].0));
+                    missing = true;
+                }
+                // A seed exit the seed has re-pointed at another seed room follows
+                // the seed (the Division Lobby's door, which led to the Court and
+                // from 11-20 leads to the Hall before it). A named door only: a
+                // compass exit that leads somewhere else is left, and the operator
+                // told, as before. One that leads to a dug room is somebody's.
+                Some(to)
+                    if to != ids[key].0
+                        && seed_ids.contains(&to)
+                        && !["north", "south", "east", "west", "up", "down"].contains(name) =>
+                {
                     exits.insert(name.to_string(), json!(ids[key].0));
                     missing = true;
                 }
@@ -2435,7 +2487,15 @@ pub fn describe_as(
             " No other citizen is here.".to_string()
         }
     } else {
-        let shown = &others[..others.len().min(super::NAMES_SHOWN)];
+        // X6: what the Bailiff wrote on a forearm is read by whoever looks.
+        let inked: Vec<String> = others
+            .iter()
+            .map(|n| match super::courthouse::tattoo_of(world, n) {
+                Some(t) => format!("{n} (a forearm inked \"{t}\")"),
+                None => n.clone(),
+            })
+            .collect();
+        let shown = &inked[..inked.len().min(super::NAMES_SHOWN)];
         match others.len() - shown.len() {
             0 => format!(" Also here: {}.", shown.join(", ")),
             more => format!(

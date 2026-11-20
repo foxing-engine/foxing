@@ -51,6 +51,8 @@ pub const UNHEARD_MS: i64 = 6 * 3_600_000;
 pub const RULING_LIFE_MS: i64 = 14 * 86_400_000;
 /// What seeing a case through is worth to the name that brought it, and to the name
 /// that answered.
+/// The job that reads a sitting out, a line at a time.
+pub const JOB_SITTING: &str = "disremembered.sitting";
 pub const SEEN_THROUGH_XP: f64 = 12.0;
 pub const ANSWERED_XP: f64 = 6.0;
 
@@ -134,6 +136,47 @@ fn write(world: &mut World, cases: Vec<Value>, next: Option<u64>) -> Result<(), 
         .map_err(|e| e.to_string())
 }
 
+/// Tests hold the Court still: no mishaps, and the window always open.
+pub fn calm(world: &World) -> bool {
+    entity(world)
+        .and_then(|id| world.store.entity(id))
+        .and_then(|e| e.components.get(COURT))
+        .and_then(|c| c.fields.get("calm"))
+        .is_some_and(|f| matches!(f, Field::Plain(Value::Bool(true))))
+}
+
+#[cfg(test)]
+pub fn calm_for_test(world: &mut World) {
+    write(world, cases(world), None).unwrap();
+    let id = entity(world).unwrap();
+    let mut fields = world
+        .store
+        .entity(id)
+        .unwrap()
+        .components
+        .get(COURT)
+        .unwrap()
+        .fields
+        .clone();
+    fields.insert("calm".into(), Field::Plain(json!(true)));
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::ComponentSet {
+                id,
+                component: COURT.into(),
+                fields,
+            },
+        )
+        .unwrap();
+}
+
+fn at(world: &World, actor: &str, key: &str) -> bool {
+    find_citizen(world, actor)
+        .and_then(|f| super::rooms::room_of(world, f.citizen))
+        .is_some_and(|r| plain_str(world, r, ROOM, "key") == Some(key))
+}
+
 fn s<'a>(c: &'a Value, k: &str) -> &'a str {
     c[k].as_str().unwrap_or("")
 }
@@ -158,6 +201,7 @@ fn move_stage(world: &mut World, c: &mut Value, stage: &str) {
     );
 }
 
+#[allow(dead_code)]
 fn in_court(world: &World, actor: &str) -> Option<EntityId> {
     let f = find_citizen(world, actor)?;
     let room = super::rooms::room_of(world, f.citizen)?;
@@ -513,6 +557,186 @@ fn decide(world: &mut World, c: &mut Value, verdict: &str, opinion: &str, judge:
     );
 }
 
+/// The bench has its ruling: the Court sits to say it. A bell in the Hall and the
+/// Lobby, whoever is near comes in, and the sitting is read out a line at a time;
+/// the ruling takes effect when the gavel falls.
+fn convene(world: &mut World, c: &mut Value, verdict: &str, opinion: &str, judge: &str) {
+    use super::courthouse as house;
+    c["ruling"] = json!({"verdict": verdict, "opinion": opinion, "judge": judge});
+    let drawn = house::draw_in(world);
+    let names: Vec<String> = drawn
+        .iter()
+        .filter_map(|d| d["name"].as_str().map(str::to_string))
+        .collect();
+    c["drawn"] = json!(drawn);
+    c["script"] = json!(house::script(world, c, &names));
+    c["step"] = json!(0);
+    c["murmurs"] = json!([]);
+    move_stage(world, c, "sitting");
+    let (n, by, against) = (
+        c["n"].clone(),
+        s(c, "by").to_string(),
+        s(c, "against").to_string(),
+    );
+    let bell = format!("A handbell is rung twice, somewhere behind the Court. The Crier of the List, who has been waiting all day to: \"CASE {n}! {by} AGAINST {against}! ALL WHO HAVE BUSINESS BEFORE THE COURT OF LETHE, AND ALL WHO HAVE NONE, DRAW NEAR!\" (The Court is sitting now, in the Courtroom off the Hall of Lost Steps. A sitting is worth hearing, and those who stay to its end remember it.)");
+    for key in [
+        house::HALL,
+        house::WINDOW,
+        house::CELLS,
+        house::STAIR,
+        "division-lobby",
+        "session-benches",
+    ] {
+        house::say_in(world, key, &bell);
+    }
+    house::say_in(world, ROOM_KEY, &format!("A handbell is rung twice behind the bench, and from the Hall the Crier can be heard doing what it has waited all day to do. Case {n} is called: {by} against {against}. The gallery fills, somehow, though you did not see anyone come in."));
+    for who in [by, against] {
+        if !at(world, &who, ROOM_KEY) {
+            tell(world, &who, format!("Word from the Court of Lethe: it is sitting on case {n} now. You need not be there. It is better heard than told."));
+        }
+    }
+    world.notice(format!("**The Court of Lethe** is sitting on case {n}."));
+    let due = world
+        .now()
+        .plus(foxing_time::Duration::seconds(super::courthouse::BELL_S));
+    let _ = world.schedule_once(JOB_SITTING, due, json!({"case": n}), |p| p["case"] == n);
+}
+
+/// The next line of a sitting, read to the Courtroom; after the last, the ruling.
+fn read_on(world: &mut World, n: u64) -> Result<(), String> {
+    let mut all = cases(world);
+    let Some(c) = all
+        .iter_mut()
+        .find(|c| c["n"].as_u64() == Some(n) && s(c, "stage") == "sitting")
+    else {
+        return Ok(());
+    };
+    let step = c["step"].as_u64().unwrap_or(0) as usize;
+    let line = c["script"].as_array().and_then(|a| a.get(step)).cloned();
+    match line {
+        Some(l) => {
+            super::courthouse::say_in(world, ROOM_KEY, l["t"].as_str().unwrap_or(""));
+            c["step"] = json!(step + 1);
+            let wait = l["w"].as_i64().unwrap_or(super::courthouse::LINE_S).max(1);
+            write(world, all, None)?;
+            let due = world.now().plus(foxing_time::Duration::seconds(wait));
+            world
+                .schedule_once(JOB_SITTING, due, json!({"case": n}), |p| p["case"] == n)
+                .map(|_| ())
+        }
+        None => {
+            conclude(world, c);
+            write(world, all, None)
+        }
+    }
+}
+
+/// The gavel: the ruling takes effect, the gallery is paid, and whoever came in to
+/// listen goes home.
+fn conclude(world: &mut World, c: &mut Value) {
+    let ruling = c["ruling"].clone();
+    let (verdict, opinion, judge) = (
+        ruling["verdict"].as_str().unwrap_or("denied").to_string(),
+        ruling["opinion"].as_str().unwrap_or("").to_string(),
+        ruling["judge"].as_str().unwrap_or("the bench").to_string(),
+    );
+    let (n, by, against) = (
+        c["n"].clone(),
+        s(c, "by").to_string(),
+        s(c, "against").to_string(),
+    );
+    let murmurs = c["murmurs"].as_array().map_or(0, Vec::len);
+    super::courthouse::say_in(
+        world,
+        ROOM_KEY,
+        &format!(
+            "The Clerk enters {murmurs} murmur{} in the record of case {n}, which is {murmurs} more than the record needed. The Bailiff: \"All rise.\" Nobody is on the far side of the water when you look. {} The Court has risen.",
+            if murmurs == 1 { "" } else { "s" },
+            match verdict.as_str() {
+                "granted" => format!("The Bailiff walks to where {against} would stand, and stands there a moment, and comes back."),
+                "referred" => "The Bailiff carries the two halves of the plea to the door, one in each hand, like a thing that might rejoin.".to_string(),
+                _ => format!("The Bailiff looks at the door until {by} has thought about it."),
+            }
+        ),
+    );
+    let drawn = c["drawn"].clone();
+    for k in ["script", "step", "drawn", "ruling"] {
+        if let Some(o) = c.as_object_mut() {
+            o.remove(k);
+        }
+    }
+    c["murmurs"] = json!(murmurs);
+    // The gallery: any name in the Courtroom at the end that is no party to it.
+    if let Some(court) = super::courthouse::room_keyed(world, ROOM_KEY) {
+        let curves = super::Curves::from_env();
+        for who in super::courthouse::names_in(world, court) {
+            if who == by || who == against {
+                continue;
+            }
+            if let Some(f) = find_citizen(world, &who) {
+                if let Ok(id) = super::memory::earn_chunk(
+                    world,
+                    &who,
+                    f.window,
+                    &format!("sitting through case {n} in the gallery of the Court of Lethe"),
+                    super::courthouse::GALLERY_XP,
+                    0.6,
+                    &curves,
+                ) {
+                    super::combat::narrate(
+                        world,
+                        &who,
+                        format!(
+                            "You sat through it. You remember that: chunk-{} worth {:.0} XP.",
+                            id.0,
+                            super::courthouse::GALLERY_XP
+                        ),
+                    );
+                }
+            }
+        }
+    }
+    super::courthouse::send_home(world, &drawn);
+    if verdict == "referred" {
+        c["opinion"] = json!(opinion);
+        move_stage(world, c, "referred");
+        let slip = super::courthouse::paper(
+            world,
+            &by,
+            "a referral slip",
+            &format!("COURT OF LETHE. Case {n} is REFERRED to the Conclave of Lethe. The bearer lays a petition in the matter at the Petitioners' Gallery. When the Conclave has decided it, either way, the case returns, and may not be sent again. Torn from a larger sheet; the tear is very straight."),
+        );
+        tell(
+            world,
+            &by,
+            format!("The Court of Lethe has heard case {n} and will not decide it yet: {opinion} The case is referred to the Conclave.{} Lay a petition in the matter at the Petitioners' Gallery (petition \"…\"); when the Conclave has decided it, either way, the case comes back to the Court, which then must decide.",
+                match slip { Some(i) => format!(" A referral slip finds its way into your satchel (item-{}).", i.0), None => String::new() }),
+        );
+    } else {
+        decide(world, c, &verdict, &opinion, &judge);
+        let _ = super::courthouse::paper(
+            world,
+            &by,
+            "a stamped ruling",
+            &format!("COURT OF LETHE. Case {n}, {by} against {against}: {}. {opinion} Stamped, twice, the second time straighter. This copy is the petitioner's. The Court's copy is the Docket, and lasts as long as it is read.", verdict.to_uppercase()),
+        );
+    }
+}
+
+/// Tests: read whatever is left of a sitting at once.
+#[cfg(test)]
+pub fn conclude_now(world: &mut World, n: u64) -> Result<(), String> {
+    let mut all = cases(world);
+    if let Some(c) = all
+        .iter_mut()
+        .find(|c| c["n"].as_u64() == Some(n) && s(c, "stage") == "sitting")
+    {
+        conclude(world, c);
+        write(world, all, None)?;
+    }
+    Ok(())
+}
+
 /// The Court's tick: answers that never came, cases back from the Conclave, cases
 /// nobody judged, rulings nobody read.
 pub fn tick(world: &mut World) -> Result<(), String> {
@@ -550,13 +774,26 @@ pub fn tick(world: &mut World) -> Result<(), String> {
                 let opinion = format!(
                     "No judge having come to the bench in six hours, the Clerk reads the record aloud, and the record decides. {facts}"
                 );
-                decide(
+                convene(
                     world,
                     c,
                     if ok { "granted" } else { "denied" },
                     &opinion,
                     "the record",
                 );
+            }
+            // A stamped plea whose bearer has waited at the window: taken when
+            // the shutter goes up.
+            "stamped"
+                if super::courthouse::window(world).0
+                    && at(world, s(c, "by"), super::courthouse::WINDOW) =>
+            {
+                let by = s(c, "by").to_string();
+                enter(world, c, &by);
+            }
+            // A sitting whose reader was lost (a restart): read to the end.
+            "sitting" if now - c["sitting_at"].as_i64().unwrap_or(now) >= 15 * 60_000 => {
+                conclude(world, c);
             }
             _ => {}
         }
@@ -578,13 +815,40 @@ pub fn tick(world: &mut World) -> Result<(), String> {
     Ok(())
 }
 
-/// The errand: a lodged plea is stamped by arriving at the Archive with it, and
-/// entered by arriving back at the Court.
+/// A stamped plea is entered at the open window: the other name is sent word.
+fn enter(world: &mut World, c: &mut Value, actor: &str) {
+    c["answer_by"] = json!(world.now().0 + ANSWER_MS);
+    move_stage(world, c, "entered");
+    let (n, against, by, kind, what) = (
+        c["n"].clone(),
+        s(c, "against").to_string(),
+        s(c, "by").to_string(),
+        s(c, "kind").to_string(),
+        s(c, "what").to_string(),
+    );
+    super::combat::narrate(
+        world,
+        actor,
+        format!("The Clerk of the Court holds the stamp to the light, turns it, holds it to a different light, finds it sufficient, and enters case {n} upon the Docket with a pen that needs two dips. {against} is sent word, and has a day to answer in the Courtroom. `docket` says where the case stands; a bell is rung in the Hall when the Court sits on it."),
+    );
+    if against != "conclave" {
+        tell(
+            world,
+            &against,
+            format!("Word reaches you from the Court of Lethe: {by} has entered case {n} against you, in the matter of {} (\"{what}\"). You have a day to answer, and an answer is given in the Courtroom, off the Hall of Lost Steps, behind the door in the Division Lobby: defend {n} \"<your answer>\". Unanswered, the case is heard without you, and the Semi-Public Defender will say what can be said.", kind_said(&kind)),
+        );
+    }
+}
+
+/// The errands: a plea short of a form finds it by arriving in the Hall; a lodged
+/// plea is stamped by arriving at the Archive; a stamped one is entered by arriving
+/// at the Filing Window while it is open (or by standing there when it opens).
 pub fn on_arrival(world: &mut World, actor: &str, room: EntityId) -> Result<(), String> {
+    use super::courthouse::{HALL, WINDOW};
     let key = plain_str(world, room, ROOM, "key")
         .unwrap_or("")
         .to_string();
-    if key != "archive" && key != ROOM_KEY {
+    if key != "archive" && key != WINDOW && key != HALL {
         return Ok(());
     }
     let mut all = cases(world);
@@ -595,37 +859,57 @@ pub fn on_arrival(world: &mut World, actor: &str, room: EntityId) -> Result<(), 
         return Ok(());
     };
     let n = c["n"].clone();
+    let wants_form = c["form"].is_string() && c["form_got"] != true;
     match (s(c, "stage"), key.as_str()) {
+        ("lodged", k) if k == HALL && wants_form => {
+            c["form_got"] = json!(true);
+            let form = s(c, "form").to_string();
+            write(world, all, None)?;
+            super::combat::narrate(
+                world,
+                actor,
+                format!("The Crier of the List sees you coming, and sees what you have come without. It takes Form {form} from inside its coat, where it keeps them warm, and gives it to you already filled in, in your hand, which you do not remember doing. Plea {n} is whole. On to the Unfiled Archive for the record's stamp."),
+            );
+        }
+        ("lodged", "archive") if wants_form => {
+            let form = s(c, "form").to_string();
+            super::combat::narrate(
+                world,
+                actor,
+                format!("A ledger comes halfway off the Archive's shelf for plea {n}, and stops, and goes back. The plea wants Form {form}, and the record will not take the impression of half a plea. The Crier of the List keeps that form, in the Hall of Lost Steps."),
+            );
+        }
         ("lodged", "archive") => {
             move_stage(world, c, "stamped");
             write(world, all, None)?;
             super::combat::narrate(
                 world,
                 actor,
-                format!("A ledger comes down off the Archive's shelf without being asked, opens at a page with nothing on it, and takes the impression of plea {n}. The ink stays. The plea is stamped: carry it back to the Court of Lethe."),
+                format!("A ledger comes down off the Archive's shelf without being asked, opens at a page with nothing on it, and takes the impression of plea {n}. The ink stays. The plea is stamped: carry it back to the Filing Window."),
             );
         }
-        ("stamped", k) if k == ROOM_KEY => {
-            c["answer_by"] = json!(world.now().0 + ANSWER_MS);
-            move_stage(world, c, "entered");
-            let (against, by, kind, what) = (
-                s(c, "against").to_string(),
-                s(c, "by").to_string(),
-                s(c, "kind").to_string(),
-                s(c, "what").to_string(),
-            );
-            write(world, all, None)?;
-            super::combat::narrate(
-                world,
-                actor,
-                format!("The Clerk of the Court holds the stamp to the light, finds it sufficient, and enters case {n} upon the Docket. {against} is sent word, and has a day to answer. `docket` says where the case stands."),
-            );
-            if against != "conclave" {
-                tell(
+        ("stamped", k) if k == WINDOW => {
+            let (open, _, _) = super::courthouse::window(world);
+            if !open {
+                let said = super::courthouse::window_said(world);
+                super::combat::narrate(
                     world,
-                    &against,
-                    format!("Word reaches you from the Court of Lethe: {by} has entered case {n} against you, in the matter of {} (\"{what}\"). You have a day to answer, from anywhere: defend {n} \"<your answer>\". Unanswered, the case is heard without you.", kind_said(&kind)),
+                    actor,
+                    format!("You have plea {n}, stamped, and nobody to give it to. {said} Wait here and it is taken when the shutter goes up."),
                 );
+            } else if c["smudged"] != true && super::courthouse::mishap(world, 4) {
+                // Prone to error at every stage: once a case, the stamp will not do.
+                c["smudged"] = json!(true);
+                move_stage(world, c, "lodged");
+                write(world, all, None)?;
+                super::combat::narrate(
+                    world,
+                    actor,
+                    format!("The Clerk of the Court holds the stamp to the light for a long time. \"Smudged,\" the Clerk says, with something close to pleasure, and shows you: the date could be a 3 or an 8. Plea {n} is lodged again and not entered. The Archive must stamp it afresh, and you must bring it back. The Clerk writes SMUDGED on it, clearly."),
+                );
+            } else {
+                enter(world, c, actor);
+                write(world, all, None)?;
             }
         }
         _ => {}
@@ -633,7 +917,7 @@ pub fn on_arrival(world: &mut World, actor: &str, room: EntityId) -> Result<(), 
     Ok(())
 }
 
-fn kind_said(kind: &str) -> &'static str {
+pub fn kind_said(kind: &str) -> &'static str {
     match kind {
         "story" => "a story told under another's name",
         "line" => "a line written where it was not wanted",
@@ -646,10 +930,16 @@ fn kind_said(kind: &str) -> &'static str {
 
 fn stage_said(c: &Value, now: i64) -> String {
     match s(c, "stage") {
+        "lodged" if c["form"].is_string() && c["form_got"] != true => format!(
+            "lodged short: Form {} is wanting, and the Crier of the List in the Hall of Lost Steps keeps it; then the Unfiled Archive for the record's stamp, then the Filing Window",
+            s(c, "form")
+        ),
+        "lodged" if c["smudged"] == true => "lodged, its first stamp having smudged: the plea goes to the Unfiled Archive to be stamped again, and back to the Filing Window".to_string(),
         "lodged" => "lodged, and waiting on its errand: the plea goes to the Unfiled Archive for the record's stamp".to_string(),
-        "stamped" => "stamped at the Archive, and waiting to be carried back to the Court".to_string(),
+        "stamped" => "stamped at the Archive, and waiting to be carried back to the Filing Window (when the window is open)".to_string(),
+        "sitting" => "being heard now: the Court is sitting on it, in the Courtroom".to_string(),
         "entered" => format!(
-            "entered; the other name has {} more to answer",
+            "entered; the other name has {} more to answer, in the Courtroom",
             super::combat::human((c["answer_by"].as_i64().unwrap_or(now) - now).max(0))
         ),
         "heard" => "before the bench, and waiting on the judge".to_string(),
@@ -663,16 +953,25 @@ fn stage_said(c: &Value, now: i64) -> String {
     }
 }
 
-/// What the Court's room adds to `look`.
+/// What the Court's rooms add to `look`.
 pub fn look_line(world: &World, room: EntityId) -> Option<String> {
     if plain_str(world, room, ROOM, "key") != Some(ROOM_KEY) {
-        return None;
+        return super::courthouse::look_line(world, room);
     }
     let all = cases(world);
     let pending = all.iter().filter(|c| open(c)).count();
     let standing = all.len() - pending;
+    let sitting = match all.iter().find(|c| s(c, "stage") == "sitting") {
+        Some(c) => format!(
+            " The Court is sitting, on case {}: {} against {}. `murmur` adds yours to the record, once.",
+            c["n"],
+            s(c, "by"),
+            s(c, "against")
+        ),
+        None => " The Court is not sitting; a bell is rung in the Hall when it does.".to_string(),
+    };
     Some(format!(
-        "The Docket hangs by the Clerk's window: {pending} case{} open, {standing} ruling{} remembered (`docket`). A kept name brings a case here with plead <kind> <against> \"<what>\", the kinds being story, line, name, thing and roll; the fee is the least memory you hold, and the plea then goes to the Archive and back.",
+        "The Docket under glass: {pending} case{} open, {standing} ruling{} remembered (`docket`).{sitting} A case is brought at the Filing Window, off the Hall, and answered here (`defend <case> \"...\"`).",
         if pending == 1 { "" } else { "s" },
         if standing == 1 { "" } else { "s" },
     ))
@@ -721,8 +1020,8 @@ pub fn judge(
         .collect();
     let said = match verdict {
         "granted" | "denied" => {
-            decide(world, c, verdict, &opinion, judge_name);
-            format!("Case {n}: {verdict}.")
+            convene(world, c, verdict, &opinion, judge_name);
+            format!("Case {n}: {verdict}. The Court sits to say so.")
         }
         "referred" => {
             if c["no_refer"] == true {
@@ -730,15 +1029,8 @@ pub fn judge(
                     "Case {n} has been to the Conclave and back: the Court decides it now, granted or denied."
                 )));
             }
-            c["opinion"] = json!(opinion);
-            move_stage(world, c, "referred");
-            let by = s(c, "by").to_string();
-            tell(
-                world,
-                &by,
-                format!("The Court of Lethe has heard case {n} and will not decide it yet: {opinion} The case is referred to the Conclave. Lay a petition in the matter at the Petitioners' Gallery (petition \"…\"); when the Conclave has decided it, either way, the case comes back to the Court, which then must decide."),
-            );
-            format!("Case {n}: referred to the Conclave.")
+            convene(world, c, verdict, &opinion, judge_name);
+            format!("Case {n}: referred to the Conclave. The Court sits to say so.")
         }
         _ => {
             return Err(CommandError::precondition(
@@ -751,10 +1043,61 @@ pub fn judge(
 }
 
 pub fn register(world: &mut World) {
+    world.on_job(
+        JOB_SITTING,
+        Box::new(|w: &mut World, job| read_on(w, job.payload["case"].as_u64().unwrap_or(0))),
+    );
+    world.register(
+        CommandSpec::new(
+            "disremembered.murmur",
+            "In the Courtroom of the Court of Lethe while it sits: add your murmur to the record. Once a sitting. The Clerk counts them and the count is read out at the end. Those in the gallery when the Court rises remember having sat through it.",
+        )
+        .allowed(&[ActorKind::Citizen, ActorKind::Admin]),
+        Box::new(|w: &mut World, ctx, _args: &Args| {
+            if !at(w, &ctx.actor, ROOM_KEY) {
+                return Err(CommandError::precondition("A murmur is for the gallery of the Court of Lethe, while the Court sits.".to_string()));
+            }
+            let mut all = cases(w);
+            let Some(c) = all.iter_mut().find(|c| s(c, "stage") == "sitting") else {
+                return Err(CommandError::precondition("The Court is not sitting, and a murmur at an empty bench is talking to yourself. A bell is rung in the Hall when it sits.".to_string()));
+            };
+            let mut list = c["murmurs"].as_array().cloned().unwrap_or_default();
+            if list.iter().any(|m| m == &json!(ctx.actor)) {
+                return Err(CommandError::precondition("You have murmured. The Clerk has it. One to a sitting.".to_string()));
+            }
+            list.push(json!(ctx.actor));
+            let count = list.len();
+            c["murmurs"] = json!(list);
+            write(w, all, None).map_err(CommandError::precondition)?;
+            if let Some(room) = super::courthouse::room_keyed(w, ROOM_KEY) {
+                let others: Vec<String> = super::courthouse::names_in(w, room).into_iter().filter(|n| n != &ctx.actor).collect();
+                super::combat::narrate_many(w, &others, format!("{} murmurs. It goes round the gallery and comes back slightly changed.", ctx.actor));
+            }
+            Ok(Outcome::new(
+                format!("You murmur. It goes round the gallery and comes back slightly changed. The Clerk makes a stroke: {count} so far. The Bailiff looks at you for exactly as long as is needed."),
+                json!({"murmurs": count}),
+            ))
+        }),
+    );
+    world.register(
+        CommandSpec::new(
+            "disremembered.tattoo",
+            "Operator. The Bailiff's considered name for a forearm it has already written on (GET /v0/docent lists them under tattoos): tattoo <name> \"<nickname>\". Slightly rude, never cruel; three to twenty-six letters. Once to a name.",
+        )
+        .param("name", ParamType::String, true, "whose forearm")
+        .param("nickname", ParamType::Text, true, "what it will say, quoted")
+        .allowed(&[ActorKind::Admin]),
+        Box::new(|w: &mut World, _ctx, args: &Args| {
+            let who = args.str("name").unwrap_or("").trim().to_string();
+            let nick = args.str("nickname").unwrap_or("").to_string();
+            let said = super::courthouse::retattoo(w, &who, &nick)?;
+            Ok(Outcome::new(said, json!({"name": who})))
+        }),
+    );
     world.register(
         CommandSpec::new(
             "disremembered.plead",
-            "Bring a case before the Court of Lethe, standing in it, as a kept name: plead <kind> <against> \"<what>\". The kinds: story (a story of yours another name tells as their own; what: the creature that holds it), line (a line another wrote in a room or book of yours; what: some of its words), name (a name another put on an object of yours; what: the name), thing (a thing left by a creature you felled, taken by another; what: the thing), roll (your name on the Roll of Hoards; against: conclave). The fee is the least memory you hold. The plea is then carried to the Unfiled Archive to be stamped, and back, and the other name has a day to answer. A judgment puts right and fines nobody.",
+            "Bring a case before the Court of Lethe, at its Filing Window in the window's hours, as a kept name: plead <kind> <against> \"<what>\". The kinds: story (a story of yours another name tells as their own; what: the creature that holds it), line (a line another wrote in a room or book of yours; what: some of its words), name (a name another put on an object of yours; what: the name), thing (a thing left by a creature you felled, taken by another; what: the thing), roll (your name on the Roll of Hoards; against: conclave). The fee is the least memory you hold. The plea is then carried to the Unfiled Archive to be stamped, and back to the window (and wherever else it turns out to be wanted), and the other name has a day to answer in the Courtroom. The Court then sits, aloud, and a bell says when. A judgment puts right and fines nobody.",
         )
         .param("kind", ParamType::String, true, "story, line, name, thing or roll")
         .param("against", ParamType::String, true, "the other name, or conclave for the Roll")
@@ -764,10 +1107,16 @@ pub fn register(world: &mut World) {
             let kind = args.str("kind").unwrap_or("").trim().to_lowercase();
             let against = args.str("against").unwrap_or("").trim().to_string();
             let what = args.str("what").unwrap_or("").trim().to_string();
-            if in_court(w, &ctx.actor).is_none() {
+            if !at(w, &ctx.actor, super::courthouse::WINDOW) {
                 return Err(CommandError::precondition(
-                    "A case is brought in the Court of Lethe, through the one door behind AYE and NO in the Division Lobby (`where \"Court of Lethe\"`).".to_string(),
+                    "A case is brought at the Filing Window of the Court of Lethe: through the one door behind AYE and NO in the Division Lobby, across the Hall of Lost Steps, by the arch marked WINDOW (`where \"Filing Window\"`).".to_string(),
                 ));
+            }
+            if !super::courthouse::window(w).0 {
+                return Err(CommandError::precondition(format!(
+                    "{} A plea is taken when the window is open.",
+                    super::courthouse::window_said(w)
+                )));
             }
             let f = find_citizen(w, &ctx.actor).ok_or_else(|| CommandError::precondition("No such name.".to_string()))?;
             if super::is_passing(w, f.citizen) {
@@ -835,24 +1184,48 @@ pub fn register(world: &mut World) {
             let n = next_number(w);
             let mut c = json!({"n": n, "kind": kind, "by": ctx.actor, "against": against, "what": what, "at": w.now().0,
                                "fee": worth, "answer": Value::Null});
+            // Prone to error at every stage: one plea in three is short a form.
+            let form = if super::courthouse::mishap(w, 3) {
+                let forms = super::courthouse::FORMS;
+                Some(forms[w.roll(forms.len() as u32) as usize % forms.len()])
+            } else {
+                None
+            };
+            if let Some((num, _)) = form {
+                c["form"] = json!(num);
+            }
             move_stage(w, &mut c, "lodged");
             all.push(c);
             write(w, all, Some(n + 1)).map_err(CommandError::precondition)?;
+            let ticket = super::courthouse::paper(
+                w,
+                &ctx.actor,
+                "a court ticket",
+                &format!("COURT OF LETHE. No. {n}. {} against {against}, in the matter of {}. RETAIN THIS PORTION. The other portion has been retained.", ctx.actor, kind_said(&kind)),
+            );
+            let errand = match form {
+                Some((num, title)) => format!("Lodged is not entered, and this one is lodged short: the Clerk looks through the pigeonholes twice and reports, not unhappily, that Form {num}, {title}, is not with the plea, and is not kept at this window. The Crier of the List keeps it, in the Hall of Lost Steps. Then the Unfiled Archive for the record's stamp, then this window again, in its hours. Arriving does each."),
+                None => "Lodged is not entered. The Court acts on the record, and the record is in the Unfiled Archive: carry the plea there for its stamp, and bring it back to this window, in its hours. Arriving does both.".to_string(),
+            };
             Ok(Outcome::new(
                 format!(
-                    "The Clerk of the Court takes the fee, your least memory (chunk-{} worth {worth:.1}), weighs it, and lodges your plea as case {n}: {} against {against}, in the matter of {} (\"{what}\"). Lodged is not entered. The Court acts on the record, and the record is in the Unfiled Archive: carry the plea there for its stamp, and bring it back here. Arriving does both.",
+                    "The Clerk of the Court takes the fee, your least memory (chunk-{} worth {worth:.1}), weighs it, and lodges your plea as case {n}: {} against {against}, in the matter of {} (\"{what}\"). {}{errand}",
                     chunk.0,
                     ctx.actor,
-                    kind_said(&kind)
+                    kind_said(&kind),
+                    match ticket {
+                        Some(t) => format!("A numbered ticket is torn off and pushed under the grille (item-{}, in your satchel). ", t.0),
+                        None => String::new(),
+                    }
                 ),
-                json!({"case": n, "stage": "lodged", "fee": worth}),
+                json!({"case": n, "stage": "lodged", "fee": worth, "form": form.map(|f| f.0)}),
             ))
         }),
     );
     world.register(
         CommandSpec::new(
             "disremembered.defend",
-            "Answer a case entered against you before the Court of Lethe, from anywhere: defend <case> \"<your answer>\". The judge reads it beside the plea and the world's record. One answer to a case; a name that answers keeps a small memory of the judgment whichever way it goes.",
+            "Answer a case entered against you before the Court of Lethe, standing in its Courtroom: defend <case> \"<your answer>\". The judge reads it beside the plea and the world's record. One answer to a case; a name that answers keeps a small memory of the judgment whichever way it goes.",
         )
         .param("case", ParamType::Integer, true, "the case's number")
         .param("text", ParamType::Text, true, "your answer, quoted")
@@ -867,6 +1240,12 @@ pub fn register(world: &mut World) {
             if s(c, "against") != ctx.actor {
                 return Err(CommandError::precondition(format!("Case {n} is not against you.")));
             }
+            if !at(w, &ctx.actor, ROOM_KEY) {
+                return Err(CommandError::precondition(format!(
+                    "An answer is given in the Courtroom of the Court of Lethe, at the dock: behind the door in the Division Lobby, across the Hall of Lost Steps, through the arch marked COURT (`where \"Court of Lethe\"`). You have {} left to give it.",
+                    super::combat::human((c["answer_by"].as_i64().unwrap_or(0) - w.now().0).max(0))
+                )));
+            }
             if s(c, "stage") != "entered" {
                 return Err(CommandError::precondition(format!("Case {n} is not waiting on an answer (it is {}).", s(c, "stage"))));
             }
@@ -879,7 +1258,7 @@ pub fn register(world: &mut World) {
             write(w, all, None).map_err(CommandError::precondition)?;
             tell(w, &by, format!("{} has answered case {n}. It is before the bench.", ctx.actor));
             Ok(Outcome::new(
-                format!("Your answer is read into case {n}, and the case goes before the bench. The Court will send word of its judgment."),
+                format!("You stand in the dock and say it. The Clerk takes it down, reads it back to you slightly wrong, and corrects it. Your answer is in case {n}, and the case goes before the bench. A bell is rung in the Hall when the Court sits on it; the Semi-Public Defender will read your answer out, if it finds the file."),
                 json!({"case": n, "stage": "heard"}),
             ))
         }),

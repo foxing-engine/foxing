@@ -567,6 +567,39 @@ COURT_SYSTEM = (
 )
 
 
+TATTOO_SYSTEM = (
+    "You are the Bailiff of the Court of Lethe, in a text world about memory and forgetting. "
+    "Somebody raised a hand in your Courtroom, and you wrote a placeholder on their forearm. Now you "
+    "have thought of the name that suits them, and it will replace the placeholder for good. "
+    "Write ONE nickname: slightly rude, dry, the kind a tired court officer gives. It teases the "
+    "person for losing their temper in a courtroom, or plays on their own name. It is never cruel: "
+    "nothing about body, sex, race, religion, nationality, illness, disability, age or intelligence; "
+    "no profanity, no slurs, nothing a parent would mind a child reading. Two to four words, at most "
+    "26 characters, letters, spaces, hyphens, commas and apostrophes only. Reply with the nickname "
+    "alone on one line: no quotes, no explanation."
+)
+
+
+def tattoo_one(creds, token, actor, passphrase, t, dry):
+    import re
+    who = str(t.get("name", ""))
+    text = ask_model(creds, TATTOO_SYSTEM, json.dumps({"name": who, "placeholder": t.get("wears")}, ensure_ascii=False), max_tokens=30) or ""
+    nick = " ".join(text.strip().splitlines()[0].split()) if text.strip() else ""
+    nick = nick.strip("\"'.").strip()
+    if not re.fullmatch(r"[A-Za-z][A-Za-z ,'\-]{2,25}", nick):
+        log(f"the Bailiff's name for {who} was not in form: {text[:60]!r}; left for the next pass")
+        return None
+    if dry:
+        print(f"[tattoo {who}] {nick}")
+        return {"tattoo": who, "nickname": nick, "applied": False}
+    r = command(token, actor, passphrase, "tattoo", [who, '"' + nick + '"'])
+    if r.get("ok"):
+        log(f"the Bailiff has thought of a name for {who}: {nick}")
+    else:
+        log(f"the world refused the Bailiff's name for {who}: {str(r.get('error'))[:160]}")
+    return {"tattoo": who, "nickname": nick, "applied": bool(r.get("ok"))}
+
+
 def judge_one(creds, token, actor, passphrase, c, dry):
     import random
     case = dict(c)
@@ -650,6 +683,18 @@ def main():
                 if key in seen:
                     continue
                 rec = judge_one(creds, token, actor, passphrase, c, a.dry_run)
+                if rec is None:
+                    continue
+                seen.add(key)
+                if a.out:
+                    with open(a.out, "a", encoding="utf-8") as f:
+                        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+            # X6: the forearms the Bailiff is still thinking about.
+            for t in rep.get("tattoos", []):
+                key = ("tattoo", t.get("name"))
+                if key in seen:
+                    continue
+                rec = tattoo_one(creds, token, actor, passphrase, t, a.dry_run)
                 if rec is None:
                     continue
                 seen.add(key)

@@ -14231,15 +14231,26 @@ fn the_court_of_lethe_hears_a_case_through_and_forgets_it() {
         json!(["story", "tyler", &name])
     )
     .is_err());
+    court::calm_for_test(&mut w);
     admin(&mut w, "dave", "bring", json!(["dave", "court-of-lethe"]));
-    let court = rooms::room_by_key(&w, "court-of-lethe").unwrap();
     let look = ok(&mut w, "dave", "look", json!([]));
     assert!(
         look.summary
-            .contains("The Docket hangs by the Clerk's window: 0 cases open"),
+            .contains("The Docket under glass: 0 cases open"),
         "{}",
         look.summary
     );
+    // A case is brought at the window, not in the Courtroom.
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "plead",
+        json!(["story", "tyler", &name])
+    )
+    .is_err());
+    admin(&mut w, "dave", "bring", json!(["dave", "filing-window"]));
+    let court = rooms::room_by_key(&w, "filing-window").unwrap();
     assert!(call(
         &mut w,
         "dave",
@@ -14252,7 +14263,8 @@ fn the_court_of_lethe_hears_a_case_through_and_forgets_it() {
     let out = ok(&mut w, "dave", "plead", json!(["story", "tyler", &name]));
     assert!(
         out.summary.contains("lodges your plea as case 1")
-            && out.summary.contains("Lodged is not entered"),
+            && out.summary.contains("Lodged is not entered")
+            && out.summary.contains("A numbered ticket"),
         "{}",
         out.summary
     );
@@ -14295,6 +14307,16 @@ fn the_court_of_lethe_hears_a_case_through_and_forgets_it() {
         json!([1, "it is mine"])
     )
     .is_err());
+    // An answer is given in the Courtroom.
+    assert!(call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "defend",
+        json!([1, "I found it with nobody's name on it."])
+    )
+    .is_err());
+    admin(&mut w, "tyler", "bring", json!(["tyler", "court-of-lethe"]));
     ok(
         &mut w,
         "tyler",
@@ -14316,7 +14338,26 @@ fn the_court_of_lethe_hears_a_case_through_and_forgets_it() {
         "test",
     )
     .unwrap();
+    // The Court sits to say so: a script, read a line at a time, and murmurs.
+    let sitting = court::cases(&w)[0].clone();
+    assert_eq!(sitting["stage"], "sitting");
+    assert!(sitting["script"].as_array().unwrap().len() >= 9);
+    let said = sitting["script"].to_string();
+    assert!(
+        said.contains("Where was I.")
+            && said.contains("THE REALM")
+            && said.contains("Semi-Public Defender"),
+        "{said}"
+    );
+    let head = events(&w);
+    w.fixed_now = Some(t0.plus(Duration::seconds(30)));
+    w.tick();
+    assert!(narrative(&w, "tyler", head).join(" ").contains("All rise."));
+    ok(&mut w, "tyler", "murmur", json!([]));
+    assert!(call(&mut w, "tyler", ActorKind::Citizen, "murmur", json!([])).is_err());
+    court::conclude_now(&mut w, 1).unwrap();
     assert_eq!(court::cases(&w)[0]["stage"], "referred");
+    assert_eq!(court::cases(&w)[0]["murmurs"], 1);
     court::tick(&mut w).unwrap();
     assert_eq!(court::cases(&w)[0]["stage"], "referred");
     w.fixed_now = Some(t0.plus(Duration::seconds(600)));
@@ -14329,6 +14370,8 @@ fn the_court_of_lethe_hears_a_case_through_and_forgets_it() {
     let (d0, t0_level) = (level(&mut w, "dave"), level(&mut w, "tyler"));
     let head = events(&w);
     court::judge(&mut w, 1, "granted", "The record is plain.", "test").unwrap();
+    assert_eq!(tales::of(&w, rag)[0].credit, "tyler", "not until the gavel");
+    court::conclude_now(&mut w, 1).unwrap();
     assert_eq!(tales::of(&w, rag)[0].credit, "dave");
     assert!(level(&mut w, "dave") > d0 + 10.0 && level(&mut w, "tyler") > t0_level + 4.0);
     let said = narrative(&w, "tyler", head).join(" ");
@@ -14376,6 +14419,8 @@ fn the_court_of_lethe_hears_a_case_through_and_forgets_it() {
     assert_eq!(court::cases(&w)[1]["stage"], "heard");
     w.fixed_now = Some(t0.plus(Duration::seconds(600 + 86_400 + 7 * 3600)));
     court::tick(&mut w).unwrap();
+    assert_eq!(court::cases(&w)[1]["stage"], "sitting");
+    court::conclude_now(&mut w, 2).unwrap();
     let c2 = court::cases(&w)[1].clone();
     assert_eq!(
         (c2["stage"].as_str(), c2["verdict"].as_str()),
@@ -14862,4 +14907,102 @@ fn recipes_are_short_and_a_hurt_name_is_stopped_at_a_hunting_door() {
         said.contains("something hunts in The Sump") && said.contains("travel south anyway"),
         "{said}"
     );
+}
+
+#[test]
+fn the_bailiff_writes_on_a_hand_raised_in_the_courtroom() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    for who in ["dave", "tyler"] {
+        admin(&mut w, who, "bring", json!([who, "court-of-lethe"]));
+    }
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("bailiff") && look.summary.contains("jury box"),
+        "{}",
+        look.summary
+    );
+    let hp = combat::hp(&w, find_citizen(&w, "dave").unwrap().citizen);
+    let out = ok(&mut w, "dave", "attack", json!(["bailiff"]));
+    assert!(
+        out.summary.contains("It writes on your forearm")
+            && out.summary.contains("Hall of Lost Steps"),
+        "{}",
+        out.summary
+    );
+    let wears = courthouse::tattoo_of(&w, "dave").unwrap();
+    assert_eq!(
+        combat::hp(&w, find_citizen(&w, "dave").unwrap().citizen),
+        hp,
+        "nothing was struck"
+    );
+    let dave = find_citizen(&w, "dave").unwrap().citizen;
+    assert_eq!(
+        rooms::room_of(&w, dave),
+        rooms::room_by_key(&w, "lost-steps")
+    );
+    // Whoever looks reads it; the model's name replaces the stock one, once.
+    admin(&mut w, "tyler", "bring", json!(["tyler", "lost-steps"]));
+    let seen = ok(&mut w, "tyler", "look", json!([]));
+    assert!(
+        seen.summary
+            .contains(&format!("dave (a forearm inked \"{wears}\")")),
+        "{}",
+        seen.summary
+    );
+    assert_eq!(courthouse::pending_tattoos(&w).len(), 1);
+    assert!(courthouse::retattoo(&mut w, "dave", "x!").is_err());
+    courthouse::retattoo(&mut w, "dave", "Swings At Clerks").unwrap();
+    assert_eq!(
+        courthouse::tattoo_of(&w, "dave").as_deref(),
+        Some("Swings At Clerks")
+    );
+    assert!(courthouse::pending_tattoos(&w).is_empty());
+    assert!(courthouse::retattoo(&mut w, "dave", "Again").is_err());
+    // The readable furniture: the evidence locker, the tiny door, the jury box.
+    admin(
+        &mut w,
+        "tyler",
+        "bring",
+        json!(["tyler", "cells-of-record"]),
+    );
+    assert!(ok(&mut w, "tyler", "read", json!(["evidence"]))
+        .summary
+        .contains("AND THE OTHER THING"));
+    admin(&mut w, "tyler", "bring", json!(["tyler", "appeal-stair"]));
+    assert!(ok(&mut w, "tyler", "read", json!(["door"]))
+        .summary
+        .contains("on their knees"));
+}
+
+#[test]
+fn a_seed_exit_the_seed_has_moved_follows_it() {
+    // The Division Lobby's door led to the Court and now leads to the Hall before
+    // it: a world from before must not keep the old door.
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    let lobby = rooms::room_by_key(&w, "division-lobby").unwrap();
+    let court = rooms::room_by_key(&w, "court-of-lethe").unwrap();
+    let hall = rooms::room_by_key(&w, "lost-steps").unwrap();
+    let mut exits = serde_json::Map::new();
+    for (name, to) in rooms::exits_of(&w, lobby) {
+        exits.insert(name, json!(to.0));
+    }
+    exits.insert("door".into(), json!(court.0));
+    let mut fields = BTreeMap::new();
+    fields.insert("exits".to_string(), Field::Plain(Value::Object(exits)));
+    w.record(
+        Actor::Driver,
+        StoreEvent::ComponentSet {
+            id: lobby,
+            component: EXITS.into(),
+            fields,
+        },
+    )
+    .unwrap();
+    assert_eq!(rooms::exits_of(&w, lobby).get("door"), Some(&court));
+    rooms::ensure_rooms(&mut w).unwrap();
+    assert_eq!(rooms::exits_of(&w, lobby).get("door"), Some(&hall));
 }

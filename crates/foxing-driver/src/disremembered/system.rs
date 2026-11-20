@@ -802,6 +802,7 @@ fn register_rest(world: &mut World) {
                     ("remember", &["remember", "shelve", "reminisce", "give", "take", "drop", "craft", "gather", "trade", "carry"]),
                     ("talk", &["say", "tell", "story", "greet", "reply", "solve", "petition", "attend", "feedback"]),
                     ("build", &["dig", "describe", "append", "name", "permit", "welcome", "revoke", "invite", "ward", "unward", "read", "unbind"]),
+                    ("the court", &["plead", "defend", "murmur"]),
                     ("the name", &["keep", "leave", "pto", "resume"]),
                 ];
                 let mut lines: Vec<String> = Vec::new();

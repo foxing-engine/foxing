@@ -1554,6 +1554,8 @@ pub fn report(world: &World) -> Value {
         "open": open,
         // X6: the cases before the Court's bench, for the same model to judge.
         "court": super::court::pending(world),
+        // The forearms the Bailiff is still thinking about.
+        "tattoos": super::courthouse::pending_tattoos(world),
         "docent": {"name": NAME, "story": STORY},
         "answered": field(world, "answered").unwrap_or(json!(0)),
         "tidied": field(world, "tidied").unwrap_or(json!(0)),

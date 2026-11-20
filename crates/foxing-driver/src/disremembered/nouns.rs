@@ -205,6 +205,52 @@ const NOUNS: &[(&str, &[&str], &str)] = &[
         &["trolley", "trolleys", "book", "books", "slip", "cage", "wire"],
         "Every book on the trolleys has a date slip in the back, and every slip says the same thing in a different hand: DUE BACK ELSEWHERE. You open one at random. It is a guide to the Reading Rooms, and the page it falls open at is this room, with a note in the margin: if one takes your elbow, go where it shows you. The fight is over and you kept what you had.",
     ),
+    // X6, 11-20: the courthouse.
+    (
+        "lost-steps",
+        &["clock", "hand"],
+        "The clock has one hand and no numbers. You watch it and it does not move, and then you look away and back and it has. It is not telling the hour. It is telling you how long you have been in this hall, and it is a little ahead.",
+    ),
+    (
+        "lost-steps",
+        &["bench", "benches", "carving", "carvings"],
+        "Initials. Tallies in fives, one of them running the whole length of a bench and onto the next. STILL HERE. A date, and under it the same date in a shakier hand. One careful drawing of a small door. And, cut deep by somebody with a proper knife: THE FORM YOU WANT IS THE ONE THEY DO NOT KEEP.",
+    ),
+    (
+        "filing-window",
+        &["card", "hours", "cards", "pigeonholes", "forms"],
+        "The card of hours has been corrected in three inks and each correction corrects the last. What can be made out: the window is open when it is open. The second card says FORMS NOT KEPT AT THIS WINDOW ARE KEPT ELSEWHERE, and somebody waiting has added in pencil: the Crier has them, in the Hall, in its coat. The pigeonholes behind the grille are numbered 7-B, 12, 3 (pink), 40-A and 9, and every one of them is empty, and dusted.",
+    ),
+    (
+        "court-of-lethe",
+        &["jury", "box", "jury box", "seats", "rail"],
+        "Twelve seats in two rows behind a rail. The cushions are dented as if by a jury that rose a moment ago and has not been back for years. The card on the rail says RESERVED. On the back of the card, where you are plainly not meant to look, a seating plan in pencil: eleven blanks, and in the twelfth place a single M, gone over several times.",
+    ),
+    (
+        "court-of-lethe",
+        &["door", "robing", "robing room"],
+        "The door behind the bench is across the water and you read it from here: ROBING. A slate hangs on it of the kind a doctor's door has. Chalked on it: SITTING, rubbed out; NOT SITTING, rubbed out; and under both, left standing, the last thing the Court said from the bench, which the slate keeps until the next one. Today it reads: \"Where was I.\"",
+    ),
+    (
+        "court-of-lethe",
+        &["notice", "notices", "inkpot", "bailiff"],
+        "The third hand on the notice is the Bailiff's: NOTHING IS STRUCK IN THIS ROOM BUT THE RECORD. The inkpot at its belt has a brass cap on a chain and a crust of blue-black round the neck. Whoever raises a hand in here leaves with something written on them, in a round clerk's hand, that the Bailiff thought suited. It does not wash off. Nobody has yet found what does.",
+    ),
+    (
+        "cells-of-record",
+        &["evidence", "door", "locker", "wheel", "padlocks", "hasp"],
+        "EVIDENCE, in stencil, on steel. Three padlocks: one brass, one iron, one of some grey metal that is cold from a foot away. The wheel does not turn. A docket in a frame beside the door lists what is inside by case number, and every line has been blacked out by the Censor's Office, except the last, which says only: AND THE OTHER THING. Something behind the door shifts its weight. It is waiting for a case that needs it.",
+    ),
+    (
+        "cells-of-record",
+        &["alcove", "alcoves", "shelf", "shelves", "ticket", "tickets"],
+        "Each alcove has a shelf, a ticket on a string, and bars you could put an arm through. What the Court strikes is kept here under its case number: a name it took off a thing, a line it cut from a wall. They keep as long as the ruling is remembered. When nobody reads the ruling the alcove is swept, and whatever was struck is simply gone, which is not the same as being given back.",
+    ),
+    (
+        "appeal-stair",
+        &["door", "plate", "knocker", "keyhole", "appeals"],
+        "You get down on your knees to read it, which is the point. APPEALS, on a brass plate the size of a playing card. The knocker is a tiny hand holding a tinier gavel. Through the keyhole: a light, a long way off, and a draught that smells of beeswax. The door is locked. It is the right size for a supplicant and for nothing else, and whoever is let through will go through on their knees and be glad of it.",
+    ),
 ];
 
 /// What `read <a thing this room's text names>` gives, if the room names it.

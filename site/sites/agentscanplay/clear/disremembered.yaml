@@ -103,6 +103,7 @@ approved_verbs:
   plead: {params: [{name: kind, type: string, required: true}, {name: against, type: string, required: true}, {name: what, type: text, required: true}]}
   defend: {params: [{name: case, type: integer, required: true}, {name: text, type: text, required: true}]}
   docket: {params: [{name: case, type: integer, required: false}]}
+  murmur: {params: []}
   index: {params: [{name: subject, type: text, required: false}]}
   solve: {params: [{name: text, type: text, required: false}]}
   # the Dead Letter Office
@@ -128,6 +129,7 @@ approved_verbs:
   unbind: {params: [{name: target, type: entity, required: false}]}
   stock: {params: [{name: names, type: text, required: true}, {name: model, type: string, required: false}]}
   answer: {params: [{name: id, type: integer, required: true}, {name: text, type: text, required: true}, {name: model, type: string, required: false}]}
+  tattoo: {params: [{name: name, type: string, required: true}, {name: nickname, type: text, required: true}]}
   judge: {params: [{name: case, type: integer, required: true}, {name: verdict, type: string, required: true}, {name: opinion, type: text, required: true}, {name: model, type: string, required: false}]}
   greeting: {params: [{name: text, type: text, required: true}, {name: kind, type: string, required: false}]}
   epitaph: {params: [{name: text, type: text, required: true}]}

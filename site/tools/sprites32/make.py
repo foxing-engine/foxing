@@ -687,7 +687,49 @@ s.rect(2, 29, 28, 3, 'w'); s.rect(2, 29, 28, 1, 'G')
 for x in range(2, 30, 6): s.rect(x, 29, 3, 3, 'r'); s.rect(x, 29, 3, 1, 'R')                                    # the checked blanket
 out['picnicker'] = s.out()
 
-order = ['citizen', 'docent', 'wisp', 'hollow', 'mothwing', 'inkling', 'ragpicker', 'revenant', 'sitter', 'drowned', 'hourhand', 'keeper', 'lanternfly', 'bookworm', 'proofreader', 'lampmoth', 'shusher', 'erratum', 'redactor', 'starfish', 'anemone', 'axolotl', 'hermit', 'mudskipper', 'newtling', 'custodian', 'dust devil', 'shelf mouse', 'silverfish', 'hand', 'usher', 'censor', 'cataloguer', 'engrosser', 'tapster', 'sweater', 'assayer', 'warden', 'tipstaff', 'footpad', 'gardener', 'lamprey', 'clipper', 'sigh', 'longsight', 'picnicker']
+# ==== X6, 11-20: the Court's officers ====
+
+# ---- bailiff: broad, slate blue, arms folded, an inkpot on a chain at the belt
+s = fig({'C': '#6a7a9a', 'c': '#4a5a78', 'd': '#2a3448', 'f': '#d8c8b0', 'F': '#b3a48c', 'k': '#10141c', 'G': '#f0d79a', 'g': '#c9a86a', 'i': '#1c2040', 'I': '#3a4488', 'n': '#3a4458'}, wide=2)
+s.rect(10, 1, 12, 3, 'd'); s.rect(9, 4, 14, 1, 'k'); s.rect(15, 1, 2, 2, 'g')                                   # a flat cap, a badge
+s.line(13, 6, 15, 7, 'k'); s.line(19, 6, 17, 7, 'k'); s.line(14, 11, 18, 11, 'k'); s.rect(13, 12, 6, 1, 'F')   # brows, a set jaw
+s.ell(6.5, 19, 2.2, 5.5, '.'); s.ell(25.5, 19, 2.2, 5.5, '.'); s.rect(5, 24, 3, 2, '.'); s.rect(24, 24, 3, 2, '.')
+s.poly([(8, 15), (24, 15), (25, 20), (7, 20)], 'Ccd'); s.line(8, 17, 24, 17, 'd'); s.rect(7, 16, 3, 3, 'F'); s.rect(22, 18, 3, 2, 'F')   # the arms, folded
+s.rect(8, 22, 16, 1, 'k'); s.rect(15, 22, 2, 1, 'g')
+s.line(20, 23, 22, 26, 'g'); s.rect(21, 26, 4, 4, 'i'); s.rect(21, 26, 4, 1, 'g'); s.px(22, 28, 'I')            # the inkpot
+s.px(13, 14, 'g'); s.px(19, 14, 'g')
+out['bailiff'] = s.out()
+
+# ---- clerk: behind a brass grille, spectacles, a stamp raised, sleeve garters
+s = fig({'C': '#b8b09a', 'c': '#8f876f', 'd': '#5a5444', 'f': '#e4d8c4', 'F': '#bfb29c', 'k': '#1a1612', 'G': '#f0d79a', 'g': '#b08a3a', 'o': '#7a5c20', 'e': '#f6f6ee', 'W': '#8a6f4a', 'w': '#5c4a30', 'r': '#a8452f', 'v': '#3f8a56'})
+s.ell(16, 3.4, 4.4, 1.8, 'd'); s.rect(11, 5, 10, 1, 'v'); s.rect(10, 6, 12, 1, 'v')                             # thin hair, an eyeshade
+s.rect(12, 7, 3, 3, 'e'); s.rect(17, 7, 3, 3, 'e'); s.px(13, 8, 'k'); s.px(18, 8, 'k'); s.px(15, 8, 'g'); s.px(16, 8, 'g')
+s.line(14, 12, 18, 12, 'k')
+s.rect(13, 13, 6, 1, 'e'); s.line(16, 14, 16, 22, 'd'); s.rect(7, 17, 4, 1, 'r'); s.rect(21, 17, 4, 1, 'r')    # garters
+s.ell(23.5, 19, 2.2, 5.5, '.'); s.rect(22, 24, 3, 2, '.')
+s.poly([(22, 14), (27, 12), (28, 15), (24, 19)], 'cdd'); s.rect(26, 9, 3, 3, 'F')
+s.rect(26, 4, 3, 5, 'W'); s.rect(24, 2, 7, 3, 'w'); s.rect(24, 2, 7, 1, 'W')                                    # the stamp, raised
+s.rect(0, 22, 32, 2, 'g'); s.rect(0, 22, 32, 1, 'G'); s.rect(0, 24, 32, 8, 'W'); s.rect(0, 24, 32, 1, 'o')      # the counter
+for x in range(1, 32, 4): s.line(x, 12, x, 21, 'g'); s.px(x, 12, 'G')                                           # the grille
+s.rect(0, 11, 32, 1, 'g')
+s.rect(12, 26, 8, 4, 'e'); s.line(13, 27, 18, 27, 'd'); s.line(13, 29, 16, 29, 'd')                             # a form, pushed under
+out['clerk'] = s.out()
+
+# ---- crier: a long coat with forms in it, a handbell, the List on a pole, mouth open
+s = fig({'C': '#c8b080', 'c': '#a08a58', 'd': '#665634', 'f': '#e9d5b8', 'F': '#c7b094', 'k': '#1a1612', 'G': '#f0d79a', 'g': '#c9a030', 'o': '#8a6a18', 'P': '#f6f1e2', 'p': '#d6cfba', 'W': '#6a5236', 'r': '#b84040'})
+s.rect(9, 3, 14, 2, 'd'); s.poly([(11, 3), (21, 3), (19, 0), (13, 0)], 'ddd'); s.rect(11, 2, 10, 1, 'r'); s.px(22, 1, 'P'); s.px(23, 0, 'P')   # a tricorn, a feather
+s.ell(16, 11.5, 1.6, 1.8, 'k')                                                                                  # mouth open, mid-cry
+s.poly([(10, 13), (14, 13), (12, 29), (9, 29)], 'cdd'); s.poly([(18, 13), (22, 13), (23, 29), (20, 29)], 'cdd') # the coat, open
+for y in (17, 20, 23): s.rect(13, y, 2, 2, 'P'); s.px(13, y, 'p')                                               # forms in the lining
+s.ell(8.5, 19, 2.2, 5.5, '.'); s.rect(7, 24, 3, 2, '.')
+s.poly([(10, 14), (5, 16), (6, 20), (10, 19)], 'Ccd'); s.rect(4, 19, 3, 2, 'F')
+s.line(5, 6, 5, 31, 'W'); s.poly([(0, 6), (10, 6), (10, 16), (0, 16)], 'Ppp'); s.rect(0, 6, 10, 1, 'W')         # the List
+for y in (8, 10, 12, 14): s.line(1, y, 8, y, 'd')
+s.ell(27, 23, 3, 3.4, 'Ggo'); s.rect(26, 18, 2, 3, 'W'); s.px(27, 27, 'o'); s.px(27, 28, 'k')                   # the handbell
+s.px(31, 21, 'G'); s.px(30, 18, 'G'); s.px(31, 25, 'G')
+out['crier'] = s.out()
+
+order = ['citizen', 'docent', 'wisp', 'hollow', 'mothwing', 'inkling', 'ragpicker', 'revenant', 'sitter', 'drowned', 'hourhand', 'keeper', 'lanternfly', 'bookworm', 'proofreader', 'lampmoth', 'shusher', 'erratum', 'redactor', 'starfish', 'anemone', 'axolotl', 'hermit', 'mudskipper', 'newtling', 'custodian', 'dust devil', 'shelf mouse', 'silverfish', 'hand', 'usher', 'censor', 'cataloguer', 'engrosser', 'tapster', 'sweater', 'assayer', 'warden', 'tipstaff', 'footpad', 'gardener', 'lamprey', 'clipper', 'sigh', 'longsight', 'picnicker', 'bailiff', 'clerk', 'crier']
 json.dump(out, open(sys.argv[1] + '/atlas32.json', 'w'))
 sheet(out, sys.argv[1] + '/sheet32.png', 6, order=order)
 sheet(out, sys.argv[1] + '/sheet32-small.png', 2, bg=(92, 98, 104), order=order)

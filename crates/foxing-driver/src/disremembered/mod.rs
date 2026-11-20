@@ -18,6 +18,7 @@ pub mod cloak;
 pub(crate) mod combat;
 pub mod conclave;
 pub mod court;
+pub mod courthouse;
 pub mod craft;
 pub mod death;
 pub mod docent;
@@ -367,6 +368,7 @@ pub fn schemas() -> Vec<ComponentSchema> {
         // X6: the Court of Lethe's Docket: its cases and rulings, and the next number.
         ComponentSchema::new(court::COURT, 1)
             .field("cases", FieldKind::Plain, Visibility::Public)
+            .field("calm", FieldKind::Plain, Visibility::Public)
             .field("next", FieldKind::Plain, Visibility::Public),
         // The Conclave's book: the statutes memory moves under, the hoards as of
         // the last strike, and when it last sat.
@@ -516,6 +518,7 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // When the leave ended by level (100) inside the first hour; for good.
             .field("grace_ended", FieldKind::Plain, Visibility::Owner)
             .field("spent", FieldKind::Plain, Visibility::Owner)
+            .field("tattoo", FieldKind::Plain, Visibility::Public)
             // C10: the reference slips a name has answered today, and when it
             // last answered each wrongly.
             .field("slips", FieldKind::Plain, Visibility::Owner)
