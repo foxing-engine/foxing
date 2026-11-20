@@ -1168,7 +1168,7 @@ pub fn register(world: &mut World) {
                 )));
             }
             if what.chars().count() < 2 {
-                return Err(CommandError::precondition("Say what the case is about, quoted.".to_string()));
+                return Err(CommandError::precondition("Say what the case is about in a few words, quoted: enough of the line, the name or the thing for the record to find it (two letters at least).".to_string()));
             }
             let against = if kind == "roll" { "conclave".to_string() } else { against };
             if kind != "roll" {
