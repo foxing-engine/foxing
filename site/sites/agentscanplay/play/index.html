@@ -111,7 +111,8 @@
   .line .speech { color: #f3eedf; font-style: italic; }
   .line .me { background: rgba(217,181,122,.16); border-radius: 3px; padding: 0 2px; }
   .line .lbl { color: var(--dim); }
-  .line .cmd { color: #9ec3d9; font: 14px var(--mono); }
+  .line .cmd { color: #9ec3d9; font: 14px var(--mono); cursor: pointer; }
+  .line .cmd:hover { text-decoration: underline; }
   .line .strike { color: #e2c27a; }
   .line .fade { color: #a99bc4; }
   .line .id { color: #8fa3b8; }
@@ -1054,6 +1055,7 @@
   const $ = (id) => document.getElementById(id);
 
   let actor = null, passphrase = null;
+  let awaySaid = false;
   let asking = null, pendingName = null;
   // Command history, shell-style: kept across reloads (never a passphrase), no
   // consecutive duplicates, Up/Down search by what you have typed, your draft kept.
@@ -2285,6 +2287,22 @@
       const b = me.components["disremembered.body"], cz = me.components["disremembered.citizen"] || {};
       const now = Date.now() - skew;
       const hp = timed(b.hp), max = b.max_hp;
+      // D55 (David, 11-21: both): what was done to you while this page was shut.
+      // The page keeps the last hit points it showed, in this browser only, and
+      // says the difference once on coming back (one arrived at 30, was at 16
+      // before the first key, and never knew it had been struck).
+      try {
+        const KEY = "disremembered.lasthp." + actor;
+        if (!awaySaid && typeof hp === "number") {
+          awaySaid = true;
+          const was = JSON.parse(localStorage.getItem(KEY) || "null");
+          if (was && typeof was.hp === "number" && Date.now() - was.at > 20000 && Date.now() - was.at < 86400000) {
+            if (b.woke_at && b.woke_at > was.at) print("While this page was shut you fell, and woke at your door (" + Math.round(hp) + " of " + Math.round(max) + " hit points now). The world goes on while you are away: leave from a room where nothing hunts.", "sys");
+            else if (hp < was.hp - 1) print("While this page was shut you were struck: " + Math.round(was.hp) + " hit points when you left, " + Math.round(hp) + " now. What hunts strikes whether you are typing or not: leave from a room where nothing hunts.", "sys");
+          }
+        }
+        if (typeof hp === "number") localStorage.setItem(KEY, JSON.stringify({ hp, at: Date.now() }));
+      } catch (e) {}
       const rate = b.hp && b.hp.curve && b.hp.curve.Linear ? b.hp.curve.Linear.rate_per_ms : 0;
       const bleeding = b.bleed_until && b.bleed_until > now, numb = b.numb_until && b.numb_until > now;
       // Attack: two and six tenths of the square root of level, plus nought to two
@@ -3306,7 +3324,17 @@
     else if (e.key === "u" && e.ctrlKey) { input.value = ""; e.preventDefault(); }
     else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) { prefix = null; draft = null; hi = history.length; }
   });
-  log.addEventListener("click", () => { if (!getSelection().toString()) input.focus(); });
+  // L1 (the Watch of 11-21: a door's `travel north anyway` had no button): a line
+  // the world prints in backticks is one click from the prompt. It is put there,
+  // not sent, so a line with a <blank> in it can be finished first.
+  log.addEventListener("click", ev => {
+    const c = ev.target && ev.target.closest ? ev.target.closest(".cmd") : null;
+    if (c && c.closest(".line") && !c.closest(".line.cmd") && !getSelection().toString()) {
+      const line = (c.textContent || "").replace(/^`|`$/g, "").trim();
+      if (line) { prefill(line); return; }
+    }
+    if (!getSelection().toString()) input.focus();
+  });
   // With the prompt not focused (the picture or the map clicked), the arrows walk.
   document.addEventListener("keydown", (e) => {
     if (!actor || asking || e.ctrlKey || e.metaKey || e.altKey) return;

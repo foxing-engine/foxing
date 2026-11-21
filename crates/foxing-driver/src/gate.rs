@@ -1423,7 +1423,7 @@ fn run_request(
                 .is_some_and(|v| v.eq_ignore_ascii_case("attack"))
             {
                 report.fact(
-                    format!("Statement {} was held: the blow at statement {k} left you where the next could be your last, and an attack written before that blow is not sent after that blow. Send the attack again to strike", st.index),
+                    format!("Statement {} was held: the blow at statement {k} left you where the next could be your last, and an attack written before that blow is not sent after that blow. Send the attack again to strike. Whatever else you wrote after it still runs, and each statement that runs here draws a blow, a read (`look`, `chunks`) as much as any", st.index),
                     "gate",
                 );
                 continue;

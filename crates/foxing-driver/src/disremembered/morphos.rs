@@ -25,7 +25,7 @@ use std::collections::BTreeMap;
 
 pub const MORPHOS: &str = "disremembered.morphos";
 pub const NAME: &str = "Morphos";
-pub const LINE: &str = "a traveler in a coat the color of moths, standing where no one stood a moment ago; it asks a riddle in three lines and waits (tell morphos \"<answer>\"). It has a price: a wrong answer, or none from a name that stood by, clouds some of what that name holds for twenty minutes and brings its Hands; to owe it nothing, be somewhere else until it goes.";
+pub const LINE: &str = "a traveler in a coat the color of moths, standing where no one stood a moment ago; it asks a riddle in three lines and waits (tell morphos \"<answer>\"). It has a price: a wrong answer clouds some of what you hold for twenty minutes and brings its Hands. Saying nothing costs nothing.";
 
 pub const CAME: &str = "disremembered.morphos_came";
 pub const WENT: &str = "disremembered.morphos_went";
@@ -556,23 +556,10 @@ pub fn go(world: &mut World) -> Result<(), String> {
     let asked = field(world, "asked")
         .and_then(|v| v.as_object().cloned())
         .unwrap_or_default();
-    let unanswered: Vec<String> = asked
-        .iter()
-        .filter(|(_, v)| v["state"] == "asked")
-        .map(|(k, _)| k.clone())
-        .collect();
-    for name in unanswered {
-        if let Some(f) = super::find_citizen(world, &name) {
-            let n = 1 + world.roll(2) as usize;
-            cloud(world, &name, f.citizen, f.window, n, CLOUD_MS, "no answer")
-                .map_err(|e| e.to_string())?;
-            super::combat::narrate(
-                world,
-                &name,
-                format!("{NAME} goes without your answer, and a cloud of absentmindedness settles: some of what you hold is out of reach for a while. `chunks` says which, and when it lifts."),
-            );
-        }
-    }
+    // D54 (David, 11-21: only a wrong answer costs; silence is free). A name that
+    // stood by and said nothing lost memory for twenty minutes to a riddle it never
+    // took up; three of a Watch's four named it the thing to cut.
+    let _ = asked;
     super::combat::narrate_room(
         world,
         me,

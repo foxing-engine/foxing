@@ -139,7 +139,8 @@ pub const MAX_HP: f64 = 30.0;
 /// (it was twelve and a half), at this rate for thirty points and in proportion for
 /// a larger body (`combat::MEND_WHOLE_S`). It was six a minute, which paid back most of a wisp's bites as they
 /// landed; and it stops altogether while you are in a fight, or bleeding.
-pub const HP_PER_SECOND: f64 = 0.05;
+/// (D56, 11-21: whole in five minutes, not ten.)
+pub const HP_PER_SECOND: f64 = 0.1;
 
 /// The relations a client may follow. Declared beside the schemas so the registry
 /// describes shapes, relations and commands from one place.

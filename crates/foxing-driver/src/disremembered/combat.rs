@@ -438,6 +438,8 @@ pub fn death_share(level: f64) -> f64 {
 }
 /// Seconds between arriving in a room and an aggressive creature noticing you.
 /// An ambush comes this many seconds after an arrival, at the earliest and latest.
+/// What a name at a keyboard has on top of that, coming into a room.
+pub const ARRIVAL_GRACE_S: i64 = 10;
 pub const AMBUSH_SECONDS_LOW: i64 = 2;
 pub const AMBUSH_SECONDS_HIGH: i64 = 8;
 /// A respawn lands between these fractions of the room's figure.
@@ -918,7 +920,7 @@ fn clock_line(world: &World, creature: EntityId, actor: &str) -> String {
         .map(|d| d.strike_seconds)
         .unwrap_or(10);
     if through_the_gate(world, actor) {
-        return "It strikes once for every statement you write while you stand here; retreat ends that.".to_string();
+        return "It strikes once for every statement you write while you stand here, a read (`look`, `chunks`) as much as a blow; retreat ends that.".to_string();
     }
     if unhurried(world, actor) {
         return "It strikes back only when you strike, while your first hour lasts (or until you reach level 100): take your time, and read. After that it will strike on its own every few seconds. `retreat` ends the fight.".to_string();
@@ -961,7 +963,16 @@ pub fn on_arrival(
         .collect();
     for creature in hunters {
         // Each hunter picks its own moment, two to eight seconds in.
-        let secs = AMBUSH_SECONDS_LOW
+        // D55 (David, 11-21): a person at a keyboard has a few seconds more on coming
+        // into a room, to read it before the first blow (one was at 16 of 30 before
+        // the first key).
+        let grace = if at_a_keyboard(world, actor) {
+            ARRIVAL_GRACE_S
+        } else {
+            0
+        };
+        let secs = grace
+            + AMBUSH_SECONDS_LOW
             + world.roll((AMBUSH_SECONDS_HIGH - AMBUSH_SECONDS_LOW + 1) as u32) as i64;
         let due = world.now().plus(foxing_time::Duration::seconds(secs));
         world.schedule_once(
@@ -1018,6 +1029,11 @@ pub fn unhurried(world: &World, actor: &str) -> bool {
         && super::find_citizen(world, actor).is_some_and(|f| sheltered(world, f.citizen))
 }
 
+/// Whether a name's last door has a keyboard behind it (the play page, the text port).
+pub fn at_a_keyboard(world: &World, actor: &str) -> bool {
+    matches!(world.door_of(actor), Some("session") | Some("terminal"))
+}
+
 /// Whether a name's last door was the gate or MCP: an agent writing messages, with
 /// no clock of its own between them.
 pub fn through_the_gate(world: &World, actor: &str) -> bool {
@@ -1059,7 +1075,7 @@ pub fn round(
     // or any other statement draws (a faller went from 30 to 0 on those, unwarned).
     let warn = match plain_num(world, creature, CREATURE, "attack").filter(|a| *a > 0.0) {
         Some(a) if !over && hp(world, citizen) <= a + 2.0 => format!(
-            " Its next blow could be your last (it hits {:.0}\u{2013}{:.0}): every statement you write here draws one, `rest` and `retreat` among them.",
+            " Its next blow could be your last (it hits {:.0}\u{2013}{:.0}): every statement you write here draws one, a read (`look`, `chunks`) as much as `rest` or `retreat`: write nothing after a blow that you would not write at one hit point.",
             a,
             a + 2.0
         ),
@@ -1629,6 +1645,14 @@ pub fn mending_rate(world: &World, citizen: EntityId) -> f64 {
     {
         return CLOSET_HP_PER_SECOND.max(base);
     }
+    // D56 (David, 11-21: "1 and 2"): the one room on the fighter's road that
+    // nothing enters, and where a rest is short.
+    if room
+        .and_then(|r| super::plain_str(world, r, super::ROOM, "key"))
+        .is_some_and(|k| k == "watch-fire")
+    {
+        return base * WATCHFIRE_PACE;
+    }
     // A basin standing in the room: three times the pace (D27; it was twice).
     if room.is_some_and(|r| super::craft::fixture_of(world, r, "basin").is_some()) {
         return base * BASIN_PACE;
@@ -1638,7 +1662,9 @@ pub fn mending_rate(world: &World, citizen: EntityId) -> f64 {
 
 /// A body is whole from nothing in this long, whatever its size (it was twelve and
 /// a half minutes for thirty points).
-pub const MEND_WHOLE_S: f64 = 600.0;
+pub const MEND_WHOLE_S: f64 = 300.0;
+/// D56: at the Watch-fire a body mends four times as fast again.
+pub const WATCHFIRE_PACE: f64 = 4.0;
 /// A body grows with what its name holds: a point for every ten levels over the
 /// thirty everyone has. Level fades, and so does the body. (Every name had thirty,
 /// and the top of the world hit for more than that in one blow.) D36, 11-16: no

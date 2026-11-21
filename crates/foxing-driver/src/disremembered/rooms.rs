@@ -62,7 +62,7 @@ fn district_index(key: &str) -> Option<usize> {
     Some(match key {
         ARRIVAL => 0,
         MUDROOM => 1,
-        "fogbank" | "shallows" | "midden" | "ossuary" | "gallery" | "oubliette" => 2,
+        "fogbank" | "shallows" | "midden" | "watch-fire" | "ossuary" | "gallery" | "oubliette" => 2,
         "lantern-row" | "archive" | "namery" | "dead-letters" | "lamplighters-lane" | POSTERN => 3,
         // L1 (11-21): the Court sits by the back gate, four steps from the Conclave.
         "court-of-lethe" | "lost-steps" | "filing-window" | "cells-of-record" | "appeal-stair" => 3,
@@ -198,18 +198,28 @@ pub const ROOMS: &[RoomDef] = &[
         description: "Black water over pale sand, ankle-deep and perfectly still, until something stands up out of it. North, where a way through the reeds used to go up to the Orchard, the water has taken the path: the Wilds go east from here, and only get worse.",
         exits: &[
             ("south", "fogbank"),
-            ("east", "ossuary"),
+            ("east", "watch-fire"),
             ("dive", "undertow"),
         ],
         spawn: Some(("hollow", 2, 120)),
         former: &[],
         tint: "#3f5a5a",
     },
+    // D56 (David, 11-21): the one room on the fighter's road where nothing comes.
+    RoomDef {
+        key: "watch-fire",
+        name: "The Watch-fire",
+        description: "A ring of stones on a rise of dry sand between the black water and the bone rooms, and in it a fire that somebody keeps and nobody has seen kept. The hollows do not come up out of the water this far, and what walks the Ossuary does not come down to the light. Nothing hunts here and nothing comes in. Blankets, a kettle, a log worn smooth where people sit: a body mends here four times as fast as anywhere on the road (`rest`), and a name that is shaken can wait it out by the fire. West is the water you came through. East the bone rooms begin, and each door after is harder than the last.",
+        exits: &[("west", "shallows"), ("east", "ossuary")],
+        spawn: None,
+        former: &[],
+        tint: "#8a5a34",
+    },
     RoomDef {
         key: "ossuary",
         name: "The Ossuary",
         description: "Niches cut into the rock, each one empty, each one swept clean. Something keeps them that way.",
-        exits: &[("west", "shallows"), ("east", "gallery")],
+        exits: &[("west", "watch-fire"), ("east", "gallery")],
         spawn: Some(("revenant", 1, 300)),
         former: &[],
         tint: "#6b5a4a",
@@ -1405,7 +1415,10 @@ pub fn ensure_rooms(world: &mut World) -> Result<(), String> {
                         && seed_ids.contains(&to)
                         && (!["north", "south", "east", "west", "up", "down"].contains(name)
                             // L1 (11-21): the Orchard's `up` is the Escapement now.
-                            || (def.key == "orchard" && *name == "up")) =>
+                            || (def.key == "orchard" && *name == "up")
+                            // D56: the Watch-fire stands between these two.
+                            || (def.key == "shallows" && *name == "east")
+                            || (def.key == "ossuary" && *name == "west")) =>
                 {
                     exits.insert(name.to_string(), json!(ids[key].0));
                     missing = true;
@@ -2396,8 +2409,10 @@ pub fn describe_as(
                 } else {
                     "they find"
                 },
-                super::combat::AMBUSH_SECONDS_LOW,
-                super::combat::AMBUSH_SECONDS_HIGH,
+                super::combat::AMBUSH_SECONDS_LOW
+                    + if super::combat::at_a_keyboard(world, actor) { super::combat::ARRIVAL_GRACE_S } else { 0 },
+                super::combat::AMBUSH_SECONDS_HIGH
+                    + if super::combat::at_a_keyboard(world, actor) { super::combat::ARRIVAL_GRACE_S } else { 0 },
                 if new_name {
                     "; not you yet: a new name is left alone until it reaches level 100 or its first hour is out, whichever comes first (level 100 can come in ten minutes), and never again after"
                 } else {

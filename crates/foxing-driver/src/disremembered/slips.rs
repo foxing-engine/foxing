@@ -34,7 +34,9 @@ use std::collections::BTreeMap;
 /// A slip was answered rightly: `{by, district, room}`. Public.
 pub const ANSWERED: &str = "disremembered.slip";
 /// What a slip pays, and how vivid the memory of having looked it up.
-pub const SLIP_XP: f64 = 25.0;
+/// (D57, David 11-21: "slips pay less". It was 25: ten slips took a reader past
+/// level 100 in eight minutes and ended its leave without a fight.)
+pub const SLIP_XP: f64 = 15.0;
 const SLIP_VIVIDITY: f64 = 0.8;
 /// All twelve in one day.
 pub const ROUND_XP: f64 = 100.0;

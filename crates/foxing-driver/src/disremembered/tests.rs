@@ -329,6 +329,7 @@ fn death_is_a_concussion_and_a_walk_back() {
     ok(&mut w, "dave", "travel", json!(["east"]));
     ok(&mut w, "dave", "travel", json!(["north"]));
     ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "travel", json!(["east"]));
     let out = fight(&mut w, "dave");
     assert_eq!(
         out.result["died"],
@@ -371,7 +372,7 @@ fn death_is_a_concussion_and_a_walk_back() {
     for i in 0..3 {
         admin(&mut w2, "dave", "earn", json!([format!("memory-{i}"), 10]));
     }
-    for exit in ["east", "north", "east"] {
+    for exit in ["east", "north", "east", "east"] {
         ok(&mut w2, "dave", "travel", json!([exit]));
     }
     assert_eq!(fight(&mut w2, "dave").summary, out.summary);
@@ -9303,7 +9304,7 @@ fn the_door_has_a_signpost_and_the_mudroom_boots_and_a_spade() {
     // H9: a district's door says so once a session. H11: a hub has a post of its own.
     let fog = ok(&mut w, "dave", "travel", json!(["east"]));
     assert!(
-        fog.summary.contains("The Wilds begin here (6 rooms)"),
+        fog.summary.contains("The Wilds begin here (7 rooms)"),
         "{}",
         fog.summary
     );
@@ -10226,6 +10227,7 @@ fn a_fall_leaves_you_shaken_and_the_creature_wounded_and_named_creatures_seek_su
     ok(&mut w, "dave", "travel", json!(["east"]));
     ok(&mut w, "dave", "travel", json!(["north"]));
     ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "travel", json!(["east"]));
     let ossuary = rooms::room_of(&w, f.citizen).unwrap();
     let revenant = combat::creatures_in(&w, ossuary)[0].0;
     let max = super::plain_num(&w, revenant, CREATURE, "max_hp").unwrap();
@@ -10472,7 +10474,10 @@ fn morphos_comes_with_a_riddle_clouds_the_wrong_and_opens_a_door_on_the_third_ru
     assert!(tyler_level2 > tyler_level);
     morphos::go(&mut w).unwrap();
     assert!(morphos::present(&w).is_none());
-    assert!(level(&mut w, "tyler") < tyler_level2, "no answer, a cloud");
+    assert!(
+        level(&mut w, "tyler") >= tyler_level2 - 0.5,
+        "no answer, no cloud (D54)"
+    );
     assert!(!combat::creatures_in(&w, threshold)
         .iter()
         .any(|(_, k, _, _)| k == morphos::HAND_KIND));
@@ -13621,7 +13626,7 @@ fn a_slip_in_every_district_pays_for_reading() {
     // (Nothing has a name and nothing is dug: the stone's own count of its ways.)
     let good = ok(&mut w, "dave", "solve", json!(["three ways"]));
     assert_eq!(good.result["right"], true, "{}", good.summary);
-    assert!(good.summary.contains("worth 25 XP"), "{}", good.summary);
+    assert!(good.summary.contains("worth 15 XP"), "{}", good.summary);
     assert!(good.summary.contains("1 of the twelve"), "{}", good.summary);
     let twice = call(
         &mut w,
@@ -15145,6 +15150,14 @@ fn a_door_says_who_it_is_for_and_stops_a_name_once() {
     )
     .unwrap();
     // The next door on is asked in its turn; the way back out never is.
+    call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["east"]),
+    )
+    .unwrap();
     let err = call(
         &mut w,
         "dave",
@@ -15748,4 +15761,52 @@ fn a_players_word_is_carried_by_one_given_it_and_a_faded_stake_comes_back() {
     );
     let back = ok(&mut w, "dave", "withdraw", json!([an]));
     assert!(back.summary.contains("30.0 XP"), "{}", back.summary);
+}
+
+#[test]
+fn the_watch_fire_mends_fast_and_a_keyboard_has_a_moment_on_arriving() {
+    // D55, D56 (David, 11-21).
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    let f = login(&mut w, "dave", "test", PASS).unwrap();
+    super::grown(&mut w, "dave");
+    // The road: the Shallows, the fire, the bone rooms; and nothing lives at the fire.
+    let fire = rooms::room_by_key(&w, "watch-fire").unwrap();
+    let key = |w: &World, r: EntityId| plain_str(w, r, ROOM, "key").unwrap_or("?").to_string();
+    let ex = rooms::exits_of(&w, fire);
+    assert_eq!(key(&w, ex["west"]), "shallows");
+    assert_eq!(key(&w, ex["east"]), "ossuary");
+    assert!(combat::creatures_in(&w, fire).is_empty());
+    // A body mends whole in five minutes anywhere, and four times as fast here.
+    admin(&mut w, "dave", "bring", json!(["dave", "fogbank"]));
+    let plain = combat::mending_rate(&w, f.citizen);
+    assert!((plain - combat::max_hp(&w, f.citizen) / 300.0).abs() < 1e-9);
+    admin(&mut w, "dave", "bring", json!(["dave", "watch-fire"]));
+    assert!((combat::mending_rate(&w, f.citizen) - plain * 4.0).abs() < 1e-9);
+    // Nothing is scheduled against a name arriving there.
+    assert!(!w
+        .jobs
+        .has(combat::JOB_AMBUSH, |p| p["citizen"] == f.citizen.0));
+    // A name at a keyboard has ten seconds more than the two to eight a hunter takes.
+    w.arrive("dave", "session", false);
+    assert!(combat::at_a_keyboard(&w, "dave"));
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("12 to 18 seconds in"),
+        "{}",
+        look.summary
+    );
+    w.fixed_now = Some(Timestamp(t0.0 + 11_000));
+    w.tick();
+    assert!(
+        combat::engaged_with(&w, f.citizen).is_none(),
+        "struck inside the grace"
+    );
+    w.fixed_now = Some(Timestamp(t0.0 + 19_000));
+    w.tick();
+    assert!(
+        combat::engaged_with(&w, f.citizen).is_some(),
+        "the hollow should have come by now"
+    );
 }
