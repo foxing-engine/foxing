@@ -125,7 +125,12 @@ pub fn register(world: &mut World) {
             }
             // The Docent, if it stands here: the question goes on its record and an
             // answer comes to you within the minute, wherever you are.
-            if super::docent::is_named(&who) {
+            // A creature that stands here under the name said is the one meant (a
+            // wisp named Hollis could be told nothing: the Docent is Hollis Quire,
+            // and every word for it went to the desk).
+            let creature_so_named = mind::find_named(w, &who)
+                .is_some_and(|(c, _)| w.store.entity(c).and_then(|e| e.parent) == Some(room));
+            if super::docent::is_named(&who) && !creature_so_named {
                 // Asked from anywhere: at the door it is the figure in front of you;
                 // elsewhere the question goes to the desk and it comes to you with the
                 // page. (It was asked only at the Threshold once, and a visitor three
@@ -187,9 +192,14 @@ pub fn register(world: &mut World) {
                 super::combat::narrate_many(w, &others_here(w, room, &ctx.actor), format!("{} says to {name}, \"{text}\"", ctx.actor));
                 // A word carried to it, if one was wanted, before anything it would say.
                 super::errand::hear(w, creature, &ctx.actor)?;
-                let answer = match super::errand::carried_word(w, &ctx.actor, creature, &text)? {
+                super::asks::hear(w, creature, &ctx.actor)?;
+                // C7: a word a player left to be carried here is answered first.
+                let answer = match super::asks::carried(w, &ctx.actor, creature, &text)? {
                     Some(a) => Some(a),
-                    None => reply(w, creature, &ctx.actor, &text),
+                    None => match super::errand::carried_word(w, &ctx.actor, creature, &text)? {
+                        Some(a) => Some(a),
+                        None => reply(w, creature, &ctx.actor, &text),
+                    },
                 };
                 let Some(answer) = answer else {
                     // F21: a newborn that knows you (you carried the word that made

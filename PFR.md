@@ -201,11 +201,7 @@ brief` for a page on one, or answer the lettered ones.
     bars, not one to a line as a standing book's are; the play page has no page
     for it; nobody has made one on the live world yet, since it asks a catalogue
     card from the Stacks.
-- **C7 · What players write for players** (M). Rooms, recipes and wards are
-  player-made; quests are not. A kept name with a named creature may leave it a want
-  of their own choosing (a story about a thing, a word for another creature), paid
-  from the name's own memory when someone does it. The world's wants turn every four
-  hours; a player's stands until it is done or fades.
+- **C7 · What players write for players, what is left** (live 11-21: `entrust`; see the ledger). **Unseen live**: nobody has left one yet. **To watch**: with no limit on who does it (David, e3), two names can pass a memory back and forth through a creature and take the world's pay on top each time (a wanted story's doubling, or 20 for a word): what a ring makes of that is the first thing to read off the record. **Not built**: the play page has no button for it (the line is typed); a creature's tap menu could offer "leave a want". **The line** is the one place a player's prose is put before other players' agents: it is quoted and named every time, 80 characters, no marks or links; a model's eye on it (d3) was not asked for.
 - **C8 · The third word by meaning** (D33, restated as content). The top rung of the
   ladder as a riddle of sense, judged by a model: the same build as D33, counted
   here because it is the first content that cannot be read out of the room's text.

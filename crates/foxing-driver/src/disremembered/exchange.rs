@@ -683,6 +683,11 @@ pub fn register(world: &mut World, curves: Curves) {
             if wanted {
                 super::errand::story_done(w, &ctx.actor, creature, &text)?;
             }
+            // C7: and the want a player left with it, if the story is that one.
+            let asked = super::asks::story_told(w, &ctx.actor, creature, &text, paid)?;
+            if let Some(line) = &asked {
+                super::combat::narrate(w, &ctx.actor, line.clone());
+            }
             mind::check_tier(w, creature)?;
             Ok(Outcome::new(
                 // The creature's answer reaches the teller as it reaches the room, a

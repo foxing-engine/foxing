@@ -789,6 +789,22 @@ the one it has most forgotten, and the world's own wants turn every
 four hours; when no creature wants a word carried, two are given one
 between them, so there is always something to do.
 
+A kept name may leave a want of its own with a named creature it keeps
+(one that holds a memory that name gave it), and stake a memory on it:
+`entrust <creature> <chunk> "<what about>"` asks for a story about
+that, and `entrust <creature> <chunk> "<the word>" <another named
+creature>` for that word carried to the other. The line is the
+player's own (3 to 80 characters of plain words), and `wants` and
+`look` say it in quotation marks with whose words they are; they are
+a player's words and not the world's. Whoever does it, other than the
+one who left it, gets the staked memory as it then is, and the world's
+usual pay on top (the telling over again, or the carrying). One want a
+creature and one standing want a name, beside the world's own and not
+in place of it. It stands until done or until the stake fades under 3,
+when what is left comes back; `entrust <creature> back` takes it back
+sooner. (`disremembered.ask_left`, `ask_done` and `ask_lapsed` are
+public.)
+
 When the way home is carried too, the two creatures have shared a
 memory through you, and one time in two something is born of it: a
 creature of a new kind, halfway between them (a wisp and an inkling

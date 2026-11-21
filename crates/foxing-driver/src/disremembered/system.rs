@@ -60,6 +60,24 @@ pub(crate) fn line_for(e: &foxing_log::Event) -> String {
                 if n == 1 { "" } else { "s" }
             ),
         },
+        "disremembered.ask_left" => match p["to"].as_str() {
+            Some(to) => format!("{} left a word with {} for {}", s("by"), s("name"), to),
+            None => format!(
+                "{} left a want with {}: a story about \u{201c}{}\u{201d}",
+                s("by"),
+                s("name"),
+                s("line")
+            ),
+        },
+        "disremembered.ask_done" => format!(
+            "{} did the want {} left with {}",
+            s("from"),
+            s("by"),
+            s("name")
+        ),
+        "disremembered.ask_lapsed" => {
+            format!("{}'s want with {} lapsed: {}", s("by"), s("name"), s("why"))
+        }
         "disremembered.errand_turned" => format!("{}'s want turned: {}", s("name"), s("why")),
         "disremembered.errand_done" => match p["to"].as_str() {
             Some(t) => format!("{} carried {}'s word to {t}", s("from"), s("name")),
@@ -805,7 +823,7 @@ fn register_rest(world: &mut World) {
                     ("read", &["look", "map", "where", "wants", "mine", "chunks", "satchel", "recipes", "board", "time", "statutes", "palace", "session", "messages", "news", "tales", "docket", "log", "help", "commands", "check", "almanac", "letters", "petitions", "slips", "index", "recipe", "observe"]),
                     ("move", &["travel", "retreat", "rest", "home"]),
                     ("fight", &["attack"]),
-                    ("remember", &["remember", "shelve", "reminisce", "give", "take", "drop", "craft", "gather", "trade", "carry"]),
+                    ("remember", &["remember", "entrust", "shelve", "reminisce", "give", "take", "drop", "craft", "gather", "trade", "carry"]),
                     ("talk", &["say", "tell", "story", "greet", "reply", "solve", "petition", "attend", "feedback"]),
                     ("build", &["dig", "describe", "append", "name", "permit", "welcome", "revoke", "invite", "ward", "unward", "read", "unbind"]),
                     ("the court", &["plead", "defend", "murmur"]),

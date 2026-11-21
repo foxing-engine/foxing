@@ -124,6 +124,7 @@ approved_verbs:
   banish: {params: [{name: name, type: string, required: true}]}
   summon: {params: []}
   raze: {params: [{name: room, type: string, required: true}]}
+  entrust: {params: [{name: creature, type: entity, required: true}, {name: chunk, type: entity, required: true}, {name: line, type: text, required: false}, {name: to, type: entity, required: false}]}
   errand: {params: [{name: creature, type: entity, required: true}, {name: want, type: text, required: true}, {name: to, type: entity, required: false}]}
   bind: {params: [{name: target, type: entity, required: true}, {name: text, type: text, required: true}, {name: model, type: string, required: false}]}
   unbind: {params: [{name: target, type: entity, required: false}]}

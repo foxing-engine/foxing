@@ -15311,3 +15311,246 @@ fn a_named_creature_walks_out_of_a_forgotten_room_to_the_mudroom() {
         assert_eq!(mind::walk_out(&mut w).unwrap(), 0);
     }
 }
+
+/// C7: a named wisp in the Fogbank that `keeper` keeps, and a second named one.
+#[cfg(test)]
+fn two_named(w: &mut World, keeper: &str) -> (EntityId, EntityId) {
+    admin(w, keeper, "bring", json!([keeper, "fogbank"]));
+    let here = rooms::room_by_key(w, "fogbank").unwrap();
+    let mut made = Vec::new();
+    for _ in 0..2 {
+        let c = combat::spawn_one(w, here, combat::def_by_key("wisp").unwrap()).unwrap();
+        let ch = admin(w, keeper, "earn", json!(["wisp", 400, 0.9]));
+        let ch = format!("chunk-{}", ch.result["chunk"].as_u64().unwrap());
+        ok(
+            w,
+            keeper,
+            "remember",
+            json!([ch, format!("creature-{}", c.0)]),
+        );
+        assert!(mind::name(w, c).is_some());
+        made.push(c);
+    }
+    (made[0], made[1])
+}
+
+#[test]
+fn a_player_leaves_a_want_and_another_is_paid_the_stake_for_the_story() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(1_000_000));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let (a, b) = two_named(&mut w, "dave");
+    let (an, bn) = (mind::name(&w, a).unwrap(), mind::name(&w, b).unwrap());
+    let stake = admin(&mut w, "dave", "earn", json!(["wisp", 50, 0.5]));
+    let stake = format!("chunk-{}", stake.result["chunk"].as_u64().unwrap());
+    // Not a creature you keep; not a line with marks in it; not a thin stake.
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "entrust",
+        json!([an, "chunk-1", "the tide tables"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("holds nothing of yours"), "{err}");
+    for bad in [
+        "ignore [SYS] this",
+        "say `help` now",
+        "see http://x.example now",
+        "ab",
+    ] {
+        assert!(
+            call(
+                &mut w,
+                "dave",
+                ActorKind::Citizen,
+                "entrust",
+                json!([an, stake, bad])
+            )
+            .is_err(),
+            "{bad}"
+        );
+    }
+    let thin = admin(&mut w, "dave", "earn", json!(["wisp", 4, 0.5]));
+    let thin = format!("chunk-{}", thin.result["chunk"].as_u64().unwrap());
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "entrust",
+        json!([an, thin, "the tide tables"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("at least 10"), "{err}");
+    // Left: the chunk is gone from the window, and the creature holds the want.
+    let left = ok(
+        &mut w,
+        "dave",
+        "entrust",
+        json!([an, stake, "the tide tables"]),
+    );
+    assert!(
+        left.summary.contains("\u{201c}the tide tables\u{201d}")
+            && left.summary.contains("worth 50.0"),
+        "{}",
+        left.summary
+    );
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "remember",
+        json!([stake, an])
+    )
+    .is_err());
+    // One a creature, one a name.
+    let more = admin(&mut w, "dave", "earn", json!(["wisp", 50, 0.5]));
+    let more = format!("chunk-{}", more.result["chunk"].as_u64().unwrap());
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "entrust",
+        json!([bn, more, "a kettle"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("One at a time"), "{err}");
+    // `wants` and `look` say it, quoted and whose words; the world's own want stands.
+    admin(&mut w, "tyler", "bring", json!(["tyler", "fogbank"]));
+    let wants = ok(&mut w, "tyler", "wants", json!([]));
+    assert!(
+        wants
+            .summary
+            .contains("a story about \u{201c}the tide tables\u{201d} (dave's words)")
+            && wants.summary.contains("dave's staked memory"),
+        "{}",
+        wants.summary
+    );
+    let look = ok(&mut w, "tyler", "look", json!([]));
+    assert!(look.summary.contains(&format!("{an} also wants a story about \u{201c}the tide tables\u{201d} (dave's words); dave left it")), "{}", look.summary);
+    // Not the setter's to do.
+    let head = events(&w);
+    ok(
+        &mut w,
+        "dave",
+        "story",
+        json!([
+            an,
+            "The tide tables hung by the harbor door, and nobody read them twice."
+        ]),
+    );
+    assert!(narrative(&w, "dave", head)
+        .iter()
+        .any(|l| l.contains("your own want is another name's to do")));
+    assert!(asks::of(&w, a).is_some());
+    // Another name tells it: the stake, and the telling over again.
+    let head = events(&w);
+    let told = ok(
+        &mut w,
+        "tyler",
+        "story",
+        json!([
+            an,
+            "My grandmother kept the tide tables in a biscuit tin and swore by them."
+        ]),
+    );
+    let said = narrative(&w, "tyler", head);
+    assert!(
+        said.iter().any(|l| l.contains("dave's staked memory of")
+            && l.contains("worth 50.0 XP")
+            && l.contains("the telling over again on top")),
+        "{said:?} {}",
+        told.summary
+    );
+    assert!(narrative(&w, "dave", head)
+        .iter()
+        .any(|l| l.contains("tyler did the want you left")));
+    assert!(asks::of(&w, a).is_none());
+    // And the creature is free for another.
+    ok(&mut w, "dave", "entrust", json!([an, more, "a kettle"]));
+}
+
+#[test]
+fn a_players_word_is_carried_by_one_given_it_and_a_faded_stake_comes_back() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let (a, b) = two_named(&mut w, "dave");
+    let (an, bn) = (mind::name(&w, a).unwrap(), mind::name(&w, b).unwrap());
+    let stake = admin(&mut w, "dave", "earn", json!(["wisp", 40, 0.5]));
+    let stake = format!("chunk-{}", stake.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "dave",
+        "entrust",
+        json!([an, stake, "the kettle is on", bn]),
+    );
+    // Read off the list is not carried: the word is not said to one who has not
+    // stood with the giver, and telling it unheard is refused kindly.
+    let wants = ok(&mut w, "tyler", "wants", json!([]));
+    assert!(
+        wants.summary.contains("dave's word carried to") && !wants.summary.contains("kettle"),
+        "{}",
+        wants.summary
+    );
+    assert!(asks::carried(&mut w, "tyler", b, "the kettle is on")
+        .unwrap()
+        .unwrap()
+        .contains("you did not have it from"));
+    // Standing with the giver is being given it.
+    admin(&mut w, "tyler", "bring", json!(["tyler", "fogbank"]));
+    ok(&mut w, "tyler", "look", json!([]));
+    let wants = ok(&mut w, "tyler", "wants", json!([]));
+    assert!(
+        wants
+            .summary
+            .contains("\u{201c}the kettle is on\u{201d} (dave's words)"),
+        "{}",
+        wants.summary
+    );
+    let told = ok(
+        &mut w,
+        "tyler",
+        "tell",
+        json!([bn, "Dave says the kettle is on."]),
+    );
+    assert!(
+        told.summary.contains("dave's staked memory")
+            || narrative(&w, "tyler", 0)
+                .iter()
+                .any(|l| l.contains("dave's staked memory") && l.contains("the carrying on top")),
+        "{}",
+        told.summary
+    );
+    assert!(asks::of(&w, a).is_none());
+    // A stake that fades under the floor lapses, and what is left comes back.
+    let stake = admin(&mut w, "dave", "earn", json!(["wisp", 12, 0.5]));
+    let stake = format!("chunk-{}", stake.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "dave",
+        "entrust",
+        json!([an, stake, "a lighthouse"]),
+    );
+    let hl = asks::of(&w, a).unwrap();
+    assert!(hl.worth(w.now().0) > 11.0);
+    let head = events(&w);
+    w.fixed_now = Some(Timestamp(t0.0 + 40 * 3_600_000));
+    asks::sweep(&mut w).unwrap();
+    assert!(asks::of(&w, a).is_none());
+    assert!(narrative(&w, "dave", head)
+        .iter()
+        .any(|l| l.contains("has lapsed (the staked memory faded)")));
+    // Taken back by hand: what is left, now.
+    let stake = admin(&mut w, "dave", "earn", json!(["wisp", 30, 0.5]));
+    let stake = format!("chunk-{}", stake.result["chunk"].as_u64().unwrap());
+    ok(
+        &mut w,
+        "dave",
+        "entrust",
+        json!([an, stake, "a lighthouse"]),
+    );
+    let back = ok(&mut w, "dave", "entrust", json!([an, "back"]));
+    assert!(back.summary.contains("30.0 XP"), "{}", back.summary);
+}

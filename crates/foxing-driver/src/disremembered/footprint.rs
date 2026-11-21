@@ -190,6 +190,11 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
         }
         let word_wanted = word.is_some() && word_to.is_some();
         let word = word.filter(|_| has_word);
+        // C7: the want a player left with it, beside the world's own.
+        let asked = super::asks::clause(world, e.id, actor);
+        if let Some((said, _)) = &asked {
+            want_said.push(said.clone());
+        }
         if want_said.is_empty() {
             continue;
         }
@@ -211,6 +216,7 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
             "way": way, "story": story, "word": word, "word_wanted": word_wanted, "word_to": word_to, "knows_you": knows_you, "told_this_hour": told,
             "ready_in_ms": if told { super::exchange::ready_in(world, actor, e.id) } else { None },
             "level": level, "failing": level < mind::FAILING_BELOW,
+            "asked": asked.map(|(_, row)| row),
         }));
     }
     let mut summary = if lines.is_empty() {

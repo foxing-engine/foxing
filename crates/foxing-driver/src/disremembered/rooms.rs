@@ -1618,6 +1618,7 @@ pub fn describe_as(
     super::atlas::mark_seen(world, actor, room)?;
     // D30: and standing with a giver is having its word.
     super::errand::hear_here(world, room, actor)?;
+    super::asks::hear_here(world, room, actor)?;
     let obs = super::observe_as(world, ctx, look_query(room))?;
     let root = &obs.observation.root;
     let name = root["components"][ROOM]["name"]
@@ -2415,6 +2416,15 @@ pub fn describe_as(
             .iter()
             .filter_map(|c| c["id"].as_u64())
             .filter_map(|id| super::errand::describe(world, EntityId(id)))
+        {
+            text.push(' ');
+            text.push_str(&e);
+        }
+        // C7: and the want a player left with one of them.
+        for e in creatures
+            .iter()
+            .filter_map(|c| c["id"].as_u64())
+            .filter_map(|id| super::asks::describe(world, EntityId(id), actor))
         {
             text.push(' ');
             text.push_str(&e);

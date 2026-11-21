@@ -10,6 +10,7 @@
 pub mod age;
 pub mod almanac;
 pub mod ask;
+pub mod asks;
 pub mod atlas;
 pub mod bindery;
 pub mod board;
@@ -271,6 +272,21 @@ pub fn schemas() -> Vec<ComponentSchema> {
         // whether a memory was just taken from it. Its level is its window's.
         // What a named creature wants: a story about something, or a word carried to
         // another named creature. look and the cloak say it in one line.
+        // C7: the one want a player has left with it, beside the world's own.
+        ComponentSchema::new(asks::ASK, 1)
+            .field("kind", FieldKind::Plain, Visibility::Public)
+            .field("by", FieldKind::Plain, Visibility::Public)
+            // The line is said by `wants` and `look`, quoted and attributed; a word
+            // to carry is the giver's to give (D30), so no query reads it.
+            .field("line", FieldKind::Plain, Visibility::Admin)
+            .field("keywords", FieldKind::Plain, Visibility::Admin)
+            .field("to", FieldKind::Plain, Visibility::Public)
+            .field("stake", FieldKind::Plain, Visibility::Public)
+            .field("stake_at", FieldKind::Plain, Visibility::Public)
+            .field("stake_hl_ms", FieldKind::Plain, Visibility::Public)
+            .field("with", FieldKind::Plain, Visibility::Public)
+            .field("at", FieldKind::Plain, Visibility::Public)
+            .field("heard", FieldKind::Plain, Visibility::Public),
         ComponentSchema::new(errand::ERRAND, 2)
             .field("story", FieldKind::Plain, Visibility::Public)
             .field("keywords", FieldKind::Plain, Visibility::Public)
@@ -1503,6 +1519,7 @@ pub fn register(world: &mut World, curves: Curves) {
     court::register(world);
     exchange::register(world, curves.clone());
     errand::register(world);
+    asks::register(world);
     cloak::register(world);
     building::register(world, curves.clone());
     bindery::register(world, curves.clone());
