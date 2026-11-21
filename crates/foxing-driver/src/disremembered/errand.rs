@@ -917,6 +917,18 @@ const RETURN_WORDS: &[&str] = &[
     "send the next one with a story",
     "the fog has not reached us",
     "I kept what you sent",
+    "tell them the stair held",
+    "we heard, and we are glad of it",
+    "the answer is yes, if it is still raining",
+    "keep the lamp where it is",
+    "it was the same here, only quieter",
+    "nobody has asked after you, which is good news",
+    "we will leave the latch off",
+    "the count came out one over",
+    "say it again when the fog lifts",
+    "the kettle was never off",
+    "there is room on the shelf yet",
+    "we remembered before you asked",
 ];
 
 fn me_by_name(world: &World, actor: &str) -> Result<super::Found, CommandError> {
@@ -1145,6 +1157,22 @@ const WORDS_IN_THE_AIR: &[&str] = &[
     "someone sat in the parlor and did not write",
     "the tide in the shallows went out and stayed",
     "the orrery is a minute slow",
+    "the well has been asked twice today",
+    "somebody mended the stile",
+    "the kettle in the parlor is warm again",
+    "the bog gave back a boot",
+    "the ink has frozen in the catalogue",
+    "there is a light under the archive door",
+    "the orchard dropped one early",
+    "the ferry did not come and nobody minded",
+    "the mice have moved the lost property",
+    "the bell at the postern rang for no one",
+    "the fog went round the hill instead of over",
+    "the tide table is wrong and the tide knows it",
+    "a new door has been cut in the mudroom",
+    "the clerk has lost the same form again",
+    "the moths are reading over our shoulders",
+    "the cistern is singing in the pipes",
 ];
 
 const FIRST_WANTS: &[&str] = &[
@@ -1162,6 +1190,38 @@ const FIRST_WANTS: &[&str] = &[
     "a cup of tea still warm in an empty room",
     "a clock that keeps the wrong time on purpose",
     "a visitor who left before they were seen",
+    "a bridge that was crossed only once",
+    "a key that fits a lock nobody can find",
+    "the hour the clocks all agreed",
+    "a coat left on a hook for someone else",
+    "a river that ran uphill for one night",
+    "the bell that rang with nobody at the rope",
+    "a window that shows yesterday's weather",
+    "a candle that burned down in a locked room",
+    "a map with one street too many",
+    "the song a kettle makes before it boils",
+    "a garden nobody planted",
+    "a chair kept empty at a full table",
+    "a coin that came back to the hand that spent it",
+    "the smell of rain in a house with no roof",
+    "a shadow that arrived before its owner",
+    "a promise made to a stranger on a train",
+    "a boat tied up where the water used to be",
+    "the first snow anyone here remembers",
+    "a library book returned by someone's grandchild",
+    "a well that answered",
+    "a photograph of a place that was never built",
+    "bread still rising in a cold oven",
+    "a dog that waited at the right door",
+    "the last page of a diary",
+    "a mirror that was turned to the wall",
+    "an orchard that fruited in the wrong season",
+    "a lighthouse with nothing left to warn",
+    "a recipe written down from memory, and wrong",
+    "the footsteps overhead in a house with one floor",
+    "a gift that was never unwrapped",
+    "a field where something was buried and nobody dug",
+    "a ladder left leaning against the sky",
 ];
 
 fn faded_story(world: &World, creature: EntityId, now: foxing_time::Timestamp) -> Option<String> {
@@ -1310,5 +1370,50 @@ mod stem_tests {
         assert_eq!(stem("lighting"), "light");
         assert_eq!(stem("hangs"), "hang");
         assert_eq!(stem("goes"), "goes");
+    }
+}
+
+#[cfg(test)]
+mod pool_tests {
+    use super::{keywords, FIRST_WANTS, RETURN_WORDS, WORDS_IN_THE_AIR};
+
+    #[test]
+    fn the_pools_hold_no_want_twice_and_no_word_inside_another() {
+        // Every want is about something a story can touch, and no two are the same.
+        let mut seen = std::collections::BTreeSet::new();
+        for w in FIRST_WANTS {
+            assert!(!keywords(w).is_empty(), "{w}");
+            assert!(w.chars().count() <= 80, "{w}");
+            assert!(seen.insert(w.to_lowercase()), "twice: {w}");
+        }
+        assert!(FIRST_WANTS.len() >= 40);
+        // A carried word is matched by being said: none may sit inside another.
+        let words: Vec<&str> = WORDS_IN_THE_AIR
+            .iter()
+            .chain(RETURN_WORDS)
+            .copied()
+            .collect();
+        for (i, a) in words.iter().enumerate() {
+            for (j, b) in words.iter().enumerate() {
+                assert!(i == j || !a.contains(b), "\"{b}\" is inside \"{a}\"");
+            }
+        }
+        // The first names: one capitalized word each, none twice, none the Docent's.
+        let mut names = std::collections::BTreeSet::new();
+        for n in super::mind::NAMES {
+            assert!(
+                (3..=12).contains(&n.len())
+                    && n.chars().next().unwrap().is_ascii_uppercase()
+                    && n[1..].chars().all(|c| c.is_ascii_lowercase()),
+                "{n}"
+            );
+            assert!(names.insert(n.to_lowercase()), "twice: {n}");
+            assert!(
+                !["quire", "perrin", "latch", "docent", "morphos"]
+                    .contains(&n.to_lowercase().as_str()),
+                "{n}"
+            );
+        }
+        assert_eq!(super::mind::NAMES.len(), 96);
     }
 }

@@ -34,10 +34,103 @@ const SHAKEN_SECONDS: i64 = 300;
 /// The world's first names, dealt by the hash of a creature's id when the Namery's
 /// pool is empty; reserved (the Namery refuses them for citizens and stockings).
 pub(crate) const NAMES: &[&str] = &[
-    "Ossian", "Wren", "Tallow", "Mote", "Hesper", "Fennick", "Lute", "Sorrel", "Quill", "Brindle",
-    "Nim", "Vesper", "Ashby", "Loam", "Pell", "Thimble", "Marrow", "Ides", "Cinder", "Hollis",
-    "Tansy", "Grist", "Orrin", "Moth", "Sable", "Dunmore", "Isk", "Pyre", "Lantern", "Rook",
-    "Wick", "Fathom",
+    "Ossian",
+    "Wren",
+    "Tallow",
+    "Mote",
+    "Hesper",
+    "Fennick",
+    "Lute",
+    "Sorrel",
+    "Quill",
+    "Brindle",
+    "Nim",
+    "Vesper",
+    "Ashby",
+    "Loam",
+    "Pell",
+    "Thimble",
+    "Marrow",
+    "Ides",
+    "Cinder",
+    "Hollis",
+    "Tansy",
+    "Grist",
+    "Orrin",
+    "Moth",
+    "Sable",
+    "Dunmore",
+    "Isk",
+    "Pyre",
+    "Lantern",
+    "Rook",
+    "Wick",
+    "Fathom",
+    // 11-21: sixty-four more (David: "increase the pool").
+    "Abner",
+    "Alder",
+    "Barrow",
+    "Bistre",
+    "Calloway",
+    "Carrow",
+    "Corrie",
+    "Corbin",
+    "Dapple",
+    "Darrow",
+    "Dovey",
+    "Edda",
+    "Ebbet",
+    "Farrow",
+    "Fenna",
+    "Finial",
+    "Gorse",
+    "Gossamer",
+    "Hallow",
+    "Harrow",
+    "Hobb",
+    "Ilex",
+    "Jessop",
+    "Kestrel",
+    "Kerrow",
+    "Larkin",
+    "Linnet",
+    "Lorimer",
+    "Madder",
+    "Morrow",
+    "Merrow",
+    "Mirren",
+    "Nesh",
+    "Oakum",
+    "Odell",
+    "Osier",
+    "Paget",
+    "Pargeter",
+    "Plover",
+    "Quoin",
+    "Rennet",
+    "Rushlight",
+    "Sedge",
+    "Selby",
+    "Skerry",
+    "Spindle",
+    "Tamsin",
+    "Teasel",
+    "Tibb",
+    "Tolliver",
+    "Umber",
+    "Vane",
+    "Wicker",
+    "Winnow",
+    "Wisket",
+    "Yarrow",
+    "Yewan",
+    "Zennor",
+    "Bracken",
+    "Cawley",
+    "Fettle",
+    "Gantry",
+    "Hask",
+    "Jorrick",
 ];
 
 fn name_for(creature: EntityId) -> &'static str {
@@ -50,16 +143,29 @@ fn name_for(creature: EntityId) -> &'static str {
 }
 
 /// With the Namery's pool empty: the creature's name by hash from the world's first
-/// thirty-two, or the next in the list that no other named creature has; all of those
+/// ninety-six, or the next in the list that no other named creature has; all of those
 /// taken, one the Namery mints from the kind's syllables. A creature keeps its own
 /// name if it forgets and is remembered again, so its own name is never "taken".
 fn free_name_for(world: &World, creature: EntityId, kind: &str) -> (String, &'static str) {
-    let taken: Vec<String> = world
+    let mut taken: Vec<String> = world
         .store
         .of_kind("creature")
         .filter(|e| e.id != creature)
         .filter_map(|e| name(world, e.id))
         .collect();
+    // And no name a citizen goes by, or a name ever drawn from the pool (the list
+    // grew on 11-21, after names had been taken that it now holds).
+    taken.extend(
+        world
+            .store
+            .of_kind("citizen")
+            .filter_map(|e| e.owner.clone()),
+    );
+    taken.extend(
+        super::namery::used(world)
+            .iter()
+            .filter_map(|u| u["name"].as_str().map(str::to_string)),
+    );
     let start = NAMES
         .iter()
         .position(|n| *n == name_for(creature))
@@ -963,6 +1069,22 @@ const FORGOTTEN: &[&str] = &[
     "a key to nothing",
     "the last line of a story",
     "a face in a window",
+    "a birthday in the wrong month",
+    "the color of a front door",
+    "how the tune went after the first line",
+    "a coat that was lent and not returned",
+    "the sound of a particular gate",
+    "which pocket the letter was in",
+    "a street that had a different name once",
+    "the taste of something burnt and eaten anyway",
+    "a dog's name, called across a field",
+    "the number on a house",
+    "what was promised at the station",
+    "a window seat on a wet afternoon",
+    "the weight of a hand on a shoulder",
+    "where the spare key was kept",
+    "a joke that needed the other person",
+    "the first line of a letter never sent",
 ];
 
 /// The chance a room holding only named creatures draws a stranger, as one in this
