@@ -153,8 +153,13 @@ pub fn register(world: &mut World) {
                 } else {
                     format!("You ask after the Docent, \"{text}\" The question goes to the desk at the Threshold; the Docent comes to you with the page within a few minutes, wherever you are, and names the question ({nth}).")
                 };
+                if by_gate {
+                    super::docent::asked_at_gate(w, id)?;
+                }
                 let said = if by_gate {
-                    said.replacen("You ask after the Docent,", "You ask the Gatekeeper,", 1)
+                    said.replacen("The Docent: \"", "Perrin Latch, writing it down: \"", 1)
+                        .replacen("(It finds you within", "(He brings the desk's answer himself within", 1)
+                        .replacen("You ask after the Docent,", "You ask the Gatekeeper,", 1)
                         .replacen("You ask the Docent,", "You ask the Gatekeeper,", 1)
                         .replacen(
                             "The question goes to the desk at the Threshold;",

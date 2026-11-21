@@ -2016,14 +2016,24 @@ pub(crate) fn creature_strikes(
     // A shell buckler takes the first blow of a fight, all but a point of it.
     if fight_rounds(world, citizen, creature) == 0 && dmg > 1.0 {
         if let Some(b) = super::craft::carries(world, citizen, "buckler") {
+            let left = plain_num(world, b, super::craft::ITEM, "uses").unwrap_or(1.0);
             if let Ok(name) =
                 super::craft::spend(world, &who, b, &format!("Took the first blow of a {ckind}"))
             {
                 dmg = 1.0;
-                notes.push(format!(
-                    "your {} took that one, all but a point of it",
-                    short(name)
-                ));
+                // R253: its last blow says so (a third fight spent it in silence).
+                notes.push(if left <= 1.5 {
+                    format!(
+                        "your {} took that one, all but a point of it, and split doing it: it is spent, and the next first blow is yours",
+                        short(name)
+                    )
+                } else {
+                    format!(
+                        "your {} took that one, all but a point of it ({:.0} more in it)",
+                        short(name),
+                        left - 1.0
+                    )
+                });
             }
         }
     }

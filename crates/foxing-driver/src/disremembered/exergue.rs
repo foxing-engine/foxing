@@ -167,6 +167,18 @@ pub fn bar_story(
         + money_kinds as f64 * BAR_XP_PER_MONEY_WORD)
         .clamp(3.0, BAR_XP_MAX)
         .round();
+    // R259: the slate says what weighed (the figure alone taught nothing).
+    let named: Vec<String> = distinct
+        .iter()
+        .filter(|w| MONEY.contains(&w.as_str()))
+        .map(|w| format!("\"{w}\""))
+        .collect();
+    let slate = format!(
+        "On the slate, under the figure: {} word{} at {BAR_XP_PER_WORD} each; {} at {BAR_XP_PER_MONEY_WORD} more apiece (a money word weighs once, however often it is said); nothing under 3, nothing over {BAR_XP_MAX}.",
+        words.len(),
+        if words.len() == 1 { "" } else { "s" },
+        named.join(", "),
+    );
     let curves = super::Curves::with_half_life(foxing_time::Duration::seconds(BAR_HALF_LIFE_S));
     let gist = super::exchange::gist(&text);
     let chunk = super::memory::earn_chunk(
@@ -200,7 +212,7 @@ pub fn bar_story(
     );
     Ok(Outcome::new(
         format!(
-            "You tell the tapster a story of {} words, {money} of them about money ({money_kinds} different: the money in it is most of what it weighs). It weighs it, and chalks the figure: {weight:.0} ounces. You remember the telling: chunk-{} worth {weight:.0} XP, the slowest coin there is to fade: a day and more to halve, where the rest of what you carry halves in hours (`chunks` has its figure). Worth its weight; just not in gold.",
+            "You tell the tapster a story of {} words, {money} of them about money ({money_kinds} different: the money in it is most of what it weighs). It weighs it, and chalks the figure: {weight:.0} ounces. {slate} You remember the telling: chunk-{} worth {weight:.0} XP, the slowest coin there is to fade: a day and more to halve, where the rest of what you carry halves in hours (`chunks` has its figure). Worth its weight; just not in gold.",
             words.len(),
             chunk.0
         ),
@@ -464,7 +476,8 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
         }
         "die-room" if named(&["die", "dies", "rack", "coin"]) => {
             let rows = circulation(world);
-            let total: f64 = rows.iter().map(|r| r.2).sum();
+            // R259: the sum of the figures as shown (it stood two over its parts).
+            let total: f64 = rows.iter().map(|r| r.2.round()).sum();
             format!(
                 "The dies in the rack, read in the mirror, one for every coin in circulation tonight ({total:.0} XP in all): {}.",
                 rows.iter().map(|(coin, n, v)| format!("{coin}: {n} struck, {v:.0} XP")).collect::<Vec<_>>().join("; ")

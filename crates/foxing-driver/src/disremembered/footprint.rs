@@ -162,10 +162,30 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
         // the word itself only to a name that has it already.
         let has_word = super::errand::heard(world, e.id, actor);
         if let (Some(w), Some(to)) = (&word, &word_to) {
+            // R254: another name has carried it already, and the list says so (it
+            // stood as if untouched; a second carrier is still paid).
+            let carried = world
+                .recent_events(2000)
+                .into_iter()
+                .rev()
+                .find(|ev| {
+                    ev.kind == super::errand::DONE
+                        && ev.payload["errand"] == "word"
+                        && ev.payload["creature"] == e.id.0
+                        && ev.payload["want"].as_str() == Some(w.as_str())
+                })
+                .and_then(|ev| ev.payload["from"].as_str().map(str::to_string));
+            let already = match carried.as_deref() {
+                Some(by) if by == actor => "; you have carried it already".to_string(),
+                Some(by) => {
+                    format!("; {by} has carried it already, and a second carrying is still paid")
+                }
+                None => String::new(),
+            };
             want_said.push(if has_word {
-                format!("the word \u{201c}{w}\u{201d} carried to {to} (you have it from {name})")
+                format!("the word \u{201c}{w}\u{201d} carried to {to} (you have it from {name}{already})")
             } else {
-                format!("a word carried to {to} (stand with {name} or tell it, and it gives you the word)")
+                format!("a word carried to {to} (stand with {name} or tell it, and it gives you the word{already})")
             });
         }
         let word_wanted = word.is_some() && word_to.is_some();

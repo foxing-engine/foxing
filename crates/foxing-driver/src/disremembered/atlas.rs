@@ -788,6 +788,11 @@ pub fn remembered_map(
             .iter()
             .filter(|r| r["z"].as_i64() == Some(z))
             .collect();
+        // R259: one room on a floor is no grid, and the map says so (the Exergue's
+        // lowest room drew nothing and said nothing).
+        if on_floor.len() == 1 {
+            summary.push_str("\nNo grid for this floor: it is the only room on it that you remember, and its doors (above) go up, down or out of what you have walked.");
+        }
         if on_floor.len() > 1 {
             let xs: Vec<i64> = on_floor.iter().filter_map(|r| r["x"].as_i64()).collect();
             let ys: Vec<i64> = on_floor.iter().filter_map(|r| r["y"].as_i64()).collect();

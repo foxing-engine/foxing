@@ -2672,7 +2672,17 @@ pub fn register(world: &mut World, curves: Curves) {
             // The Threshold gives nothing (its text names the fog and the lanterns as
             // ways to go, not things to take).
             let text = if plain_str(w, here, super::ROOM, "key") == Some(rooms::ARRIVAL) { String::new() } else { text };
-            let Some((cue, material)) = gather_cue(&text) else {
+            // R259 (David, 11-20: option a): the Orchard gives its fruit, and the
+            // moths are the Wall's. Fruit is a ripe hour, and an hour is ripe one
+            // week of the year (C5): outside it the fruit does not come away.
+            let in_orchard = plain_str(w, here, super::ROOM, "key") == Some("orchard");
+            if in_orchard && !super::almanac::on(w, super::almanac::RIPE_WEEK) {
+                return Err(CommandError::precondition(
+                    "You close your hand on the nearest fruit and it does not come off the branch. It is always about to be ripe; this is not the week it is (`almanac` says when the Ripe Week comes). The moths are at the windfalls outside the wall: `gather` there gives moth dust.",
+                ));
+            }
+            let orchard_fruit = in_orchard.then_some(("fruit", super::almanac::RIPE_HOUR));
+            let Some((cue, material)) = orchard_fruit.or_else(|| gather_cue(&text)) else {
                 return Err(CommandError::precondition(
                     "Nothing here comes away in the hand. Rooms with water or fog, shelves or ink, moths or moss, rags, bones, a river, or a lantern give something; read the room.",
                 ));
@@ -3128,6 +3138,11 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             if !carried && resolve_item(w, &arg, here).is_err() {
                 if let Some(out) = super::nouns::read(w, &ctx.actor, here, &arg) {
+                    return Ok(out);
+                }
+                // R259: a thing the room's own words name and nothing else stands
+                // for (a dug room said "a slate reads …" and `read slate` found none).
+                if let Some(out) = super::nouns::in_text(w, here, &arg) {
                     return Ok(out);
                 }
             }

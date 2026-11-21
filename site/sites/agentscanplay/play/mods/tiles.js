@@ -17,7 +17,10 @@ const COLS = 20, ROWS = 11, T = 16;
 const W = COLS * T, H = ROWS * T;
 const WALL_TOP = 2; // the north wall is two tiles tall: shelves, windows, a door
 const DOORS = { north: [Math.floor(COLS / 2), 1], south: [Math.floor(COLS / 2), ROWS - 1], west: [0, 6], east: [COLS - 1, 6] };
-const NIGHT = "#121a25", INK = "#ece5d3", DUST = "#d9b57a", EMBER = "#d1734f", MOSS = "#7fb37f", SLATE = "#7d8794";
+// R258: the kinds that attack whoever walks in (the world's own list; a test in the
+// driver holds the two together). A creature whose temper has changed says so itself.
+const HUNTS = ["hand", "hollow", "revenant", "drowned", "sitter", "hourhand", "keeper", "lamprey", "usher", "censor", "clipper", "sweater", "warden", "footpad", "axolotl", "anemone", "dust devil", "custodian"];
+const NIGHT = "#121a25", INK = "#ece5d3", DUST = "#d9b57a", EMBER = "#d1734f", MOSS = "#7fb37f", SLATE = "#7d8794", BLOOD = "#e0453a";
 // Where things stand: you in the middle, the rest on a ring of slots, by id.
 const SLOTS = [[7, 5], [12, 5], [6, 8], [13, 8], [9, 4], [10, 8], [4, 6], [15, 6], [7, 7], [12, 4], [9, 9], [10, 3], [5, 4], [14, 4], [4, 8], [15, 8], [8, 3], [11, 9]];
 // Named doors: along the south wall either side of the door; past ARCHES_SHOWN they
@@ -474,7 +477,7 @@ export default function install(m) {
         const heirOf = mind && mind.heir_of && mind.heir_of.name ? mind.heir_of.name : null;
         const young = !!(heirOf && mind.named_since && Date.now() - mind.named_since < 7 * 86400000);
         const tales = mind && Array.isArray(mind.tales) ? mind.tales.length : 0;
-        things.push({ id: n.id, kind: "creature", name: c.name, given, hp: c.hp, max: c.max_hp, holding: c.xp, shaken, old, heirOf, young, tales, sprite: s, tile: SLOTS[hash(n.id) % SLOTS.length] });
+        things.push({ id: n.id, kind: "creature", name: c.name, hunts: typeof c.aggressive === "boolean" ? c.aggressive : HUNTS.includes(c.name), given, hp: c.hp, max: c.max_hp, holding: c.xp, shaken, old, heirOf, young, tales, sprite: s, tile: SLOTS[hash(n.id) % SLOTS.length] });
       } else if (n.kind === "citizen") {
         const name = (n.components["disremembered.citizen"] || {}).name || "?";
         const p = n.components["disremembered.presence"];
@@ -948,7 +951,10 @@ export default function install(m) {
           // A knocked-out (shaken) creature's bar is slate: it is down, whatever it holds.
           px(x * T + 2, y * T - 3 + bob, Math.round(12 * frac), 2, t.shaken ? SLATE : frac > 0.5 ? MOSS : frac > 0.25 ? DUST : EMBER);
         }
-        const state = (t.old ? ", old" : "") + (t.young ? ", heir of " + t.heirOf : "") + (t.tales > 0 ? ", holds " + (t.tales === 1 ? "a story" : t.tales + " stories") : "");
+        // What hunts wears a small red mark at the head of its bar; one that is down
+        // (shaken) hunts nothing.
+        if (t.hunts && !t.shaken) { px(x * T - 3, y * T - 7 + bob, 4, 7, NIGHT); px(x * T - 2, y * T - 6 + bob, 2, 3, BLOOD); px(x * T - 2, y * T - 2 + bob, 2, 1, BLOOD); }
+        const state = (t.hunts && !t.shaken ? ", attacks on sight" : "") + (t.old ? ", old" : "") + (t.young ? ", heir of " + t.heirOf : "") + (t.tales > 0 ? ", holds " + (t.tales === 1 ? "a story" : t.tales + " stories") : "");
         const who = (t.given ? t.given + " the " + t.name : "the " + t.name) + state;
         // Beside another of its kind, this one is wisp-4958: a tap on the left wisp
         // once struck the right one, and the world says it that way too.
@@ -975,7 +981,7 @@ export default function install(m) {
       } else if (t.kind === "you") {
         const by = Math.round(Math.sin(now / 300)) - 7;
         px(x * T + 7, y * T + by, 2, 2, DUST); px(x * T + 6, y * T + by - 2, 4, 2, DUST); px(x * T + 5, y * T + by - 4, 6, 2, DUST);
-        hot.set(x + "," + y, { label: "you, " + t.name, primary: () => m.command("look", []), menu: [{ label: "Look around", run: () => m.command("look", []) }, { label: "What I hold", run: () => m.command("chunks", []) }, { label: "What remembers me", run: () => m.command("mine", []) }, { label: "Rest", run: () => m.command("rest", []) }, { label: "Dig a room here", run: () => m.prefill("dig nook " + chunkFor("dig") + ' "') }, { label: "Say something", run: () => m.prefill('say "') }] });
+        hot.set(x + "," + y, { label: "you, " + t.name, primary: () => m.command("look", []), menu: [{ label: "Look around", run: () => m.command("look", []) }, { label: "What I hold", run: () => m.command("chunks", []) }, { label: "What remembers me", run: () => m.command("mine", []) }, { label: "Rest", run: () => m.command("rest", []) }, { label: "Dig a room here", run: () => m.prefill("dig nook " + chunkFor("dig") + ' "A Name"') }, { label: "Say something", run: () => m.prefill('say "') }] });
       } else if (t.kind === "morphos") {
         labelAt("Morphos", x, y, -1, "#c9b7d9");
         hot.set(x + "," + y, { target: "morphos", label: "Morphos, a traveler with a riddle — answer it", primary: () => m.prefill('tell morphos "'), menu: [{ label: "Answer the riddle", run: () => m.prefill('tell morphos "') }, { label: "Hear it again", run: () => m.command("look", []) }] });
@@ -1075,14 +1081,16 @@ export default function install(m) {
     ctx.font = (5 * SCALE) + "px sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "top";
     const maxW = 120 * SCALE;
     const words = text.split(" "); const lines = []; let cur = "";
-    for (const w of words) { const t = cur ? cur + " " + w : w; if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; if (lines.length === 4) break; }
-    if (cur && lines.length < 4) lines.push(cur); else if (lines.length === 4) lines[3] += "…";
+    for (const w of words) { const t = cur ? cur + " " + w : w; if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; if (lines.length === 3) break; }
+    if (cur && lines.length < 3) lines.push(cur); else if (lines.length === 3) lines[2] += "…";
     const lh = 6.5 * SCALE, bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width))) + 6 * SCALE, bh = lines.length * lh + 4 * SCALE;
     let bx = (x * T + 8) * SCALE - bw / 2, by = (y * T - 8) * SCALE - bh;
     bx = Math.max(2 * SCALE, Math.min(canvas.width - bw - 2 * SCALE, bx)); by = Math.max(12 * SCALE, by);
-    ctx.globalAlpha = left < 600 ? left / 600 : 1;
+    // R258: a bubble let the figures under it show (it covered whoever stood above).
+    ctx.globalAlpha = (left < 600 ? left / 600 : 1) * 0.8;
     ctx.fillStyle = INK; ctx.fillRect(bx, by, bw, bh);
     ctx.fillStyle = INK; ctx.beginPath(); ctx.moveTo((x * T + 6) * SCALE, by + bh); ctx.lineTo((x * T + 10) * SCALE, by + bh); ctx.lineTo((x * T + 8) * SCALE, by + bh + 3 * SCALE); ctx.fill();
+    ctx.globalAlpha = left < 600 ? left / 600 : 1;
     ctx.fillStyle = NIGHT;
     lines.forEach((l, i) => ctx.fillText(l, bx + 3 * SCALE, by + 2 * SCALE + i * lh));
     ctx.globalAlpha = 1;
@@ -1284,7 +1292,7 @@ export default function install(m) {
     root: "here",
     select: { "disremembered.room": ["name", "key", "memory", "description", "bound"], "disremembered.sprite": "*" },
     relations: {
-      contents: { kinds: ["citizen", "creature", "docent", "morphos", "item"], select: { "disremembered.docent": ["name"], "disremembered.morphos": ["name", "present"], "disremembered.citizen": ["name"], "disremembered.creature": ["name", "hp", "max_hp", "xp"], "disremembered.item": ["name", "given_name", "fixed"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace"], "disremembered.mind": ["name", "tier", "shaken_until", "old_since", "heir_of", "named_since", "tales"] } },
+      contents: { kinds: ["citizen", "creature", "docent", "morphos", "item"], select: { "disremembered.docent": ["name"], "disremembered.morphos": ["name", "present"], "disremembered.citizen": ["name"], "disremembered.creature": ["name", "hp", "max_hp", "xp", "aggressive"], "disremembered.item": ["name", "given_name", "fixed"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace"], "disremembered.mind": ["name", "tier", "shaken_until", "old_since", "heir_of", "named_since", "tales"] } },
       exits: { select: { "disremembered.room": ["name"], "disremembered.sprite": "*" } },
     },
     timed: "curve", commands: false,

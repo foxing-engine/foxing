@@ -15063,3 +15063,129 @@ fn the_court_record_sees_a_line_appended_to_a_room() {
         out.summary
     );
 }
+
+#[test]
+fn the_batch_of_11_20_orchard_gate_slate_and_the_marks_that_hunt() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(1_000_000));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // R259: the Orchard's fruit is a ripe hour in the Ripe Week, and out of it the
+    // fruit does not come off; the moths are the Wall's.
+    almanac::DATE.with(|c| c.set(Some((3, 3))));
+    admin(&mut w, "dave", "bring", json!(["dave", "orchard"]));
+    let err = call(&mut w, "dave", ActorKind::Citizen, "gather", json!([])).unwrap_err();
+    assert!(err.to_string().contains("not the week"), "{err}");
+    almanac::DATE.with(|c| c.set(Some((11, 18))));
+    let got = ok(&mut w, "dave", "gather", json!([]));
+    assert_eq!(got.result["name"], json!("a ripe hour"), "{}", got.summary);
+    admin(&mut w, "dave", "bring", json!(["dave", "orchard-wall"]));
+    let got = ok(&mut w, "dave", "gather", json!([]));
+    assert_eq!(got.result["name"], json!("moth dust"), "{}", got.summary);
+    almanac::DATE.with(|c| c.set(None));
+    // R250: asked of the Gatekeeper, the Gatekeeper brings the answer, in his voice.
+    let asked = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!(["gatekeeper", "where is the midden?"]),
+    );
+    let id = asked.result["asked"].as_u64().unwrap();
+    let head = events(&w);
+    admin(
+        &mut w,
+        "Bindery",
+        "answer",
+        json!([id, "West, then south.", "test"]),
+    );
+    let said = narrative(&w, "dave", head);
+    assert!(
+        said.iter().any(|l| l.starts_with("Perrin Latch finds you")
+            && l.contains("Not my hand")
+            && l.contains("\"West, then south.\"")),
+        "{said:?}"
+    );
+    // The Docent's own stay the Docent's.
+    let asked = ok(&mut w, "dave", "tell", json!(["docent", "and the well?"]));
+    let id = asked.result["asked"].as_u64().unwrap();
+    let head = events(&w);
+    admin(
+        &mut w,
+        "Bindery",
+        "answer",
+        json!([id, "Up the trail.", "test"]),
+    );
+    let said = narrative(&w, "dave", head);
+    assert!(
+        said.iter().any(|l| l.starts_with("The Docent finds you")),
+        "{said:?}"
+    );
+    // R259: a thing a dug room's words name is read from those words.
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 30, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    admin(&mut w, "dave", "bring", json!(["dave", "fogbank"]));
+    ok(&mut w, "dave", "dig", json!(["cellar", c, "Dave's Cellar"]));
+    ok(&mut w, "dave", "travel", json!(["cellar"]));
+    ok(
+        &mut w,
+        "dave",
+        "describe",
+        json!(["A low room of stone. A slate reads: back by dark. The stair is wet."]),
+    );
+    let out = ok(&mut w, "dave", "read", json!(["slate"]));
+    assert!(
+        out.summary.contains("A slate reads: back by dark.") && !out.summary.contains("stair"),
+        "{}",
+        out.summary
+    );
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "read",
+        json!(["teapot"])
+    )
+    .is_err());
+    // R259: one room on a floor, and the map says why there is no grid.
+    admin(&mut w, "dave", "bring", json!(["dave", "exergue"]));
+    let map = ok(&mut w, "dave", "map", json!([]));
+    assert!(
+        map.summary.contains("No grid for this floor"),
+        "{}",
+        map.summary
+    );
+    // R258: the page's list of what hunts is the world's.
+    let js = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../site/sites/agentscanplay/play/mods/tiles.js"
+    ))
+    .unwrap();
+    let line = js
+        .lines()
+        .find(|l| l.starts_with("const HUNTS = ["))
+        .unwrap();
+    let mut page: Vec<String> = line
+        .split('"')
+        .skip(1)
+        .step_by(2)
+        .map(str::to_string)
+        .collect();
+    page.sort();
+    let mut world: Vec<String> = combat::CREATURES
+        .iter()
+        .filter(|d| d.aggressive)
+        .map(|d| d.key.to_string())
+        .collect();
+    world.sort();
+    world.dedup();
+    assert_eq!(page, world);
+    // R252: the new reads.
+    for (key, thing, has) in [
+        ("trail-picnic", "basket", "BACK IN A MINUTE"),
+        ("trail-bog", "post", "SHORT CUT"),
+        ("lower-stacks", "spines", "crossed through"),
+        ("carrels", "light", "NEXT ONE OVER"),
+    ] {
+        admin(&mut w, "dave", "bring", json!(["dave", key]));
+        let out = ok(&mut w, "dave", "read", json!([thing]));
+        assert!(out.summary.contains(has), "{key}: {}", out.summary);
+    }
+}

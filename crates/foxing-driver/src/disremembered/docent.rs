@@ -213,6 +213,19 @@ pub const STORY: &str = "Hollis Quire was the library's night reader, the one wh
 /// way of asking the Docent (`is_named`): the Docent is one, and keeps the front.
 pub const GATEKEEPER_LINE: &str = "The Gatekeeper is in the gatehouse window with the gate's book open on the sill: Perrin Latch, the Docent's under-reader, who learned the keeping of doors from the one who keeps the other. It writes down who comes through and carries what is asked round to the Docent's desk (tell gatekeeper \"…\" is answered as tell docent \"…\" is, from anywhere).";
 
+/// R250: a question on the record was put to the Gatekeeper, who brings its answer.
+pub fn asked_at_gate(world: &mut World, id: u64) -> Result<(), CommandError> {
+    let mut list = asks(world);
+    if let Some(a) = list.iter_mut().find(|a| a["id"].as_u64() == Some(id)) {
+        a["via"] = json!("gate");
+    }
+    let mut changes = BTreeMap::new();
+    changes.insert("asked".into(), json!(list));
+    write(world, changes)
+        .map(|_| ())
+        .map_err(CommandError::precondition)
+}
+
 /// Where the Docent stands.
 pub fn room(world: &World) -> Option<EntityId> {
     entity(world).and_then(|d| world.store.entity(d).and_then(|e| e.parent))
@@ -846,6 +859,7 @@ fn answer(
         )));
     }
     let to = a["from"].as_str().unwrap_or("").to_string();
+    let by_gate = a["via"].as_str() == Some("gate");
     let question = short_question(a["text"].as_str().unwrap_or(""));
     a["answered"] = json!(world.now().0);
     a["answer"] = json!(text);
@@ -864,10 +878,14 @@ fn answer(
     // It comes to the asker, wherever they are, and says it there; its round takes it
     // back to the door in its own time.
     come_to(world, &to).map_err(CommandError::precondition)?;
+    // R250: asked of the Gatekeeper, it is the Gatekeeper who brings it, in his own
+    // voice, and the Docent's words are the Docent's still.
     super::combat::narrate(
         world,
         &to,
-        if late {
+        if by_gate {
+            format!("Perrin Latch finds you{}, a slip from the desk held in two fingers, on \"{question}\": \"Not my hand, mind. I only carry it, and I ran. It says:\" \"{text}\"", if late { " after all, late and out of breath" } else { "" })
+        } else if late {
             format!("The Docent finds you after all, the page found late, on \"{question}\": \"{text}\"")
         } else {
             format!("The Docent finds you, on \"{question}\": \"{text}\"")

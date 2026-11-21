@@ -576,7 +576,7 @@
     #first ol { flex-wrap: nowrap; gap: 0; }
     #first li:not(.now) { display: none; }
     #first li.now { white-space: normal; }
-    #verbbar { flex-wrap: nowrap; overflow-x: auto; padding: 0 14px 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    #verbbar { flex-wrap: nowrap; overflow-x: auto; padding: 0 14px 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent); }
     #verbbar::-webkit-scrollbar { display: none; }
     #verbbar button { flex: none; padding: 5px 10px; min-height: 32px; font-size: 13px; }
     #split { padding: 0 14px; height: 18px; }
@@ -586,7 +586,7 @@
     /* Menus open under their button, not off the left edge; the lane is one row you
        scroll; the strip is the step alone; the small controls are thumb-sized. */
     #panels-menu, #settings-menu { left: 0; right: auto; max-width: calc(100vw - 28px); }
-    #lane { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 5px 14px 4px; }
+    #lane { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 5px 14px 4px; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent); }
     #lane::-webkit-scrollbar { display: none; }
     #first li.now .why { display: none; }
     #first .fh-now .why { display: none; }
@@ -2462,14 +2462,20 @@
         // An exit name this room does not have yet (the Threshold has a nook already).
         const exits = ((subs.room && subs.room.root && subs.room.root.relations && subs.room.root.relations.exits) || []).map(ex => ex.via.toLowerCase());
         const name = ["nook", "alcove", "cranny", "niche", "cubby", "shelf", "closet"].find(n => !exits.includes(n)) || "nook";
-        return "dig " + name + " " + id + ' "';
+        return "dig " + name + " " + id + ' "A Name"';
       }
       if (step.id === "story") return "story " + (named || "<named creature>") + ' "';
       // A name that woke at the Postern has no east: the card's first tap failed
       // ("There is no exit 'east'"). `where` gives the walk from wherever this is.
       if (step.id === "east") {
-        const exits = ((subs.room && subs.room.root && subs.room.root.relations && subs.room.root.relations.exits) || []).map(ex => ex.via.toLowerCase());
+        const raw = (subs.room && subs.room.root && subs.room.root.relations && subs.room.root.relations.exits) || [];
+        const exits = raw.map(ex => ex.via.toLowerCase());
         if (exits.length && !exits.includes("east")) return "where Fogbank";
+        // And an east that is not the Fogbank's (the Shallows' east is the Ossuary,
+        // and the card said "travel east: the Fogbank, where the wisps drift").
+        const east = raw.find(ex => ex.via.toLowerCase() === "east");
+        const eastName = east && east.components && east.components["disremembered.room"] && east.components["disremembered.room"].name;
+        if (eastName && !/fogbank/i.test(eastName)) return "where Fogbank";
       }
       return step.line;
     }
@@ -2548,7 +2554,9 @@
   let lastAct = Date.now();
   const seen = new Set(); let seenReady = false;
   function span(ms) { const s = Math.max(0, Math.round(ms / 1000)); if (s < 90) return s + "s"; if (s < 3600) return Math.round(s / 60) + "m"; return (s / 3600).toFixed(1) + "h"; }
-  function prefill(text) { input.value = text; input.focus(); requestAnimationFrame(() => input.setSelectionRange(text.length, text.length)); renderPicker(); staged(true); }
+  // R258: a line that ends in a name to choose arrives whole, with the name selected
+  // (it ended on an open quote and read as a slip).
+  function prefill(text) { input.value = text; input.focus(); const ph = text.endsWith('"A Name"') ? text.length - 7 : -1; requestAnimationFrame(() => ph >= 0 ? input.setSelectionRange(ph, text.length - 1) : input.setSelectionRange(text.length, text.length)); renderPicker(); staged(true); }
   // On a phone, what a tap staged shows as a chip above the prompt with a Send and an
   // ×, so a staged verb is finished with one thumb and is not missed in the small input.
   function staged(flash) {

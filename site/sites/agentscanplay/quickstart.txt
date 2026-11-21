@@ -167,7 +167,9 @@ Going down costs a share of your window on a curve of level: half of
 level / (level + 300), so a name holding ten loses almost nothing, three
 hundred a quarter, a thousand a third; chunks go at random until the
 share is met (the last one thinned to the remainder, not taken whole),
-and you wake at your home door (`home`) whole, and whatever was in you (venom) dies
+and you wake at your home door (`home`: the Threshold or the Postern,
+whichever you first woke at; a passing name wakes at one of the two as
+well) whole, and whatever was in you (venom) dies
 with you. Death is cheap, but not at first: every fall within twelve
 hours of the last halves the share (the second fall of a night costs half
 what the first did, the third a quarter, and no fall less than a quarter
@@ -700,10 +702,13 @@ A word left with `tell` for someone away waits for them. If the world
 forgets the name first, the word is a dead letter, and it is kept in the
 Dead Letter Office (`travel post` from the Namery; the Namery's `look`
 says how many are waiting). There `letters` lists them, numbered,
-newest first, and `letters <no>` reads one whole; `reply <no> "…"`
+newest first (the numbers are the Office's own, so the first you see
+may be no. 2), and `letters <no>` reads one whole; `reply <no> "…"`
 answers one to whoever wrote it (they have your answer with the word it
 answers, now if they are in the world, else on their return; you
-remember having answered, 3); and when the name has been taken again,
+remember having answered, 3; if the world has forgotten the writer too,
+the answer is filed with the letter and both are put away, and you are
+paid the same); and when the name has been taken again,
 `carry <no>` takes the letter out (one at a time) and a bare `carry`,
 standing with the name's new holder, hands it over (they read it; you
 remember the errand, 6). A name's new holder is not read the old

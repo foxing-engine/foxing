@@ -266,6 +266,62 @@ const NOUNS: &[(&str, &[&str], &str)] = &[
         &["door", "plate", "knocker", "keyhole", "appeals"],
         "You get down on your knees to read it, which is the point. APPEALS, on a brass plate the size of a playing card. The knocker is a tiny hand holding a tinier gavel. Through the keyhole: a light, a long way off, and a draught that smells of beeswax. The door is locked. It is the right size for a supplicant and for nothing else, and whoever is let through will go through on their knees and be glad of it.",
     ),
+    // R252 (11-20): the Trail's unread rooms and the first of the lower Stacks.
+    (
+        "trail-stile",
+        &["step", "stile", "wall", "dip"],
+        "The top step is worn to a dip the width of one person standing still. Cut into the riser under it, small, by many hands and a good many knives: initials, and under each a number. The numbers are how long they stood here looking back. Nobody has put down less than a minute. The newest cut has no number yet, and the knife marks are pale.",
+    ),
+    (
+        "trail-meadow",
+        &["butterflies", "butterfly", "envelopes", "grass", "wings"],
+        "One lands on your wrist and stays long enough to be read. The wings are an envelope: a stamp in one corner with the head worn off, a postmark from a town with your street in it, and an address in a hand you know, to a name you have not gone by in years. It lifts off before you get to the back flap, where the sender would be.",
+    ),
+    (
+        "trail-picnic",
+        &["basket", "blanket", "plates", "cups", "note", "tea"],
+        "Under the basket's lid, pinned to the wicker with a hatpin, a note in pencil: BACK IN A MINUTE. DO START. The pencil has been gone over more than once, each time by a firmer hand, as if the minute needed renewing. Four napkins, one unfolded. The used cup has a ring of tea in it that has not dried, and you understand that it is not going to.",
+    ),
+    (
+        "trail-hollow-way",
+        &["roots", "bank", "banks", "pebble", "lane"],
+        "The roots in the bank have been tied, here and there, into knots that roots do not make: a reef knot, a bowline, one nobody taught you. Under each a flat stone is wedged with a day scratched on it, and no year. They are the days somebody meant to come back this way. The pebbles that come down the bank come from above the newest one.",
+    ),
+    (
+        "trail-hush",
+        &["moss", "birds", "beaks", "dell"],
+        "The moss on the left bank grows in lines, and the lines are words, soft and green and a finger deep: everything that has been shouted here, set down as it left. The newest is still pale. You cannot make out whose each one was, only that they were loud, and where the moss has them going: uphill, toward the bench.",
+    ),
+    (
+        "trail-bog",
+        &["tussocks", "tussock", "stones", "post", "flat"],
+        "A post leans at the edge with a board nailed to it, the paint gone to rust: SHORT CUT, and under that, in a later and smaller hand, IF YOU DO NOT STOP TO READ THIS. The nearest tussock has a boot print in it, filling. The second has two. Past the third there are none, which is either good news or the other kind.",
+    ),
+    (
+        "lower-stacks",
+        &["spines", "spine", "shelves", "books", "ladders", "ladder", "rails"],
+        "You take one down. The spine is blank and so is the cover; the first page has a name on it, crossed through, and under it another, crossed through, and so on down the page to the last, which is not crossed through and is not anyone you know. The rest of the book is in a neat hand and stops in the middle of a sentence. On the ladder's top rung somebody has chalked a shelf mark, and the ladder is on its way there now without you.",
+    ),
+    (
+        "catalogue",
+        &["drawers", "drawer", "cards", "card", "catalogue", "catalog"],
+        "The drawer that opens is three along from the one you meant. The card on top is typed, with one correction in ink: a name, then SEE under it, then another name, which has its own card somewhere that says SEE and gives the first. Somebody has pencilled in the corner: both of these were the same person and neither of them is here.",
+    ),
+    (
+        "periodicals",
+        &["newspapers", "newspaper", "papers", "headlines", "headline", "stamp"],
+        "The volume on the table is open at tomorrow. The headline is about the weather in a room you have not walked yet, and it is right about the fog. Across the column the stamp has come down in violet: RECEIVED, and a date some years off. The ink of the stamp is dry. The ink of the headline comes off on your thumb.",
+    ),
+    (
+        "dumbwaiter",
+        &["box", "shaft", "rope", "slip", "hatch"],
+        "The box stops at your floor without being asked. Inside: a call slip, filled in, in your hand, for a book you have not thought of yet. The shelf mark on it is a real one. The slip is dated the day after you forget what you came down here for, and the box waits a moment, politely, and goes on up with it.",
+    ),
+    (
+        "carrels",
+        &["chair", "chairs", "light", "lights", "carrel", "desk"],
+        "The reading light in the nearest carrel is on and warm. On the desk, scratched with a pin where a bored hand would scratch: a tally, five-barred, row on row, and beside the last row the words NEXT ONE OVER. The chair's worn shape is nobody's in particular. You sit, to see, and the light in the next carrel comes on.",
+    ),
 ];
 
 /// What `read <a thing this room's text names>` gives, if the room names it.
@@ -288,6 +344,63 @@ pub fn read(world: &World, actor: &str, room: EntityId, arg: &str) -> Option<Out
     Some(Outcome::new(
         line.replace("{you}", actor),
         json!({"room": key, "read": a}),
+    ))
+}
+
+/// A thing no list names, that the room's own text does: the sentences that hold the
+/// word, as the room wrote them. For a builder's room, whose slate is only words.
+pub fn in_text(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
+    let text = plain_str(world, room, ROOM, "description")?;
+    let a = arg.trim().trim_matches('"').to_lowercase();
+    let a = a
+        .trim_start_matches("the ")
+        .trim_start_matches("a ")
+        .trim_start_matches("an ");
+    // "here" and its like are the room itself, and are answered as the room.
+    if ["here", "room", "this room", "this", "all", "everything"].contains(&a) {
+        return None;
+    }
+    if a.chars().count() < 3 || a.split_whitespace().count() > 3 {
+        return None;
+    }
+    let has = |s: &str| {
+        let low = s.to_lowercase();
+        low.match_indices(a).any(|(i, _)| {
+            let before = low[..i].chars().next_back();
+            let after = low[i + a.len()..].chars().next();
+            !before.is_some_and(char::is_alphanumeric)
+                && !after.is_some_and(|c| c.is_alphanumeric() && c != 's')
+        })
+    };
+    // Sentences, kept with their stops; a quoted line stays with what leads into it.
+    let mut parts: Vec<String> = Vec::new();
+    let mut cur = String::new();
+    let mut quoted = false;
+    for c in text.chars() {
+        cur.push(c);
+        if c == '"' || c == '\u{201c}' || c == '\u{201d}' {
+            quoted = !quoted;
+        }
+        if !quoted && matches!(c, '.' | '!' | '?') {
+            parts.push(std::mem::take(&mut cur).trim().to_string());
+        }
+    }
+    if !cur.trim().is_empty() {
+        parts.push(cur.trim().to_string());
+    }
+    let hits: Vec<&String> = parts.iter().filter(|p| has(p)).take(3).collect();
+    if hits.is_empty() {
+        return None;
+    }
+    let name = plain_str(world, room, ROOM, "name").unwrap_or("this room");
+    let said = hits
+        .iter()
+        .map(|h| h.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
+    Some(Outcome::new(
+        format!("Of the {a}, {name} says only what is written of it: {said}"),
+        json!({"read": a, "from_text": true, "sentences": hits}),
     ))
 }
 
