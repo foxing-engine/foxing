@@ -46,11 +46,11 @@ pub struct District {
 pub const DISTRICTS: &[District] = &[
     District { name: "the Door", entry: ARRIVAL, blurb: "" },
     District { name: "the Diggings", entry: MUDROOM, blurb: "every room past this one was dug by a visitor, and fades unless somebody comes" },
-    District { name: "the Wilds", entry: "fogbank", blurb: "the fighter's road: the fog, the Midden, the Shallows and the bone rooms east of them; the further out, the harder it hits" },
-    District { name: "the Library", entry: "lantern-row", blurb: "things to read and creatures to tell: the Row, the Archive, the Namery, and a lane to the Orchard that nothing hunts on" },
+    District { name: "the Wilds", entry: "fogbank", blurb: "the fighter's road, and it goes one way: the fog, the Shallows, the Ossuary, the Gallery, the Oubliette, each door harder than the last (the Midden is off the fog, and mild)" },
+    District { name: "the Library", entry: "lantern-row", blurb: "things to read and creatures to tell: the Row, the Archive, the Namery, and a lane to the Orchard that nothing hunts on, with the Court of Lethe by the back gate" },
     District { name: "the Deep Water", entry: "stairwell", blurb: "the stair under the Row, the Cistern and the Undertow, which comes up in the Shallows" },
     District { name: "the Stacks", entry: "lower-stacks", blurb: "the library's lower floors; a level of 100 is asked at the stair, and a lantern keeps the map" },
-    District { name: "the Clock Quarter", entry: "orchard", blurb: "the Orchard and the Stopped Clocktower over it; the Conclave sits inside the clock, the Exergue District lies under it, and the Wistful Trail starts north of the trees" },
+    District { name: "the Clock Quarter", entry: "orchard", blurb: "the Orchard and the Stopped Clocktower over it; the Conclave sits inside the clock, `up` the Escapement from the trees; the Exergue District lies under it, past what is wound in the works; and the Wistful Trail starts north" },
     District { name: "the Conclave", entry: "escapement-stair", blurb: "the house that sets the world's rates: read its Book, lay a petition, watch a division" },
     District { name: "the Exergue District", entry: "exergue-stair", blurb: "the mint under the clock: the coinage in circulation, a bar, and a guarded Purse" },
     District { name: "the Wistful Trail", entry: "trail-stile", blurb: "a walk north of the Orchard: a meadow, a well, a bog and a lookout" },
@@ -64,6 +64,8 @@ fn district_index(key: &str) -> Option<usize> {
         MUDROOM => 1,
         "fogbank" | "shallows" | "midden" | "ossuary" | "gallery" | "oubliette" => 2,
         "lantern-row" | "archive" | "namery" | "dead-letters" | "lamplighters-lane" | POSTERN => 3,
+        // L1 (11-21): the Court sits by the back gate, four steps from the Conclave.
+        "court-of-lethe" | "lost-steps" | "filing-window" | "cells-of-record" | "appeal-stair" => 3,
         "stairwell" | "cistern" | "undertow" => 4,
         k if k.starts_with("wing-") => 11,
         "lower-stacks" | "catalogue" | "dark-reading-room" | "periodicals" | "dumbwaiter"
@@ -73,8 +75,7 @@ fn district_index(key: &str) -> Option<usize> {
         "orchard" | "clocktower" | "orchard-wall" => 6,
         "escapement-stair" | "petition-gallery" | "robing-room" | "tally-room" | "brass-rail"
         | "book-lectern" | "roll-hall" | "session-benches" | "division-lobby" | "minute-room"
-        | "engrossing-room" | "court-of-lethe" | "lost-steps" | "filing-window"
-        | "cells-of-record" | "appeal-stair" => 7,
+        | "engrossing-room" => 7,
         "exergue-stair" | "counting-bar" | "die-room" | "striking-floor" | "assay-office"
         | "mintmark-hall" | "purse-room" | "exergue" => 8,
         k if k.starts_with("trail-") => 9,
@@ -194,11 +195,10 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: "shallows",
         name: "The Shallows",
-        description: "Black water over pale sand, ankle-deep and perfectly still, until something stands up out of it.",
+        description: "Black water over pale sand, ankle-deep and perfectly still, until something stands up out of it. North, where a way through the reeds used to go up to the Orchard, the water has taken the path: the Wilds go east from here, and only get worse.",
         exits: &[
             ("south", "fogbank"),
             ("east", "ossuary"),
-            ("north", "orchard"),
             ("dive", "undertow"),
         ],
         spawn: Some(("hollow", 2, 120)),
@@ -241,8 +241,8 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: POSTERN,
         name: "The Postern",
-        description: "The back gate: a low door in a garden wall, a lamp on an iron bracket, the Reading Bench under it worn smooth, a boot-scraper nobody has used. It is night here too. Through the door the Lamplighter's Lane runs to the lanterns one way and the Orchard the other, and nothing hunts on it; along the wall the moths come down from the trees, and they are the mildest thing in the world that will give you something to remember. This is a door of the world, as the Threshold is: a name that wakes here comes back here. Nothing hunts here.",
-        exits: &[("lane", "lamplighters-lane"), ("wall", "orchard-wall")],
+        description: "The back gate: a low door in a garden wall, a lamp on an iron bracket, the Reading Bench under it worn smooth, a boot-scraper nobody has used. It is night here too. Through the door the Lamplighter's Lane runs to the lanterns one way and the Orchard the other, and nothing hunts on it; along the wall the moths come down from the trees, and they are the mildest thing in the world that will give you something to remember. West along the wall from the gate a flight of worn steps goes up under a stone arch with LETHE cut over it and a lamp that is never lit: the Court, which sits when it has a case and keeps its own hours. This is a door of the world, as the Threshold is: a name that wakes here comes back here. Nothing hunts here.",
+        exits: &[("lane", "lamplighters-lane"), ("wall", "orchard-wall"), ("west", "lost-steps")],
         spawn: None,
         former: &[],
         tint: "#6f7a5c",
@@ -296,8 +296,8 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: "orchard",
         name: "The Orchard of Unripe Hours",
-        description: "Rows of low trees heavy with fruit that is always about to ripen and never does. The air is sweet with it. Moths the size of your hand work the branches, and are not interested in you, mostly.",
-        exits: &[("south", "shallows"), ("up", "clocktower"), ("north", "trail-stile"), ("lane", "lamplighters-lane"), ("wall", "orchard-wall")],
+        description: "Rows of low trees heavy with fruit that is always about to ripen and never does. The air is sweet with it. Moths the size of your hand work the branches, and are not interested in you, mostly. The clock tower stands over the trees. An iron stair goes up the outside of it, the Escapement, to the Conclave (`up`); a door at its foot, the CLOCK, goes in among the works, where something is still wound. South the path that went down to the water is under it now.",
+        exits: &[("up", "escapement-stair"), ("clock", "clocktower"), ("north", "trail-stile"), ("lane", "lamplighters-lane"), ("wall", "orchard-wall")],
         spawn: Some(("mothwing", 3, 40)),
         former: &[],
         tint: "#7d9a5a",
@@ -306,7 +306,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "clocktower",
         name: "The Stopped Clocktower",
         description: "Four clock faces, one to each wall, each showing a different hour, and all of them wrong. The works fill the middle of the room, and something in the works is still wound.",
-        exits: &[("down", "orchard"), ("escapement", "escapement-stair"), ("exergue", "exergue-stair")],
+        exits: &[("out", "orchard"), ("exergue", "exergue-stair")],
         spawn: Some(("hourhand", 1, 240)),
         former: &[],
         tint: "#8a6f3a",
@@ -583,8 +583,8 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: "escapement-stair",
         name: "The Escapement Stair",
-        description: "Behind the clock faces a narrow stair runs between two toothed wheels, and each step waits for a tooth to let it go before it lets you down. The ticking is louder here than in the tower, and slower. Somewhere ahead a bell for order was rung a long time ago and has not quite stopped.",
-        exits: &[("escapement", "clocktower"), ("north", "petition-gallery")],
+        description: "An iron stair up the outside of the tower from the Orchard lets in behind the clock faces, where a narrow stair runs between two toothed wheels, and each step waits for a tooth to let it go before it lets you down. The ticking is louder here than in the tower, and slower. Somewhere ahead a bell for order was rung a long time ago and has not quite stopped.",
+        exits: &[("down", "orchard"), ("north", "petition-gallery")],
         spawn: None,
         former: &[],
         tint: "#3a2e2e",
@@ -656,7 +656,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "division-lobby",
         name: "The Division Lobby",
         description: "A narrow corridor, with two doors at one end marked AYE and NO in gold. Behind the paint they are one door. At the far end, a clerk's desk holds a tally book ruled in a single column.",
-        exits: &[("east", "session-benches"), ("door", "lost-steps")],
+        exits: &[("east", "session-benches")],
         spawn: None,
         former: &[],
         tint: "#3a2e2e",
@@ -668,7 +668,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "lost-steps",
         name: "The Hall of Lost Steps",
         description: "A long hall of worn flags where people wait to be called and walk up and down while they do it; the stone is dished in two lines the length of the room. Benches along both walls, each carved by somebody with time: initials, tallies, one careful drawing of a door. A clock over the far arch has one hand, and what it shows is how long you have been here. Under it the day's List is pinned to a board, and the Crier of the List stands beside it not crying anything. Ways off the hall, each with a painted hand pointing: the WINDOW, the COURT, the CELLS, and a narrow STAIR.",
-        exits: &[("out", "division-lobby"), ("window", "filing-window"), ("court", "court-of-lethe"), ("cells", "cells-of-record"), ("stair", "appeal-stair")],
+        exits: &[("east", POSTERN), ("window", "filing-window"), ("court", "court-of-lethe"), ("cells", "cells-of-record"), ("stair", "appeal-stair")],
         spawn: Some(("crier", 1, 600)),
         former: &[],
         tint: "#34302c",
@@ -1365,7 +1365,17 @@ pub fn ensure_rooms(world: &mut World) -> Result<(), String> {
                 const COMPASS: &[&str] = &["north", "south", "east", "west", "up", "down"];
                 // (And the Postern's first door to the lane, `in`: a word the gate's
                 // grammar drops, so `travel in` written in a message had no argument.)
-                (COMPASS.contains(&name.as_str()) || (def.key == POSTERN && name.as_str() == "in"))
+                // L1 (11-21): and the named doors the reordering took away.
+                const RETIRED: &[(&str, &str)] = &[
+                    ("clocktower", "escapement"),
+                    ("clocktower", "down"),
+                    ("escapement-stair", "escapement"),
+                    ("division-lobby", "door"),
+                    ("lost-steps", "out"),
+                ];
+                (COMPASS.contains(&name.as_str())
+                    || (def.key == POSTERN && name.as_str() == "in")
+                    || RETIRED.contains(&(def.key, name.as_str())))
                     && to.as_u64().is_some_and(|t| seed_ids.contains(&t))
                     && !def.exits.iter().any(|(n, _)| n == name)
             })
@@ -1393,7 +1403,9 @@ pub fn ensure_rooms(world: &mut World) -> Result<(), String> {
                 Some(to)
                     if to != ids[key].0
                         && seed_ids.contains(&to)
-                        && !["north", "south", "east", "west", "up", "down"].contains(name) =>
+                        && (!["north", "south", "east", "west", "up", "down"].contains(name)
+                            // L1 (11-21): the Orchard's `up` is the Escapement now.
+                            || (def.key == "orchard" && *name == "up")) =>
                 {
                     exits.insert(name.to_string(), json!(ids[key].0));
                     missing = true;
@@ -1887,6 +1899,8 @@ pub fn describe_as(
         } else {
             (exits.clone(), 0)
         };
+        let looker_level =
+            super::find_citizen(world, actor).map(|f| super::memory::level(world, f.window));
         let from_archive = plain_str(world, room, ROOM, "key") == Some("archive");
         let shown: Vec<String> = listed
             .iter()
@@ -1904,6 +1918,17 @@ pub fn describe_as(
                                 "; the Stacks stair, a level of 100"
                             }
                             _ => "",
+                        };
+                        // L1: a door for stronger names than the one looking says so.
+                        let gloss = match to.and_then(|to| gate_of(world, to)) {
+                            Some(need)
+                                if gloss.is_empty()
+                                    && need > gate_of(world, room).unwrap_or(0.0)
+                                    && looker_level.is_some_and(|l| l < need) =>
+                            {
+                                format!("; for level {need:.0} or so")
+                            }
+                            _ => gloss.to_string(),
                         };
                         let owner = to
                             .and_then(|to| world.store.entity(to))
@@ -2593,6 +2618,91 @@ pub fn describe_as(
 /// The level the stair into the Lower Stacks asks of a name (D3).
 pub const STAIR_LEVEL: f64 = 100.0;
 
+/// L1 (David, 11-21: "sequencing at first with either hard or soft gates"; soft): the
+/// level a room's door says it is for. A name under it, coming from somewhere milder,
+/// is stopped once with what lives there; `travel <exit> anyway` goes in, and that
+/// door does not ask that name again. Nothing is barred. Estimates from each room's
+/// creatures (hit points and attack against a name's thirty and its level's worth of
+/// blows), to be tuned by what the Watches find.
+pub const GATES: &[(&str, f64)] = &[
+    // The Wilds: the fighter's road, one way.
+    ("shallows", 50.0),
+    ("ossuary", 150.0),
+    ("gallery", 200.0),
+    ("oubliette", 350.0),
+    // The Wistful Trail.
+    ("trail-stile", 75.0),
+    // (Not the Long Afternoon: its wicket asks a word in the place `anyway` goes.)
+    ("trail-hollow-way", 125.0),
+    // The water.
+    ("stairwell", 50.0),
+    ("cistern", 120.0),
+    ("undertow", 120.0),
+    ("wing-wrack", 150.0),
+    ("wing-binder", 250.0),
+    ("wing-long", 250.0),
+    ("wing-sump", 300.0),
+    ("wing-vault", 350.0),
+    ("wing-court", 400.0),
+    // The Reading Rooms.
+    ("mezzanine", 50.0),
+    // The Stacks, past the stair's hard hundred.
+    ("periodicals", 250.0),
+    ("carrels", 250.0),
+    ("tube-room", 250.0),
+    ("acid-room", 250.0),
+    ("chart-room", 250.0),
+    ("censor-office", 250.0),
+    ("pulp-sump", 250.0),
+    ("the-leak", 250.0),
+    ("strongroom", 250.0),
+    ("deep-reserve", 400.0),
+    // Under the clock.
+    ("clocktower", 200.0),
+    ("exergue-stair", 400.0),
+    ("purse-room", 900.0),
+];
+
+/// The level a room's door is for, if it says one.
+pub fn gate_of(world: &World, room: EntityId) -> Option<f64> {
+    let key = plain_str(world, room, ROOM, "key")?;
+    GATES.iter().find(|(k, _)| *k == key).map(|(_, l)| *l)
+}
+
+/// The doors a name has gone through `anyway`.
+fn gates_passed(world: &World, citizen: EntityId) -> Vec<String> {
+    match world
+        .store
+        .entity(citizen)
+        .and_then(|e| e.components.get(super::CITIZEN))
+        .and_then(|c| c.fields.get("gates"))
+    {
+        Some(Field::Plain(Value::Array(a))) => a
+            .iter()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// What is in a room, for a door to say: the unnamed kinds, and whether they hunt.
+fn lives_in(world: &World, room: EntityId) -> String {
+    let here = super::combat::creatures_in(world, room);
+    if here.is_empty() {
+        return "Nothing is in it just now, which is not the same as nothing living there"
+            .to_string();
+    }
+    let mut kinds: Vec<String> = Vec::new();
+    for c in &here {
+        let hunts = super::combat::is_aggressive(world, c.0);
+        let k = format!("a {}{}", c.1, if hunts { ", which hunts" } else { "" });
+        if !kinds.contains(&k) {
+            kinds.push(k);
+        }
+    }
+    format!("In it now: {}", kinds.join("; "))
+}
+
 pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
@@ -2623,6 +2733,14 @@ pub fn register(world: &mut World) {
             }
             let room = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
             let mut exit = args.str("exit").unwrap_or("").to_ascii_lowercase();
+            // `travel north anyway` through the gate arrives as one argument, "north
+            // anyway" (bare words run together there), and was "no exit 'north
+            // anyway'": the hurt-name stop of R253 could not be answered by an agent.
+            let mut said_anyway = args.str("word").is_some_and(|x| x.eq_ignore_ascii_case("anyway"));
+            if let Some(e) = exit.strip_suffix(" anyway") {
+                exit = e.trim().to_string();
+                said_anyway = true;
+            }
             let mut exits = exits_of(w, room);
             // A room with no door at all (its only one razed, say) lets you out the
             // way every room was first reached: whatever you name leads to the
@@ -2754,11 +2872,33 @@ pub fn register(world: &mut World) {
                     )));
                 }
             }
+            // L1: a door that says who it is for stops a name under that once, on the
+            // way in from somewhere milder (never on the way back out).
+            let anyway = said_anyway;
+            if let Some(need) = gate_of(w, to) {
+                let level = super::memory::level(w, f.window);
+                let tkey = plain_str(w, to, ROOM, "key").unwrap_or("").to_string();
+                let deeper = gate_of(w, room).unwrap_or(0.0) < need;
+                if level < need && deeper && !gates_passed(w, f.citizen).contains(&tkey) {
+                    if !anyway {
+                        return Err(foxing_registry::CommandError::precondition(format!(
+                            "{} is for names of about level {need:.0}, and you hold {level:.0}. {}. Nothing bars the way: `travel {exit} anyway` goes in, and this door does not ask you again. (`chunks` says where you stand; `where` a milder road: the Fogbank, the Orchard, Lantern Row.)",
+                            plain_str(w, to, ROOM, "name").unwrap_or("That room"),
+                            lives_in(w, to),
+                        )));
+                    }
+                    let mut passed = gates_passed(w, f.citizen);
+                    passed.push(tkey);
+                    let mut fields = BTreeMap::new();
+                    fields.insert("gates".into(), Field::Plain(json!(passed)));
+                    super::set_citizen_fields(w, &ctx.actor, f.citizen, fields)?;
+                }
+            }
             // R253 (David, 11-19: option a): under a third of your hit points, the
             // first step into a room where something hunts stops with the warning;
             // `travel <exit> anyway` goes in. (A name walked into the Sump at six
             // with the warning in the room's text and nothing in its way.)
-            if !super::combat::sheltered(w, f.citizen) && !args.str("word").is_some_and(|x| x.eq_ignore_ascii_case("anyway")) {
+            if !super::combat::sheltered(w, f.citizen) && !said_anyway {
                 let hp = super::combat::hp(w, f.citizen);
                 let whole = super::combat::max_hp(w, f.citizen);
                 let hunter = super::combat::creatures_in(w, to)

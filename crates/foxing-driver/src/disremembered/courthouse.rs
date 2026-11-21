@@ -274,7 +274,13 @@ pub fn draw_in(world: &mut World) -> Vec<Value> {
         return Vec::new();
     };
     let mut drawn = Vec::new();
-    for key in [HALL, "division-lobby", "session-benches", WINDOW, CELLS] {
+    for key in [
+        HALL,
+        super::rooms::POSTERN,
+        "lamplighters-lane",
+        WINDOW,
+        CELLS,
+    ] {
         let Some(room) = room_keyed(world, key) else {
             continue;
         };

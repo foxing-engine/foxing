@@ -754,7 +754,7 @@ fn file(
                 1 => format!("one step: {}", p[0]),
                 n => format!("{n} steps: {}", p.join(", ")),
             })
-            .unwrap_or_else(|| "up the Clocktower and through the Escapement Stair".to_string());
+            .unwrap_or_else(|| "up the Escapement Stair from the Orchard".to_string());
         return Err(CommandError::precondition(format!(
             "Petitions are received in the Petitioners' Gallery, where the machine gives out tickets; from here, {way}."
         )));
@@ -1669,7 +1669,7 @@ pub fn register(world: &mut World) {
                 .ok_or_else(|| super::internal("citizen has no room"))?;
             if !is_house(w, here) {
                 return Err(CommandError::precondition(
-                    "Attendance is taken in the Conclave's own rooms: up the Stopped Clocktower and through the Escapement Stair.",
+                    "Attendance is taken in the Conclave's own rooms: up the Escapement Stair from the Orchard (`travel up` there).",
                 ));
             }
             let mut names = attendance(w);

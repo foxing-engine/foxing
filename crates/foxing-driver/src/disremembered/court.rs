@@ -614,8 +614,8 @@ fn convene(world: &mut World, c: &mut Value, verdict: &str, opinion: &str, judge
         house::WINDOW,
         house::CELLS,
         house::STAIR,
-        "division-lobby",
-        "session-benches",
+        super::rooms::POSTERN,
+        "lamplighters-lane",
     ] {
         house::say_in(world, key, &bell);
     }
@@ -1146,7 +1146,7 @@ pub fn register(world: &mut World) {
             let what = args.str("what").unwrap_or("").trim().to_string();
             if !at(w, &ctx.actor, super::courthouse::WINDOW) {
                 return Err(CommandError::precondition(
-                    "A case is brought at the Filing Window of the Court of Lethe: through the one door behind AYE and NO in the Division Lobby, across the Hall of Lost Steps, by the arch marked WINDOW (`where \"Filing Window\"`).".to_string(),
+                    "A case is brought at the Filing Window of the Court of Lethe: up the steps across the lane from the Postern (`travel court` there), across the Hall of Lost Steps, by the arch marked WINDOW (`where \"Filing Window\"`).".to_string(),
                 ));
             }
             if !super::courthouse::window(w).0 {
@@ -1285,7 +1285,7 @@ pub fn register(world: &mut World) {
             }
             if !at(w, &ctx.actor, ROOM_KEY) {
                 return Err(CommandError::precondition(format!(
-                    "An answer is given in the Courtroom of the Court of Lethe, at the dock: behind the door in the Division Lobby, across the Hall of Lost Steps, through the arch marked COURT (`travel court` from the Hall; `where \"Court of Lethe\"` from anywhere else). You have {} left to give it.",
+                    "An answer is given in the Courtroom of the Court of Lethe, at the dock: up the steps by the Postern, across the Hall of Lost Steps, through the arch marked COURT (`travel court` from the Hall; `where \"Court of Lethe\"` from anywhere else). You have {} left to give it.",
                     super::combat::human((c["answer_by"].as_i64().unwrap_or(0) - w.now().0).max(0))
                 )));
             }
@@ -1365,7 +1365,7 @@ pub fn register(world: &mut World) {
                 None => {
                     if all.is_empty() {
                         return Ok(Outcome::new(
-                            "The Docket is a clean sheet under glass. No case is open and no ruling is remembered. A kept name brings one in the Court of Lethe, off the Division Lobby: plead <kind> <against> \"<what>\".",
+                            "The Docket is a clean sheet under glass. No case is open and no ruling is remembered. A kept name brings one in the Court of Lethe, by the Postern: plead <kind> <against> \"<what>\".",
                             json!({"cases": []}),
                         ));
                     }

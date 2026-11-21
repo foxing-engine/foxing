@@ -48,8 +48,19 @@ fn curves() -> Curves {
 }
 
 fn ok(w: &mut World, actor: &str, verb: &str, args: Value) -> Outcome {
-    call(w, actor, ActorKind::Citizen, verb, args.clone())
-        .unwrap_or_else(|e| panic!("{verb} {args}: {e}"))
+    match call(w, actor, ActorKind::Citizen, verb, args.clone()) {
+        Ok(o) => o,
+        // L1: a door that says who it is for is walked through, as a player who
+        // read it would; the gate has a test of its own.
+        Err(e) if verb == "travel" && e.to_string().contains("is for names of about level") => {
+            let mut a = args.as_array().cloned().unwrap_or_default();
+            a.truncate(1);
+            a.push(json!("anyway"));
+            call(w, actor, ActorKind::Citizen, verb, Value::Array(a))
+                .unwrap_or_else(|e| panic!("{verb} {args} anyway: {e}"))
+        }
+        Err(e) => panic!("{verb} {args}: {e}"),
+    }
 }
 
 fn admin(w: &mut World, actor: &str, verb: &str, args: Value) -> Outcome {
@@ -5347,13 +5358,11 @@ fn the_conclave_sits_up_inside_the_clocktower_and_its_officers_keep_order() {
     }
     let tower = rooms::room_by_key(&w, "clocktower").unwrap();
     let stair = rooms::room_by_key(&w, "escapement-stair").unwrap();
+    let orchard = rooms::room_by_key(&w, "orchard").unwrap();
+    assert_eq!(rooms::exits_of(&w, orchard).get("up").copied(), Some(stair));
     assert_eq!(
-        rooms::exits_of(&w, tower).get("escapement").copied(),
-        Some(stair)
-    );
-    assert_eq!(
-        rooms::exits_of(&w, stair).get("escapement").copied(),
-        Some(tower)
+        rooms::exits_of(&w, stair).get("down").copied(),
+        Some(orchard)
     );
     assert!(conclave::is_house(&w, stair) && !conclave::is_house(&w, tower));
     login(&mut w, "dave", "test", PASS).unwrap();
@@ -11305,7 +11314,7 @@ fn of_two_ways_the_same_length_the_signs_give_the_one_nothing_hunts_on() {
     // East, north, north, up goes through the Shallows, where hollows hunt.
     assert_eq!(
         atlas::way_seeded(&w, door, clock).unwrap(),
-        vec!["north", "lane", "orchard", "up"]
+        vec!["north", "lane", "orchard", "clock"]
     );
 }
 
@@ -14894,6 +14903,8 @@ fn recipes_are_short_and_a_hurt_name_is_stopped_at_a_hunting_door() {
     let f = find_citizen(&w, "dave").unwrap();
     combat::end_leave(&mut w, "dave", f.citizen);
     admin(&mut w, "dave", "bring", json!(["dave", "wing-scriptorium"]));
+    // (At the Sump's level, so the door's own warning is not the one in the way.)
+    admin(&mut w, "dave", "earn", json!(["wisp", 320, 0.9]));
     combat::commit_hp(&mut w, f.citizen, 4.0).unwrap();
     let stopped = call(
         &mut w,
@@ -14978,33 +14989,216 @@ fn the_bailiff_writes_on_a_hand_raised_in_the_courtroom() {
 }
 
 #[test]
-fn a_seed_exit_the_seed_has_moved_follows_it() {
-    // The Division Lobby's door led to the Court and now leads to the Hall before
-    // it: a world from before must not keep the old door.
+fn the_reordering_reaches_a_world_from_before_it() {
+    // L1 (11-21): a world seeded with the old map loses the doors the new map took
+    // away, and the doors that moved follow the seed.
     let t0 = Timestamp(1_000_000);
     let mut w = open(tempfile::tempdir().unwrap().path(), t0);
-    let lobby = rooms::room_by_key(&w, "division-lobby").unwrap();
-    let court = rooms::room_by_key(&w, "court-of-lethe").unwrap();
-    let hall = rooms::room_by_key(&w, "lost-steps").unwrap();
-    let mut exits = serde_json::Map::new();
-    for (name, to) in rooms::exits_of(&w, lobby) {
-        exits.insert(name, json!(to.0));
+    let id = |w: &World, k: &str| rooms::room_by_key(w, k).unwrap();
+    type Was = (
+        &'static str,
+        &'static [(&'static str, &'static str)],
+        &'static [&'static str],
+    );
+    let old: &[Was] = &[
+        ("shallows", &[("north", "orchard")], &[]),
+        (
+            "orchard",
+            &[("south", "shallows"), ("up", "clocktower")],
+            &["clock"],
+        ),
+        (
+            "clocktower",
+            &[("down", "orchard"), ("escapement", "escapement-stair")],
+            &["out"],
+        ),
+        (
+            "escapement-stair",
+            &[("escapement", "clocktower")],
+            &["down"],
+        ),
+        ("division-lobby", &[("door", "lost-steps")], &[]),
+        ("lost-steps", &[("out", "division-lobby")], &["east"]),
+        ("postern", &[], &["west"]),
+    ];
+    for (key, add, drop) in old {
+        let room = id(&w, key);
+        let mut exits = serde_json::Map::new();
+        for (name, to) in rooms::exits_of(&w, room) {
+            if !drop.contains(&name.as_str()) {
+                exits.insert(name, json!(to.0));
+            }
+        }
+        for (name, to) in *add {
+            exits.insert(name.to_string(), json!(id(&w, to).0));
+        }
+        let mut fields = BTreeMap::new();
+        fields.insert("exits".to_string(), Field::Plain(Value::Object(exits)));
+        w.record(
+            Actor::Driver,
+            StoreEvent::ComponentSet {
+                id: room,
+                component: EXITS.into(),
+                fields,
+            },
+        )
+        .unwrap();
     }
-    exits.insert("door".into(), json!(court.0));
-    let mut fields = BTreeMap::new();
-    fields.insert("exits".to_string(), Field::Plain(Value::Object(exits)));
-    w.record(
-        Actor::Driver,
-        StoreEvent::ComponentSet {
-            id: lobby,
-            component: EXITS.into(),
-            fields,
-        },
+    assert_eq!(
+        rooms::exits_of(&w, id(&w, "orchard")).get("up"),
+        Some(&id(&w, "clocktower"))
+    );
+    rooms::ensure_rooms(&mut w).unwrap();
+    let ex = |w: &World, k: &str| -> Vec<(String, String)> {
+        let mut v: Vec<(String, String)> = rooms::exits_of(w, id(w, k))
+            .into_iter()
+            .map(|(n, to)| (n, plain_str(w, to, ROOM, "key").unwrap_or("?").to_string()))
+            .collect();
+        v.sort();
+        v
+    };
+    for d in rooms::ROOMS
+        .iter()
+        .filter(|d| old.iter().any(|(k, _, _)| *k == d.key))
+    {
+        let mut want: Vec<(String, String)> = d
+            .exits
+            .iter()
+            .map(|(n, k)| (n.to_string(), k.to_string()))
+            .collect();
+        want.sort();
+        assert_eq!(ex(&w, d.key), want, "{}", d.key);
+    }
+    // The fighter's road goes one way; the two civic houses are apart, and neither
+    // is behind a fight.
+    assert!(!rooms::exits_of(&w, id(&w, "shallows")).contains_key("north"));
+    assert_eq!(
+        rooms::exits_of(&w, id(&w, "orchard")).get("up"),
+        Some(&id(&w, "escapement-stair"))
+    );
+    assert_eq!(
+        rooms::exits_of(&w, id(&w, "postern")).get("west"),
+        Some(&id(&w, "lost-steps"))
+    );
+    let l = atlas::layout(&w);
+    assert!(
+        l.one_way.is_empty() && l.shoved.is_empty(),
+        "{:?} {:?}",
+        l.one_way,
+        l.shoved
+    );
+}
+
+#[test]
+fn a_door_says_who_it_is_for_and_stops_a_name_once() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(1_000_000));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    admin(&mut w, "dave", "bring", json!(["dave", "fogbank"]));
+    // The door says it, to a name under it.
+    let look = call(&mut w, "dave", ActorKind::Citizen, "look", json!([])).unwrap();
+    assert!(
+        look.summary
+            .contains("north (Shallows; for level 50 or so)"),
+        "{}",
+        look.summary
+    );
+    // Stopped, with what lives there and the way through.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["north"]),
+    )
+    .unwrap_err();
+    let said = err.to_string();
+    assert!(
+        said.contains("The Shallows is for names of about level 50, and you hold 0")
+            && said.contains("a hollow, which hunts")
+            && said.contains("`travel north anyway`"),
+        "{said}"
+    );
+    // `anyway` goes in, and the door does not ask again.
+    call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["north", "anyway"]),
     )
     .unwrap();
-    assert_eq!(rooms::exits_of(&w, lobby).get("door"), Some(&court));
-    rooms::ensure_rooms(&mut w).unwrap();
-    assert_eq!(rooms::exits_of(&w, lobby).get("door"), Some(&hall));
+    call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["south"]),
+    )
+    .unwrap();
+    call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["north"]),
+    )
+    .unwrap();
+    // The next door on is asked in its turn; the way back out never is.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["east"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("The Ossuary is for names of about level 150"),
+        "{err}"
+    );
+    admin(&mut w, "dave", "bring", json!(["dave", "gallery"]));
+    call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["west"]),
+    )
+    .unwrap();
+    // A name at the level walks in unasked, and its door says nothing.
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    admin(&mut w, "tyler", "earn", json!(["wisp", 60, 0.5]));
+    admin(&mut w, "tyler", "bring", json!(["tyler", "fogbank"]));
+    let look = call(&mut w, "tyler", ActorKind::Citizen, "look", json!([])).unwrap();
+    assert!(
+        look.summary.contains("north (Shallows)"),
+        "{}",
+        look.summary
+    );
+    call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "travel",
+        json!(["north"]),
+    )
+    .unwrap();
+    // The whole-way walk stops at a door and says why.
+    login(&mut w, "ann", "test", PASS).unwrap();
+    let walked = call(
+        &mut w,
+        "ann",
+        ActorKind::Citizen,
+        "travel",
+        json!(["The Shallows"]),
+    )
+    .unwrap();
+    assert!(
+        walked.summary.contains("stop") && walked.summary.contains("for names of about level 50"),
+        "{}",
+        walked.summary
+    );
 }
 
 #[test]

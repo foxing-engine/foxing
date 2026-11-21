@@ -266,10 +266,16 @@ fn layout_uncached(world: &World, prev: Option<&Layout>) -> Layout {
     // map is laid whole and a dug room takes what is left (on the live world the dug
     // rooms had every cell by the Orchard, and the Orchard Wall stood three cells
     // from the trees it hangs over).
-    for pass in 0..4 {
+    // L1 (11-21): and after each named door's room is placed, the compass runs again
+    // before the next named door, so what lies north of a room reached by a lane is
+    // laid before that room's other named doors take the cell (with the Orchard
+    // reached by the Lane alone, the Orchard Wall stood where the Stile belongs).
+    let mut pass = 0;
+    while pass < 4 {
         let named = pass % 2 == 1;
         let seed_only = pass < 2;
-        loop {
+        let mut one_named = false;
+        'pass: loop {
             queue.clear();
             let mut keys: Vec<EntityId> = at.keys().copied().collect();
             keys.sort_by_key(|k| k.0);
@@ -352,11 +358,21 @@ fn layout_uncached(world: &World, prev: Option<&Layout>) -> Layout {
                     at.insert(to, pos);
                     push(&mut out, to, pos, placed, Some((here, name.clone())));
                     queue.push_back(to);
+                    if kind == "beside" {
+                        one_named = true;
+                        break 'pass;
+                    }
                 }
             }
             if at.len() == before {
                 break;
             }
+        }
+        if one_named {
+            // Back to the compass, for what the new room opens.
+            pass -= 1;
+        } else {
+            pass += 1;
         }
     }
     // The unreachable, each on a floor of its own below the map.

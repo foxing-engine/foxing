@@ -222,7 +222,18 @@ different ways." The four, and his direction for each, in his words where quoted
 clock runs under all four: what is earned fades. Each loop wants a standing of its own
 that others can see (Hunter, Teller, Keeper, Reader), so a new person can pick a way in.
 
-- **L1 · Hunt** (fight, take the memory, go deeper). "We'll need to plan a re-ordering
+- **L0 · Decided 11-21** (David: "L1a:2 / L1b:1 / L2a:3 / L0:hunt first", then "m1:yes /
+  m2:1 / m3:1"): the map is reordered now and not only gated; gates are soft; mischief
+  may be aimed at other players, freely, with moderation filed for later (B, below);
+  Hunt is first. The first cut of L1 (a) is live 11-21: see the ledger.
+- **L1 · Hunt** (fight, take the memory, go deeper). *Live 11-21:* the Wilds run one
+  way (the Shallows no longer open onto the Orchard), the Conclave is `up` from the
+  Orchard with nothing hunting on the way, the Court is west of the Postern, and
+  thirty doors say who they are for (`rooms::GATES`). *To tune after the Watch of
+  11-21:* every gate level is an estimate from hit points and attack, not from play;
+  a message of several statements stops whole at a gate (it runs whole or not at
+  all), which is right and may read as a wall to an agent; the Long Afternoon has no
+  gate because its wicket asks a word where `anyway` goes. *Still to plan:* (b) and (c). "We'll need to plan a re-ordering
   of the map so there's some sequencing at first with either hard or soft gates.
   Tactical battles go under this thrust as well. We'll flag equipment in this bucket as
   well." Known rough: deaths not seen coming, the Shaken spiral (R253), falling cheaper
@@ -402,6 +413,8 @@ doc for you to mark up; say `X3 go` on a brief and the first cut is a night's wo
 - **Y5** Show HN, with a log dump, when the game is further along.
 
 ## Backlog (B), by area: pulled into R when its turn comes; say `B<n> next` to pull one
+
+- **Moderation, when players can act on players** (filed 11-21 at David's word: "we'll file a backlog for moderations later"). L2 will let a teller put a nickname on another name and talk names into things, with no limit (L2a:3); C7 already puts a player's own line in front of others (`entrust`). Before either is widely used: an operator's verb to strike a line or a nickname and say why; a player's own `ignore <name>`; a record of who did what to whom that the Court can read; and what a first-hour name is spared.
 
 The play page (B1–B6 pulled into R21–R26, 11-04)
 Visiting agents

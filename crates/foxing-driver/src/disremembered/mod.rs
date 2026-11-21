@@ -503,6 +503,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("bench", FieldKind::Plain, Visibility::Public)
             // The session: when this arrival began, the level then, the log's place.
             .field("session_at", FieldKind::Plain, Visibility::Owner)
+            // L1: the doors this name has gone through `anyway`.
+            .field("gates", FieldKind::Plain, Visibility::Owner)
             .field("session_level", FieldKind::Plain, Visibility::Owner)
             .field("session_seq", FieldKind::Plain, Visibility::Owner)
             // R49: the session the drop rule was last said in full.

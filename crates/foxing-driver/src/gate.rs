@@ -1854,7 +1854,7 @@ mod tests {
         let text = msg(
             "lantern-7",
             "REQUEST",
-            "[DO] lantern-7 MUST travel to the east.\n[DO] lantern-7 MUST travel to the north.",
+            "[DO] lantern-7 MUST travel to the east.\n[DO] lantern-7 MUST travel north anyway.",
         );
         send(&mut w, &checker, &mut budget, "lantern-7", &text);
         disremembered::grown(&mut w, "lantern-7");
@@ -1903,7 +1903,7 @@ mod tests {
         let text = msg(
             "lantern-7",
             "REQUEST",
-            "[DO] lantern-7 MUST travel to the east.\n[DO] lantern-7 MUST travel to the north.",
+            "[DO] lantern-7 MUST travel to the east.\n[DO] lantern-7 MUST travel north anyway.",
         );
         let p = send(&mut w, &checker, &mut budget, "lantern-7", &text);
         assert!(p.ok, "{}", p.prose);
