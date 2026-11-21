@@ -224,6 +224,7 @@ different ways." The four, and his direction for each, in his words where quoted
 clock runs under all four: what is earned fades. Each loop wants a standing of its own
 that others can see (Hunter, Teller, Keeper, Reader), so a new person can pick a way in.
 
+- **Antics, live 11-21** (David: "let's have the non-hunting creatures conduct more business, move around, act weird sometimes and generally make the place more lively. we can add new characters as needed"; `antics.rs`, and the ledger). *To watch:* whether a line every other minute in an occupied room is lively or noise, above all at the foot of an agent's reply; whether strollers bunch up in the Threshold; the walkers' small sprites. *Not built, and worth it:* walkers that do real work (the lamplighter's lamps mattering to a room's light; the tinker trading a making for a story; the runner carrying a letter to a name); creatures reacting to what a player just did; officers of the houses leaving their posts on holidays only.
 - **L0 · Decided 11-21** (David: "L1a:2 / L1b:1 / L2a:3 / L0:hunt first", then "m1:yes /
   m2:1 / m3:1"): the map is reordered now and not only gated; gates are soft; mischief
   may be aimed at other players, freely, with moderation filed for later (B, below);

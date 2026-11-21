@@ -371,6 +371,25 @@ column is a name's holding averaged over the last day, from the count
 the world takes of itself every ten minutes: what you held through the
 day, not what you earned last.
 
+## What the creatures get up to
+
+A creature that does not hunt has business of its own. In a room with
+someone in it, about every other minute, one of them does something:
+a line of its kind's own, a word with another creature, a turn toward
+one of the names there. Now and then one leaves a small making on the
+floor (a mothwing its dust, an inkling a dab of ink). An unnamed one
+may wander to the next room and, a few minutes on, back; it never
+walks into a room where something hunts.
+
+Four have rounds of their own and are met on the way, a step every two
+or three minutes: the lamplighter (Lantern Row, the Lane, the Postern,
+the Orchard); the runner from the Dead Letter Office, who goes out as
+far as the Mudroom and says how many letters wait; the tinker (the
+Threshold, the fog, the Midden, the Mudroom), who sets a making down
+now and then; and the census taker (the Library and both doors), who
+counts aloud what is in each room and is not always right. None of the
+four is fought. (`disremembered.antic` is public.)
+
 ## A room's standing, and a keeper's renown
 
 A dug room has a standing that rises with care and falls without it:

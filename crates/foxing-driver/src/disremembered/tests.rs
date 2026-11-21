@@ -717,9 +717,9 @@ fn the_world_moves_on_its_own() {
     w.fixed_now = Some(t0.plus(Duration::seconds(30)));
     assert_eq!(w.tick(), 0, "respawn is about 60 s");
     w.fixed_now = Some(t0.plus(Duration::seconds(97)));
-    // The respawn, the Docent's first round (every ninety seconds), and the
-    // creatures' mending pass (every minute).
-    assert_eq!(w.tick(), 3);
+    // The respawn, the Docent's first round (every ninety seconds), the creatures'
+    // mending pass (every minute), and their antics (every minute).
+    assert_eq!(w.tick(), 4);
     assert!(
         combat::creatures_in(&w, fog).len() >= 2,
         "the fog refilled on its own (one refill in six brings an extra)"
@@ -772,8 +772,8 @@ fn the_world_moves_on_its_own() {
         .jobs
         .has(combat::JOB_STRIKE, |p| p["citizen"] == f.citizen.0));
     w.fixed_now = Some(t0.plus(Duration::seconds(200)));
-    // Only the creatures' mending pass comes due; no strike.
-    assert_eq!(w.tick(), 1);
+    // Only the creatures' mending pass and their antics come due; no strike.
+    assert_eq!(w.tick(), 2);
     assert!(!w
         .jobs
         .has(combat::JOB_STRIKE, |p| p["citizen"] == f.citizen.0));
@@ -15990,4 +15990,113 @@ fn a_room_rises_with_care_draws_residents_pays_a_visit_and_slips_when_forgotten(
     assert!(tending::standing(&w, room) < 2);
     tending::round(&mut w).unwrap();
     assert!(!kinds(&w).contains(&"mender".to_string()));
+}
+
+#[test]
+fn creatures_that_do_not_hunt_have_antics_strolls_and_rounds() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    admin(&mut w, "dave", "bring", json!(["dave", "fogbank"]));
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    // In a room with someone in it, a creature does something of its own, and the
+    // room hears it; never a line with a blank left in it.
+    let head = events(&w);
+    for _ in 0..12 {
+        assert!(antics::act_in(&mut w, fog).unwrap());
+    }
+    let said = narrative(&w, "dave", head);
+    assert!(said.len() >= 12, "{said:?}");
+    assert!(
+        said.iter()
+            .all(|l| !l.contains('{') && l.chars().next().is_some_and(char::is_uppercase)),
+        "{said:?}"
+    );
+    assert!(said.iter().any(|l| l.contains("wisp")), "{said:?}");
+    // Nothing is said in an empty room.
+    let orchard = rooms::room_by_key(&w, "orchard").unwrap();
+    assert!(!antics::act_in(&mut w, orchard).unwrap());
+    // The walkers are made on the first tick, each at the head of its round, and
+    // step on when their minutes are up; a name in the room hears one arrive.
+    antics::walkers(&mut w).unwrap();
+    let find = |w: &World, kind: &str| {
+        w.store
+            .of_kind("creature")
+            .find(|e| plain_str(w, e.id, CREATURE, "name") == Some(kind))
+            .map(|e| (e.id, e.parent.unwrap()))
+    };
+    for (kind, route) in antics::WALKERS {
+        let (_, at) = find(&w, kind).unwrap_or_else(|| panic!("no {kind}"));
+        assert_eq!(plain_str(&w, at, ROOM, "key"), Some(route[0]), "{kind}");
+    }
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "attack",
+        json!(["tinker"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("about its round"), "{err}");
+    admin(&mut w, "dave", "bring", json!(["dave", "fogbank"]));
+    let head = events(&w);
+    w.fixed_now = Some(Timestamp(t0.0 + 4 * 60_000));
+    antics::walkers(&mut w).unwrap();
+    let (_, at) = find(&w, "tinker").unwrap();
+    assert_eq!(plain_str(&w, at, ROOM, "key"), Some("fogbank"));
+    assert!(
+        narrative(&w, "dave", head)
+            .iter()
+            .any(|l| l.starts_with("The tinker comes in under a frame")),
+        "{:?}",
+        narrative(&w, "dave", head)
+    );
+    // And made once: a second round makes no second lamplighter.
+    antics::walkers(&mut w).unwrap();
+    assert_eq!(
+        w.store
+            .of_kind("creature")
+            .filter(|e| plain_str(&w, e.id, CREATURE, "name") == Some("lamplighter"))
+            .count(),
+        1
+    );
+    // Strolls: something unnamed that keeps to itself goes next door and comes home,
+    // its room does not restock behind it, and it never walks in on a hunter.
+    let count = |w: &World| w.store.of_kind("creature").count();
+    let before = count(&w);
+    let mut out = None;
+    for _ in 0..200 {
+        antics::strolls(&mut w).unwrap();
+        out = w
+            .store
+            .of_kind("creature")
+            .find(|e| plain_num(&w, e.id, CREATURE, "stroll_at").is_some())
+            .map(|e| e.id);
+        if out.is_some() {
+            break;
+        }
+    }
+    let c = out.expect("nothing ever strolled");
+    let home = life::home_of(&w, c).unwrap();
+    let away = w.store.entity(c).unwrap().parent.unwrap();
+    assert_ne!(home, away);
+    assert!(!combat::creatures_in(&w, away)
+        .iter()
+        .any(|x| combat::is_aggressive(&w, x.0)));
+    assert!(rooms::gate_of(&w, away).is_none());
+    assert_eq!(
+        combat::fill(&mut w, home).unwrap(),
+        0,
+        "the room restocked behind a stroller"
+    );
+    assert_eq!(count(&w), before);
+    w.fixed_now = Some(Timestamp(t0.0 + 10 * 60_000));
+    for _ in 0..3 {
+        antics::strolls(&mut w).unwrap();
+        if w.store.entity(c).unwrap().parent == Some(home) {
+            break;
+        }
+    }
+    assert_eq!(w.store.entity(c).unwrap().parent, Some(home));
+    assert!(plain_num(&w, c, CREATURE, "stroll_at").is_none());
 }

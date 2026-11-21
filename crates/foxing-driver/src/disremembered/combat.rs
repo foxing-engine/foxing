@@ -248,6 +248,11 @@ pub const CREATURES: &[CreatureDef] = &[
     // Bailiff answers a raised hand in the Courtroom before it lands).
     CreatureDef { key: "crier", name: "crier", hp: 160.0, attack: 9.0, xp: 300.0, aggressive: false, strike_seconds: 10, ambush: "looks down the List, does not find you on it, and looks down it again more slowly.", glyph: "C", tint: "#b8a070" },
     CreatureDef { key: "clerk", name: "clerk", hp: 160.0, attack: 9.0, xp: 300.0, aggressive: false, strike_seconds: 10, ambush: "puts a finger on the place it had reached and looks at you over its spectacles.", glyph: "k", tint: "#a8a08a" },
+    // Antics (11-21): four with rounds of their own. Not fought.
+    CreatureDef { key: "lamplighter", name: "lamplighter", hp: 40.0, attack: 0.0, xp: 0.0, aggressive: false, strike_seconds: 12, ambush: "holds the pole between you, apologetically.", glyph: "L", tint: "#e0b85a" },
+    CreatureDef { key: "runner", name: "runner", hp: 30.0, attack: 0.0, xp: 0.0, aggressive: false, strike_seconds: 12, ambush: "clutches its bag and runs on the spot.", glyph: "r", tint: "#c9a36a" },
+    CreatureDef { key: "tinker", name: "tinker", hp: 40.0, attack: 0.0, xp: 0.0, aggressive: false, strike_seconds: 12, ambush: "rattles, at length.", glyph: "T", tint: "#9a8a6a" },
+    CreatureDef { key: "census taker", name: "census taker", hp: 30.0, attack: 0.0, xp: 0.0, aggressive: false, strike_seconds: 12, ambush: "writes you down.", glyph: "c", tint: "#8e9aa6" },
     // L3: what a tended room draws. They belong to the room and are not fought.
     CreatureDef { key: "glowworm", name: "glowworm", hp: 6.0, attack: 0.0, xp: 0.0, aggressive: false, strike_seconds: 12, ambush: "dims, and brightens again when you look away.", glyph: "g", tint: "#d8e08a" },
     CreatureDef { key: "mender", name: "mender", hp: 30.0, attack: 0.0, xp: 0.0, aggressive: false, strike_seconds: 12, ambush: "looks up from its stitching, and down again.", glyph: "m", tint: "#b89a7a" },
@@ -647,7 +652,19 @@ fn fill_kind(
         .filter(|c| {
             c.1 == key && (key == super::starfish::KIND || super::mind::name(world, c.0).is_none())
         })
-        .count();
+        .count()
+        // Antics: and its own that are out for a stroll (the room is still their
+        // home, and would restock behind them on every boot).
+        + world
+            .store
+            .of_kind("creature")
+            .filter(|e| {
+                e.parent != Some(room)
+                    && plain_num(world, e.id, CREATURE, "stroll_at").is_some()
+                    && super::life::home_of(world, e.id) == Some(room)
+                    && plain_str(world, e.id, CREATURE, "name") == Some(key.as_str())
+            })
+            .count();
     // Not from empty: a boot fills every room to its figure exactly (the test worlds
     // count on it), and the extra comes on a refill of a room partly cleared.
     let count = if have > 0 && have < count && world.roll(6) == 0 {
@@ -1925,6 +1942,8 @@ pub fn sized_up(
     let worst = creatures_in(world, room)
         .into_iter()
         .filter(|c| !super::mind::shaken(world, c.0) && !OFFICERS.contains(&c.1.as_str()))
+        // Nor what is not fought at all: a room's residents, the walkers.
+        .filter(|c| !super::tending::is_resident_kind(&c.1) && !super::antics::is_walker(&c.1))
         // Not a named creature that keeps to itself: those are told, not fought.
         .filter(|c| super::mind::name(world, c.0).is_none() || is_aggressive(world, c.0))
         .map(|c| {
@@ -2733,6 +2752,11 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             // L3: what a tended room drew belongs to the room.
             if let Some(k) = args.str("creature").map(|c| c.trim().to_lowercase()) {
+                if super::antics::is_walker(&k) {
+                    return Err(CommandError::precondition(format!(
+                        "The {k} is about its round and is not fought: nobody would light the lamps, carry the letters, mend what is not broken or count us."
+                    )));
+                }
                 if super::tending::is_resident_kind(&k) {
                     return Err(CommandError::precondition(format!(
                         "The {k} belongs to the room, and is not fought: it came because the room is kept, and it goes when the room is not."

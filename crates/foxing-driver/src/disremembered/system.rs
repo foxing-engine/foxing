@@ -60,6 +60,9 @@ pub(crate) fn line_for(e: &foxing_log::Event) -> String {
                 if n == 1 { "" } else { "s" }
             ),
         },
+        "disremembered.antic" => {
+            format!("a {} was about its own business ({})", s("kind"), s("what"))
+        }
         "disremembered.room_stood" => {
             format!("{}, {}'s room, is {}", s("name"), s("owner"), s("said"))
         }

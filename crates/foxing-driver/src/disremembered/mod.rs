@@ -9,6 +9,7 @@
 
 pub mod age;
 pub mod almanac;
+pub mod antics;
 pub mod ask;
 pub mod asks;
 pub mod atlas;
@@ -591,6 +592,10 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("holding", FieldKind::Plain, Visibility::Public)
             .field("attack", FieldKind::Plain, Visibility::Public)
             .field("xp", FieldKind::Plain, Visibility::Public)
+            // Antics: when a stroller set out; a walker's place on its round.
+            .field("stroll_at", FieldKind::Plain, Visibility::Public)
+            .field("route_i", FieldKind::Plain, Visibility::Public)
+            .field("moved_at", FieldKind::Plain, Visibility::Public)
             // D34: when a starfish's last arm was cut or grew; the next is twenty
             // minutes after.
             .field("arm_at", FieldKind::Plain, Visibility::Public)
@@ -897,6 +902,7 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     trail::ensure(world)?;
     tide::ensure(world)?;
     life::ensure(world)?;
+    antics::ensure(world)?;
     pilots::ensure(world)?;
     mind::ensure_wander(world)
 }
@@ -1518,6 +1524,7 @@ pub fn register(world: &mut World, curves: Curves) {
     trail::register(world);
     tide::register(world);
     life::register(world);
+    antics::register(world);
     pilots::register(world);
     combat::register(world, curves.clone());
     memory::register(world, curves.clone());
