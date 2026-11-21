@@ -119,6 +119,12 @@ pub(crate) fn line_for(e: &foxing_log::Event) -> String {
             p["name"].as_str().unwrap_or(&s("kind"))
         ),
         "disremembered.wandered" => format!("a {} wandered in", s("kind")),
+        "disremembered.walked_out" => format!(
+            "{} the {} walked out of {}, forgotten, to the Mudroom",
+            s("name"),
+            s("kind"),
+            s("from_name")
+        ),
         "disremembered.confided" => format!(
             "{} the {} told {} a story, {} named left",
             s("teller_name"),

@@ -15257,3 +15257,57 @@ fn a_wall_of_many_doors_is_read_in_part_and_mapped_as_look_has_it() {
     // Every door still opens by its word.
     ok(&mut w, "dave", "travel", json!(["doorak"]));
 }
+
+#[test]
+fn a_named_creature_walks_out_of_a_forgotten_room_to_the_mudroom() {
+    // R261: nothing moved a named creature out, and its room stood at 0% for good.
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    admin(&mut w, "dave", "bring", json!(["dave", "mudroom"]));
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 30, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "dig", json!(["cellar", c, "Dave's Cellar"]));
+    ok(&mut w, "dave", "travel", json!(["cellar"]));
+    let cellar = find_citizen(&w, "dave")
+        .map(|f| w.store.entity(f.citizen).unwrap().parent.unwrap())
+        .unwrap();
+    let wisp = combat::spawn_one(&mut w, cellar, combat::def_by_key("wisp").unwrap()).unwrap();
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 400, 0.9]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "remember", json!([c, "wisp"]));
+    assert!(mind::name(&w, wisp).is_some());
+    let mudroom = rooms::room_by_key(&w, "mudroom").unwrap();
+    // While its digger stands in it, and before the room has been forgotten a day: no.
+    for _ in 0..60 {
+        assert_eq!(mind::walk_out(&mut w).unwrap(), 0);
+    }
+    ok(&mut w, "dave", "travel", json!(["out"]));
+    w.fixed_now = Some(Timestamp(t0.0 + 30 * 60_000));
+    for _ in 0..60 {
+        assert_eq!(mind::walk_out(&mut w).unwrap(), 0);
+    }
+    // Two days on, on one of the clock's passes, it gets up and goes.
+    w.fixed_now = Some(Timestamp(t0.0 + 48 * 3_600_000));
+    let head = events(&w);
+    let mut passes = 0;
+    while mind::walk_out(&mut w).unwrap() == 0 {
+        passes += 1;
+        assert!(passes < 200, "it never left");
+    }
+    assert_eq!(w.store.entity(wisp).unwrap().parent, Some(mudroom));
+    assert_eq!(
+        plain_num(&w, wisp, CREATURE, "home"),
+        Some(mudroom.0 as f64)
+    );
+    let said = narrative(&w, "dave", head);
+    assert!(
+        said.iter()
+            .any(|l| l.contains("out of Dave's Cellar") && l.contains("It lives here now")),
+        "{said:?}"
+    );
+    // And it does not go twice.
+    for _ in 0..60 {
+        assert_eq!(mind::walk_out(&mut w).unwrap(), 0);
+    }
+}

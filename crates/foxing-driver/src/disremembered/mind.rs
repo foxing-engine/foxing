@@ -1250,12 +1250,98 @@ pub fn confide(world: &mut World) -> Result<usize, String> {
     Ok(told)
 }
 
+/// A named creature walked out of a room the world has forgotten:
+/// `{creature, name, kind, from, from_name, room}`.
+pub const WALKED_OUT: &str = "disremembered.walked_out";
+/// One chance in this many, each pass of the wander clock (ten minutes): about an
+/// hour, on average, once its room has been forgotten a day.
+const WALK_OUT_ONE_IN: u32 = 6;
+
+/// R261 (David, 11-20: "eventually the creature will wander out"): a named creature
+/// alone in a dug room that has been under a hundredth remembered for a day gets up
+/// and walks to the Mudroom, and lives there. Its room, empty, is then unmade by
+/// the Docent's round in its own time. (Nothing moved a named creature out before,
+/// and a forgotten room with one in it stood on the wall at 0% for good.)
+pub fn walk_out(world: &mut World) -> Result<usize, String> {
+    let Some(mudroom) = super::rooms::room_by_key(world, super::rooms::MUDROOM) else {
+        return Ok(0);
+    };
+    let leaving: Vec<(EntityId, EntityId)> = world
+        .store
+        .of_kind("room")
+        .filter(|e| e.owner.is_some())
+        .map(|e| e.id)
+        .filter(|&r| {
+            let hl = super::building::half_life_of(world, r)
+                .map(|d| d.0 as f64)
+                .unwrap_or(3_600_000.0)
+                .max(60_000.0);
+            super::building::memory(world, r)
+                .is_some_and(|m| super::docent::under_for(m, hl, super::docent::FORGOTTEN_FOR_MS))
+        })
+        // Nobody standing in it: a visitor is the room being remembered.
+        .filter(|&r| {
+            !world
+                .store
+                .children(r)
+                .any(|c| c.kind == "citizen" && super::presence::is_here(world, c.id))
+        })
+        .flat_map(|r| {
+            world
+                .store
+                .children(r)
+                .filter(|c| c.kind == "creature" && name(world, c.id).is_some())
+                .map(|c| (c.id, r))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let mut walked = 0;
+    for (creature, from) in leaving {
+        if super::combat::fought_by(world, creature).is_some() || world.roll(WALK_OUT_ONE_IN) != 0 {
+            continue;
+        }
+        let from_name = plain_str(world, from, super::ROOM, "name")
+            .unwrap_or("a room")
+            .to_string();
+        let kind = plain_str(world, creature, super::CREATURE, "name")
+            .unwrap_or("?")
+            .to_string();
+        let who = display(world, creature);
+        world
+            .record(
+                Actor::Driver,
+                StoreEvent::EntityMoved {
+                    id: creature,
+                    parent: Some(mudroom),
+                },
+            )
+            .map_err(|e| e.to_string())?;
+        super::life::set_home(world, creature, mudroom)?;
+        let _ = world.note(
+            Actor::Driver,
+            WALKED_OUT,
+            json!({"creature": creature.0, "name": name(world, creature), "kind": kind, "from": from.0, "from_name": from_name, "room": mudroom.0}),
+        );
+        super::combat::narrate_room(
+            world,
+            creature,
+            &format!("{who} comes in through a door that is hardly there any more, mud to the knee, out of {from_name}: nobody came, and it has stopped waiting. It lives here now."),
+        );
+        world.notice(format!(
+            "**{who}** walked out of {from_name}, which nobody remembers, and lives in the Mudroom now."
+        ));
+        walked += 1;
+    }
+    Ok(walked)
+}
+
 pub fn register(world: &mut World) {
     world.on_tick(Box::new(sweep));
     world.on_job(
         JOB_WANDER,
         Box::new(|w: &mut World, _| {
             wander(w)?;
+            walk_out(w)?;
             // The Bindery folds a creature's scraps into a sheaf on the same clock.
             super::bindery::fold_sheaves(w, &super::Curves::from_env())?;
             // The Docent's round: what was left lying goes to the Threshold.
