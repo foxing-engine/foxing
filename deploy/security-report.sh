@@ -27,10 +27,19 @@ else warn "automatic security updates are off (deploy/secure-updates.sh turns th
 if systemctl is-active --quiet fail2ban 2>/dev/null; then note "fail2ban: running"
 else warn "fail2ban is not running: nothing slows a password guesser at sshd (deploy/secure-updates.sh)"; fi
 
-pw=$(grep -hsiE '^\s*PasswordAuthentication\s+' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf 2>/dev/null | tail -1 | awk '{print tolower($2)}')
-case "$pw" in no) note "ssh: keys only";; yes) warn "ssh accepts passwords (PasswordAuthentication yes)";; *) note "ssh: PasswordAuthentication not set in a readable file (the default is yes on some images: check)";; esac
-rl=$(grep -hsiE '^\s*PermitRootLogin\s+' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf 2>/dev/null | tail -1 | awk '{print tolower($2)}')
-note "ssh: PermitRootLogin ${rl:-unset}"
+# What sshd itself resolves, when this runs as root; else the files, read the way
+# sshd reads them: the drop-ins first, in name order, and the FIRST value wins (this
+# took the last, and on 11-20 could not see that moondial-1 accepted passwords: the
+# setting was in no file, and sshd's own default is yes).
+eff() {
+  local v; v=$(sshd -T 2>/dev/null | awk -v k="$1" '$1==k{print $2; exit}')
+  [ -n "$v" ] || v=$(cat /etc/ssh/sshd_config.d/*.conf /etc/ssh/sshd_config 2>/dev/null | awk -v k="$1" 'tolower($1)==k{print tolower($2); exit}')
+  printf '%s' "$v"
+}
+pw=$(eff passwordauthentication)
+case "$pw" in no) note "ssh: keys only";; yes) warn "ssh accepts passwords (PasswordAuthentication yes)";; *) warn "ssh: PasswordAuthentication is set in no readable file, and sshd's default is yes (set it to no in /etc/ssh/sshd_config.d/00-hardening.conf)";; esac
+rl=$(eff permitrootlogin)
+note "ssh: PermitRootLogin ${rl:-unset (the default is keys only)}"
 
 # Certificates this box serves, by days left (certbot renews at 30).
 for d in "$@"; do
