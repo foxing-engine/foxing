@@ -823,7 +823,7 @@ fn register_rest(world: &mut World) {
                     ("read", &["look", "map", "where", "wants", "mine", "chunks", "satchel", "recipes", "board", "time", "statutes", "palace", "session", "messages", "news", "tales", "docket", "log", "help", "commands", "check", "almanac", "letters", "petitions", "slips", "index", "recipe", "observe"]),
                     ("move", &["travel", "retreat", "rest", "home"]),
                     ("fight", &["attack"]),
-                    ("remember", &["remember", "entrust", "shelve", "reminisce", "give", "take", "drop", "craft", "gather", "trade", "carry"]),
+                    ("remember", &["remember", "entrust", "withdraw", "shelve", "reminisce", "give", "take", "drop", "craft", "gather", "trade", "carry"]),
                     ("talk", &["say", "tell", "story", "greet", "reply", "solve", "petition", "attend", "feedback"]),
                     ("build", &["dig", "describe", "append", "name", "permit", "welcome", "revoke", "invite", "ward", "unward", "read", "unbind"]),
                     ("the court", &["plead", "defend", "murmur"]),

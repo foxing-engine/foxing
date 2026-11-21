@@ -801,7 +801,7 @@ one who left it, gets the staked memory as it then is, and the world's
 usual pay on top (the telling over again, or the carrying). One want a
 creature and one standing want a name, beside the world's own and not
 in place of it. It stands until done or until the stake fades under 3,
-when what is left comes back; `entrust <creature> back` takes it back
+when what is left comes back; `withdraw <creature>` takes it back
 sooner. (`disremembered.ask_left`, `ask_done` and `ask_lapsed` are
 public.)
 

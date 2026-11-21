@@ -544,11 +544,37 @@ pub fn register(world: &mut World) {
     world.on_tick(Box::new(sweep));
     world.register(
         CommandSpec::new(
+            "disremembered.withdraw",
+            "Take back the want you left with a named creature (`entrust`): it lets the want go and gives back what is left of the memory you staked.",
+        )
+        .param("creature", ParamType::Entity, true, "the named creature that holds your want")
+        .allowed(&[ActorKind::Citizen]),
+        Box::new(|w: &mut World, ctx, args: &Args| {
+            super::me(w, ctx)?;
+            let who = args.str("creature").unwrap_or_default().trim().to_string();
+            let Some((creature, _)) = mind::find_named(w, &who) else {
+                return Err(CommandError::precondition(format!("No creature is named {who}.")));
+            };
+            let name = mind::name(w, creature).unwrap_or_default();
+            let Some(a) = of(w, creature).filter(|a| a.by == ctx.actor) else {
+                return Err(CommandError::precondition(format!(
+                    "You have no want standing with {name}."
+                )));
+            };
+            let worth = lapse(w, creature, &a, "you took it back")?;
+            Ok(Outcome::new(
+                format!("{name} lets your want go, and gives back what is left of the memory you staked: {worth:.1} XP."),
+                json!({"creature": creature.0, "name": name, "back": (worth * 10.0).round() / 10.0}),
+            ))
+        }),
+    );
+    world.register(
+        CommandSpec::new(
             "disremembered.entrust",
-            "Leave a want of your own with a named creature you keep, and stake one of your memories on it. With a line alone, it wants a story about that; with a second creature's name, the line is a word to carry to that creature. Whoever does it (not you) gets the staked memory and the world's usual pay on top. One want a creature, one standing want a name; it stands until done or until the stake fades, and what is left comes back to you. `entrust <creature> back` takes it back.",
+            "Leave a want of your own with a named creature you keep, and stake one of your memories on it. With a line alone, it wants a story about that; with a second creature's name, the line is a word to carry to that creature. Whoever does it (not you) gets the staked memory and the world's usual pay on top. One want a creature, one standing want a name; it stands until done or until the stake fades, and what is left comes back to you. `withdraw <creature>` takes it back.",
         )
         .param("creature", ParamType::Entity, true, "a named creature that holds a memory you gave it")
-        .param("chunk", ParamType::Entity, true, "one of your chunks, the stake; or `back` to take your want back")
+        .param("chunk", ParamType::Entity, true, "one of your chunks, the stake")
         .param("line", ParamType::Text, false, "what the story is about, or the word to carry: 3 to 80 characters, plain words")
         .param("to", ParamType::Entity, false, "a second named creature: the line is then a word carried to it")
         .allowed(&[ActorKind::Citizen]),
@@ -563,16 +589,6 @@ pub fn register(world: &mut World) {
             };
             let name = mind::name(w, creature).unwrap_or_default();
             let chunk_arg = args.str("chunk").unwrap_or("").trim().to_string();
-            if chunk_arg.eq_ignore_ascii_case("back") {
-                let Some(a) = of(w, creature).filter(|a| a.by == ctx.actor) else {
-                    return Err(CommandError::precondition(format!("You have no want standing with {name}.")));
-                };
-                let worth = lapse(w, creature, &a, "you took it back")?;
-                return Ok(Outcome::new(
-                    format!("{name} lets your want go, and gives back what is left of the memory you staked: {worth:.1} XP."),
-                    json!({"creature": creature.0, "name": name, "back": (worth * 10.0).round() / 10.0}),
-                ));
-            }
             if !mind::keepers(w, creature).iter().any(|k| k == &ctx.actor) {
                 return Err(CommandError::precondition(format!(
                     "{name} holds nothing of yours, so it will not hold a want of yours either. Give it a memory first (`remember <chunk> {name}`, in its room); then it is one you keep."
@@ -580,7 +596,7 @@ pub fn register(world: &mut World) {
             }
             if let Some(a) = of(w, creature) {
                 return Err(CommandError::precondition(if a.by == ctx.actor {
-                    format!("{name} already holds a want of yours, {}. `entrust {name} back` takes it back first.", quoted(&a))
+                    format!("{name} already holds a want of yours, {}. `withdraw {name}` takes it back first.", quoted(&a))
                 } else {
                     format!("{name} already holds a want of {}'s; one a creature. It frees when that one is done or lapses.", a.by)
                 }));
@@ -588,7 +604,7 @@ pub fn register(world: &mut World) {
             if let Some((c, a)) = all(w).into_iter().find(|(_, a)| a.by == ctx.actor) {
                 let other = mind::name(w, c).unwrap_or_else(|| "another creature".into());
                 return Err(CommandError::precondition(format!(
-                    "You have a want standing already, with {other}: {}. One at a time; `entrust {other} back` takes it back.",
+                    "You have a want standing already, with {other}: {}. One at a time; `withdraw {other}` takes it back.",
                     quoted(&a)
                 )));
             }
@@ -667,8 +683,8 @@ pub fn register(world: &mut World) {
             let fades = super::combat::human((hl as f64 * (worth / STAKE_FLOOR).log2()) as i64);
             Ok(Outcome::new(
                 match &to {
-                    Some(t) => format!("{name} takes the memory of {with} from you and holds it, worth {worth:.1} now, against your word for {t}: \u{201c}{line}\u{201d}. Whoever has the word from {name} and tells it to {t} gets the memory and the carrying besides. It stands until then, or about {fades}, when the memory will have faded under {STAKE_FLOOR:.0} and what is left comes back to you. `wants` lists it; `entrust {name} back` takes it back."),
-                    None => format!("{name} takes the memory of {with} from you and holds it, worth {worth:.1} now, against a story about \u{201c}{line}\u{201d}. Whoever tells {name} that story (not you) gets the memory, and the telling over again. It stands until then, or about {fades}, when the memory will have faded under {STAKE_FLOOR:.0} and what is left comes back to you. `wants` lists it; `entrust {name} back` takes it back."),
+                    Some(t) => format!("{name} takes the memory of {with} from you and holds it, worth {worth:.1} now, against your word for {t}: \u{201c}{line}\u{201d}. Whoever has the word from {name} and tells it to {t} gets the memory and the carrying besides. It stands until then, or about {fades}, when the memory will have faded under {STAKE_FLOOR:.0} and what is left comes back to you. `wants` lists it; `withdraw {name}` takes it back."),
+                    None => format!("{name} takes the memory of {with} from you and holds it, worth {worth:.1} now, against a story about \u{201c}{line}\u{201d}. Whoever tells {name} that story (not you) gets the memory, and the telling over again. It stands until then, or about {fades}, when the memory will have faded under {STAKE_FLOOR:.0} and what is left comes back to you. `wants` lists it; `withdraw {name}` takes it back."),
                 },
                 json!({"creature": creature.0, "name": name, "kind": kind, "line": line, "to": to, "stake": (worth * 10.0).round() / 10.0, "with": with, "keywords": keywords}),
             ))

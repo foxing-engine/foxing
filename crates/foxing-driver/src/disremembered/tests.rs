@@ -15551,6 +15551,6 @@ fn a_players_word_is_carried_by_one_given_it_and_a_faded_stake_comes_back() {
         "entrust",
         json!([an, stake, "a lighthouse"]),
     );
-    let back = ok(&mut w, "dave", "entrust", json!([an, "back"]));
+    let back = ok(&mut w, "dave", "withdraw", json!([an]));
     assert!(back.summary.contains("30.0 XP"), "{}", back.summary);
 }
