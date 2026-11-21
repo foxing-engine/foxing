@@ -288,7 +288,7 @@ fn kind_of(world: &World, c: EntityId) -> String {
         .to_string()
 }
 
-/// A creature as a line calls it: its name if it has one, else "the <kind>".
+/// A creature as a line calls it: its name if it has one, else "the" and its kind.
 fn who(world: &World, c: EntityId) -> String {
     match super::mind::name(world, c) {
         Some(n) => n,
