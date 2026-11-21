@@ -55,6 +55,7 @@ pub mod starfish;
 pub mod system;
 pub mod tales;
 pub mod talk;
+pub mod tending;
 pub mod tide;
 pub mod trail;
 pub mod under;
@@ -254,6 +255,11 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("dug_with", FieldKind::Plain, Visibility::Public)
             // R190: what a room had faded to when a visit last renewed it: {at, memory}.
             .field("was", FieldKind::Plain, Visibility::Public)
+            // L3: a dug room's standing (0 Bare to 3 Cherished), written on the wander
+            // clock for the page to draw; the porter's last day; who was paid a visit.
+            .field("tend", FieldKind::Plain, Visibility::Public)
+            .field("portered", FieldKind::Plain, Visibility::Public)
+            .field("paid", FieldKind::Plain, Visibility::Public)
             // X18: the Ossuary's kept niches.
             .field("niches", FieldKind::Plain, Visibility::Public)
             // H19: when it was dug (ms), for the Mudroom's wall. Rooms dug before
@@ -506,6 +512,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("session_at", FieldKind::Plain, Visibility::Owner)
             // L1: the doors this name has gone through `anyway`.
             .field("gates", FieldKind::Plain, Visibility::Owner)
+            // L3: paid visits to tended rooms today: {day, n}.
+            .field("visits", FieldKind::Plain, Visibility::Owner)
             .field("session_level", FieldKind::Plain, Visibility::Owner)
             .field("session_seq", FieldKind::Plain, Visibility::Owner)
             // R49: the session the drop rule was last said in full.
@@ -564,7 +572,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // Woke at the Threshold at this time, shaken for this long: strikes land
             // less often until it passes.
             .field("woke_at", FieldKind::Plain, Visibility::Owner)
-            .field("shaken_ms", FieldKind::Plain, Visibility::Owner),
+            .field("shaken_ms", FieldKind::Plain, Visibility::Owner)
+            // L3: a glowworm's light, until when.
+            .field("lit_until", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(SPRITE, 2)
             .field("glyph", FieldKind::Plain, Visibility::Public)
             .field("tint", FieldKind::Plain, Visibility::Public)

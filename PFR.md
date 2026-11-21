@@ -256,7 +256,8 @@ that others can see (Hunter, Teller, Keeper, Reader), so a new person can pick a
   a teller's standing and what it opens (a nickname that sticks for an hour, weight
   with the Court's bench, talking a creature into or out of something); mischief with
   a name on it and an end to it.
-- **L3 · Keep** (put fading memory into what lasts). "We should add graphical upgrades,
+- **L3 · Keep, live 11-21** (David: "L3a:1 / L3b:1 / L3c:3 / L3d:2 / L3E:yes, everything decays"; `tending.rs`, and the ledger). *To watch and tune:* every number is a first guess (the points, a visit's 6 and 3, three paid visits a day, the wander odds 40/30/20/12, the titles at 2/4/6/9); two names can visit each other's rooms daily for 9 between them; a keeper cannot protect a creature it is feeding from another name's blow (R262); "cheaper digs" was asked for with the perks and not built, because a dig costs whatever chunk is given and has no floor to lower. *Not built:* the residents have small sprites and not the large ones; nothing shows a room's standing on the map; creatures do not greet a renowned keeper by title.
+- **L3 · Keep, as first set down** (put fading memory into what lasts). "We should add graphical upgrades,
   improved beneficial creature spawning etc. for well tended rooms. High level keepers
   are renowned and that has effects." Known rough: little comes back (a visitor book
   unsigned in 85 minutes, R250; a room does not say what your absence did, R190; four

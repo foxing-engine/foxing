@@ -1803,6 +1803,11 @@ pub fn describe_as(
             .map(|s| format!(" with the memory of {s}"))
             .unwrap_or_default();
         text.push_str(&format!(" Dug by {who}{with}."));
+        // L3: the room's standing, and to its keeper what would raise it.
+        if let Some(l) = super::tending::line(world, room, actor) {
+            text.push(' ');
+            text.push_str(&l);
+        }
         // To its owner: how much of it is remembered and how long that halves in
         // (R14: a digger asked, and only `mine` said).
         if who == actor {
@@ -2563,6 +2568,14 @@ pub fn describe_as(
                     None => n.clone(),
                 },
             )
+            // L3: a keeper of standing is known by it.
+            .zip(others.iter())
+            .map(|(said, n)| {
+                match super::tending::title(world, n.split(" (").next().unwrap_or(n)) {
+                    Some((t, _)) => format!("{said}, {t}"),
+                    None => said,
+                }
+            })
             .collect();
         let shown = &inked[..inked.len().min(super::NAMES_SHOWN)];
         match others.len() - shown.len() {
@@ -2973,6 +2986,10 @@ pub fn register(world: &mut World) {
             super::combat::on_arrival(w, &ctx.actor, f.citizen, to).map_err(internal)?;
             super::building::visited(w, to).map_err(internal)?;
             super::building::came_through(w, to, &ctx.actor).map_err(internal)?;
+            // L3: a glowworm's light, and a first visit of the day to a tended room.
+            if let Some(said) = super::tending::on_arrival(w, &ctx.actor, f.citizen, f.window, to).map_err(internal)? {
+                super::combat::narrate(w, &ctx.actor, said);
+            }
             super::talk::greet(w, &ctx.actor, to);
             // The Docent greets whoever comes to the Threshold, once a night.
             super::docent::on_arrival(w, &ctx.actor).map_err(internal)?;

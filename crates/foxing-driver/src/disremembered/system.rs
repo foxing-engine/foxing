@@ -60,6 +60,15 @@ pub(crate) fn line_for(e: &foxing_log::Event) -> String {
                 if n == 1 { "" } else { "s" }
             ),
         },
+        "disremembered.room_stood" => {
+            format!("{}, {}'s room, is {}", s("name"), s("owner"), s("said"))
+        }
+        "disremembered.room_visited" => format!(
+            "{} visited {}, {}'s room",
+            s("visitor"),
+            s("name"),
+            s("owner")
+        ),
         "disremembered.ask_left" => match p["to"].as_str() {
             Some(to) => format!("{} left a word with {} for {}", s("by"), s("name"), to),
             None => format!(

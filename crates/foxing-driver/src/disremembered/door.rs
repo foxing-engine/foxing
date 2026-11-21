@@ -341,11 +341,28 @@ fn wall(world: &World, here: EntityId, arg: &str) -> String {
                 .unwrap_or_else(|| ", dug before the wall kept dates".to_string());
             Some((
                 m,
-                format!(
-                    "{e}: {}, {owner}'s{age}, {:.0}% left",
-                    room_name(world, to),
-                    m * 100.0
-                ),
+                {
+                    // L3 (the Watch of 11-21: the wall gave dates and percentages
+                    // and "made me want to visit nobody"): its standing, and the
+                    // first of what its keeper wrote of it.
+                    let stands = super::tending::STANDINGS[super::tending::standing(world, to)];
+                    let first = super::plain_str(world, to, ROOM, "description")
+                        .filter(|d| !d.starts_with("Freshly dug."))
+                        .and_then(|d| d.split_inclusive(['.', '!', '?']).next())
+                        .map(|s| {
+                            let s: String = s.trim().chars().take(90).collect();
+                            format!(" (\u{201c}{s}\u{201d})")
+                        })
+                        .unwrap_or_default();
+                    let title = super::tending::title(world, &owner)
+                        .map(|(t, _)| format!(" the {t}"))
+                        .unwrap_or_default();
+                    format!(
+                        "{e}: {}, {owner}{title}'s{age}, {stands}, {:.0}% left{first}",
+                        room_name(world, to),
+                        m * 100.0
+                    )
+                },
                 owner,
             ))
         })

@@ -110,6 +110,9 @@ const EXTRA = {
   "engrosser": { p: { c: "#3b3a2e", d: "#24231c", f: "#e4d8c4", e: "#1a1612", q: "#ece5d3", k: "#1a1612" }, r: ["................", "......cccc......", ".....cccccc.....", "....ccffffcc....", "....cfefefcc....", "....ccffffcc....", ".....cccccc.....", "....ccccccc.q...", "...cccccccccq...", "...cdcccccckq...", "...cdccccccqq...", "...cddcccddc....", "....ddcccdd.....", "....dd...dd.....", "....ee...ee.....", "................"] },
   "tapster": { p: { c: "#5a3a2a", d: "#3a2418", f: "#e9d5b8", e: "#1a1612", a: "#ece5d3", g: "#9fd3e6" }, r: ["................", "......cccc......", ".....cffffc.....", "....cfefefcc....", "....cffffffc....", ".....cffffc.....", "......cccc......", "....ccaaaacc....", "...ccaaaaaacc...", "...cdaaaaaadc...", "...cdaaaaaadcg..", "...cddaaaaddcg..", "....ddccccdd.g..", "....dd....dd....", "....ee....ee....", "................"] },
   "clipper": { p: { c: "#6a747d", d: "#3f474e", e: "#f0e0a0", s: "#d8dde2" }, r: ["................", "................", "................", "......cccc......", ".....ceccec.....", ".....cccccc.....", "....ccccccccs...", "...cdccccccds...", "...cdccccccd.s..", "...cdddddddd..s.", "....dd....dd.s..", "....dd....dd.s..", "................", "................", "................", "................"] },
+  "glowworm": { p: { g: "#d8e08a", G: "#f6ffb8", d: "#6a7a3a", e: "#1a1612" }, r: ["................", "................", "................", "......GG........", ".....GGGG.......", ".....gGGg.......", "......gg........", "......dd........", ".....dggd.......", "....dggggd......", "....dggggdd.....", ".....dggggdd....", "......ddgggd.e..", "........ddddd...", "................", "................"] },
+  "mender": { p: { c: "#b89a7a", d: "#7a5e44", f: "#e9d5b8", e: "#1a1612", n: "#ece5d3", t: "#d0735f" }, r: ["................", "......dddd......", ".....dffffd.....", "....dfefefd.....", "....dffffffd....", ".....dffffd.....", "......cccc...n..", "....cccccccc.n..", "...ccccccccccn..", "...cdccccccdcn..", "...cdcctttcd.n..", "...cddcccccdd...", "....ddcccccdd...", "....dd....dd....", "....ee....ee....", "................"] },
+  "porter": { p: { c: "#8a7a5a", d: "#5a4c34", f: "#d8c8a8", e: "#1a1612", b: "#6b4a2e", s: "#c9a36a" }, r: ["................", ".........bbbb...", "......ddbbbbbb..", ".....dffbbsbbb..", "....dfefbbbbbb..", "....dfffdbbbbb..", ".....dffd.bbb...", "....cccccccs....", "...ccccccccc....", "...cdcccccdc....", "...cdcccccdc....", "...cddccccdd....", "....ddccccdd....", "....dd....dd....", "...eee...eee....", "................"] },
   "sweater": { p: { c: "#7a6a4a", d: "#4a3e2a", f: "#d8c8a8", e: "#1a1612", b: "#5a3a2a", g: "#ffcf7a" }, r: ["................", "......cccc......", ".....cffffc.....", "....cfefefcc....", "....cffffffc....", ".....cffffc.....", "......cccc......", "....ccccccccbb..", "...cccccccccbbb.", "...cdcccccccbgb.", "...cdccccccdbbb.", "...cddcccccdd...", "....ddcccccdd...", "....dd....dd....", "....ee....ee....", "................"] },
   "assayer": { p: { c: "#8a8a7a", d: "#5a5a4a", f: "#e4d8c4", e: "#1a1612", k: "#2a2a3a", g: "#cfe8ee" }, r: ["......kkkk......", ".....kkkkkk.....", "....ccffffcc....", "....cfefefcc....", "....ccffffcc....", ".....cccccc.....", "....cccccccc.gg.", "...ccccccccc.gg.", "...cdcccccccdgg.", "...cdcccccccd...", "...cddcccccddc..", "....dddcccddd...", "....dd.....dd...", "....dd.....dd...", "....ee.....ee...", "................"] },
   "warden": { p: { c: "#8a2a2a", d: "#4a1414", f: "#e9d5b8", e: "#1a1612", m: "#3a3a44", s: "#b0b0b8" }, r: [".............s..", "....mmmmmm...s..", "...mmmmmmmm..s..", "...mmffffmm..s..", "...mmfefefm..s..", "...mmffffmm..s..", "....mmmmmm...s..", "..cccccccccc.s..", ".cccccccccccss..", ".cdccccccccdcs..", ".cdccccccccdcs..", ".cddccccccddc...", "..dddccccddd....", "...dd....dd.....", "...ee....ee.....", "................"] },
@@ -529,6 +532,8 @@ export default function install(m) {
     return {
       id: root.id, key: room.key, name: room.name || "?", memory: room.memory, description: room.description,
       bound: !!(room.bound && typeof room.bound === "object"), owner: root.owner || null,
+      // L3: a dug room's standing, 0 Bare to 3 Cherished.
+      tend: root.owner && typeof room.tend === "number" ? room.tend : 0,
       tint: sprite.tint || "#6b6b7a", sprite, exits, things, items,
       motif: motifOf(room.key, room.name, room.description),
     };
@@ -876,6 +881,34 @@ export default function install(m) {
     for (const ex of scene.exits) if (ex.kind !== "signpost") lights.push({ x: ex.tile[0] * T + 8, y: Math.max(10, ex.tile[1] * T + 6), r: 20, k: 0.55 });
     for (const it of scene.items) lights.push({ x: it.tile[0] * T + 8, y: it.tile[1] * T + 8, r: 11, k: 0.5 });
     for (const t of things) if (t.kind === "fixture") { const lit = /lamp|lantern|candle|star/i.test(t.name); lights.push({ x: t.tile[0] * T + 8, y: t.tile[1] * T + 9, r: lit ? 48 : 26, k: 0.85, warm: lit ? 0.12 : 0 }); }
+    // L3 (David, 11-21: "graphical upgrades ... for well tended rooms"): what care
+    // has put in a dug room. Kept: a lamp on a bracket. Tended: a rug and a hearth.
+    // Cherished: a window with the moon in it. Each goes when the room slips.
+    if (scene.tend >= 1) {
+      const lx = 17 * T, ly = 1 * T;
+      px(lx + 6, ly + 2, 1, 6, "#3a3028"); px(lx + 6, ly + 2, 5, 1, "#3a3028");
+      px(lx + 9, ly + 3, 4, 5, "#5a4a30"); px(lx + 10, ly + 4, 2, 3, "#ffcf7a"); px(lx + 10, ly + 5, 2, 1, "#fff2c8");
+      lights.push({ x: lx + 11, y: ly + 6, r: 52, k: 0.9, warm: 0.14 });
+    }
+    if (scene.tend >= 2) {
+      const rx = 8 * T, ry = 6 * T, rw = 4 * T, rh = 2 * T;
+      px(rx, ry, rw, rh, "#6b3a34"); px(rx + 2, ry + 2, rw - 4, rh - 4, "#8a4a3c"); px(rx + 5, ry + 5, rw - 10, rh - 10, "#6b3a34");
+      for (let i = 0; i < rw; i += 4) { px(rx + i, ry - 1, 2, 1, "#c9a36a"); px(rx + i, ry + rh, 2, 1, "#c9a36a"); }
+      for (let i = 12; i < rw - 12; i += 8) px(rx + i, ry + rh / 2 - 1, 3, 2, "#c9a36a");
+      const hx = 1 * T, hy = 1 * T;
+      px(hx + 1, hy + 2, 22, 13, "#4a4640"); px(hx + 3, hy + 4, 18, 11, "#1a1612"); px(hx, hy + 1, 24, 2, "#6a665e");
+      const f = Math.floor(performance.now() / 180) % 3;
+      px(hx + 7, hy + 10 - f, 3, 4 + f, "#d0735f"); px(hx + 11, hy + 8 + (f === 1 ? 1 : 0), 4, 6, "#ffcf7a"); px(hx + 15, hy + 10 - (f === 2 ? 1 : 0), 3, 4, "#d0735f"); px(hx + 12, hy + 11, 2, 3, "#fff2c8");
+      px(hx + 5, hy + 14, 14, 1, "#3a2418");
+      lights.push({ x: hx + 12, y: hy + 12, r: 60, k: 0.95, warm: 0.2 });
+    }
+    if (scene.tend >= 3) {
+      const wx = 12 * T, wy = 0;
+      px(wx, wy + 3, 24, 12, "#3a3028"); px(wx + 2, wy + 5, 20, 8, "#16233a"); px(wx + 11, wy + 5, 2, 8, "#3a3028"); px(wx + 2, wy + 8, 20, 1, "#3a3028");
+      px(wx + 15, wy + 6, 3, 3, "#ece5d3"); px(wx + 16, wy + 6, 2, 1, "#fffbe8"); px(wx + 5, wy + 6, 1, 1, "#ece5d3"); px(wx + 8, wy + 10, 1, 1, "#ece5d3"); px(wx + 19, wy + 11, 1, 1, "#ece5d3");
+      px(wx - 1, wy + 15, 26, 1, "#5a4a30");
+      lights.push({ x: wx + 12, y: wy + 12, r: 30, k: 0.5 });
+    }
     for (const t of things) {
       let [x, y] = t.tile;
       if (t.kind === "docent") [x, y] = walk;
@@ -1063,7 +1096,7 @@ export default function install(m) {
       ctx.globalAlpha = 1;
     }
     // Banner, top left.
-    const title = scene.name + (scene.memory != null ? "  · remembered " + Math.round(mem * 100) + "%" : "") + (scene.bound ? "  · bound" : "");
+    const title = scene.name + (scene.memory != null ? "  · remembered " + Math.round(mem * 100) + "%" : "") + (scene.bound ? "  · bound" : "") + (scene.owner ? "  · " + ["bare", "kept", "tended", "cherished"][scene.tend || 0] : "");
     ctx.font = (7 * SCALE) + "px serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
     const icon = scene.sprite && scene.sprite.atlas === m.atlasName ? frameCanvas(scene.sprite.frame) : null;
     const pad = icon ? 13 * SCALE : 4 * SCALE;
@@ -1290,7 +1323,7 @@ export default function install(m) {
   // ---- events ----
   const QUERY = {
     root: "here",
-    select: { "disremembered.room": ["name", "key", "memory", "description", "bound"], "disremembered.sprite": "*" },
+    select: { "disremembered.room": ["name", "key", "memory", "description", "bound", "tend"], "disremembered.sprite": "*" },
     relations: {
       contents: { kinds: ["citizen", "creature", "docent", "morphos", "item"], select: { "disremembered.docent": ["name"], "disremembered.morphos": ["name", "present"], "disremembered.citizen": ["name"], "disremembered.creature": ["name", "hp", "max_hp", "xp", "aggressive"], "disremembered.item": ["name", "given_name", "fixed"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace"], "disremembered.mind": ["name", "tier", "shaken_until", "old_since", "heir_of", "named_since", "tales"] } },
       exits: { select: { "disremembered.room": ["name"], "disremembered.sprite": "*" } },

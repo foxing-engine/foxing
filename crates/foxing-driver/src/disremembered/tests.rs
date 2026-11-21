@@ -9288,7 +9288,7 @@ fn the_door_has_a_signpost_and_the_mudroom_boots_and_a_spade() {
     let wall = ok(&mut w, "dave", "read", json!(["doors"]));
     assert!(
         wall.summary
-            .contains("closet: The Cartographer's Closet, dave's, dug just now, 100% left"),
+            .contains("closet: The Cartographer's Closet, dave's, dug just now, Bare, 100% left"),
         "{}",
         wall.summary
     );
@@ -15809,4 +15809,185 @@ fn the_watch_fire_mends_fast_and_a_keyboard_has_a_moment_on_arriving() {
         combat::engaged_with(&w, f.citizen).is_some(),
         "the hollow should have come by now"
     );
+}
+
+#[test]
+fn a_room_rises_with_care_draws_residents_pays_a_visit_and_slips_when_forgotten() {
+    // L3 (David, 11-21).
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    admin(&mut w, "dave", "bring", json!(["dave", "mudroom"]));
+    let chunk = |w: &mut World, who: &str, xp: f64| {
+        let c = admin(w, who, "earn", json!(["wisp", xp, 0.9]));
+        format!("chunk-{}", c.result["chunk"].as_u64().unwrap())
+    };
+    let c = chunk(&mut w, "dave", 30.0);
+    ok(&mut w, "dave", "dig", json!(["cellar", c, "Dave's Cellar"]));
+    ok(&mut w, "dave", "travel", json!(["cellar"]));
+    let room = find_citizen(&w, "dave")
+        .and_then(|f| rooms::room_of(&w, f.citizen))
+        .unwrap();
+    // Freshly dug: Bare, and `look` says what would raise it.
+    assert_eq!(tending::standing(&w, room), 0);
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary
+            .contains("Your room is Bare. It would rise with a description"),
+        "{}",
+        look.summary
+    );
+    // Described, and memory put in to hold it eight hours: Kept (three points).
+    ok(
+        &mut w,
+        "dave",
+        "describe",
+        json!(["A dry cellar with a lamp on a nail and a chair that has been sat in."]),
+    );
+    // (The test world's half-lives are seconds long: set the room's as nine hours of
+    // `remember` would on the live one.)
+    {
+        let mut f = BTreeMap::new();
+        f.insert(
+            "half_life_ms".to_string(),
+            Field::Plain(json!(9 * 3_600_000i64)),
+        );
+        f.insert(
+            "memory".to_string(),
+            Field::Timed(TimedValue::new(
+                1.0,
+                w.now(),
+                Curve::Exponential {
+                    half_life: Duration(9 * 3_600_000),
+                },
+            )),
+        );
+        let f = building::merged(&w, room, f);
+        w.record(
+            Actor::Driver,
+            StoreEvent::ComponentSet {
+                id: room,
+                component: ROOM.into(),
+                fields: f,
+            },
+        )
+        .unwrap();
+    }
+    let t = tending::assess(&w, room).unwrap();
+    assert!(
+        t.points >= 2 && t.standing >= 1,
+        "{} {} {:?} {:?}",
+        t.points,
+        t.standing,
+        building::half_life_of(&w, room),
+        t.wants
+    );
+    // The round writes it for the page, tells the keeper, and the glowworm comes.
+    let head = events(&w);
+    tending::round(&mut w).unwrap();
+    assert_eq!(plain_num(&w, room, ROOM, "tend"), Some(t.standing as f64));
+    assert!(narrative(&w, "dave", head)
+        .iter()
+        .any(|l| l.contains("Dave's Cellar is Kept now")));
+    let kinds = |w: &World| -> Vec<String> {
+        combat::creatures_in(w, room)
+            .into_iter()
+            .map(|c| c.1)
+            .collect()
+    };
+    assert!(
+        kinds(&w).contains(&"glowworm".to_string()),
+        "{:?}",
+        kinds(&w)
+    );
+    // It belongs to the room.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "attack",
+        json!(["glowworm"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("belongs to the room"), "{err}");
+    // A named creature living there and a visitor make it Tended; the visitor is
+    // paid once that day, and the keeper a share.
+    let wisp = combat::spawn_one(&mut w, room, combat::def_by_key("wisp").unwrap()).unwrap();
+    let c = chunk(&mut w, "dave", 400.0);
+    ok(
+        &mut w,
+        "dave",
+        "remember",
+        json!([c, format!("creature-{}", wisp.0)]),
+    );
+    life::set_home(&mut w, wisp, room).unwrap();
+    admin(&mut w, "tyler", "bring", json!(["tyler", "mudroom"]));
+    ok(&mut w, "tyler", "travel", json!(["cellar"]));
+    assert_eq!(
+        tending::standing(&w, room),
+        2,
+        "{:?}",
+        tending::assess(&w, room).map(|t| (t.points, t.has))
+    );
+    // (That first visit raised it; it pays from the next name, or the next day.)
+    tending::round(&mut w).unwrap();
+    assert!(kinds(&w).contains(&"mender".to_string()));
+    let dave = find_citizen(&w, "dave").unwrap().citizen;
+    assert!(
+        (combat::mending_rate(&w, dave)
+            - combat::max_hp(&w, dave) / combat::MEND_WHOLE_S * combat::BASIN_PACE)
+            .abs()
+            < 1e-9
+    );
+    login(&mut w, "ann", "test", PASS).unwrap();
+    admin(&mut w, "ann", "bring", json!(["ann", "mudroom"]));
+    let head = events(&w);
+    ok(&mut w, "ann", "travel", json!(["cellar"]));
+    assert!(
+        narrative(&w, "ann", head)
+            .iter()
+            .any(|l| l.contains("worth 6 XP, your first visit here today (1 of 3")),
+        "{:?}",
+        narrative(&w, "ann", head)
+    );
+    assert!(narrative(&w, "dave", head)
+        .iter()
+        .any(|l| l.contains("ann came to see Dave's Cellar") && l.contains("worth 3 XP")));
+    // Not twice in a day.
+    ok(&mut w, "ann", "travel", json!(["out"]));
+    let head = events(&w);
+    ok(&mut w, "ann", "travel", json!(["cellar"]));
+    assert!(!narrative(&w, "ann", head)
+        .iter()
+        .any(|l| l.contains("your first visit here today")));
+    // The glowworm's light goes with whoever leaves.
+    let ann = find_citizen(&w, "ann").unwrap().citizen;
+    assert_eq!(combat::to_hit(&w, ann), combat::HIT_LIT);
+    // The wall says what is behind the door; `mine` says who came; renown counts.
+    ok(&mut w, "ann", "travel", json!(["out"]));
+    let wall = ok(&mut w, "ann", "read", json!(["doors"]));
+    assert!(
+        wall.summary.contains("Tended")
+            && wall
+                .summary
+                .contains("\u{201c}A dry cellar with a lamp on a nail"),
+        "{}",
+        wall.summary
+    );
+    let mine = ok(&mut w, "dave", "mine", json!([]));
+    assert!(
+        mine.summary.contains("stood in it today")
+            && mine.summary.contains("Your renown as a keeper is 2")
+            && mine.summary.contains("Householder"),
+        "{}",
+        mine.summary
+    );
+    // Everything decays: a day on, nobody has come, and the room slips; the mender goes.
+    ok(&mut w, "dave", "travel", json!(["out"]));
+    ok(&mut w, "tyler", "travel", json!(["out"]));
+    w.fixed_now = Some(Timestamp(t0.0 + 30 * 3_600_000));
+    assert!(tending::standing(&w, room) < 2);
+    tending::round(&mut w).unwrap();
+    assert!(!kinds(&w).contains(&"mender".to_string()));
 }

@@ -163,6 +163,17 @@ pub fn visited(world: &mut World, room: EntityId) -> Result<(), String> {
     let Some(hl) = half_life(world, room) else {
         return Ok(());
     };
+    // L3: a renowned keeper's rooms hold longer (the title's measure, taken each
+    // time a visit remembers the room).
+    let hl = match world
+        .store
+        .entity(room)
+        .and_then(|e| e.owner.clone())
+        .and_then(|o| super::tending::title(world, &o))
+    {
+        Some((_, m)) if m > 1.0 => Duration((hl.0 as f64 * m) as i64),
+        _ => hl,
+    };
     let was = memory(world, room).unwrap_or(1.0);
     if was > 0.999 {
         return Ok(());
@@ -741,7 +752,8 @@ pub fn register(world: &mut World, curves: super::Curves) {
                     ));
                 }
                 if seed {
-                    if dug_from(w, &ctx.actor, here) >= 1 {
+                    // L3: a Steward's renown opens a second door off a seed room.
+                    if dug_from(w, &ctx.actor, here) >= super::tending::seed_doors(w, &ctx.actor) {
                         return Err(CommandError::precondition(
                             "You have already dug from this room; the seed rooms take one exit each from a citizen. Dig on from your own.",
                         ));

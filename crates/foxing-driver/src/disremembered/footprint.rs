@@ -415,8 +415,28 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
         } else {
             String::new()
         };
+        // L3 (the Watch of 11-21: `mine` reported fading and never use).
+        let tend = super::tending::assess(world, e.id);
+        let stood = tend
+            .as_ref()
+            .map(|t| {
+                format!(
+                    " {}{}.{}",
+                    super::tending::STANDINGS[t.standing],
+                    match t.visitors.len() {
+                        0 => "; nobody else has stood in it today".to_string(),
+                        _ => format!("; {} stood in it today", t.visitors.join(", ")),
+                    },
+                    if dug && t.standing < 3 && !t.wants.is_empty() {
+                        format!(" It would rise with {}.", t.wants[0])
+                    } else {
+                        String::new()
+                    }
+                )
+            })
+            .unwrap_or_default();
         lines.push(format!(
-            "{name}{way_said}: {}, {state}{}{}.{nudge}",
+            "{name}{way_said}: {}, {state}{}{}.{stood}{nudge}",
             if dug { "yours" } else { "kept by you" },
             if half_life_ms > 0.0 {
                 format!(
@@ -435,7 +455,26 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
                 String::new()
             }
         ));
-        rooms_out.push(json!({"room": e.id.0, "name": name, "dug": dug, "kept": kept, "memory": memory, "half_life_ms": half_life_ms, "way": way, "fixtures": fixtures}));
+        rooms_out.push(json!({"room": e.id.0, "name": name, "dug": dug, "kept": kept, "memory": memory, "half_life_ms": half_life_ms, "way": way, "fixtures": fixtures, "standing": tend.as_ref().map(|t| t.standing), "points": tend.as_ref().map(|t| t.points), "visitors": tend.as_ref().map(|t| t.visitors.clone())}));
+    }
+    // L3: a keeper's renown, and what it does.
+    let renown = super::tending::renown(world, actor);
+    if renown > 0 || !rooms_out.is_empty() {
+        let next = super::tending::TITLES
+            .iter()
+            .find(|(need, _, _)| renown < *need);
+        lines.push(format!(
+            "Your renown as a keeper is {renown} (the standings of the rooms you dug, added up){}{}",
+            match super::tending::title(world, actor) {
+                Some((t, m)) if m > 1.0 => format!(": {t}; your rooms hold {m} times as long{}", if super::tending::seed_doors(world, actor) > 1 { ", and the Mudroom takes a second door of yours" } else { "" }),
+                Some((t, _)) => format!(": {t}"),
+                None => String::new(),
+            },
+            match next {
+                Some((need, t, _)) => format!(". {t} at {need}."),
+                None => ".".to_string(),
+            }
+        ));
     }
 
     // Creatures you keep (fed), by name or kind.

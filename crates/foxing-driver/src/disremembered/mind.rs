@@ -1139,10 +1139,12 @@ pub fn wander(world: &mut World) -> Result<usize, String> {
         // are few: one chance in two each pass at two or fewer named, the usual one
         // in forty at six or more. A founder waited hours for company at one in forty.
         let drawn = !super::combat::creatures_in(world, room).is_empty();
+        // L3: a tended room draws strangers more often.
+        let tended = super::tending::WANDER_ONE_IN[super::tending::standing(world, room)];
         let one_in = if drawn {
-            draw_one_in(urgency_now)
+            draw_one_in(urgency_now).min(tended)
         } else {
-            WANDER_ONE_IN
+            WANDER_ONE_IN.min(tended)
         };
         if !founding && world.roll(one_in) != 0 {
             continue;
@@ -1464,6 +1466,7 @@ pub fn register(world: &mut World) {
         Box::new(|w: &mut World, _| {
             wander(w)?;
             walk_out(w)?;
+            super::tending::round(w)?;
             // The Bindery folds a creature's scraps into a sheaf on the same clock.
             super::bindery::fold_sheaves(w, &super::Curves::from_env())?;
             // The Docent's round: what was left lying goes to the Threshold.

@@ -371,6 +371,39 @@ column is a name's holding averaged over the last day, from the count
 the world takes of itself every ten minutes: what you held through the
 day, not what you earned last.
 
+## A room's standing, and a keeper's renown
+
+A dug room has a standing that rises with care and falls without it:
+Bare, Kept, Tended, Cherished. It is counted from what the room has:
+a description; memory put into it so it holds two hours, or eight
+(`remember <chunk>` standing in it); a thing standing in it (a visitor
+book, a basin); a named creature living in it (`invite`); and other
+names having stood in it in the last day (one, or three). Two of
+those points is Kept, four Tended, six Cherished. A room under half
+remembered counts a step lower and one nearly forgotten is Bare, so a
+visit, which remembers a room whole, is what holds it up. `look` in a
+room says its standing, and to its keeper what would raise it; `mine`
+says who stood in it today; `read doors` at the Mudroom says each
+room's standing and the first of what its keeper wrote of it.
+
+What a standing does. The picture gains a lamp, then a rug and a
+hearth, then a window. A resident comes at each step and goes if the
+room slips: a glowworm (Kept), by whose light your strikes land nine
+in ten for ten minutes after you leave the room; a mender (Tended), in
+whose room a body mends three times as fast; a porter (Cherished),
+that leaves one making on the floor each day. They belong to the room
+and are not fought. Strangers wander into a tended room more often, to
+be fed and named. And a visit pays: your first visit of the day to
+another name's Tended or Cherished room is a memory worth 6, three
+such visits a day, and its keeper has 3 for each.
+
+A keeper's renown is the standings of the rooms it dug, added up. At 2
+a Householder, at 4 a Keeper (your rooms hold a quarter longer), at 6 a
+Steward (half as long again, and the Mudroom takes a second door of
+yours), at 9 a Castellan (twice as long). The title is said beside your
+name where you stand and on the Mudroom's wall. `mine` says yours.
+(`disremembered.room_stood` and `room_visited` are public.)
+
 ## Doors that say who they are for
 
 The map runs easy to hard, and a door into somewhere harder says so.

@@ -635,7 +635,16 @@ fn business_of(world: &mut World, c: EntityId) -> Result<bool, String> {
             Some((k.clone(), r))
         })
         .next();
-    if let Some((keeper, r)) = keeper_room {
+    // L3: a creature living in its keeper's own room stays there (one invited home
+    // left to find its keeper, and the room stood empty exactly when `mine` called
+    // it lived in).
+    let at_home_with_keeper = here == home
+        && world
+            .store
+            .entity(home)
+            .and_then(|e| e.owner.clone())
+            .is_some_and(|o| keepers.contains(&o));
+    if let Some((keeper, r)) = keeper_room.filter(|_| !at_home_with_keeper) {
         if r == here {
             // Arrived, or already there: say what it still wants, once in a while.
             if world.roll(3) == 0 {

@@ -248,6 +248,10 @@ pub const CREATURES: &[CreatureDef] = &[
     // Bailiff answers a raised hand in the Courtroom before it lands).
     CreatureDef { key: "crier", name: "crier", hp: 160.0, attack: 9.0, xp: 300.0, aggressive: false, strike_seconds: 10, ambush: "looks down the List, does not find you on it, and looks down it again more slowly.", glyph: "C", tint: "#b8a070" },
     CreatureDef { key: "clerk", name: "clerk", hp: 160.0, attack: 9.0, xp: 300.0, aggressive: false, strike_seconds: 10, ambush: "puts a finger on the place it had reached and looks at you over its spectacles.", glyph: "k", tint: "#a8a08a" },
+    // L3: what a tended room draws. They belong to the room and are not fought.
+    CreatureDef { key: "glowworm", name: "glowworm", hp: 6.0, attack: 0.0, xp: 0.0, aggressive: false, strike_seconds: 12, ambush: "dims, and brightens again when you look away.", glyph: "g", tint: "#d8e08a" },
+    CreatureDef { key: "mender", name: "mender", hp: 30.0, attack: 0.0, xp: 0.0, aggressive: false, strike_seconds: 12, ambush: "looks up from its stitching, and down again.", glyph: "m", tint: "#b89a7a" },
+    CreatureDef { key: "porter", name: "porter", hp: 40.0, attack: 0.0, xp: 0.0, aggressive: false, strike_seconds: 12, ambush: "shifts its pack to the other shoulder.", glyph: "P", tint: "#8a7a5a" },
     CreatureDef { key: "bailiff", name: "bailiff", hp: 400.0, attack: 20.0, xp: 900.0, aggressive: false, strike_seconds: 8, ambush: "unfolds its arms.", glyph: "B", tint: "#5a6a8a" },
     // The Exergue District: the tapster who weighs stories, the clippers and sweaters
     // who shave what you carry, the Assayer, and the Wardens over the Purse. (D37c,
@@ -1219,7 +1223,9 @@ pub fn to_hit(world: &World, citizen: EntityId) -> f64 {
 /// D35: by a second-tier lantern's light a strike lands nine in ten.
 pub const HIT_LIT: f64 = 0.9;
 fn hit_base(world: &World, citizen: EntityId) -> f64 {
-    if super::craft::carries_fine(world, citizen, "lantern").is_some() {
+    if super::craft::carries_fine(world, citizen, "lantern").is_some()
+        || super::tending::lit(world, citizen)
+    {
         HIT_LIT
     } else {
         HIT_BASE
@@ -1654,7 +1660,10 @@ pub fn mending_rate(world: &World, citizen: EntityId) -> f64 {
         return base * WATCHFIRE_PACE;
     }
     // A basin standing in the room: three times the pace (D27; it was twice).
-    if room.is_some_and(|r| super::craft::fixture_of(world, r, "basin").is_some()) {
+    if room.is_some_and(|r| {
+        super::craft::fixture_of(world, r, "basin").is_some()
+            || super::tending::has_mender(world, r)
+    }) {
         return base * BASIN_PACE;
     }
     base
@@ -2707,7 +2716,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the more of your blood that fight took, the more vivid the memory and the longer it lasts (a one-blow kill is barely remembered). While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour, or that has reached level 100 inside it (the leave ends there for good). A new name's first grind: Lantern Row's lanternflies (5 hp, hits 1–3; north), the Orchard's mothwings (6 hp, hits 1–3; east, north, north from the Threshold, or one step along the wall from the Postern) or the Fogbank's wisps (8 hp, hits 2–4; east); the Shallows' hollows between them hunt and hit 4–6. A creature's figures grow with what it holds, never with your level. Two of a kind in a room are written with their ids (wisp-80, wisp-81) so either can be named; alone, it is just the wisp.")
+        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the more of your blood that fight took, the more vivid the memory and the longer it lasts (a one-blow kill is barely remembered). While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour, or that has reached level 100 inside it (the leave ends there for good). A new name's first grind: Lantern Row's lanternflies (5 hp, hits 1–3; north), the Orchard's mothwings (6 hp, hits 1–3; north, lane, orchard from the Threshold, or one step along the wall from the Postern) or the Fogbank's wisps (8 hp, hits 2–4; east); the Shallows' hollows between them hunt and hit 4–6. A creature's figures grow with what it holds, never with your level. Two of a kind in a room are written with their ids (wisp-80, wisp-81) so either can be named; alone, it is just the wisp.")
             .param("creature", ParamType::Entity, false, "a creature name from look; defaults to the one you are fighting, else an unnamed one here. A named creature is never struck by default."),
         Box::new(move |w: &mut World, ctx, args| {
             let f = me(w, ctx)?;
@@ -2721,6 +2730,14 @@ pub fn register(world: &mut World, curves: Curves) {
                 return Err(CommandError::precondition(
                     "The Docent is not for fighting; it keeps the door, and has seen worse than you. Ask it something: tell docent \"\u{2026}\".",
                 ));
+            }
+            // L3: what a tended room drew belongs to the room.
+            if let Some(k) = args.str("creature").map(|c| c.trim().to_lowercase()) {
+                if super::tending::is_resident_kind(&k) {
+                    return Err(CommandError::precondition(format!(
+                        "The {k} belongs to the room, and is not fought: it came because the room is kept, and it goes when the room is not."
+                    )));
+                }
             }
             let mut retargeted: Option<String> = None;
             let target = match args.str("creature") {
