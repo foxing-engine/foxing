@@ -715,7 +715,19 @@ pub fn remembered_map(
                 let c = rooms::COMPASS.iter().position(|x| x == e);
                 (c.is_none(), c.unwrap_or(0), e.clone())
             });
-            v.into_iter()
+            // H18: the Mudroom's wall as `look` has it (sixty doors were sixty
+            // ways out, said in full, in a reply of five thousand characters).
+            let mut more = 0;
+            if rooms::is_mudroom(world, h) {
+                let names: Vec<String> = v.iter().map(|(e, _)| e.clone()).collect();
+                let by_name: std::collections::BTreeMap<String, EntityId> =
+                    v.iter().cloned().collect();
+                let (listed, rest) = super::door::rows(world, actor, &names, &by_name);
+                v.retain(|(e, _)| listed.contains(e));
+                more = rest;
+            }
+            let mut said: Vec<String> = v
+                .into_iter()
                 .map(|(n, to)| {
                     format!(
                         "{n} ({})",
@@ -724,7 +736,13 @@ pub fn remembered_map(
                             .trim_start_matches("The ")
                     )
                 })
-                .collect()
+                .collect();
+            if more > 0 {
+                said.push(format!(
+                    "and {more} more dug doors (`read doors` is the wall)"
+                ));
+            }
+            said
         })
         .unwrap_or_default();
     let mut summary = format!(

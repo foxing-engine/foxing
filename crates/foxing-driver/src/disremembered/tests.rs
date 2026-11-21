@@ -15189,3 +15189,71 @@ fn the_batch_of_11_20_orchard_gate_slate_and_the_marks_that_hunt() {
         assert!(out.summary.contains(has), "{key}: {}", out.summary);
     }
 }
+
+#[test]
+fn a_wall_of_many_doors_is_read_in_part_and_mapped_as_look_has_it() {
+    // H18: one door a name off the Mudroom, so a wall of thirty is thirty diggers.
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(1_000_000));
+    let names: Vec<String> = (0..30)
+        .map(|i| {
+            if i == 0 {
+                "dave".to_string()
+            } else {
+                format!(
+                    "digger{}{}",
+                    (b'a' + (i / 26) as u8) as char,
+                    (b'a' + (i % 26) as u8) as char
+                )
+            }
+        })
+        .collect();
+    for (i, n) in names.iter().enumerate() {
+        login(&mut w, n, "test", PASS).unwrap();
+        admin(&mut w, "dave", "bring", json!([n, "mudroom"]));
+        let c = admin(&mut w, n, "earn", json!(["wisp", 30, 0.5]));
+        let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+        let door = format!(
+            "door{}{}",
+            (b'a' + (i / 26) as u8) as char,
+            (b'a' + (i % 26) as u8) as char
+        );
+        ok(
+            &mut w,
+            n,
+            "dig",
+            json!([door, c, format!("Room Number {i}")]),
+        );
+    }
+    // `read doors`: twenty, and a count of the rest with the ways to the rest.
+    let rd = ok(&mut w, "dave", "read", json!(["doors"]));
+    assert!(
+        rd.summary.contains("30 doors dug; the 20 best remembered")
+            && rd.summary.contains("And 10 more")
+            && rd.summary.contains("`read doors all`"),
+        "{}",
+        rd.summary
+    );
+    assert_eq!(rd.summary.matches("% left").count(), 20, "{}", rd.summary);
+    let all = ok(&mut w, "dave", "read", json!(["doors all"]));
+    assert_eq!(all.summary.matches("% left").count(), 30, "{}", all.summary);
+    let one = ok(&mut w, "dave", "read", json!(["doors diggerab"]));
+    assert!(
+        one.summary.contains("diggerab's: doorab: Room Number 1")
+            && one.summary.matches("% left").count() == 1,
+        "{}",
+        one.summary
+    );
+    // `map` says the ways out as `look` does: the digest, and a count.
+    let map = ok(&mut w, "dave", "map", json!([]));
+    assert!(
+        map.summary.contains("dooraa (Room Number 0)")
+            && map
+                .summary
+                .contains("more dug doors (`read doors` is the wall)")
+            && !map.summary.contains("doorak (Room Number 10)"),
+        "{}",
+        map.summary
+    );
+    // Every door still opens by its word.
+    ok(&mut w, "dave", "travel", json!(["doorak"]));
+}

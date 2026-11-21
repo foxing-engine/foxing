@@ -2153,13 +2153,24 @@
     $("map").style.gridTemplateColumns = "repeat(" + cols.length + ", var(--tile))";
     for (const y of rows) for (const x of cols) map.append(cells[y * 3 + x] || Object.assign(document.createElement("div"), { className: "tile none" }));
     // Exits that are not compass points (up, down, dive, a dug name) sit under the grid.
-    const odd = ((room.relations && room.relations.exits) || []).filter(ex => !DIRS[ex.via]);
-    if (odd.length) {
+    const oddAll = ((room.relations && room.relations.exits) || []).filter(ex => !DIRS[ex.via]);
+    // H18: a wall of dug doors is shown as `look` shows it: the world's own ways,
+    // yours, and the newest, with the rest behind `read doors` (sixty doors were
+    // sixty buttons).
+    const odd = fewDoors(oddAll);
+    if (oddAll.length) {
       for (const ex of odd) {
         const b = document.createElement("button"); b.type = "button"; b.className = "way";
         b.textContent = ex.via + " \u2192 " + ex.components["disremembered.room"].name.replace(/^The /, "");
         b.title = "travel " + ex.via + " (click)";
         b.addEventListener("click", () => { chain = after(() => run("travel", [ex.via])); });
+        ways.append(b);
+      }
+      if (odd.length < oddAll.length) {
+        const b = document.createElement("button"); b.type = "button"; b.className = "way";
+        b.textContent = "and " + (oddAll.length - odd.length) + " more doors → read doors";
+        b.title = "read doors (click): every door on this wall; each opens by its word";
+        b.addEventListener("click", () => { print("read doors", "you"); chain = after(() => run("read", ["doors"])); });
         ways.append(b);
       }
     }
@@ -2379,7 +2390,8 @@
     // tap, and the first hours are walked, not typed.
     const phone = window.matchMedia && window.matchMedia("(max-width: 680px)").matches;
     if (phone) {
-      for (const ex of (room.relations && room.relations.exits) || []) {
+      const exAll = (room.relations && room.relations.exits) || [];
+      for (const ex of exAll.filter(ex => DIRS[ex.via]).concat(fewDoors(exAll.filter(ex => !DIRS[ex.via])))) {
         const to = ((ex.components || {})["disremembered.room"] || {}).name || "";
         add("\u2192 " + ex.via + (to && to !== ex.via ? " \u00b7 " + to.replace(/^The /, "").slice(0, 18) : ""), "travel " + ex.via, true);
       }
@@ -2556,6 +2568,14 @@
   function span(ms) { const s = Math.max(0, Math.round(ms / 1000)); if (s < 90) return s + "s"; if (s < 3600) return Math.round(s / 60) + "m"; return (s / 3600).toFixed(1) + "h"; }
   // R258: a line that ends in a name to choose arrives whole, with the name selected
   // (it ended on an open quote and read as a slip).
+  // The doors of a crowded wall worth a button: all of them up to a dozen; past
+  // that the world's own, yours, and the newest dug, nine in all.
+  function fewDoors(list) {
+    if (list.length <= 12) return list;
+    const own = list.filter(ex => !ex.owner), mine = list.filter(ex => ex.owner && ex.owner === actor);
+    const rest = list.filter(ex => ex.owner && ex.owner !== actor).sort((a, b) => Number(b.id) - Number(a.id));
+    return own.concat(mine, rest).slice(0, Math.max(9, own.length + mine.length));
+  }
   function prefill(text) { input.value = text; input.focus(); const ph = text.endsWith('"A Name"') ? text.length - 7 : -1; requestAnimationFrame(() => ph >= 0 ? input.setSelectionRange(ph, text.length - 1) : input.setSelectionRange(text.length, text.length)); renderPicker(); staged(true); }
   // On a phone, what a tap staged shows as a chip above the prompt with a Send and an
   // ×, so a staged verb is finished with one thumb and is not missed in the small input.

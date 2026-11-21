@@ -313,9 +313,15 @@ pub fn rows(
     (chosen, dug.len() - shown_dug)
 }
 
-/// H14: the whole wall, best remembered first.
-fn wall(world: &World, here: EntityId) -> String {
-    let mut doors: Vec<(f64, String)> = rooms::exits_of(world, here)
+/// How many doors `read doors` says before it counts the rest (H18: sixty doors
+/// were 3,800 characters, more than a reply carries whole).
+pub const WALL_SHOWN: usize = 20;
+
+/// H14: the wall, best remembered first. H18: the first twenty and a count of the
+/// rest; `read doors all` is every door, and `read doors <a digger>` is theirs.
+fn wall(world: &World, here: EntityId, arg: &str) -> String {
+    let all = arg.split_whitespace().any(|w| w == "all" || w == "every");
+    let mut doors: Vec<(f64, String, String)> = rooms::exits_of(world, here)
         .into_iter()
         .filter_map(|(e, to)| {
             let owner = world.store.entity(to)?.owner.clone()?;
@@ -340,6 +346,7 @@ fn wall(world: &World, here: EntityId) -> String {
                     room_name(world, to),
                     m * 100.0
                 ),
+                owner,
             ))
         })
         .collect();
@@ -348,10 +355,39 @@ fn wall(world: &World, here: EntityId) -> String {
     }
     doors.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
     let n = doors.len();
+    let s = if n == 1 { "" } else { "s" };
+    // One digger's doors, asked for by name.
+    let digger = arg.split_whitespace().find_map(|w| {
+        let w = w.trim_end_matches("'s");
+        doors
+            .iter()
+            .find(|d| d.2.eq_ignore_ascii_case(w))
+            .map(|d| d.2.clone())
+    });
+    if let Some(who) = digger {
+        let theirs: Vec<String> = doors
+            .iter()
+            .filter(|d| d.2 == who)
+            .map(|d| d.1.clone())
+            .collect();
+        return format!(
+            "The Mudroom's wall, {n} door{s} dug; {who}'s: {}. A door opens by its word (`travel <word>`).",
+            theirs.join("; ")
+        );
+    }
+    if all || n <= WALL_SHOWN {
+        return format!(
+            "The Mudroom's wall, {n} door{s} dug, the best remembered first. {}. A door opens by its word (`travel <word>`), and a room nobody visits fades off the wall.",
+            doors.into_iter().map(|d| d.1).collect::<Vec<_>>().join("; ")
+        );
+    }
+    let rest = &doors[WALL_SHOWN..];
+    let faint = rest.iter().filter(|d| d.0 < 0.1).count();
     format!(
-        "The Mudroom's wall, {n} door{} dug, the best remembered first. {}. A door opens by its word (`travel <word>`), and a room nobody visits fades off the wall.",
-        if n == 1 { "" } else { "s" },
-        doors.into_iter().map(|(_, s)| s).collect::<Vec<_>>().join("; ")
+        "The Mudroom's wall, {n} doors dug; the {WALL_SHOWN} best remembered: {}. And {} more, {} with under a tenth left of them: `read doors all` is every door, and `read doors <a digger's name>` is that digger's. A door opens by its word (`travel <word>`), and a room nobody visits fades off the wall.",
+        doors[..WALL_SHOWN].iter().map(|d| d.1.clone()).collect::<Vec<_>>().join("; "),
+        rest.len(),
+        if faint == rest.len() { "all of them".to_string() } else { format!("{faint} of them") },
     )
 }
 
@@ -364,7 +400,7 @@ pub fn read(world: &World, room: EntityId, arg: &str) -> Option<Outcome> {
     let text = match key {
         ARRIVAL if named(&["signpost", "sign", "post", "arm"]) => signpost(world, room),
         MUDROOM if named(&["boot"]) => boots(world),
-        MUDROOM if named(&["door", "wall", "row"]) => wall(world, room),
+        MUDROOM if named(&["door", "wall", "row"]) => wall(world, room, &a),
         k if rooms::HUBS.contains(&k) && named(&["signpost", "sign", "post", "arm"]) => hub_post(world, room),
         MUDROOM if named(&["spade", "rack"]) => "The rack holds spades worn to the handle, more of them than there are diggers. `take spade` takes one. Carried, it knows a dug door when it passes one: the exits of any room say whose each dug door is and how much of the room behind it is left. A spade fades like anything else.".to_string(),
         _ => return None,
