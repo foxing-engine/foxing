@@ -428,9 +428,12 @@ fn set(world: &mut World, c: EntityId, key: &str, v: serde_json::Value) -> Resul
 }
 
 fn room_name(world: &World, r: EntityId) -> String {
-    plain_str(world, r, ROOM, "name")
-        .unwrap_or("somewhere")
-        .to_string()
+    // Mid-sentence: "toward the Fogbank", not "toward The Fogbank".
+    let n = plain_str(world, r, ROOM, "name").unwrap_or("somewhere");
+    match n.strip_prefix("The ") {
+        Some(rest) => format!("the {rest}"),
+        None => n.to_string(),
+    }
 }
 
 /// Whether a creature may be strolled into a room: a room of the world's own, with
