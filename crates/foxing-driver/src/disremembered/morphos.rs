@@ -25,7 +25,7 @@ use std::collections::BTreeMap;
 
 pub const MORPHOS: &str = "disremembered.morphos";
 pub const NAME: &str = "Morphos";
-pub const LINE: &str = "a traveler in a coat the color of moths, standing where no one stood a moment ago; it asks a riddle in three lines and waits (tell morphos \"<answer>\").";
+pub const LINE: &str = "a traveler in a coat the color of moths, standing where no one stood a moment ago; it asks a riddle in three lines and waits (tell morphos \"<answer>\"). It has a price: a wrong answer, or none from a name that stood by, clouds some of what that name holds for twenty minutes and brings its Hands; to owe it nothing, be somewhere else until it goes.";
 
 pub const CAME: &str = "disremembered.morphos_came";
 pub const WENT: &str = "disremembered.morphos_went";

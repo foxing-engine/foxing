@@ -375,13 +375,15 @@ day, not what you earned last.
 The map runs easy to hard, and a door into somewhere harder says so.
 `look` marks such an exit for a name under its level ("north (Shallows;
 for level 50 or so)"), and the first `travel` through it stops with what
-lives there. Nothing is barred: `travel <exit> anyway` goes in, and that
+lives there and the fight sized up as you stand (about how many of
+your blows fell it, about how many of its fell you; `look` says the
+same in a room). Nothing is barred: `travel <exit> anyway` goes in, and that
 door does not ask you again. A door is only asked on the way in from
 somewhere milder, never on the way back out.
 
 - The Wilds, the fighter's road, one way east of the Threshold: the
-  Fogbank (any name), the Shallows 50, the Ossuary 150, the Gallery 200,
-  the Oubliette 350. The Midden, off the fog, is mild.
+  Fogbank (any name), the Shallows 50, the Ossuary 250, the Gallery 300,
+  the Oubliette 500. The Midden, off the fog, is mild.
 - The Wistful Trail: the Stile 75, the Hollow Way 125.
 - The water: the Cistern Stair 50, the Cistern and the Undertow 120, the
   Drowned Wing 150 at the Wrack Line to 400 at the Starfish Court.

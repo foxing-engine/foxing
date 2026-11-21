@@ -582,7 +582,10 @@ pub fn register(world: &mut World, curves: Curves) {
             // R199: a story heard as the wanted one, at double or at plain pay inside
             // the hour, is not also "not the one it wanted" (the want it met and the
             // want that stands were two, and one reply said both).
-            let missed = if wanted || wanted_early { None } else { super::errand::why_missed(w, creature, &text) };
+            // C7: nor is one that met the want a player left with it (one reply paid
+            // a stake and said "Not the one it wanted").
+            let met_ask = super::asks::would_meet(w, &ctx.actor, creature, &text);
+            let missed = if wanted || wanted_early || met_ask { None } else { super::errand::why_missed(w, creature, &text) };
             // The word under the others: a story that carries it pays the level's bonus.
             let as_wanted = (wanted || wanted_early) && super::secret::wanted_waives(w, creature);
             let over = if as_wanted { None } else { super::secret::overreach(w, &ctx.actor, creature, &text) };

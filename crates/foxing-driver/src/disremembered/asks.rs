@@ -300,6 +300,24 @@ pub fn hear_here(world: &mut World, room: EntityId, actor: &str) -> Result<(), C
     Ok(())
 }
 
+/// Whether a story would meet the want a player left with `creature`, told by `actor`.
+pub fn would_meet(world: &World, actor: &str, creature: EntityId, text: &str) -> bool {
+    let Some(a) = of(world, creature) else {
+        return false;
+    };
+    if a.kind != "story" || a.by == actor {
+        return false;
+    }
+    let told: Vec<String> = super::errand::keywords(text)
+        .iter()
+        .map(|w| super::errand::stem(w))
+        .collect();
+    a.keywords
+        .iter()
+        .map(|w| super::errand::stem(w))
+        .any(|k| told.contains(&k))
+}
+
 /// A story was told to `creature` and heard. If a player left a want with it that
 /// the story touches, and the teller is not that player, the teller is paid: the
 /// stake, and the world's usual on top (the telling over again, as a wanted story
@@ -571,7 +589,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.entrust",
-            "Leave a want of your own with a named creature you keep, and stake one of your memories on it. With a line alone, it wants a story about that; with a second creature's name, the line is a word to carry to that creature. Whoever does it (not you) gets the staked memory and the world's usual pay on top. One want a creature, one standing want a name; it stands until done or until the stake fades, and what is left comes back to you. `withdraw <creature>` takes it back.",
+            "Leave a want of your own with a named creature you keep, and stake one of your memories on it. With a line alone, it wants a story about that; with a second creature's name, the line is a word to carry to that creature. Whoever does it (not you) gets the staked memory and the world's usual pay on top. The creature must already hold a memory you gave it (`remember <chunk> <creature>`), and the stake must be worth 10 or more and earned as a kept name. One want a creature, one standing want a name; it stands until done or until the stake fades, and what is left comes back to you. `withdraw <creature>` takes it back.",
         )
         .param("creature", ParamType::Entity, true, "a named creature that holds a memory you gave it")
         .param("chunk", ParamType::Entity, true, "one of your chunks, the stake")
@@ -629,7 +647,7 @@ pub fn register(world: &mut World) {
             }
             let chunk = super::memory::resolve_chunk(w, ctx, &chunk_arg, &[f.window, f.palace])?;
             if super::memory::is_passing_chunk(w, chunk) {
-                return Err(CommandError::precondition("That memory was a passing name's; it is not staked."));
+                return Err(CommandError::precondition("That memory was earned while your name was a passing one, and carries the mark (`chunks` shows it): a passing name's memory is not staked. One earned since you kept your name is."));
             }
             let now = w.now();
             let worth = w

@@ -15115,6 +15115,7 @@ fn a_door_says_who_it_is_for_and_stops_a_name_once() {
     assert!(
         said.contains("The Shallows is for names of about level 50, and you hold 0")
             && said.contains("a hollow, which hunts")
+            && said.contains("Sized up, as you stand now: a hollow would take about")
             && said.contains("`travel north anyway`"),
         "{said}"
     );
@@ -15154,7 +15155,7 @@ fn a_door_says_who_it_is_for_and_stops_a_name_once() {
     .unwrap_err();
     assert!(
         err.to_string()
-            .contains("The Ossuary is for names of about level 150"),
+            .contains("The Ossuary is for names of about level 250"),
         "{err}"
     );
     admin(&mut w, "dave", "bring", json!(["dave", "gallery"]));

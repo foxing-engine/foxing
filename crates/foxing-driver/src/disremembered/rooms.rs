@@ -2399,7 +2399,7 @@ pub fn describe_as(
                 super::combat::AMBUSH_SECONDS_LOW,
                 super::combat::AMBUSH_SECONDS_HIGH,
                 if new_name {
-                    "; not you yet: a name in its first hour is left alone, until the hour is out or it reaches level 100, and after that for good"
+                    "; not you yet: a new name is left alone until it reaches level 100 or its first hour is out, whichever comes first (level 100 can come in ten minutes), and never again after"
                 } else {
                     ""
                 }
@@ -2416,6 +2416,14 @@ pub fn describe_as(
                 " Nothing here hunts; the {} keep to themselves.",
                 kinds.join(" and ")
             ));
+        }
+        // L1: the fight sized up before the first blow, for whoever is looking.
+        if let Some(f) = super::find_citizen(world, actor) {
+            if super::plain_num(world, f.citizen, super::BODY, "engaged").is_none() {
+                if let Some(s) = super::combat::sized_up(world, f.citizen, f.window, room) {
+                    text.push_str(&format!(" {s}."));
+                }
+            }
         }
         // R254: the Reading Rooms' rule, in the room, before the first blow (one
         // fell at the Errata Desk on four `attack`s, a quarter of each landing).
@@ -2627,9 +2635,11 @@ pub const STAIR_LEVEL: f64 = 100.0;
 pub const GATES: &[(&str, f64)] = &[
     // The Wilds: the fighter's road, one way.
     ("shallows", 50.0),
-    ("ossuary", 150.0),
-    ("gallery", 200.0),
-    ("oubliette", 350.0),
+    // (The Watch of 11-21: two fell in the Ossuary at 167 and 250 against a door of
+    // 150, and one in the Oubliette at 367 and was thrown back at 624 against 350.)
+    ("ossuary", 250.0),
+    ("gallery", 300.0),
+    ("oubliette", 500.0),
     // The Wistful Trail.
     ("trail-stile", 75.0),
     // (Not the Long Afternoon: its wicket asks a word in the place `anyway` goes.)
@@ -2882,9 +2892,12 @@ pub fn register(world: &mut World) {
                 if level < need && deeper && !gates_passed(w, f.citizen).contains(&tkey) {
                     if !anyway {
                         return Err(foxing_registry::CommandError::precondition(format!(
-                            "{} is for names of about level {need:.0}, and you hold {level:.0}. {}. Nothing bars the way: `travel {exit} anyway` goes in, and this door does not ask you again. (`chunks` says where you stand; `where` a milder road: the Fogbank, the Orchard, Lantern Row.)",
+                            "{} is for names of about level {need:.0}, and you hold {level:.0}. {}.{} Nothing bars the way: `travel {exit} anyway` goes in, and this door does not ask you again. (`chunks` says where you stand; `where` a milder road: the Fogbank, the Orchard, Lantern Row.)",
                             plain_str(w, to, ROOM, "name").unwrap_or("That room"),
                             lives_in(w, to),
+                            super::combat::sized_up(w, f.citizen, f.window, to)
+                                .map(|s| format!(" {s}."))
+                                .unwrap_or_default(),
                         )));
                     }
                     let mut passed = gates_passed(w, f.citizen);

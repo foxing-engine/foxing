@@ -1856,6 +1856,64 @@ pub(crate) fn first_this_session(
 /// How much faster a name mends beside a basin (D27: three times; it was twice).
 pub const BASIN_PACE: f64 = 3.0;
 
+/// L1 (the Watch of 11-21: "tell me before the first swing whether I would win"): a
+/// fight sized up before it starts, as `retreat` sizes a second stand. About how
+/// many of your blows fell it, misses counted, and about how many of its fell you,
+/// as you stand now.
+pub fn size_up(
+    world: &World,
+    citizen: EntityId,
+    window: EntityId,
+    creature: EntityId,
+) -> (f64, f64) {
+    let level = super::memory::level(world, window);
+    let mine = attack_for_level(level) + 1.0;
+    let its = plain_num(world, creature, CREATURE, "attack").unwrap_or(1.0) + 1.0;
+    let chp = world
+        .store
+        .read_field(creature, CREATURE, "hp", world.now())
+        .ok()
+        .and_then(|v| v.as_f64())
+        .unwrap_or(1.0);
+    let rounds = (chp / (mine * to_hit(world, citizen))).ceil().max(1.0);
+    let stand = (hp(world, citizen) / its).ceil().max(1.0);
+    (rounds, stand)
+}
+
+/// The same in words, for a door or a room: the hardest thing in `room` for this name.
+pub fn sized_up(
+    world: &World,
+    citizen: EntityId,
+    window: EntityId,
+    room: EntityId,
+) -> Option<String> {
+    let worst = creatures_in(world, room)
+        .into_iter()
+        .filter(|c| !super::mind::shaken(world, c.0) && !OFFICERS.contains(&c.1.as_str()))
+        // Not a named creature that keeps to itself: those are told, not fought.
+        .filter(|c| super::mind::name(world, c.0).is_none() || is_aggressive(world, c.0))
+        .map(|c| {
+            let (r, s) = size_up(world, citizen, window, c.0);
+            (r - s, r, s, c)
+        })
+        .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal))?;
+    let (_, rounds, stand, c) = worst;
+    let who = match super::mind::name(world, c.0) {
+        Some(n) => n,
+        None => format!("a {}", c.1),
+    };
+    let verdict = if rounds + 1.0 < stand {
+        "yours, if nothing joins it"
+    } else if rounds <= stand + 1.0 {
+        "close: it could go either way"
+    } else {
+        "not yours as you stand"
+    };
+    Some(format!(
+        "Sized up, as you stand now: {who} would take about {rounds:.0} of your blows, misses counted, and about {stand:.0} of its would fell you ({verdict})"
+    ))
+}
+
 pub fn attack_for_level(level: f64) -> f64 {
     BASE_ATTACK + (ATTACK_PER_ROOT_LEVEL * level.max(0.0).sqrt()).floor()
 }
@@ -2270,7 +2328,7 @@ impl Death {
             out.push_str(" with everything you had");
         }
         out.push_str(&format!(
-            ", shaken: your strikes land less often for {}, steadying as it passes{}.",
+            ", shaken: your strikes land less often for {}, steadying as it passes{}. A fight taken now is a fight taken at a disadvantage: `look` sizes one up as you stand, and a story told to a named creature pays while your hand steadies.",
             human(self.shaken_ms),
             if self.fall > 1 {
                 " (longer with each fall of the night, whatever the memory cost)"
