@@ -215,6 +215,55 @@ brief` for a page on one, or answer the lettered ones.
   first: whether C9 (a wider world, under the water) follows the Reading Rooms, and
   whether C7 is in the spirit of the thing or too much rope.
 
+## The four loops (L): what a person does here, and what each needs (David, 11-21)
+
+David, 11-21, on playability for people: "my gut says we need to polish each one in
+different ways." The four, and his direction for each, in his words where quoted. One
+clock runs under all four: what is earned fades. Each loop wants a standing of its own
+that others can see (Hunter, Teller, Keeper, Reader), so a new person can pick a way in.
+
+- **L1 · Hunt** (fight, take the memory, go deeper). "We'll need to plan a re-ordering
+  of the map so there's some sequencing at first with either hard or soft gates.
+  Tactical battles go under this thrust as well. We'll flag equipment in this bucket as
+  well." Known rough: deaths not seen coming, the Shaken spiral (R253), falling cheaper
+  than resting at low level and newcomers overmatched in the Wing's upper rooms (C9).
+  To plan: (a) the order of districts for a new name and the gate on each door, hard
+  (a level, as the Lower Stacks' stair) or soft (the door says who it is for, and the
+  travel stop of R244 holds you once); (b) a fight with choices in it beyond `attack`
+  and `retreat` (a creature that shows what it is about to do; a guard, a feint);
+  (c) equipment: made things already work while carried (buckler, lantern, charm,
+  bandage), with no slots and no one place that says what you have on.
+- **L2 · Tell** (find what a creature wants, tell it, be known). "We should up the
+  complexity and variety, add mischief opportunities and make it more aligned with a
+  bard's personality (Elizabethan rather than D&D). Experienced tellers can get
+  temporary nicknaming abilities for example or bonus at pleading cases. Saul Goodman
+  types that can talk people into things." Have: stories, wants, carried words, tales
+  that travel and wear, the hidden word, a player's own want (C7), the Bailiff's
+  tattoo. To plan: forms a telling can take (a ballad, a jest, a eulogy, a flyting);
+  a teller's standing and what it opens (a nickname that sticks for an hour, weight
+  with the Court's bench, talking a creature into or out of something); mischief with
+  a name on it and an end to it.
+- **L3 · Keep** (put fading memory into what lasts). "We should add graphical upgrades,
+  improved beneficial creature spawning etc. for well tended rooms. High level keepers
+  are renowned and that has effects." Known rough: little comes back (a visitor book
+  unsigned in 85 minutes, R250; a room does not say what your absence did, R190; four
+  of six doors on the live wall at 0%). To plan: tiers of a tended room and what each
+  shows in the picture; what a tended room draws (a creature that mends, lights,
+  carries); renown, who sees it, and what it does.
+- **L4 · Read, and make** (explore, read, answer, find what is hidden; and craft from
+  it). "Crafting is close kin [to] the read mission (reading should improve crafting
+  capability)." "More puzzles, inside jokes, harder tricks, crafting bonuses, secret
+  knowledge and all of the things an avid reader enjoys." Have: `read` in 52 rooms,
+  twelve slips and the Round (C10), the Card Catalogue, the commonplace book (C6),
+  recipes in two tiers and players' own. Tested best of the four. To plan: recipes
+  learned by reading and not from the list; a made thing better for its maker having
+  read its source; a second question a slip; puzzles across rooms.
+
+Also for people, not a loop (11-21, unanswered): say the loop in one sentence early;
+carry the first-steps card on into a ladder of about ten steps, one system each; a
+`next` verb; `explain <word>`; sizing up a fight in `look`; one nudge from the Docent
+when a person in their first hour goes quiet.
+
 ## XL (X): the scaffolding; each wants a brief before a first cut
 
 Nothing here ships by policy. Say `X3 brief` and Claude writes the design as a short
