@@ -159,6 +159,7 @@ pub fn register(world: &mut World) {
                 let said = if by_gate {
                     said.replacen("The Docent: \"", "Perrin Latch, writing it down: \"", 1)
                         .replacen("(It finds you within", "(He brings the desk's answer himself within", 1)
+                        .replacen("the Docent comes to you with the page within", "he brings the desk's answer to you himself within", 1)
                         .replacen("You ask after the Docent,", "You ask the Gatekeeper,", 1)
                         .replacen("You ask the Docent,", "You ask the Gatekeeper,", 1)
                         .replacen(
