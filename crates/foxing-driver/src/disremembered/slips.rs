@@ -592,10 +592,11 @@ fn keep(world: &mut World, actor: &str, citizen: EntityId, t: &Today) -> Result<
     super::set_citizen_fields(world, actor, citizen, changes)
 }
 
-/// How long until `slip` hears this name again, if it will not now.
-fn waits(world: &World, t: &Today, slip: &Slip, choice: bool) -> Option<i64> {
+/// L4: a Browser's wrong answer shuts a slip for half as long.
+fn waits_for(world: &World, actor: &str, t: &Today, slip: &Slip, choice: bool) -> Option<i64> {
     let at = *t.tried.get(slip.room)?;
-    let left = at + if choice { RETRY_CHOICE_MS } else { RETRY_MS } - world.now().0;
+    let plain = if choice { RETRY_CHOICE_MS } else { RETRY_MS };
+    let left = at + super::lore::retry_ms(world, actor, plain) - world.now().0;
     (left > 0).then_some(left)
 }
 
@@ -643,7 +644,7 @@ pub fn read(world: &World, actor: &str, room: EntityId, arg: &str) -> Option<Out
     let state = if t.done.iter().any(|d| d == slip.room) {
         " You answered this slip today; it pays once a day to a name, and asks again tomorrow."
             .to_string()
-    } else if let Some(left) = waits(world, &t, slip, asked.choice) {
+    } else if let Some(left) = waits_for(world, actor, &t, slip, asked.choice) {
         format!(
             " It will not hear you again for {}: a wrong answer is paid for in time.",
             super::combat::human(left)
@@ -683,7 +684,7 @@ fn answer(world: &mut World, ctx: &CallContext, text: &str) -> Result<Outcome, C
             "You answered this slip today. It pays once a day to a name, and asks again after midnight (UTC); `slips` says which are left.".to_string(),
         ));
     }
-    if let Some(left) = waits(world, &t, slip, asked.choice) {
+    if let Some(left) = waits_for(world, &ctx.actor, &t, slip, asked.choice) {
         return Err(CommandError::precondition(format!(
             "The slip will not hear you again for {}: a wrong answer is paid for in time. Where a reader might look meanwhile: {}.",
             super::combat::human(left),
@@ -707,15 +708,18 @@ fn answer(world: &mut World, ctx: &CallContext, text: &str) -> Result<Outcome, C
     keep(world, &ctx.actor, f.citizen, &t)?;
     let curves = super::Curves::from_env();
     let place = room_name(world, here);
+    // L4: a reader of standing is paid more for a slip.
+    let slip_xp = (SLIP_XP * super::lore::pay_times(world, &ctx.actor)).round();
     let chunk = super::memory::earn_chunk(
         world,
         &ctx.actor,
         f.window,
         &format!("a slip answered at {place}"),
-        SLIP_XP,
+        slip_xp,
         SLIP_VIVIDITY,
         &curves,
     )?;
+    super::lore::did(world, &ctx.actor, "slip");
     let _ = world.note(
         Actor::Citizen(ctx.actor.clone()),
         ANSWERED,
@@ -723,7 +727,7 @@ fn answer(world: &mut World, ctx: &CallContext, text: &str) -> Result<Outcome, C
     );
     let n = t.done.len();
     let mut said = format!(
-        "That is what the world says. The desk initials the slip and it is yours to remember: chunk-{} worth {SLIP_XP:.0} XP. That is {n} of the twelve slips today{}.",
+        "That is what the world says. The desk initials the slip and it is yours to remember: chunk-{} worth {slip_xp:.0} XP. That is {n} of the twelve slips today{}.",
         chunk.0,
         if n < SLIPS.len() { " (`slips` says where the rest are)" } else { "" }
     );
@@ -746,7 +750,7 @@ fn answer(world: &mut World, ctx: &CallContext, text: &str) -> Result<Outcome, C
     }
     Ok(Outcome::new(
         said,
-        json!({"slip": slip.district, "right": true, "chunk": chunk.0, "xp": SLIP_XP, "answered_today": n, "round": round}),
+        json!({"slip": slip.district, "right": true, "chunk": chunk.0, "xp": slip_xp, "answered_today": n, "round": round}),
     ))
 }
 

@@ -496,6 +496,61 @@ pub const RECIPES: &[Recipe] = &[
         vividity_at_least: 0.6,
         effect: "brine",
     },
+    // L4: a reader's preparations. Each makes a common material out of commoner
+    // ones, and the bench gives none of them to a name that has not read how
+    // (`lore.rs`). Their effect is their own key: a material does nothing but be one.
+    Recipe {
+        key: "ink",
+        name: "a dab of ink",
+        of: &["hollow water", "moth dust"],
+        chunk_at_least: 0.0,
+        does: "is a dab of ink, as an inkling leaves or a shelf gives: a material, for whatever asks ink",
+        uses: 0,
+        fixed: false,
+        takes_lines: false,
+        tier: 1,
+        vividity_at_least: 0.0,
+        effect: "ink",
+    },
+    Recipe {
+        key: "thread",
+        name: "rag thread",
+        of: &["river weed", "moth dust"],
+        chunk_at_least: 0.0,
+        does: "is rag thread, as a ragpicker leaves: a material, for whatever asks thread",
+        uses: 0,
+        fixed: false,
+        takes_lines: false,
+        tier: 1,
+        vividity_at_least: 0.0,
+        effect: "thread",
+    },
+    Recipe {
+        key: "card",
+        name: "a catalogue card",
+        of: &["rag thread", "a dab of ink"],
+        chunk_at_least: 0.0,
+        does: "is a catalogue card, as a cataloguer leaves far down in the Stacks: a material, for whatever asks a card",
+        uses: 0,
+        fixed: false,
+        takes_lines: false,
+        tier: 1,
+        vividity_at_least: 0.0,
+        effect: "card",
+    },
+    Recipe {
+        key: "ember",
+        name: "a wisp ember",
+        of: &["grave dust", "moth dust"],
+        chunk_at_least: 0.0,
+        does: "is a wisp ember, as a wisp leaves: a material, for whatever asks an ember",
+        uses: 0,
+        fixed: false,
+        takes_lines: false,
+        tier: 1,
+        vividity_at_least: 0.0,
+        effect: "ember",
+    },
 ];
 
 /// A recipe as the bench reads it: the world's own (`RECIPES`) or one a kept name
@@ -2531,7 +2586,20 @@ pub fn register(world: &mut World, curves: Curves) {
             let by_key = all_recipes(w).iter().any(|r| r.key.to_lowercase() == which);
             let mut short: Vec<String> = Vec::new();
             let mut list = Vec::new();
+            let mut unread = 0;
             for r in &all_recipes(w) {
+                // L4: what is written down somewhere and not yet read by this name
+                // is not on the bench's list at all; asked for by key, it says so.
+                if let Some(why) = super::lore::locked(w, &ctx.actor, &r.key) {
+                    unread += 1;
+                    if !which.is_empty() && r.key.to_lowercase() == which {
+                        return Ok(Outcome::new(
+                            format!("{}: {why}", r.name),
+                            json!({"recipe": r.key, "unread": true}),
+                        ));
+                    }
+                    continue;
+                }
                 let missing: Vec<&str> = r.of.iter().map(String::as_str).filter(|m| !have.iter().any(|h| h == m)).collect();
                 let asks = r.chunk_at_least * super::economy::rate(w, "price");
                 // R213: a fixture takes any chunk (D12), so it lacks memory only when
@@ -2586,12 +2654,13 @@ pub fn register(world: &mut World, curves: Curves) {
                 };
                 return Ok(Outcome::new(
                     format!(
-                        "{head}{}\nThe rest, {} of them, by key (`recipes <key>` says what one does and where its makings are; `recipes all` gives every one in full): {}.",
+                        "{head}{}\nThe rest, {} of them, by key (`recipes <key>` says what one does and where its makings are; `recipes all` gives every one in full): {}.{}",
                         if level <= 0.0 { " A chunk is a memory, and you hold none yet: your first comes from a first fight won, or a first story told (`chunks` lists what you hold)." } else { "" },
                         short.len(),
-                        short.join("; ")
+                        short.join("; "),
+                        if unread > 0 { format!(" And {unread} more that the bench gives only to a name that has read how each is made (`lore`).") } else { String::new() }
                     ),
-                    json!({"recipes": list}),
+                    json!({"recipes": list, "unread": unread}),
                 ));
             }
             Ok(Outcome::new(
@@ -2812,6 +2881,9 @@ pub fn register(world: &mut World, curves: Curves) {
                 )));
             };
             let r = &r;
+            if let Some(why) = super::lore::locked(w, &ctx.actor, &r.key) {
+                return Err(CommandError::precondition(format!("{} is not yours to make yet: {why}", r.name)));
+            }
             let s = satchel(w, &ctx.actor, f.citizen)?;
             // A fixture stands in the room: one you may build in, with room to stand.
             let here = rooms::room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
@@ -2982,6 +3054,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 set_item_fields(w, Actor::Citizen(ctx.actor.clone()), item, changes)?;
             }
             // The record begins, and one build in forty comes out a tier above.
+            super::lore::made(w, &ctx.actor, &r.key);
             let raised = super::past::made(
                 w,
                 &curves,
@@ -3043,6 +3116,13 @@ pub fn register(world: &mut World, curves: Curves) {
             // C10: the slip pinned here, and the Card Catalogue's index.
             if let Some(out) = super::slips::read(w, &ctx.actor, here, &arg) {
                 return Ok(out);
+            }
+            // L4: a folio, or a trail's end, where the room's own nouns have no
+            // first reading of the word.
+            if super::nouns::read(w, &ctx.actor, here, &arg).is_none() {
+                if let Some(out) = super::lore::read(w, &ctx.actor, here, &arg) {
+                    return Ok(out);
+                }
             }
             // X18: a kept niche in the Ossuary, read by number or by name (with none
             // kept, the room's own text for its niches answers further down).

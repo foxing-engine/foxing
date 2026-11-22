@@ -32,6 +32,11 @@ fn call(
     verb: &str,
     args: Value,
 ) -> Result<Outcome, CommandError> {
+    // L4: the tests that make a thing with a past are about the thing, not about
+    // having read how; the reading has a test of its own (which sets NO_LORE).
+    if verb == "craft" && !NO_LORE.with(|c| c.get()) {
+        lore::teach_all(w, actor);
+    }
     w.call(
         &CallContext {
             actor: actor.into(),
@@ -40,6 +45,10 @@ fn call(
         verb,
         &args,
     )
+}
+
+thread_local! {
+    static NO_LORE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 /// The curves the test world runs on.
@@ -16429,4 +16438,115 @@ fn a_mark_is_plain_words_and_a_struck_epithet_frees_its_dubber() {
     )
     .unwrap_err();
     assert!(err.to_string().contains("to their face"), "{err}");
+}
+
+/// L4: what a reader knows is had by `study`, opens a recipe, and is that name's own.
+#[test]
+fn lore_is_read_where_it_lies_and_opens_what_the_bench_will_make() {
+    NO_LORE.with(|c| c.set(true));
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(1_000_000));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    // Unread: not on the bench's list, and not made.
+    let r = ok(&mut w, "dave", "recipes", json!(["commonplace"]));
+    assert!(r.summary.contains("you have not read it"), "{}", r.summary);
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "craft",
+        json!(["commonplace"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("not yours to make yet"), "{err}");
+    let bare = ok(&mut w, "dave", "recipes", json!([]));
+    assert!(
+        bare.summary.contains("11 more that the bench gives only"),
+        "{}",
+        bare.summary
+    );
+    // Nothing to study where nothing lies.
+    assert!(call(&mut w, "dave", ActorKind::Citizen, "study", json!([])).is_err());
+    // An end: the Crier's coat, in the Hall.
+    admin(&mut w, "dave", "bring", json!(["dave", "lost-steps"]));
+    let l = ok(&mut w, "dave", "look", json!([]));
+    assert!(l.summary.contains("`study coat`"), "{}", l.summary);
+    let q = ok(&mut w, "dave", "read", json!(["coat"]));
+    assert!(
+        q.summary.contains("Which form does the Crier not have?"),
+        "{}",
+        q.summary
+    );
+    let wrong = ok(&mut w, "dave", "study", json!(["coat", "12"]));
+    assert_eq!(wrong.result["right"], json!(false));
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "study",
+        json!(["coat", "3"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("will not hear you again"), "{err}");
+    w.fixed_now = Some(w.now().plus(Duration::seconds(601)));
+    // The gate's merged form: `study coat pink`.
+    let right = ok(&mut w, "dave", "study", json!(["coat pink"]));
+    assert_eq!(right.result["right"], json!(true), "{}", right.summary);
+    assert!(
+        right.summary.contains("`craft commonplace` is yours"),
+        "{}",
+        right.summary
+    );
+    assert!(lore::locked(&w, "dave", "commonplace").is_none());
+    assert!(lore::locked(&w, "tyler", "commonplace").is_some());
+    let r = ok(&mut w, "dave", "recipes", json!(["commonplace"]));
+    assert!(r.summary.contains("a catalogue card"), "{}", r.summary);
+    let mine = ok(&mut w, "dave", "lore", json!([]));
+    assert!(
+        mine.summary.contains("the forms in the Crier's coat"),
+        "{}",
+        mine.summary
+    );
+    // Every folio has a page for a name today, and an answer the world can check.
+    for s in lore::SOURCES.iter().filter(|s| s.folio) {
+        let asked = lore::ask(&w, "dave", s.key).unwrap_or_else(|| panic!("no page: {}", s.key));
+        assert!(
+            asked.number.is_some() || !asked.words.is_empty(),
+            "{}",
+            s.key
+        );
+    }
+    // A folio's page is a name's own: the six do not all ask two names the same.
+    assert!(lore::SOURCES.iter().filter(|s| s.folio).any(|s| {
+        lore::ask(&w, "dave", s.key).map(|a| a.question)
+            != lore::ask(&w, "tyler", s.key).map(|a| a.question)
+    }));
+    // The Folio of Doors, answered from the doors.
+    admin(&mut w, "dave", "bring", json!(["dave", "lamp-table"]));
+    let page = ok(&mut w, "dave", "study", json!(["folio"]));
+    assert!(
+        page.summary.contains("add the level the door of"),
+        "{}",
+        page.summary
+    );
+    let n = lore::ask(&w, "dave", "doors").unwrap().number.unwrap();
+    let right = ok(&mut w, "dave", "study", json!(["folio", format!("{n}")]));
+    assert_eq!(right.result["right"], json!(true), "{}", right.summary);
+    assert_eq!(right.result["xp"], json!(30.0));
+    assert!(lore::locked(&w, "dave", "warden-charm").is_none());
+    let again = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "study",
+        json!(["folio", format!("{n}")]),
+    )
+    .unwrap_err();
+    assert!(
+        again.to_string().contains("a new page for you tomorrow"),
+        "{again}"
+    );
+    // It fades, three days from the reading.
+    w.fixed_now = Some(w.now().plus(Duration::seconds(3 * 86_400 + 60)));
+    assert!(lore::locked(&w, "dave", "commonplace").is_some());
 }

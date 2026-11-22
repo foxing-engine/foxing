@@ -2513,6 +2513,11 @@ pub fn describe_as(
         text.push(' ');
         text.push_str(&t);
     }
+    // L4: a folio chained here, or a trail's end.
+    if let Some(l) = super::lore::look_line(world, room, actor) {
+        text.push(' ');
+        text.push_str(&l);
+    }
     // L2: jests and epithets standing here, who follows whom, a challenge waiting.
     if let Some(b) = super::bard::look_line(world, room, actor) {
         text.push(' ');

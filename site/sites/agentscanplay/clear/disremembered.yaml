@@ -127,6 +127,8 @@ approved_verbs:
   raze: {params: [{name: room, type: string, required: true}]}
   entrust: {params: [{name: creature, type: entity, required: true}, {name: chunk, type: entity, required: true}, {name: line, type: text, required: false}, {name: to, type: entity, required: false}]}
   deeds: {params: []}
+  lore: {params: []}
+  study: {params: [{name: thing, type: entity, required: false}, {name: answer, type: text, required: false}]}
   repute: {params: []}
   ballad: {params: [{name: creature, type: entity, required: true}, {name: text, type: text, required: true}]}
   jest: {params: [{name: creature, type: entity, required: true}, {name: text, type: text, required: true}, {name: who, type: entity, required: true}]}

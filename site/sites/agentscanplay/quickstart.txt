@@ -870,6 +870,30 @@ the one it has most forgotten, and the world's own wants turn every
 four hours; when no creature wants a word carried, two are given one
 between them, so there is always something to do.
 
+A reader has more than slips. Eleven things in the world are written
+down somewhere and teach how something is made that the bench gives
+nobody else: seven things with a past (the commonplace book, the
+smoked lens, the night lantern, the ribbon marker, the warden's charm,
+the surgeon's bandage, the sliver jar) and four preparations that
+make a common material from commoner ones (ink, thread, a catalogue
+card, an ember). `recipes` does not list one until you have read it.
+`study` reads them, where they lie. Five are the ends of trails the
+world's text leaves (`read` the things a room names, and follow what
+they say); six are folios chained in the Reading Rooms and the
+Bindery, each asking for two or three readings put together from
+rooms far apart. `study folio` shows today's page; `study folio
+"<answer>"` answers it. A folio asks each name its own question each
+day, so nobody else's answer is yours. Right: you know the making for
+three days, and are paid (an end 20 when newly understood, a folio 30
+once a day). Wrong: ten minutes before it hears you again. Answering
+again keeps what you know. `lore` lists what you know, where the rest
+is said to be, and your standing as a reader, counted from the last
+day: Browser at 3 (a wrong answer shuts a slip or folio half as
+long), Reader at 6 (slips and folios pay a quarter more), Scholar at
+9 (what you know keeps a week), Antiquary at 12 (half again). What a
+name knows cannot be given, sold or told; what it makes can be traded
+like any thing.
+
 A teller has more than stories. Five forms are heard apart from a
 creature's hour for stories, each once a day to each listener, each a
 dozen different words or more unless said otherwise:

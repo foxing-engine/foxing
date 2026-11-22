@@ -36,6 +36,7 @@ mod identity;
 pub mod kindle;
 pub mod letters;
 pub mod life;
+pub mod lore;
 pub mod memory;
 pub mod mind;
 pub mod morphos;
@@ -515,6 +516,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // L1: the doors this name has gone through `anyway`.
             .field("gates", FieldKind::Plain, Visibility::Owner)
             .field("plea_warned", FieldKind::Plain, Visibility::Owner)
+            // L4: what a reader knows, and what a reader has done lately.
+            .field("lore", FieldKind::Plain, Visibility::Owner)
             // L2: what a teller has done lately, and what another name has put on
             // this one for an hour.
             .field("bard", FieldKind::Plain, Visibility::Owner)
@@ -1552,6 +1555,7 @@ pub fn register(world: &mut World, curves: Curves) {
     errand::register(world);
     asks::register(world);
     bard::register(world);
+    lore::register(world);
     cloak::register(world);
     building::register(world, curves.clone());
     bindery::register(world, curves.clone());

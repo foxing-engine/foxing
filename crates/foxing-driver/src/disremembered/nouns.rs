@@ -341,8 +341,12 @@ pub fn read(world: &World, actor: &str, room: EntityId, arg: &str) -> Option<Out
                 .iter()
                 .any(|n| a == *n || a.split_whitespace().any(|w| w == *n))
     })?;
+    // L4: where a trail ends here, the first reading says there is a second.
+    let further = super::lore::further(world, room, a)
+        .map(|w| format!(" (There is more to be made of this: `study {w}`.)"))
+        .unwrap_or_default();
     Some(Outcome::new(
-        line.replace("{you}", actor),
+        format!("{}{further}", line.replace("{you}", actor)),
         json!({"room": key, "read": a}),
     ))
 }

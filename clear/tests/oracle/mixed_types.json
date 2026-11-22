@@ -16,7 +16,7 @@
       "rule": "CL-I5",
       "severity": "warning",
       "where": "statement 3",
-      "message": "Verb 'close' is not an approved action verb.",
+      "message": "Verb 'close' is not an approved action verb. Nearest: lore.",
       "excerpt": "close"
     }
   ],
