@@ -111,7 +111,7 @@ pub const SOURCES: &[Source] = &[
         room: "court-of-lethe",
         words: &["seat", "seats", "m", "twelfth", "plan", "juror", "jury"],
         folio: false,
-        shown: "You turn the RESERVED card over again. Eleven blanks and an M, gone over until the pencil has shone the card. The twelfth cushion is the only one not dented: whoever sits there is not heavy, or is not there for long. Scratched under the rail in front of it, small, by somebody kept waiting through two sittings: comes twice a day, to wherever most of us are, and asks more than it answers. Who is the twelfth juror?",
+        shown: "You turn the RESERVED card over again. Eleven blanks and an M, gone over until the pencil has shone the card. The twelfth cushion is the only one not dented: whoever sits there is not heavy, or is not there for long. Scratched under the rail in front of it, small, by somebody kept waiting through two sittings: comes twice a day, to wherever most of us are, and asks more than it answers. The Docent knows everyone's hours (`tell docent \"...\"`). Who is the twelfth juror?",
         answers: &["morphos"],
         learned: "The pencilled M takes a little of the light from the lamps, as if it had been listening for its name. Morphos sits on every jury and has never once been seen to arrive, and from the twelfth seat you can see why: the glass in the rail is smoked, and through it the room has one more in it than it has. You know how a smoked lens is made.",
         rumor: "The jury box in the Courtroom has a card that is not meant to be turned over.",
@@ -360,7 +360,20 @@ pub fn standing(world: &World, name: &str) -> (usize, Vec<String>) {
             if folios == 1 { "" } else { "s" }
         ),
     );
-    add(ends.min(1), "an end understood today".to_string());
+    // (One point for any number of them at first: all five trails moved a reader
+    // one point, the Watch of 11-22 evening.)
+    add(
+        match ends {
+            0 => 0,
+            1 | 2 => 1,
+            3 | 4 => 2,
+            _ => 3,
+        },
+        format!(
+            "{ends} trail{} followed to the end today",
+            if ends == 1 { "" } else { "s" }
+        ),
+    );
     add(
         match made {
             0 => 0,
@@ -537,6 +550,27 @@ fn initial(name: &str) -> char {
         .unwrap_or('?')
 }
 
+/// The doors that say who they are for: a room with a level, entered from at least
+/// one room that has none or a lower one.
+fn shown_gates(world: &World) -> Vec<(&'static str, f64)> {
+    super::rooms::GATES
+        .iter()
+        .copied()
+        .filter(|(key, need)| {
+            let Some(room) = super::rooms::room_by_key(world, key) else {
+                return false;
+            };
+            world.store.of_kind("room").any(|e| {
+                e.owner.is_none()
+                    && super::rooms::exits_of(world, e.id)
+                        .values()
+                        .any(|to| *to == room)
+                    && super::rooms::gate_of(world, e.id).map_or(true, |g| g < *need)
+            })
+        })
+        .collect()
+}
+
 /// A folio's question for this name today, and what answers it.
 pub struct Asked {
     pub question: String,
@@ -549,7 +583,10 @@ pub struct Asked {
 
 pub fn ask(world: &World, name: &str, key: &str) -> Option<Asked> {
     let d = day(world);
-    let gates = super::rooms::GATES;
+    // Only the doors that say a level to one who walks up to them: a room entered
+    // from one as deep says nothing (the Watch of 11-22 evening was asked what "the
+    // door of The Leak says", and no door to it says anything).
+    let gates = &shown_gates(world)[..];
     match key {
         "doors" => {
             let p = picks(name, d, key, gates.len(), 2);
@@ -708,7 +745,15 @@ fn right(world: &World, name: &str, s: &Source, answer: &str) -> bool {
     let a = norm(answer);
     if !s.folio {
         let me = name.to_lowercase();
-        return s.answers.iter().any(|x| norm(x) == a) || (s.key == "ledger" && a == me);
+        // "THE 3 (PINK)" was turned away where "3 (pink)" was right.
+        let bare = |x: &str| {
+            let n = norm(x);
+            n.trim_start_matches("the ")
+                .trim_start_matches("a ")
+                .to_string()
+        };
+        let a = bare(&a);
+        return s.answers.iter().any(|x| bare(x) == a) || (s.key == "ledger" && a == me);
     }
     let Some(asked) = ask(world, name, s.key) else {
         return false;
@@ -1047,10 +1092,11 @@ pub fn register(world: &mut World) {
             let keeps = combat::human(keeps_ms(w, &name));
             Ok(Outcome::new(
                 format!(
-                    "{}{} `craft {}` is yours to make for {keeps}, and answering this again keeps it (`recipes {}` says what it asks). What you know cannot be given or told: it is yours by the reading.{}{washed}",
+                    "{}{} `craft {}` is yours to make for {keeps}, and {} (`recipes {}` says what it asks and where its makings are). What you know cannot be given or told: it is yours by the reading.{}{washed}",
                     if was_known { "Right again. " } else { "" },
                     s.learned,
                     recipe_of(s.key),
+                    if s.folio { "answering tomorrow's page, or any day's before it fades, keeps it" } else { "answering it again at any time keeps it" },
                     recipe_of(s.key),
                     match (chunk, paid) {
                         (Some(c), Some(xp)) => format!(" You remember working it out: chunk-{} worth {xp:.0} XP.", c.0),

@@ -16461,7 +16461,10 @@ fn lore_is_read_where_it_lies_and_opens_what_the_bench_will_make() {
     assert!(err.to_string().contains("not yours to make yet"), "{err}");
     let bare = ok(&mut w, "dave", "recipes", json!([]));
     assert!(
-        bare.summary.contains("11 more that the bench gives only"),
+        bare.summary.contains("And 11 that the bench gives only")
+            && bare
+                .summary
+                .contains("surgeon-bandage (a surgeon's bandage)"),
         "{}",
         bare.summary
     );

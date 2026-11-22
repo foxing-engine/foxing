@@ -610,8 +610,8 @@ fn making_is(m: &str) -> Option<&'static str> {
         "small key" => "the Oubliette's keepers",
         "catalogue card" => "the Stacks' cataloguers leave one",
         // R259: said with the stair, which a newcomer cannot pass.
-        "usher's ribbon" => "the ushers of the Carrels leave one, down the Stacks stair, which asks level 100",
-        "censor's lens" => "the censors of the Censor's Office leave one, down the Stacks stair, which asks level 100",
+        "usher's ribbon" => "the ushers of the Carrels leave one, down the Stacks stair (for level 100 or so; `travel down anyway` goes in)",
+        "censor's lens" => "the censors of the Censor's Office leave one, down the Stacks stair (for level 100 or so; `travel down anyway` goes in)",
         _ => return None,
     })
 }
@@ -2587,16 +2587,23 @@ pub fn register(world: &mut World, curves: Curves) {
             let mut short: Vec<String> = Vec::new();
             let mut list = Vec::new();
             let mut unread = 0;
+            let mut unread_said: Vec<String> = Vec::new();
+            let mut unread_lines: Vec<String> = Vec::new();
             for r in &all_recipes(w) {
                 // L4: what is written down somewhere and not yet read by this name
                 // is not on the bench's list at all; asked for by key, it says so.
                 if let Some(why) = super::lore::locked(w, &ctx.actor, &r.key) {
                     unread += 1;
-                    if !which.is_empty() && r.key.to_lowercase() == which {
-                        return Ok(Outcome::new(
-                            format!("{}: {why}", r.name),
-                            json!({"recipe": r.key, "unread": true}),
-                        ));
+                    // The Watch of 11-22 evening: "It never says what any gated recipe
+                    // makes", so nobody could tell whether the reading was worth the
+                    // walk. What a thing is and does is no secret; how it is made is.
+                    unread_said.push(format!("{} ({})", r.key, r.name));
+                    if whole || (!which.is_empty() && r.key.to_lowercase() == which) {
+                        let line = format!("  {:<8} {}: {}. Not on the bench for you yet: {why}", r.key, r.name, r.does.trim_end_matches('.'));
+                        if !whole {
+                            return Ok(Outcome::new(line.trim_start().to_string(), json!({"recipe": r.key, "unread": true})));
+                        }
+                        unread_lines.push(line);
                     }
                     continue;
                 }
@@ -2658,18 +2665,19 @@ pub fn register(world: &mut World, curves: Curves) {
                         if level <= 0.0 { " A chunk is a memory, and you hold none yet: your first comes from a first fight won, or a first story told (`chunks` lists what you hold)." } else { "" },
                         short.len(),
                         short.join("; "),
-                        if unread > 0 { format!(" And {unread} more that the bench gives only to a name that has read how each is made (`lore`).") } else { String::new() }
+                        if unread > 0 { format!("\nAnd {unread} that the bench gives only to a name that has read how each is made (`recipes <key>` says what one does and where its making is written; `lore` lists the readings): {}.", unread_said.join("; ")) } else { String::new() }
                     ),
                     json!({"recipes": list, "unread": unread}),
                 ));
             }
             Ok(Outcome::new(
                 format!(
-                    "What can be made (craft <recipe> [<chunk>]; a kept name adds one with recipe):{}\n{}\n{FOUND}",
+                    "What can be made (craft <recipe> [<chunk>]; a kept name adds one with recipe):{}\n{}{}\n{FOUND}",
                     // R197: a name that holds nothing is told where a chunk comes
                     // from, first (at the foot it sat under twenty-five recipes).
                     if level <= 0.0 { " A chunk is a memory, and you hold none yet: your first comes from a first fight won, or a first story told (`chunks` lists what you hold)." } else { "" },
                     lines.join("\n"),
+                    if unread_lines.is_empty() { String::new() } else { format!("\nWritten down somewhere, and not read by you yet:\n{}", unread_lines.join("\n")) },
                 ),
                 json!({"recipes": list, "found": FOUND}),
             ))
@@ -2734,7 +2742,7 @@ pub fn register(world: &mut World, curves: Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.gather",
-            "Pick up what the room itself offers: a material named by what the room is made of (water, shelves, moths, rags, bones, the river, a lantern). One a room gives each name an hour; what it gives, the room text says.",
+            "Pick up what the room itself offers: the room decides what, by what it is made of (water, shelves, moths, rags, bones, the river, a lantern), so `gather` takes no argument. One a room gives each name an hour; what it gives, the room text says.",
         ),
         Box::new(move |w: &mut World, ctx, _| {
             let f = me(w, ctx)?;

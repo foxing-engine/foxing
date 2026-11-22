@@ -1383,7 +1383,8 @@ fn said_way(world: &World, from: EntityId, path: &[String]) -> String {
             break;
         };
         if plain_str(world, to, ROOM, "key") == Some("lower-stacks") && step == "down" {
-            stair = " (the stair down asks a level of one hundred)";
+            stair =
+                " (the stair down is for level 100 or so, and stops nobody: `travel down anyway`)";
         }
         at = to;
     }

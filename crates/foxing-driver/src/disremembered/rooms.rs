@@ -49,7 +49,7 @@ pub const DISTRICTS: &[District] = &[
     District { name: "the Wilds", entry: "fogbank", blurb: "the fighter's road, and it goes one way: the fog, the Shallows, the Ossuary, the Gallery, the Oubliette, each door harder than the last (the Midden is off the fog, and mild)" },
     District { name: "the Library", entry: "lantern-row", blurb: "things to read and creatures to tell: the Row, the Archive, the Namery, and a lane to the Orchard that nothing hunts on, with the Court of Lethe by the back gate" },
     District { name: "the Deep Water", entry: "stairwell", blurb: "the stair under the Row, the Cistern and the Undertow, which comes up in the Shallows" },
-    District { name: "the Stacks", entry: "lower-stacks", blurb: "the library's lower floors; a level of 100 is asked at the stair, and a lantern keeps the map" },
+    District { name: "the Stacks", entry: "lower-stacks", blurb: "the library's lower floors; the stair is for level 100 or so, and a lantern keeps the map" },
     District { name: "the Clock Quarter", entry: "orchard", blurb: "the Orchard and the Stopped Clocktower over it; the Conclave sits inside the clock, `up` the Escapement from the trees; the Exergue District lies under it, past what is wound in the works; and the Wistful Trail starts north" },
     District { name: "the Conclave", entry: "escapement-stair", blurb: "the house that sets the world's rates: read its Book, lay a petition, watch a division" },
     District { name: "the Exergue District", entry: "exergue-stair", blurb: "the mint under the clock: the coinage in circulation, a bar, and a guarded Purse" },
@@ -1932,9 +1932,7 @@ pub fn describe_as(
                             Some("lantern-row") if at_door => ": read and tell",
                             Some(MUDROOM) if at_door => ": dig",
                             // H12: the stair that asks a level says so on the door.
-                            Some("lower-stacks") if from_archive => {
-                                "; the Stacks stair, a level of 100"
-                            }
+                            Some("lower-stacks") if from_archive => "; the Stacks stair",
                             _ => "",
                         };
                         // L1: a door for stronger names than the one looking says so.
