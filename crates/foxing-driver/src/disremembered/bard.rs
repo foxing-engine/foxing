@@ -746,11 +746,11 @@ const RETORTS: &[&str] = &[
 ];
 
 const APPLAUSE: &[&str] = &[
-    "\u{201c}Well sung,\u{201d} it says, \u{201c}and nearly true, which is the better part of a ballad.\u{201d}",
-    "It beats time a bar late and is pleased with itself for keeping up.",
-    "\u{201c}Again, another day,\u{201d} it says. \u{201c}The pit has had its penny's worth.\u{201d}",
-    "It laughs where it should not and is silent where it should laugh: a very fair house.",
-    "\u{201c}I'll have that by heart ere the candle's out,\u{201d} it says, and has half of it already wrong.",
+    "Well sung, and nearly true, which is the better part of it.",
+    "Again, another day. The pit has had its penny's worth.",
+    "I'll have that by heart ere the candle's out, and half of it wrong by morning.",
+    "A fair house would have laughed sooner. I am a fair house; I was saving it.",
+    "Marry, that was worth standing for, and I have no legs to speak of.",
 ];
 
 fn clap(world: &mut World) -> &'static str {
@@ -1027,7 +1027,7 @@ pub fn register(world: &mut World) {
                 )));
             };
             let (earned, paid, known) = pay(w, &ctx.actor, "eulogy", &t, 1.5, &format!("a eulogy for {mourned} spoken to {}", t.name))?;
-            super::talk::speak(w, t.creature, &ctx.actor, "It takes off a hat it was not wearing. \u{201c}Well. They are remembered a while longer for that, and a while is all there is.\u{201d}")?;
+            super::talk::speak(w, t.creature, &ctx.actor, "Well. They are remembered a while longer for that, and a while is all there is.")?;
             note(w, &ctx.actor, json!({"by": ctx.actor, "what": "eulogy", "to": t.name, "for": mourned, "paid": paid}));
             Ok(Outcome::new(
                 format!(
@@ -1164,7 +1164,7 @@ pub fn register(world: &mut World) {
             did(w, &ctx.actor, &key);
             did(w, &ctx.actor, "flyting");
             w.note(Actor::Citizen(ctx.actor.clone()), super::speech::SAY, json!({"from": ctx.actor, "room": here.0, "to": name, "text": line})).map_err(internal)?;
-            super::talk::speak(w, creature, &ctx.actor, &format!("\u{201c}{retort}\u{201d}"))?;
+            super::talk::speak(w, creature, &ctx.actor, retort)?;
             mind::met(w, creature, &ctx.actor)?;
             let won = mine > its;
             note(w, &ctx.actor, json!({"by": ctx.actor, "what": "flyting", "against": name, "won": won, "mine": mine, "theirs": its}));
