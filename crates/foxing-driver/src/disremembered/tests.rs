@@ -4619,7 +4619,7 @@ fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
     ok(&mut w, "dave", "travel", json!(["south"]));
     let midden = rooms::room_by_key(&w, "midden").unwrap();
     let mut thread = false;
-    let mut seed = 300u64;
+    let mut seed = 305u64;
     while !thread && seed < 600 {
         w.seed(seed);
         seed += 1;
@@ -4667,6 +4667,8 @@ fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
         }
     }
     assert!(thread);
+    // Its last shove may have put dave through a door as it came apart.
+    admin(&mut w, "dave", "bring", json!(["dave", "midden"]));
     ok(&mut w, "dave", "take", json!(["rag thread"]));
     // A lantern: the materials and a chunk worth ten. Too small a chunk is refused.
     let small = admin(&mut w, "dave", "earn", json!(["moth", 4, 0.5]));

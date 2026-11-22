@@ -595,6 +595,7 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // Antics: when a stroller set out; a walker's place on its round.
             .field("stroll_at", FieldKind::Plain, Visibility::Public)
             .field("route_i", FieldKind::Plain, Visibility::Public)
+            .field("said_i", FieldKind::Plain, Visibility::Public)
             .field("moved_at", FieldKind::Plain, Visibility::Public)
             // D34: when a starfish's last arm was cut or grew; the next is twenty
             // minutes after.

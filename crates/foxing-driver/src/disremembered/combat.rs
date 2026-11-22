@@ -1954,7 +1954,15 @@ pub fn sized_up(
     let (_, rounds, stand, c) = worst;
     let who = match super::mind::name(world, c.0) {
         Some(n) => n,
-        None => format!("a {}", c.1),
+        None => format!(
+            "{} {}",
+            if c.1.starts_with(['a', 'e', 'i', 'o', 'u']) {
+                "an"
+            } else {
+                "a"
+            },
+            c.1
+        ),
     };
     let verdict = if rounds + 1.0 < stand {
         "yours, if nothing joins it"
@@ -1966,6 +1974,38 @@ pub fn sized_up(
     Some(format!(
         "Sized up, as you stand now: {who} would take about {rounds:.0} of your blows, misses counted, and about {stand:.0} of its would fell you ({verdict})"
     ))
+}
+
+/// The fight you are in, sized up as it stands: what is left of it against what is
+/// left of you.
+pub fn sized_up_fight(world: &World, citizen: EntityId, window: EntityId) -> Option<String> {
+    let c = engaged_with(world, citizen)?;
+    let (rounds, stand) = size_up(world, citizen, window, c);
+    let who = match super::mind::name(world, c) {
+        Some(n) => n,
+        None => format!(
+            "the {}",
+            plain_str(world, c, CREATURE, "name").unwrap_or("thing")
+        ),
+    };
+    let verdict = if rounds + 1.0 < stand {
+        "yours, if nothing joins it"
+    } else if rounds <= stand + 1.0 {
+        "close: it could go either way"
+    } else {
+        "not yours as you stand: `retreat`, then `travel` out at once"
+    };
+    Some(format!(
+        "Sized up, as the fight stands: {who} would take about {rounds:.0} more of your blows, misses counted, and about {stand:.0} more of its would fell you ({verdict})"
+    ))
+}
+
+/// Something that hunts, awake, in this room: the first such.
+pub fn hunter_in(world: &World, room: EntityId) -> Option<(EntityId, String)> {
+    creatures_in(world, room)
+        .into_iter()
+        .find(|c| is_aggressive(world, c.0) && !super::mind::shaken(world, c.0))
+        .map(|c| (c.0, c.1))
 }
 
 pub fn attack_for_level(level: f64) -> f64 {
@@ -3473,7 +3513,20 @@ pub fn register(world: &mut World, curves: Curves) {
                     String::new()
                 }
             };
-            Ok(noted(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}{}. You have {:.0}/{:.0}.{mended}{venom}{second}", strike_notes(), hp_said(w, f.citizen), max_hp(w, f.citizen)), json!({"died": false, "hp": hp(w, f.citizen), "venom_left": venom_left}))))
+            // The Watch of 11-21: a name broke off in the Oubliette, was told to `rest`
+            // there by two replies, and was felled on the third rest.
+            let still = if is_aggressive(w, creature) && chp_now > 0.0 {
+                let ways = super::rooms::room_of(w, f.citizen)
+                    .map(|r| super::rooms::exits_of(w, r).keys().cloned().collect::<Vec<_>>())
+                    .unwrap_or_default();
+                format!(
+                    " It hunts this room and will be on you again in seconds: you are out of the fight, not out of its reach. Walk now (`travel {}`); `rest` here will not hold.",
+                    ways.first().cloned().unwrap_or_else(|| "<exit>".into())
+                )
+            } else {
+                String::new()
+            };
+            Ok(noted(Outcome::new(format!("You back away from the {cname}; it catches you once for {taken:.0}{}. You have {:.0}/{:.0}.{still}{mended}{venom}{second}", strike_notes(), hp_said(w, f.citizen), max_hp(w, f.citizen)), json!({"died": false, "hp": hp(w, f.citizen), "venom_left": venom_left}))))
         }),
     );
 
@@ -3542,7 +3595,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 _ if current < max_hp(w, f.citizen) - 0.5 && super::tide::under(w, f.citizen) => format!("{bandaged}You have {current:.0}/{:.0}. Nothing mends under water: get above it (the Wrack Line is always dry), and it starts.", max_hp(w, f.citizen)),
                 _ if current < max_hp(w, f.citizen) - 0.5 && bleeding.is_some() => format!("{bandaged}You have {current:.0}/{:.0}. You are bleeding: nothing mends for {} more.", max_hp(w, f.citizen), human((bleeding.unwrap() as i64) - now.0)),
                 // R56: whole within a half point is whole; the eta rounded up past it.
-                Some(d) if d.0 > 0 && current < max_hp(w, f.citizen) - 0.5 => format!("{bandaged}You have {current:.0}/{:.0}. Full in {}.", max_hp(w, f.citizen), human(d.0)),
+                Some(d) if d.0 > 0 && current < max_hp(w, f.citizen) - 0.5 => format!("{bandaged}You have {current:.0}/{:.0}. Full in {}.{}", max_hp(w, f.citizen), human(d.0), match super::rooms::room_of(w, f.citizen).and_then(|r| hunter_in(w, r)) { Some((_, k)) if !sheltered(w, f.citizen) => format!(" Not here, though: the {k} hunts this room and will be on you before that. `travel` out first."), _ => String::new() }),
                 _ => format!("{bandaged}You have {current:.0}/{:.0}. You are whole.", max_hp(w, f.citizen)),
             };
             // R48: one line with hp, level and what you hit for.

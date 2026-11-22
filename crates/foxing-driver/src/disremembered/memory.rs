@@ -490,7 +490,7 @@ pub fn register(world: &mut World, curves: Curves) {
 
     let c = curves.clone();
     world.register(
-        CommandSpec::new("disremembered.shelve", "Move a chunk from your window into your palace, where it fades slower and counts for nothing. A kept name's verb.")
+        CommandSpec::new("disremembered.shelve", "Move a chunk from your window into your palace, where it fades slower and counts for nothing. Not a safe: a fall takes its share from the palace as from the window. A kept name's verb.")
             .param("chunk", ParamType::Entity, true, "a chunk in your window"),
         Box::new(move |w: &mut World, ctx, args: &Args| {
             super::kept_only(w, ctx, "shelve")?;

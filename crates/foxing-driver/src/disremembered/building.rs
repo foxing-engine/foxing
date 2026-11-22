@@ -703,7 +703,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.dig",
-            "A kept name's verb: a passing name sends `keep` first (every name is kept unless it asked to be passing at the gate; the play page's names are kept). Open a new room off this one, through a new exit, paid for with one of your chunks: the room is born with that memory's half-life and fades unless visited. Not at the Threshold: the Mudroom, west of it, is where the digging starts, and takes any number of doors. From each of the world's other rooms (the seed rooms) once; from your own, as you like. Every room but the Mudroom takes eight doors in all, and `look` says how many are left where some were dug.",
+            "A kept name's verb: a passing name sends `keep` first (every name is kept unless it asked to be passing at the gate; the play page's names are kept). Open a new room off this one, through a new exit, paid for with one of your chunks: the room is born with that memory's half-life and fades unless visited. Not at the Threshold: the Mudroom, west of it, is where the digging starts, and takes any number of doors, one from each name. From each of the world's other rooms (the seed rooms) once too; from your own, as you like. Every room but the Mudroom takes eight doors in all, and `look` says how many are left where some were dug.",
         )
         .param("exit", ParamType::String, true, "the new exit's name, not one this room has")
         .param("chunk", ParamType::Entity, true, "a chunk of yours; it is spent")
@@ -755,7 +755,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
                     // L3: a Steward's renown opens a second door off a seed room.
                     if dug_from(w, &ctx.actor, here) >= super::tending::seed_doors(w, &ctx.actor) {
                         return Err(CommandError::precondition(
-                            "You have already dug from this room; the seed rooms take one exit each from a citizen. Dig on from your own.",
+                            "You have already dug from this room: the world's own rooms, the Mudroom among them, take one door from each name (the Mudroom any number of names; a Steward's renown, two doors). Dig on from your own room, as often as you like.",
                         ));
                     }
                 } else if owner.as_deref() != Some(ctx.actor.as_str()) {
@@ -1179,7 +1179,15 @@ pub fn register(world: &mut World, curves: super::Curves) {
             // Exergue's plaque, a visitor book): `append "…"` alone, as the play
             // page starts it, was refused as an edit of the world's own room.
             let named = args.str("object").filter(|s| !s.trim().is_empty()).map(str::to_string);
-            let standing = if named.is_none() && may_append(w, ctx, here).is_err() {
+            // A visitor's line goes in the book too where the keeper has welcomed all:
+            // one written "in thanks" landed in the room's own description for good
+            // (the Watch of 11-21). The owner's bare `append` is still the room's.
+            let owner_here = w
+                .store
+                .entity(here)
+                .and_then(|e| e.owner.clone())
+                .is_some_and(|o| o == ctx.actor);
+            let standing = if named.is_none() && (!owner_here || may_append(w, ctx, here).is_err()) {
                 let takes: Vec<EntityId> = w
                     .store
                     .children(here)

@@ -1360,8 +1360,16 @@ fn rejection(result: &CheckResult, report: &mut Report) {
             .iter()
             .filter_map(|s| s.verb.as_deref())
             .any(|v| WAYS.contains(&v));
+        let carried = result
+            .message
+            .statements
+            .iter()
+            .filter_map(|s| s.verb.as_deref())
+            .any(|v| v == "inventory" || v == "inv");
         report.fact(
-            if way {
+            if carried {
+                "What you carry is `satchel`; the `commands` tool lists every verb"
+            } else if way {
                 "The verb for moving is `travel`, as in `travel north`; the `commands` tool lists every verb"
             } else {
                 "The `commands` tool lists the verbs this world runs"

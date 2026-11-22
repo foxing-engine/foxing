@@ -398,13 +398,31 @@ pub fn act_in(world: &mut World, room: EntityId) -> Result<bool, String> {
             return Ok(true);
         }
     }
+    // Not the line it said last: the tinker said one four times in an hour.
     let table = lines(&kind);
-    let line = table[world.roll(table.len() as u32) as usize];
+    let last = plain_num(world, c, CREATURE, "said_i").map(|n| n as usize);
+    let mut i = world.roll(table.len() as u32) as usize;
+    if Some(i) == last && table.len() > 1 {
+        i = (i + 1 + world.roll(table.len() as u32 - 1) as usize) % table.len();
+    }
+    set(world, c, "said_i", json!(i))?;
+    let line = table[i];
     let said = cap(&line.replace("{who}", &me).replace("{you}", &you));
     super::combat::narrate_room(world, c, &said);
     note(world, c, room, "idle");
     Ok(true)
 }
+
+/// How a walker leaves a room: one line said of four characters wore out in an hour
+/// (the Watch of 11-21).
+const GOES: &[&str] = &[
+    "{who} looks at the time, though there is no clock, and goes on toward {to}.",
+    "{who} remembers somewhere else it is supposed to be, and goes: {to}, by the look of it.",
+    "{who} is finished here, by some reckoning of its own, and sets off for {to}.",
+    "{who} nods to the room in general and leaves it for {to}.",
+    "{who} gathers itself up and is gone toward {to} before anyone can ask.",
+    "{who} checks the door, finds it a door, and goes through it toward {to}.",
+];
 
 fn move_to(world: &mut World, c: EntityId, to: EntityId) -> Result<(), String> {
     world
@@ -613,14 +631,10 @@ pub fn walkers(world: &mut World) -> Result<usize, String> {
             continue;
         };
         let me = cap(&who(world, c));
-        super::combat::narrate_room(
-            world,
-            c,
-            &format!(
-                "{me} looks at the time, though there is no clock, and goes on toward {}.",
-                room_name(world, to)
-            ),
-        );
+        let goes = GOES[world.roll(GOES.len() as u32) as usize]
+            .replace("{who}", &me)
+            .replace("{to}", &room_name(world, to));
+        super::combat::narrate_room(world, c, &goes);
         move_to(world, c, to)?;
         set(world, c, "route_i", json!(i))?;
         set(world, c, "moved_at", json!(now))?;

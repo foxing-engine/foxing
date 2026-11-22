@@ -2443,6 +2443,11 @@ pub fn describe_as(
                 if let Some(s) = super::combat::sized_up(world, f.citizen, f.window, room) {
                     text.push_str(&format!(" {s}."));
                 }
+            } else if let Some(s) = super::combat::sized_up_fight(world, f.citizen, f.window) {
+                // The Watch of 11-21: the Gallery and the Oubliette fall on a name as
+                // it comes in, so the one line that says how the fight goes never showed
+                // in the two rooms where it matters most.
+                text.push_str(&format!(" {s}."));
             }
         }
         // R254: the Reading Rooms' rule, in the room, before the first blow (one
@@ -2945,7 +2950,10 @@ pub fn register(world: &mut World) {
                 let hunter = super::combat::creatures_in(w, to)
                     .into_iter()
                     .find(|c| super::combat::is_aggressive(w, c.0) && !super::mind::shaken(w, c.0));
-                if let Some(h) = hunter.filter(|_| hp < whole / 3.0) {
+                // Not when what you stand in hunts too: "`rest` here first" was said
+                // to a name fleeing the Oubliette with the keeper behind it.
+                let fleeing = super::combat::hunter_in(w, room).is_some();
+                if let Some(h) = hunter.filter(|_| hp < whole / 3.0 && !fleeing) {
                     return Err(foxing_registry::CommandError::precondition(format!(
                         "You have {hp:.0} of {whole:.0}, and something hunts in {}: {} is in there now and will be on you as you come in. `rest` here first, or `travel {exit} anyway` to go in all the same.",
                         plain_str(w, to, ROOM, "name").unwrap_or("there"),

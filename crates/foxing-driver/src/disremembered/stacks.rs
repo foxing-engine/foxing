@@ -801,9 +801,27 @@ fn play(
                 TRICK,
                 json!({"trick": "shoved", "creature": creature.0, "kind": kind, "citizen": actor, "to": to.0, "room_name": rname, "via": via}),
             );
+            // The Watch of 11-21: the shove put a name past a door that says a level
+            // with none of the door's words.
+            let door = match (
+                super::rooms::gate_of(world, to),
+                super::find_citizen(world, actor),
+            ) {
+                (Some(need), Some(f)) => {
+                    let level = super::memory::level(world, f.window);
+                    if level < need {
+                        format!(
+                            " It is for names of about level {need:.0}, and you hold {level:.0}: `look` sizes up what is here, and the way you came is the way out."
+                        )
+                    } else {
+                        String::new()
+                    }
+                }
+                _ => String::new(),
+            };
             Ok((
                 Some(format!(
-                    "The {kind} shoves you {via}, and the door does the rest. You are in {rname}."
+                    "The {kind} shoves you {via}, and the door does the rest. You are in {rname}.{door}"
                 )),
                 true,
             ))
