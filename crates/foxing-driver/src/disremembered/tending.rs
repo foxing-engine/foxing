@@ -192,7 +192,7 @@ pub fn line(world: &World, room: EntityId, actor: &str) -> Option<String> {
                 .map(|k| match *k {
                     "glowworm" => "by the glowworm's light your strikes land nine in ten for ten minutes after you leave",
                     "mender" => "the mender mends a body here three times as fast",
-                    _ => "the porter leaves a making here each day",
+                    _ => "the porter leaves a making here each day (UTC), when fewer than three loose things lie on the floor",
                 })
                 .collect::<Vec<_>>()
                 .join("; ")

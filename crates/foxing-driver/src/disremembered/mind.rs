@@ -643,6 +643,26 @@ pub fn take(
     let mut changes = BTreeMap::new();
     changes.insert("shaken_until".into(), Field::Plain(json!(until)));
     set_mind(world, Actor::Citizen(killer.to_string()), creature, changes)?;
+    // R263: whoever keeps it hears of it (a keeper learned from `session` that a
+    // creature of theirs had been felled twice).
+    if let Some(n) = name(world, creature) {
+        let where_ = room
+            .and_then(|r| plain_str(world, r, super::ROOM, "name"))
+            .unwrap_or("somewhere")
+            .to_string();
+        for k in keepers(world, creature) {
+            if k != killer {
+                super::combat::narrate(
+                    world,
+                    &k,
+                    format!(
+                        "{killer} has felled {n}, whom you keep, in {where_}. It lies shaken for {}, and has lost a memory to them; a `eulogy` that names it, spoken to any named creature, rouses it in half the time.",
+                        super::combat::human(secs * 1000)
+                    ),
+                );
+            }
+        }
+    }
     let max = plain_num(world, creature, CREATURE, "max_hp").unwrap_or(1.0);
     world
         .record(

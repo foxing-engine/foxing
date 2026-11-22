@@ -1656,6 +1656,13 @@ pub(crate) fn resolve_item(
                         .trim_start_matches("an "),
                     super::combat::human(world.now().0 - e.at.0)
                 )),
+                // R263: `read lamplighter` said there was none while `look` listed one.
+                None if super::mind::find_here(world, within, bare).is_some() =>
+                {
+                    CommandError::precondition(format!(
+                        "The {bare} is here, and is not a thing to read: `look` says what it is and does, and `tell {bare} \"...\"` speaks to it."
+                    ))
+                }
                 None => CommandError::precondition(format!("There is no {bare} here to speak of.")),
             }
         })

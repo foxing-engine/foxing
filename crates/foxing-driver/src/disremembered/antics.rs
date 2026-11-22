@@ -208,7 +208,7 @@ fn lines(kind: &str) -> &'static [&'static str] {
             "{who} counts the lamps it has passed on its fingers and frowns at the answer.",
         ],
         "runner" => &[
-            "{who} checks the top letter in its bag against {you}'s face, sighs, and puts it back.",
+            "{who} checks the label on its empty bag against {you}'s face, sighs, and folds it again.",
             "{who} stops, pats every pocket in turn, finds what it was looking for in its hand, and runs on the spot until it remembers which way.",
             "{who} reads an envelope held up to the light, catches {you} watching, and holds it against its chest.",
         ],
@@ -411,6 +411,46 @@ pub fn act_in(world: &mut World, room: EntityId) -> Result<bool, String> {
     super::combat::narrate_room(world, c, &said);
     note(world, c, room, "idle");
     Ok(true)
+}
+
+/// What a walker or a resident says when spoken to: its own business, never the
+/// question's (R263).
+pub fn answers(world: &mut World, kind: &str) -> Option<&'static str> {
+    let table: &[&str] = match kind {
+        "lamplighter" => &[
+            "The last lamp is whichever one I am furthest from. It has always been so.",
+            "I light them. Who puts them out is a matter I have raised, in writing.",
+            "Mind the ladder. There is no ladder; mind it anyway.",
+        ],
+        "runner" => &[
+            "Can't stop. Nothing to deliver, and I am late with it.",
+            "Write to somebody! Anybody! The Dead Letter Office takes what has nowhere to go.",
+            "If it's for you I'd have said. It isn't. Nothing is.",
+        ],
+        "tinker" => &[
+            "That'll hold. Don't lean on it.",
+            "I mend what's brought. What's brought is mostly opinions.",
+            "It wasn't broken when I came, and it is mended now, and that's two different things.",
+        ],
+        "census taker" => &[
+            "One of you. I had you down as one already, so that is none new.",
+            "Stand still, please. You count the same moving, but it is harder to be sure.",
+            "I am always one short. I have begun to suspect it is me.",
+        ],
+        "glowworm" => {
+            &["It brightens a little, which is all the answer it has, and not a bad one."]
+        }
+        "mender" => &[
+            "Hold still and it's done sooner. That goes for most things.",
+            "Sit. Whatever it was will keep, and you won't.",
+        ],
+        "porter" => &[
+            "Left it by the door. Leave it there, or don't; it's yours now.",
+            "One a day, when the floor isn't already full of things nobody picked up.",
+        ],
+        _ => return None,
+    };
+    Some(table[world.roll(table.len() as u32) as usize])
 }
 
 /// How a walker leaves a room: one line said of four characters wore out in an hour

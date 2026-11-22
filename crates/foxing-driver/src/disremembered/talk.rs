@@ -210,6 +210,16 @@ pub fn register(world: &mut World) {
                             json!({"to": name, "text": text, "answered": false, "knows_you": true}),
                         ));
                     }
+                    // R263: the walkers and the residents have no name and no ear for
+                    // a story, and a word to say all the same (the Watch of 11-21:
+                    // "which lamp do you light last?" got "It is only a lamplighter").
+                    if let Some(said) = super::antics::answers(w, &name) {
+                        speak_to(w, creature, &ctx.actor, said, false)?;
+                        return Ok(Outcome::new(
+                            format!("You say to the {name}, \"{text}\" The {name} says, \"{said}\" (It has its own business and no name: it will not hear a story or carry a word, and it answers as it pleases.)"),
+                            json!({"to": name, "text": text, "answered": true, "canned": true}),
+                        ));
+                    }
                     // R43: how one gets a name, in the same breath.
                     return Ok(Outcome::new(
                         format!("You say to the {name}, \"{text}\" It does not understand you. It is only {}; it {}. Only a named creature answers: feed one to sixty (`remember <chunk> {name}`) and it has a name and an ear.", super::mind::an(&name), super::mind::goes_on(&name)),

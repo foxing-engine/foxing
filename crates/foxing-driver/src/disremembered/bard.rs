@@ -780,6 +780,41 @@ fn strike_marks(world: &mut World, on: &str, by: &str) -> Vec<&'static str> {
     struck
 }
 
+/// An operator strikes whatever stands on a name or a named creature.
+pub fn unmark(world: &mut World, who: &str) -> Result<Vec<String>, String> {
+    let mut struck = Vec::new();
+    if let Some(n) = super::canonical_name(world, who) {
+        for key in ["jest", "epithet", "flyte"] {
+            if let Some(v) = citizen_field(world, &n, key) {
+                set_citizen(world, &n, key, Value::Null).map_err(|e| format!("{e:?}"))?;
+                struck.push(format!(
+                    "{key} by {} (\u{201c}{}\u{201d})",
+                    v["by"].as_str().unwrap_or("?"),
+                    v["text"].as_str().or(v["line"].as_str()).unwrap_or("")
+                ));
+            }
+        }
+        let _ = world.note(
+            Actor::Driver,
+            MARKED,
+            json!({"by": "the house", "on": n, "what": "struck", "text": struck.join("; ")}),
+        );
+        return Ok(struck);
+    }
+    let Some((c, _)) = mind::find_named(world, who) else {
+        return Err(format!("Nobody and nothing named is called {who}."));
+    };
+    if let Some(v) = creature_field(world, c, "epithet") {
+        set_creature(world, c, "epithet", Value::Null).map_err(|e| format!("{e:?}"))?;
+        struck.push(format!(
+            "epithet by {} (\u{201c}{}\u{201d})",
+            v["by"].as_str().unwrap_or("?"),
+            v["text"].as_str().unwrap_or("")
+        ));
+    }
+    Ok(struck)
+}
+
 pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(

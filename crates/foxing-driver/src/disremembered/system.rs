@@ -723,6 +723,27 @@ pub(crate) fn raze_room(
 fn register_rest(world: &mut World) {
     world.register(
         CommandSpec::new(
+            "disremembered.unmark",
+            "Admin: strike what a teller has put on a name or a named creature: the jest, the epithet, and any flyting waiting on them. Moderation's hand for L2's marks.",
+        )
+        .param("who", ParamType::Entity, true, "a citizen's name, or a named creature's")
+        .allowed(&[ActorKind::Admin]),
+        Box::new(|w: &mut World, _, args: &Args| {
+            let who = args.str("who").unwrap_or_default().trim().to_string();
+            let struck = super::bard::unmark(w, &who).map_err(CommandError::precondition)?;
+            Ok(Outcome::new(
+                if struck.is_empty() {
+                    format!("{who} wears nothing to strike.")
+                } else {
+                    format!("Struck from {who}: {}.", struck.join(", "))
+                },
+                json!({"who": who, "struck": struck}),
+            ))
+        }),
+    );
+
+    world.register(
+        CommandSpec::new(
             "disremembered.bring",
             "Admin: bring a creature, or a citizen, to a room by the room's key. A creature: the room is told something came in and the record says it wandered. A citizen: they arrive there as if they had walked in, and are told the world moved them.",
         )

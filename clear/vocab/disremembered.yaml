@@ -116,6 +116,7 @@ approved_verbs:
   thaw: {params: []}
   forget: {params: [{name: name, type: string, required: true}]}
   bring: {params: [{name: creature, type: entity, required: true}, {name: room, type: string, required: true}]}
+  unmark: {params: [{name: who, type: entity, required: true}]}
   statutes: {params: []}
   petition: {params: [{name: text, type: text, required: false}]}
   petitions: {params: []}

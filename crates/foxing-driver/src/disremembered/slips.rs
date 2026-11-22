@@ -392,7 +392,9 @@ fn ask(world: &World, actor: &str, f: &Found, slip: &Slip, here: EntityId) -> As
             "A reader asks: some pigeonholes are empty because their slips are being worn. How many creatures in the world wear a name tonight?".to_string(),
             "the register in the Mintmark Hall under the clock counts them; `wants` names them one by one",
             named_creatures(world).len() as f64,
-            0.0,
+            // R263: names are given and lost while a reader walks back with the
+            // count (two in ten minutes turned a right 5 into a lock).
+            2.0,
         ),
         // The Deep Water: a figure that will not keep.
         "stairwell" => Asked::figure(
