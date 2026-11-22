@@ -16102,3 +16102,220 @@ fn creatures_that_do_not_hunt_have_antics_strolls_and_rounds() {
     assert_eq!(w.store.entity(c).unwrap().parent, Some(home));
     assert!(plain_num(&w, c, CREATURE, "stroll_at").is_none());
 }
+
+/// L2: the teller's forms, standing, marks and the recourse against them.
+#[test]
+fn a_teller_has_five_forms_a_standing_and_marks_that_can_be_struck() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(1_000_000));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let (a, b) = two_named(&mut w, "dave");
+    let (an, bn) = (mind::name(&w, a).unwrap(), mind::name(&w, b).unwrap());
+    admin(&mut w, "tyler", "bring", json!(["tyler", "fogbank"]));
+    // Both past the world's leave, so a mark may stand on either.
+    for n in ["dave", "tyler"] {
+        admin(&mut w, n, "earn", json!(["wisp", 150, 0.9]));
+        ok(&mut w, n, "look", json!([]));
+    }
+    // A deed: dave fells an unnamed wisp.
+    let here = rooms::room_by_key(&w, "fogbank").unwrap();
+    let prey = combat::spawn_one(&mut w, here, combat::def_by_key("wisp").unwrap()).unwrap();
+    for _ in 0..40 {
+        let o = ok(
+            &mut w,
+            "dave",
+            "attack",
+            json!([format!("creature-{}", prey.0)]),
+        );
+        if o.result["killed"] == json!(true) {
+            break;
+        }
+    }
+    let d = ok(&mut w, "tyler", "deeds", json!([]));
+    assert!(d.summary.contains("dave felled a wisp"), "{}", d.summary);
+    // A ballad wants the deed named.
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "ballad",
+        json!([an, "There was a quiet morning once and nothing at all happened in it, which was the whole of its charm."]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("`deeds` lists"), "{err}");
+    let o = ok(
+        &mut w,
+        "tyler",
+        "ballad",
+        json!([an, "Sing of dave, who met a wisp in the fog and struck it thrice before the kettle had boiled, and went home early."]),
+    );
+    assert!(o.summary.contains("the ballad of dave"), "{}", o.summary);
+    assert!(o.summary.contains("dave keeps a little"), "{}", o.summary);
+    // One of a form a day to a listener.
+    let err = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "ballad",
+        json!([an, "Sing again of dave, who met a wisp in the fog and struck it thrice before the kettle had boiled over."]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("has had a ballad of you today"),
+        "{err}"
+    );
+    // A jest stands on its butt, and `look` shows it.
+    let o = ok(
+        &mut w,
+        "tyler",
+        "jest",
+        json!([bn, "They say dave once lost an argument with a door, and the door has been insufferable about it ever since.", "dave"]),
+    );
+    assert!(
+        o.summary.contains("stands on dave for an hour"),
+        "{}",
+        o.summary
+    );
+    let l = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        l.summary.contains("A jest of tyler's stands on you"),
+        "{}",
+        l.summary
+    );
+    // Two forms in a day is a point; with enough else a title. Standing is read.
+    let r = ok(&mut w, "tyler", "repute", json!([]));
+    assert!(
+        r.summary.contains("2 of the five forms told today"),
+        "{}",
+        r.summary
+    );
+    // The recourse: dave flytes tyler until the jest is struck (the dice are in it).
+    let mut struck = false;
+    for i in 0..30 {
+        w.seed(900 + i);
+        let o = ok(
+            &mut w,
+            "dave",
+            "flyting",
+            json!(["tyler", "tyler, thou tottering tin-tongued teller of tired trifles, thy best jest borrowed breath from better men"]),
+        );
+        if o.result["won"] == json!(true) {
+            assert!(o.summary.contains("Struck: their jest"), "{}", o.summary);
+            struck = true;
+            break;
+        }
+    }
+    assert!(struck);
+    let l = ok(&mut w, "dave", "look", json!([]));
+    assert!(!l.summary.contains("A jest of tyler's"), "{}", l.summary);
+    // A challenge to a face, and its answer.
+    let o = ok(
+        &mut w,
+        "tyler",
+        "flyting",
+        json!(["dave", "dave, thou damp and dithering door-loser"]),
+    );
+    assert_eq!(o.result["challenge"], json!(true));
+    let l = ok(&mut w, "dave", "look", json!([]));
+    assert!(l.summary.contains("tyler has flyted you"), "{}", l.summary);
+    let o = ok(
+        &mut w,
+        "dave",
+        "flyting",
+        json!([
+            "tyler",
+            "tyler, thy tongue trots where thy wit will not walk"
+        ]),
+    );
+    assert!(o.result["won"].is_boolean(), "{}", o.summary);
+    // A creature answers a flyting, once an hour.
+    let o = ok(
+        &mut w,
+        "tyler",
+        "flyting",
+        json!([
+            an,
+            format!("{an}, thou art a fog that forgot its own weather")
+        ]),
+    );
+    assert!(o.result["won"].is_boolean());
+    assert!(call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "flyting",
+        json!([an, "and another thing, thou vapor"])
+    )
+    .is_err());
+    // Dubbing and coaxing want standing.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "dub",
+        json!(["tyler", "the Tin-Tongued"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("A name sticks when a Player gives it"),
+        "{err}"
+    );
+    // Given standing (the tally written as the forms write it), both open.
+    for what in [
+        "want", "want", "want", "want", "carried", "word", "eulogy", "ballad", "jest", "flyting",
+    ] {
+        bard::did(&mut w, "dave", what);
+    }
+    assert!(
+        bard::rung(&w, "dave") >= 2,
+        "{:?}",
+        bard::standing(&w, "dave")
+    );
+    let o = ok(&mut w, "dave", "dub", json!(["tyler", "the Tin-Tongued"]));
+    assert!(
+        o.summary
+            .contains("tyler is \u{201c}the Tin-Tongued\u{201d}"),
+        "{}",
+        o.summary
+    );
+    let l = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        l.summary
+            .contains("\u{201c}the Tin-Tongued\u{201d} (dave's name for them)"),
+        "{}",
+        l.summary
+    );
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "dub",
+        json!([an, "the Damp"])
+    )
+    .is_err());
+    // Coaxed to follow, a creature comes along (the odds are tried until it is).
+    let mut follows = false;
+    for i in 0..40 {
+        w.seed(2000 + i);
+        w.fixed_now = Some(w.now().plus(Duration::seconds(301)));
+        let Ok(o) = call(
+            &mut w,
+            "dave",
+            ActorKind::Citizen,
+            "coax",
+            json!([an, "follow"]),
+        ) else {
+            continue;
+        };
+        if o.result["moved"] == json!(true) {
+            follows = true;
+            break;
+        }
+    }
+    if follows && mind::name(&w, a).is_some() {
+        ok(&mut w, "dave", "travel", json!(["west"]));
+        let door = rooms::arrival(&w).unwrap();
+        assert_eq!(w.store.entity(a).unwrap().parent, Some(door));
+    }
+}

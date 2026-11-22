@@ -2513,6 +2513,11 @@ pub fn describe_as(
         text.push(' ');
         text.push_str(&t);
     }
+    // L2: jests and epithets standing here, who follows whom, a challenge waiting.
+    if let Some(b) = super::bard::look_line(world, room, actor) {
+        text.push(' ');
+        text.push_str(&b);
+    }
     if let Some(t) = super::court::look_line(world, room) {
         text.push(' ');
         text.push_str(&t);
@@ -2581,6 +2586,14 @@ pub fn describe_as(
                     None => said,
                 }
             })
+            // L2: and a teller by theirs, and by what another has dubbed them.
+            .zip(others.iter())
+            .map(
+                |(said, n)| match super::bard::styled(world, n.split(" (").next().unwrap_or(n)) {
+                    Some(s) => format!("{said}{s}"),
+                    None => said,
+                },
+            )
             .collect();
         let shown = &inked[..inked.len().min(super::NAMES_SHOWN)];
         match others.len() - shown.len() {
@@ -2986,6 +2999,10 @@ pub fn register(world: &mut World) {
             super::building::came_through(w, to, &ctx.actor).map_err(internal)?;
             // L3: a glowworm's light, and a first visit of the day to a tended room.
             if let Some(said) = super::tending::on_arrival(w, &ctx.actor, f.citizen, f.window, to).map_err(internal)? {
+                super::combat::narrate(w, &ctx.actor, said);
+            }
+            // L2: what was coaxed into following comes too.
+            if let Some(said) = super::bard::on_arrival(w, &ctx.actor, room, to).map_err(internal)? {
                 super::combat::narrate(w, &ctx.actor, said);
             }
             super::talk::greet(w, &ctx.actor, to);

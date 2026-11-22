@@ -415,6 +415,14 @@ fn set_tattoo(world: &mut World, who: &str, name: &str, pending: bool) -> Result
     super::set_citizen_fields(world, who, f.citizen, changes).map_err(|e| format!("{e:?}"))
 }
 
+/// L2: a Player's plea takes the ink off.
+pub fn lift_tattoo(world: &mut World, who: &str) -> Result<(), String> {
+    let f = find_citizen(world, who).ok_or("no such name")?;
+    let mut changes = BTreeMap::new();
+    changes.insert("tattoo".to_string(), Field::Plain(Value::Null));
+    super::set_citizen_fields(world, who, f.citizen, changes).map_err(|e| format!("{e:?}"))
+}
+
 /// A hand raised in the Courtroom. Nothing is struck: the Bailiff has the hand, and
 /// then the forearm, and writes on it. The first time is a name; after that the
 /// Bailiff only shows you the door.

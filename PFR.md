@@ -248,16 +248,7 @@ that others can see (Hunter, Teller, Keeper, Reader), so a new person can pick a
   and `retreat` (a creature that shows what it is about to do; a guard, a feint);
   (c) equipment: made things already work while carried (buckler, lantern, charm,
   bandage), with no slots and no one place that says what you have on.
-- **L2 · Tell** (find what a creature wants, tell it, be known). "We should up the
-  complexity and variety, add mischief opportunities and make it more aligned with a
-  bard's personality (Elizabethan rather than D&D). Experienced tellers can get
-  temporary nicknaming abilities for example or bonus at pleading cases. Saul Goodman
-  types that can talk people into things." Have: stories, wants, carried words, tales
-  that travel and wear, the hidden word, a player's own want (C7), the Bailiff's
-  tattoo. To plan: forms a telling can take (a ballad, a jest, a eulogy, a flyting);
-  a teller's standing and what it opens (a nickname that sticks for an hour, weight
-  with the Court's bench, talking a creature into or out of something); mischief with
-  a name on it and an end to it.
+- **L2 · Tell, live 11-21** (David: "L2a:1 / L2b:1 / L2c:5 / L2d: recourses allowed / L2e: start with your suggestions"; `bard.rs`, and the ledger). *To watch and tune:* every number is a first guess (the forms' 1.25 and 1.5, a flyting's 12, the rungs at 2/4/6/9, the known-teller pay to 1.5, coaxing's 35 and 15, twenty seconds a rung for "stay", an hour for a mark); forms are five more payments a listener a day, so a teller's hour is richer than it was; a flyting's weighing can be learned and written to (long, alliterative, the name in it); "stay" on a keeper or a sitter is a strong thing for a Laureate (80 seconds). *Not built:* a eulogy for a room forgotten; talking a creature out of what it holds; a nickname a teller gives themself a stage name by; the Crier and the creatures' own wants in the new voice; nothing on the play page shows a title or an epithet but the text. *Before it is widely used:* the moderation backlog (below) is now owed: an operator cannot yet strike a jest or an epithet.
 - **L3 · Keep, live 11-21** (David: "L3a:1 / L3b:1 / L3c:3 / L3d:2 / L3E:yes, everything decays"; `tending.rs`, and the ledger). *To watch and tune:* every number is a first guess (the points, a visit's 6 and 3, three paid visits a day, the wander odds 40/30/20/12, the titles at 2/4/6/9); two names can visit each other's rooms daily for 9 between them; a keeper cannot protect a creature it is feeding from another name's blow (R262); "cheaper digs" was asked for with the perks and not built, because a dig costs whatever chunk is given and has no floor to lower. *Not built:* the residents have small sprites and not the large ones; nothing shows a room's standing on the map; creatures do not greet a renowned keeper by title.
 - **L3 · Keep, as first set down** (put fading memory into what lasts). "We should add graphical upgrades,
   improved beneficial creature spawning etc. for well tended rooms. High level keepers

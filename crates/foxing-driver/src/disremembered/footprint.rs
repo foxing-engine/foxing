@@ -275,6 +275,7 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
             }
         ));
     }
+    let summary = format!("{summary}{}", super::bard::wants_foot(world, actor));
     Ok(json!({"summary": summary, "wants": rows, "scarcity": scarcity, "awake": awake}))
 }
 

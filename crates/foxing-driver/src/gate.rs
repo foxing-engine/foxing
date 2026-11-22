@@ -624,6 +624,8 @@ fn died_since_last_message(world: &World, actor: &str) -> bool {
 /// ones that only read.
 /// Verbs that change nothing: a message of these alone costs no budget.
 const READ_VERBS: &[&str] = &[
+    "deeds",
+    "repute",
     "look",
     "chunks",
     "map",

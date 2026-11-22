@@ -870,6 +870,43 @@ the one it has most forgotten, and the world's own wants turn every
 four hours; when no creature wants a word carried, two are given one
 between them, so there is always something to do.
 
+A teller has more than stories. Five forms are heard apart from a
+creature's hour for stories, each once a day to each listener, each a
+dozen different words or more unless said otherwise:
+`ballad <creature> "<text>"` sings a deed done in the last day, naming
+who did it and what fell (`deeds` lists them; half again a story's
+pay, and the one sung of keeps a little); `jest <creature> "<text>"
+<who>` is at a name's expense, the name said in it (a quarter over,
+and it stands on that name for an hour where `look` shows it, signed
+with yours); `eulogy <creature> "<text>"` mourns a name that fell, a
+thing felled, or a named creature lying shaken, which it rouses in
+half the time (half again); `flyting <who> "<line>"` is a match of
+insults in one line, against a named creature here (it answers; a win
+is a memory worth 12, each creature once an hour) or another name
+here (the line stands ten minutes as a challenge, and the better
+answer has the field); `beseech <officer> "<text>" <name>` pleads
+before one of the Conclave's officers for another name (a tattoo
+lifted, a word entered in their open case for the judge, a denied
+case put back before the bench). A line is weighed by its different
+words, the other's name in it, words that start alike set side by
+side, the teller's standing and a little luck.
+
+A teller's standing (`repute`) is counted from the last day: the named
+creatures that know you, the forms told, wanted stories told, a word
+carried, a hidden word said, a flyting won. Prattler at 2, Player at
+4, Wit at 6, Laureate at 9. A creature that already knew you pays a
+titled teller more for every story and form (1.1, 1.2, 1.3, 1.5
+times). A Prattler may `coax <creature> "follow"` (a named creature
+comes along for ten minutes), `"go"` (what does not hunt leaves by a
+door) or `"stay"` (a hunter stays its hand twenty seconds a rung); a
+Wit's `"yield"` gets a hint of a hidden word. It may not be moved, and
+each creature hears one coaxing from you in five minutes. A Player
+may `dub <who> "<epithet>"`: 3 to 28 characters on another name here
+or a named creature, shown beside them for an hour, signed. Nothing
+is put on a name in its first hour. Whoever wears a jest or an
+epithet strikes it early by winning a `flyting` against the name
+that put it there, from anywhere.
+
 A kept name may leave a want of its own with a named creature it keeps
 (one that holds a memory that name gave it), and stake a memory on it:
 `entrust <creature> <chunk> "<what about>"` asks for a story about

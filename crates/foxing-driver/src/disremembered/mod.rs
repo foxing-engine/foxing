@@ -13,6 +13,7 @@ pub mod antics;
 pub mod ask;
 pub mod asks;
 pub mod atlas;
+pub mod bard;
 pub mod bindery;
 pub mod board;
 pub mod building;
@@ -513,6 +514,12 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("session_at", FieldKind::Plain, Visibility::Owner)
             // L1: the doors this name has gone through `anyway`.
             .field("gates", FieldKind::Plain, Visibility::Owner)
+            // L2: what a teller has done lately, and what another name has put on
+            // this one for an hour.
+            .field("bard", FieldKind::Plain, Visibility::Owner)
+            .field("epithet", FieldKind::Plain, Visibility::Public)
+            .field("jest", FieldKind::Plain, Visibility::Public)
+            .field("flyte", FieldKind::Plain, Visibility::Public)
             // L3: paid visits to tended rooms today: {day, n}.
             .field("visits", FieldKind::Plain, Visibility::Owner)
             .field("session_level", FieldKind::Plain, Visibility::Owner)
@@ -594,6 +601,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("xp", FieldKind::Plain, Visibility::Public)
             // Antics: when a stroller set out; a walker's place on its round.
             .field("stroll_at", FieldKind::Plain, Visibility::Public)
+            .field("epithet", FieldKind::Plain, Visibility::Public)
+            .field("follows", FieldKind::Plain, Visibility::Public)
             .field("route_i", FieldKind::Plain, Visibility::Public)
             .field("said_i", FieldKind::Plain, Visibility::Public)
             .field("moved_at", FieldKind::Plain, Visibility::Public)
@@ -1541,6 +1550,7 @@ pub fn register(world: &mut World, curves: Curves) {
     exchange::register(world, curves.clone());
     errand::register(world);
     asks::register(world);
+    bard::register(world);
     cloak::register(world);
     building::register(world, curves.clone());
     bindery::register(world, curves.clone());

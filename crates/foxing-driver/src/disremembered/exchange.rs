@@ -25,9 +25,9 @@ pub const STORY: &str = "disremembered.story";
 pub(crate) const MIN_WORDS: usize = 12;
 /// Distinct words at which a story's vividity reaches 0.9 (D6).
 pub const VIVID_WORDS: f64 = 200.0;
-const MAX_WORDS_PAID: usize = 60;
+pub(crate) const MAX_WORDS_PAID: usize = 60;
 /// XP per word for the teller; the creature keeps half as much.
-const XP_PER_WORD: f64 = 0.3;
+pub(crate) const XP_PER_WORD: f64 = 0.3;
 const MAX_STORY_CHARS: usize = 1200;
 /// One story per teller per creature in this long.
 pub const STORY_COOLDOWN_MS: i64 = 60 * 60 * 1000;
@@ -625,6 +625,17 @@ pub fn register(world: &mut World, curves: Curves) {
                 Some((bonus, _, _)) => paid * bonus,
                 None => paid,
             };
+            // L2: being known pays. A creature that knew the teller before this story
+            // pays a teller of standing more (the Watch of 11-21: "a creature knowing
+            // me changed no payout").
+            let known = super::bard::known_bonus(w, &ctx.actor, creature);
+            let paid = (paid * known).round();
+            if wanted {
+                super::bard::did(w, &ctx.actor, "want");
+            }
+            if struck.is_some() {
+                super::bard::did(w, &ctx.actor, "word");
+            }
             let alike_said = if alike.is_empty() {
                 String::new()
             } else {
@@ -696,14 +707,15 @@ pub fn register(world: &mut World, curves: Curves) {
                 // The creature's answer reaches the teller as it reaches the room, a
                 // narrator line, so the outcome does not repeat it.
                 format!(
-                    "You tell {display} a story of {words} words, and it answers.{}{}{heard_line} You remember the telling: chunk-{} worth {paid:.1} XP{}. {display} keeps half as much, {:.1}, as its own memory of the story.{tale_said}{}",
+                    "You tell {display} a story of {words} words, and it answers.{}{}{heard_line} You remember the telling: chunk-{} worth {paid:.1} XP{}. {display} keeps half as much, {:.1}, as its own memory of the story.{tale_said}{}{}",
                     if wanted_early { " It was the story it wanted, heard inside its hour with you at plain pay (once an hour); the want stands, and told again when its hour turns it pays double. A story counts as the wanted one by what it is about, meant so or not, and that was this hour's one early hearing." } else if wanted { " It was the story it wanted, so the memory is worth double." } else { "" },
                     struck.as_ref().map(|(b, _, l)| format!(" It carried the word under the others, the {} of three: {}, and vivid.", ["first", "second", "third"][(*l as usize).clamp(1, 3) - 1], if bonus_only { format!("heard inside its hour with you, so the bonus alone, {paid:.1} XP: {} of what a story pays", match (b * 10.0).round() as i64 { 15 => "half again".to_string(), 20 => "as much again".to_string(), 25 => "one and a half times again".to_string(), _ => format!("{:.1} times", b - 1.0) }) } else { format!("{b:.1} times the pay, {paid:.1} XP") })).unwrap_or_default(),
                     earned.0,
                     if vivid > 0.4 { format!(", vividity {vivid:.2}{}", if long > 0.0 && struck.is_none() { " (length buys vividity, to 0.90 at two hundred words)" } else { "" }) } else { String::new() },
                     // R160: the teller's pay and the creature's keep are two figures.
                     paid / 2.0,
-                    missed.as_deref().map(|m| format!(" {m}")).unwrap_or_default()
+                    missed.as_deref().map(|m| format!(" {m}")).unwrap_or_default(),
+                    if known > 1.0 { format!(" ({display} knew you already, and pays a {} {known:.1} times.)", super::bard::title(w, &ctx.actor).unwrap_or("teller")) } else { String::new() }
                 ),
                 json!({"creature": creature.0, "name": name, "words": words, "distinct": distinct, "earned": earned.0, "xp": paid, "kept": kept.0, "level": level, "wanted": wanted, "wanted_early": wanted_early, "missed": missed, "repeats": repeats, "struck": struck.as_ref().map(|(b, w, l)| json!({"word": w, "level": l, "bonus": b}))}),
             ))

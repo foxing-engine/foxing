@@ -125,6 +125,15 @@ approved_verbs:
   summon: {params: []}
   raze: {params: [{name: room, type: string, required: true}]}
   entrust: {params: [{name: creature, type: entity, required: true}, {name: chunk, type: entity, required: true}, {name: line, type: text, required: false}, {name: to, type: entity, required: false}]}
+  deeds: {params: []}
+  repute: {params: []}
+  ballad: {params: [{name: creature, type: entity, required: true}, {name: text, type: text, required: true}]}
+  jest: {params: [{name: creature, type: entity, required: true}, {name: text, type: text, required: true}, {name: who, type: entity, required: true}]}
+  eulogy: {params: [{name: creature, type: entity, required: true}, {name: text, type: text, required: true}]}
+  flyting: {params: [{name: who, type: entity, required: true}, {name: line, type: text, required: true}]}
+  beseech: {params: [{name: officer, type: entity, required: true}, {name: text, type: text, required: true}, {name: name, type: entity, required: true}]}
+  dub: {params: [{name: who, type: entity, required: true}, {name: epithet, type: text, required: true}]}
+  coax: {params: [{name: creature, type: entity, required: true}, {name: what, type: text, required: true}]}
   withdraw: {params: [{name: creature, type: entity, required: true}]}
   errand: {params: [{name: creature, type: entity, required: true}, {name: want, type: text, required: true}, {name: to, type: entity, required: false}]}
   bind: {params: [{name: target, type: entity, required: true}, {name: text, type: text, required: true}, {name: model, type: string, required: false}]}

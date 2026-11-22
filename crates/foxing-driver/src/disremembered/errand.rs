@@ -947,6 +947,11 @@ fn done(
     let kind = plain_str(world, creature, super::CREATURE, "name")
         .unwrap_or("?")
         .to_string();
+    super::bard::did(
+        world,
+        actor,
+        if to.is_some() { "carried" } else { "want_done" },
+    );
     world
         .note(
             Actor::Citizen(actor.to_string()),

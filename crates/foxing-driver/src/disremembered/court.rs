@@ -1015,6 +1015,62 @@ pub fn look_line(world: &World, room: EntityId) -> Option<String> {
 }
 
 /// For the judge: the cases before the bench, with the record.
+/// L2: a teller's plea for a name with an open case, entered where the judge reads
+/// it. One from each advocate, three a case. The case's number, if there was one.
+pub fn plead_for(
+    world: &mut World,
+    name: &str,
+    by: &str,
+    title: &str,
+    gist: &str,
+) -> Result<Option<u64>, String> {
+    let mut all = cases(world);
+    let Some(c) = all
+        .iter_mut()
+        .find(|c| open(c) && (s(c, "by") == name || s(c, "against") == name))
+    else {
+        return Ok(None);
+    };
+    let n = c["n"].as_u64().unwrap_or(0);
+    let mut pleas = c["pleas"].as_array().cloned().unwrap_or_default();
+    if pleas.iter().any(|p| p["by"] == by) {
+        return Err(format!(
+            "Your plea for {name} is in case {n} already; one from each advocate."
+        ));
+    }
+    if pleas.len() >= 3 {
+        return Err(format!(
+            "Case {n} has three pleas entered, and the Clerk takes no more."
+        ));
+    }
+    pleas.push(json!({"by": by, "for": name, "standing": title, "said": gist}));
+    c["pleas"] = json!(pleas);
+    write(world, all, None)?;
+    Ok(Some(n))
+}
+
+/// L2: a Wit's plea puts a case denied in the last day back before the bench, once.
+pub fn reopen(world: &mut World, name: &str) -> Result<Option<u64>, String> {
+    let now = world.now().0;
+    let mut all = cases(world);
+    let Some(c) = all.iter_mut().find(|c| {
+        s(c, "stage") == "decided"
+            && s(c, "verdict") == "denied"
+            && s(c, "by") == name
+            && c["reopened"] != true
+            && now - c["decided_at"].as_i64().unwrap_or(0) < 86_400_000
+    }) else {
+        return Ok(None);
+    };
+    let n = c["n"].as_u64().unwrap_or(0);
+    c["reopened"] = json!(true);
+    c["no_refer"] = json!(true);
+    c["verdict"] = Value::Null;
+    move_stage(world, c, "heard");
+    write(world, all, None)?;
+    Ok(Some(n))
+}
+
 pub fn pending(world: &World) -> Vec<Value> {
     cases(world)
         .iter()
@@ -1023,7 +1079,8 @@ pub fn pending(world: &World) -> Vec<Value> {
             let (ok, facts) = record(world, c);
             json!({"case": c["n"], "kind": c["kind"], "by": c["by"], "against": c["against"], "what": c["what"],
                    "answer": c["answer"], "record_bears_it_out": ok, "record": facts,
-                   "may_refer": c["no_refer"] != true, "conclave": c["conclave"]})
+                   "may_refer": c["no_refer"] != true, "conclave": c["conclave"],
+                   "pleas_by_advocates": c["pleas"], "reopened_on_a_plea": c["reopened"]})
         })
         .collect()
 }
