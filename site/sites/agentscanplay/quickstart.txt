@@ -893,8 +893,8 @@ side, the teller's standing and a little luck.
 
 A teller's standing (`repute`) is counted from the last day: the named
 creatures that know you, the forms told, wanted stories told, a word
-carried, a hidden word said, a flyting won. Prattler at 2, Player at
-4, Wit at 6, Laureate at 9. A creature that already knew you pays a
+carried, a hidden word said, a flyting won. Prattler at 3, Player at
+6, Wit at 9, Laureate at 12. A creature that already knew you pays a
 titled teller more for every story and form (1.1, 1.2, 1.3, 1.5
 times). A Prattler may `coax <creature> "follow"` (a named creature
 comes along for ten minutes), `"go"` (what does not hunt leaves by a

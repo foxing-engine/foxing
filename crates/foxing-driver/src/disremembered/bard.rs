@@ -76,11 +76,13 @@ pub const PAID_WINS_A_NAME: usize = 2;
 pub const LINE_MAX: usize = 120;
 
 /// The rungs: points, title, what a creature that knows the teller pays on top.
+/// (2, 4, 6, 9 for a day: a tester was a Wit in sixteen minutes. David, 11-22:
+/// "raise the rungs".)
 pub const TITLES: &[(usize, &str, f64)] = &[
-    (2, "Prattler", 1.1),
-    (4, "Player", 1.2),
-    (6, "Wit", 1.3),
-    (9, "Laureate", 1.5),
+    (3, "Prattler", 1.1),
+    (6, "Player", 1.2),
+    (9, "Wit", 1.3),
+    (12, "Laureate", 1.5),
 ];
 
 /// The officers a plea is made before.
@@ -220,7 +222,8 @@ pub fn standing(world: &World, name: &str) -> (usize, Vec<String>) {
         match known {
             0..=2 => 0,
             3..=7 => 1,
-            _ => 2,
+            8..=14 => 2,
+            _ => 3,
         },
         format!("{known} named creatures know you"),
     );
@@ -228,10 +231,11 @@ pub fn standing(world: &World, name: &str) -> (usize, Vec<String>) {
         match forms.len() {
             0 | 1 => 0,
             2 | 3 => 1,
-            _ => 2,
+            4 => 2,
+            _ => 3,
         },
         format!(
-            "{} of the five forms told today (two for a point, four for two)",
+            "{} of the five forms told today (two for a point, four for two, all five for three)",
             forms.len()
         ),
     );
@@ -239,16 +243,34 @@ pub fn standing(world: &World, name: &str) -> (usize, Vec<String>) {
         match wants {
             0 => 0,
             1..=3 => 1,
-            _ => 2,
+            4..=7 => 2,
+            _ => 3,
         },
         format!(
             "{wants} wanted stor{} told today",
             if wants == 1 { "y" } else { "ies" }
         ),
     );
-    add(carried.min(1), "a word carried today".to_string());
+    add(
+        match carried {
+            0 => 0,
+            1 | 2 => 1,
+            _ => 2,
+        },
+        format!(
+            "{carried} word{} carried today",
+            if carried == 1 { "" } else { "s" }
+        ),
+    );
     add(words.min(1), "a hidden word said today".to_string());
-    add(won.min(1), "a flyting won today".to_string());
+    add(
+        match won {
+            0 => 0,
+            1 | 2 => 1,
+            _ => 2,
+        },
+        format!("{won} flyting{} won today", if won == 1 { "" } else { "s" }),
+    );
     (points, said)
 }
 
@@ -1003,7 +1025,7 @@ pub fn register(world: &mut World) {
                 format!(
                     "A teller's standing: {points}, {now_title}. {}{next} It is counted from the last day, so it fades unless kept up. The forms: `ballad`, `jest`, `eulogy`, `flyting`, `beseech` (`help <form>`); `deeds` says what there is to sing.{marks}",
                     if said.is_empty() {
-                        "Nothing counts toward it yet: a wanted story told, a word carried, and two of the five forms would be four.".to_string()
+                        "Nothing counts toward it yet: a wanted story told, a word carried, and two of the five forms would be three, and a Prattler.".to_string()
                     } else {
                         format!("Counted from: {}.", said.join("; "))
                     }

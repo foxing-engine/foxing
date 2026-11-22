@@ -514,6 +514,7 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("session_at", FieldKind::Plain, Visibility::Owner)
             // L1: the doors this name has gone through `anyway`.
             .field("gates", FieldKind::Plain, Visibility::Owner)
+            .field("plea_warned", FieldKind::Plain, Visibility::Owner)
             // L2: what a teller has done lately, and what another name has put on
             // this one for an hour.
             .field("bard", FieldKind::Plain, Visibility::Owner)

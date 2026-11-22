@@ -1191,7 +1191,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.plead",
-            "Bring a case before the Court of Lethe, at its Filing Window in the window's hours, as a kept name: plead <kind> <against> \"<what>\". The kinds: story (a story of yours another name tells as their own; what: the creature that holds it), line (a line another wrote in a room or book of yours; what: some of its words), name (a name another put on an object of yours; what: the name), thing (a thing left by a creature you felled, taken by another; what: the thing), roll (your name on the Roll of Hoards; against: conclave). The fee is the least memory you hold. The plea is then carried to the Unfiled Archive to be stamped, and back to the window (and wherever else it turns out to be wanted), and the other name has a day to answer in the Courtroom. The Court then sits, aloud, and a bell says when. A judgment puts right and fines nobody.",
+            "Bring a case before the Court of Lethe, at its Filing Window in the window's hours, as a kept name: plead <kind> <against> \"<what>\". The kinds: story (a story of yours another name tells as their own; what: the creature that holds it), line (a line another wrote in a room or book of yours; what: some of its words), name (a name another put on an object of yours; what: the name), thing (a thing left by a creature you felled, taken by another; what: the thing), roll (your name on the Roll of Hoards; against: conclave). The fee is the least memory you hold. The plea is then carried to the Unfiled Archive to be stamped, and back to the window (and wherever else it turns out to be wanted), and the other name has a day to answer in the Courtroom. The Court then sits, aloud, and a bell says when. A judgment puts right and fines nobody. Where the record as it stands does not bear the plea out, the Clerk says so before taking anything: the same plea sent again within ten minutes lodges it all the same.",
         )
         .param("kind", ParamType::String, true, "story, line, name, thing or roll")
         .param("against", ParamType::Entity, true, "the other name, or conclave for the Roll")
@@ -1288,6 +1288,34 @@ pub fn register(world: &mut World) {
                     "The fee is the least memory you hold, and you hold none. Earn one and come back.".to_string(),
                 ));
             };
+            // David, 11-22: "offer withdrawal". The Clerk said a plea could not succeed
+            // in the same breath as taking a name's only memory for it. Now it says so
+            // first and takes nothing; the same plea again within ten minutes lodges it.
+            let trial = json!({"kind": kind, "by": ctx.actor, "against": against, "what": what});
+            let (would, why) = record(w, &trial);
+            if !would {
+                let key = format!("{kind}|{against}|{}", what.to_lowercase());
+                let warned = w
+                    .store
+                    .entity(f.citizen)
+                    .and_then(|e| e.components.get(super::CITIZEN))
+                    .and_then(|c| match c.fields.get("plea_warned") {
+                        Some(Field::Plain(v)) => Some(v.clone()),
+                        _ => None,
+                    })
+                    .is_some_and(|v| v["key"] == json!(key) && w.now().0 - v["at"].as_i64().unwrap_or(0) < 600_000);
+                if !warned {
+                    let mut changes = BTreeMap::new();
+                    changes.insert("plea_warned".to_string(), Field::Plain(json!({"key": key, "at": w.now().0})));
+                    super::set_citizen_fields(w, &ctx.actor, f.citizen, changes)?;
+                    return Ok(Outcome::new(
+                        format!(
+                            "The Clerk of the Court holds the pen over the book and does not lower it. \"Before I take the fee,\" the Clerk says, \"which would be your least memory, worth {worth:.1}: the record as it stands will not help you. {why} A plea the record does not bear out is denied more often than not, and the fee is not returned.\" Nothing is taken and nothing is lodged. To lodge it all the same, send the same plea again within ten minutes; to withdraw, do nothing."
+                        ),
+                        json!({"lodged": false, "warned": true, "fee": worth, "record": why}),
+                    ));
+                }
+            }
             w.record(Actor::Driver, StoreEvent::EntityRemoved { id: chunk })
                 .map_err(|e| CommandError::precondition(e.to_string()))?;
             let n = next_number(w);

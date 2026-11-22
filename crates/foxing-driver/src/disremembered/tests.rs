@@ -14421,6 +14421,20 @@ fn the_court_of_lethe_hears_a_case_through_and_forgets_it() {
 
     // A case nobody answers and nobody judges: heard after a day, and six hours on
     // the record decides it.
+    // The record does not bear it out: the Clerk says so first and takes nothing
+    // (David, 11-22: "offer withdrawal"); the same plea again lodges it.
+    let warned = ok(
+        &mut w,
+        "dave",
+        "plead",
+        json!(["roll", "conclave", "I hold very little"]),
+    );
+    assert_eq!(warned.result["warned"], json!(true), "{}", warned.summary);
+    assert!(
+        warned.summary.contains("Nothing is taken"),
+        "{}",
+        warned.summary
+    );
     let out = ok(
         &mut w,
         "dave",
@@ -16264,6 +16278,7 @@ fn a_teller_has_five_forms_a_standing_and_marks_that_can_be_struck() {
     // Given standing (the tally written as the forms write it), both open.
     for what in [
         "want", "want", "want", "want", "carried", "word", "eulogy", "ballad", "jest", "flyting",
+        "won",
     ] {
         bard::did(&mut w, "dave", what);
     }
@@ -16353,7 +16368,8 @@ fn a_mark_is_plain_words_and_a_struck_epithet_frees_its_dubber() {
         assert!(err.to_string().contains(why), "{bad}: {err}");
     }
     for what in [
-        "want", "want", "want", "want", "carried", "word", "eulogy", "ballad",
+        "want", "want", "want", "want", "carried", "word", "eulogy", "ballad", "jest", "flyting",
+        "won",
     ] {
         bard::did(&mut w, "dave", what);
     }
