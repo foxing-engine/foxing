@@ -2689,7 +2689,8 @@ pub const GATES: &[(&str, f64)] = &[
     ("wing-court", 400.0),
     // The Reading Rooms.
     ("mezzanine", 50.0),
-    // The Stacks, past the stair's hard hundred.
+    // The Stacks: the stair (soft from 11-21, as every door is), then deeper.
+    ("lower-stacks", STAIR_LEVEL),
     ("periodicals", 250.0),
     ("carrels", 250.0),
     ("tube-room", 250.0),
@@ -2902,19 +2903,8 @@ pub fn register(world: &mut World) {
                     said.join(", ")
                 )));
             };
-            // The stair into the Lower Stacks asks a level (D3): a censor's nine to
-            // eleven a round against thirty hit points is not a fight a fresh name
-            // can read its way out of, and "about half" was unreachable in a batch.
-            if plain_str(w, to, ROOM, "key") == Some("lower-stacks")
-                && plain_str(w, room, ROOM, "key") == Some("archive")
-            {
-                let level = super::memory::level(w, f.window);
-                if level < STAIR_LEVEL {
-                    return Err(foxing_registry::CommandError::precondition(format!(
-                        "The Stacks stair (the Archive's `down`; not the Cistern Stair off Lantern Row, which asks nothing) asks a level of {STAIR_LEVEL:.0}, and you hold {level:.0}. What lives below hits for nine and ten a round; the Fogbank, the Orchard, the Sighing Meadow and the Reading Rooms up the other stair pay toward it, and `chunks` says where you stand."
-                    )));
-                }
-            }
+            // (The Stacks stair was a hard hundred until 11-21; David: "soft". It is a
+            // door like the rest now, in GATES.)
             // L1: a door that says who it is for stops a name under that once, on the
             // way in from somewhere milder (never on the way back out).
             let anyway = said_anyway;

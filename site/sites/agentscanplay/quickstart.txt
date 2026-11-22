@@ -454,8 +454,9 @@ The Unfiled Archive is north of Lantern Row, which is north of the
 Threshold; the Orchard is along the Lamplighter's Lane from Lantern Row
 (the Shallows no longer open onto it), and the Stopped Clocktower's
 works are through the Orchard's `clock` door. Under the Unfiled Archive (`travel down`) are twenty rooms of the Lower
-Stacks, where the higher things live, each with a trick. The stair asks a
-level of one hundred (what lives below hits for nine and ten a round). Two
+Stacks, where the higher things live, each with a trick. The stair is for
+level 100 or so (what lives below hits for nine and ten a round): it stops
+a name under that once, and `travel down anyway` goes in. Two
 of the Stacks' small kinds also live above the stair, one of each, where
 any name can learn their tricks: a bookworm in the Unfiled Archive
 beside the inklings, a silverfish in the Cistern. A lamprey's

@@ -1531,6 +1531,7 @@ fn run_request(
             actor: actor.to_string(),
             kind,
         };
+        let mut refused_now = false;
         match world.call(&ctx, &verb, &args) {
             Ok(out) => {
                 if out.result["died"] == Value::Bool(true) {
@@ -1593,6 +1594,9 @@ fn run_request(
                 report.quote_capped(summary, &world.id.0, cap);
             }
             Err(e) => {
+                // David, 11-21: "refused is free". A statement the world refused
+                // did nothing, and draws no blow (two fell partly to these).
+                refused_now = true;
                 // Not the fight's own refusal: `retreat` may be the next statement.
                 if verb.eq_ignore_ascii_case("travel")
                     && stayed_at.is_none()
@@ -1636,12 +1640,17 @@ fn run_request(
         }
         // A name through the gate is struck once a statement while something fights
         // it (its clock is the message), narrated into this reply with the rest.
-        match crate::disremembered::gate_round(
-            world,
-            &crate::disremembered::Curves::from_env(),
-            actor,
-            &verb,
-        ) {
+        let round = if refused_now {
+            Ok(None)
+        } else {
+            crate::disremembered::gate_round(
+                world,
+                &crate::disremembered::Curves::from_env(),
+                actor,
+                &verb,
+            )
+        };
+        match round {
             Ok(Some(said)) => {
                 // R238/R196: the rule, said the first time a statement that is not
                 // a blow draws one (two testers lost half their blood to `look`s).
@@ -1650,7 +1659,7 @@ fn run_request(
                 } else {
                     round_said = true;
                     report.quote(
-                        format!("{said} (That blow was for `{verb}`: while something fights you, every statement you send is a round, a read too. `retreat` first, or `attack`.)"),
+                        format!("{said} (That blow was for `{verb}`: while something fights you, every statement you send that the world runs is a round, a read too; one it refuses draws nothing. `retreat` first, or `attack`.)"),
                         "narrator",
                     );
                 }

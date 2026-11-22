@@ -118,7 +118,7 @@ RULES = (
     "the Exergue 400. "
     "The ways: the Lamplighter's Lane runs from Lantern Row (`lane`) to the Orchard, and "
     "nothing hunts on it; the Cistern Stair is `down` from Lantern Row and asks nothing; the "
-    "Stacks stair is the Archive's `down` and asks a level of 100; `travel <a room's name>` "
+    "Stacks stair is the Archive's `down` and is for level 100 or so (it stops a name under that once; `travel down anyway` goes in); `travel <a room's name>` "
     "walks the whole way, `where <a room, a district or a creature>` says it, and `read "
     "signpost` at the Threshold, the Fogbank, Lantern Row, the Orchard and the Clocktower "
     "says what is down each way. "
