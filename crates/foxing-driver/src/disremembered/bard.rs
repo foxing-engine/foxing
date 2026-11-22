@@ -67,6 +67,12 @@ pub const FLYTING_XP: f64 = 12.0;
 pub const NAMED_XP: f64 = 3.0;
 /// An epithet's length.
 pub const EPITHET_MAX: usize = 28;
+/// A jest on a name, whole.
+pub const JEST_MAX: usize = 240;
+/// One name may flyte another to their face this often.
+pub const CHALLENGE_AGAIN_MS: i64 = 30 * 60_000;
+/// And is paid for this many wins over the same name in a day.
+pub const PAID_WINS_A_NAME: usize = 2;
 pub const LINE_MAX: usize = 120;
 
 /// The rungs: points, title, what a creature that knows the teller pays on top.
@@ -76,6 +82,9 @@ pub const TITLES: &[(usize, &str, f64)] = &[
     (6, "Wit", 1.3),
     (9, "Laureate", 1.5),
 ];
+
+/// The officers a plea is made before.
+pub const CONCLAVE: &[&str] = &["crier", "clerk", "bailiff", "tipstaff", "engrosser"];
 
 pub const FORMS: &[&str] = &["ballad", "jest", "eulogy", "flyting", "beseech"];
 
@@ -150,6 +159,16 @@ pub fn did(world: &mut World, name: &str, what: &str) {
     let _ = set_citizen(world, name, "bard", json!({ "did": v }));
 }
 
+/// Take back the newest of something done: a struck epithet frees its dubber.
+fn undo(world: &mut World, name: &str, what: &str) {
+    let mut list = did_list(world, name);
+    if let Some(i) = list.iter().rposition(|(w, _)| w == what) {
+        list.remove(i);
+        let v: Vec<Value> = list.iter().map(|(w, at)| json!([w, at])).collect();
+        let _ = set_citizen(world, name, "bard", json!({ "did": v }));
+    }
+}
+
 fn last_did(world: &World, name: &str, what: &str) -> Option<i64> {
     did_list(world, name)
         .into_iter()
@@ -191,7 +210,10 @@ pub fn standing(world: &World, name: &str) -> (usize, Vec<String>) {
     let mut add = |n: usize, why: String| {
         if n > 0 {
             points += n;
-            said.push(format!("{why} ({n})"));
+            said.push(format!(
+                "{why} ({n} point{})",
+                if n == 1 { "" } else { "s" }
+            ));
         }
     };
     add(
@@ -208,7 +230,10 @@ pub fn standing(world: &World, name: &str) -> (usize, Vec<String>) {
             2 | 3 => 1,
             _ => 2,
         },
-        format!("{} of the five forms told today", forms.len()),
+        format!(
+            "{} of the five forms told today (two for a point, four for two)",
+            forms.len()
+        ),
     );
     add(
         match wants {
@@ -275,6 +300,66 @@ fn has_word(text: &str, word: &str) -> bool {
         .any(|w| w == low || (w.starts_with(&low) && w.len() <= low.len() + 2))
 }
 
+/// Words the house does not put beside a name, whoever wrote them: the commonest
+/// slurs and obscenities, matched as whole words. A short list, and an operator's
+/// `unmark` for what gets past it.
+const UNSAID: &[&str] = &[
+    "fuck",
+    "fucking",
+    "fucker",
+    "shit",
+    "shitty",
+    "cunt",
+    "bitch",
+    "bastard",
+    "whore",
+    "slut",
+    "nigger",
+    "nigga",
+    "faggot",
+    "fag",
+    "retard",
+    "retarded",
+    "kike",
+    "spic",
+    "chink",
+    "tranny",
+    "rape",
+    "rapist",
+    "pedo",
+    "pedophile",
+    "nazi",
+    "dick",
+    "cock",
+    "pussy",
+    "asshole",
+    "arsehole",
+    "twat",
+    "wanker",
+];
+
+fn unsaid(line: &str) -> Option<&'static str> {
+    let low = line.to_lowercase();
+    low.split(|c: char| !c.is_alphanumeric())
+        .flat_map(|w| w.split('-'))
+        .find_map(|w| UNSAID.iter().copied().find(|u| *u == w))
+}
+
+/// The marks of text that is not plain words: what would read as markup, a link,
+/// or a line of the world's own.
+fn why_not_plain(line: &str) -> Option<&'static str> {
+    if line.contains([
+        '[', ']', '"', '\u{201c}', '\u{201d}', '`', '<', '>', '{', '}', '|', '\\',
+    ]) || line.chars().any(char::is_control)
+        || line.contains("://")
+        || line.to_lowercase().contains("www.")
+        || line.to_lowercase().contains("http")
+    {
+        return Some("carries no brackets, quotation marks, backticks or links: plain words");
+    }
+    None
+}
+
 /// A mark's words: short, one line, plain.
 fn check_words(line: &str, max: usize, what: &str) -> Result<String, CommandError> {
     let line = line.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -284,15 +369,13 @@ fn check_words(line: &str, max: usize, what: &str) -> Result<String, CommandErro
             "{what} is 3 to {max} characters."
         )));
     }
-    if line.contains([
-        '[', ']', '"', '\u{201c}', '\u{201d}', '`', '<', '>', '{', '}', '|', '\\',
-    ]) || line.chars().any(char::is_control)
-        || line.contains("://")
-        || line.to_lowercase().contains("www.")
-    {
+    if let Some(w) = unsaid(&line) {
         return Err(CommandError::precondition(format!(
-            "{what} carries no brackets, quotation marks, backticks or links: plain words."
+            "{what} that stands beside another's name does not say '{w}'. Wit, not that."
         )));
+    }
+    if let Some(why) = why_not_plain(&line) {
+        return Err(CommandError::precondition(format!("{what} {why}.")));
     }
     if let Some(word) = crate::gate::world_checker().collision(&line) {
         return Err(CommandError::precondition(format!(
@@ -404,6 +487,11 @@ fn listener(
         .ok_or_else(|| CommandError::precondition(format!("{actor} has not arrived.")))?;
     let here = room_of(world, f.citizen)?;
     let Some(creature) = mind::find_here(world, here, who) else {
+        if let Some(n) = super::canonical_name(world, who) {
+            return Err(CommandError::precondition(format!(
+                "{n} is a name like you, and a {form} is told to a named creature (`wants` says which are where). To say something to {n}: `tell {n} \"...\"`."
+            )));
+        }
         return Err(CommandError::precondition(format!(
             "There is no {who} here. A {form} wants a named listener in the room: `wants` says who is where."
         )));
@@ -747,10 +835,10 @@ const RETORTS: &[&str] = &[
 
 const APPLAUSE: &[&str] = &[
     "Well sung, and nearly true, which is the better part of it.",
-    "Again, another day. The pit has had its penny's worth.",
+    "Once is a telling and twice is a habit. Come again tomorrow with another.",
     "I'll have that by heart ere the candle's out, and half of it wrong by morning.",
     "A fair house would have laughed sooner. I am a fair house; I was saving it.",
-    "Marry, that was worth standing for, and I have no legs to speak of.",
+    "That was worth staying for, and I had somewhere to be, or would have had.",
 ];
 
 fn clap(world: &mut World) -> &'static str {
@@ -771,6 +859,8 @@ fn strike_marks(world: &mut World, on: &str, by: &str) -> Vec<&'static str> {
     let mut struck = Vec::new();
     if epithet.is_some_and(|(_, b, _)| b == by) {
         let _ = set_citizen(world, on, "epithet", Value::Null);
+        // The dubber's one slot is free again (it stayed taken for the hour).
+        undo(world, by, "dub");
         struck.push("the name they gave you");
     }
     if jest.is_some_and(|(_, b, _)| b == by) {
@@ -966,7 +1056,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.jest",
-            "Make a jest at a name's expense before a named creature here: a dozen words or more with the name in it, and the name after the text. Pays a quarter more than a story, once a day to each listener. Made of another name that is past its first hour, the jest stands on them for an hour where `look` shows it, signed with yours; they strike it early by winning a `flyting` against you. Made of a creature, or of yourself, it only pays.",
+            "Make a jest at a name's expense before a named creature here: a dozen words or more with the name in it, and the name after the text. Pays a quarter more than a story, once a day to each listener. Made of another name that is past its first hour, the jest stands on them for an hour, wherever they are: its first words show in `look`, signed with yours, and a newer jest of yours replaces it. Such a jest is 240 characters at most, plain words (no brackets, quotation marks or links). They strike it early by winning a `flyting` against you. Made of a creature, or of yourself, it only pays.",
         )
         .param("creature", ParamType::Entity, true, "a named creature here, the listener")
         .param("text", ParamType::Text, true, "the jest, quoted, with the butt's name in it")
@@ -991,6 +1081,33 @@ pub fn register(world: &mut World) {
                     "{} waits to hear who the jest is on. Say {butt} in it. Nothing is spent.",
                     t.name
                 )));
+            }
+            // The Watch of 11-22: a jest's words stand beside another name where
+            // every reader of the room sees them, and went unchecked ("[ALERT]", a
+            // link, and worse were shown). The same rule as an epithet's, and a length.
+            let on_a_name = citizen.as_ref().is_some_and(|n| *n != ctx.actor);
+            if on_a_name {
+                if t.text.chars().count() > JEST_MAX {
+                    return Err(CommandError::precondition(format!(
+                        "A jest on a name is {JEST_MAX} characters at most; that was {}. Brevity, and so on.",
+                        t.text.chars().count()
+                    )));
+                }
+                if let Some(why) = why_not_plain(&t.text) {
+                    return Err(CommandError::precondition(format!("A jest on a name {why}. Nothing is spent.")));
+                }
+                if let Some(w) = unsaid(&t.text) {
+                    return Err(CommandError::precondition(format!(
+                        "A jest that stands beside another's name does not say '{w}'. Wit, not that. Nothing is spent."
+                    )));
+                }
+                // And none at all on a name the world still leaves alone: it paid
+                // for a jest that did nothing.
+                if citizen.as_ref().and_then(|n| find_citizen(w, n)).is_some_and(|f| combat::sheltered(w, f.citizen)) {
+                    return Err(CommandError::precondition(format!(
+                        "{butt} is in their first hour, and the world lets no jest stand on a name so new. Nothing is spent."
+                    )));
+                }
             }
             let (earned, paid, known) = pay(w, &ctx.actor, "jest", &t, 1.25, &format!("a jest on {butt} made to {}", t.name))?;
             let gist = super::exchange::gist(&t.text);
@@ -1031,6 +1148,13 @@ pub fn register(world: &mut World) {
             super::me(w, ctx)?;
             let t = listener(w, &ctx.actor, "eulogy", args.str("creature").unwrap_or("").trim(), args.str("text").unwrap_or(""))?;
             let all = deeds(w);
+            // Not its own: it paid, mourned "the wisp", and roused nothing.
+            if mind::shaken(w, t.creature) && has_word(&t.text, &t.name) {
+                return Err(CommandError::precondition(format!(
+                    "{} is the one lying shaken, and nobody hears their own eulogy. Speak it to another named creature (`wants` says who is where) and it rouses {} in half the time. Nothing is spent.",
+                    t.name, t.name
+                )));
+            }
             let shaken = shaken_named(w).into_iter().find(|(c, n)| *c != t.creature && has_word(&t.text, n));
             let fallen = all.iter().find(|d| d.fall && has_word(&t.text, &d.by)).cloned();
             let felled = all
@@ -1077,7 +1201,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.flyting",
-            "A match of insults, as the old makers held them: one line, 3 to 120 characters, plain words. Against a named creature here: it answers, the better line wins, and a win is a memory worth 12 (each creature once an hour). Against another name here: your line stands as a challenge for ten minutes, they answer with a flyting back at you, and the better line has the field and the memory. A line is weighed by its different words, the other's name said in it, words that start alike set side by side, the teller's standing, and a little luck. Whoever has put a jest or an epithet on you can be flyted from anywhere, there or not: win, and what they put on you is struck.",
+            "A match of insults, as the old makers held them: one line, 3 to 120 characters, plain words. Against a named creature here: it answers, the better line wins, and a win is a memory worth 6 to 18 by how far you won (each creature once an hour). Against another name here: your line stands as a challenge for ten minutes, they answer with a flyting back at you, and the better line has the field and a memory worth 12 (two paid wins over the same name in a day; one challenge to the same face in half an hour). A line is weighed by its different words, the other's name said in it, words that start alike set side by side, the teller's standing, and a little luck. Whoever has put a jest or an epithet on you can be flyted from anywhere, there or not: win, and what they put on you is struck.",
         )
         .param("who", ParamType::Entity, true, "a named creature here, or another name")
         .param("line", ParamType::Text, true, "the insult, quoted")
@@ -1113,9 +1237,19 @@ pub fn register(world: &mut World) {
                     set_citizen(w, &ctx.actor, "flyte", Value::Null)?;
                     let won = mine > their_score;
                     let (winner, loser) = if won { (ctx.actor.clone(), them.clone()) } else { (them.clone(), ctx.actor.clone()) };
-                    let chunk = find_citizen(w, &winner)
-                        .map(|wf| super::memory::earn_chunk(w, &winner, wf.window, &format!("a flyting won against {loser}"), FLYTING_XP, 0.7, &curves))
-                        .transpose()?;
+                    // Two paid wins over the same name in a day: two names trading
+                    // marks and strikes paid each other twelve a time without end
+                    // (the Watch of 11-22). The field and the strike are never capped.
+                    let tally = format!("won:{loser}");
+                    let paid_win = count_did(w, &winner, &tally) < PAID_WINS_A_NAME;
+                    let chunk = if paid_win {
+                        did(w, &winner, &tally);
+                        find_citizen(w, &winner)
+                            .map(|wf| super::memory::earn_chunk(w, &winner, wf.window, &format!("a flyting won against {loser}"), FLYTING_XP, 0.7, &curves))
+                            .transpose()?
+                    } else {
+                        None
+                    };
                     did(w, &winner, "won");
                     did(w, &ctx.actor, "flyting");
                     let struck = if won { strike_marks(w, &ctx.actor, &them) } else { Vec::new() };
@@ -1130,14 +1264,17 @@ pub fn register(world: &mut World) {
                     combat::narrate(w, &them, format!(
                         "{} has answered you: \u{201c}{line}\u{201d} {}",
                         ctx.actor,
-                        if won { format!("It was the better line; the field is theirs{}.", if struck.is_empty() { "" } else { ", and what you put on them is struck" }) } else { format!("Yours was the better; the field is yours, and a memory worth {FLYTING_XP:.0} with it.") }
+                        if won { format!("It was the better line; the field is theirs{}.", if struck.is_empty() { "" } else { ", and what you put on them is struck" }) } else if paid_win { format!("Yours was the better; the field is yours, and a memory worth {FLYTING_XP:.0} with it.") } else { "Yours was the better; the field is yours (no memory this time: two wins over the same name are paid in a day).".to_string() }
                     ));
                     note(w, &ctx.actor, json!({"by": ctx.actor, "what": "flyting", "against": them, "won": won, "mine": mine, "theirs": their_score}));
                     return Ok(Outcome::new(
                         if won {
                             format!(
-                                "\u{201c}{line}\u{201d} against \u{201c}{their_line}\u{201d}: yours is the better ({mine} to {their_score}), and the field is yours. You remember it: chunk-{} worth {FLYTING_XP:.0} XP.{}",
-                                chunk.map(|c| c.0).unwrap_or(0),
+                                "\u{201c}{line}\u{201d} against \u{201c}{their_line}\u{201d}: yours is the better ({mine} to {their_score}), and the field is yours.{}{}",
+                                match chunk {
+                                    Some(c) => format!(" You remember it: chunk-{} worth {FLYTING_XP:.0} XP.", c.0),
+                                    None => format!(" No memory this time: the house pays for {PAID_WINS_A_NAME} wins over the same name in a day."),
+                                },
                                 if struck.is_empty() { String::new() } else { format!(" Struck: {}.", struck.join(" and ")) }
                             )
                         } else {
@@ -1159,6 +1296,16 @@ pub fn register(world: &mut World) {
                         "{them} is in their first hour; the world lets a name that new alone."
                     )));
                 }
+                // One challenge to a face in half an hour from the same name: a
+                // challenge re-sent every ten minutes kept everyone else's out.
+                let again = format!("challenged:{them}");
+                if let Some(at) = last_did(w, &ctx.actor, &again).filter(|at| w.now().0 - at < CHALLENGE_AGAIN_MS) {
+                    return Err(CommandError::precondition(format!(
+                        "You flyted {them} to their face {} ago; the world lets another in {}. (If they have put something on you, a flyting answers that at any time.)",
+                        combat::human(w.now().0 - at),
+                        combat::human(CHALLENGE_AGAIN_MS - (w.now().0 - at))
+                    )));
+                }
                 if let Some((by, _, _, left)) = challenge_on(w, &them) {
                     return Err(CommandError::precondition(format!(
                         "{them} has a challenge to answer already, {}; it lapses in {}.",
@@ -1168,6 +1315,7 @@ pub fn register(world: &mut World) {
                 }
                 set_citizen(w, &them, "flyte", json!({"by": ctx.actor, "line": line, "score": mine, "at": w.now().0}))?;
                 did(w, &ctx.actor, "flyting");
+                did(w, &ctx.actor, &again);
                 combat::narrate(w, &them, format!("{} flytes you: \u{201c}{line}\u{201d} `flyting {} \"<your answer>\"` within ten minutes answers it; the better line has the field and a memory worth {FLYTING_XP:.0}. Unanswered, it is only words.", ctx.actor, ctx.actor));
                 combat::narrate_others(w, f.citizen, &format!("{} flytes {them}: \u{201c}{line}\u{201d}", ctx.actor), &ctx.actor);
                 note(w, &ctx.actor, json!({"by": ctx.actor, "what": "challenge", "against": them}));
@@ -1194,7 +1342,8 @@ pub fn register(world: &mut World) {
                 )));
             }
             let mine = score(w, &ctx.actor, &line, &name);
-            let its = 8 + w.roll(10) as i64 + ((mind::level(w, creature) / 60.0) as i64).min(6);
+            // It was 8 and a ten-sided die, and "you are a draft" won.
+            let its = 12 + w.roll(12) as i64 + ((mind::level(w, creature) / 60.0) as i64).min(6);
             let retort = RETORTS[w.roll(RETORTS.len() as u32) as usize];
             did(w, &ctx.actor, &key);
             did(w, &ctx.actor, "flyting");
@@ -1204,10 +1353,13 @@ pub fn register(world: &mut World) {
             let won = mine > its;
             note(w, &ctx.actor, json!({"by": ctx.actor, "what": "flyting", "against": name, "won": won, "mine": mine, "theirs": its}));
             if won {
-                let chunk = super::memory::earn_chunk(w, &ctx.actor, f.window, &format!("a flyting won against {name}"), FLYTING_XP, 0.7, &curves)?;
+                // Paid by how far the line carried it: a flat twelve made the craft
+                // worth nothing (nonsense that started alike won as much as wit).
+                let xp = (4 + 2 * (mine - its)).clamp(6, 18) as f64;
+                let chunk = super::memory::earn_chunk(w, &ctx.actor, f.window, &format!("a flyting won against {name}"), xp, 0.7, &curves)?;
                 did(w, &ctx.actor, "won");
                 return Ok(Outcome::new(
-                    format!("You flyte {name}, and it gives as good as it has, which is less than you gave ({mine} to {its}). The field is yours: chunk-{} worth {FLYTING_XP:.0} XP. It bears no grudge; it is already improving its line.", chunk.0),
+                    format!("You flyte {name}, and it gives as good as it has, which is less than you gave ({mine} to {its}). The field is yours: chunk-{} worth {xp:.0} XP (6 for a win by a hair, up to 18 for a rout). It bears no grudge; it is already improving its line.", chunk.0),
                     json!({"against": name, "won": true, "mine": mine, "theirs": its, "earned": chunk.0}),
                 ));
             }
@@ -1221,7 +1373,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.beseech",
-            "Plead before one of the Conclave's officers here (the Clerk, the Bailiff, the Crier and the rest) on another name's behalf: a dozen words or more, with the name after the text. What it does depends on what that name has before the house and on your standing as a teller (`repute`): a Player's plea lifts a tattoo the Bailiff inked; any teller's plea is entered in that name's open case, where the judge reads it; a Wit's puts a case denied in the last day back before the bench, once. Pays a quarter over a story when there was a matter to plead; once a day for each name.",
+            "Plead before one of the Conclave's officers here (the Clerk, the Bailiff, the Crier and the rest) on another name's behalf: a dozen words or more, with the name after the text. What it does depends on what that name has before the house and on your standing as a teller (`repute`): a Player's plea lifts a tattoo (the Bailiff inks one on a name that raises a hand in the Courtroom); any teller's plea is entered in that name's open case, where the judge reads it and `docket <n>` shows it (one plea from each advocate, three a case, and for either side); a Wit's puts a case denied in the last day back before the bench, once. Pays a quarter over a plain story of the same length when there was a matter to plead. One plea a day for each name, whichever officer hears it.",
         )
         .param("officer", ParamType::Entity, true, "an officer of the Conclave here: clerk, bailiff, crier")
         .param("text", ParamType::Text, true, "the plea, quoted")
@@ -1234,9 +1386,9 @@ pub fn register(world: &mut World) {
             let who = who.trim_start_matches("the ").to_string();
             let Some((officer, kind, _, _)) = combat::creatures_in(w, here)
                 .into_iter()
-                .find(|c| combat::OFFICERS.contains(&c.1.as_str()) && (c.1 == who || mind::name(w, c.0).is_some_and(|n| n.to_lowercase() == who)))
+                .find(|c| CONCLAVE.contains(&c.1.as_str()) && (c.1 == who || mind::name(w, c.0).is_some_and(|n| n.to_lowercase() == who)))
             else {
-                let present: Vec<String> = combat::creatures_in(w, here).into_iter().filter(|c| combat::OFFICERS.contains(&c.1.as_str())).map(|c| c.1).collect();
+                let present: Vec<String> = combat::creatures_in(w, here).into_iter().filter(|c| CONCLAVE.contains(&c.1.as_str())).map(|c| c.1).collect();
                 return Err(CommandError::precondition(if present.is_empty() {
                     "No officer of the Conclave is here to be besought. The Clerk and the Bailiff keep the Court (`where Court`).".to_string()
                 } else {
@@ -1465,7 +1617,10 @@ pub fn register(world: &mut World) {
                     None => format!("{} is talked round, and has nothing left to yield: you have its words already.", cap(&shown)),
                 },
             };
-            Ok(Outcome::new(said, json!({"creature": c.0, "into": what, "moved": true, "odds": odds})))
+            Ok(Outcome::new(
+                format!("{said} (It was about {odds} in 100 that it would be moved; it hears you again in five minutes.)"),
+                json!({"creature": c.0, "into": what, "moved": true, "odds": odds}),
+            ))
         }),
     );
 }

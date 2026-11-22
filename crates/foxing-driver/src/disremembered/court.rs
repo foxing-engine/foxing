@@ -1195,12 +1195,27 @@ pub fn register(world: &mut World) {
         )
         .param("kind", ParamType::String, true, "story, line, name, thing or roll")
         .param("against", ParamType::Entity, true, "the other name, or conclave for the Roll")
-        .param("what", ParamType::Text, true, "the creature, the words, the name or the thing, quoted")
+        .param("what", ParamType::Text, false, "the creature, the words, the name or the thing, quoted")
         .allowed(&[ActorKind::Citizen, ActorKind::Admin]),
         Box::new(|w: &mut World, ctx, args: &Args| {
-            let kind = args.str("kind").unwrap_or("").trim().to_lowercase();
-            let against = args.str("against").unwrap_or("").trim().to_string();
-            let what = args.str("what").unwrap_or("").trim().to_string();
+            let mut kind = args.str("kind").unwrap_or("").trim().to_lowercase();
+            let mut against = args.str("against").unwrap_or("").trim().to_string();
+            let mut what = args.str("what").unwrap_or("").trim().to_string();
+            // The gate reads two bare words as one argument, so `plead line Gnatter
+            // "..."`, as this verb's own help writes it, arrived as two arguments and
+            // was refused four ways (the Watch of 11-22). Taken apart here.
+            if what.is_empty() {
+                if let Some((k, a)) = kind.clone().split_once(' ') {
+                    what = against.clone();
+                    kind = k.trim().to_string();
+                    against = a.trim().to_string();
+                }
+            }
+            if what.is_empty() {
+                return Err(CommandError::precondition(
+                    "A plea is three things: plead <kind> <against> \"<what>\". The kinds: story, line, name, thing, roll.",
+                ));
+            }
             if !at(w, &ctx.actor, super::courthouse::WINDOW) {
                 return Err(CommandError::precondition(
                     "A case is brought at the Filing Window of the Court of Lethe: up the steps across the lane from the Postern (`travel court` there), across the Hall of Lost Steps, by the arch marked WINDOW (`where \"Filing Window\"`).".to_string(),
@@ -1413,7 +1428,25 @@ pub fn register(world: &mut World) {
                             if decided {
                                 " You have read it, and it is kept two weeks more.".to_string()
                             } else {
-                                format!(" The record, as it stands: {facts}")
+                                format!(
+                                    " The record, as it stands: {facts}{}",
+                                    match c["pleas"].as_array() {
+                                        Some(p) if !p.is_empty() => format!(
+                                            " Pleas entered by advocates, for the judge to read: {}.",
+                                            p.iter()
+                                                .map(|p| format!(
+                                                    "{} ({}) for {}: \u{201c}{}\u{201d}",
+                                                    p["by"].as_str().unwrap_or("?"),
+                                                    p["standing"].as_str().unwrap_or("a teller"),
+                                                    p["for"].as_str().unwrap_or("?"),
+                                                    p["said"].as_str().unwrap_or("")
+                                                ))
+                                                .collect::<Vec<_>>()
+                                                .join("; ")
+                                        ),
+                                        _ => String::new(),
+                                    }
+                                )
                             }
                         ),
                         json!({"case": c}),

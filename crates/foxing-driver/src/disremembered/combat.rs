@@ -1941,7 +1941,11 @@ pub fn sized_up(
 ) -> Option<String> {
     let worst = creatures_in(world, room)
         .into_iter()
-        .filter(|c| !super::mind::shaken(world, c.0) && !OFFICERS.contains(&c.1.as_str()))
+        // The house's officers that keep to themselves are not sized up; the ones that
+        // hunt are (the Watch of 11-22: the sitters and the keepers were left out as
+        // "officers", so the Gallery and the Oubliette had no line at their doors).
+        .filter(|c| !super::mind::shaken(world, c.0))
+        .filter(|c| !OFFICERS.contains(&c.1.as_str()) || is_aggressive(world, c.0))
         // Nor what is not fought at all: a room's residents, the walkers.
         .filter(|c| !super::tending::is_resident_kind(&c.1) && !super::antics::is_walker(&c.1))
         // Not a named creature that keeps to itself: those are told, not fought.
@@ -2879,6 +2883,9 @@ pub fn register(world: &mut World, curves: Curves) {
                     // after a `retreat` turned on a full wisp beside one at 2 of 8).
                     here.iter()
                         .filter(|c| super::mind::name(w, c.0).is_none() && super::kindle::born_at(w, c.0).is_none() && !super::mind::shaken(w, c.0) && !plain_str(w, c.0, CREATURE, "name").is_some_and(|k| OFFICERS.contains(&k)))
+                        // Nor a kept room's own, nor a walker (the Watch of 11-22: a
+                        // bare `attack` in a keeper's room took their glowworm apart).
+                        .filter(|c| !super::tending::is_resident_kind(&c.1) && !super::antics::is_walker(&c.1))
                         .min_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal))
                         .map(|c| c.0)
                 }),
@@ -3506,7 +3513,7 @@ pub fn register(world: &mut World, curves: Curves) {
                             "; not a fight for one name at this level. Alone: `rest`, then something milder (`where mothwing`), or come back holding more; with another name here it is two against one"
                         } else {
                             // D38: said of a thing that is whole before you are.
-                            if c_whole_in_ms < me_whole_in_ms { ". The rounds allow for your misses. It will be whole before you are, so waiting buys nothing against it: a second stand is against all of it" } else { ". The rounds allow for your misses. `rest` until you are whole, then stand again" }
+                            if c_whole_in_ms < me_whole_in_ms { ". The rounds allow for your misses. It will be whole before you are, so waiting buys nothing against it: a second stand is against all of it" } else { ". The rounds allow for your misses. `rest` where nothing hunts until you are whole, then stand again" }
                         }
                     )
                 } else {
@@ -3516,12 +3523,31 @@ pub fn register(world: &mut World, curves: Curves) {
             // The Watch of 11-21: a name broke off in the Oubliette, was told to `rest`
             // there by two replies, and was felled on the third rest.
             let still = if is_aggressive(w, creature) && chp_now > 0.0 {
-                let ways = super::rooms::room_of(w, f.citizen)
-                    .map(|r| super::rooms::exits_of(w, r).keys().cloned().collect::<Vec<_>>())
-                    .unwrap_or_default();
+                // The mildest way out: nothing hunting there, then the lowest door
+                // (it named `dive` and the Gallery over the Watch-fire next door).
+                let mut ways: Vec<(bool, i64, String, String)> = super::rooms::room_of(w, f.citizen)
+                    .map(|r| super::rooms::exits_of(w, r))
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|(via, to)| {
+                        (
+                            hunter_in(w, to).is_some(),
+                            super::rooms::gate_of(w, to).unwrap_or(0.0) as i64,
+                            via,
+                            plain_str(w, to, super::ROOM, "name").unwrap_or("?").to_string(),
+                        )
+                    })
+                    .collect();
+                ways.sort();
+                let way = match ways.first() {
+                    Some((hunted, _, via, name)) => format!(
+                        "`travel {via}`, to {name}{}",
+                        if *hunted { ", where something hunts too" } else { ", where nothing hunts just now" }
+                    ),
+                    None => "`travel <exit>`".to_string(),
+                };
                 format!(
-                    " It hunts this room and will be on you again in seconds: you are out of the fight, not out of its reach. Walk now (`travel {}`); `rest` here will not hold.",
-                    ways.first().cloned().unwrap_or_else(|| "<exit>".into())
+                    " It hunts this room and will be on you again in seconds: you are out of the fight, not out of its reach. Walk now ({way}); `rest` here will not hold."
                 )
             } else {
                 String::new()

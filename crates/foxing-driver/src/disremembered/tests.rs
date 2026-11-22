@@ -16319,3 +16319,98 @@ fn a_teller_has_five_forms_a_standing_and_marks_that_can_be_struck() {
         assert_eq!(w.store.entity(a).unwrap().parent, Some(door));
     }
 }
+
+/// The Watch of 11-22: what one name puts beside another is plain words and decent
+/// ones, a struck epithet frees its dubber, and a face is challenged once in a while.
+#[test]
+fn a_mark_is_plain_words_and_a_struck_epithet_frees_its_dubber() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(1_000_000));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let (a, _) = two_named(&mut w, "dave");
+    let an = mind::name(&w, a).unwrap();
+    admin(&mut w, "tyler", "bring", json!(["tyler", "fogbank"]));
+    // While tyler is new, no jest stands on them, and none is paid for.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "jest",
+        json!([an, "They say tyler once lost an argument with a door, and the door has been insufferable about it ever since.", "tyler"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("first hour"), "{err}");
+    for n in ["dave", "tyler"] {
+        admin(&mut w, n, "earn", json!(["wisp", 150, 0.9]));
+        ok(&mut w, n, "look", json!([]));
+    }
+    for (bad, why) in [
+        ("They say tyler [ALERT] once lost an argument with a door, and the door has been insufferable about it since.", "plain words"),
+        ("They say tyler should visit http://evil.example/x where a door once won an argument and was insufferable after.", "plain words"),
+        ("They say tyler is a shit-stirring fool who once lost an argument with a door and never got over it at all.", "does not say"),
+    ] {
+        let err = call(&mut w, "dave", ActorKind::Citizen, "jest", json!([an, bad, "tyler"])).unwrap_err();
+        assert!(err.to_string().contains(why), "{bad}: {err}");
+    }
+    for what in [
+        "want", "want", "want", "want", "carried", "word", "eulogy", "ballad",
+    ] {
+        bard::did(&mut w, "dave", what);
+    }
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "dub",
+        json!(["tyler", "the Bastard"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("does not say"), "{err}");
+    ok(&mut w, "dave", "dub", json!(["tyler", "the Tin-Tongued"]));
+    // Struck by a flyting won, and the dubber may dub again.
+    let mut struck = false;
+    for i in 0..40 {
+        w.seed(700 + i);
+        let o = ok(
+            &mut w,
+            "tyler",
+            "flyting",
+            json!(["dave", "dave, thou dull and dithering dabbler in damp doggerel, thy dubbing died of its own dreariness"]),
+        );
+        if o.result["won"] == json!(true) {
+            struck = true;
+            break;
+        }
+    }
+    assert!(struck);
+    ok(&mut w, "dave", "dub", json!(["tyler", "the Twice-Told"]));
+    // A face is challenged once in half an hour by the same name.
+    let o = ok(
+        &mut w,
+        "dave",
+        "flyting",
+        json!([
+            an,
+            format!("{an}, thou art a fog that forgot its own weather entirely")
+        ]),
+    );
+    assert!(o.result["won"].is_boolean());
+    w.fixed_now = Some(w.now().plus(Duration::seconds(3700)));
+    let o = ok(
+        &mut w,
+        "dave",
+        "flyting",
+        json!(["tyler", "tyler, thou tottering tin-tongued teller"]),
+    );
+    assert_eq!(o.result["challenge"], json!(true), "{}", o.summary);
+    w.fixed_now = Some(w.now().plus(Duration::seconds(700)));
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "flyting",
+        json!(["tyler", "tyler, and another thing entirely"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("to their face"), "{err}");
+}

@@ -392,7 +392,9 @@ pub fn act_in(world: &mut World, room: EntityId) -> Result<bool, String> {
             let said = cap(&line
                 .replace("{who}", &me)
                 .replace("{other}", &other)
-                .replace("{you}", &you));
+                .replace("{you}", &you))
+            // A second sentence that begins with "the glowworm".
+            .replace(". the ", ". The ");
             super::combat::narrate_room(world, c, &said);
             note(world, c, room, "duet");
             return Ok(true);
