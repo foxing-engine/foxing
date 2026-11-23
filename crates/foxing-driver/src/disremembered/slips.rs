@@ -692,6 +692,16 @@ fn answer(world: &mut World, ctx: &CallContext, text: &str) -> Result<Outcome, C
         )));
     }
     if !right(&asked, text) {
+        // David, 11-22: a first mistake at the keyboard is free.
+        if super::lore::free_miss(world, &ctx.actor, &format!("slip:{}", slip.room)) {
+            return Ok(Outcome::new(
+                format!(
+                    "That is not what the world says tonight, and a first miss at the keyboard costs nothing: the slip hears you again at once. The next miss today is paid for in time. Where a reader might look: {}.",
+                    asked.look
+                ),
+                json!({"slip": slip.district, "right": false, "free": true}),
+            ));
+        }
         t.tried.insert(slip.room.to_string(), world.now().0);
         keep(world, &ctx.actor, f.citizen, &t)?;
         return Ok(Outcome::new(

@@ -16535,7 +16535,7 @@ fn lore_is_read_where_it_lies_and_opens_what_the_bench_will_make() {
     let n = lore::ask(&w, "dave", "doors").unwrap().number.unwrap();
     let right = ok(&mut w, "dave", "study", json!(["folio", format!("{n}")]));
     assert_eq!(right.result["right"], json!(true), "{}", right.summary);
-    assert_eq!(right.result["xp"], json!(30.0));
+    assert_eq!(right.result["xp"], json!(15.0));
     assert!(lore::locked(&w, "dave", "warden-charm").is_none());
     let again = call(
         &mut w,
@@ -16548,6 +16548,64 @@ fn lore_is_read_where_it_lies_and_opens_what_the_bench_will_make() {
     assert!(
         again.to_string().contains("a new page for you tomorrow"),
         "{again}"
+    );
+    // The Folio of Pins wants letters and a number, and takes them run together.
+    admin(&mut w, "dave", "bring", json!(["dave", "errata-desk"]));
+    let asked = lore::ask(&w, "dave", "pins").unwrap();
+    let (letters, n) = (asked.words[0].to_uppercase(), asked.number.unwrap());
+    let wrong = ok(&mut w, "dave", "study", json!(["folio", format!("{n}")]));
+    assert_eq!(
+        wrong.result["right"],
+        json!(false),
+        "a number alone is not it"
+    );
+    w.fixed_now = Some(w.now().plus(Duration::seconds(601)));
+    let right = ok(
+        &mut w,
+        "dave",
+        "study",
+        json!(["folio", format!("{letters} {n}")]),
+    );
+    assert_eq!(right.result["right"], json!(true), "{}", right.summary);
+    // The Book asks what Nobody owes, and the Overdue Desk says.
+    admin(&mut w, "dave", "bring", json!(["dave", "overdue-desk"]));
+    let line = ok(&mut w, "dave", "read", json!(["nobody"]));
+    assert!(line.summary.contains("one lamp, unlit"), "{}", line.summary);
+    admin(
+        &mut w,
+        "dave",
+        "bring",
+        json!(["dave", "dark-reading-room"]),
+    );
+    let right = ok(&mut w, "dave", "study", json!(["book", "one lamp, unlit"]));
+    assert_eq!(right.result["right"], json!(true), "{}", right.summary);
+    assert_eq!(right.result["xp"], json!(10.0));
+    // A near miss of a door, and a room's name without its quotes.
+    admin(&mut w, "dave", "bring", json!(["dave", "threshold"]));
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["esat"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("Did you mean `travel east`"),
+        "{err}"
+    );
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["court"]),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("Did you mean `travel \"The Court of Lethe\"`"),
+        "{err}"
     );
     // It fades, three days from the reading.
     w.fixed_now = Some(w.now().plus(Duration::seconds(3 * 86_400 + 60)));

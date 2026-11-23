@@ -116,6 +116,11 @@ const NOUNS: &[(&str, &[&str], &str)] = &[
     ),
     (
         "overdue-desk",
+        &["nobody", "nobody's"],
+        "It takes some finding, because it is not under N: it is the first line in the book, above the ruled margin, in a hand older than the column. \"Nobody: every book in the Dark Reading Room, nightly. Returned unread, each morning, to the minute. Owing: one lamp, unlit, issued at the door and never used.\" The sum beside it has never been carried, because it has never changed.",
+    ),
+    (
+        "overdue-desk",
         &["bell"],
         "The bell is engraved round its rim, small, where a hand would cover it: RING FOR ATTENTION. Under that, smaller: ATTENTION IS ALSO DUE. It rings while you are reading it, and the fines go up.",
     ),

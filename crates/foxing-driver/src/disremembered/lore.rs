@@ -46,8 +46,10 @@ const DAY_MS: i64 = 86_400_000;
 pub const LORE_MS: i64 = 3 * DAY_MS;
 pub const LORE_SCHOLAR_MS: i64 = 7 * DAY_MS;
 /// What an end pays when it is newly understood, and a folio once a day.
-pub const END_XP: f64 = 20.0;
-pub const FOLIO_XP: f64 = 30.0;
+// (20 and 30 at first: three answers took a new name from nothing to level 72
+// with no fight, and five folios ended a first hour's leave. David, 11-22: "halve it".)
+pub const END_XP: f64 = 10.0;
+pub const FOLIO_XP: f64 = 15.0;
 /// A wrong answer, and the thing will not hear that name again this long.
 pub const RETRY_MS: i64 = 10 * 60_000;
 
@@ -133,10 +135,10 @@ pub const SOURCES: &[Source] = &[
         room: "dark-reading-room",
         words: &["book", "books", "page", "nobody", "plaque"],
         folio: false,
-        shown: "The Book Nobody Is Reading is open at a page about you. You get as far as your name, and the page turns; you look back, and it is a page about you again, a different one. The lamps are all switched off, and the print is perfectly clear. Every other book on the long tables is open too, and each is being read, attentively, and the chairs are pushed back. Who is reading them?",
-        answers: &["nobody", "no one", "noone", "no-one", "nobody is"],
-        learned: "\"Nobody,\" you say, and a chair two places down is drawn in an inch, politely, to let you past. Nobody is a regular. Nobody reads here every night with every lamp off and has never needed one, and the page that would not stay still for you lies flat under that attention like a cat. You see how a light is made that is only a light to its bearer. You know how a night lantern is made.",
-        rumor: "In the Dark Reading Room every book is open and the lamps are off. The room's own words say who reads there.",
+        shown: "The Book Nobody Is Reading is open at a page about you. You get as far as your name, and the page turns; you look back, and it is a page about you again, a different one. The lamps are all switched off, and the print is perfectly clear. Every other book on the long tables is open too, and each is being read, attentively, by nobody, and the chairs are pushed back. Nobody is a borrower like any other, and the Overdue Desk keeps a line for every borrower (`read nobody`, there). What does Nobody owe the house?",
+        answers: &["lamp", "a lamp", "one lamp", "one lamp unlit", "a lamp unlit", "an unlit lamp", "one unlit lamp", "unlit lamp", "the lamp", "lamp unlit"],
+        learned: "\"One lamp, unlit,\" you say, and a chair two places down is drawn in an inch, politely, to let you past. Nobody is a regular. Nobody reads here every night with every lamp off, has never needed one, and owes the house the one it never lit; the page that would not stay still for you lies flat under that attention like a cat. You see how a light is made that is only a light to its bearer. You know how a night lantern is made.",
+        rumor: "In the Dark Reading Room every book is open and the lamps are off. The room says who reads there, and the Overdue Desk says what that reader owes.",
     },
     Source {
         key: "ledger",
@@ -677,39 +679,80 @@ pub fn ask(world: &World, name: &str, key: &str) -> Option<Asked> {
             })
         }
         "makings" => {
-            let p = picks(name, d, key, OPEN_RECIPES.len(), 2);
+            // Hardened (David, 11-22: "harden them"): it was two `recipes` reads and no
+            // walking. Now the count of materials, and a walk to where one is found.
             let all = super::craft::all_recipes(world);
-            let (a, b) = (
-                all.iter().find(|r| r.key == OPEN_RECIPES[p[0]])?,
-                all.iter().find(|r| r.key == OPEN_RECIPES[p[1]])?,
-            );
+            let walked: Vec<(&super::craft::Rx, &str, &str)> = OPEN_RECIPES
+                .iter()
+                .filter_map(|k| all.iter().find(|r| r.key == *k))
+                .filter_map(|r| {
+                    if r.of.iter().any(|m| m == "rag thread") {
+                        Some((r, "rag thread", "midden"))
+                    } else if r.of.iter().any(|m| m == "hollow water") {
+                        Some((r, "hollow water", "fogbank"))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            if walked.is_empty() {
+                return None;
+            }
+            let (a, material, room_key) = walked[picks(name, d, key, walked.len(), 1)[0]];
+            let others: Vec<&super::craft::Rx> = OPEN_RECIPES
+                .iter()
+                .filter_map(|k| all.iter().find(|r| r.key == *k))
+                .filter(|r| r.key != a.key)
+                .collect();
+            let b = others[picks(name, d, "makings-b", others.len(), 1)[0]];
             let distinct: BTreeSet<&str> =
                 a.of.iter().chain(b.of.iter()).map(String::as_str).collect();
+            let room = super::rooms::room_by_key(world, room_key)?;
+            let ways = super::rooms::exits_of(world, room).len();
             Some(Asked {
                 question: format!(
-                    "Today's page is two things, their makings torn off: {} and {}. How many different materials do the two ask between them, counting one they share once, and counting no memory? (`recipes {}` and `recipes {}` say what each is made of.)",
-                    a.name, b.name, a.key, b.key
+                    "Today's page is two things, their makings torn off: {} and {}. Count the different materials the two ask between them, one they share counted once and no memory counted (`recipes {}` and `recipes {}`). Then go to the first room the bench names for {material} (`recipes {}` says where it is found), and add the ways that lead out of that room as it stands today. What is the sum?",
+                    a.name, b.name, a.key, b.key, a.key
                 ),
                 words: Vec::new(),
-                number: Some(distinct.len() as f64),
-                within: 0.0,
+                number: Some((distinct.len() + ways) as f64),
+                within: 1.0,
             })
         }
         "pins" => {
-            let slips = super::slips::SLIPS;
-            let p = picks(name, d, key, slips.len(), 2);
-            let (a, b) = (&slips[p[0]], &slips[p[1]]);
-            let (an, bn) = (room_name(world, a.room), room_name(world, b.room));
-            let mut words = significant(&an);
-            words.extend(significant(&bn));
+            // Hardened: it was one read of `slips`. Now the two rooms are gone to.
+            let open: Vec<&super::slips::Slip> = super::slips::SLIPS
+                .iter()
+                .filter(|sl| {
+                    super::rooms::room_by_key(world, sl.room)
+                        .is_some_and(|r| super::rooms::gate_of(world, r).is_none())
+                })
+                .collect();
+            if open.len() < 2 {
+                return None;
+            }
+            let p = picks(name, d, key, open.len(), 2);
+            let (a, b) = (open[p[0]], open[p[1]]);
+            let rooms = [
+                super::rooms::room_by_key(world, a.room)?,
+                super::rooms::room_by_key(world, b.room)?,
+            ];
+            let ways: usize = rooms
+                .iter()
+                .map(|r| super::rooms::exits_of(world, *r).len())
+                .sum();
+            let (ia, ib) = (
+                initial(&room_name(world, a.room)),
+                initial(&room_name(world, b.room)),
+            );
             Some(Asked {
                 question: format!(
-                    "Today's page is two districts with the pinholes filled in: {} and {}. In which room is each one's reference slip pinned? Answer with the two rooms' names. (`slips` lists the twelve.)",
+                    "Today's page is two districts with the pinholes filled in: {} and {}. Find the room each one's reference slip is pinned in (`slips` lists the twelve) and go to both. Answer with the two rooms' initials, The left out, in that order, and then the number of ways that lead out of the two rooms together as they stand today: two letters and a number, as in \"AB 7\".",
                     a.district, b.district
                 ),
-                words,
-                number: None,
-                within: 0.0,
+                words: vec![format!("{ia}{ib}").to_lowercase()],
+                number: Some(ways as f64),
+                within: 1.0,
             })
         }
         _ => None,
@@ -763,7 +806,15 @@ fn right(world: &World, name: &str, s: &Source, answer: &str) -> bool {
             .split_whitespace()
             .find_map(|w| w.parse::<f64>().ok())
             .or_else(|| number_word(&a));
-        return said.is_some_and(|x| (x - n).abs() <= asked.within);
+        if !said.is_some_and(|x| (x - n).abs() <= asked.within) {
+            return false;
+        }
+        if asked.words.is_empty() {
+            return true;
+        }
+        // Letters and a number: "AB 7", "a b 7", "ab7".
+        let letters: String = a.chars().filter(|c| c.is_alphabetic()).collect();
+        return asked.words.iter().all(|w| letters == *w);
     }
     // Letters run together or spaced; names by their words.
     let squeezed: String = a.split_whitespace().collect();
@@ -781,6 +832,22 @@ fn number_word(a: &str) -> Option<f64> {
     a.split_whitespace()
         .find_map(|w| WORDS.iter().position(|x| *x == w))
         .map(|n| n as f64)
+}
+
+/// David, 11-22: "first mistakes for players on keyboard can be free". One miss a
+/// day at each thing costs a name at the keyboard nothing: true, and marked, where
+/// this is that one. `what` is the thing: a lore key, or `slip:<room>`.
+pub fn free_miss(world: &mut World, name: &str, what: &str) -> bool {
+    if !combat::at_a_keyboard(world, name) {
+        return false;
+    }
+    let today = day(world);
+    let mut st = state(world, name);
+    if st["missed"][what].as_i64() == Some(today) {
+        return false;
+    }
+    st["missed"][what] = json!(today);
+    write(world, name, st).is_ok()
 }
 
 fn shut_for(world: &World, name: &str, key: &str) -> Option<i64> {
@@ -993,7 +1060,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.study",
-            "Read a thing closely, where it is: a folio chained in a room, or one of the things the world's text leaves a trail to. Bare, or with the thing alone (`study folio`, `study coat`): its text and the question it ends in. With an answer in quotes (`study folio \"12\"`): right, and you know how something is made that the bench gives nobody else, for three days, and are paid for the reading (an end 20 when newly understood, a folio 30 once a day); wrong, and it will not hear you for ten minutes. A folio asks each name its own question each day, so nobody else's answer is yours. `lore` says what you know and what is still to read.",
+            "Read a thing closely, where it is: a folio chained in a room, or one of the things the world's text leaves a trail to. Bare, or with the thing alone (`study folio`, `study coat`): its text and the question it ends in. With an answer in quotes (`study folio \"12\"`): right, and you know how something is made that the bench gives nobody else, for three days, and are paid for the reading (an end 10 when newly understood, a folio 15 once a day); wrong, and it will not hear you for ten minutes (a first miss a day at each is free to a name at the keyboard). A folio asks each name its own question each day, so nobody else's answer is yours. `lore` says what you know and what is still to read.",
         )
         .param("thing", ParamType::Entity, false, "what to study here: folio, or the thing's name")
         .param("answer", ParamType::Text, false, "your answer, quoted")
@@ -1050,6 +1117,16 @@ pub fn register(world: &mut World) {
                 )));
             }
             if !right(w, &name, s, &answer) {
+                if free_miss(w, &name, s.key) {
+                    return Ok(Outcome::new(
+                        format!(
+                            "That is not it, and a first miss at the keyboard costs nothing: {} hears you again at once. The next miss today shuts it for {} minutes. The answer is in the world, not on this page.",
+                            s.title,
+                            retry_ms(w, &name, RETRY_MS) / 60_000
+                        ),
+                        json!({"lore": s.key, "right": false, "free": true}),
+                    ));
+                }
                 let mut st = state(w, &name);
                 st["tried"][s.key] = json!(w.now().0);
                 write(w, &name, st)?;

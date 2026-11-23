@@ -2681,6 +2681,24 @@ pub const STAIR_LEVEL: f64 = 100.0;
 /// door does not ask that name again. Nothing is barred. Estimates from each room's
 /// creatures (hit points and attack against a name's thirty and its level's worth of
 /// blows), to be tuned by what the Watches find.
+/// How many letters apart two words are: for "did you mean".
+pub fn edit_distance(a: &str, b: &str) -> usize {
+    let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
+    let mut row: Vec<usize> = (0..=b.len()).collect();
+    for i in 1..=a.len() {
+        let mut prev = row[0];
+        row[0] = i;
+        for j in 1..=b.len() {
+            let cur = row[j];
+            row[j] = (prev + usize::from(a[i - 1] != b[j - 1]))
+                .min(row[j] + 1)
+                .min(row[j - 1] + 1);
+            prev = cur;
+        }
+    }
+    row[b.len()]
+}
+
 pub const GATES: &[(&str, f64)] = &[
     // The Wilds: the fighter's road, one way.
     ("shallows", 50.0),
@@ -2914,8 +2932,51 @@ pub fn register(world: &mut World) {
                     .iter()
                     .map(|(d, to)| format!("{d} ({})", plain_str(w, **to, ROOM, "name").unwrap_or("?")))
                     .collect();
+                // David, 11-22: "did you mean". A near miss of a door here; else a
+                // room of the world that the word begins or belongs to (`travel Court
+                // of Lethe` arrives as 'court': a name of several words wants quotes).
+                let near = exits
+                    .iter()
+                    .find(|(via, to)| {
+                        edit_distance(via, &exit) <= if exit.len() > 3 { 2 } else { 1 }
+                            || plain_str(w, **to, ROOM, "name").is_some_and(|n| {
+                                n.to_lowercase().split_whitespace().any(|x| x == exit)
+                            })
+                    })
+                    .map(|(via, to)| {
+                        format!(
+                            " Did you mean `travel {via}` ({})?",
+                            plain_str(w, *to, ROOM, "name").unwrap_or("?")
+                        )
+                    });
+                let meant = near.unwrap_or_else(|| {
+                    let mut rooms: Vec<String> = w
+                        .store
+                        .of_kind("room")
+                        .filter(|e| e.owner.is_none())
+                        .filter_map(|e| plain_str(w, e.id, ROOM, "name"))
+                        .filter(|n| {
+                            exit.len() > 2
+                                && n.to_lowercase()
+                                    .trim_start_matches("the ")
+                                    .split_whitespace()
+                                    .any(|x| x == exit || edit_distance(x, &exit) <= 1 && exit.len() > 4)
+                        })
+                        .map(|n| format!("`travel \"{n}\"`"))
+                        .collect();
+                    rooms.sort();
+                    rooms.truncate(3);
+                    if rooms.is_empty() {
+                        String::new()
+                    } else {
+                        format!(
+                            " Did you mean {}? (A room's whole name, in quotes, walks the way there.)",
+                            rooms.join(" or ")
+                        )
+                    }
+                });
                 return Err(foxing_registry::CommandError::precondition(format!(
-                    "There is no exit '{exit}'. Exits: {}.",
+                    "There is no exit '{exit}'. Exits: {}.{meant}",
                     said.join(", ")
                 )));
             };

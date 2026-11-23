@@ -884,7 +884,7 @@ Bindery, each asking for two or three readings put together from
 rooms far apart. `study folio` shows today's page; `study folio
 "<answer>"` answers it. A folio asks each name its own question each
 day, so nobody else's answer is yours. Right: you know the making for
-three days, and are paid (an end 20 when newly understood, a folio 30
+three days, and are paid (an end 10 when newly understood, a folio 15
 once a day). Wrong: ten minutes before it hears you again. Answering
 again keeps what you know. `lore` lists what you know, where the rest
 is said to be, and your standing as a reader, counted from the last

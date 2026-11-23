@@ -1363,16 +1363,76 @@ fn rejection(result: &CheckResult, report: &mut Report) {
             .iter()
             .filter_map(|s| s.verb.as_deref())
             .any(|v| WAYS.contains(&v));
-        let carried = result
+        // David, 11-22: "we should work to determine intent of mistyped commands and
+        // offer the player a 'did you mean...'". The words people reach for first.
+        const MEANT: &[(&str, &str)] = &[
+            ("inventory", "satchel"),
+            ("inv", "satchel"),
+            ("bag", "satchel"),
+            ("items", "satchel"),
+            ("make", "craft"),
+            ("build", "craft"),
+            ("forge", "craft"),
+            ("learn", "lore"),
+            ("unlock", "lore"),
+            ("knowledge", "lore"),
+            ("answer", "study"),
+            ("open", "study"),
+            ("examine", "read"),
+            ("inspect", "read"),
+            ("talk", "tell"),
+            ("speak", "tell"),
+            ("ask", "tell"),
+            ("whisper", "tell"),
+            ("fight", "attack"),
+            ("hit", "attack"),
+            ("kill", "attack"),
+            ("strike", "attack"),
+            ("flee", "retreat"),
+            ("run", "retreat"),
+            ("escape", "retreat"),
+            ("heal", "rest"),
+            ("sleep", "rest"),
+            ("stats", "chunks"),
+            ("status", "chunks"),
+            ("level", "chunks"),
+            ("score", "chunks"),
+            ("quests", "wants"),
+            ("quest", "wants"),
+            ("pick", "take"),
+            ("get", "take"),
+            ("grab", "take"),
+            ("who", "look"),
+            ("exits", "look"),
+            ("l", "look"),
+            ("i", "satchel"),
+            ("sing", "ballad"),
+            ("insult", "flyting"),
+            ("nickname", "dub"),
+            ("persuade", "coax"),
+            ("mourn", "eulogy"),
+            ("joke", "jest"),
+        ];
+        let meant = result
             .message
             .statements
             .iter()
             .filter_map(|s| s.verb.as_deref())
-            .any(|v| v == "inventory" || v == "inv");
+            .find_map(|v| {
+                MEANT
+                    .iter()
+                    .find(|(said, _)| *said == v)
+                    .map(|(said, m)| (*said, *m))
+            });
+        if let Some((said, m)) = meant {
+            report.fact(
+                format!("The world does not run `{said}`. Did you mean `{m}`? (`help {m}` shows a worked line; the `commands` tool lists every verb)"),
+                "gate",
+            );
+            return;
+        }
         report.fact(
-            if carried {
-                "What you carry is `satchel`; the `commands` tool lists every verb"
-            } else if way {
+            if way {
                 "The verb for moving is `travel`, as in `travel north`; the `commands` tool lists every verb"
             } else {
                 "The `commands` tool lists the verbs this world runs"
