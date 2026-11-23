@@ -3167,6 +3167,9 @@
       const w = v ? v[1].toLowerCase() : "";
       const common = (n) => ["look", "travel", "attack", "story", "rest", "chunks", "map", "help", "read", "take", "gather", "tell", "say", "retreat", "wants", "remember", "dig", "craft"].includes(n) ? 1 : 0;
       const near = w.length > 1 ? names.map(n => [editDistance(w, n), n]).filter(p => p[0] <= (w.length > 4 ? 2 : 1)).sort((a, b) => a[0] - b[0] || common(b[1]) - common(a[1]))[0] : null;
+      // The Watch of 11-22 evening: `make` was offered `take`, `learn` was offered `earn`.
+      const meant = { make: "craft", build: "craft", learn: "lore", unlock: "lore", know: "lore", knowledge: "lore", answer: "study", open: "study", examine: "read", inspect: "read", inv: "satchel", inventory: "satchel", bag: "satchel", go: "travel", walk: "travel", move: "travel", talk: "tell", speak: "tell", fight: "attack", hit: "attack", kill: "attack", flee: "retreat", run: "retreat", heal: "rest", sleep: "rest", stats: "chunks", status: "chunks", level: "chunks", quests: "wants", quest: "wants" }[w];
+      if (meant) return "The world does not run `" + w + "`; the nearest it has is `" + meant + "` (`help " + meant + "` shows a worked line).";
       if (near) return "The world does not run `" + w + "`. Did you mean `" + near[1] + "`?";
       if (/^(what|how|where|who|why|can|help|please|i)$/.test(w)) return "The world takes one verb at a time, not a question. `help` says what you can do and gives a worked line for each verb; the buttons under the transcript are what you can do right here.";
       return "The world does not run " + (v ? "`" + v[1] + "`" : "that") + ". `help` says what you can do; exits are `travel <exit>` (look lists them), and the buttons under the transcript are what you can do here.";
@@ -3179,7 +3182,12 @@
         const shape = q[1] + " " + parts.map(x => /text|story|line|words|what|question|answer/.test(x) ? '"<' + x + '>"' : "<" + x + ">").join(" ");
         return "`" + q[1] + "` wants " + (parts.length === 1 ? "one thing after it" : parts.length + " things after it") + ": " + shape + ". `help " + q[1] + "` shows a worked line.";
       }
-      return "That verb wants an argument" + (m[2] ? " (" + m[2] + ")" : "") + ": `commands` shows each verb's.";
+      // `look folio`: "That verb wants an argument ('look' takes at most 0 ..." said both.
+      const none = /'([^']+)' takes at most 0 arguments/.exec(m[2] || "");
+      if (none) return "`" + none[1] + "` takes nothing after it: `" + none[1] + "` alone" + (none[1] === "look" ? "; to read a thing the room names, `read <thing>`, and to work at one, `study <thing>`" : "") + ".";
+      const most = /'([^']+)' takes at most (\d+) arguments?/.exec(m[2] || "");
+      if (most) return "`" + most[1] + "` takes at most " + most[2] + " thing" + (most[2] === "1" ? "" : "s") + " after it; words that belong together go in quotes. `help " + most[1] + "` shows a worked line.";
+      return "That verb wants an argument" + (m[2] ? " (" + m[2] + ")" : "") + ": `help <verb>` shows a worked line for each.";
     }
     if (m[1] === "I1") return "Nothing to run in that line.";
     return "The world did not take that line" + (m[2] ? ": " + m[2] : "") + ". `commands` lists the verbs.";

@@ -632,13 +632,15 @@ pub const OFFER_MS: i64 = 10 * 60 * 1000;
 pub const GATHERABLE: &[(&[&str], &str)] = &[
     // H8: the Mudroom's rack (first, so the Mudroom gives a spade and nothing else).
     (&["rack of spades"], super::door::SPADE),
-    (&["river", "weed", "tide", "drowned"], "river weed"),
+    // (The Cistern, which `recipes` names for weed, gave hollow water: "cistern"
+    // was among the water words.)
+    (
+        &["river", "weed", "tide", "drowned", "cistern"],
+        "river weed",
+    ),
     // Fog condenses in the hand: the Fogbank, where every maker is sent first,
     // gave nothing (Gnomeforge, 11-06).
-    (
-        &["water", "well", "cistern", "pool", "fog", "mist"],
-        "hollow water",
-    ),
+    (&["water", "well", "pool", "fog", "mist"], "hollow water"),
     (
         &["shelves", "shelf", "ink", "ledger", "margin"],
         "a dab of ink",
@@ -2955,7 +2957,7 @@ pub fn register(world: &mut World, curves: Curves) {
                                 format!(
                                     " It is also made with a memory: `craft {} <chunk>`, one worth {:.0} or more{} (`recipes` says whether you hold one).",
                                     r.key,
-                                    r.chunk_at_least,
+                                    r.chunk_at_least * super::economy::rate(w, "price"),
                                     if r.vividity_at_least > 0.0 {
                                         format!(" at vividity {:.1} or more", r.vividity_at_least)
                                     } else {
@@ -3004,7 +3006,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 let viv = super::plain_num(w, chunk, super::CHUNK, "vividity").unwrap_or(0.0);
                 if viv < r.vividity_at_least {
                     return Err(CommandError::precondition(format!(
-                        "Chunk {} has vividity {viv:.2}; {} takes a memory of {:.1} or more: one of a fight you nearly lost.",
+                        "Chunk {} has vividity {viv:.2}; {} takes a memory of {:.1} or more: one of a fight you nearly lost, or of a thing worked out by reading (`study`).",
                         chunk.0, r.name, r.vividity_at_least
                     )));
                 }

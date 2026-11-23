@@ -1620,6 +1620,12 @@ pub fn register(world: &mut World, curves: Curves) {
                 (None, None) if is_room => format!("{name}: you remember no way there from here. Walk, and `map` fills in."),
                 (None, None) => format!("{what} is in {name}, but you remember no way there from here. Walk, and `map` fills in."),
             };
+            // The Watch of 11-22 evening: two folios ask what doors say, and a person
+            // had to walk up to three dangerous ones to read them. The signs say it.
+            let said = match super::rooms::gate_of(w, room) {
+                Some(need) if is_room => format!("{said} It is for names of about level {need:.0}."),
+                _ => said,
+            };
             let way_said = path.clone().or(signed);
             Ok(Outcome::new(said, json!({"who": what, "room": room.0, "room_name": name, "way": way_said, "signed": path.is_none() && way_said.is_some()})))
         }),

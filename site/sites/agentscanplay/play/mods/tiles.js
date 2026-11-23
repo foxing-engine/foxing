@@ -19,6 +19,9 @@ const WALL_TOP = 2; // the north wall is two tiles tall: shelves, windows, a doo
 const DOORS = { north: [Math.floor(COLS / 2), 1], south: [Math.floor(COLS / 2), ROWS - 1], west: [0, 6], east: [COLS - 1, 6] };
 // R258: the kinds that attack whoever walks in (the world's own list; a test in the
 // driver holds the two together). A creature whose temper has changed says so itself.
+// L4: the rooms where a folio is chained, and where a trail ends.
+const FOLIO_ROOMS = ["lamp-table", "mezzanine", "bindery", "returns-cage", "errata-desk", "proof-room"];
+const TRAIL_ROOMS = ["lost-steps", "court-of-lethe", "dark-reading-room", "overdue-desk"];
 const HUNTS = ["hand", "hollow", "revenant", "drowned", "sitter", "hourhand", "keeper", "lamprey", "usher", "censor", "clipper", "sweater", "warden", "footpad", "axolotl", "anemone", "dust devil", "custodian"];
 const NIGHT = "#121a25", INK = "#ece5d3", DUST = "#d9b57a", EMBER = "#d1734f", MOSS = "#7fb37f", SLATE = "#7d8794", BLOOD = "#e0453a";
 // Where things stand: you in the middle, the rest on a ring of slots, by id.
@@ -888,6 +891,22 @@ export default function install(m) {
     // L3 (David, 11-21: "graphical upgrades ... for well tended rooms"): what care
     // has put in a dug room. Kept: a lamp on a bracket. Tended: a rug and a hearth.
     // Cherished: a window with the moon in it. Each goes when the room slips.
+    // L4: where there is something to `study`. A folio chained to a lectern; a
+    // pencilled mark on the wall where a trail ends (the Watch of 11-22 evening:
+    // "The picture shows nothing for any folio or any trail").
+    if (FOLIO_ROOMS.includes(scene.key)) {
+      const fx = 15 * T, fy = 2 * T;
+      px(fx + 7, fy + 9, 2, 6, "#5a4a30"); px(fx + 4, fy + 15, 8, 1, "#3a3028");
+      px(fx + 2, fy + 5, 12, 5, "#6a5636"); px(fx + 3, fy + 4, 5, 5, "#ece5d3"); px(fx + 8, fy + 4, 5, 5, "#fffbe8"); px(fx + 8, fy + 4, 1, 5, "#b8a98a");
+      px(fx + 4, fy + 6, 3, 1, "#8a7a5c"); px(fx + 9, fy + 6, 3, 1, "#8a7a5c"); px(fx + 9, fy + 7, 2, 1, "#8a7a5c");
+      for (let i = 0; i < 4; i++) px(fx + 14 + i, fy + 9 + i, 1, 1, "#9a9a9a");
+      lights.push({ x: fx + 8, y: fy + 7, r: 26, k: 0.7, warm: 0.1 });
+    } else if (TRAIL_ROOMS.includes(scene.key)) {
+      const mx = 16 * T, my = 1 * T, tw = Math.floor(performance.now() / 600) % 2;
+      px(mx + 2, my + 3, 10, 8, "#d8cfb8"); px(mx + 3, my + 5, 6, 1, "#7a7466"); px(mx + 3, my + 7, 4, 1, "#7a7466");
+      px(mx + 10, my + 1 + tw, 1, 1, "#ffe9a8"); px(mx + 12, my + 3, 1, 1, "#ffe9a8");
+      lights.push({ x: mx + 7, y: my + 7, r: 20, k: 0.55, warm: 0.1 });
+    }
     if (scene.tend >= 1) {
       const lx = 17 * T, ly = 1 * T;
       px(lx + 6, ly + 2, 1, 6, "#3a3028"); px(lx + 6, ly + 2, 5, 1, "#3a3028");

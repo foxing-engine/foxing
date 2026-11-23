@@ -797,7 +797,8 @@ fn folio_done_today(world: &World, name: &str, key: &str) -> bool {
 fn shown(world: &World, name: &str, s: &Source) -> String {
     let question = if s.folio {
         match ask(world, name, s.key) {
-            Some(a) => format!(" {}", a.question),
+            // On its own line: the question was lost in the paragraph on a phone.
+            Some(a) => format!("\n{}\n", a.question),
             None => " The page for today has been torn out; come back tomorrow.".to_string(),
         }
     } else {
@@ -914,10 +915,12 @@ pub fn register(world: &mut World) {
                 .filter_map(|s| {
                     knows(w, &name, s.key).map(|left| {
                         format!(
-                            "{} (`craft {}`; {} more)",
+                            "{} (`craft {}`; {} more; read again with `study {}` in {})",
                             s.title,
                             recipe_of(s.key),
-                            combat::human(left)
+                            combat::human(left),
+                            s.words[0],
+                            room_name(w, s.room)
                         )
                     })
                 })
@@ -925,7 +928,20 @@ pub fn register(world: &mut World) {
             let unread: Vec<String> = SOURCES
                 .iter()
                 .filter(|s| knows(w, &name, s.key).is_none())
-                .map(|s| s.rumor.to_string())
+                .map(|s| {
+                    // What it teaches is no secret; how to read it is the puzzle.
+                    let made = super::craft::RECIPES
+                        .iter()
+                        .find(|r| r.key == recipe_of(s.key))
+                        .map(|r| r.name)
+                        .unwrap_or("something");
+                    format!(
+                        "{} It teaches {} (`recipes {}`).",
+                        s.rumor,
+                        made,
+                        recipe_of(s.key)
+                    )
+                })
                 .collect();
             let (points, said) = standing(w, &name);
             let r = rung(w, &name);
