@@ -1632,6 +1632,10 @@ pub(crate) fn resolve_item(
     if let Some(id) = by_id {
         return Ok(id);
     }
+    // By the word that tells it from its twin: "dusty wisp ember", or "dusty".
+    if let Some(id) = super::called::find_item(world, arg, within) {
+        return Ok(id);
+    }
     // By name, the first that matches, "a" and "the" aside.
     let want = arg.to_lowercase();
     let want = want

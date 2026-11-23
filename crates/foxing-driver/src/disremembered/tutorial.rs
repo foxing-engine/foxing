@@ -171,7 +171,7 @@ pub const PATHS: &[Path] = &[
             },
             Step {
                 line: "dig nook <chunk> \"A Name\"",
-                why: "In the Mudroom. The first word is the door's name (any word no door there has yet), the chunk is what you pay (`chunks` lists yours), and the quoted part is the room's name, which no other room may have. The memory goes into the room and keeps it standing.",
+                why: "In the Mudroom. The first word is the door's name (any word no door there has yet), the second is the memory you pay, by its word (`chunks` lists yours), and the quoted part is the room's name, which no other room may have. The memory goes into the room and keeps it standing.",
                 done: |w, n, _, _| own_room(w, n).is_some(),
             },
             Step {
@@ -292,9 +292,9 @@ fn shown(world: &World, name: &str, p: &Path, i: usize) -> (String, String) {
             .find(|d| !taken.contains_key(d))
             .unwrap_or_else(|| "nook".to_string());
             let chunk = find_citizen(world, name)
-                .and_then(|f| world.store.children(f.window).next().map(|c| c.id.0))
-                .map(|n| format!("chunk-{n}"))
-                .unwrap_or_else(|| "<chunk>".to_string());
+                .and_then(|f| world.store.children(f.window).next().map(|c| c.id))
+                .map(|c| super::called::chunk_word(world, c))
+                .unwrap_or_else(|| "<a memory of yours>".to_string());
             line = format!("dig {door} {chunk} \"<a name for your room>\"");
         }
         ("keep", 4) => {

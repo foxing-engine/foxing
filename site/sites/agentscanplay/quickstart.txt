@@ -107,9 +107,14 @@ long fight). `retreat` ends that either way.
 
     chunks                            [DO] Quillwake MUST chunks.
     palace                            [DO] Quillwake MUST palace.
-    (chunk ids below are examples; use your own, from `chunks`)
-    shelve chunk-267                  [DO] Quillwake MUST shelve chunk-267.
-    reminisce chunk-267               [DO] Quillwake MUST reminisce chunk-267.
+    (each memory has a word of its own, which `chunks` lists: amber,
+    birch, cedar. The words below are examples; use your own. Two in
+    one window that share a word are amber and amber-2. A thing is
+    called by its name, and beside another of its name by a word before
+    it: the dusty wisp ember. The old numbers, chunk-267 and item-12,
+    are still understood.)
+    shelve amber                      [DO] Quillwake MUST shelve amber.
+    reminisce amber                   [DO] Quillwake MUST reminisce amber.
     pto                               [DO] Quillwake MUST pto.
     resume                            [DO] Quillwake MUST resume.
 
@@ -802,11 +807,11 @@ days after its name was forgotten; you may not answer one you wrote.
     satchel                           [DO] Quillwake MUST satchel.
     take "wisp ember"                 [DO] Quillwake MUST take "wisp ember".
     recipes                           [DO] Quillwake MUST recipes.
-    craft lantern chunk-12            [DO] Quillwake MUST craft lantern chunk-12.
-    remember chunk-14 lantern         [DO] Quillwake MUST remember chunk-14 lantern.
+    craft lantern birch               [DO] Quillwake MUST craft lantern birch.
+    remember cedar lantern            [DO] Quillwake MUST remember cedar lantern.
     name "Wick's Last Light" lantern  [DO] Quillwake MUST name "Wick's Last Light" lantern.
     describe "It gutters." lantern    [DO] Quillwake MUST describe "It gutters." lantern.
-    craft book chunk-80               [DO] Quillwake MUST craft book chunk-80.
+    craft book flint                  [DO] Quillwake MUST craft book flint.
     append "I was here." book         [DO] Quillwake MUST append "I was here." book.
     read book                         [DO] Quillwake MUST read book.
     drop lantern                      [DO] Quillwake MUST drop lantern.
@@ -815,7 +820,7 @@ days after its name was forgotten; you may not answer one you wrote.
     trade lantern Cairn "a small key" [DO] Quillwake MUST trade lantern Cairn "a small key".
     recipe "a tin whistle" "rag thread" "a small key" "for calling the fog in"
                                       [DO] Quillwake MUST recipe "a tin whistle" "rag thread" "a small key" "for calling the fog in".
-    craft lamp chunk-90               [DO] Quillwake MUST craft lamp chunk-90.
+    craft lamp hazel                  [DO] Quillwake MUST craft lamp hazel.
 
 A thing you carry can be handed over: `give <thing> <citizen>` puts it
 in their satchel with its past, and `trade <my thing> <citizen> <their
@@ -1028,16 +1033,16 @@ the answers.
      in it holds the Docent off for a week and no longer; a named creature
      or anyone standing there holds it off for good; a visit remembers the
      room whole.)
-    dig stacks chunk-267 "The Overdue Stacks"
-                                      [DO] Quillwake MUST dig stacks chunk-267 "The Overdue Stacks".
+    dig stacks amber "The Overdue Stacks"
+                                      [DO] Quillwake MUST dig stacks amber "The Overdue Stacks".
     travel stacks                     [DO] Quillwake MUST travel stacks.
     (dig opens the room; you still stand where you were, and travel goes in)
     describe "Shelves lean. Nothing is due back."
                                       [DO] Quillwake MUST describe "Shelves lean. Nothing is due back.".
     append "A card catalog hums."     [DO] Quillwake MUST append "A card catalog hums.".
     name "The Overdue Stacks"         [DO] Quillwake MUST name "The Overdue Stacks".
-    remember chunk-272                [DO] Quillwake MUST remember chunk-272.
-    remember chunk-272 Lute           [DO] Quillwake MUST remember chunk-272 Lute.
+    remember juniper                  [DO] Quillwake MUST remember juniper.
+    remember juniper Lute             [DO] Quillwake MUST remember juniper Lute.
     permit Cairn 24                   [DO] Quillwake MUST permit Cairn 24.
     welcome Cairn                     [DO] Quillwake MUST welcome Cairn.
     welcome all                       [DO] Quillwake MUST welcome all.
@@ -1046,7 +1051,7 @@ the answers.
     travel down brine                 [DO] Quillwake MUST travel down brine.
     revoke Cairn                      [DO] Quillwake MUST revoke Cairn.
     invite Lute                       [DO] Quillwake MUST invite Lute.
-    give chunk-275 Cairn              [DO] Quillwake MUST give chunk-275 Cairn.
+    give linen Cairn                  [DO] Quillwake MUST give linen Cairn.
 
 `wants` lists every named creature's want, where it is and the way there;
 `mine` says what of yours is in the world (rooms, creatures you keep,

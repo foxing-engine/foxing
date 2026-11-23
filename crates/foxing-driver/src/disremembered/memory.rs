@@ -269,10 +269,23 @@ pub(crate) fn resolve_chunk(
     arg: &str,
     within: &[EntityId],
 ) -> Result<EntityId, CommandError> {
-    let id: u64 = arg.trim_start_matches("chunk-").parse().map_err(|_| {
-        CommandError::precondition(format!("'{arg}' is not a chunk id; chunks shows yours."))
-    })?;
-    let id = EntityId(id);
+    // By its word (amber), as `chunks` lists it; a number is still understood.
+    let id = match arg.trim().trim_start_matches("chunk-").parse::<u64>() {
+        Ok(id) => EntityId(id),
+        Err(_) => super::called::find_chunk(world, arg, within)
+            .filter(|c| {
+                world
+                    .store
+                    .entity(*c)
+                    .is_some_and(|e| e.owner.as_deref() == Some(ctx.actor.as_str()))
+            })
+            .ok_or_else(|| {
+                CommandError::precondition(format!(
+                    "You hold no memory called '{}'; `chunks` lists yours by their words.",
+                    arg.trim()
+                ))
+            })?,
+    };
     let e = world
         .store
         .entity(id)

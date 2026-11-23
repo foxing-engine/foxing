@@ -8387,7 +8387,7 @@ fn the_conclave_takes_petitions_and_always_decides_eventually() {
         .collect();
     assert_eq!(mine.len(), 1, "{said:?}");
     assert!(
-        mine[0].contains("have it.") && mine[0].contains("You keep the memory of it: chunk-"),
+        mine[0].contains("have it.") && mine[0].contains("You keep the memory of it: a memory, "),
         "{}",
         mine[0]
     );
@@ -14778,6 +14778,48 @@ fn a_story_travels_wears_is_set_right_claimed_and_let_go() {
         .any(|l| l.contains("it is disremembered")));
 }
 
+/// David, 11-22: memories and things are called by words, not numbers.
+#[test]
+fn memories_and_things_are_called_by_words_and_answer_to_them() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(1_000_000));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let c = admin(&mut w, "dave", "earn", json!(["a first thing", 30, 0.5])).result["chunk"]
+        .as_u64()
+        .unwrap();
+    let word = called::chunk_word(&w, EntityId(c));
+    assert!(called::is_chunk_word(&word), "{word}");
+    let said = called::humanize(
+        &w,
+        &format!("You remember it: chunk-{c} worth 30 XP. (chunk-{c})"),
+    );
+    assert_eq!(
+        said,
+        format!("You remember it: a memory, {word}, worth 30 XP. ({word})")
+    );
+    // The word is taken apart from the bare words the gate read it with.
+    let args = called::unmerge(&w, "remember", vec![json!(format!("{word} wisp"))], &[true]);
+    assert_eq!(args, vec![json!(word), json!("wisp")]);
+    let args = called::unmerge(
+        &w,
+        "dig",
+        vec![json!(format!("den {word}")), json!("A Name")],
+        &[true, false],
+    );
+    assert_eq!(args, vec![json!("den"), json!(word), json!("A Name")]);
+    // A thing alone of its name loses its number, and its brackets if that was all.
+    assert_eq!(
+        called::humanize(
+            &w,
+            "a wisp ember (item-999999, 46% remembered) and a stone roll (item-999998)."
+        ),
+        "a wisp ember (46% remembered) and a stone roll."
+    );
+    // And a memory is spent by its word.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "remember", json!([word, "wisp"]));
+    assert!(w.store.entity(EntityId(c)).is_none());
+}
+
 /// David, 11-22: "hold protection until the road is finished".
 #[test]
 fn the_leave_holds_past_one_hundred_while_the_docent_walks_a_name_down_a_road() {
@@ -16850,7 +16892,7 @@ fn the_docent_asks_which_road_and_walks_a_new_name_down_it() {
         .unwrap()
         .to_string();
     assert!(
-        line.starts_with("dig nook chunk-") && !line.contains("<chunk>"),
+        line.starts_with("dig nook ") && called::is_chunk_word(line.split(' ').nth(2).unwrap()),
         "{line}"
     );
     let chunk = line.split(' ').nth(2).unwrap().to_string();

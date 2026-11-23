@@ -1188,10 +1188,11 @@ export default function install(m) {
     const chunks = (win && win.relations && win.relations.contents) || [];
     const rows = chunks.map(n => { const c = n.components["disremembered.chunk"] || {}; return { id: n.id, v: m.timed(c.value), viv: c.vividity || 0 }; });
     if (!rows.length) return "chunk-?";
-    if (use === "dig") { rows.sort((a, b) => b.viv - a.viv || b.v - a.v); return "chunk-" + rows[0].id; }
+    const called = (id) => window.disChunk ? window.disChunk(id) : "chunk-" + id;
+    if (use === "dig") { rows.sort((a, b) => b.viv - a.viv || b.v - a.v); return called(rows[0].id); }
     rows.sort((a, b) => b.v - a.v);
     const cheap = rows.filter(c => c.v >= 1).slice(-1)[0] || rows[0];
-    return "chunk-" + cheap.id;
+    return called(cheap.id);
   }
   function bestChunk() { return chunkFor("give"); }
   function thingNamed(name) {
@@ -1520,7 +1521,7 @@ export default function install(m) {
         ...into.map(r => ["make " + r.name, () => m.prefill("craft " + r.recipe + " ")]),
         ["drop " + it.name, () => m.command("drop", ['"' + it.name + '"'])],
         ["read " + it.name, () => m.command("read", ["item-" + it.id])],
-        ["give to \u2026", () => m.prefill("give item-" + it.id + " ")],
+        ["give to \u2026", () => m.prefill("give " + (/ /.test(it.name) ? '"' + it.name.replace(/^(?:a|an|the) /, "") + '"' : it.name) + " ")],
       ];
       satMenu.replaceChildren(...rows.map(([label, run]) => {
         const b = document.createElement("button"); b.type = "button"; b.textContent = label;

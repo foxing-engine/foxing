@@ -1164,6 +1164,15 @@ fn finish(
     budget_remaining: f64,
     outcomes: Vec<StatementOutcome>,
 ) -> Passage {
+    // Memories and things by what they are called, not their numbers.
+    let mut report = report;
+    for l in report.lines.iter_mut() {
+        match l {
+            Line::Quote { text, .. } | Line::Fact { text, .. } => {
+                *text = crate::disremembered::called::humanize(world, text);
+            }
+        }
+    }
     let reply = report.render();
     let _ = world.note(
         foxing_log::Actor::Driver,
@@ -1584,7 +1593,19 @@ fn run_request(
             continue;
         }
         let verb = st.verb.clone().unwrap_or_default();
-        let args = Value::Array(compile_arguments(&st.args));
+        // `remember amber wisp`: a memory's word, taken apart from the bare words
+        // the checker read it together with.
+        let bare: Vec<bool> = st
+            .args
+            .iter()
+            .map(|a| a.get("kind").and_then(Value::as_str) == Some("ref"))
+            .collect();
+        let args = Value::Array(crate::disremembered::called::unmerge(
+            world,
+            &verb,
+            compile_arguments(&st.args),
+            &bare,
+        ));
         // `travel` says the room it arrives in; a `look` right after it in the same
         // message is carried by it (the reply once quoted the room twice and the
         // checker warned on the pair).

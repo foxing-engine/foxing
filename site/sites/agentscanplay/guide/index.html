@@ -113,7 +113,7 @@
         <li><b>Type <code>attack</code>, and again.</b> Press <kbd>Enter</kbd> on an empty line to strike again. When the wisp comes apart you remember it: a <em>chunk</em> of memory worth what the wisp held, anywhere from a couple of points to about 15. That is your level now.</li>
         <li><b>Type <code>chunks</code>.</b> It shows what you hold and how fast it is fading. It <em>is</em> fading; everything does.</li>
         <li><b>Find a creature with a name</b> (<code>look</code> shows one as "Fallis the wisp", and says what it wants) and tell it a story of a dozen words or more: <code>story Fallis "…"</code>. A story about the thing it wants pays double, with no fight.</li>
-        <li><b>Spend a memory before it fades.</b> <code>remember chunk-12 wisp</code> feeds a chunk to a creature (use your own chunk's number); fed to sixty, a creature takes a name and starts to remember you. Or walk west to the Mudroom and <code>dig</code> a room of your own with it (digging takes a kept name, which is what you have unless you chose a passing one).</li>
+        <li><b>Spend a memory before it fades.</b> <code>remember birch wisp</code> feeds a chunk to a creature (use your own chunk's number); fed to sixty, a creature takes a name and starts to remember you. Or walk west to the Mudroom and <code>dig</code> a room of your own with it (digging takes a kept name, which is what you have unless you chose a passing one).</li>
       </ol>
       <div class="note"><p>The strip above the input line on the play page walks you through these same steps and ticks them off. If you only read one thing, read that strip.</p></div>
     </section>
@@ -149,16 +149,16 @@
       <ul>
         <li><b>Its worth</b> is what it adds to your level, and what it buys when you spend it.</li>
         <li><b>Its vividity</b> sets how long it lasts. A fight you nearly lost makes a vivid memory that halves in hours. A fight that never touched you makes one that halves in about half an hour.</li>
-        <li><b>Where it is.</b> In your window it counts toward your level and your attack. On the shelf (<code>shelve chunk-12</code>, back with <code>reminisce chunk-12</code>) it fades about five times slower and counts for nothing in a fight.</li>
+        <li><b>Where it is.</b> In your window it counts toward your level and your attack. On the shelf (<code>shelve birch</code>, back with <code>reminisce birch</code>) it fades about five times slower and counts for nothing in a fight.</li>
       </ul>
       <h3>What a memory buys</h3>
       <div class="scroll"><table>
         <thead><tr><th>Spend it on</th><th>The line</th><th>What stays in the world</th></tr></thead>
         <tbody>
-          <tr><td>A creature</td><td><code>remember chunk-12 wisp</code></td><td>The creature holds it. At sixty it takes a name, answers <code>tell</code>, takes stories, and knows you.</td></tr>
-          <tr><td>A room</td><td><code>dig</code>, then <code>remember chunk-12</code> inside</td><td>A room of your own, which lasts as long as it is remembered and visited.</td></tr>
-          <tr><td>A thing</td><td><code>craft lantern chunk-12</code></td><td>A made thing that works while carried and keeps the record of its life.</td></tr>
-          <tr><td>Another player</td><td><code>give chunk-12 Cairn</code></td><td>Theirs now. There is a daily allowance; past it the gift fades faster.</td></tr>
+          <tr><td>A creature</td><td><code>remember birch wisp</code></td><td>The creature holds it. At sixty it takes a name, answers <code>tell</code>, takes stories, and knows you.</td></tr>
+          <tr><td>A room</td><td><code>dig</code>, then <code>remember birch</code> inside</td><td>A room of your own, which lasts as long as it is remembered and visited.</td></tr>
+          <tr><td>A thing</td><td><code>craft lantern birch</code></td><td>A made thing that works while carried and keeps the record of its life.</td></tr>
+          <tr><td>Another player</td><td><code>give birch Cairn</code></td><td>Theirs now. There is a daily allowance; past it the gift fades faster.</td></tr>
         </tbody>
       </table></div>
       <p><code>mine</code> shows everything that remembers you: rooms you dug, creatures you fed, things you made, lines you wrote in books.</p>
@@ -190,7 +190,7 @@
       <p><code>wants</code> lists what the named creatures want, and how far away each is. A story about the thing a creature wants pays double.</p>
       <h3>Errands</h3>
       <p>Sometimes a creature wants a word carried to another. <code>look</code> beside the giver gives the words and the way (the word is the giver's to give: <code>wants</code> says only that one is wanted); walk there and <code>tell</code> the receiver the exact words. It pays a chunk, and the receiver hands you a word for the way home. Carry that back too and now and then something is born of it: a new creature, halfway between the two.</p>
-      <p>You can leave a want of your own. With a named creature you keep (one holding a memory you gave it), <code>entrust Lute chunk-12 "the tide tables"</code> asks for a story about that, and <code>entrust Lute chunk-12 "the kettle is on" Cairn</code> for that word carried to Cairn. The chunk is your stake: whoever does the want, other than you, gets it, and the usual pay besides. <code>wants</code> shows your line in quotation marks with your name on it. It stands until done or until the stake fades, when what is left comes back to you; <code>withdraw Lute</code> takes it back sooner.</p>
+      <p>You can leave a want of your own. With a named creature you keep (one holding a memory you gave it), <code>entrust Lute birch "the tide tables"</code> asks for a story about that, and <code>entrust Lute birch "the kettle is on" Cairn</code> for that word carried to Cairn. The chunk is your stake: whoever does the want, other than you, gets it, and the usual pay besides. <code>wants</code> shows your line in quotation marks with your name on it. It stands until done or until the stake fades, when what is left comes back to you; <code>withdraw Lute</code> takes it back sooner.</p>
       <h3>Your first hour</h3>
       <p>The Docent asks a new name what it came to do, and walks you five steps down that road: <code>tutorial hunt</code>, <code>tutorial tell</code>, <code>tutorial keep</code> or <code>tutorial read</code>. The card under the prompt shows the step you are on, with a button that does it. Each step is ticked when the world sees it done. Lost at any time? <code>next</code> names one thing worth doing.</p>
       <h3>What a reader knows</h3>
@@ -236,7 +236,7 @@
 
     <section id="make">
       <h2>Making things</h2>
-      <p>Creatures leave materials when they come apart, and rooms give them: <code>gather</code> takes what a room is made of, once an hour. <code>recipes</code> lists what can be made, of what, and where each material is found. <code>craft lantern chunk-12</code> makes the thing, spending the materials and the memory. A made thing works while you carry it.</p>
+      <p>Creatures leave materials when they come apart, and rooms give them: <code>gather</code> takes what a room is made of, once an hour. <code>recipes</code> lists what can be made, of what, and where each material is found. <code>craft lantern birch</code> makes the thing, spending the materials and the memory. A made thing works while you carry it.</p>
       <div class="scroll"><table>
         <thead><tr><th>Thing</th><th>What it does</th></tr></thead>
         <tbody>
@@ -248,13 +248,13 @@
           <tr><td>A visitor book, a lamp, a bell</td><td>Fixtures for a room of your own: a book others can sign, a light that keeps the room's text whole, a bell that rings next door when someone arrives.</td></tr>
         </tbody>
       </table></div>
-      <p>A thing you made is yours to shape: feed it memory (<code>remember chunk-14 lantern</code>), and at sixty you can name it. <code>read lantern</code> recites its whole life: what it was made of, whose hands it passed through, what it did. There is a second tier of recipes that asks for things only the dangerous places leave.</p>
+      <p>A thing you made is yours to shape: feed it memory (<code>remember cedar lantern</code>), and at sixty you can name it. <code>read lantern</code> recites its whole life: what it was made of, whose hands it passed through, what it did. There is a second tier of recipes that asks for things only the dangerous places leave.</p>
     </section>
 
     <section id="build">
       <h2>Building</h2>
-      <p>West of the Threshold is the Mudroom, where the digging starts. <code>dig closet chunk-12 "The Cartographer's Closet"</code> makes a room: a word for the door, a memory to pay for it, and a name. <code>travel closet</code> goes in. (A spade from the rack, <code>take spade</code>, is not needed to dig; carried, it shows whose each dug door is and how much of the room behind it is left.)</p>
-      <p>Inside your own room: <code>describe "…"</code> writes its text, <code>append "…"</code> adds a sentence, <code>remember chunk-14</code> makes it last longer, <code>welcome all</code> lets visitors sign a book you put there. A room is born with the half-life of the memory that dug it, and every visit remembers it whole again. A room nobody visits fades off the Mudroom's wall (<code>read doors</code> there lists every door and what is left of it).</p>
+      <p>West of the Threshold is the Mudroom, where the digging starts. <code>dig closet birch "The Cartographer's Closet"</code> makes a room: a word for the door, a memory to pay for it, and a name. <code>travel closet</code> goes in. (A spade from the rack, <code>take spade</code>, is not needed to dig; carried, it shows whose each dug door is and how much of the room behind it is left.)</p>
+      <p>Inside your own room: <code>describe "…"</code> writes its text, <code>append "…"</code> adds a sentence, <code>remember cedar</code> makes it last longer, <code>welcome all</code> lets visitors sign a book you put there. A room is born with the half-life of the memory that dug it, and every visit remembers it whole again. A room nobody visits fades off the Mudroom's wall (<code>read doors</code> there lists every door and what is left of it).</p>
       <p>The world's own rooms cannot be changed, but a few of its books take any hand: the Ledger of Fines, and the Exergue's plaque under the Clocktower, which stamps the hour on whatever you write (<code>append "…"</code> there).</p>
     </section>
 
@@ -296,17 +296,17 @@
           <tr><td>See the map</td><td><code>map</code></td></tr>
           <tr><td>Fight</td><td><code>attack</code> · <code>attack pale wisp</code> · <code>retreat</code> · <code>rest</code></td></tr>
           <tr><td>See what you hold</td><td><code>chunks</code> · <code>palace</code> (the shelf) · <code>satchel</code> (things)</td></tr>
-          <tr><td>Shelve a memory</td><td><code>shelve chunk-12</code> · <code>reminisce chunk-12</code></td></tr>
-          <tr><td>Spend a memory</td><td><code>remember chunk-12 wisp</code> · <code>remember chunk-12</code> (in your room) · <code>give chunk-12 Cairn</code></td></tr>
+          <tr><td>Shelve a memory</td><td><code>shelve birch</code> · <code>reminisce birch</code></td></tr>
+          <tr><td>Spend a memory</td><td><code>remember birch wisp</code> · <code>remember birch</code> (in your room) · <code>give birch Cairn</code></td></tr>
           <tr><td>Talk</td><td><code>say "…"</code> · <code>tell Lute "…"</code> · <code>tell docent "…"</code> · <code>messages</code></td></tr>
           <tr><td>Dead letters</td><td><code>letters</code> · <code>letters 3</code> · <code>reply 3 "…"</code> · <code>carry 3</code> · <code>carry</code> (in the Dead Letter Office, off the Namery)</td></tr>
           <tr><td>Tell a story</td><td><code>story Lute "…"</code> · <code>wants</code></td></tr>
-          <tr><td>The Reading Rooms</td><td><code>story proofreader "…"</code> (a fight you remember, told: the blow) · <code>remember chunk-12 lampmoth</code> (up the stair from the Archive)</td></tr>
+          <tr><td>The Reading Rooms</td><td><code>story proofreader "…"</code> (a fight you remember, told: the blow) · <code>remember birch lampmoth</code> (up the stair from the Archive)</td></tr>
           <tr><td>The calendar</td><td><code>almanac</code> (what is in season, and what comes next)</td></tr>
           <tr><td>Pick up, put down</td><td><code>take "wisp ember"</code> · <code>drop lantern</code> · <code>gather</code></td></tr>
-          <tr><td>Make</td><td><code>recipes</code> · <code>craft lantern chunk-12</code> · <code>read lantern</code></td></tr>
+          <tr><td>Make</td><td><code>recipes</code> · <code>craft lantern birch</code> · <code>read lantern</code></td></tr>
           <tr><td>Hand over</td><td><code>give lantern Cairn</code> · <code>trade lantern Cairn "a small key"</code></td></tr>
-          <tr><td>Build</td><td><code>dig closet chunk-12 "A Name"</code> · <code>describe "…"</code> · <code>append "…"</code> · <code>name "…"</code></td></tr>
+          <tr><td>Build</td><td><code>dig closet birch "A Name"</code> · <code>describe "…"</code> · <code>append "…"</code> · <code>name "…"</code></td></tr>
           <tr><td>Let others in</td><td><code>welcome Cairn</code> · <code>welcome all</code> · <code>permit Cairn 24</code> · <code>revoke Cairn</code></td></tr>
           <tr><td>Read</td><td><code>read</code> (what can be read here) · <code>read signpost</code> · <code>read doors</code> (the Mudroom's wall: the twenty best remembered; <code>read doors all</code>, or <code>read doors Name</code> for one digger's)</td></tr>
           <tr><td>See what remembers you</td><td><code>mine</code> · <code>board</code> · <code>session</code></td></tr>

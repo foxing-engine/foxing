@@ -466,11 +466,10 @@ pub const NARRATIVE: &str = "disremembered.narrative";
 /// Something that happened to a citizen while they were not typing. The text port
 /// prints it after their next command; the browser client polls for it.
 pub fn narrate(world: &mut World, actor: &str, text: impl Into<String>) {
-    let _ = world.note(
-        Actor::Driver,
-        NARRATIVE,
-        json!({"to": actor, "text": text.into()}),
-    );
+    // What a name is told names memories and things by what they are called,
+    // not by their numbers (`called`).
+    let text = super::called::humanize(world, &text.into());
+    let _ = world.note(Actor::Driver, NARRATIVE, json!({"to": actor, "text": text}));
 }
 
 /// S10 a: one line for several hearers is one event, addressed to all of them
@@ -482,11 +481,8 @@ pub fn narrate_many(world: &mut World, to: &[String], text: impl Into<String>) {
         [] => {}
         [one] => narrate(world, one, text),
         many => {
-            let _ = world.note(
-                Actor::Driver,
-                NARRATIVE,
-                json!({"to": many, "text": text.into()}),
-            );
+            let text = super::called::humanize(world, &text.into());
+            let _ = world.note(Actor::Driver, NARRATIVE, json!({"to": many, "text": text}));
         }
     }
 }

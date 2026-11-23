@@ -17,6 +17,7 @@ pub mod bard;
 pub mod bindery;
 pub mod board;
 pub mod building;
+pub mod called;
 pub mod cloak;
 pub(crate) mod combat;
 pub mod conclave;
