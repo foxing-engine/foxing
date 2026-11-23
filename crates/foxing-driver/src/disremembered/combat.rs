@@ -2024,14 +2024,25 @@ pub const LEAVE_ENDS_AT: f64 = 100.0;
 /// Whether the world still leaves this name alone: inside its first hour, never yet
 /// at level 100. Reaching 100 ends it for good (`grace_ended`), and a later fall or
 /// fading does not bring it back.
+///
+/// David, 11-22: "hold protection until the road is finished". A hunter at the
+/// keyboard reached 100 twelve minutes in, two steps short of the end of the
+/// Docent's road, and was hunted through the rest of its lesson. While a name is
+/// being walked down a road, its level does not end the leave; the hour still does.
 pub fn sheltered(world: &World, citizen: EntityId) -> bool {
     let young = plain_num(world, citizen, super::CITIZEN, "named_at")
         .is_some_and(|t| world.now().0 - (t as i64) < super::kindle::GRACE_MS);
     if !young || plain_num(world, citizen, super::CITIZEN, "grace_ended").is_some() {
         return false;
     }
-    let level = plain_str(world, citizen, super::CITIZEN, "name")
-        .map(str::to_string)
+    let name = plain_str(world, citizen, super::CITIZEN, "name").map(str::to_string);
+    if name
+        .as_deref()
+        .is_some_and(|n| super::tutorial::on_road(world, n))
+    {
+        return true;
+    }
+    let level = name
         .and_then(|n| super::find_citizen(world, &n))
         .map_or(0.0, |f| super::memory::level(world, f.window));
     level < LEAVE_ENDS_AT
@@ -2051,7 +2062,9 @@ pub fn leave_by_level(world: &mut World, actor: &str, citizen: EntityId) {
     let Some(f) = super::find_citizen(world, actor) else {
         return;
     };
-    if super::memory::level(world, f.window) < LEAVE_ENDS_AT {
+    if super::memory::level(world, f.window) < LEAVE_ENDS_AT
+        || super::tutorial::on_road(world, actor)
+    {
         return;
     }
     let mut changes = BTreeMap::new();
@@ -2064,7 +2077,7 @@ pub fn leave_by_level(world: &mut World, actor: &str, citizen: EntityId) {
     narrate(
         world,
         actor,
-        "You have reached level 100, and the world's leave ends there, before your first hour is out and for good: what hunts, hunts you now. A room's `look` says what hunts whoever stays in it (the Shallows' hollows, the drowned, an anemone), and `where` and the signposts say which ways pass through such a room. Nothing else has changed.",
+        "You have reached level 100, and the world's leave ends there (it holds past 100 only while the Docent is walking you down a road), before your first hour is out and for good: what hunts, hunts you now. A room's `look` says what hunts whoever stays in it (the Shallows' hollows, the drowned, an anemone), and `where` and the signposts say which ways pass through such a room. Nothing else has changed.",
     );
 }
 

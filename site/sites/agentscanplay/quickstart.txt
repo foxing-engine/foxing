@@ -184,7 +184,8 @@ something irritating (it says your name back wrong; it shoves you through
 a door, one blow in two, which ends the fight and leaves you in whatever
 room the door opens on, never one that hunts while your name is in its
 first hour and has not yet reached level 100: the world's leave ends at
-whichever comes first, and for good), then worse (a numbing bite that halves your strikes for a while;
+whichever comes first, and for good; level 100 does not end it while the
+Docent is walking you down a `tutorial` road), then worse (a numbing bite that halves your strikes for a while;
 it mends by what it bites; a bite that will not close, so nothing mends
 for eight minutes), then painful (venom; the ray of
 forgetfulness; a second bite in the same breath). `look` says what it

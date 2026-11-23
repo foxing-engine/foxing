@@ -14745,6 +14745,27 @@ fn a_story_travels_wears_is_set_right_claimed_and_let_go() {
         .any(|l| l.contains("it is disremembered")));
 }
 
+/// David, 11-22: "hold protection until the road is finished".
+#[test]
+fn the_leave_holds_past_one_hundred_while_the_docent_walks_a_name_down_a_road() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(1_000_000));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let f = find_citizen(&w, "dave").unwrap();
+    ok(&mut w, "dave", "tutorial", json!(["hunt"]));
+    admin(&mut w, "dave", "earn", json!(["a windfall", 150, 1.0]));
+    ok(&mut w, "dave", "look", json!([]));
+    assert!(combat::sheltered(&w, f.citizen), "on a road, at 150");
+    // Set down, the level counts again, and for good.
+    ok(&mut w, "dave", "tutorial", json!(["skip"]));
+    assert!(!combat::sheltered(&w, f.citizen));
+    ok(&mut w, "dave", "look", json!([]));
+    ok(&mut w, "dave", "tutorial", json!(["hunt"]));
+    assert!(
+        !combat::sheltered(&w, f.citizen),
+        "not got back by taking it up"
+    );
+}
+
 #[test]
 fn the_leave_ends_at_level_one_hundred_for_good() {
     // David, 11-17: the first hour's leave ends at level 100, whichever comes first,

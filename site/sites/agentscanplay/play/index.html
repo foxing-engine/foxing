@@ -592,7 +592,9 @@
     #lane { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 5px 14px 4px; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent); }
     #lane::-webkit-scrollbar { display: none; }
     #first li.now .why { display: none; }
-    #first .fh-now .why { display: none; }
+    /* The reason for a step is shown on a phone too, two lines of it; a tap opens the rest. */
+    #first .fh-now .why { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; flex: 1 1 100%; order: 3; cursor: pointer; }
+    #first .fh-now .why.open { display: block; -webkit-line-clamp: unset; }
     #first .fh-head button, #split button, #b-help { min-height: 32px; min-width: 32px; padding: 4px 10px; }
     #split { height: 26px; }
     #atlas-zoom button { width: 32px; height: 32px; font-size: 16px; }
@@ -1166,8 +1168,20 @@
     if (typeof emit === "function") emit("line", text, cls);
     foldLog();
     age();
-    log.scrollTop = log.scrollHeight;
+    settleLog(el, cls);
     return el;
+  }
+  // A reply taller than the transcript is shown from its head (with the line that
+  // asked for it), not its tail: on a phone `lore` showed only its last paragraph.
+  // What is said in the next moments (the Docent's word after it) does not pull it away.
+  let headEl = null, headAt = 0;
+  function settleLog(el, cls) {
+    if (el && cls !== "you" && el.offsetHeight > log.clientHeight * 0.85) {
+      const prev = el.previousElementSibling;
+      headEl = prev && prev.classList.contains("you") ? prev : el; headAt = Date.now();
+    } else if (el && (cls === "you" || Date.now() - headAt > 3000)) headEl = null;
+    if (headEl && headEl.isConnected) log.scrollTop += headEl.getBoundingClientRect().top - log.getBoundingClientRect().top - 4;
+    else log.scrollTop = log.scrollHeight;
   }
   // P6: the page keeps the last KEEP lines; older ones are folded behind one row at
   // the top ("earlier"), which puts them back a screenful at a time. A long night
@@ -2496,6 +2510,7 @@
       if (t.view) {
         $("first-count").textContent = t.view.n + " of " + t.view.of + (t.path ? " · " + t.path : "");
         $("first-code").textContent = t.view.line;
+        if ($("first-why").textContent !== t.view.why) $("first-why").classList.remove("open");
         $("first-why").textContent = t.view.why;
         // A line with nothing left to fill in is sent as it stands, quotes and all;
         // one with a blank is put in the prompt for the blank to be written.
@@ -2605,6 +2620,7 @@
       else prefill(line.replace(/<[^>]*>/g, "").replace(/\?/g, "").replace(/\s+"$/, ' "').replace(/\s{2,}/g, " "));
     }
     $("first-do").addEventListener("click", doNow);
+    $("first-why").addEventListener("click", () => $("first-why").classList.toggle("open"));
     $("first-code").addEventListener("click", doNow);
     $("first-all").addEventListener("click", () => { const ol = $("first-steps"); ol.hidden = !ol.hidden; $("first-all").setAttribute("aria-expanded", ol.hidden ? "false" : "true"); $("first-all").textContent = ol.hidden ? "all steps" : "fewer"; });
     function skip() {
@@ -3345,7 +3361,7 @@
     }
     const strip = () => {
       let seen = false; try { seen = localStorage.getItem("disremembered.keys") === "1"; } catch (e) {}
-      if (seen || $("keystrip") || (window.matchMedia && matchMedia("(pointer: coarse)").matches)) return;
+      if (seen || $("keystrip") || innerWidth < 700 || (window.matchMedia && matchMedia("(pointer: coarse)").matches)) return;
       const d = Object.assign(document.createElement("div"), { id: "keystrip" });
       d.innerHTML = "<b>Keys</b> <kbd>Tab</kbd> finishes a verb, then a name here <kbd>Enter</kbd> on an empty line strikes again in a fight <kbd>Ctrl</kbd>+arrows walk <kbd>Alt</kbd>+1\u20139 the chips above <kbd>/</kbd> to the line <kbd>Esc</kbd> closes <kbd>?</kbd> help ";
       const x = Object.assign(document.createElement("button"), { type: "button", textContent: "got it", title: "Hide this; ? has it again" });
@@ -3859,7 +3875,7 @@
     // chips arrive after the words and once covered the line just printed).
     if (typeof ResizeObserver === "function") {
       let printed = 0; on_("line", () => { printed = Date.now(); });
-      new ResizeObserver(() => { if (Date.now() - printed < 4000) log.scrollTop = log.scrollHeight; }).observe(log);
+      new ResizeObserver(() => { if (Date.now() - printed < 4000) settleLog(null, ""); }).observe(log);
     }
     // Wide, the scene and the story stand side by side and the bar is dragged sideways:
     // the scene's width, remembered apart from its height.

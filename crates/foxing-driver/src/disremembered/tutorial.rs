@@ -208,7 +208,7 @@ pub const PATHS: &[Path] = &[
             },
             Step {
                 line: "lore",
-                why: "Eleven things are written down somewhere that teach a recipe. `lore` says where each is said to be; go to one and `study` it. The nearest folio is on the Mezzanine: `travel \"The Mezzanine\"`, then `travel up anyway` at its door.",
+                why: "Eleven things are written down somewhere that teach a recipe, and `lore` says where each is said to be. The nearest is behind no door that asks a level: `travel \"The Court of Lethe\"` (off the Hall of Lost Steps, by the Postern), then `study ink` shows the question, and `study ink \"<your answer>\"` answers it. The room has had the answer in it all along.",
                 done: |w, n, _, _| !super::lore::known(w, n).is_empty(),
             },
         ],
@@ -413,6 +413,11 @@ thread_local! {
     pub static UNSENT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+/// Whether the Docent is walking this name down a road just now.
+pub fn on_road(world: &World, name: &str) -> bool {
+    state(world, name)["path"].as_str().and_then(path).is_some()
+}
+
 /// The question, put to a new name as it arrives: the first thing the Docent
 /// says, in place of the three paragraphs of first moves that used to be.
 pub fn greet(world: &mut World, name: &str) {
@@ -533,6 +538,7 @@ fn finish(world: &mut World, name: &str, mut st: Value, p: &'static Path) {
         json!({"by": name, "path": p.key, "what": "finished"}),
     );
     if write(world, name, st).is_ok() {
+        combat::leave_by_level(world, name, f.citizen);
         docent_says(
             world,
             name,
@@ -724,6 +730,10 @@ pub fn register(world: &mut World) {
                 st["skipped"] = json!(true);
                 write(w, &name, st)?;
                 let _ = w.note(Actor::Citizen(name.clone()), TUTORED, json!({"by": name, "path": Value::Null, "what": "skipped"}));
+                // The leave was held past level 100 for the road; off it, it is not.
+                if let Some(f) = find_citizen(w, &name) {
+                    combat::leave_by_level(w, &name, f.citizen);
+                }
                 return Ok(Outcome::new(
                     "Set down. Nothing here is required. `tutorial` takes it up again whenever you like, and `next` names one thing worth doing.",
                     json!({"tutorial": state(w, &name)}),

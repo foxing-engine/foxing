@@ -677,8 +677,13 @@ pub fn register(world: &mut World, curves: Curves) {
             // A line of its own, drawn from what it holds beside the new story: four
             // creatures once thanked a teller in exactly the same words.
             let own = super::talk::line_of_its_own(w, creature, kept);
+            // David, 11-22: "quiet it during the protection time". A new teller's
+            // first stories each ended on a paragraph about a word it had not been
+            // told existed. A strike is still said (and paid); a miss is not.
+            let quiet = super::combat::sheltered(w, f.citizen);
             let under = match &struck {
                 Some((_, word, lvl)) => format!(" You said the word under the others: {word}.{}{}", if *lvl < super::secret::LEVELS { " There is another under that." } else { " There is none under that; you have them all." }, if bonus_only { " It was heard inside your hour with it, for the word; the next from you that carries none waits for the hour." } else { "" }),
+                None if quiet => String::new(),
                 // D29: too many guesses in one story at the higher rungs.
                 None => match over {
                     Some((n, heard)) => format!(
