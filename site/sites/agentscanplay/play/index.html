@@ -1247,7 +1247,7 @@
             contents: { kinds: ["citizen", "creature", "item", "docent"], select: { "disremembered.docent": ["name", "line"], "disremembered.citizen": ["name", "passing", "greeting"], "disremembered.creature": ["name", "hp", "max_hp"], "disremembered.sprite": "*", "disremembered.presence": ["here", "trace", "door"], "disremembered.mind": ["name", "tier"], "disremembered.errand": ["story", "word", "word_to"], "disremembered.item": ["name", "given_name", "fixed", "kind", "made_by"] } },
             exits: { select: { "disremembered.room": ["name"], "disremembered.sprite": "*" } } }, timed: "curve", commands: false };
           subscribe("room", roomQuery);
-          subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp", "engaged", "bleed_until", "numb_until", "woke_at", "shaken_ms"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting", "falls", "home", "session_at", "session_level", "named_at"] }, timed: "curve", commands: false });
+          subscribe("me", { root: "self", select: { "disremembered.body": ["hp", "max_hp", "engaged", "bleed_until", "numb_until", "woke_at", "shaken_ms"], "disremembered.sprite": "*", "disremembered.citizen": ["name", "passing", "greeting", "falls", "home", "session_at", "session_level", "named_at", "tutorial"] }, timed: "curve", commands: false });
           subscribe("window", { root: "window", select: {}, relations: { contents: { kinds: ["chunk"], select: { "disremembered.chunk": "*" } } }, timed: "curve", commands: false });
           for (const [id, q] of modSubs) subscribe(id, q);
           return;
@@ -2475,7 +2475,48 @@
     // A skipped step is dealt with (done = -1): it does not come up again, and the
     // list shows it as skipped; doing it later ticks it all the same.
     const allDone = () => STEPS.every(s => state.done[s.id]);
-    function showing() { return !!actor && !state.hidden && !allDone(); }
+    // The world keeps the first hour now (the Docent's `tutorial`): which road, which
+    // step, and the step's own words. Where the citizen carries that, this card is
+    // a view of it; the eight local steps below are for a world that does not.
+    function tut() {
+      const me = subs.me && subs.me.root, cz = me && me.components && me.components["disremembered.citizen"];
+      const t = cz && cz.tutorial;
+      return t && typeof t === "object" ? t : null;
+    }
+    function tutLeft(t) { const done = Array.isArray(t.done) ? t.done : []; return (Array.isArray(t.paths) ? t.paths : []).filter(p => !done.includes(p.key)); }
+    function tutShowing(t) { return !!(t.view || (!t.skipped && tutLeft(t).length)); }
+    function showing() { const t = tut(); if (t) return !!actor && !state.hidden && tutShowing(t); return !!actor && !state.hidden && !allDone(); }
+    function renderTut(t) {
+      const ol = document.createDocumentFragment();
+      const list = $("first-steps");
+      if (t.view) {
+        $("first-count").textContent = t.view.n + " of " + t.view.of + (t.path ? " · " + t.path : "");
+        $("first-code").textContent = t.view.line;
+        $("first-why").textContent = t.view.why;
+        const whole = !/[<"]/.test(t.view.line);
+        $("first-do").hidden = false;
+        $("first-do").textContent = whole ? "do it" : "start it";
+        $("first-now").dataset.line = t.view.line; $("first-now").dataset.whole = whole ? "1" : "0"; $("first-now").dataset.step = "tutorial";
+        $("first-all").hidden = true; list.hidden = true;
+      } else {
+        // The question: four roads, each a button.
+        $("first-count").textContent = "which road?";
+        $("first-code").textContent = "tutorial";
+        $("first-why").textContent = "What did you come to do? Pick a road and the Docent walks you five steps down it. Each ends on something real.";
+        $("first-do").hidden = true;
+        $("first-now").dataset.line = ""; $("first-now").dataset.step = "tutorial";
+        for (const p of tutLeft(t)) {
+          const li = document.createElement("li"); li.className = "now";
+          const tick = document.createElement("span"); tick.className = "tick"; tick.textContent = "▸";
+          const code = document.createElement("code"); code.textContent = "tutorial " + p.key;
+          code.addEventListener("click", () => { print("tutorial " + p.key, "you"); run("tutorial", [p.key]); });
+          const why = document.createElement("span"); why.className = "why"; why.textContent = " — " + p.pitch;
+          li.append(tick, code, why); ol.append(li);
+        }
+        $("first-all").hidden = true; list.hidden = false;
+      }
+      swap(list, ol);
+    }
     function fill(step) {
       const chunks = (subs.window && subs.window.root.relations && subs.window.root.relations.contents) || [];
       const best = chunks.map(n => ({ id: n.id, v: timed(n.components["disremembered.chunk"].value) })).sort((a, b) => b.v - a.v)[0];
@@ -2513,6 +2554,9 @@
       const sec = $("first"); if (!sec) return;
       sec.hidden = !showing() || $("compose").hidden === false || $("observe").hidden === false;
       if (sec.hidden) return;
+      const t = tut();
+      if (t) { renderTut(t); return; }
+      $("first-do").hidden = false; $("first-all").hidden = false;
       const ol = document.createDocumentFragment();
       // The step that is next: the first not done after the last one done, so a
       // skipped step does not hold the card forever; the skipped ones come round after.
@@ -2553,7 +2597,11 @@
     $("first-do").addEventListener("click", doNow);
     $("first-code").addEventListener("click", doNow);
     $("first-all").addEventListener("click", () => { const ol = $("first-steps"); ol.hidden = !ol.hidden; $("first-all").setAttribute("aria-expanded", ol.hidden ? "false" : "true"); $("first-all").textContent = ol.hidden ? "all steps" : "fewer"; });
-    function skip() { const id = $("first-now").dataset.step; if (!id || state.done[id]) return; state.done[id] = -1; save(); render(); }
+    function skip() {
+      // The world's tutorial is set down in the world, so it stays down on every device.
+      if (tut()) { print("tutorial skip", "you"); run("tutorial", ["skip"]); return; }
+      const id = $("first-now").dataset.step; if (!id || state.done[id]) return; state.done[id] = -1; save(); render();
+    }
     $("first-skip").addEventListener("click", skip);
     function tick(id) { if (!state.done[id] || state.done[id] === -1) { state.done[id] = Date.now(); save(); render(); if (allDone()) print("That is the loop: fight, remember, spend, and what you spent stays when you go. The rest of the quickstart is ? on an empty line.", "sys"); } }
     function onResult(command, args, body) {

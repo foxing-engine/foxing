@@ -624,6 +624,7 @@ fn died_since_last_message(world: &World, actor: &str) -> bool {
 /// ones that only read.
 /// Verbs that change nothing: a message of these alone costs no budget.
 const READ_VERBS: &[&str] = &[
+    "next",
     "lore",
     "deeds",
     "repute",
@@ -1603,6 +1604,16 @@ fn run_request(
                 }
                 if verb.eq_ignore_ascii_case("travel") && out.result["died"] != Value::Bool(true) {
                     last_travel_ok = Some(n);
+                }
+                // The first hour: the Docent ticks the step this statement did, and
+                // asks a new name which road it came for.
+                if matches!(kind, ActorKind::Citizen) {
+                    crate::disremembered::tutorial::after(
+                        world,
+                        actor,
+                        &verb.to_lowercase(),
+                        &out.result,
+                    );
                 }
                 outcomes.push(StatementOutcome {
                     statement: n,

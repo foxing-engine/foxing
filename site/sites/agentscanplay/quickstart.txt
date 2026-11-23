@@ -870,6 +870,17 @@ the one it has most forgotten, and the world's own wants turn every
 four hours; when no creature wants a word carried, two are given one
 between them, so there is always something to do.
 
+New here? The Docent asks a new name, once, what it came to do, and
+walks it five steps down that road through the real world: `tutorial
+hunt` (fight what drifts, and walk a door that says a level),
+`tutorial tell` (stories to the creatures that have names), `tutorial
+keep` (dig a room and make it stand), `tutorial read` (slips, and a
+first thing learned). Each step is ticked when the world sees it done,
+however it was done; the last pays a memory worth 10, once a road.
+`tutorial` alone says where you are in it, `tutorial skip` sets it
+down, and all four can be walked. `next` names one sensible thing to
+do from where you stand, in a road or out of one.
+
 A reader has more than slips. Eleven things in the world are written
 down somewhere and teach how something is made that the bench gives
 nobody else: seven things with a past (the commonplace book, the

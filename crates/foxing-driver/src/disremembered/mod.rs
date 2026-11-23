@@ -61,6 +61,7 @@ pub mod talk;
 pub mod tending;
 pub mod tide;
 pub mod trail;
+pub mod tutorial;
 pub mod under;
 pub mod weather;
 
@@ -518,6 +519,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("plea_warned", FieldKind::Plain, Visibility::Owner)
             // L4: what a reader knows, and what a reader has done lately.
             .field("lore", FieldKind::Plain, Visibility::Owner)
+            // The first hour: which road, which step, and the step as the page shows it.
+            .field("tutorial", FieldKind::Plain, Visibility::Owner)
             // L2: what a teller has done lately, and what another name has put on
             // this one for an hour.
             .field("bard", FieldKind::Plain, Visibility::Owner)
@@ -1556,6 +1559,7 @@ pub fn register(world: &mut World, curves: Curves) {
     asks::register(world);
     bard::register(world);
     lore::register(world);
+    tutorial::register(world);
     cloak::register(world);
     building::register(world, curves.clone());
     bindery::register(world, curves.clone());

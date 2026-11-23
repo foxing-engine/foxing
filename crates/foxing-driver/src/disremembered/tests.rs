@@ -16611,3 +16611,125 @@ fn lore_is_read_where_it_lies_and_opens_what_the_bench_will_make() {
     w.fixed_now = Some(w.now().plus(Duration::seconds(3 * 86_400 + 60)));
     assert!(lore::locked(&w, "dave", "commonplace").is_some());
 }
+
+/// The first hour: a new name is asked which road, walks it step by step, and is
+/// paid once at its end.
+#[test]
+fn the_docent_asks_which_road_and_walks_a_new_name_down_it() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(1_000_000));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    // As the gate does after each statement that ran.
+    fn run(w: &mut World, verb: &str, args: Value) -> Outcome {
+        let o = ok(w, "dave", verb, args);
+        tutorial::after(w, "dave", verb, &o.result);
+        o
+    }
+    fn said(w: &World, since: &mut u64) -> String {
+        let s = narrative(w, "dave", *since).join(" ");
+        *since = events(w);
+        s
+    }
+    let mut mark = events(&w);
+    // Asked once, after the first thing it does.
+    run(&mut w, "look", json!([]));
+    let foot = said(&w, &mut mark);
+    assert!(foot.contains("What did you come to do?"), "{foot}");
+    assert!(foot.contains("`tutorial read`"), "{foot}");
+    run(&mut w, "look", json!([]));
+    assert!(!said(&w, &mut mark).contains("What did you come to do?"));
+    // `next` asks it again until a road is taken or it is set down.
+    assert!(ok(&mut w, "dave", "next", json!([]))
+        .summary
+        .contains("What did you come to do?"));
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "tutorial",
+        json!(["swim"])
+    )
+    .is_err());
+    // The hunter's road.
+    let o = ok(&mut w, "dave", "tutorial", json!(["hunt"]));
+    assert!(
+        o.summary.contains("Step 1 of 5") && o.summary.contains("`look`"),
+        "{}",
+        o.summary
+    );
+    assert_eq!(o.result["tutorial"]["view"]["line"], json!("look"));
+    run(&mut w, "look", json!([]));
+    assert!(said(&w, &mut mark).contains("Step 2 of 5"));
+    assert!(ok(&mut w, "dave", "next", json!([]))
+        .summary
+        .contains("The Fogbank"));
+    admin(&mut w, "dave", "bring", json!(["dave", "fogbank"]));
+    run(&mut w, "look", json!([]));
+    assert!(
+        said(&w, &mut mark).contains("Step 3 of 5"),
+        "reached however it was reached"
+    );
+    let here = rooms::room_by_key(&w, "fogbank").unwrap();
+    let prey = combat::spawn_one(&mut w, here, combat::def_by_key("wisp").unwrap()).unwrap();
+    for _ in 0..40 {
+        let o = run(&mut w, "attack", json!([format!("creature-{}", prey.0)]));
+        if o.result["killed"] == json!(true) {
+            break;
+        }
+    }
+    assert!(said(&w, &mut mark).contains("Step 4 of 5"));
+    run(&mut w, "chunks", json!([]));
+    assert!(said(&w, &mut mark).contains("Step 5 of 5"));
+    // Set down and taken up: the step is kept.
+    ok(&mut w, "dave", "tutorial", json!(["skip"]));
+    assert!(!ok(&mut w, "dave", "next", json!([]))
+        .summary
+        .contains("Step 5"));
+    let before = w
+        .store
+        .children(find_citizen(&w, "dave").unwrap().window)
+        .count();
+    ok(&mut w, "dave", "tutorial", json!(["hunt"]));
+    run(&mut w, "look", json!([]));
+    admin(&mut w, "dave", "bring", json!(["dave", "watch-fire"]));
+    run(&mut w, "look", json!([]));
+    // (Taken up again it starts over; the state-steps tick at once on the way.)
+    let mut foot = said(&w, &mut mark);
+    for _ in 0..3 {
+        if foot.contains("the hunter's road: a thing felled") {
+            break;
+        }
+        run(&mut w, "chunks", json!([]));
+        admin(&mut w, "dave", "bring", json!(["dave", "fogbank"]));
+        run(&mut w, "look", json!([]));
+        let prey = combat::spawn_one(&mut w, here, combat::def_by_key("wisp").unwrap()).unwrap();
+        for _ in 0..40 {
+            let o = run(&mut w, "attack", json!([format!("creature-{}", prey.0)]));
+            if o.result["killed"] == json!(true) {
+                break;
+            }
+        }
+        run(&mut w, "chunks", json!([]));
+        admin(&mut w, "dave", "bring", json!(["dave", "watch-fire"]));
+        run(&mut w, "look", json!([]));
+        foot = said(&w, &mut mark);
+    }
+    assert!(foot.contains("the hunter's road: a thing felled"), "{foot}");
+    assert!(foot.contains("worth 10 XP"), "{foot}");
+    assert!(
+        w.store
+            .children(find_citizen(&w, "dave").unwrap().window)
+            .count()
+            > before
+    );
+    // The other roads are offered, and this one is not offered again.
+    let q = ok(&mut w, "dave", "tutorial", json!([]));
+    assert!(
+        q.summary.contains("`tutorial keep`") && !q.summary.contains("`tutorial hunt`"),
+        "{}",
+        q.summary
+    );
+    // Every road's every step has a line and a reason.
+    for p in tutorial::PATHS {
+        assert_eq!(p.steps.len(), 5, "{}", p.key);
+    }
+}
