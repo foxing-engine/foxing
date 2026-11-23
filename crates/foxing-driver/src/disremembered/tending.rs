@@ -102,10 +102,10 @@ pub fn assess(world: &World, room: EntityId) -> Option<Tend> {
         points += 1;
         has.push("it holds two hours and more".to_string());
         wants.push(
-            "more memory put into it, to hold eight hours (standing in it, `remember chunk-N` with a chunk of yours: `chunks` lists them)".to_string(),
+            "more memory put into it, to hold eight hours (standing in it, `remember` and the word of a memory of yours: `chunks` lists them)".to_string(),
         );
     } else {
-        wants.push("memory put into it, to hold two hours (standing in it, `remember chunk-N` with a chunk of yours: `chunks` lists them)".to_string());
+        wants.push("memory put into it, to hold two hours (standing in it, `remember` and the word of a memory of yours: `chunks` lists them)".to_string());
     }
     if !super::craft::fixtures_in(world, room).is_empty() {
         points += 1;

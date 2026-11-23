@@ -2219,7 +2219,7 @@ pub fn describe_as(
                 " The Docent came through {} ago and {} {}{}.",
                 super::combat::human(now - at),
                 what,
-                names.join(", "),
+                super::called::listed(&names),
                 match *what {
                     "swept" => " into the Midden",
                     "carried" => " to the Threshold",
@@ -2990,7 +2990,7 @@ pub fn register(world: &mut World) {
                 if level < need && deeper && !gates_passed(w, f.citizen).contains(&tkey) {
                     if !anyway {
                         return Err(foxing_registry::CommandError::precondition(format!(
-                            "{} is for names of about level {need:.0}, and you hold {level:.0}. {}.{} Nothing bars the way: `travel {exit} anyway` goes in, and this door does not ask you again. (`chunks` says where you stand; `where` a milder road: the Fogbank, the Orchard, Lantern Row.)",
+                            "{} is for names of about level {need:.0}, and you hold {level:.0}. {}.{} The door only warns: `travel {exit} anyway` goes in, and it does not ask you again. Milder roads: the Fogbank, the Orchard, Lantern Row. (`chunks` says where you stand.)",
                             plain_str(w, to, ROOM, "name").unwrap_or("That room"),
                             lives_in(w, to),
                             super::combat::sized_up(w, f.citizen, f.window, to)

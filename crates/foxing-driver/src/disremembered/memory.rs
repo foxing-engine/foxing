@@ -292,7 +292,7 @@ pub(crate) fn resolve_chunk(
         .ok_or_else(|| CommandError::precondition(format!("There is no chunk {}.", id.0)))?;
     if e.kind != "chunk" || e.owner.as_deref() != Some(ctx.actor.as_str()) {
         return Err(CommandError::precondition(format!(
-            "Chunk {} is not yours.",
+            "You hold no memory called 'chunk-{}'; `chunks` lists yours by their words.",
             id.0
         )));
     }

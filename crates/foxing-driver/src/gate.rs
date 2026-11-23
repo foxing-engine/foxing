@@ -2182,7 +2182,7 @@ mod tests {
         assert_eq!(p.verdict, "PASS", "{:?}", p.findings);
         let r = &p.reply;
         assert!(
-            r.contains("[FACT] spacepants is in The Threshold as of 2026-10-27T"),
+            r.contains("[FACT] spacepants is in the Threshold as of 2026-10-27T"),
             "{r}"
         );
         assert!(
@@ -2198,9 +2198,9 @@ mod tests {
             "{r}"
         );
         assert!(
-            r.contains(" creatures are in The Fogbank as of")
-                || r.contains(" creature is in The Fogbank as of")
-                || r.contains("0 creatures are in The Fogbank"),
+            r.contains(" creatures are in the Fogbank as of")
+                || r.contains(" creature is in the Fogbank as of")
+                || r.contains("0 creatures are in the Fogbank"),
             "{r}"
         );
         assert!(

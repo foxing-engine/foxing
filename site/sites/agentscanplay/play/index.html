@@ -3198,7 +3198,11 @@
     // are sent together, typed without quotes as they are read.
     if (!/"/.test(t)) {
       for (let i = 0; i + 1 < rest.length; i++) {
-        if (TAGS.includes(rest[i].toLowerCase()) && /^[a-z][a-z'-]*$/i.test(rest[i + 1])) rest.splice(i, 2, '"' + rest[i] + " " + rest[i + 1] + '"');
+        if (!TAGS.includes(rest[i].toLowerCase()) || !/^[a-z][a-z'-]*$/i.test(rest[i + 1])) continue;
+        // A thing's name runs to the end of the line ("twitchy stone roll") after
+        // the verbs that take one thing and nothing else.
+        const n = /^(take|drop|read)$/i.test(verb) ? rest.length - i : 2;
+        rest.splice(i, n, '"' + rest.slice(i, i + n).join(" ") + '"');
       }
     }
     // The line is remembered; a passphrase on it is not.

@@ -1605,7 +1605,7 @@ pub(crate) fn also_fits(
     }
     others.truncate(3);
     format!(
-        " (\"{}\" also fits {}; this is {mine}, item-{}. Its number chooses.)",
+        " (\"{}\" also fits {}; this is {mine}, item-{}. A fuller name chooses.)",
         arg.trim(),
         others.join(" and "),
         chosen.0
@@ -1726,6 +1726,9 @@ pub(crate) fn resolve_item(
                         "The {bare} is here, and is not a thing to read: `look` says what it is and does, and `tell {bare} \"...\"` speaks to it."
                     ))
                 }
+                None if id_wanted.is_some() && bare.starts_with("item-") => CommandError::precondition(
+                    "Nothing here answers to a number; `look` gives each thing its name.".to_string(),
+                ),
                 None => CommandError::precondition(format!("There is no {bare} here to speak of.")),
             }
         })
@@ -2402,13 +2405,13 @@ pub fn register(world: &mut World, curves: Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.take",
-            "Pick up a thing lying here, by name or id (item-12), into your satchel.",
+            "Pick up a thing lying here, by name, into your satchel. Where two of a kind lie here, `look` gives each a word (the twitchy stone roll), and the word picks one.",
         )
         .param(
             "item",
             ParamType::Entity,
             true,
-            "a thing here: its name, or item-12",
+            "a thing here, by its name",
         ),
         Box::new(|w: &mut World, ctx, args: &Args| {
             let f = me(w, ctx)?;
@@ -2440,7 +2443,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     false,
                 )?;
                 return Ok(Outcome::new(
-                    format!("You take a spade from the rack: item-{}, in your satchel. While you carry it, the exits of any room say whose each dug door is and how much of the room behind it is left.", id.0),
+                    format!("You take a spade from the rack; it is in your satchel (item-{}). While you carry it, the exits of any room say whose each dug door is and how much of the room behind it is left.", id.0),
                     json!({"item": id.0, "name": super::door::SPADE, "from": "rack"}),
                 ));
             }
@@ -2512,7 +2515,7 @@ pub fn register(world: &mut World, curves: Curves) {
             "item",
             ParamType::Entity,
             true,
-            "a thing in your satchel: its name, or item-12",
+            "a thing in your satchel, by its name",
         ),
         Box::new(|w: &mut World, ctx, args: &Args| {
             let f = me(w, ctx)?;
@@ -2668,14 +2671,15 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             if !whole {
                 let head = if lines.is_empty() {
-                    "You could make nothing just now.".to_string()
+                    "You could make nothing just now. Every recipe".to_string()
                 } else {
                     format!("What you could make now (craft <recipe> [<chunk>]):\n{}", lines.join("\n"))
                 };
                 return Ok(Outcome::new(
                     format!(
-                        "{head}{}\nThe rest, {} of them, by key (`recipes <key>` says what one does and where its makings are; `recipes all` gives every one in full): {}.{}",
+                        "{head}{}\n{}, {} of them, by key (`recipes <key>` says what one does and where its makings are; `recipes all` gives every one in full): {}.{}",
                         if level <= 0.0 { " A chunk is a memory, and you hold none yet: your first comes from a first fight won, or a first story told (`chunks` lists what you hold)." } else { "" },
+                        if lines.is_empty() { "They are" } else { "The rest" },
                         short.len(),
                         short.join("; "),
                         if unread > 0 { format!("\nAnd {unread} that the bench gives only to a name that has read how each is made (`recipes <key>` says what one does and where its making is written; `lore` lists the readings): {}.", unread_said.join("; ")) } else { String::new() }
@@ -2810,7 +2814,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 json!({"by": ctx.actor, "room": here.0, "name": material, "item": id.0}),
             );
             Ok(Outcome::new(
-                format!("You take {material} from the {cue} here: item-{}, in your satchel. recipes says what it goes into.", id.0),
+                format!("You take {material} from the {cue} here; it is in your satchel (item-{}). `recipes` says what it goes into.", id.0),
                 json!({"item": id.0, "name": material, "from": cue}),
             ))
         }),
@@ -2961,12 +2965,12 @@ pub fn register(world: &mut World, curves: Curves) {
                             .collect();
                         return Err(CommandError::precondition(format!(
                             "{} needs {}, and you carry none{}.{}",
-                            r.name,
+                            super::called::capital(&r.name),
                             lacking.join(" and "),
                             if lacking.len() > 1 { " of them" } else { "" },
                             if r.chunk_at_least > 0.0 {
                                 format!(
-                                    " It is also made with a memory: `craft {} <chunk>`, one worth {:.0} or more{} (`recipes` says whether you hold one).",
+                                    " It is also made with a memory: `craft {}` and the word of one worth {:.0} or more{} (`chunks` lists yours).",
                                     r.key,
                                     r.chunk_at_least * super::economy::rate(w, "price"),
                                     if r.vividity_at_least > 0.0 {
@@ -2991,7 +2995,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 let arg = args.str("chunk").unwrap_or("").trim().to_string();
                 if arg.is_empty() {
                     return Err(CommandError::precondition(format!(
-                        "{} takes a chunk worth {:.0} or more at today's prices, and spends the whole of the one you give; name one (craft {} chunk-N).",
+                        "{} takes a memory worth {:.0} or more at today's prices, and spends the whole of the one you give; name one by its word after the recipe (`craft {}` and the word; `chunks` lists yours).",
                         r.name,
                         (r.chunk_at_least * super::economy::rate(w, "price")).max(1.0),
                         r.key
@@ -3111,7 +3115,7 @@ pub fn register(world: &mut World, curves: Curves) {
                         Some(by) => format!("In {by}'s words, {}.", r.does.trim_end_matches('.')),
                         None => format!("It {}.", r.does.trim_end_matches('.')),
                     },
-                    if r.fixed { format!(" It stands here, holding {spent_worth:.0}; name it (name \"…\" item-{}) once it holds {NAME_AT:.0}, describe it, remember chunks into it so it lasts.{life_line}", item.0) } else if tier_now >= 3 { String::new() } else if spent.is_some() { format!(" The chunk is spent, not kept: it holds nothing yet. Remember chunks into it (remember chunk-N item-{}) and at {NAME_AT:.0} it takes a name.", item.0) } else { format!(" It holds nothing yet; remember chunks into it (remember chunk-N item-{}) and at {NAME_AT:.0} it takes a name.", item.0) },
+                    if r.fixed { format!(" It stands here, holding {spent_worth:.0}; name it (name \"…\" item-{}) once it holds {NAME_AT:.0}, describe it, remember memories into it so it lasts.{life_line}", item.0) } else if tier_now >= 3 { String::new() } else if spent.is_some() { format!(" The memory is spent, not kept: it holds nothing yet. Remember memories into it (`remember`, a memory's word, then item-{}) and at {NAME_AT:.0} it takes a name.", item.0) } else { format!(" It holds nothing yet; remember memories into it (`remember`, a memory's word, then item-{}) and at {NAME_AT:.0} it takes a name.", item.0) },
                     raised.unwrap_or_default()
                 ),
                 json!({"item": item.0, "name": r.name, "recipe": r.key, "of": used_names, "spent": spent.map(|c| c.0), "tier": tier_now, "given_name": plain_str(w, item, ITEM, "given_name")}),

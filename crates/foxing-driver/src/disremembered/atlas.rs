@@ -529,14 +529,14 @@ pub fn changed_since(world: &World, citizen: EntityId, room: EntityId) -> Option
     if !gone.is_empty() {
         said.push(format!(
             "{} {} gone",
-            gone.join(", "),
+            super::called::listed(&gone.iter().map(String::as_str).collect::<Vec<_>>()),
             if gone.len() == 1 { "is" } else { "are" }
         ));
     }
     if !come.is_empty() {
         said.push(format!(
             "{} {} here now",
-            come.join(", "),
+            super::called::listed(&come.iter().map(String::as_str).collect::<Vec<_>>()),
             if come.len() == 1 { "is" } else { "are" }
         ));
     }

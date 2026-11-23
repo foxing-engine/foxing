@@ -1965,14 +1965,14 @@ pub fn sized_up(
         ),
     };
     let verdict = if rounds + 1.0 < stand {
-        "yours, if nothing joins it"
+        "the fight is yours, if nothing joins it"
     } else if rounds <= stand + 1.0 {
         "close: it could go either way"
     } else {
         "not yours as you stand"
     };
     Some(format!(
-        "Sized up, as you stand now: {who} would take about {rounds:.0} of your blows, misses counted, and about {stand:.0} of its would fell you ({verdict})"
+        "Sized up, as you stand now: {who} would take about {rounds:.0} of your blows, misses counted, and it would need about {stand:.0} of its own to fell you ({verdict})"
     ))
 }
 
@@ -1989,14 +1989,14 @@ pub fn sized_up_fight(world: &World, citizen: EntityId, window: EntityId) -> Opt
         ),
     };
     let verdict = if rounds + 1.0 < stand {
-        "yours, if nothing joins it"
+        "the fight is yours, if nothing joins it"
     } else if rounds <= stand + 1.0 {
         "close: it could go either way"
     } else {
         "not yours as you stand: `retreat`, then `travel` out at once"
     };
     Some(format!(
-        "Sized up, as the fight stands: {who} would take about {rounds:.0} more of your blows, misses counted, and about {stand:.0} more of its would fell you ({verdict})"
+        "Sized up, as the fight stands: {who} would take about {rounds:.0} more of your blows, misses counted, and it would need about {stand:.0} more of its own to fell you ({verdict})"
     ))
 }
 
@@ -2788,7 +2788,7 @@ pub fn register(world: &mut World, curves: Curves) {
     );
 
     world.register(
-        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the more of your blood that fight took, the more vivid the memory and the longer it lasts (a one-blow kill is barely remembered). While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour, or that has reached level 100 inside it (the leave ends there for good). A new name's first grind: Lantern Row's lanternflies (5 hp, hits 1–3; north), the Orchard's mothwings (6 hp, hits 1–3; north, lane, orchard from the Threshold, or one step along the wall from the Postern) or the Fogbank's wisps (8 hp, hits 2–4; east); the Shallows' hollows between them hunt and hit 4–6. A creature's figures grow with what it holds, never with your level. Two of a kind in a room are written with their ids (wisp-80, wisp-81) so either can be named; alone, it is just the wisp.")
+        CommandSpec::new("disremembered.attack", "Fight a creature here, one round: you strike, it strikes back. Win and you remember it; the more of your blood that fight took, the more vivid the memory and the longer it lasts (a one-blow kill is barely remembered). While you stand with it, it keeps striking: at a keyboard on its own every few seconds; through the gate once for every statement you write. `retreat` ends that (it gets one blow as you turn). Some creatures ambush a name that is past its first hour, or that has reached level 100 inside it (the leave ends there for good). A new name's first grind: Lantern Row's lanternflies (5 hp, hits 1–3; north), the Orchard's mothwings (6 hp, hits 1–3; north, lane, orchard from the Threshold, or one step along the wall from the Postern) or the Fogbank's wisps (8 hp, hits 2–4; east); the Shallows' hollows between them hunt and hit 4–6. A creature's figures grow with what it holds, never with your level. Two of a kind in a room are told apart by a word (the pale wisp, the shy wisp), and the word picks one; alone, it is just the wisp.")
             .param("creature", ParamType::Entity, false, "a creature name from look; defaults to the one you are fighting, else an unnamed one here. A named creature is never struck by default."),
         Box::new(move |w: &mut World, ctx, args| {
             let f = me(w, ctx)?;
@@ -3350,7 +3350,7 @@ pub fn register(world: &mut World, curves: Curves) {
                         format!(" (it barely touched you, so the memory is faint and will not keep: at your level {} is no fight. What lasts is a fight that costs you, a story the named want, a word carried, a telling in the Reading Rooms, or a charm carried into the fight)", super::mind::an(&cname))
                     } else { String::new() },
                     match &left {
-                        Some((id, n)) => format!(" It leaves {n} behind (item-{}); take it.", id.0),
+                        Some((id, n)) => format!(" It leaves {n} behind (item-{}): `take {}` picks it up.", id.0, n.trim_start_matches("a ").trim_start_matches("an ")),
                         // Say when the roll missed, so a visitor can tell a missed
                         // roll from a broken one (ten kills, nothing, and no way to know).
                         None if super::craft::material_for(&cname).is_some() => drop_miss_said(w, &ctx.actor, f.citizen, length),

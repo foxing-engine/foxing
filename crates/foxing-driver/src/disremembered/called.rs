@@ -331,6 +331,73 @@ pub fn find_item(world: &World, arg: &str, within: EntityId) -> Option<EntityId>
 /// A line as a player is shown it: the ids of memories and things said as what
 /// they are called.
 pub fn humanize(world: &World, text: &str) -> String {
+    the_lowered(&ids_said(world, text))
+}
+
+/// A room's name inside a sentence: "in the Fogbank", not "in The Fogbank". The
+/// names are stored with their capital, and a sentence that opens with one keeps it.
+pub fn the_lowered(text: &str) -> String {
+    if !text.contains(" The ") {
+        return text.to_string();
+    }
+    let mut out = text.to_string();
+    for before in [
+        "in", "to", "into", "at", "from", "of", "toward", "past", "through", "for", "and", "is",
+    ] {
+        out = out.replace(&format!(" {before} The "), &format!(" {before} the "));
+    }
+    out
+}
+
+/// A name with its first letter raised, to open a sentence.
+pub fn capital(name: &str) -> String {
+    let mut c = name.chars();
+    match c.next() {
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+        None => String::new(),
+    }
+}
+
+/// Names as a sentence lists them: twins counted ("two stone rolls"), the last
+/// joined with "and".
+pub fn listed(names: &[&str]) -> String {
+    let mut seen: Vec<(&str, usize)> = Vec::new();
+    for n in names {
+        match seen.iter_mut().find(|(s, _)| s == n) {
+            Some(e) => e.1 += 1,
+            None => seen.push((n, 1)),
+        }
+    }
+    let said: Vec<String> = seen
+        .iter()
+        .map(|(n, k)| {
+            if *k == 1 {
+                return n.to_string();
+            }
+            let bare = n
+                .strip_prefix("a ")
+                .or_else(|| n.strip_prefix("an "))
+                .unwrap_or(n);
+            let count = match k {
+                2 => "two".to_string(),
+                3 => "three".to_string(),
+                4 => "four".to_string(),
+                k => k.to_string(),
+            };
+            format!(
+                "{count} {bare}{}",
+                if bare.ends_with('s') { "" } else { "s" }
+            )
+        })
+        .collect();
+    match said.len() {
+        0 => String::new(),
+        1 => said[0].clone(),
+        n => format!("{} and {}", said[..n - 1].join(", "), said[n - 1]),
+    }
+}
+
+fn ids_said(world: &World, text: &str) -> String {
     if !text.contains("chunk-") && !text.contains("item-") {
         return text.to_string();
     }

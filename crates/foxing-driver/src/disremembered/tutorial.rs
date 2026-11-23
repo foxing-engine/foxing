@@ -112,7 +112,7 @@ pub const PATHS: &[Path] = &[
             },
             Step {
                 line: "travel north",
-                why: "From the Fogbank. The door north says who it is for, and stops you once to say so: read what it says, then `travel north anyway` walks through. Past it, `look` sizes up the fight before you choose it, and `retreat` breaks one off.",
+                why: "This one starts from the Fogbank. The door north says who it is for, and stops you once to say so: read what it says, then `travel north anyway` walks through. Past it, `look` sizes up the fight before you choose it, and `retreat` breaks one off.",
                 done: |w, n, _, _| matches!(room_key(w, n).as_str(), "shallows" | "watch-fire"),
             },
         ],

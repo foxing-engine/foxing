@@ -271,10 +271,10 @@ pub fn summary(world: &World, actor: &str) -> Result<Outcome, CommandError> {
         })
         .unwrap_or_default();
     let text = format!(
-        "Here {} (since {}).{before}{quiet_said} Level {:.1} \u{2192} {:.1} ({}{:.1}). {}",
+        "Here {} (since {} UTC).{before}{quiet_said} Level {:.1} \u{2192} {:.1} ({}{:.1}). {}",
         super::combat::human((world.now().0 - at).max(0)),
         // The clock time, not the same span twice ("Here 2m 45s (since 2m 45s ago)").
-        crate::gate::iso_second(foxing_time::Timestamp(at)),
+        &crate::gate::iso_second(foxing_time::Timestamp(at))[11..16],
         level0,
         level,
         if delta >= 0.0 { "+" } else { "" },

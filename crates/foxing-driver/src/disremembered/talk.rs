@@ -153,10 +153,11 @@ pub fn register(world: &mut World) {
                     super::combat::narrate_many(w, &others_here(w, room, &ctx.actor), format!("{} asks the Docent something; it nods.", ctx.actor));
                 }
                 let nth = super::docent::nth_tonight(w, &ctx.actor);
+                let stop = if text.trim_end().ends_with(['.', '?', '!']) { "" } else { "." };
                 let said = if here_with_it {
-                    format!("You ask the Docent, \"{text}\" The Docent: \"{line}\" (It finds you within a few minutes, wherever you are, and names the question; {nth}.)")
+                    format!("You ask the Docent, \"{text}\"{stop} The Docent: \"{line}\" (It finds you within a few minutes, wherever you are, and names the question; {nth}.)")
                 } else {
-                    format!("You ask after the Docent, \"{text}\" The question goes to the desk at the Threshold; the Docent comes to you with the page within a few minutes, wherever you are, and names the question ({nth}).")
+                    format!("You ask after the Docent, \"{text}\"{stop} The question goes to the desk at the Threshold; the Docent comes to you with the page within a few minutes, wherever you are, and names the question ({nth}).")
                 };
                 if by_gate {
                     super::docent::asked_at_gate(w, id)?;

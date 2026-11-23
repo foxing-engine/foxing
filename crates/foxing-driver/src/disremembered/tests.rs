@@ -6964,7 +6964,7 @@ fn where_finds_a_way_you_remember_and_travel_takes_a_room_name() {
         .collect();
     assert_eq!(
         to_tyler,
-        vec!["dave left word for you from The Threshold: \"meet me at the Midden\"".to_string()]
+        vec!["dave left word for you from the Threshold: \"meet me at the Midden\"".to_string()]
     );
     // And not again when he next arrives: the word is marked heard.
     w.fixed_now = Some(t0.plus(Duration::seconds(15 * 60)));
@@ -7893,7 +7893,7 @@ fn the_docent_greets_once_a_night_takes_questions_answers_or_admits_the_page_is_
     let said = narrative(&w, "dave", head);
     assert!(
         said.iter()
-            .any(|l| l.contains("The Docent sets down a wisp ember, found lying in The Fogbank")),
+            .any(|l| l.contains("The Docent sets down a wisp ember, found lying in the Fogbank")),
         "{said:?}"
     );
     assert_eq!(docent::report(&w)["tidied"], 1);

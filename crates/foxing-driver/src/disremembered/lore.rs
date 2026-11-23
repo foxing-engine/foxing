@@ -1036,7 +1036,7 @@ pub fn register(world: &mut World) {
             };
             Ok(Outcome::new(
                 format!(
-                    "{} {} A reader's standing: {points}, {now_title}. {}{next} It is counted from the last day. What is known is known for three days from the reading, and reading it again keeps it; it cannot be given or told.",
+                    "{}\n{}\nA reader's standing: {points}, {now_title}. {}{next} It is counted from the last day. What is known is known for three days from the reading, and reading it again keeps it; it cannot be given or told.",
                     if mine.is_empty() {
                         "You know nothing yet that the bench does not give everyone.".to_string()
                     } else {
@@ -1045,7 +1045,7 @@ pub fn register(world: &mut World) {
                     if unread.is_empty() {
                         "There is nothing left to read that you have not.".to_string()
                     } else {
-                        format!("\nStill to be read, as it is told:\n- {}\n", unread.join("\n- "))
+                        format!("Still to be read, as it is told:\n- {}", unread.join("\n- "))
                     },
                     if said.is_empty() {
                         "Nothing counts toward it yet: a slip answered and two things known would be two.".to_string()
