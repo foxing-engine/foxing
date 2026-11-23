@@ -2106,8 +2106,8 @@ mod tests {
             "{reply}"
         );
         assert!(
-            reply.contains("[QUOTE] You hit the wisp")
-                || reply.contains("[QUOTE] You swing at the wisp"),
+            (reply.contains("[QUOTE] You hit the ") || reply.contains("[QUOTE] You swing at the "))
+                && reply.contains(" wisp"),
             "{reply}"
         );
         assert!(reply.contains("[FACT] Statement 4 is a prohibition and the world recorded nothing from it. [src:gate]"), "{reply}");

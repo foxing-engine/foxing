@@ -2382,14 +2382,28 @@ fn twins_are_written_with_ids_and_either_can_be_named() {
     assert_eq!(wisps.len(), 2);
     let look = ok(&mut w, "dave", "look", json!([]));
     let (a, b) = (wisps[0].0, wisps[1].0);
+    // David, 11-22: told apart by a word, not a number; the number is not shown.
+    let (ta, tb) = (mind::tagged(&w, a), mind::tagged(&w, b));
+    assert_ne!(ta, tb);
     assert!(
-        look.summary.contains(&format!("Here: wisp-{} (", a.0))
-            && look.summary.contains(&format!("), wisp-{} (", b.0)),
+        look.summary.contains(&format!("Here: {ta} ("))
+            && look.summary.contains(&format!("), {tb} ("))
+            && !look.summary.contains(&format!("wisp-{}", a.0)),
         "{}",
         look.summary
     );
-    // The second one, by handle; the first is untouched.
-    let out = ok(&mut w, "dave", "attack", json!([format!("wisp-{}", b.0)]));
+    // The word alone finds it too, and so does the old spelling.
+    assert_eq!(mind::find_here(&w, fog, mind::tag(&w, a)), Some(a));
+    assert_eq!(mind::find_here(&w, fog, &format!("wisp-{}", a.0)), Some(a));
+    // The second one, by its word; the first is untouched.
+    let out = ok(&mut w, "dave", "attack", json!([tb]));
+    assert!(
+        out.summary
+            .contains(&format!("the {}", mind::tagged(&w, b)))
+            || out.result["killed"] == json!(true),
+        "{}",
+        out.summary
+    );
     assert_eq!(out.result["creature"], "wisp");
     assert!(
         combat::creatures_in(&w, fog)

@@ -2243,12 +2243,10 @@ pub fn describe_as(
                 let who = match c["mind"]["name"].as_str() {
                     Some(n) => format!("{n} the {kind}"),
                     // Two of a kind: written with their ids, so either can be named.
-                    None if twins > 1 => format!("{kind}-{}", c["id"]),
-                    // R244: one that holds a memory is worth aiming at by its id,
-                    // twin or no (it showed with none, and could not be).
-                    None if c["mind"]["level"].as_f64().map(super::up).unwrap_or(0.0) >= 0.5 => {
-                        format!("{kind}-{}", c["id"])
-                    }
+                    None if twins > 1 => c["id"]
+                        .as_u64()
+                        .map(|id| mind::tagged(world, EntityId(id)))
+                        .unwrap_or_else(|| kind.to_string()),
                     None => kind.to_string(),
                 };
                 // R108: one state word a row, the worse first: shaken over failing

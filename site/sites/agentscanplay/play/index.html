@@ -1168,7 +1168,7 @@
     log.appendChild(el);
     // A mod may listen for what is printed (the scene puts speech in bubbles).
     if (typeof emit === "function") emit("line", text, cls);
-    foldLog();
+    trimLog();
     age();
     settleLog(el, cls);
     return el;
@@ -1211,7 +1211,10 @@
     earlierRow.textContent = earlier.length.toLocaleString() + " earlier line" + (earlier.length === 1 ? "" : "s") + ": show " + Math.min(UNFOLD, earlier.length);
     if (earlierRow.parentNode !== log) log.prepend(earlierRow);
   }
-  function foldLog() {
+  // (Named apart from the settings' fold-the-log switch further down: both were
+  // `foldLog`, the later one won, and every printed line toggled the fold, so the
+  // transcript collapsed and scrolled back from its top on each command.)
+  function trimLog() {
     const shown = log.children.length - (earlierRow.parentNode === log ? 1 : 0);
     if (shown <= keep + SLACK) return;
     let over = shown - keep;
@@ -1373,6 +1376,20 @@
   }
   // `auto`: the page asking by itself (a panel keeping current, the look at login),
   // which the world does not count as a step of the first hour.
+  // The words unnamed creatures of one kind in one room are told apart by, as the
+  // world gives them (`mind::TAGS`, in the same order): by id, the older first, the
+  // next free word where two would share one.
+  const TAGS = ["pale","lean","squat","ragged","quick","slow","dim","bright","grey","thin","stout","crooked","quiet","restless","dusty","damp","bent","small","tall","sly","wary","bold","drab","frayed","mottled","scarred","sleek","gaunt","hunched","limping","nervous","patient","sullen","twitchy","watchful","weary","young","lopsided","narrow","broad","sharp","blunt","faint","dark","ashen","sooty","rusty","mossy","chalky","smoky","glassy","shy","stiff","loud","meek","proud","sour","mild"];
+  window.disTag = (id, twinIds) => {
+    const n = TAGS.length, taken = [];
+    for (const t of [...twinIds].map(Number).sort((a, b) => a - b)) {
+      let i = t % n;
+      while (taken.includes(i) && taken.length < n) i = (i + 1) % n;
+      taken.push(i);
+      if (t === Number(id)) return TAGS[i];
+    }
+    return TAGS[Number(id) % n];
+  };
   function wsCommand(command, args, auto) {
     return new Promise((resolve) => {
       const id = String(nextId++);
@@ -2213,7 +2230,8 @@
         // Beside another unnamed of its kind, the row names this one by its id
         // (wisp-4958): the world strikes by that spelling too.
         const twins = !named && things.filter(o => o.kind === "creature" && (o.components["disremembered.creature"] || {}).name === c.name && !(o.components["disremembered.mind"] || {}).name).length > 1;
-        const ref = twins ? c.name + "-" + n.id : c.name;
+        // The word the world tells it apart by ("pale wisp"), by the world's own rule.
+        const ref = twins ? window.disTag(n.id, things.filter(o => o.kind === "creature" && (o.components["disremembered.creature"] || {}).name === c.name && !(o.components["disremembered.mind"] || {}).name).map(o => o.id)) + " " + c.name : c.name;
         const who = named ? mind.name + " the " + c.name : ref;
         const r = row(s, who, "hp", c.hp / c.max_hp, Number(c.hp).toFixed(1).replace(/\.0$/, "") + "/" + Number(c.max_hp).toFixed(0));
         r.classList.add("click");
@@ -3157,7 +3175,14 @@
     let t = line.trim();
     if (!t) { if (!actor) askName(); return; }
     if (t === "!!") { t = history[history.length - 1] || ""; if (!t) return; }
-    const [verb, ...rest] = t.split(/\s+/);
+    let [verb, ...rest] = t.split(/\s+/);
+    // "pale wisp" is one thing: the word that tells a creature apart and its kind
+    // are sent together, typed without quotes as they are read.
+    if (!/"/.test(t)) {
+      for (let i = 0; i + 1 < rest.length; i++) {
+        if (TAGS.includes(rest[i].toLowerCase()) && /^[a-z][a-z'-]*$/i.test(rest[i + 1])) rest.splice(i, 2, '"' + rest[i] + " " + rest[i + 1] + '"');
+      }
+    }
     // The line is remembered; a passphrase on it is not.
     remember(verb === "login" ? ["login", rest[0]].filter(Boolean).join(" ") : verb === "passphrase" ? "passphrase" : t);
     if (verb === "login") {

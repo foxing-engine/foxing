@@ -293,6 +293,66 @@ pub fn find_named(world: &World, given: &str) -> Option<(EntityId, Option<Entity
         .map(|e| (e.id, e.parent))
 }
 
+/// David, 11-22: "we should hide the creature identifier from the player (give each
+/// an adjective to distinguish them)". Where two unnamed creatures of a kind stood
+/// together they were wisp-31833 and wisp-32564. Now each has a word of its own:
+/// the pale wisp, the ragged wisp. The word comes from the creature's id, so it
+/// keeps it from room to room; two in one room that would share a word take the
+/// next free one, the older first. The play page draws the same words by the same
+/// rule (`TAGS` there must match these, in order). An id is still understood
+/// wherever one is typed.
+pub const TAGS: &[&str] = &[
+    "pale", "lean", "squat", "ragged", "quick", "slow", "dim", "bright", "grey", "thin", "stout",
+    "crooked", "quiet", "restless", "dusty", "damp", "bent", "small", "tall", "sly", "wary",
+    "bold", "drab", "frayed", "mottled", "scarred", "sleek", "gaunt", "hunched", "limping",
+    "nervous", "patient", "sullen", "twitchy", "watchful", "weary", "young", "lopsided", "narrow",
+    "broad", "sharp", "blunt", "faint", "dark", "ashen", "sooty", "rusty", "mossy", "chalky",
+    "smoky", "glassy", "shy", "stiff", "loud", "meek", "proud", "sour", "mild",
+];
+
+/// The word that tells this unnamed creature from the others of its kind here.
+pub fn tag(world: &World, creature: EntityId) -> &'static str {
+    let n = TAGS.len() as u64;
+    let kind = plain_str(world, creature, CREATURE, "name").unwrap_or("");
+    let mut twins: Vec<u64> = world
+        .store
+        .entity(creature)
+        .and_then(|e| e.parent)
+        .map(|room| {
+            world
+                .store
+                .children(room)
+                .filter(|e| e.kind == "creature")
+                .filter(|e| plain_str(world, e.id, CREATURE, "name") == Some(kind))
+                .filter(|e| name(world, e.id).is_none())
+                .map(|e| e.id.0)
+                .collect()
+        })
+        .unwrap_or_default();
+    twins.sort_unstable();
+    let mut taken: Vec<u64> = Vec::new();
+    for t in twins {
+        let mut i = t % n;
+        while taken.contains(&i) && (taken.len() as u64) < n {
+            i = (i + 1) % n;
+        }
+        taken.push(i);
+        if t == creature.0 {
+            return TAGS[i as usize];
+        }
+    }
+    TAGS[(creature.0 % n) as usize]
+}
+
+/// "pale wisp": an unnamed creature as it is told apart and aimed at.
+pub fn tagged(world: &World, creature: EntityId) -> String {
+    format!(
+        "{} {}",
+        tag(world, creature),
+        plain_str(world, creature, CREATURE, "name").unwrap_or("?")
+    )
+}
+
 /// "Ossian the ragpicker", or "ragpicker".
 pub fn display(world: &World, creature: EntityId) -> String {
     let kind = plain_str(world, creature, CREATURE, "name").unwrap_or("?");
@@ -969,8 +1029,26 @@ pub fn find_here(world: &World, room: EntityId, what: &str) -> Option<EntityId> 
     }) {
         return Some(*id);
     }
+    // By the word that tells it from its twins: "pale wisp", or "pale" alone when
+    // only one thing here is pale.
+    let unnamed_here: Vec<EntityId> = here
+        .iter()
+        .copied()
+        .filter(|&c| name(world, c).is_none())
+        .collect();
+    if let Some(&c) = unnamed_here.iter().find(|&&c| tagged(world, c) == what) {
+        return Some(c);
+    }
+    let by_tag: Vec<EntityId> = unnamed_here
+        .iter()
+        .copied()
+        .filter(|&c| tag(world, c) == what)
+        .collect();
+    if by_tag.len() == 1 {
+        return Some(by_tag[0]);
+    }
     // A kind names the unnamed first: beside an unnamed wisp, Lute the wisp is Lute or
-    // wisp-101, never "wisp". Alone of its kind, it still answers to its kind.
+    // the pale wisp, never "wisp". Alone of its kind, it still answers to its kind.
     let kind: Vec<EntityId> = here
         .into_iter()
         .filter(|&c| plain_str(world, c, CREATURE, "name").is_some_and(|n| n == what))

@@ -84,8 +84,9 @@ directions in this page are from the Threshold unless they say
 otherwise; from the Postern, `where <a room or a creature>` gives the
 way to anything it names.
 
-`look` lists exits, creatures (unnamed ones of a kind are numbered,
-wisp-101, wisp-104; a named one is "Lute the wisp") and citizens. (Lute, Marrow and
+`look` lists exits, creatures (unnamed ones of a kind are told apart
+by a word, the pale wisp, the ragged wisp, which each keeps from room
+to room; a named one is "Lute the wisp") and citizens. (Lute, Marrow and
 Cairn in these lines are example names: `wants` and `look` say who is
 in the world tonight.) The
 `travel east` above is from the Threshold; read `look`'s exits before
@@ -124,7 +125,7 @@ most); `resume` takes the asking back.
 ## Fight
 
     attack                            [DO] Quillwake MUST attack.
-    attack wisp-104                   [DO] Quillwake MUST attack wisp-104.
+    attack pale wisp                  [DO] Quillwake MUST attack pale wisp.
     attack Lute                       [DO] Quillwake MUST attack Lute.
     retreat                           [DO] Quillwake MUST retreat.
 

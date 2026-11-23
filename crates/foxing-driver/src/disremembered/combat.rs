@@ -2850,7 +2850,7 @@ pub fn register(world: &mut World, curves: Curves) {
                         let still: Vec<String> = here
                             .iter()
                             .filter(|c| super::mind::name(w, c.0).is_none())
-                            .map(|c| format!("{}-{}", c.1, c.0 .0))
+                            .map(|c| super::mind::tagged(w, c.0))
                             .collect();
                         let gone_id = name.trim().rsplit_once('-').and_then(|(_, d)| d.parse::<u64>().ok());
                         let mine = w.recent_events(200).iter().any(|e| {
@@ -3024,7 +3024,7 @@ pub fn register(world: &mut World, curves: Curves) {
                         let twins = here.iter().filter(|o| o.1 == *kind).count();
                         match super::mind::name(w, c.0) {
                             Some(n) => format!("{n} the {kind}"),
-                            None if twins > 1 => format!("{kind}-{}", c.0 .0),
+                            None if twins > 1 => super::mind::tagged(w, c.0),
                             None => kind.to_string(),
                         }
                     }).collect::<Vec<_>>().join(", ")) + &where_
@@ -3041,7 +3041,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     // R125: a named one is hit by its name ("You hit the wisp for 4"
                     // beside "Wyndle has a name" read as two creatures).
                     Some(n) => format!("{n} the {cname}"),
-                    None if twins > 1 => format!("the {cname}-{}", creature.0),
+                    None if twins > 1 => format!("the {}", super::mind::tagged(w, creature)),
                     None => format!("the {cname}"),
                 }
             };
@@ -3070,7 +3070,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     // did not say which.
                     match super::mind::name(w, creature) {
                         Some(_) => super::mind::display(w, creature),
-                        None => format!("{}-{}", super::mind::display(w, creature), creature.0),
+                        None => format!("The {}", super::mind::tagged(w, creature)),
                     },
                     human(ms)
                 )));

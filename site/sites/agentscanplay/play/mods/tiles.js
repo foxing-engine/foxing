@@ -1015,7 +1015,7 @@ export default function install(m) {
         // Beside another of its kind, this one is wisp-4958: a tap on the left wisp
         // once struck the right one, and the world says it that way too.
         const twins = things.filter(o => o.kind === "creature" && o.name === t.name && !o.given).length > 1;
-        const ref = twins ? t.name + "-" + t.id : t.name;
+        const ref = twins && window.disTag ? window.disTag(t.id, things.filter(o => o.kind === "creature" && o.name === t.name && !o.given).map(o => o.id)) + " " + t.name : twins ? t.name + "-" + t.id : t.name;
         // A name that is failing (holding under 70) flickers, more the nearer it is to
         // 60, where it goes.
         if (t.given && t.holding != null && t.holding < 70) {
@@ -1032,7 +1032,7 @@ export default function install(m) {
           ? [{ label: "Look", run: () => m.command("look", []) }, { label: "Read the room", run: () => m.command("read", []) }]
           : t.given
           ? [{ label: "Talk to " + t.given, run: () => m.prefill("tell " + t.given + ' "') }, { label: "Tell " + t.given + " a story", run: () => m.prefill("story " + t.given + ' "') }, { label: "Give " + t.given + " a memory", run: () => m.prefill("remember " + bestChunk() + " " + t.given) }, { label: "Attack " + t.given, run: () => m.command("attack", [t.given]), warn: true }]
-          : [{ label: "Attack " + (twins ? ref : who), run: () => m.command("attack", [ref]) }, { label: "Give it a memory (names it at 60)", run: () => m.prefill("remember " + bestChunk() + " " + ref) }, { label: "Look", run: () => m.command("look", []) }];
+          : [{ label: "Attack " + (twins ? ref : who), run: () => m.command("attack", [ref]) }, { label: "Give it a memory (names it at 60)", run: () => m.prefill("remember " + bestChunk() + " " + (/ /.test(ref) ? '"' + ref + '"' : ref)) }, { label: "Look", run: () => m.command("look", []) }];
         hot.set(x + "," + y, { target: t.given || ref, label: (twins ? ref : who) + (t.max ? " (" + Number(t.hp).toFixed(0) + "/" + t.max + ")" : "") + (t.given ? " — talk, story, memory, attack" : " — attack, or feed it"), primary: t.given ? () => m.prefill("story " + t.given + ' "') : OFFICER ? () => m.command("look", []) : () => m.command("attack", [ref]), menu: menuRows });
       } else if (t.kind === "you") {
         const by = Math.round(Math.sin(now / 300)) - 7;
