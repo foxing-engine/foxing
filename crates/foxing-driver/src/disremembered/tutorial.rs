@@ -642,9 +642,6 @@ fn suggestion(world: &World, name: &str) -> String {
             "You are hurt ({hp:.0} of {max:.0}). `rest` where nothing hunts; the Watch-fire, east of the Shallows, mends four times as fast."
         );
     }
-    if chunks_held(world, name) == 0 {
-        return "You hold no memory, so you have no level. `wants` lists creatures that pay for a story, and `story bench \"...\"` at the Postern takes one from anyone.".to_string();
-    }
     let unwalked = PATHS
         .iter()
         .find(|p| !done.contains(&p.key.to_string()))
@@ -670,6 +667,11 @@ fn suggestion(world: &World, name: &str) -> String {
             Some(k) => format!("{said} (A road you have not walked: `tutorial {k}`.)"),
             None => said,
         };
+    }
+    // A name that has taken no road is offered one before anything else: the
+    // roads are how a first memory is come by.
+    if st["skipped"] == json!(true) && chunks_held(world, name) == 0 {
+        return "You hold no memory, so you have no level. `wants` lists creatures that pay for a story, and `story bench \"...\"` at the Postern takes one from anyone.".to_string();
     }
     "Nothing here is required. To be walked through a first hour, pick a road: `tutorial hunt`, `tutorial tell`, `tutorial keep` or `tutorial read`. Otherwise `look` says what is here, and `wants` who would pay for a story.".to_string()
 }

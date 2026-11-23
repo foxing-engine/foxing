@@ -16640,7 +16640,7 @@ fn the_docent_asks_which_road_and_walks_a_new_name_down_it() {
     assert!(!said(&w, &mut mark).contains("What did you come to do?"));
     // `next`, before a road is taken, is one line and not the question again.
     let n = ok(&mut w, "dave", "next", json!([])).summary;
-    assert!(n.contains("`story bench") && n.len() < 300, "{n}");
+    assert!(n.contains("pick a road") && n.len() < 300, "{n}");
     assert!(call(
         &mut w,
         "dave",
