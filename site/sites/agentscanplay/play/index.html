@@ -2536,6 +2536,8 @@
     function tutShowing(t) { return !!(t.view || (!t.skipped && tutLeft(t).length)); }
     function showing() { const t = tut(); if (t) return !!actor && !state.hidden && tutShowing(t); return !!actor && !state.hidden && !allDone(); }
     function renderTut(t) {
+      // A step written before memories had words still names one by its number.
+      if (t.view && /chunk-\d+/.test(t.view.line || "")) t = Object.assign({}, t, { view: Object.assign({}, t.view, { line: t.view.line.replace(/chunk-(\d+)/g, (_, id) => chunkWord(id)) }) });
       const ol = document.createDocumentFragment();
       const list = $("first-steps");
       if (t.view) {
