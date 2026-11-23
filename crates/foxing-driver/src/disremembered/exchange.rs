@@ -396,7 +396,14 @@ pub fn register(world: &mut World, curves: Curves) {
                         "The Reading Bench is at the Postern, the world's back gate (`where Postern`); it hears one story from each name. Here a story wants a named creature: `wants` says who is wanting.",
                     ));
                 }
-                return Err(CommandError::precondition(format!("There is no {who} here.")));
+                // A teller sent to a creature by name is told where it is.
+                let away = mind::find_named(w, &who)
+                    .and_then(|(_, room)| room)
+                    .and_then(|r| super::plain_str(w, r, super::ROOM, "name").map(str::to_string));
+                return Err(CommandError::precondition(match away {
+                    Some(place) => format!("There is no {who} here: {who} is in {place} (`travel \"{place}\"`), and a story is told face to face."),
+                    None => format!("There is no {who} here. `wants` says which named creatures are where."),
+                }));
             };
             let display = mind::display(w, creature);
             // The tapster at the Counting Bar takes a story about money, by the ounce.

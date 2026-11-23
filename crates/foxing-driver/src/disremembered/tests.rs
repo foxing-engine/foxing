@@ -7665,13 +7665,14 @@ fn the_docent_greets_once_a_night_takes_questions_answers_or_admits_the_page_is_
         "{}",
         look.summary
     );
-    // A name in its first hour hears the first words, once.
+    // A name in its first hour hears the first words, once, and the question of
+    // which road, once.
     let said = narrative(&w, "dave", head);
     assert_eq!(
         said.iter()
             .filter(|l| l.starts_with("The Docent: "))
             .count(),
-        1,
+        2,
         "{said:?}"
     );
     assert!(
@@ -7685,7 +7686,7 @@ fn the_docent_greets_once_a_night_takes_questions_answers_or_admits_the_page_is_
             .iter()
             .filter(|l| l.starts_with("The Docent: "))
             .count(),
-        1
+        2
     );
     // A question: taken with a line, on the operator's list with the asker's room.
     let out = ok(
@@ -7949,7 +7950,7 @@ fn a_session_is_summed_and_the_words_that_reached_you_are_kept() {
     let m = ok(&mut w, "dave", "messages", json!([]));
     assert!(
         m.summary
-            .starts_with("Words for you, the last 3 of 3, newest first:\n"),
+            .starts_with("Words for you, the last 4 of 4, newest first:\n"),
         "{}",
         m.summary
     );
@@ -7975,7 +7976,7 @@ fn a_session_is_summed_and_the_words_that_reached_you_are_kept() {
     let m = ok(&mut w, "dave", "messages", json!([1]));
     assert!(
         m.summary
-            .starts_with("Words for you, the last 1 of 3, newest first:"),
+            .starts_with("Words for you, the last 1 of 4, newest first:"),
         "{}",
         m.summary
     );
@@ -11922,16 +11923,16 @@ fn with_the_second_door_open_a_newcomer_wakes_at_the_emptier_door_and_is_told_wh
     let m = told(&w, "mira").join("\n");
     assert!(
         m.contains("You have woken at the Postern, the world's back gate")
-            && m.contains("story bench")
-            && m.contains("travel wall")
+            && m.contains("Reading Bench")
+            && m.contains("What did you come to do?")
             && m.contains("a card in the Docent's hand: \"mira. This is the back gate"),
         "{m}"
     );
-    assert!(!m.contains("travel east to the Fogbank"), "{m}");
-    assert!(!m.contains("The Docent looks up from the page"), "{m}");
+    assert!(!m.contains("Three safe first moves"), "{m}");
     let d = told(&w, "dave").join("\n");
     assert!(
-        d.contains("Three safe first moves: look;") && d.contains("The Docent"),
+        d.contains("The Docent: \"What did you come to do?")
+            && !d.contains("Three safe first moves"),
         "{d}"
     );
     assert!(!d.contains("Postern"), "{d}");
@@ -16629,18 +16630,17 @@ fn the_docent_asks_which_road_and_walks_a_new_name_down_it() {
         *since = events(w);
         s
     }
-    let mut mark = events(&w);
-    // Asked once, after the first thing it does.
-    run(&mut w, "look", json!([]));
+    let mut mark = 0;
+    // Asked once, as it arrives, and it is the only first-minute voice.
     let foot = said(&w, &mut mark);
     assert!(foot.contains("What did you come to do?"), "{foot}");
     assert!(foot.contains("`tutorial read`"), "{foot}");
+    assert!(!foot.contains("Three safe first moves"), "{foot}");
     run(&mut w, "look", json!([]));
     assert!(!said(&w, &mut mark).contains("What did you come to do?"));
-    // `next` asks it again until a road is taken or it is set down.
-    assert!(ok(&mut w, "dave", "next", json!([]))
-        .summary
-        .contains("What did you come to do?"));
+    // `next`, before a road is taken, is one line and not the question again.
+    let n = ok(&mut w, "dave", "next", json!([])).summary;
+    assert!(n.contains("`story bench") && n.len() < 300, "{n}");
     assert!(call(
         &mut w,
         "dave",
@@ -16657,6 +16657,11 @@ fn the_docent_asks_which_road_and_walks_a_new_name_down_it() {
         o.summary
     );
     assert_eq!(o.result["tutorial"]["view"]["line"], json!("look"));
+    // A look the page made by itself ticks nothing.
+    tutorial::UNSENT.with(|u| u.set(true));
+    run(&mut w, "look", json!([]));
+    tutorial::UNSENT.with(|u| u.set(false));
+    assert!(!said(&w, &mut mark).contains("Step 2 of 5"));
     run(&mut w, "look", json!([]));
     assert!(said(&w, &mut mark).contains("Step 2 of 5"));
     assert!(ok(&mut w, "dave", "next", json!([]))
@@ -16688,31 +16693,18 @@ fn the_docent_asks_which_road_and_walks_a_new_name_down_it() {
         .store
         .children(find_citizen(&w, "dave").unwrap().window)
         .count();
-    ok(&mut w, "dave", "tutorial", json!(["hunt"]));
-    run(&mut w, "look", json!([]));
+    assert!(ok(&mut w, "dave", "next", json!([]))
+        .summary
+        .contains("`tutorial hunt` takes it up there"));
+    let o = ok(&mut w, "dave", "tutorial", json!(["hunt"]));
+    assert!(
+        o.summary.contains("where you left it") && o.summary.contains("Step 5 of 5"),
+        "{}",
+        o.summary
+    );
     admin(&mut w, "dave", "bring", json!(["dave", "watch-fire"]));
     run(&mut w, "look", json!([]));
-    // (Taken up again it starts over; the state-steps tick at once on the way.)
-    let mut foot = said(&w, &mut mark);
-    for _ in 0..3 {
-        if foot.contains("the hunter's road: a thing felled") {
-            break;
-        }
-        run(&mut w, "chunks", json!([]));
-        admin(&mut w, "dave", "bring", json!(["dave", "fogbank"]));
-        run(&mut w, "look", json!([]));
-        let prey = combat::spawn_one(&mut w, here, combat::def_by_key("wisp").unwrap()).unwrap();
-        for _ in 0..40 {
-            let o = run(&mut w, "attack", json!([format!("creature-{}", prey.0)]));
-            if o.result["killed"] == json!(true) {
-                break;
-            }
-        }
-        run(&mut w, "chunks", json!([]));
-        admin(&mut w, "dave", "bring", json!(["dave", "watch-fire"]));
-        run(&mut w, "look", json!([]));
-        foot = said(&w, &mut mark);
-    }
+    let foot = said(&w, &mut mark);
     assert!(foot.contains("the hunter's road: a thing felled"), "{foot}");
     assert!(foot.contains("worth 10 XP"), "{foot}");
     assert!(
@@ -16721,12 +16713,62 @@ fn the_docent_asks_which_road_and_walks_a_new_name_down_it() {
             .count()
             > before
     );
+    // `next` now follows the road walked, and names an unwalked one only after.
+    let n = ok(&mut w, "dave", "next", json!([])).summary;
+    assert!(
+        n.starts_with("You hold") && n.ends_with("(A road you have not walked: `tutorial tell`.)"),
+        "{n}"
+    );
+    // The card does not come back asking, until it is asked for.
+    assert_eq!(
+        ok(&mut w, "dave", "look", json!([])).result["died"],
+        Value::Null
+    );
     // The other roads are offered, and this one is not offered again.
     let q = ok(&mut w, "dave", "tutorial", json!([]));
+    assert!(
+        q.summary.starts_with("The three roads you have not walked"),
+        "{}",
+        q.summary
+    );
     assert!(
         q.summary.contains("`tutorial keep`") && !q.summary.contains("`tutorial hunt`"),
         "{}",
         q.summary
+    );
+    // The keeper's road fills in what the world knows: a door word the Mudroom
+    // does not have, and a chunk this name holds.
+    ok(&mut w, "dave", "tutorial", json!(["keep"]));
+    admin(&mut w, "dave", "bring", json!(["dave", "mudroom"]));
+    run(&mut w, "look", json!([]));
+    let line = ok(&mut w, "dave", "tutorial", json!([])).result["tutorial"]["view"]["line"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert!(
+        line.starts_with("dig nook chunk-") && !line.contains("<chunk>"),
+        "{line}"
+    );
+    let chunk = line.split(' ').nth(2).unwrap().to_string();
+    // A room's name is its own.
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "dig",
+        json!(["nook", chunk, "The Mudroom"]),
+    )
+    .unwrap_err();
+    assert!(
+        e.to_string()
+            .contains("There is a room called The Mudroom already"),
+        "{e}"
+    );
+    run(&mut w, "dig", json!(["nook", chunk, "Dave's Den"]));
+    let foot = said(&w, &mut mark);
+    assert!(
+        foot.contains("Step 5 of 5") && foot.contains("Your door is `nook`, off The Mudroom"),
+        "{foot}"
     );
     // Every road's every step has a line and a reason.
     for p in tutorial::PATHS {

@@ -1034,12 +1034,12 @@ pub fn register(world: &mut World) {
                     if mine.is_empty() {
                         "You know nothing yet that the bench does not give everyone.".to_string()
                     } else {
-                        format!("You know: {}.", mine.join("; "))
+                        format!("You know:\n- {}", mine.join("\n- "))
                     },
                     if unread.is_empty() {
                         "There is nothing left to read that you have not.".to_string()
                     } else {
-                        format!("Still to be read, as it is told: {}", unread.join(" "))
+                        format!("\nStill to be read, as it is told:\n- {}\n", unread.join("\n- "))
                     },
                     if said.is_empty() {
                         "Nothing counts toward it yet: a slip answered and two things known would be two.".to_string()

@@ -111,8 +111,8 @@ pub const PATHS: &[Path] = &[
                 done: read_chunks,
             },
             Step {
-                line: "travel north anyway",
-                why: "The door north says who it is for, and stops you once to say so; `anyway` walks through. Past it, `look` sizes up the fight before you choose it, and `retreat` breaks one off.",
+                line: "travel north",
+                why: "From the Fogbank. The door north says who it is for, and stops you once to say so: read what it says, then `travel north anyway` walks through. Past it, `look` sizes up the fight before you choose it, and `retreat` breaks one off.",
                 done: |w, n, _, _| matches!(room_key(w, n).as_str(), "shallows" | "watch-fire"),
             },
         ],
@@ -134,7 +134,7 @@ pub const PATHS: &[Path] = &[
             },
             Step {
                 line: "story <creature> \"<a dozen words or more, in sentences>\"",
-                why: "Walk to one (`travel \"<its room>\"`) and tell it a story: your own words, twelve different ones at least. It pays you a memory and keeps half as much itself.",
+                why: "Tell it a story: your own words, twelve different ones at least. It pays you a memory and keeps half as much itself, and from then on it knows you: it pays you better and carries your name.",
                 done: |_, _, verb, r| verb == "story" && (r["earned"].is_number() || r["xp"].is_number()),
             },
             Step {
@@ -144,7 +144,7 @@ pub const PATHS: &[Path] = &[
             },
             Step {
                 line: "story <another creature> \"<another story>\"",
-                why: "A second creature, a different story. Each one that has heard you knows you, and `wants` will show a word one of them would have carried to another.",
+                why: "A second creature, a different story. A creature that has heard you knows you, and `wants` will show a word one of them would have carried to another.",
                 done: |w, n, _, _| super::bard::known_to(w, n) >= 2,
             },
         ],
@@ -161,7 +161,7 @@ pub const PATHS: &[Path] = &[
             },
             Step {
                 line: "story bench \"<a dozen words or more, in sentences>\"",
-                why: "A room is paid for with a memory, so you need one. The Reading Bench at the Postern takes a story from anyone (`travel \"The Postern\"` if you woke elsewhere): twelve different words at least, in sentences. A felled wisp or a story to any named creature pays one too.",
+                why: "A room is paid for with a memory, so you need one. The Reading Bench stands at the Postern and nowhere else (`travel \"The Postern\"` first if you are not there) and takes a story from anyone: twelve different words at least, in sentences. A felled wisp or a story to any named creature pays one too.",
                 done: |w, n, _, _| chunks_held(w, n) >= 1,
             },
             Step {
@@ -171,12 +171,12 @@ pub const PATHS: &[Path] = &[
             },
             Step {
                 line: "dig nook <chunk> \"A Name\"",
-                why: "The first word is the door's name, the chunk is what you pay (`chunks` lists yours: chunk-123), and the quoted part is the room's name. The memory goes into the room and keeps it standing.",
+                why: "In the Mudroom. The first word is the door's name (any word no door there has yet), the chunk is what you pay (`chunks` lists yours), and the quoted part is the room's name, which no other room may have. The memory goes into the room and keeps it standing.",
                 done: |w, n, _, _| own_room(w, n).is_some(),
             },
             Step {
                 line: "describe \"<what the room is like>\"",
-                why: "Walk in through your door (`travel nook`) and say what is there. A described room is Kept, the first rung, and `look` in it will name the next.",
+                why: "Walk in through your door and say what is there. A described room is Kept, the first rung, and `look` in it will name the next.",
                 done: |w, n, _, _| own_room(w, n).is_some_and(|r| super::tending::standing(w, r) >= 1),
             },
         ],
@@ -215,6 +215,100 @@ pub const PATHS: &[Path] = &[
     },
 ];
 
+/// A named creature that has not heard this name yet, to send a new teller to:
+/// one in the room first, then the mildest door. `(word to call it by, as shown,
+/// its room's name, whether it is here)`.
+fn listener(world: &World, name: &str) -> Option<(String, String, String, bool)> {
+    let here = find_citizen(world, name).and_then(|f| super::rooms::room_of(world, f.citizen));
+    let mut all: Vec<(bool, i64, String, String, String)> = world
+        .store
+        .of_kind("creature")
+        .filter_map(|e| {
+            let n = super::mind::name(world, e.id)?;
+            if super::mind::knew(world, e.id, name) {
+                return None;
+            }
+            let room = e.parent?;
+            // A dug room's creature may be shut in; the world's own rooms are open.
+            plain_str(world, room, ROOM, "key")?;
+            let place = plain_str(world, room, ROOM, "name")?.to_string();
+            let asks = super::rooms::gate_of(world, room).unwrap_or(0.0) as i64;
+            Some((
+                Some(room) != here,
+                asks,
+                n.split(' ').next().unwrap_or(&n).to_lowercase(),
+                super::mind::display(world, e.id),
+                place,
+            ))
+        })
+        .collect();
+    all.sort();
+    all.into_iter()
+        .next()
+        .map(|(away, _, word, shown, place)| (word, shown, place, !away))
+}
+
+/// The door a name dug to its own room, and the room it was dug from.
+fn own_door(world: &World, name: &str) -> Option<(String, String)> {
+    let mine = own_room(world, name)?;
+    world.store.of_kind("room").find_map(|e| {
+        let (via, _) = super::rooms::exits_of(world, e.id)
+            .into_iter()
+            .find(|(via, to)| *to == mine && via != "back" && via != "out")?;
+        if e.id == mine {
+            return None;
+        }
+        Some((via, plain_str(world, e.id, ROOM, "name")?.to_string()))
+    })
+}
+
+/// A step as it is shown to this name, now: the line with what the world knows
+/// filled in (which creature, which chunk, which door), and the reason.
+fn shown(world: &World, name: &str, p: &Path, i: usize) -> (String, String) {
+    let s = &p.steps[i];
+    let (mut line, mut why) = (s.line.to_string(), s.why.to_string());
+    match (p.key, i) {
+        ("tell", 2) | ("tell", 4) => {
+            if let Some((word, who, place, here)) = listener(world, name) {
+                line = format!("story {word} \"<a dozen words or more, in sentences>\"");
+                why = if here {
+                    format!("{who} is here. {why}")
+                } else {
+                    format!("{who} is in {place}: `travel \"{place}\"` first. {why}")
+                };
+            }
+        }
+        ("keep", 3) => {
+            let taken = super::rooms::room_by_key(world, "mudroom")
+                .map(|m| super::rooms::exits_of(world, m))
+                .unwrap_or_default();
+            let door = [
+                "nook", "den", "burrow", "cubby", "garret", "hollow", "snug", "alcove", "cell",
+                "loft",
+            ]
+            .into_iter()
+            .chain(std::iter::once(name))
+            .map(str::to_lowercase)
+            .find(|d| !taken.contains_key(d))
+            .unwrap_or_else(|| "nook".to_string());
+            let chunk = find_citizen(world, name)
+                .and_then(|f| world.store.children(f.window).next().map(|c| c.id.0))
+                .map(|n| format!("chunk-{n}"))
+                .unwrap_or_else(|| "<chunk>".to_string());
+            line = format!("dig {door} {chunk} \"<a name for your room>\"");
+        }
+        ("keep", 4) => {
+            if let Some((via, from)) = own_door(world, name) {
+                why = format!(
+                    "Your door is `{via}`, off {from}: `travel {via}` there walks in. {why}"
+                );
+            }
+        }
+        _ => {}
+    }
+    (line, why)
+}
+
 fn path(key: &str) -> Option<&'static Path> {
     PATHS.iter().find(|p| p.key == key)
 }
@@ -238,9 +332,11 @@ fn write(world: &mut World, name: &str, mut st: Value) -> Result<(), CommandErro
     let view = match st["path"].as_str().and_then(path) {
         Some(p) => {
             let i = st["step"].as_u64().unwrap_or(0) as usize;
-            match p.steps.get(i) {
-                Some(s) => json!({"line": s.line, "why": s.why, "n": i + 1, "of": p.steps.len()}),
-                None => Value::Null,
+            if i < p.steps.len() {
+                let (line, why) = shown(world, name, p, i);
+                json!({"line": line, "why": why, "n": i + 1, "of": p.steps.len()})
+            } else {
+                Value::Null
             }
         }
         None => Value::Null,
@@ -273,31 +369,62 @@ pub fn question(st: &Value) -> String {
         .filter(|p| !done.contains(&p.key.to_string()))
         .map(|p| format!("`tutorial {}`, {}", p.key, p.pitch))
         .collect();
+    let lead = match (done.len(), offers.len()) {
+        (0, _) => "What did you come to do? There are four ways to live here, and I will walk you five steps down whichever you like".to_string(),
+        (_, 0) => return "You have walked all four roads. `next` names one thing worth doing from where you stand.".to_string(),
+        (_, 1) => "One road you have not walked".to_string(),
+        (_, n) => format!("The {} roads you have not walked", if n == 2 { "two" } else { "three" }),
+    };
     format!(
-        "What did you come to do? There are four ways to live here, and I will walk you five steps down whichever you like: {}. Each ends on something real and pays a small memory. `tutorial skip` and I will say no more of it; `tutorial` brings it back.",
+        "{lead}: {}. Each ends on something real and pays a small memory. `tutorial skip` and I will say no more of it; `tutorial` brings it back.",
         offers.join("; ")
     )
 }
 
-fn step_said(p: &Path, i: usize) -> String {
-    let s = &p.steps[i];
+fn road(p: &Path) -> &'static str {
+    match p.key {
+        "hunt" => "hunter",
+        "tell" => "teller",
+        "keep" => "keeper",
+        _ => "reader",
+    }
+}
+
+fn step_said(world: &World, name: &str, p: &Path, i: usize) -> String {
+    let (line, why) = shown(world, name, p, i);
     format!(
         "Step {} of {} on the {}'s road: `{}`. {}",
         i + 1,
         p.steps.len(),
-        match p.key {
-            "hunt" => "hunter",
-            "tell" => "teller",
-            "keep" => "keeper",
-            _ => "reader",
-        },
-        s.line,
-        s.why
+        road(p),
+        line,
+        why
     )
 }
 
 fn docent_says(world: &mut World, name: &str, text: String) {
     combat::narrate(world, name, format!("The Docent: \"{text}\""));
+}
+
+thread_local! {
+    /// A call the play page made by itself (a panel keeping current, the look at
+    /// login), not one the player sent: it ticks no step. Three of four at the
+    /// keyboard had steps ticked by calls they never saw (the Watch of 11-22).
+    pub static UNSENT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// The question, put to a new name as it arrives: the first thing the Docent
+/// says, in place of the three paragraphs of first moves that used to be.
+pub fn greet(world: &mut World, name: &str) {
+    let mut st = state(world, name);
+    if st["asked"] == json!(true) {
+        return;
+    }
+    st["asked"] = json!(true);
+    let q = question(&st);
+    if write(world, name, st).is_ok() {
+        docent_says(world, name, q);
+    }
 }
 
 /// After a statement of a name's has run: ask the question of a new name, once;
@@ -308,7 +435,7 @@ pub fn after(world: &mut World, name: &str, verb: &str, result: &Value) {
         return;
     };
     let mut st = state(world, name);
-    if verb == "tutorial" || verb == "next" {
+    if verb == "tutorial" || verb == "next" || UNSENT.with(|u| u.get()) {
         return;
     }
     // A new name, not yet asked. Only in its first hour: a name that was here
@@ -336,10 +463,20 @@ pub fn after(world: &mut World, name: &str, verb: &str, result: &Value) {
     if i == before {
         return;
     }
+    // A step the world already saw done is named, not passed over in silence.
+    let already = match i - before {
+        1 => String::new(),
+        2 => format!(" (Step {} was done already.)", before + 2),
+        _ => format!(" (Steps {} to {} were done already.)", before + 2, i),
+    };
     if i < p.steps.len() {
         st["step"] = json!(i);
         if write(world, name, st).is_ok() {
-            docent_says(world, name, format!("Done. {}", step_said(p, i)));
+            docent_says(
+                world,
+                name,
+                format!("Done.{already} {}", step_said(world, name, p, i)),
+            );
         }
         return;
     }
@@ -358,6 +495,11 @@ fn finish(world: &mut World, name: &str, mut st: Value, p: &'static Path) {
     st["done"] = json!(done);
     st["path"] = Value::Null;
     st["step"] = json!(0);
+    st["last"] = json!(p.key);
+    st["at"][p.key] = Value::Null;
+    // Nothing more is asked until it is asked for: the card does not come back
+    // with "which road?" the moment one is walked.
+    st["skipped"] = json!(true);
     let left: Vec<String> = PATHS
         .iter()
         .filter(|x| !done.contains(&x.key.to_string()))
@@ -411,7 +553,82 @@ fn finish(world: &mut World, name: &str, mut st: Value, p: &'static Path) {
     }
 }
 
-/// One sensible thing to do, out of a path.
+/// What a road's walker does next, once the five steps are behind them.
+fn onward(world: &World, name: &str, key: &str) -> Option<String> {
+    let f = find_citizen(world, name)?;
+    match key {
+        "hunt" => {
+            let level = super::memory::level(world, f.window);
+            // The fighter's road, door by door.
+            let road = ["shallows", "ossuary", "gallery", "oubliette"];
+            let doors: Vec<(String, f64)> = road
+                .iter()
+                .filter_map(|k| {
+                    let r = super::rooms::room_by_key(world, k)?;
+                    Some((
+                        plain_str(world, r, ROOM, "name")?.to_string(),
+                        super::rooms::gate_of(world, r)?,
+                    ))
+                })
+                .collect();
+            let open = doors.iter().rev().find(|(_, asks)| *asks <= level);
+            let shut = doors.iter().find(|(_, asks)| *asks > level);
+            Some(match (open, shut) {
+                (Some((n, asks)), Some((m, more))) => format!(
+                    "You hold {level:.0}. The door for you is {n} (it asks {asks:.0}): `travel \"{n}\"`, and `look` there sizes up the fight first. The next, {m}, asks {more:.0}."
+                ),
+                (Some((n, asks)), None) => format!(
+                    "You hold {level:.0}, and every door on the hunter's road is yours: {n} (it asks {asks:.0}) is the deepest, `travel \"{n}\"`."
+                ),
+                (None, Some((m, more))) => format!(
+                    "You hold {level:.0}. The Fogbank's wisps are your size: `travel \"The Fogbank\"` and `attack wisp`. The first door, {m}, asks {more:.0}."
+                ),
+                (None, None) => return None,
+            })
+        }
+        "tell" => {
+            let known = super::bard::known_to(world, name);
+            let to = listener(world, name).map(|(word, who, place, here)| {
+                if here {
+                    format!(" {who} is here and has not heard you: `story {word} \"...\"`.")
+                } else {
+                    format!(" {who}, in {place}, has not heard you.")
+                }
+            });
+            Some(format!(
+                "{known} named creature{} know{} you. `wants` says what each would hear tonight (a story on what one wants pays double); `repute` is your standing, and `deeds` lists what there is to sing.{}",
+                if known == 1 { "" } else { "s" },
+                if known == 1 { "s" } else { "" },
+                to.unwrap_or_default()
+            ))
+        }
+        "keep" => match own_room(world, name) {
+            Some(room) if super::tending::standing(world, room) < 3 => {
+                let n = plain_str(world, room, ROOM, "name").unwrap_or("Your room");
+                Some(format!(
+                    "{n} can stand higher: `look` inside it names what it wants next, and `mine` says how it stands."
+                ))
+            }
+            Some(_) => Some("Your room is Cherished. `mine` lists what you keep; `dig` from inside it opens another.".to_string()),
+            None => Some("You keep no room now. `dig <door> <chunk> \"<a name>\"` in the Mudroom opens one.".to_string()),
+        },
+        "read" => {
+            let known = super::lore::known(world, name).len();
+            let all = super::lore::SOURCES.len();
+            Some(if known < all {
+                format!(
+                    "You have read {known} of {all} things that teach a making: `lore` says where the rest are said to be, and `slips` which of today's twelve you have not answered."
+                )
+            } else {
+                "You have read everything that teaches a making. `slips` says which of today's twelve you have not answered; `recipes` what you can make.".to_string()
+            })
+        }
+        _ => None,
+    }
+}
+
+/// One sensible thing to do, out of a path: what the road this name last walked
+/// asks next, and only after that a road it has not walked.
 fn suggestion(world: &World, name: &str) -> String {
     let st = state(world, name);
     let done = done_paths(&st);
@@ -428,21 +645,33 @@ fn suggestion(world: &World, name: &str) -> String {
     if chunks_held(world, name) == 0 {
         return "You hold no memory, so you have no level. `wants` lists creatures that pay for a story, and `story bench \"...\"` at the Postern takes one from anyone.".to_string();
     }
-    if let Some(p) = PATHS.iter().find(|p| !done.contains(&p.key.to_string())) {
+    let unwalked = PATHS
+        .iter()
+        .find(|p| !done.contains(&p.key.to_string()))
+        .map(|p| p.key);
+    let last = st["last"]
+        .as_str()
+        .map(str::to_string)
+        .or_else(|| done.last().cloned());
+    // A road set down part-way comes first: it is the nearest thing to hand.
+    if let Some((k, n)) = PATHS.iter().find_map(|p| {
+        st["at"][p.key]
+            .as_u64()
+            .filter(|n| *n > 0)
+            .map(|n| (p.key, n))
+    }) {
         return format!(
-            "A road you have not walked: `tutorial {}`, {}. Five steps, and a small memory at the end.",
-            p.key, p.pitch
+            "You set the {k} road down at step {} of 5: `tutorial {k}` takes it up there.",
+            n + 1
         );
     }
-    if let Some(room) = own_room(world, name) {
-        if super::tending::standing(world, room) < 3 {
-            return "Your room can stand higher: `mine` says how it stands, and `look` inside it names what it wants next.".to_string();
-        }
+    if let Some(said) = last.as_deref().and_then(|k| onward(world, name, k)) {
+        return match unwalked {
+            Some(k) => format!("{said} (A road you have not walked: `tutorial {k}`.)"),
+            None => said,
+        };
     }
-    if super::lore::known(world, name).len() < super::lore::SOURCES.len() {
-        return "There is still something written down that you have not read: `lore` says where each is said to be.".to_string();
-    }
-    "`wants` says what the named creatures would hear tonight; `deeds` says what there is to sing; `slips` says which of today's twelve you have not answered.".to_string()
+    "Nothing here is required. To be walked through a first hour, pick a road: `tutorial hunt`, `tutorial tell`, `tutorial keep` or `tutorial read`. Otherwise `look` says what is here, and `wants` who would pay for a story.".to_string()
 }
 
 pub fn register(world: &mut World) {
@@ -463,17 +692,31 @@ pub fn register(world: &mut World) {
                 let said = match st["path"].as_str().and_then(path) {
                     Some(p) => {
                         let i = (st["step"].as_u64().unwrap_or(0) as usize).min(p.steps.len() - 1);
-                        format!("{} (`tutorial skip` sets it down.)", step_said(p, i))
+                        format!("{} (`tutorial skip` sets it down.)", step_said(w, &name, p, i))
                     }
                     None => {
                         st["skipped"] = json!(false);
-                        question(&st)
+                        let q = question(&st);
+                        match PATHS.iter().find_map(|p| {
+                            st["at"][p.key].as_u64().filter(|n| *n > 0).map(|n| (p.key, n))
+                        }) {
+                            Some((k, n)) => format!(
+                                "You set the {k} road down at step {} of 5: `tutorial {k}` takes it up there. {q}",
+                                n + 1
+                            ),
+                            None => q,
+                        }
                     }
                 };
                 write(w, &name, st)?;
                 return Ok(Outcome::new(said, json!({"tutorial": state(w, &name)})));
             }
             if road == "skip" || road == "stop" || road == "off" {
+                // The place is kept: the road can be taken up where it was left.
+                if let Some(k) = st["path"].as_str().map(str::to_string) {
+                    st["at"][k.as_str()] = st["step"].clone();
+                    st["last"] = json!(k);
+                }
                 st["path"] = Value::Null;
                 st["step"] = json!(0);
                 st["skipped"] = json!(true);
@@ -489,18 +732,39 @@ pub fn register(world: &mut World) {
                     "There is no road called {road}. The four: hunt, tell, keep, read. Or `tutorial skip`."
                 )));
             };
+            // Leaving one road for another keeps the place on the first.
+            if let Some(k) = st["path"].as_str().map(str::to_string) {
+                if k != p.key {
+                    st["at"][k.as_str()] = st["step"].clone();
+                }
+            }
+            let at = if st["path"].as_str() == Some(p.key) {
+                st["step"].as_u64().unwrap_or(0) as usize
+            } else {
+                st["at"][p.key].as_u64().unwrap_or(0) as usize
+            }
+            .min(p.steps.len() - 1);
             st["path"] = json!(p.key);
-            st["step"] = json!(0);
+            st["step"] = json!(at);
+            st["last"] = json!(p.key);
             st["skipped"] = json!(false);
             write(w, &name, st)?;
             let _ = w.note(Actor::Citizen(name.clone()), TUTORED, json!({"by": name, "path": p.key, "what": "chosen"}));
             Ok(Outcome::new(
-                format!(
-                    "The {} road, then: {}. I tick each step when the world sees it done, however you do it. {}",
-                    p.key,
-                    p.pitch,
-                    step_said(p, 0)
-                ),
+                if at > 0 {
+                    format!(
+                        "The {} road again, where you left it. {}",
+                        p.key,
+                        step_said(w, &name, p, at)
+                    )
+                } else {
+                    format!(
+                        "The {} road, then: {}. I tick each step when you do it, however you do it. {}",
+                        p.key,
+                        p.pitch,
+                        step_said(w, &name, p, 0)
+                    )
+                },
                 json!({"tutorial": state(w, &name)}),
             ))
         }),
@@ -515,13 +779,11 @@ pub fn register(world: &mut World) {
         Box::new(|w: &mut World, ctx, _args: &Args| {
             super::me(w, ctx)?;
             let st = state(w, &ctx.actor);
+            let name = ctx.actor.clone();
             let said = match st["path"].as_str().and_then(path) {
                 Some(p) => {
                     let i = (st["step"].as_u64().unwrap_or(0) as usize).min(p.steps.len() - 1);
-                    step_said(p, i)
-                }
-                None if st["asked"] != json!(true) || (st["skipped"] != json!(true) && done_paths(&st).is_empty()) => {
-                    question(&st)
+                    step_said(w, &name, p, i)
                 }
                 None => suggestion(w, &ctx.actor),
             };

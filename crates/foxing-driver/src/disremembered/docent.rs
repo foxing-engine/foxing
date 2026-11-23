@@ -49,7 +49,7 @@ const JOB_EMPTY: &str = "disremembered.docent_empty";
 /// What the Docent says to a name in its first hour. Slots: `{name}`, `{creature}`
 /// (a named creature with a want and the way), `{room}` (the newest dug room).
 pub const FIRST_WORDS: &[&str] = &[
-    "Welcome, {name}. Everything you earn here fades; what you do with it is yours. The strip above the prompt walks you through your first hour; `help` is what I keep by heart. Ask me anything: tell docent \"…\".",
+    "Welcome, {name}. Everything you earn here fades; what you do with it is yours. I walk a new name through its first hour (`tutorial`); `help` is what I keep by heart. Ask me anything: tell docent \"…\".",
     "{name}. New, then. Read the room, go east, hit a wisp (or on to the Orchard for a mothwing, milder still), keep what it drops. {creature} Ask me anything with tell docent \"…\"; I answer within the minute.",
 ];
 /// What it says to a name it has met. Slots as above, and `{since}` (how long away).
@@ -1716,43 +1716,6 @@ pub fn register(world: &mut World) {
             ))
         }),
     );
-}
-
-/// H5: the Docent's line to a name on its first arrival, by name, with the one next
-/// move: a story to the nearest named creature, else a wisp in the fog.
-pub fn first_arrival(world: &World, actor: &str) -> String {
-    let home = super::rooms::arrival(world);
-    let near: Vec<EntityId> = super::pilots::near_the_door(world);
-    let named = near.iter().find_map(|&r| {
-        super::combat::creatures_in(world, r)
-            .into_iter()
-            .find(|c| super::mind::name(world, c.0).is_some())
-            .map(|c| (r, super::mind::display(world, c.0)))
-    });
-    let next = match named {
-        Some((r, who)) if Some(r) == home => {
-            format!("{who} is here; `story` it a dozen different words in sentences, two of them about what it wants (`wants` says), and it keeps them and pays double")
-        }
-        Some((r, who)) => {
-            let place = super::plain_str(world, r, super::ROOM, "name").unwrap_or("the next room");
-            let via = home
-                .and_then(|h| {
-                    super::rooms::exits_of(world, h)
-                        .into_iter()
-                        .find(|(_, to)| *to == r)
-                })
-                .map(|(e, _)| format!("`travel {e}`"))
-                .unwrap_or_else(|| format!("`where {}`", who.split(' ').next().unwrap_or("it")));
-            format!("{who} is in {place}, {via}; `story` it a dozen different words in sentences, two of them about what it wants (`wants` says), and it keeps them and pays double")
-        }
-        None => {
-            "east is the fog, and a wisp in it; strike one, or tell it a story once it has a name"
-                .to_string()
-        }
-    };
-    format!(
-        "The Docent looks up from the page: \"{actor}. New, then. One thing first: {next}. The rest finds you.\""
-    )
 }
 
 /// The verb whose help shares the most words with the question, if any shares two.

@@ -1413,6 +1413,16 @@ fn rejection(result: &CheckResult, report: &mut Report) {
             ("persuade", "coax"),
             ("mourn", "eulogy"),
             ("joke", "jest"),
+            ("start", "tutorial"),
+            ("play", "tutorial"),
+            ("begin", "tutorial"),
+            ("guide", "tutorial"),
+            ("tutor", "tutorial"),
+            ("hunt", "tutorial hunt"),
+            ("hint", "next"),
+            ("todo", "next"),
+            ("what", "next"),
+            ("now", "next"),
         ];
         let meant = result
             .message
@@ -1427,7 +1437,7 @@ fn rejection(result: &CheckResult, report: &mut Report) {
             });
         if let Some((said, m)) = meant {
             report.fact(
-                format!("The world does not run `{said}`. Did you mean `{m}`? (`help {m}` shows a worked line; the `commands` tool lists every verb)"),
+                format!("The world does not run `{said}`. Did you mean `{m}`? (`help {}` shows a worked line; the `commands` tool lists every verb)", m.split(' ').next().unwrap_or(m)),
                 "gate",
             );
             return;

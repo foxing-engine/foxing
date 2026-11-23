@@ -66,6 +66,10 @@ enum Frame {
         command: String,
         #[serde(default)]
         args: Value,
+        /// The page asked by itself (a panel keeping current), not the player:
+        /// the first hour's steps are not ticked by it.
+        #[serde(default)]
+        auto: bool,
     },
     Observe {
         id: Value,
@@ -481,7 +485,7 @@ async fn run(socket: WebSocket, s: Shared) {
                         send!(json!({"type": "welcome", "actor": name, "cursor": head, "fresh": fresh, "admin": admin}));
                     }
                     Frame::Ping { id } => send!(json!({"type": "pong", "id": id})),
-                    Frame::Command { id, command, args } => {
+                    Frame::Command { id, command, args, auto } => {
                         let Some(name) = actor.clone() else {
                             send!(json!({"type": "result", "id": id, "ok": false, "error": "log in first"}));
                             continue;
@@ -504,7 +508,9 @@ async fn run(socket: WebSocket, s: Shared) {
                             } else {
                                 let Ok(mut budget) = s.hour_budget.lock() else { continue };
                                 w.begin_unit();
+                                crate::disremembered::tutorial::UNSENT.with(|u| u.set(auto));
                                 let p = crate::net::compiled_passage(&mut w, &s, &mut budget, &name, kind, crate::gate::Via::Session, &command, &args);
+                                crate::disremembered::tutorial::UNSENT.with(|u| u.set(false));
                                 w.end_unit();
                                 let mut v = crate::net::passage_json(&p);
                                 v["type"] = json!("result");

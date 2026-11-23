@@ -997,88 +997,6 @@ pub fn reserved_name(world: &World, name: &str) -> Option<String> {
     None
 }
 
-/// Three safe first moves for a new name, with a creature that would take a story
-/// named if one is near. Asked for by a visitor who had to work them out.
-fn first_moves(world: &World, woke: Option<EntityId>) -> String {
-    // C11: at the Postern the first moves are the gate's own: the bench, the wall,
-    // and the way round to the front door.
-    if woke.is_some() && woke == rooms::room_by_key(world, rooms::POSTERN) {
-        return "You have woken at the Postern, the world's back gate (its front door is the Threshold, three steps round: lane, row, south; the Docent keeps it, and answers `tell docent \"…\"` from anywhere). Three safe first moves: look; story bench \"<a dozen different words, about anything>\" (the Reading Bench is here, hears one story from each name, and pays a first memory); travel wall to the Orchard Wall and `attack` a mothwing there, the mildest fight there is (6 hp, hits 1–3). The lane (travel lane) runs to Lantern Row and the Orchard, and nothing hunts on it. Nothing here is required.".to_string();
-    }
-    // The nearest named creature: here, then one exit away (with the exit named), then
-    // anywhere, with its room.
-    let home = rooms::arrival(world);
-    let named: Vec<(Option<EntityId>, String, Option<String>)> = world
-        .store
-        .of_kind("creature")
-        .filter_map(|e| {
-            mind::name(world, e.id).map(|n| {
-                // What it wants, if a story: the first move is then the errand.
-                let want = errand::of(world, e.id).and_then(|er| er.story);
-                (e.parent, n, want)
-            })
-        })
-        .collect();
-    let exits = home.map(|h| rooms::exits_of(world, h)).unwrap_or_default();
-    let ask = |n: &str, want: &Option<String>| match want {
-        // A faded story's want is its opening in quotes: not nested in the example.
-        // A dozen *different* words, and two of the want's own for double: a
-        // newcomer's first story bounced at eleven on a repeated "a" (11-07).
-        Some(w) if w.contains('"') || w.contains('\u{201c}') => {
-            format!("story {n} \"<a dozen different words like the story it is forgetting>\"")
-        }
-        Some(w) => format!(
-            "story {n} \"<a dozen different words, two of them from: {w}; that pays double>\""
-        ),
-        None => format!("story {n} \"<a dozen different words>\""),
-    };
-    let listener = named
-        .iter()
-        .find(|(room, _, _)| *room == home)
-        .map(|(_, n, want)| {
-            format!(
-                "{} ({n} is here{})",
-                ask(n, want),
-                if want.is_some() {
-                    ", and wants that"
-                } else {
-                    ""
-                }
-            )
-        })
-        .or_else(|| {
-            named.iter().find_map(|(room, n, want)| {
-                let (via, _) = exits.iter().find(|(_, to)| Some(**to) == *room)?;
-                Some(format!("travel {via}, then {}", ask(n, want)))
-            })
-        })
-        .or_else(|| {
-            named.first().map(|(room, n, want)| {
-                let place = room
-                    .and_then(|r| plain_str(world, r, ROOM, "name"))
-                    .unwrap_or("?");
-                format!("{} ({n} is in {place})", ask(n, want))
-            })
-        })
-        .unwrap_or_else(|| "story <a named creature> \"<a dozen different words>\"".to_string());
-    // R60: the Fogbank is contested on a busy night and the Shallows' hollows kill a
-    // level-0 name; the Orchard's mothwings (6 hp, hit for 1) are the right first
-    // grind, three rooms on.
-    let fog_busy = rooms::room_by_key(world, "fogbank").is_some_and(|fog| {
-        world
-            .store
-            .children(fog)
-            .filter(|e| e.kind == "citizen" && presence::is_here(world, e.id))
-            .any(|e| combat::engaged_with(world, e.id).is_some())
-    });
-    let grind = if fog_busy {
-        "the Fogbank's wisps are spoken for just now, so travel east, north, north to the Orchard, where the mothwings are mildest (6 hp, a hit of 1) and the fog keeps its hollows (20 hp, a hit of 4, and they hunt)"
-    } else {
-        "travel east to the Fogbank, where the wisps are mild (8 hp, hits 2–4), or on north, north to the Orchard's mothwings, milder still; the Shallows' hollows between them hit 4–6 and hunt whoever stays, once your first hour is out or you reach level 100"
-    };
-    format!("Three safe first moves: look; {listener}; {grind}. Nothing here is required.")
-}
-
 /// Whether a citizen's name is a passing one: forgotten an hour after they go quiet,
 /// keeping nothing, obligating no one.
 pub fn is_passing(world: &World, citizen: EntityId) -> bool {
@@ -1321,14 +1239,15 @@ pub fn login_as(
     if rooms::arrival(world) != Some(home) {
         let _ = atlas::mark_seen(world, actor, home);
     }
-    combat::narrate(world, actor, first_moves(world, Some(home)));
-    // H5: the Docent, by name, on a first arrival, with the one next move; apart
-    // from its nightly greeting, which is the book's.
-    // C11: the Docent is at the Threshold; a name that woke at the Postern has its
-    // card there instead (`docent::greet`), not a figure looking up at another door.
-    if rooms::room_by_key(world, rooms::POSTERN) != Some(home) {
-        combat::narrate(world, actor, docent::first_arrival(world, actor));
+    // The Watch of 11-22, at the keyboard: three paragraphs of first moves, the
+    // Docent's own "one thing first", and then the question of which road, were
+    // three voices at once, and the question was the one that mattered. Now it is
+    // the only one: a line of where you are if you woke at the back gate, and the
+    // Docent asking what you came to do.
+    if rooms::room_by_key(world, rooms::POSTERN) == Some(home) {
+        combat::narrate(world, actor, "You have woken at the Postern, the world's back gate. Its front door is the Threshold, three steps round (lane, row, south); nothing hunts on the way. The Reading Bench here takes a first story from anyone.".to_string());
     }
+    tutorial::greet(world, actor);
     Ok(Found {
         citizen,
         window,

@@ -360,6 +360,27 @@ fn key_for(name: &str, id: EntityId) -> String {
     }
 }
 
+/// Two rooms of one name cannot be told apart by `travel "<name>"`, `where` or
+/// `remember`: a keeper at the keyboard dug a second "Gnoodle Nook" and then put a
+/// memory into the wrong one (the Watch of 11-22). A room's name is its own.
+fn name_free(world: &World, name: &str, but: Option<EntityId>) -> Result<(), CommandError> {
+    let want = name.to_lowercase();
+    let taken = world.store.of_kind("room").find(|e| {
+        Some(e.id) != but
+            && plain_str(world, e.id, ROOM, "name").is_some_and(|n| n.to_lowercase() == want)
+    });
+    match taken {
+        Some(e) => Err(CommandError::precondition(format!(
+            "There is a room called {name} already{}; a room's name is its own, so choose another.",
+            match &e.owner {
+                Some(o) => format!(", {o}'s"),
+                None => ", one of the world's own".to_string(),
+            }
+        ))),
+        None => Ok(()),
+    }
+}
+
 /// A name a room may carry: short, printable, and not a word the protocol reserves.
 pub(crate) fn check_name(name: &str) -> Result<String, CommandError> {
     let name = name.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -845,7 +866,11 @@ pub fn register(world: &mut World, curves: super::Curves) {
                 &[f.window, f.palace],
             )?;
             let name = match args.str("name").map(str::trim).filter(|s| !s.is_empty()) {
-                Some(n) => check_name(n)?,
+                Some(n) => {
+                    let n = check_name(n)?;
+                    name_free(w, &n, None)?;
+                    n
+                }
                 None => "An Unnamed Digging".to_string(),
             };
             let hl = chunk_half_life(w, chunk);
@@ -1157,6 +1182,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
                 json!({"by": ctx.actor, "room": here.0}),
             );
             visited(w, here).map_err(internal)?;
+            super::tending::settle(w, here);
             Ok(Outcome::new(
                 format!("The room is now described: {text}"),
                 json!({"room": here.0, "description": text}),
@@ -1318,6 +1344,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
             }
             may_edit(w, ctx, here)?;
             let name = check_name(args.str("name").unwrap_or(""))?;
+            name_free(w, &name, Some(here))?;
             let mut fields = BTreeMap::new();
             fields.insert("name".into(), Field::Plain(json!(name)));
             set_room_fields(w, &ctx.actor, here, fields)?;

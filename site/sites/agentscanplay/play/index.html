@@ -575,6 +575,8 @@
     header .state button { margin-left: 4px; padding: 3px 9px; min-height: 32px; }
     #first { padding: 6px 14px 5px; }
     #first ol { flex-wrap: nowrap; gap: 0; }
+    #first ol.roads { flex-wrap: wrap; gap: 8px 16px; padding: 2px 0 4px; }
+    #first ol.roads li code { padding: 4px 0; }
     #first li:not(.now) { display: none; }
     #first li.now { white-space: normal; }
     #verbbar { flex-wrap: nowrap; overflow-x: auto; padding: 0 14px 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent); }
@@ -1306,7 +1308,7 @@
       retryTimer = null;
       if (!actor || wsReady) return;
       const ok = await connect();
-      if (ok) { stopPolling(); stale(false); $("link").textContent = "Live session."; print("The session is back.", "sys"); await run("look", []); }
+      if (ok) { stopPolling(); stale(false); $("link").textContent = "Live session."; print("The session is back.", "sys"); await run("look", [], true); }
       else { startPolling(); retryConnect(Math.min(delay * 2, 30000)); }
     }, delay);
   }
@@ -1353,11 +1355,13 @@
       setTimeout(() => { if (waiting.has(id)) { waiting.delete(id); resolve({ type: "error", error: "The world did not answer. Try again in a moment." }); } }, 15000);
     });
   }
-  function wsCommand(command, args) {
+  // `auto`: the page asking by itself (a panel keeping current, the look at login),
+  // which the world does not count as a step of the first hour.
+  function wsCommand(command, args, auto) {
     return new Promise((resolve) => {
       const id = String(nextId++);
       waiting.set(id, resolve);
-      try { ws.send(JSON.stringify({ type: "command", id, command, args })); }
+      try { ws.send(JSON.stringify(auto ? { type: "command", id, command, args, auto: true } : { type: "command", id, command, args })); }
       catch (e) { waiting.delete(id); resolve({ ok: false, error: "The session closed; reconnecting. Try again in a moment." }); return; }
       setTimeout(() => { if (waiting.has(id)) { waiting.delete(id); resolve({ ok: false, error: "The world did not answer. Try again in a moment." }); } }, 15000);
     });
@@ -1422,7 +1426,7 @@
     };
   })();
 
-  async function run(command, args) {
+  async function run(command, args, auto) {
     if (!actor) { print("Log in first: login <name> <passphrase>, or just press Enter.", "err"); return; }
     lastAct = Date.now();
     // A slow reply shows it is coming (the board takes a few seconds): a newcomer retypes.
@@ -1431,7 +1435,7 @@
     let body;
     const asked = performance.now();
     if (wsReady) {
-      body = await wsCommand(command, args);
+      body = await wsCommand(command, args, auto);
       perf.trip(performance.now() - asked, body && body.took_ms);
     } else {
       const r = await api("/v0/command", { actor, passphrase, command, args });
@@ -1473,14 +1477,14 @@
     composeLogin();
     $("q-run").disabled = false;
     print(body.fresh
-      ? "Welcome, " + name + ". Your passphrase is set; you will need it next time. You are at the Threshold: click anything in the picture to act on it, follow the first-steps card under the prompt (it ticks itself off as you go), or type help for one worked line per verb."
+      ? "Welcome, " + name + ". Your passphrase is set; you will need it next time. The Docent is asking what you came to do: pick a road on the card above (it ticks itself off as you go), click anything in the picture to act on it, or type help for one worked line per verb."
       : "Welcome back, " + name + ".", "sys");
     const live = await connect();
     if (live) { $("link").textContent = "Live session."; } else { try { const h = await api("/health"); if (h.body) cursor = h.body.events || 0; } catch (e) {} startPolling(); }
     emit("login", name, live);
     keys.strip();
     firstHours.begin();
-    await run("look", []);
+    await run("look", [], true);
     return true;
   }
   function logout() {
@@ -1788,7 +1792,7 @@
     const key = room.id + ":" + ((room.relations && room.relations.exits) || []).length;
     if (!force && atlasRoom === key) return;
     atlasRoom = key;
-    const r = await wsCommand("map", []);
+    const r = await wsCommand("map", [], true);
     if (!r || !r.ok || !r.result) return;
     atlas = r.result; drawAtlas();
     if (!atlasTimer) atlasTimer = setInterval(drawAtlas, 60000);
@@ -1800,7 +1804,7 @@
     if (!wsReady || !actor) return;
     if (!force && Date.now() - boardsAt < 15000) return;
     boardsAt = Date.now();
-    const [wr, mr] = await Promise.all([wsCommand("wants", []), wsCommand("mine", [])]);
+    const [wr, mr] = await Promise.all([wsCommand("wants", [], true), wsCommand("mine", [], true)]);
     if (wr && wr.ok && wr.result) drawWants(wr.result);
     if (mr && mr.ok && mr.result) drawMine(mr.result);
   }
@@ -2493,16 +2497,22 @@
         $("first-count").textContent = t.view.n + " of " + t.view.of + (t.path ? " · " + t.path : "");
         $("first-code").textContent = t.view.line;
         $("first-why").textContent = t.view.why;
-        const whole = !/[<"]/.test(t.view.line);
+        // A line with nothing left to fill in is sent as it stands, quotes and all;
+        // one with a blank is put in the prompt for the blank to be written.
+        const whole = !/</.test(t.view.line);
         $("first-do").hidden = false;
-        $("first-do").textContent = whole ? "do it" : "start it";
+        $("first-do").textContent = whole ? "do it" : "fill it in";
+        $("first-do").title = whole ? "Send this line as it stands" : "Put this line in the prompt, for you to finish";
+        list.classList.remove("roads");
         $("first-now").dataset.line = t.view.line; $("first-now").dataset.whole = whole ? "1" : "0"; $("first-now").dataset.step = "tutorial";
         $("first-all").hidden = true; list.hidden = true;
       } else {
         // The question: four roads, each a button.
-        $("first-count").textContent = "which road?";
+        const walked = Array.isArray(t.done) ? t.done.length : 0;
+        $("first-count").textContent = walked ? "another road?" : "which road?";
         $("first-code").textContent = "tutorial";
-        $("first-why").textContent = "What did you come to do? Pick a road and the Docent walks you five steps down it. Each ends on something real.";
+        $("first-why").textContent = walked ? "The roads you have not walked. Five steps each, ending on something real." : "What did you come to do? Pick a road and the Docent walks you five steps down it. Each ends on something real.";
+        list.classList.add("roads");
         $("first-do").hidden = true;
         $("first-now").dataset.line = ""; $("first-now").dataset.step = "tutorial";
         for (const p of tutLeft(t)) {
@@ -2591,7 +2601,7 @@
     }
     function doNow() {
       const box = $("first-now"); const line = box.dataset.line || ""; if (!line) return;
-      if (box.dataset.whole === "1") { const [v, ...rest] = line.split(/\s+/); print(line, "you"); run(v, rest); }
+      if (box.dataset.whole === "1") { if (box.dataset.step === "tutorial") handle(line); else { const [v, ...rest] = line.split(/\s+/); print(line, "you"); run(v, rest); } }
       else prefill(line.replace(/<[^>]*>/g, "").replace(/\?/g, "").replace(/\s+"$/, ' "').replace(/\s{2,}/g, " "));
     }
     $("first-do").addEventListener("click", doNow);
@@ -2875,7 +2885,9 @@
     const d = $("door"); if (!d) return;
     const cz = me && me.components["disremembered.citizen"] || {};
     const young = cz.named_at && (Date.now() - skew - cz.named_at) < 3600000;
-    if (!me || !young || doorTaken) { d.replaceChildren(); d.hidden = true; return; }
+    // Where the Docent keeps the first hour (`tutorial`), the card is the one
+    // voice: this panel was a second set of first moves beside it.
+    if (!me || !young || doorTaken || (cz.tutorial && typeof cz.tutorial === "object")) { d.replaceChildren(); d.hidden = true; return; }
     if (d.childElementCount) return;
     d.hidden = false;
     // C11: the Postern's three are its own: the bench, the wall, the lane.
@@ -3216,10 +3228,10 @@
       const common = (n) => ["look", "travel", "attack", "story", "rest", "chunks", "map", "help", "read", "take", "gather", "tell", "say", "retreat", "wants", "remember", "dig", "craft"].includes(n) ? 1 : 0;
       const near = w.length > 1 ? names.map(n => [editDistance(w, n), n]).filter(p => p[0] <= (w.length > 4 ? 2 : 1)).sort((a, b) => a[0] - b[0] || common(b[1]) - common(a[1]))[0] : null;
       // The Watch of 11-22 evening: `make` was offered `take`, `learn` was offered `earn`.
-      const meant = { make: "craft", build: "craft", learn: "lore", unlock: "lore", know: "lore", knowledge: "lore", answer: "study", open: "study", examine: "read", inspect: "read", inv: "satchel", inventory: "satchel", bag: "satchel", go: "travel", walk: "travel", move: "travel", talk: "tell", speak: "tell", fight: "attack", hit: "attack", kill: "attack", flee: "retreat", run: "retreat", heal: "rest", sleep: "rest", stats: "chunks", status: "chunks", level: "chunks", quests: "wants", quest: "wants" }[w];
-      if (meant) return "The world does not run `" + w + "`; the nearest it has is `" + meant + "` (`help " + meant + "` shows a worked line).";
+      const meant = { make: "craft", build: "craft", learn: "lore", unlock: "lore", know: "lore", knowledge: "lore", answer: "study", open: "study", examine: "read", inspect: "read", inv: "satchel", inventory: "satchel", bag: "satchel", go: "travel", walk: "travel", move: "travel", talk: "tell", speak: "tell", fight: "attack", hit: "attack", kill: "attack", flee: "retreat", run: "retreat", heal: "rest", sleep: "rest", stats: "chunks", status: "chunks", level: "chunks", quests: "wants", quest: "wants", start: "tutorial", play: "tutorial", begin: "tutorial", guide: "tutorial", hunt: "tutorial hunt", hint: "next", todo: "next", now: "next" }[w];
+      if (meant) return "The world does not run `" + w + "`; the nearest it has is `" + meant + "` (`help " + meant.split(" ")[0] + "` shows a worked line).";
       if (near) return "The world does not run `" + w + "`. Did you mean `" + near[1] + "`?";
-      if (/^(what|how|where|who|why|can|help|please|i)$/.test(w)) return "The world takes one verb at a time, not a question. `help` says what you can do and gives a worked line for each verb; the buttons under the transcript are what you can do right here.";
+      if (/^(what|how|where|who|why|can|help|please|i)$/.test(w)) return "The world takes one verb at a time, not a question. `next` names one thing worth doing from where you stand; `help` gives a worked line for each verb; the buttons under the transcript are what you can do right here.";
       return "The world does not run " + (v ? "`" + v[1] + "`" : "that") + ". `help` says what you can do; exits are `travel <exit>` (look lists them), and the buttons under the transcript are what you can do here.";
     }
     if (m[1] === "I6") {
@@ -3904,7 +3916,7 @@
       const FREE = ["look", "chunks", "map", "time", "board", "statutes", "palace", "satchel", "recipes", "wants", "mine", "where", "session", "messages", "petitions", "news"];
       if (!actor) return Promise.resolve({ ok: false, error: "log in first" });
       if (!FREE.includes(verb)) return Promise.resolve({ ok: false, error: "read() is for the free reads: " + FREE.join(", ") });
-      if (wsReady) return wsCommand(verb, args);
+      if (wsReady) return wsCommand(verb, args, true);
       return api("/v0/command", { actor, passphrase, command: verb, args }).then(r => r.body || { ok: false, error: "no answer" });
     },
     subscribe(id, query) {

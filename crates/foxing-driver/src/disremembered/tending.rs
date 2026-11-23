@@ -102,10 +102,10 @@ pub fn assess(world: &World, room: EntityId) -> Option<Tend> {
         points += 1;
         has.push("it holds two hours and more".to_string());
         wants.push(
-            "more memory put into it, to hold eight hours (`remember <chunk>` here)".to_string(),
+            "more memory put into it, to hold eight hours (standing in it, `remember chunk-N` with a chunk of yours: `chunks` lists them)".to_string(),
         );
     } else {
-        wants.push("memory put into it, to hold two hours (`remember <chunk>` here)".to_string());
+        wants.push("memory put into it, to hold two hours (standing in it, `remember chunk-N` with a chunk of yours: `chunks` lists them)".to_string());
     }
     if !super::craft::fixtures_in(world, room).is_empty() {
         points += 1;
@@ -274,6 +274,68 @@ fn set_room(
         .map_err(|e| e.to_string())
 }
 
+/// Write a room's standing where the page reads it, and say so to its keeper, if
+/// it has changed. On the wander clock, and at once when the room is described
+/// (a keeper's picture said "bare" for minutes after the look said Kept).
+fn mark(world: &mut World, room: EntityId, t: &Tend) -> Result<(), String> {
+    let was = super::plain_num(world, room, ROOM, "tend").unwrap_or(0.0) as usize;
+    if was != t.standing {
+        let mut f = BTreeMap::new();
+        f.insert("tend".to_string(), Field::Plain(json!(t.standing)));
+        set_room(world, room, f)?;
+        let owner = world
+            .store
+            .entity(room)
+            .and_then(|e| e.owner.clone())
+            .unwrap_or_default();
+        let rname = plain_str(world, room, ROOM, "name")
+            .unwrap_or("a room")
+            .to_string();
+        let _ = world.note(
+            Actor::Driver,
+            STOOD,
+            json!({"room": room.0, "name": rname, "owner": owner, "was": was, "standing": t.standing, "said": STANDINGS[t.standing]}),
+        );
+        super::combat::narrate(
+            world,
+            &owner,
+            if t.standing > was {
+                format!(
+                    "{rname} is {} now: {}.",
+                    STANDINGS[t.standing],
+                    t.has.join(", ")
+                )
+            } else {
+                format!(
+                    "{rname} has slipped to {}: {}.",
+                    STANDINGS[t.standing],
+                    if t.wants.is_empty() {
+                        "it is fading".to_string()
+                    } else {
+                        format!("it wants {}", t.wants[0])
+                    }
+                )
+            },
+        );
+        if t.standing > was && t.standing >= 2 {
+            world.notice(format!(
+                "**{rname}**, {owner}'s room, is **{}**.",
+                STANDINGS[t.standing]
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// A room's standing, written now.
+pub fn settle(world: &mut World, room: EntityId) {
+    if world.store.entity(room).is_some_and(|e| e.owner.is_some()) {
+        if let Some(t) = assess(world, room) {
+            let _ = mark(world, room, &t);
+        }
+    }
+}
+
 /// On the wander clock: each dug room's standing is written where the page reads it,
 /// its residents come and go with it, and a porter leaves the day's making.
 pub fn round(world: &mut World) -> Result<(), String> {
@@ -287,52 +349,7 @@ pub fn round(world: &mut World) -> Result<(), String> {
         let Some(t) = assess(world, room) else {
             continue;
         };
-        let was = super::plain_num(world, room, ROOM, "tend").unwrap_or(0.0) as usize;
-        if was != t.standing {
-            let mut f = BTreeMap::new();
-            f.insert("tend".to_string(), Field::Plain(json!(t.standing)));
-            set_room(world, room, f)?;
-            let owner = world
-                .store
-                .entity(room)
-                .and_then(|e| e.owner.clone())
-                .unwrap_or_default();
-            let rname = plain_str(world, room, ROOM, "name")
-                .unwrap_or("a room")
-                .to_string();
-            let _ = world.note(
-                Actor::Driver,
-                STOOD,
-                json!({"room": room.0, "name": rname, "owner": owner, "was": was, "standing": t.standing, "said": STANDINGS[t.standing]}),
-            );
-            super::combat::narrate(
-                world,
-                &owner,
-                if t.standing > was {
-                    format!(
-                        "{rname} is {} now: {}.",
-                        STANDINGS[t.standing],
-                        t.has.join(", ")
-                    )
-                } else {
-                    format!(
-                        "{rname} has slipped to {}: {}.",
-                        STANDINGS[t.standing],
-                        if t.wants.is_empty() {
-                            "it is fading".to_string()
-                        } else {
-                            format!("it wants {}", t.wants[0])
-                        }
-                    )
-                },
-            );
-            if t.standing > was && t.standing >= 2 {
-                world.notice(format!(
-                    "**{rname}**, {owner}'s room, is **{}**.",
-                    STANDINGS[t.standing]
-                ));
-            }
-        }
+        mark(world, room, &t)?;
         for (need, kind) in RESIDENTS {
             let here = resident(world, room, kind);
             if t.standing >= need && here.is_none() {
