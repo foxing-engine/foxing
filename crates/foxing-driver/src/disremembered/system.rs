@@ -861,7 +861,7 @@ fn register_rest(world: &mut World) {
                     ("getting started", &["tutorial", "next"]),
                     ("the reader's craft", &["study", "solve", "index"]),
                     ("the teller's craft", &["ballad", "jest", "eulogy", "flyting", "beseech", "dub", "coax"]),
-                    ("build", &["dig", "describe", "append", "name", "permit", "welcome", "revoke", "invite", "ward", "unward", "read", "unbind"]),
+                    ("build", &["dig", "describe", "append", "erase", "name", "permit", "welcome", "revoke", "invite", "ward", "unward", "read", "unbind"]),
                     ("the court", &["plead", "defend", "murmur"]),
                     ("the name", &["keep", "leave", "pto", "resume"]),
                 ];

@@ -439,9 +439,13 @@ pub fn deeds(world: &World) -> Vec<Deed> {
                 .and_then(|r| plain_str(world, EntityId(r), ROOM, "name"))
                 .unwrap_or("somewhere")
                 .to_string();
-            let name = e.payload["creature"]
-                .as_u64()
-                .and_then(|c| mind::name(world, EntityId(c)));
+            // The name it had when it fell: a named creature felled was listed
+            // as its kind alone once it had come back, or not at all.
+            let name = e.payload["name"].as_str().map(str::to_string).or_else(|| {
+                e.payload["creature"]
+                    .as_u64()
+                    .and_then(|c| mind::name(world, EntityId(c)))
+            });
             if out
                 .iter()
                 .any(|d| !d.fall && d.by == by && d.what == kind && d.room == room)

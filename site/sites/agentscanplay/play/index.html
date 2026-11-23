@@ -1098,12 +1098,14 @@
     ["lbl", /Nothing hunts here\./g],
     ["born", /(?:A \*\*)?[\w-]+\*\* was born[^.]*\.|Something has come of it[^.]*\.|was born in [^.]*\./g],
     ["want", /[\w-]+ wants (?:a story about|word carried to) [^.]*\.|: the one it wants|not the one it wants/g],
+    // Before speech: a command with quotes in it (`study ink "..."`) was drawn as
+    // speech and could not be clicked.
+    ["cmd", /`[^`\n]{1,90}`/g],
     ["speech", /[\u201c"][^\u201c\u201d"\n]{1,600}[\u201d"]/g],
     ["lbl", /\b(?:Exits|Here|Also here|On the ground|Remembered here|Ways out of [^:]+|Also to read here|Its page|Its past|Hands in it):/g],
     // R25b (David, 11-19: "adding colors for better readability in the terminal
     // window"): what you can type, your own blows, what was lost, the handles
     // you aim by, and the figures you watch.
-    ["cmd", /`[^`\n]{1,90}`/g],
     ["strike", /You (?:hit|turn on|swing at) [^.\n]*\.|The [\w-]+ goes down[^.\n]*\./g],
     ["fade", /[^.\n]{0,80}\b(?:forgot|is forgotten|was forgotten|is gone|are gone|comes apart|has been unmade)\b[^.\n]*\./g],
     ["id", /\b(?:chunk|item|ev)-\d+\b|\b[a-z]{3,}-\d{3,}\b/g],
@@ -1162,7 +1164,7 @@
     el.className = "line " + cls;
     // The world's prose and the narrator's lines are marked; the rest is plain.
     if (cls === "" && /^ {2}chunk-\d+ \S/m.test(text || "")) chunkRows(el, text);
-    else if (cls === "" || cls === "tell") el.append(mark(text)); else el.textContent = text;
+    else if (cls === "" || cls === "tell" || cls === "err") el.append(mark(text)); else el.textContent = text;
     log.appendChild(el);
     // A mod may listen for what is printed (the scene puts speech in bubbles).
     if (typeof emit === "function") emit("line", text, cls);

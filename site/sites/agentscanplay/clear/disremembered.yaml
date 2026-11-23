@@ -128,6 +128,7 @@ approved_verbs:
   entrust: {params: [{name: creature, type: entity, required: true}, {name: chunk, type: entity, required: true}, {name: line, type: text, required: false}, {name: to, type: entity, required: false}]}
   deeds: {params: []}
   lore: {params: []}
+  erase: {params: [{name: words, type: text, required: true}]}
   next: {params: []}
   tutorial: {params: [{name: road, type: string, required: false}]}
   study: {params: [{name: thing, type: entity, required: false}, {name: answer, type: text, required: false}]}

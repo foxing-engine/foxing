@@ -594,14 +594,16 @@ impl From<&Recipe> for Rx {
 /// keeps a past; what it is made of is what a creature leaves. Three a name.
 /// D27 a: where the materials are, said with the recipes (a maker of 11-10 never
 /// found rag thread, which the Midden gives to the hand).
-pub const FOUND: &str = "Where the makings are (`gather` takes one from a room that has it, once an hour; a felled creature may leave one): rag thread, the Midden (and its ragpickers); a wisp ember, Lantern Row (and the Fogbank's wisps); hollow water, the Fogbank, the Shallows and the Undertow; moth dust, the Orchard and the Stile (and the mothwings); river weed, the Cistern (and its drowned); a dab of ink, the Unfiled Archive; grave dust, the Ossuary (and its revenants); a sitter's patience, the Gallery's sitters; a small key, the Oubliette's keepers. The second tier's makings are left only in the Stacks, the Exergue District and the Drowned Wing; what is made of them is for fights.";
+pub const FOUND: &str = "Where the makings are (`gather` takes one from a room that has it, once an hour; a felled creature may leave one): rag thread, the Midden (and its ragpickers); a wisp ember, Lantern Row and Lamplighter's Lane (and the Fogbank's wisps); hollow water, the Fogbank, the Shallows, the Undertow and the Court of Lethe; moth dust, the Orchard and the Stile (and the mothwings); river weed, the Cistern (and its drowned); a dab of ink, the Unfiled Archive; grave dust, the Ossuary (and its revenants); a sitter's patience, the Gallery's sitters; a small key, the Oubliette's keepers. The second tier's makings are left only in the Stacks, the Exergue District and the Drowned Wing; what is made of them is for fights.";
 /// R208: where a first-tier making is, said beside "You lack" (the whole list is at
 /// the foot of `recipes`, and a newcomer read the first line and not the foot).
 fn making_is(m: &str) -> Option<&'static str> {
     Some(match m.trim_start_matches("a ").trim_start_matches("an ") {
         "rag thread" => "the Midden",
-        "wisp ember" => "Lantern Row, or the Fogbank's wisps",
-        "hollow water" => "the Fogbank, the Shallows, the Undertow",
+        "wisp ember" => "Lantern Row, Lamplighter's Lane, or the Fogbank's wisps",
+        "hollow water" => "the Fogbank, the Shallows, the Undertow, the Court of Lethe",
+        "lamprey's tooth" => "the lampreys of the Acid Room, the Pulp Sump and the Leak leave one, down the Stacks stair (for level 250 or so)",
+        "spare minute" => "the Clocktower's hourhands leave one",
         "moth dust" => "the Orchard, the Stile",
         "river weed" => "the Cistern",
         "dab of ink" => "the Unfiled Archive",
@@ -2630,7 +2632,12 @@ pub fn register(world: &mut World, curves: Curves) {
                     r.key,
                     r.name,
                     if r.fixed && passing { " (a fixture: a kept name's to place, so `keep` first)" } else if r.fixed { " (a fixture)" } else { "" },
-                    r.by.as_deref().map(|b| format!(" (a recipe {b} wrote)")).unwrap_or_default(),
+                    match (r.by.as_deref(), super::lore::learned(w, &ctx.actor, &r.key)) {
+                        (Some(b), _) => format!(" (a recipe {b} wrote)"),
+                        // What was read, and how long it is known for.
+                        (None, Some(left)) => format!(" (read: yours to make for {} more, and reading it again keeps it)", super::combat::human(left)),
+                        _ => String::new(),
+                    },
                     r.of.join(" and "),
                     if r.chunk_at_least > 0.0 && r.fixed { format!(" and a chunk (any; one worth {asks:.0} or more makes it last longest){}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else if r.chunk_at_least > 0.0 { format!(" and a chunk worth {asks:.0} or more (the whole chunk is spent, whatever it is worth: offer the smallest that will do){}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else { String::new() },
                     r.does.trim_end_matches('.'),

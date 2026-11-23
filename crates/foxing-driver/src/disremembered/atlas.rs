@@ -1449,7 +1449,19 @@ pub fn register(world: &mut World, curves: Curves) {
                     json!({"who": who, "room": "postern"}),
                 ));
             }
-            let (what, room): (String, Option<EntityId>) = if super::docent::is_named(&who) {
+            // "The Bindery", with its article, is the room and not the name Bindery;
+            // and the Court's own text calls it the Courtroom.
+            let the_room = if loose(&who) == "courtroom" {
+                rooms::room_by_key(w, "court-of-lethe")
+            } else if who.to_lowercase().starts_with("the ") {
+                let want = loose(&who);
+                w.store.of_kind("room").find(|e| loose(plain_str(w, e.id, ROOM, "name").unwrap_or_default()) == want).map(|e| e.id)
+            } else {
+                None
+            };
+            let (what, room): (String, Option<EntityId>) = if let Some(r) = the_room {
+                (plain_str(w, r, ROOM, "name").unwrap_or("?").to_string(), Some(r))
+            } else if super::docent::is_named(&who) {
                 ("The Docent".to_string(), super::docent::room(w))
             } else if let Some((c, r)) = super::mind::find_named(w, &who) {
                 (super::mind::display(w, c), r)

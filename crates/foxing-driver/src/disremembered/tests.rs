@@ -4567,7 +4567,7 @@ fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
     );
     assert!(
         out.summary
-            .contains("You lack a wisp ember (Lantern Row, or the Fogbank's wisps) and rag thread (the Midden)."),
+            .contains("You lack a wisp ember (Lantern Row, Lamplighter's Lane, or the Fogbank's wisps) and rag thread (the Midden)."),
         "{}",
         out.summary
     );
@@ -6508,6 +6508,25 @@ fn a_made_thing_can_be_named_once_it_holds_sixty_and_a_fixture_stands_in_a_room_
         look.summary
     );
     assert!(look.result["fixtures"][0]["id"] == json!(book));
+    // David, 11-22: the keeper strikes a visitor's line from its own book; the
+    // visitor cannot strike from a book that is not theirs.
+    let err = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "erase",
+        json!(["was here"]),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("the book is not yours"), "{err}");
+    let out = ok(&mut w, "tyler", "erase", json!(["was here"]));
+    assert!(
+        out.summary.contains("Struck from The Study Book") && out.summary.contains("dave was here"),
+        "{}",
+        out.summary
+    );
+    let read = ok(&mut w, "tyler", "read", json!(["book"]));
+    assert!(!read.summary.contains("dave was here"), "{}", read.summary);
     // Dave may not place a fixture in tyler's room (welcomed is not permitted).
     let err = call(
         &mut w,
@@ -15259,6 +15278,56 @@ fn a_door_says_who_it_is_for_and_stops_a_name_once() {
         walked.summary.contains("stop") && walked.summary.contains("for names of about level 50"),
         "{}",
         walked.summary
+    );
+}
+
+/// David, 11-22: "q3:1" (a case against the house) and "q2:1" (a keeper strikes a
+/// line from its own book).
+#[test]
+fn a_case_is_brought_against_the_house_and_a_keeper_strikes_a_line() {
+    let mut w = open(tempfile::tempdir().unwrap().path(), Timestamp(1_000_000));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    admin(&mut w, "dave", "earn", json!(["a first thing", 12, 0.5]));
+    court::calm_for_test(&mut w);
+    admin(&mut w, "dave", "bring", json!(["dave", "filing-window"]));
+    let out = ok(
+        &mut w,
+        "dave",
+        "plead",
+        json!([
+            "house",
+            "house",
+            "the Clerk took my only memory for a plea it knew was lost"
+        ]),
+    );
+    assert!(out.summary.contains("against house"), "{}", out.summary);
+    let window = rooms::room_by_key(&w, "filing-window").unwrap();
+    let archive = rooms::room_by_key(&w, "archive").unwrap();
+    court::on_arrival(&mut w, "dave", window).unwrap();
+    court::on_arrival(&mut w, "dave", archive).unwrap();
+    court::on_arrival(&mut w, "dave", window).unwrap();
+    court::tick(&mut w).unwrap();
+    assert_eq!(
+        court::cases(&w)[0]["stage"],
+        "heard",
+        "the house does not answer"
+    );
+    assert_eq!(court::pending(&w)[0]["record_bears_it_out"], true);
+    let before = level(&mut w, "dave");
+    court::judge(
+        &mut w,
+        1,
+        "granted",
+        "The fee was taken in bad order.",
+        "test",
+    )
+    .unwrap();
+    if court::cases(&w)[0]["stage"] == "sitting" {
+        court::conclude_now(&mut w, 1).unwrap();
+    }
+    assert!(
+        level(&mut w, "dave") > before + 20.0,
+        "the fee back, twice over"
     );
 }
 

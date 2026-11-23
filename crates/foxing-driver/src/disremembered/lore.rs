@@ -421,6 +421,12 @@ pub fn retry_ms(world: &World, name: &str, plain: i64) -> i64 {
 
 /// The bench will not make this for one who has not read how: what to say, or None
 /// where the recipe is free or known.
+/// How long a recipe that had to be read stays known to this name, if it is.
+pub fn learned(world: &World, name: &str, recipe: &str) -> Option<i64> {
+    let (_, key) = TAUGHT.iter().find(|(r, _)| *r == recipe)?;
+    knows(world, name, key)
+}
+
 pub fn locked(world: &World, name: &str, recipe: &str) -> Option<String> {
     let (_, key) = TAUGHT.iter().find(|(r, _)| *r == recipe)?;
     if knows(world, name, key).is_some() {

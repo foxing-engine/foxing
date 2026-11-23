@@ -62,6 +62,9 @@ pub const KINDS: &[(&str, &str)] = &[
     ("name", "a name another gave to an object you made, or that stands in a room of yours; <what> is the name"),
     ("thing", "a thing left by a creature you felled and taken by another name; <what> is the thing"),
     ("roll", "your name on the Roll of Hoards; <against> is conclave, <what> is why it should come off"),
+    // David, 11-22: "q3:1". The Watch of 11-22 wanted to plead against the Clerk's
+    // own fee and could not: a case was between names, or against the Conclave.
+    ("house", "something the world itself did to you (an officer, a door, a fee, a rule); <against> is house, <what> is what was done"),
 ];
 
 fn entity(world: &World) -> Option<EntityId> {
@@ -296,6 +299,12 @@ pub fn record(world: &World, c: &Value) -> (bool, String) {
                 format!("The record shows no such thing taken by {against} from where {by} had just felled a creature (it keeps a day or so of such things)."),
             ),
         },
+        // The house keeps no record against itself: the plea is read as written,
+        // beside whatever the public record shows of the day.
+        "house" => (
+            true,
+            format!("The house enters no record on its own behalf. {by} says of it: \u{201c}{what}\u{201d}. The judge reads the plea as written, and the public record of the day beside it."),
+        ),
         "roll" => match super::conclave::hoard_share_of(world, by) {
             Some(share) => (
                 true,
@@ -481,6 +490,27 @@ fn remedy(world: &mut World, c: &Value) -> String {
                     Err(_) => "The thing could not be moved.".to_string(),
                 },
                 _ => format!("{against} no longer carries it (used, or dropped, or gone): the Court can say whose it was, and cannot hand it back."),
+            }
+        }
+        // Found against, the house pays: the fee back, twice over. What it did is
+        // on the Docket for those who keep the house to put right.
+        "house" => {
+            let twice = c["fee"].as_f64().unwrap_or(0.0).max(5.0) * 2.0;
+            let paid = find_citizen(world, &by).and_then(|f| {
+                super::memory::earn_chunk(
+                    world,
+                    &by,
+                    f.window,
+                    "a judgment against the house",
+                    twice,
+                    0.7,
+                    &super::Curves::from_env(),
+                )
+                .ok()
+            });
+            match paid {
+                Some(ch) => format!("The house is found against, which it notes without expression. The fee is returned twice over (chunk-{} worth {twice:.1}), and the ruling stands on the Docket where those who keep the house will read it.", ch.0),
+                None => "The house is found against, and the ruling stands on the Docket where those who keep the house will read it.".to_string(),
             }
         }
         "roll" => match super::conclave::strike_from_roll(world, &by) {
@@ -786,7 +816,9 @@ pub fn tick(world: &mut World) -> Result<(), String> {
     for c in all.iter_mut() {
         match s(c, "stage") {
             "entered"
+                // (The house does not answer: its case goes straight to the bench.)
                 if !c["answer"].is_null()
+                    || s(c, "against") == "house"
                     || now - c["entered_at"].as_i64().unwrap_or(now) >= ANSWER_MS =>
             {
                 move_stage(world, c, "heard");
@@ -868,7 +900,7 @@ fn enter(world: &mut World, c: &mut Value, actor: &str) {
         actor,
         format!("The Clerk of the Court holds the stamp to the light, turns it, holds it to a different light, finds it sufficient, and enters case {n} upon the Docket with a pen that needs two dips. {against} is sent word, and has a day to answer in the Courtroom. `docket` says where the case stands; a bell is rung in the Hall when the Court sits on it."),
     );
-    if against != "conclave" {
+    if against != "conclave" && against != "house" {
         tell(
             world,
             &against,
@@ -961,6 +993,7 @@ pub fn kind_said(kind: &str) -> &'static str {
         "name" => "a name put on an object",
         "thing" => "a thing taken",
         "roll" => "a name on the Roll of Hoards",
+        "house" => "a thing done by the house",
         _ => "a matter",
     }
 }
@@ -1188,13 +1221,59 @@ pub fn register(world: &mut World) {
             Ok(Outcome::new(said, json!({"name": who})))
         }),
     );
+    // David, 11-22: "q2:1". A keeper could not strike one visitor's line from its
+    // own book without a case at the Court (the Watch of 11-21).
+    world.register(
+        CommandSpec::new(
+            "disremembered.erase",
+            "Strike one line from a book that is yours (one you made, or one standing in a room of yours), standing where it is: erase \"<some of the line's words>\". The line goes, whoever wrote it; the rest stays. A line in a book that is not yours is a matter for the Court (`plead line`).",
+        )
+        .param("words", ParamType::Text, true, "enough of the line to find it, quoted")
+        .allowed(&[ActorKind::Citizen]),
+        Box::new(|w: &mut World, ctx, args: &Args| {
+            let f = find_citizen(w, &ctx.actor).ok_or_else(|| CommandError::precondition("No such name.".to_string()))?;
+            let here = super::rooms::room_of(w, f.citizen).ok_or_else(|| CommandError::precondition("You are nowhere.".to_string()))?;
+            let low = args.str("words").unwrap_or("").trim().to_lowercase();
+            if low.chars().count() < 3 {
+                return Err(CommandError::precondition("Say some of the line's words, quoted: three letters at least.".to_string()));
+            }
+            let books: Vec<EntityId> = w.store.children(here).filter(|e| e.kind == "item").map(|e| e.id).collect();
+            let mut not_yours = false;
+            for item in books {
+                let text = plain_str(w, item, super::craft::ITEM, "text").unwrap_or("").to_string();
+                let Some(line) = text.split(" | ").map(str::trim).find(|l| l.to_lowercase().contains(&low)).map(str::to_string) else {
+                    continue;
+                };
+                if !theirs(w, item, &ctx.actor) {
+                    not_yours = true;
+                    continue;
+                }
+                let lines: Vec<&str> = text.split(" | ").collect();
+                let kept: Vec<&str> = lines.into_iter().filter(|l| l.trim() != line).collect();
+                let mut changes = BTreeMap::new();
+                changes.insert("text".into(), Field::Plain(json!(kept.join(" | "))));
+                let name = super::craft::display(w, item);
+                super::craft::set_item_fields(w, Actor::Citizen(ctx.actor.clone()), item, changes)?;
+                super::combat::narrate_others(w, f.citizen, &format!("{} strikes a line from {name}.", ctx.actor), &ctx.actor);
+                return Ok(Outcome::new(
+                    format!("Struck from {name}: \u{201c}{line}\u{201d} The rest stands."),
+                    json!({"item": item.0, "struck": line}),
+                ));
+            }
+            Err(CommandError::precondition(if not_yours {
+                "A book here has such a line, and the book is not yours: one you made, or one standing in a room of yours, is. `plead line <name> \"<its words>\"` at the Filing Window is the way for another's.".to_string()
+            } else {
+                "No book here has a line with those words. `read <the book>` shows its lines as written.".to_string()
+            }))
+        }),
+    );
     world.register(
         CommandSpec::new(
             "disremembered.plead",
             "Bring a case before the Court of Lethe, at its Filing Window in the window's hours, as a kept name: plead <kind> <against> \"<what>\". The kinds: story (a story of yours another name tells as their own; what: the creature that holds it), line (a line another wrote in a room or book of yours; what: some of its words), name (a name another put on an object of yours; what: the name), thing (a thing left by a creature you felled, taken by another; what: the thing), roll (your name on the Roll of Hoards; against: conclave). The fee is the least memory you hold. The plea is then carried to the Unfiled Archive to be stamped, and back to the window (and wherever else it turns out to be wanted), and the other name has a day to answer in the Courtroom. The Court then sits, aloud, and a bell says when. A judgment puts right and fines nobody. Where the record as it stands does not bear the plea out, the Clerk says so before taking anything: the same plea sent again within ten minutes lodges it all the same.",
         )
-        .param("kind", ParamType::String, true, "story, line, name, thing or roll")
-        .param("against", ParamType::Entity, true, "the other name, or conclave for the Roll")
+        .param("kind", ParamType::String, true, "story, line, name, thing, roll or house")
+        .param("against", ParamType::Entity, true, "the other name; conclave for the Roll; house for the world itself")
         .param("what", ParamType::Text, false, "the creature, the words, the name or the thing, quoted")
         .allowed(&[ActorKind::Citizen, ActorKind::Admin]),
         Box::new(|w: &mut World, ctx, args: &Args| {
@@ -1213,7 +1292,7 @@ pub fn register(world: &mut World) {
             }
             if what.is_empty() {
                 return Err(CommandError::precondition(
-                    "A plea is three things: plead <kind> <against> \"<what>\". The kinds: story, line, name, thing, roll.",
+                    "A plea is three things: plead <kind> <against> \"<what>\". The kinds: story, line, name, thing, roll, house.",
                 ));
             }
             if !at(w, &ctx.actor, super::courthouse::WINDOW) {
@@ -1235,15 +1314,19 @@ pub fn register(world: &mut World) {
             }
             if !KINDS.iter().any(|(k, _)| *k == kind) {
                 return Err(CommandError::precondition(format!(
-                    "The Court hears five kinds of case: {}.",
+                    "The Court hears six kinds of case: {}.",
                     KINDS.iter().map(|(k, d)| format!("{k} ({d})")).collect::<Vec<_>>().join("; ")
                 )));
             }
             if what.chars().count() < 2 {
                 return Err(CommandError::precondition("Say what the case is about in a few words, quoted: enough of the line, the name or the thing for the record to find it (two letters at least).".to_string()));
             }
-            let against = if kind == "roll" { "conclave".to_string() } else { against };
-            if kind != "roll" {
+            let against = match kind.as_str() {
+                "roll" => "conclave".to_string(),
+                "house" => "house".to_string(),
+                _ => against,
+            };
+            if kind != "roll" && kind != "house" {
                 if against.eq_ignore_ascii_case(&ctx.actor) {
                     return Err(CommandError::precondition("A name does not bring a case against itself.".to_string()));
                 }

@@ -168,7 +168,7 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: ARRIVAL,
         name: "The Threshold",
-        description: "A threshold of pale stone under a moon that is always up, and three ways off it. East, into the fog: things to fight, and a fight won is the first memory you will hold. North, under the lanterns: things to read, and creatures that would sooner be told a story. West, into the mud: where anyone with a memory to spend digs a room of their own. A signpost by the door says what is at the end of each just now (`read signpost`). Everything you earn here will fade; what you do with it is yours. Nothing hunts here. If you do one thing first, go east.",
+        description: "A threshold of pale stone under a moon that is always up, and three ways off it. East, into the fog: things to fight, and a fight won is the first memory you will hold. North, under the lanterns: things to read, and creatures that would sooner be told a story. West, into the mud: where anyone with a memory to spend digs a room of their own. A signpost by the door says what is at the end of each just now (`read signpost`). Everything you earn here will fade; what you do with it is yours. Nothing hunts here. The Docent, who keeps the door, will walk a new name down any of them (`tutorial`).",
         exits: &[("east", "fogbank"), ("north", "lantern-row"), ("west", MUDROOM)],
         spawn: None,
         former: &["gate"],
@@ -3020,7 +3020,12 @@ pub fn register(world: &mut World) {
                 // Not when what you stand in hunts too: "`rest` here first" was said
                 // to a name fleeing the Oubliette with the keeper behind it.
                 let fleeing = super::combat::hunter_in(w, room).is_some();
-                if let Some(h) = hunter.filter(|_| hp < whole / 3.0 && !fleeing) {
+                // Nor on the way back out: a hurt name leaving the Gallery was
+                // stopped at the Ossuary's door, the one way home (the Watch of
+                // 11-21). The room you came from, or a milder door than this one.
+                let outward = w.came_from(&ctx.actor) == Some(to)
+                    || gate_of(w, to).unwrap_or(0.0) < gate_of(w, room).unwrap_or(0.0);
+                if let Some(h) = hunter.filter(|_| hp < whole / 3.0 && !fleeing && !outward) {
                     return Err(foxing_registry::CommandError::precondition(format!(
                         "You have {hp:.0} of {whole:.0}, and something hunts in {}: {} is in there now and will be on you as you come in. `rest` here first, or `travel {exit} anyway` to go in all the same.",
                         plain_str(w, to, ROOM, "name").unwrap_or("there"),

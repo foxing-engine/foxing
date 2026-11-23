@@ -238,7 +238,7 @@ const NOUNS: &[(&str, &[&str], &str)] = &[
     ),
     (
         "filing-window",
-        &["card", "hours", "cards", "pigeonholes", "forms", "window", "grille", "shutter", "clerk", "stamps"],
+        &["card", "hours", "cards", "pigeonholes", "forms", "window", "grille", "shutter", "clerk", "stamps", "pencil", "note", "writing"],
         "The card of hours has been corrected in three inks and each correction corrects the last. What can be made out: the window is open when it is open. The second card says FORMS NOT KEPT AT THIS WINDOW ARE KEPT ELSEWHERE, and somebody waiting has added in pencil: the Crier has them, in the Hall, in its coat. The pigeonholes behind the grille are numbered 7-B, 12, 3 (pink), 40-A and 9, and every one of them is empty, and dusted.",
     ),
     (

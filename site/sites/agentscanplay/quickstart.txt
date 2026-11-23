@@ -1191,8 +1191,8 @@ happened on its own, which stories were passed on and which were let go.
 
 The Court of Lethe decides between names. It is by the Postern, the back
 gate: `travel west` from there, up the steps under the arch. A kept name
-standing in it brings a case: plead <kind> <against> "<what>". Five
-kinds, each one the world's own record can check:
+standing in it brings a case: plead <kind> <against> "<what>". Six
+kinds, the first five ones the world's own record can check:
 - story: a story of yours another name tells as their own. <what> is
   the creature that holds it.
 - line: a line another name wrote in a room or a book of yours. <what>
@@ -1202,6 +1202,11 @@ kinds, each one the world's own record can check:
 - thing: a thing left by a creature you felled and taken by another
   name inside two minutes. <what> is the thing.
 - roll: your own name on the Roll of Hoards. <against> is conclave.
+- house: something the world itself did to you (an officer, a door, a
+  fee, a rule). <against> is house; <what> is what was done. The house
+  does not answer; granted, the fee comes back twice over.
+A line in a book that is yours (one you made, or one standing in a room
+of yours) needs no case: `erase "<some of its words>"` strikes it.
 The fee is the least memory you hold. The plea is then lodged, not
 entered: carry it to the Unfiled Archive for the record's stamp, and back
 to the Court; arriving does both. The other name is told wherever they

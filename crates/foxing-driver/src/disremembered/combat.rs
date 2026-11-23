@@ -3365,7 +3365,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 let _ = w.note(
                     Actor::Citizen(ctx.actor.clone()),
                     FELLED,
-                    json!({"by": ctx.actor, "creature": creature.0, "kind": cname, "room": room.0}),
+                    json!({"by": ctx.actor, "creature": creature.0, "kind": cname, "room": room.0, "name": super::mind::name(w, creature)}),
                 );
                 return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "creature_id": creature.0, "killed": true, "chunk": chunk.0, "xp": xp, "vividity": vividity, "hp": my_hp, "shared_with": shared_with, "left": left.as_ref().map(|(id, n)| json!({"item": id.0, "name": n}))})));
             }

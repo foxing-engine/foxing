@@ -594,8 +594,8 @@ fn since_last_message(world: &World, actor: &str) -> Vec<String> {
         kept.insert(
             0,
             format!(
-                "({n} earlier line{} are in `messages`.)",
-                if n == 1 { "" } else { "s" }
+                "({n} earlier line{} in `messages`.)",
+                if n == 1 { " is" } else { "s are" }
             ),
         );
         kept
@@ -1496,8 +1496,22 @@ fn run_request(
     // captain at ten hit points sent three, and the third was the fall): they are
     // held, and anything else (a `retreat`, a `rest`, a read) runs.
     let mut brink_at: Option<usize> = None;
+    // The Watch of 11-21: a blow shoved a name through a door, and the statements
+    // written after it ran in the room it landed in ("No such creature here.
+    // Here: keeper."). They were written for the room it left: only reads run.
+    let mut shoved_at: Option<usize> = None;
     let batch = dos.len() > 1;
     for st in dos {
+        if let (Some(k), false) = (shoved_at, woke) {
+            let verb = st.verb.clone().unwrap_or_default();
+            if !AFTER_DEATH.contains(&verb.as_str()) {
+                report.fact(
+                    format!("Statement {} did not run: the blow at statement {k} shoved you into another room, and what was written before it was written for the room you left; only reads run after it", st.index),
+                    "gate",
+                );
+                continue;
+            }
+        }
         if let Some(k) = brink_at {
             if st
                 .verb
@@ -1671,6 +1685,9 @@ fn run_request(
                     && summary.contains("Its next blow could be your last")
                 {
                     brink_at = Some(n);
+                }
+                if summary.contains(" shoves you ") && summary.contains("the door does the rest") {
+                    shoved_at = Some(n);
                 }
                 if READ_VERBS.contains(&verb.to_lowercase().as_str()) {
                     report.reads.push(report.lines.len());
