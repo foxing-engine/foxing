@@ -519,3 +519,58 @@ pub fn unmerge(world: &World, verb: &str, args: Vec<Value>, bare_args: &[bool]) 
     }
     args
 }
+
+/// A stretch of a reply the page folds away behind "more": written between these
+/// two, which print as nothing anywhere else (the gate takes them out). The words
+/// are all still there, in their order, for whoever reads the reply whole.
+pub const FOLD: char = '\u{2063}';
+/// The end of a folded stretch.
+pub const UNFOLD: char = '\u{2064}';
+
+/// Close the fold opened at `at` (where [`FOLD`] was written). A stretch too short
+/// to be worth a button is left showing.
+pub fn fold_close(text: &mut String, at: usize) {
+    let n = FOLD.len_utf8();
+    if text.len() < at + n || !text[at..].starts_with(FOLD) {
+        return;
+    }
+    if text[at + n..].trim().len() < 140 {
+        text.replace_range(at..at + n, "");
+    } else {
+        text.push(UNFOLD);
+    }
+}
+
+/// `text` with one stretch folded, where it is long enough to be worth it.
+pub fn folded(text: &str) -> String {
+    let mut out = String::from(FOLD);
+    out.push_str(text);
+    fold_close(&mut out, 0);
+    out
+}
+
+/// A reply with its folds taken out, for a reader that has no page.
+pub fn unfolded(text: &str) -> String {
+    text.replace([FOLD, UNFOLD], "")
+}
+
+/// A description's first sentence and the rest of it (with its leading space).
+/// The rest is empty when there is one sentence, or no clean place to cut.
+pub fn first_sentence(desc: &str) -> (&str, &str) {
+    let b = desc.as_bytes();
+    let mut quotes = 0;
+    for i in 0..b.len().saturating_sub(2) {
+        if b[i] == b'"' {
+            quotes += 1;
+        }
+        if i >= 30
+            && matches!(b[i], b'.' | b'!' | b'?')
+            && b[i + 1] == b' '
+            && b[i + 2].is_ascii_uppercase()
+            && quotes % 2 == 0
+        {
+            return (&desc[..=i], &desc[i + 1..]);
+        }
+    }
+    (desc, "")
+}

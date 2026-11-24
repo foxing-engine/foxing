@@ -797,6 +797,28 @@ pub fn pass(
     compiled: bool,
     text: &str,
 ) -> Passage {
+    let mut p = pass_whole(
+        world, checker, budget, asks, actor, kind, via, compiled, text,
+    );
+    // The folds are for the page (a session); every other reader has the words.
+    if via != Via::Session {
+        p.prose = crate::disremembered::called::unfolded(&p.prose);
+    }
+    p
+}
+
+#[allow(clippy::too_many_arguments)]
+fn pass_whole(
+    world: &mut World,
+    checker: &Checker,
+    budget: &mut HourBudget,
+    asks: &dyn AskBinding,
+    actor: &str,
+    kind: ActorKind,
+    via: Via,
+    compiled: bool,
+    text: &str,
+) -> Passage {
     let world_name = world.id.0.clone();
     let now = world.now();
     // One cap on what a message may be, whichever door it came in by: the checker
@@ -1173,7 +1195,8 @@ fn finish(
             }
         }
     }
-    let reply = report.render();
+    // The CLEAR reply is the words alone; the folds a page draws ride in the prose.
+    let reply = crate::disremembered::called::unfolded(&report.render());
     let _ = world.note(
         foxing_log::Actor::Driver,
         "gate.reply",
@@ -1641,6 +1664,13 @@ fn run_request(
             kind,
         };
         let mut refused_now = false;
+        // A `look` is short only as the very next thing after a room's page.
+        if matches!(kind, ActorKind::Citizen)
+            && !verb.eq_ignore_ascii_case("look")
+            && !crate::disremembered::tutorial::UNSENT.with(|u| u.get())
+        {
+            crate::disremembered::rooms::page_stale(world, actor);
+        }
         match world.call(&ctx, &verb, &args) {
             Ok(out) => {
                 if out.result["died"] == Value::Bool(true) {

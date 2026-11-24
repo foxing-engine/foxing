@@ -266,14 +266,15 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
     }
     // 11-15 (the first hour): what the pay notes mean, said once.
     if summary.contains("pays double") {
-        summary.push_str(&format!(
-            "\nPays double: the story a creature wants pays twice what any other story pays it (`story <Name> \"a dozen words or more about it\"`), once an hour from each creature for each teller. A second creature's want pays double in the same hour. The same creature's new want, told inside its hour with you, is heard once at plain pay and not again until the hour turns.{}",
+        summary.push('\n');
+        summary.push_str(&super::called::folded(&format!(
+            "Pays double: the story a creature wants pays twice what any other story pays it (`story <Name> \"a dozen words or more about it\"`), once an hour from each creature for each teller. A second creature's want pays double in the same hour. The same creature's new want, told inside its hour with you, is heard once at plain pay and not again until the hour turns.{}",
             if scarcity > 1.0 {
                 format!(" {scarcity:.1}× while names are few: every want pays that much more while few named creatures are awake.")
             } else {
                 String::new()
             }
-        ));
+        )));
     }
     let summary = format!("{summary}{}", super::bard::wants_foot(world, actor));
     Ok(json!({"summary": summary, "wants": rows, "scarcity": scarcity, "awake": awake}))

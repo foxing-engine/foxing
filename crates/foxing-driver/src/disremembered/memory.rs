@@ -398,8 +398,10 @@ pub fn register(world: &mut World, curves: Curves) {
                 format!("Your window is empty. Level 0, attack {attack:.0}. A chunk is earned by felling a creature (attack; {mild}) or by telling a named creature a story of a dozen words (story; {listener}). {rate}")
             } else {
                 format!(
-                    "Level {level:.2}, attack {attack:.0} (your level is the sum of these chunks' current values, so it falls as they fade and when you spend one; attack is two plus six tenths of the square root of level, rounded down)\n{}\n{rate}",
-                    rows_text(&rows).join("\n")
+                    "Level {level:.2}, attack {attack:.0}{}\n{}\n{}",
+                    super::called::folded(" (your level is the sum of these chunks' current values, so it falls as they fade and when you spend one; attack is two plus six tenths of the square root of level, rounded down)"),
+                    rows_text(&rows).join("\n"),
+                    super::called::folded(&rate)
                 )
             };
             // The shelf as its own line (D1): it counts toward holding on the board

@@ -37,6 +37,10 @@ fn call(
     if verb == "craft" && !NO_LORE.with(|c| c.get()) {
         lore::teach_all(w, actor);
     }
+    // As the gate does: anything but a look, and the next look has the page.
+    if matches!(kind, ActorKind::Citizen) && verb != "look" {
+        rooms::page_stale(w, actor);
+    }
     w.call(
         &CallContext {
             actor: actor.into(),
@@ -4573,8 +4577,8 @@ fn a_creature_leaves_something_behind_and_things_are_made_of_it() {
     );
     let out = ok(&mut w, "dave", "recipes", json!(["all"]));
     assert!(
-        out.summary.contains(
-            "lantern  a lantern: of a wisp ember and rag thread and a chunk worth 10 or more"
+        super::called::unfolded(&out.summary).contains(
+            "lantern  a lantern. You lack a wisp ember (Lantern Row, Lamplighter's Lane, or the Fogbank's wisps) and rag thread (the Midden). Made of a wisp ember and rag thread and a chunk worth 10 or more"
         ),
         "{}",
         out.summary
@@ -9568,9 +9572,10 @@ fn a_kept_name_writes_recipes_the_bench_then_knows() {
     // Listed with the rest, with who wrote it; anyone crafts it for a chunk worth 20.
     let list = ok(&mut w, "tyler", "recipes", json!(["all"]));
     assert!(
-        list.summary.contains(
-            "tin-whistle a tin whistle (a recipe dave wrote): of rag thread and a small key"
-        ),
+        list.summary
+            .contains("tin-whistle a tin whistle (a recipe dave wrote).")
+            && super::called::unfolded(&list.summary)
+                .contains(" Made of rag thread and a small key"),
         "{}",
         list.summary
     );
@@ -11070,6 +11075,7 @@ fn look_tells_a_digger_what_is_left_and_the_door_cap_refusal_points_nearest_firs
     );
     // The dug room, to its owner, says how it is remembered; to another, not (R14).
     ok(&mut w, "dave", "travel", json!(["cellar"]));
+    ok(&mut w, "dave", "look", json!([])); // short, straight after the page; the next has it
     let look = ok(&mut w, "dave", "look", json!([]));
     assert!(
         look.summary
@@ -11811,6 +11817,7 @@ fn the_postern_is_a_second_door_and_a_name_wakes_at_its_home() {
     );
     ok(&mut w, "dave", "travel", json!(["gate"]));
     assert_eq!(rooms::room_of(&w, dave), Some(postern));
+    ok(&mut w, "dave", "look", json!([])); // short, straight after the page; the next has it
     let look = ok(&mut w, "dave", "look", json!([]));
     assert!(
         look.summary.contains("The Postern.")
@@ -11990,6 +11997,7 @@ fn the_reading_rooms_are_fought_by_telling_and_told_by_what_you_fought() {
     for step in ["north", "north", "up"] {
         ok(&mut w, "dave", "travel", json!([step]));
     }
+    ok(&mut w, "dave", "look", json!([])); // short, straight after the page; the next has it
     let landing = ok(&mut w, "dave", "look", json!([])).summary;
     assert!(landing.contains("You remember no fight"), "{landing}");
     ok(&mut w, "dave", "travel", json!(["north"]));
@@ -12165,6 +12173,7 @@ fn the_almanac_s_seasons_change_the_world_while_they_are_on() {
         "{said}"
     );
     ok(&mut w, "dave", "travel", json!(["east"]));
+    ok(&mut w, "dave", "look", json!([])); // short, straight after the page; the next has it
     let look = ok(&mut w, "dave", "look", json!([])).summary;
     assert!(look.contains("It is the Fog Month"), "{look}");
     // The Night of One Story: every named creature wants the one story.
@@ -16003,6 +16012,7 @@ fn a_room_rises_with_care_draws_residents_pays_a_visit_and_slips_when_forgotten(
         .unwrap();
     // Freshly dug: Bare, and `look` says what would raise it.
     assert_eq!(tending::standing(&w, room), 0);
+    ok(&mut w, "dave", "look", json!([])); // short, straight after the page; the next has it
     let look = ok(&mut w, "dave", "look", json!([]));
     assert!(
         look.summary
@@ -16920,4 +16930,39 @@ fn the_docent_asks_which_road_and_walks_a_new_name_down_it() {
     for p in tutorial::PATHS {
         assert_eq!(p.steps.len(), 5, "{}", p.key);
     }
+}
+
+/// The page folds the long stretches of a reply; the words are all there for a
+/// reader with no page. A room whose page was just given is said short next.
+#[test]
+fn a_room_is_written_with_its_folds_and_a_second_look_is_short() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(1_000));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let first = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        first.summary.contains(called::FOLD) && first.summary.contains(called::UNFOLD),
+        "{}",
+        first.summary
+    );
+    let whole = called::unfolded(&first.summary);
+    assert!(whole.starts_with("The Threshold. "), "{whole}");
+    // What hunts, or that nothing does, is outside the fold.
+    let head = first.summary.split(called::FOLD).next().unwrap();
+    assert!(head.contains("Nothing hunts here."), "{head}");
+    let second = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        second
+            .summary
+            .contains("as you left it (`look` again has the page)")
+            && second.summary.contains("Exits:")
+            && !second.summary.contains(called::FOLD),
+        "{}",
+        second.summary
+    );
+    let third = ok(&mut w, "dave", "look", json!([]));
+    assert!(third.summary.contains(called::FOLD), "{}", third.summary);
+    // A long footer is one fold; a short one is left showing.
+    assert_eq!(called::folded("short"), "short");
+    assert!(called::folded(&"long ".repeat(40)).starts_with(called::FOLD));
 }

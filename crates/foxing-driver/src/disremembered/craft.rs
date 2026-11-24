@@ -2634,21 +2634,17 @@ pub fn register(world: &mut World, curves: Curves) {
                     list.push(json!({"recipe": r.key, "name": r.name, "of": r.of, "chunk_at_least": asks, "tier": r.tier, "fixed": r.fixed, "could_make": false, "missing": missing}));
                     continue;
                 }
-                lines.push(format!(
-                    "  {:<8} {}{}{}: of {}{}; {}.{}",
-                    r.key,
-                    r.name,
-                    if r.fixed && passing { " (a fixture: a kept name's to place, so `keep` first)" } else if r.fixed { " (a fixture)" } else { "" },
-                    match (r.by.as_deref(), super::lore::learned(w, &ctx.actor, &r.key)) {
+                let fix = if r.fixed && passing { " (a fixture: a kept name's to place, so `keep` first)" } else if r.fixed { " (a fixture)" } else { "" };
+                let by = match (r.by.as_deref(), super::lore::learned(w, &ctx.actor, &r.key)) {
                         (Some(b), _) => format!(" (a recipe {b} wrote)"),
                         // What was read, and how long it is known for.
                         (None, Some(left)) => format!(" (read: yours to make for {} more, and reading it again keeps it)", super::combat::human(left)),
                         _ => String::new(),
-                    },
-                    r.of.join(" and "),
-                    if r.chunk_at_least > 0.0 && r.fixed { format!(" and a chunk (any; one worth {asks:.0} or more makes it last longest){}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else if r.chunk_at_least > 0.0 { format!(" and a chunk worth {asks:.0} or more (the whole chunk is spent, whatever it is worth: offer the smallest that will do){}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else { String::new() },
-                    r.does.trim_end_matches('.'),
-                    if can { " You could make this now.".to_string() } else if !missing.is_empty() {
+                    };
+                let of = r.of.join(" and ");
+                let chunk = if r.chunk_at_least > 0.0 && r.fixed { format!(" and a chunk (any; one worth {asks:.0} or more makes it last longest){}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else if r.chunk_at_least > 0.0 { format!(" and a chunk worth {asks:.0} or more (the whole chunk is spent, whatever it is worth: offer the smallest that will do){}", if r.vividity_at_least > 0.0 { format!(" at vividity {:.1} or more (a fight you nearly lost)", r.vividity_at_least) } else { String::new() }) } else { String::new() };
+                let does = r.does.trim_end_matches('.');
+                let status = if can { " You could make this now.".to_string() } else if !missing.is_empty() {
                         let said: Vec<String> = missing.iter().map(|m| match spent_lately.iter().find(|(sm, _)| sm == m) {
                             Some((_, made)) => format!("{m} (spent on {made} just now)"),
                             None => match making_is(m) {
@@ -2657,8 +2653,23 @@ pub fn register(world: &mut World, curves: Curves) {
                             },
                         }).collect();
                         format!(" You lack {}.", said.join(" and "))
-                    } else { " You lack the memory to spend.".to_string() }
-                ));
+                    } else { " You lack the memory to spend.".to_string() };
+                lines.push(if whole {
+                    // In full, a row is what it is and what you lack; how it is
+                    // made and what it does are a fold on the page. The rule that a
+                    // memory is spent whole is said once, at the head.
+                    format!(
+                        "  {:<8} {}{fix}{by}.{status}{}",
+                        r.key,
+                        r.name,
+                        super::called::folded(&format!(
+                            " Made of {of}{}; {does}.",
+                            chunk.replace(" (the whole chunk is spent, whatever it is worth: offer the smallest that will do)", "")
+                        )),
+                    )
+                } else {
+                    format!("  {:<8} {}{fix}{by}: of {of}{chunk}; {does}.{status}", r.key, r.name)
+                });
                 list.push(json!({"recipe": r.key, "name": r.name, "of": r.of, "chunk_at_least": asks, "vividity_at_least": r.vividity_at_least, "tier": r.tier, "does": r.does, "uses": r.uses, "fixed": r.fixed, "by": r.by, "could_make": can, "missing": missing}));
             }
             if !which.is_empty() && !whole && lines.is_empty() {
@@ -2671,7 +2682,7 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             if !whole {
                 let head = if lines.is_empty() {
-                    "You could make nothing just now. Every recipe".to_string()
+                    "You could make nothing just now.".to_string()
                 } else {
                     format!("What you could make now (craft <recipe> [<chunk>]):\n{}", lines.join("\n"))
                 };
@@ -2679,7 +2690,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     format!(
                         "{head}{}\n{}, {} of them, by key (`recipes <key>` says what one does and where its makings are; `recipes all` gives every one in full): {}.{}",
                         if level <= 0.0 { " A chunk is a memory, and you hold none yet: your first comes from a first fight won, or a first story told (`chunks` lists what you hold)." } else { "" },
-                        if lines.is_empty() { "They are" } else { "The rest" },
+                        if lines.is_empty() { "Every recipe" } else { "The rest" },
                         short.len(),
                         short.join("; "),
                         if unread > 0 { format!("\nAnd {unread} that the bench gives only to a name that has read how each is made (`recipes <key>` says what one does and where its making is written; `lore` lists the readings): {}.", unread_said.join("; ")) } else { String::new() }
@@ -2689,12 +2700,13 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             Ok(Outcome::new(
                 format!(
-                    "What can be made (craft <recipe> [<chunk>]; a kept name adds one with recipe):{}\n{}{}\n{FOUND}",
+                    "What can be made (craft <recipe> [<chunk>]; a kept name adds one with recipe). A chunk a recipe asks for is spent whole, whatever it is worth: offer the smallest that will do.{}\n{}{}\n{}",
                     // R197: a name that holds nothing is told where a chunk comes
                     // from, first (at the foot it sat under twenty-five recipes).
                     if level <= 0.0 { " A chunk is a memory, and you hold none yet: your first comes from a first fight won, or a first story told (`chunks` lists what you hold)." } else { "" },
                     lines.join("\n"),
-                    if unread_lines.is_empty() { String::new() } else { format!("\nWritten down somewhere, and not read by you yet:\n{}", unread_lines.join("\n")) },
+                    if unread_lines.is_empty() { String::new() } else { format!("\n{}", super::called::folded(&format!("Written down somewhere, and not read by you yet:\n{}", unread_lines.join("\n")))) },
+                    super::called::folded(FOUND),
                 ),
                 json!({"recipes": list, "found": FOUND}),
             ))

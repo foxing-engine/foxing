@@ -1535,6 +1535,23 @@ pub fn look_query(room: EntityId) -> Value {
 /// Ten minutes out of a room, and the room's say on return is a homecoming.
 pub const AWAY_MS: i64 = 10 * 60 * 1000;
 
+/// For this long after a room's page was given, `look` there is said short, where
+/// the look is the next thing its name does (anything else in between and the
+/// page may have changed: a room described, a lamp stood in it).
+pub const PAGED_MS: i64 = 3 * 60 * 1000;
+
+/// The name did something other than look: its next `look` has the page.
+pub fn page_stale(world: &mut World, actor: &str) {
+    let Some(f) = super::find_citizen(world, actor) else {
+        return;
+    };
+    if super::plain_num(world, f.citizen, super::CITIZEN, "paged_at").is_some_and(|t| t > 0.0) {
+        let mut gone = BTreeMap::new();
+        gone.insert("paged_at".into(), Field::Plain(json!(0)));
+        let _ = super::set_citizen_fields(world, actor, f.citizen, gone);
+    }
+}
+
 /// A line of the room's own for who stands in it, said on arrival: a stranger it
 /// has not had before, a keeper (its digger, or a hand that remembered into it),
 /// the Docent on its round (said to whoever is there). The owner's `greet` is the
@@ -1732,11 +1749,25 @@ pub fn describe_as(
             None => format!("{name}, as you left it (`look` has the page)."),
         }
     } else {
-        format!("{name}. {desc}")
+        // The page keeps the name and a sentence showing and folds the rest of the
+        // room's telling ("more of the room"); a room that says nothing hunts in it
+        // says so outside the fold.
+        let (first, rest) = super::called::first_sentence(&desc);
+        let safe = " Nothing hunts here.";
+        let hunts = if rest.contains(safe) { safe } else { "" };
+        format!(
+            "{name}. {first}{hunts}{}{}",
+            super::called::FOLD,
+            rest.replacen(safe, "", 1)
+        )
     };
     // Short, the stretches between the kept parts are written and then dropped: the
-    // text is cut back to where each began.
-    let cut_a = text.len();
+    // text is cut back to where each began. Whole, each stretch is a fold.
+    let cut_a = if brief {
+        text.len()
+    } else {
+        text.find(super::called::FOLD).unwrap_or(text.len())
+    };
     // H9: a district's door says so, once a session. H11: a hub says it has a post.
     {
         let key = plain_str(world, room, ROOM, "key")
@@ -1881,6 +1912,9 @@ pub fn describe_as(
             ));
         }
     }
+    if !brief {
+        super::called::fold_close(&mut text, cut_a);
+    }
     if brief {
         text.truncate(cut_a);
         // Short, a room of your own still says how much of it is left: the builder
@@ -1982,6 +2016,9 @@ pub fn describe_as(
         }
     }
     let cut_b = text.len();
+    if !brief {
+        text.push(super::called::FOLD);
+    }
     if !exits.is_empty() {
         let by_name = exits_of(world, room);
         // A world's own room with doors dug off it says how many it has left and
@@ -2032,6 +2069,8 @@ pub fn describe_as(
     }
     if brief {
         text.truncate(cut_b);
+    } else {
+        super::called::fold_close(&mut text, cut_b);
     }
     // A door only you can see, while you hold the memory of what is behind it.
     if let Some(f) = super::find_citizen(world, actor) {
@@ -2060,6 +2099,9 @@ pub fn describe_as(
         text.push_str(&ground);
     }
     let cut_c = text.len();
+    if !brief {
+        text.push(super::called::FOLD);
+    }
     // R79: the longsight says whom it is looking at: the last name to arrive
     // anywhere else on the trail, else the moon.
     if let Some((ls, _, _, _)) = super::combat::creatures_in(world, room)
@@ -2230,6 +2272,8 @@ pub fn describe_as(
     }
     if brief {
         text.truncate(cut_c);
+    } else {
+        super::called::fold_close(&mut text, cut_c);
     }
     if !creatures.is_empty() {
         let list: Vec<String> = creatures
@@ -2664,6 +2708,16 @@ pub fn describe_as(
         text.push(' ');
         text.push_str(line);
     }
+    // (A page the player's own page asked for, at login, is not one they asked
+    // for: the look they then type has the page.)
+    if !brief && !super::tutorial::UNSENT.with(|u| u.get()) {
+        let mut given = BTreeMap::new();
+        given.insert("paged_room".into(), Field::Plain(json!(room.0)));
+        given.insert("paged_at".into(), Field::Plain(json!(world.now().0)));
+        if let Some(f) = super::find_citizen(world, actor) {
+            let _ = super::set_citizen_fields(world, actor, f.citizen, given);
+        }
+    }
     Ok(Outcome::new(
         text,
         json!({"room": name, "description": desc, "memory": memory, "dug_by": dug_by, "exits": exits, "creatures": creatures, "citizens": others, "remembered": remembered, "things": super::craft::things_in(world, room), "fixtures": super::craft::fixtures_in(world, room), "stirrings": stirrings, "observation": obs}),
@@ -2783,12 +2837,31 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.look",
-            "Describe where you are: exits, what is here, who is here.",
+            "Describe where you are: exits, what is here, who is here. Straight after a room's page (you walked in, or looked), it is said short: what changed, the exits, who is here; `look` again has the page.",
         ),
         Box::new(|w: &mut World, ctx, _| {
             let f = me(w, ctx)?;
             let room = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
-            describe(w, &ctx.actor, ctx, room)
+            // A room whose page you were given in the last three minutes (you
+            // walked in, or looked) is said short: what changed, the exits, who is
+            // here. The look after that has the page again.
+            let now = w.now().0;
+            let paged = super::plain_num(w, f.citizen, super::CITIZEN, "paged_room")
+                == Some(room.0 as f64)
+                && super::plain_num(w, f.citizen, super::CITIZEN, "paged_at")
+                    .is_some_and(|t| t > 0.0 && now - (t as i64) < PAGED_MS);
+            if !paged {
+                return describe(w, &ctx.actor, ctx, room);
+            }
+            let mut gone = BTreeMap::new();
+            gone.insert("paged_at".into(), Field::Plain(json!(0)));
+            let _ = super::set_citizen_fields(w, &ctx.actor, f.citizen, gone);
+            let mut out = describe_as(w, &ctx.actor, ctx, room, true)?;
+            out.summary =
+                out.summary
+                    .replacen("(`look` has the page)", "(`look` again has the page)", 1);
+            out.result["brief"] = json!(true);
+            Ok(out)
         }),
     );
 

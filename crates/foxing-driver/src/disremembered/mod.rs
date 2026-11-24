@@ -539,6 +539,12 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // C9: when the burning book last paid this name.
             .field("burning_at", FieldKind::Plain, Visibility::Owner)
             .field("cap_rule_said", FieldKind::Plain, Visibility::Owner)
+            // The first-hour fight rule, said whole once a session.
+            .field("unhurried_said", FieldKind::Plain, Visibility::Owner)
+            // The room whose page was last given, and when: a `look` there within
+            // three minutes is said short.
+            .field("paged_room", FieldKind::Plain, Visibility::Owner)
+            .field("paged_at", FieldKind::Plain, Visibility::Owner)
             // H9: a district's door has said its line this session.
             .field("edge_mudroom", FieldKind::Plain, Visibility::Owner)
             .field("edge_fogbank", FieldKind::Plain, Visibility::Owner)

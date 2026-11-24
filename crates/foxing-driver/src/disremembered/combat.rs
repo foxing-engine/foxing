@@ -932,7 +932,7 @@ pub fn notice_everyone(world: &mut World, room: EntityId) -> Result<(), String> 
 
 /// "It strikes on its own every ten seconds or so while you stand here, typing or
 /// not." Said when a fight begins, so the clock is no surprise.
-fn clock_line(world: &World, creature: EntityId, actor: &str) -> String {
+fn clock_line(world: &mut World, creature: EntityId, actor: &str) -> String {
     let secs = creature_def(world, creature)
         .map(|d| d.strike_seconds)
         .unwrap_or(10);
@@ -940,6 +940,13 @@ fn clock_line(world: &World, creature: EntityId, actor: &str) -> String {
         return "It strikes once for every statement you write while you stand here, a read (`look`, `chunks`) as much as a blow; retreat ends that.".to_string();
     }
     if unhurried(world, actor) {
+        // Said whole once a session; after that the fight's own lines carry it
+        // (it stood, forty-seven words, between the two blows of every first round).
+        let said = super::find_citizen(world, actor)
+            .is_some_and(|f| !first_this_session(world, actor, f.citizen, "unhurried_said"));
+        if said {
+            return "It strikes back only when you strike; `retreat` ends the fight.".to_string();
+        }
         return "It strikes back only when you strike, while your first hour lasts (or until you reach level 100): take your time, and read. After that it will strike on its own every few seconds. `retreat` ends the fight.".to_string();
     }
     format!("It strikes on its own every {secs} seconds or so while you stand here, typing or not; retreat ends that.")
