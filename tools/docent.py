@@ -795,11 +795,11 @@ def main():
                     with open(a.out, "a", encoding="utf-8") as f:
                         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
             # D33: the switch has never been thrown in this world: it is thrown on,
-            # once. Thrown off by the operator (`sense off`), it stays off.
+            # once. Thrown off by the operator (`sense words`), it stays off.
             if rep.get("sense") is None and not a.dry_run and "sense" not in seen:
                 seen.add("sense")
-                r = command(token, actor, passphrase, "sense", ["on"])
-                log("the second and third words are meanings now" if r.get("ok") else f"sense on was refused: {str(r.get('error'))[:120]}")
+                r = command(token, actor, passphrase, "sense", ["meanings"])
+                log("the second and third words are meanings now" if r.get("ok") else f"sense meanings was refused: {str(r.get('error'))[:120]}")
             # D33: the stories being weighed against a creature's meaning. Tried
             # three times at most; after that the world says the verdict never came.
             for j in rep.get("weighing", []):

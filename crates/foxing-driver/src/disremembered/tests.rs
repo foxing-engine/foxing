@@ -17057,7 +17057,7 @@ fn stories_go_round_oftener_and_the_second_word_is_a_meaning() {
     );
 
     // D33: the switch on, the first word found by its word, and under it a meaning.
-    admin(&mut w, "tyler", "sense", json!(["on"]));
+    admin(&mut w, "tyler", "sense", json!(["meanings"]));
     let (word, rung, _) = secret::ensure(&mut w, a).unwrap().unwrap();
     assert_eq!(rung, 1);
     assert!(!secret::judged(&w, a), "the first rung stays a word");
@@ -17158,6 +17158,6 @@ fn stories_go_round_oftener_and_the_second_word_is_a_meaning() {
     assert!(secret::judged(&w, a) && meaning::kept(&w, a).unwrap().meaning != was);
 
     // The switch off: words again.
-    admin(&mut w, "tyler", "sense", json!(["off"]));
+    admin(&mut w, "tyler", "sense", json!(["words"]));
     assert!(!secret::judged(&w, a));
 }

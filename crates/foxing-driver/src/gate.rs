@@ -2771,6 +2771,36 @@ mod tests {
         // Written as a message, so it is budgeted like one, whichever port it came by.
         assert_eq!(budget.remaining("lantern-7", w.now()), 59.0);
     }
+
+    /// D33: the operator's verbs go through the gate as the Docent's tool sends them.
+    #[test]
+    fn the_tool_throws_the_switch_through_the_gate() {
+        let mut w = world();
+        let checker = checker();
+        let mut budget = HourBudget::new(60.0, 0.25);
+        for (line, want) in [
+            ("sense meanings", "are meanings"),
+            ("sense", "are meanings"),
+            (
+                "weigh 7 2 \"Near, and not it.\" claude-haiku-5-5",
+                "No story 7",
+            ),
+        ] {
+            let text = compile("spacepants", &w.id.0.clone(), line, w.now(), &checker);
+            let p = pass(
+                &mut w,
+                &checker,
+                &mut budget,
+                &Asks,
+                "spacepants",
+                ActorKind::Admin,
+                Via::Http,
+                true,
+                &text,
+            );
+            assert!(p.prose.contains(want), "{line}: {} // {}", p.prose, p.reply);
+        }
+    }
 }
 
 #[cfg(test)]

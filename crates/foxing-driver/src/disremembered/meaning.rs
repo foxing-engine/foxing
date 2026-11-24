@@ -1,6 +1,6 @@
 //! D33: the second and third words by meaning.
 //!
-//! With the switch on (`sense on`, the operator's), a named creature's second and
+//! With the switch on (`sense meanings`, the operator's), a named creature's second and
 //! third rungs hold a meaning, not a word ("something lent and never returned"), and
 //! a story finds it by being about that, in any words. The first rung stays a word.
 //!
@@ -543,16 +543,18 @@ pub fn register(world: &mut World, curves: Curves) {
     world.register(
         CommandSpec::new(
             "disremembered.sense",
-            "Operator. Whether a named creature's second and third words are meanings, weighed by the Docent's model (`sense on`), or words, as the first is (`sense off`). Bare: which it is, whether the model is listening, and what is being weighed. Creatures change over as they are next told a story or asked their word.",
+            "Operator. Whether a named creature's second and third words are meanings, weighed by the Docent's model (`sense meanings`), or words, as the first is (`sense words`). Bare: which it is, whether the model is listening, and what is being weighed. Creatures change over as they are next told a story or asked their word.",
         )
-        .param("to", ParamType::String, false, "on or off")
+        .param("as", ParamType::String, false, "meanings or words")
         .allowed(&[ActorKind::Admin]),
         Box::new(|w: &mut World, _ctx, args: &Args| {
-            let to = args.str("to").unwrap_or("").trim().to_lowercase();
+            // (Said as `meanings` and `words`: the gate reads a bare `on` as a
+            // preposition, and `sense on` arrived as `sense`.)
+            let to = args.str("as").unwrap_or("").trim().to_lowercase();
             match to.as_str() {
-                "on" | "off" => {
+                "meanings" | "words" | "on" | "off" => {
                     let mut changes = BTreeMap::new();
-                    changes.insert("sense".into(), json!(to == "on"));
+                    changes.insert("sense".into(), json!(to == "meanings" || to == "on"));
                     super::docent::write(w, changes).map_err(CommandError::precondition)?;
                     // Every named creature at a second or third rung changes over now.
                     let named: Vec<EntityId> = w.store.of_kind("creature").map(|e| e.id).filter(|c| mind::name(w, *c).is_some()).collect();
@@ -561,7 +563,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     }
                 }
                 "" => {}
-                _ => return Err(CommandError::precondition("`sense on` or `sense off`.")),
+                _ => return Err(CommandError::precondition("`sense meanings` or `sense words`.")),
             }
             let open = weighing(w).iter().filter(|j| j["done"].is_null()).count();
             Ok(Outcome::new(
