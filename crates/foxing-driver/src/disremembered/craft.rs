@@ -2659,13 +2659,12 @@ pub fn register(world: &mut World, curves: Curves) {
                     // made and what it does are a fold on the page. The rule that a
                     // memory is spent whole is said once, at the head.
                     format!(
-                        "  {:<8} {}{fix}{by}.{status}{}",
+                        "  {:<8} {}{fix}{by}.{status}{} Made of {of}{}; {does}.{}",
                         r.key,
                         r.name,
-                        super::called::folded(&format!(
-                            " Made of {of}{}; {does}.",
-                            chunk.replace(" (the whole chunk is spent, whatever it is worth: offer the smallest that will do)", "")
-                        )),
+                        super::called::FOLD,
+                        chunk.replace(" (the whole chunk is spent, whatever it is worth: offer the smallest that will do)", ""),
+                        super::called::UNFOLD,
                     )
                 } else {
                     format!("  {:<8} {}{fix}{by}: of {of}{chunk}; {does}.{status}", r.key, r.name)
