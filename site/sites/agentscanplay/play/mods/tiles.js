@@ -217,6 +217,13 @@ export default function install(m) {
   canvas.setAttribute("role", "img");
   canvas.setAttribute("aria-label", "The room, drawn; click a thing in it to act");
   canvas.style.cssText = "width:100%;height:auto;display:block;image-rendering:pixelated;image-rendering:crisp-edges;border-radius:6px";
+  // The room's name, as type over the picture and not paint in it: the picture is
+  // drawn small and stretched pixel for pixel, and letters stretched that way were
+  // jagged and hard to read.
+  const banner = document.createElement("div");
+  banner.hidden = true;
+  banner.style.cssText = "position:absolute;left:0;top:0;z-index:2;pointer-events:none;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis;background:rgba(18,26,37,.78);color:#ece5d3;font-family:var(--serif,Georgia,serif);border-radius:6px 0 6px 0";
+  let bannerSaid = "";
   const menu = document.createElement("div");
   menu.hidden = true;
   menu.style.cssText = "position:absolute;z-index:5;min-width:150px;background:rgba(18,26,37,.96);border:1px solid var(--line,#334);border-radius:8px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.45);font-size:13px";
@@ -245,7 +252,7 @@ export default function install(m) {
   const verbsLabel = document.createElement("div");
   verbsLabel.textContent = "Do";
   verbsLabel.style.cssText = "font:11px var(--mono,monospace);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:10px";
-  wrap.append(canvas, menu, tip);
+  wrap.append(canvas, banner, menu, tip);
   panel.append(wrap, hud, verbsLabel, verbs);
   m.builtin("map", false);
   m.builtin("here", false);
@@ -895,7 +902,7 @@ export default function install(m) {
     const now = performance.now();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     hot.clear();
-    if (!scene) { px(0, 0, W, H, NIGHT); ctx.fillStyle = "rgba(236,229,211,.5)"; ctx.font = (7 * SCALE) + "px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("The room appears when you arrive.", canvas.width / 2, canvas.height / 2); return; }
+    if (!scene) { banner.hidden = true; bannerSaid = ""; px(0, 0, W, H, NIGHT); ctx.fillStyle = "rgba(236,229,211,.5)"; ctx.font = (7 * SCALE) + "px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("The room appears when you arrive.", canvas.width / 2, canvas.height / 2); return; }
     const base = hex(scene.tint);
     const mem = scene.memory == null ? 1 : Math.max(0, Math.min(1, m.timed(scene.memory)));
     drawRoom(now);
@@ -1165,13 +1172,20 @@ export default function install(m) {
     }
     // Banner, top left.
     const title = scene.name + (scene.memory != null ? "  · remembered " + Math.round(mem * 100) + "%" : "") + (scene.bound ? "  · bound" : "") + (scene.owner ? "  · " + ["bare", "kept", "tended", "cherished"][scene.tend || 0] : "");
-    ctx.font = (7 * SCALE) + "px serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
     const icon = scene.sprite && scene.sprite.atlas === m.atlasName ? frameCanvas(scene.sprite.frame) : null;
-    const pad = icon ? 13 * SCALE : 4 * SCALE;
-    const tw = ctx.measureText(title).width + pad + 4 * SCALE;
-    ctx.fillStyle = "rgba(18,26,37,.78)"; ctx.fillRect(0, 0, tw, 11 * SCALE);
-    if (icon) ctx.drawImage(icon, 0, 0, icon.width, icon.height, 2 * SCALE, 1.5 * SCALE, 8 * SCALE, 8 * SCALE);
-    ctx.fillStyle = INK; ctx.fillText(title, pad, 5.5 * SCALE);
+    if (icon) { ctx.fillStyle = "rgba(18,26,37,.78)"; ctx.fillRect(0, 0, 12 * SCALE, 11 * SCALE); ctx.drawImage(icon, 0, 0, icon.width, icon.height, 2 * SCALE, 1.5 * SCALE, 8 * SCALE, 8 * SCALE); }
+    {
+      // One logical pixel of the picture, in the page's own.
+      const u = (canvas.clientWidth || W) / W;
+      const key = title + "|" + u.toFixed(2) + "|" + (icon ? 1 : 0);
+      if (key !== bannerSaid) {
+        bannerSaid = key; banner.textContent = title; banner.hidden = false;
+        banner.style.fontSize = Math.max(13, Math.round(7.5 * u)) + "px";
+        banner.style.left = (icon ? 12 * u : 0) + "px"; banner.style.height = (11 * u) + "px"; banner.style.lineHeight = (11 * u) + "px";
+        banner.style.padding = "0 " + Math.round(4 * u) + "px 0 " + Math.round((icon ? 1 : 4) * u) + "px";
+        banner.style.borderRadius = icon ? "0 0 6px 0" : "6px 0 6px 0";
+      }
+    }
     drawBars();
     if (peek) { drawPeek(); return; }
     // Arrival fade.
