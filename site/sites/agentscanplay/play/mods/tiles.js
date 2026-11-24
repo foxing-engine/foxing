@@ -224,6 +224,39 @@ export default function install(m) {
   banner.hidden = true;
   banner.style.cssText = "position:absolute;left:0;top:0;z-index:2;pointer-events:none;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis;background:rgba(18,26,37,.78);color:#ece5d3;font-family:var(--serif,Georgia,serif);border-radius:6px 0 6px 0";
   let bannerSaid = "";
+  // Every other word over the picture, the same way: a layer of type above the
+  // canvas. `say` is called each frame for each word that should be showing (as the
+  // paint was); a word not said this frame is taken away.
+  const labels = document.createElement("div");
+  labels.style.cssText = "position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1;border-radius:6px";
+  const said = new Map(); let sayTick = 0, sayCount = new Map();
+  const MONO = "var(--mono,ui-monospace,Menlo,Consolas,monospace)", SANS = "system-ui,-apple-system,'Segoe UI',sans-serif";
+  function sayBegin() { sayTick++; sayCount = new Map(); }
+  function sayEnd() { for (const [k, e] of said) if (e.tick !== sayTick) { e.el.remove(); said.delete(k); } }
+  // x, y in the picture's own pixels. o: size (in those pixels), color, bg, bold,
+  // font, align ("left" or centered), valign ("bottom", "top" or middle), alpha,
+  // wrap (a width to wrap at, three lines at most), clamp (kept inside the picture).
+  function say(key, text, x, y, o) {
+    o = o || {};
+    const n = sayCount.get(key) || 0; sayCount.set(key, n + 1); if (n) key += "#" + n;
+    let e = said.get(key);
+    if (!e) { e = { el: document.createElement("div"), css: "", text: null, tr: "", w: null }; labels.append(e.el); said.set(key, e); }
+    e.tick = sayTick;
+    const u = (canvas.clientWidth || W) / W;
+    const size = Math.max(o.min || 10, (o.size || 5) * u);
+    const css = "position:absolute;left:0;top:0;font:" + (o.bold ? "700 " : "400 ") + size.toFixed(1) + "px/1.25 " + (o.font || MONO) + ";color:" + (o.color || INK)
+      + (o.bg ? ";background:" + o.bg + ";padding:" + (0.6 * u).toFixed(1) + "px " + (2 * u).toFixed(1) + "px;border-radius:" + (o.wrap ? 1.5 * u : 0.5 * u).toFixed(1) + "px" : "")
+      + (o.shadow ? ";text-shadow:1px 1px 0 " + NIGHT + ",0 0 3px " + NIGHT : "")
+      + (o.wrap ? ";white-space:normal;width:max-content;max-width:" + (o.wrap * u).toFixed(0) + "px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden" : ";white-space:nowrap");
+    if (css !== e.css) { e.el.style.cssText = css; e.css = css; e.tr = ""; e.op = null; e.w = null; }
+    if (text !== e.text) { e.el.textContent = text; e.text = text; e.w = null; }
+    let tx = x * u;
+    if (o.clamp && o.align !== "left") { if (e.w == null) e.w = e.el.offsetWidth; const half = e.w / 2 + 2; tx = Math.min(Math.max(tx, half), (canvas.clientWidth || W) - half); }
+    const tr = "translate(" + tx.toFixed(1) + "px," + (y * u).toFixed(1) + "px) translate(" + (o.align === "left" ? "0" : "-50%") + "," + (o.valign === "bottom" ? "-100%" : o.valign === "top" ? "0" : "-50%") + ")";
+    if (tr !== e.tr) { e.el.style.transform = tr; e.tr = tr; }
+    const op = o.alpha == null || o.alpha >= 1 ? "" : Math.max(0, o.alpha).toFixed(2);
+    if (op !== e.op) { e.el.style.opacity = op; e.op = op; }
+  }
   const menu = document.createElement("div");
   menu.hidden = true;
   menu.style.cssText = "position:absolute;z-index:5;min-width:150px;background:rgba(18,26,37,.96);border:1px solid var(--line,#334);border-radius:8px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.45);font-size:13px";
@@ -252,7 +285,7 @@ export default function install(m) {
   const verbsLabel = document.createElement("div");
   verbsLabel.textContent = "Do";
   verbsLabel.style.cssText = "font:11px var(--mono,monospace);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:10px";
-  wrap.append(canvas, banner, menu, tip);
+  wrap.append(canvas, labels, banner, menu, tip);
   panel.append(wrap, hud, verbsLabel, verbs);
   m.builtin("map", false);
   m.builtin("here", false);
@@ -890,15 +923,11 @@ export default function install(m) {
     hot.set(x + "," + y, { label: "walk " + ex.via + " → " + ex.name, primary: () => m.command("travel", [ex.via]), menu: [{ label: "Walk " + ex.via + " to " + ex.name, run: () => m.command("travel", [ex.via]) }] });
   }
   function labelAt(text, x, y, dir, color) {
-    ctx.font = (5 * SCALE) + "px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    const w = ctx.measureText(text).width + 4 * SCALE;
-    const cy = (y * T + (dir > 0 ? 19 : -3)) * SCALE;
-    const cx = Math.min(Math.max((x * T + 8) * SCALE, w / 2), canvas.width - w / 2);
-    ctx.fillStyle = "rgba(18,26,37,.78)"; ctx.fillRect(cx - w / 2, cy - 3.2 * SCALE, w, 6.4 * SCALE);
-    ctx.fillStyle = color || INK; ctx.fillText(text, cx, cy);
+    say("l|" + text, text, x * T + 8, y * T + (dir > 0 ? 19 : -3), { size: 5, color: color || INK, bg: "rgba(18,26,37,.78)", clamp: true });
   }
 
-  function draw() {
+  function draw() { sayBegin(); drawScene(); sayEnd(); }
+  function drawScene() {
     const now = performance.now();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     hot.clear();
@@ -1164,10 +1193,7 @@ export default function install(m) {
       if (age > 1400) { floats.splice(i, 1); continue; }
       const k = age / 1400;
       ctx.globalAlpha = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
-      ctx.font = "bold " + ((f.big ? 8 : 6) * SCALE) + "px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      const yy = (f.y - k * 14) * SCALE, xx = f.x * SCALE;
-      ctx.fillStyle = NIGHT; ctx.fillText(f.text, xx + SCALE * 0.6, yy + SCALE * 0.6);
-      ctx.fillStyle = f.color; ctx.fillText(f.text, xx, yy);
+      say("f|" + f.t0 + "|" + f.text, f.text, f.x, f.y - k * 14, { size: f.big ? 8 : 6, min: f.big ? 15 : 12, bold: true, color: f.color, shadow: true, alpha: ctx.globalAlpha, clamp: true });
       ctx.globalAlpha = 1;
     }
     // Banner, top left.
@@ -1193,21 +1219,12 @@ export default function install(m) {
     if (since < 450) { ctx.fillStyle = "rgba(18,26,37," + (1 - since / 450).toFixed(2) + ")"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
   }
   function bubble(text, x, y, left) {
-    ctx.font = (5 * SCALE) + "px sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "top";
-    const maxW = 120 * SCALE;
-    const words = text.split(" "); const lines = []; let cur = "";
-    for (const w of words) { const t = cur ? cur + " " + w : w; if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; if (lines.length === 3) break; }
-    if (cur && lines.length < 3) lines.push(cur); else if (lines.length === 3) lines[2] += "…";
-    const lh = 6.5 * SCALE, bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width))) + 6 * SCALE, bh = lines.length * lh + 4 * SCALE;
-    let bx = (x * T + 8) * SCALE - bw / 2, by = (y * T - 8) * SCALE - bh;
-    bx = Math.max(2 * SCALE, Math.min(canvas.width - bw - 2 * SCALE, bx)); by = Math.max(12 * SCALE, by);
+    const fade = left < 600 ? left / 600 : 1;
     // R258: a bubble let the figures under it show (it covered whoever stood above).
-    ctx.globalAlpha = (left < 600 ? left / 600 : 1) * 0.8;
-    ctx.fillStyle = INK; ctx.fillRect(bx, by, bw, bh);
-    ctx.fillStyle = INK; ctx.beginPath(); ctx.moveTo((x * T + 6) * SCALE, by + bh); ctx.lineTo((x * T + 10) * SCALE, by + bh); ctx.lineTo((x * T + 8) * SCALE, by + bh + 3 * SCALE); ctx.fill();
-    ctx.globalAlpha = left < 600 ? left / 600 : 1;
-    ctx.fillStyle = NIGHT;
-    lines.forEach((l, i) => ctx.fillText(l, bx + 3 * SCALE, by + 2 * SCALE + i * lh));
+    say("b|" + text, text, x * T + 8, Math.max(26, y * T - 8), { size: 5, min: 11, font: SANS, color: NIGHT, bg: "rgba(236,229,211,.9)", wrap: 120, valign: "bottom", clamp: true, alpha: fade });
+    ctx.globalAlpha = fade * 0.9; ctx.fillStyle = INK;
+    const by = Math.max(26, y * T - 8) * SCALE;
+    ctx.beginPath(); ctx.moveTo((x * T + 6) * SCALE, by); ctx.lineTo((x * T + 10) * SCALE, by); ctx.lineTo((x * T + 8) * SCALE, by + 3 * SCALE); ctx.fill();
     ctx.globalAlpha = 1;
   }
   // The lane's numbers as bars at the foot of the picture: hit points, level, chunks.
@@ -1220,13 +1237,12 @@ export default function install(m) {
     let level = 0; for (const c of chunks) { const ch = c.components["disremembered.chunk"]; if (ch && ch.value != null) level += m.timed(ch.value); }
     const y0 = 6, x0 = W - 122;
     ctx.fillStyle = "rgba(18,26,37,.78)"; ctx.fillRect((x0 - 4) * SCALE, 0, 126 * SCALE, 11 * SCALE);
-    ctx.font = (5 * SCALE) + "px monospace"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = INK;
-    ctx.fillText("hp", x0 * SCALE, y0 * SCALE);
+    say("hud|hp", "hp", x0, y0, { size: 5, align: "left" });
     px(x0 + 12, y0 - 2, 40, 4, NIGHT);
     if (hp != null) px(x0 + 12, y0 - 2, Math.round(40 * Math.max(0, Math.min(1, hp / max))), 4, hp / max > 0.5 ? MOSS : hp / max > 0.25 ? DUST : EMBER);
-    ctx.fillText("level " + Math.round(level), (x0 + 56) * SCALE, y0 * SCALE);
+    say("hud|level", "level " + Math.round(level), x0 + 56, y0, { size: 5, align: "left" });
     const attack = 2 + Math.floor(0.6 * Math.sqrt(Math.max(0, level)));
-    ctx.fillText("atk " + attack, (x0 + 94) * SCALE, y0 * SCALE);
+    say("hud|atk", "atk " + attack, x0 + 94, y0, { size: 5, align: "left" });
     // Hover over the bar: what each figure is and how it moves.
     const rate = bodyC && bodyC.hp && bodyC.hp.curve && bodyC.hp.curve.Linear ? bodyC.hp.curve.Linear.rate_per_ms : 0;
     let fall = 0;
@@ -1298,8 +1314,8 @@ export default function install(m) {
   function drawPeek() {
     const a = typeof m.remembered === "function" ? m.remembered() : null;
     ctx.fillStyle = "rgba(18,26,37,.92)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.font = (5 * SCALE) + "px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    if (!a || !a.rooms.length) { ctx.fillStyle = INK; ctx.fillText("Type map once, and this shows what you remember.", canvas.width / 2, canvas.height / 2); return; }
+    sayBegin();   // the room's own words are under the map now
+    if (!a || !a.rooms.length) { say("p|none", "Type map once, and this shows what you remember.", W / 2, H / 2, { size: 5 }); return; }
     const now = Date.now() - (a.skew || 0), hl = a.half_life_ms || 1;
     const here = a.rooms.find(r => r.here) || a.rooms[0];
     const rooms = a.rooms.filter(r => r.z === here.z).map(r => ({ ...r, mem: r.visible ? 1 : (r.seen_at ? Math.pow(0.5, Math.max(0, now - r.seen_at) / hl) : 0) })).filter(r => r.visible || r.mem >= (a.forgotten_below || 0.05));
@@ -1321,13 +1337,12 @@ export default function install(m) {
       px(x, y, PEEK_CELL, PEEK_CELL, r.here ? "#4a4330" : r.visible ? "#2f3b4c" : "#222c3a");
       ctx.strokeStyle = r.here || r.visible ? DUST : "rgba(58,66,82,1)"; ctx.lineWidth = (r.here ? 2 : 1) * SCALE;
       ctx.strokeRect(Math.round(x * SCALE), Math.round(y * SCALE), PEEK_CELL * SCALE, PEEK_CELL * SCALE);
-      ctx.fillStyle = INK;
       const w = String(r.name || "?").replace(/^(The|An?) /, "").split(/\s+/)[0] || "?";
-      ctx.fillText(w.length > 8 ? w.slice(0, 7) + "\u2026" : w, (x + PEEK_CELL / 2) * SCALE, (y + PEEK_CELL / 2) * SCALE);
+      say("p|" + r.id, w.length > 8 ? w.slice(0, 7) + "\u2026" : w, x + PEEK_CELL / 2, y + PEEK_CELL / 2, { size: 4.6, min: 9, alpha: ctx.globalAlpha });
       ctx.globalAlpha = 1;
     }
     const label = (here.z === 0 ? "ground" : here.z > 0 ? "up " + here.z : "down " + (-here.z)) + " \u00b7 " + rooms.length + " rooms remembered";
-    ctx.textAlign = "left"; ctx.fillStyle = DUST; ctx.fillText(label, 4 * SCALE, (H - 6) * SCALE);
+    say("p|floor", label, 4, H - 6, { size: 5, color: DUST, align: "left" });
   }
   // The nearest door to a click on the floor, within two and a half tiles.
   function doorNear(x, y) {
