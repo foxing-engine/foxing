@@ -17154,6 +17154,12 @@ fn stories_go_round_oftener_and_the_second_word_is_a_meaning() {
         "{said}"
     );
     assert!(level(&mut w, "tyler") > before + 1.0);
+    // It is kept where words for a name are kept, for a teller who was away.
+    let kept = ok(&mut w, "tyler", "messages", json!([])).summary;
+    assert!(
+        kept.contains("has turned your story over") && kept.contains(was),
+        "{kept}"
+    );
     assert_eq!(secret::level_of(&w, a), 3);
     assert!(secret::judged(&w, a) && meaning::kept(&w, a).unwrap().meaning != was);
 

@@ -339,6 +339,17 @@ pub fn messages(world: &World, actor: &str, count: usize) -> Outcome {
             {
                 json!({"at": e.at.0, "from": "the Conclave", "text": p["text"], "kind": "conclave"})
             }
+            // D33: what a creature made of a story weighed against its meaning
+            // comes minutes after the telling, to wherever the teller is, or is not.
+            k if k == super::combat::NARRATIVE
+                && p["to"] == actor
+                && p["text"].as_str().is_some_and(|t| {
+                    t.contains(" has turned your story over (")
+                        || t.contains(" has not weighed your story after all")
+                }) =>
+            {
+                json!({"at": e.at.0, "from": "a creature", "text": p["text"], "kind": "docent"})
+            }
             _ => continue,
         };
         rows.push(row);
