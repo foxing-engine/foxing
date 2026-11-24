@@ -19,7 +19,8 @@
 //!   strike names the meaning found, and the creature has moved on to another.
 //! - A story will address the judge. The story goes in as data; only a number and a
 //!   short line come out, and the world checks both. A line that says the meaning
-//!   short of a 3 is thrown away for a plain one.
+//!   short of a 3 is thrown away for a plain one, and the tool writes a miss's line
+//!   with a second asking that is never shown the meaning.
 //! - Two like stories may be weighed apart, so the score is coarse and the creature
 //!   says what it made of it.
 //! - When the tool is not listening the rung sleeps: the story is told so, is paid as
