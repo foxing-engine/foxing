@@ -17163,6 +17163,56 @@ fn stories_go_round_oftener_and_the_second_word_is_a_meaning() {
     assert_eq!(secret::level_of(&w, a), 3);
     assert!(secret::judged(&w, a) && meaning::kept(&w, a).unwrap().meaning != was);
 
+    // D54: the third found, it rests from that name a day, then keeps another for
+    // them at a third less.
+    w.fixed_now = Some(t0.plus(Duration::seconds(20 * 3600)));
+    meaning::wake_for_test(&w);
+    let sixth = "The clockmaker's widow wound every clock in the shop each Sunday for nine years, though the door had been locked since the funeral.";
+    ok(&mut w, "tyler", "story", json!([&a_name, sixth]));
+    let id = meaning::pending(&w)[0]["id"].as_u64().unwrap();
+    let head = events(&w);
+    admin(&mut w, "tyler", "weigh", json!([id, 3, "Yes. That one."]));
+    let said = narrative(&w, "tyler", head).join(" ");
+    assert!(
+        said.contains("the third of three") && said.contains("keep another for you in a day"),
+        "{said}"
+    );
+    w.fixed_now = Some(t0.plus(Duration::seconds(22 * 3600)));
+    meaning::wake_for_test(&w);
+    let seventh = "A shepherd counted his flock at the gate each dusk and once found one more than he owned, and fed it all the same.";
+    let out = ok(&mut w, "tyler", "story", json!([&a_name, seventh]));
+    assert!(
+        out.summary.contains("rests from you a day"),
+        "{}",
+        out.summary
+    );
+    assert!(meaning::pending(&w).is_empty());
+    assert!(secret::hint(&w, "tyler", a)
+        .unwrap()
+        .contains("I will keep another for you in 22 hours"));
+    w.fixed_now = Some(t0.plus(Duration::seconds(45 * 3600)));
+    meaning::wake_for_test(&w);
+    assert!(secret::hint(&w, "tyler", a)
+        .unwrap()
+        .contains("You have found one of mine before"));
+    let eighth = "The miller's daughter rowed the doctor over the flooded ford at midnight and would take no coin, only his word to come again.";
+    let out = ok(&mut w, "tyler", "story", json!([&a_name, eighth]));
+    assert!(
+        out.summary.contains("turning your story over"),
+        "{}",
+        out.summary
+    );
+    let id = meaning::pending(&w)[0]["id"].as_u64().unwrap();
+    let head = events(&w);
+    admin(
+        &mut w,
+        "tyler",
+        "weigh",
+        json!([id, 3, "Yes. That one too."]),
+    );
+    let said = narrative(&w, "tyler", head).join(" ");
+    assert!(said.contains("a third less for each"), "{said}");
+
     // The switch off: words again.
     admin(&mut w, "tyler", "sense", json!(["words"]));
     assert!(!secret::judged(&w, a));
@@ -17216,4 +17266,15 @@ fn a_word_whose_text_moved_on_is_drawn_again_from_the_text_the_hint_quotes() {
             .count(),
         before + 1
     );
+}
+
+#[test]
+fn a_story_in_spanish_is_a_story_and_a_list_is_still_a_list() {
+    // D55 (David, 11-24: "b").
+    assert!(grammar::why_unfollowable("Una niña escuchó detrás de la puerta lo que su madre le decía al médico, y desde esa noche supo que la casa ya no era de ellos.").is_none());
+    assert!(grammar::why_unfollowable("Der alte Fischer fuhr jeden Morgen hinaus, obwohl das Meer ihm nichts mehr gab, und kam am Abend mit leeren Netzen zurück.").is_none());
+    assert!(grammar::why_unfollowable(
+        "tide hinge moth ashes salt bell thread hollow ember ledger orchard stair wick river dust"
+    )
+    .is_some());
 }

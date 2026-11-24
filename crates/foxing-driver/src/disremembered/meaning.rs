@@ -65,30 +65,102 @@ macro_rules! themes {
 }
 
 pub const THEMES: &[Theme] = themes![
-    "lent", "something lent and never returned", "It went from one hand to another and was meant to come back.", "Someone is still owed it.", "A loan, and the lender still waiting.";
-    "late", "arriving too late for the thing one came for", "Somebody hurried, and it did not help.", "The door was shut, or the bed empty, by the time.", "Coming too late.";
-    "kept-promise", "a promise kept long after anyone would have minded it broken", "Nobody was holding them to it any more.", "It was done anyway, years on, for someone who had stopped expecting it.", "A promise kept when no one was left to ask.";
-    "wrong-name", "being called by a name that is not one's own, and answering", "Somebody was mistaken about who, and was not corrected.", "It was easier to turn round than to explain.", "Answering to the wrong name.";
-    "last-of", "being the last one who remembers how a thing was done", "When this one goes, the knack goes.", "There is nobody left to ask whether it is being done right.", "The last one who knows how.";
-    "unsent", "a letter written and never sent", "It was meant for someone and stayed in a drawer.", "Every word of it was finished; only the going was not.", "A letter never sent.";
-    "trade-down", "giving up something good for something worse, and being glad of it", "The bargain was a bad one and nobody regretted it.", "What was given was worth more than what was got, and that was the point.", "A bad trade, gladly made.";
-    "borrowed-light", "finding the way by a light that belongs to someone else", "They could see, and it was not their doing.", "Somebody else's window, or lamp, or fire, and a road by it.", "Walking by another's light.";
-    "small-theft", "a small theft that nobody ever noticed", "Something went missing and was never missed.", "The one who took it is the only one who knows.", "A theft too small to notice.";
-    "wait", "waiting for someone who is not coming", "A place was kept, and stayed kept.", "The one who waits half knows, and waits.", "Waiting for one who will not come.";
-    "mended", "a thing mended so often that nothing of the first one is left", "It is the same one, and none of it is.", "Each part was replaced in turn, and nobody ever called it new.", "Mended until nothing original remains.";
-    "inherit", "inheriting a thing one does not know how to use", "It came down to them, and they could only keep it.", "The one who knew what it was for is not there to say.", "An inheritance nobody can work.";
-    "first-lie", "a kind lie told to spare someone, and believed", "It was not true, and it was the gentlest thing said that day.", "They never found out, and were happier.", "A kind lie, believed.";
-    "return", "coming home and finding it smaller than it was", "The place had not changed, and it did not fit.", "Everything was where it had been left, and lower, and nearer together.", "Home, and it has shrunk.";
-    "overheard", "learning something important by overhearing what was not meant for one", "It was said to somebody else.", "A door was not quite shut, and it changed things.", "Overhearing what was not meant for you.";
-    "shared-secret", "a secret that two people keep by never speaking of it", "Both of them know, and neither has said.", "It holds only as long as nobody mentions it.", "A secret kept by silence between two.";
-    "wrong-turn", "a wrong turning that turned out better than the right one", "They were lost, and it was the best thing that happened.", "The road they meant to take would have been worse.", "A mistake that was a mercy.";
-    "counting", "counting something over and over because one is afraid of the number", "The sum does not change, and is taken again.", "As long as it is being counted it has not been lost.", "Counting, for fear of the count.";
-    "gift-refused", "a gift that was refused", "It was held out, and not taken.", "The giver carried it home again.", "A gift refused.";
-    "namesake", "being named after someone one never met", "The name was somebody's before, and they are only a story.", "People look for the other one in the face.", "Named for a stranger.";
-    "watch", "keeping watch over something that no longer needs it", "The danger passed long ago, and the post was never stood down.", "It is guarded out of habit, or love.", "Guarding what no longer needs a guard.";
-    "forgiven", "being forgiven by someone who never knew what for", "The pardon was real, and the offense was never told.", "They said it was nothing, and did not know how much it was.", "Forgiven, unconfessed.";
-    "unfinished", "work left unfinished on purpose", "It could have been done, and was set down one step short.", "Finishing it would have meant it was over.", "Left undone, deliberately.";
-    "echo", "hearing one's own words come back from someone else, changed", "They said it once, and it returned a stranger.", "Somebody repeated it, and it was not what was meant any more.", "One's own words, come back altered.";
+    "lent", "something lent and never returned", "Something changed hands.", "It went from one hand to another and was meant to come back.", "Someone is still owed it.";
+    "late", "arriving too late for the thing one came for", "The hour mattered.", "Somebody hurried, and it did not help.", "The door was shut, or the bed empty, by the time.";
+    "kept-promise", "a promise kept long after anyone would have minded it broken", "Something was said once, long before.", "Nobody was holding them to it any more.", "It was done anyway, years on, for someone who had stopped expecting it.";
+    "wrong-name", "being called by a name that is not one's own, and answering", "Somebody turned round.", "Somebody was mistaken about who, and was not corrected.", "It was easier to turn round than to explain.";
+    "last-of", "being the last one who remembers how a thing was done", "It is about hands that know.", "When this one goes, the knack goes.", "There is nobody left to ask whether it is being done right.";
+    "unsent", "a letter written and never sent", "Somebody found the words.", "It was meant for someone and stayed in a drawer.", "Every word of it was finished; only the going was not.";
+    "trade-down", "giving up something good for something worse, and being glad of it", "Two things were weighed against each other.", "The bargain was a bad one and nobody regretted it.", "What was given was worth more than what was got, and that was the point.";
+    "borrowed-light", "finding the way by a light that belongs to someone else", "It was dark, for a while.", "They could see, and it was not their doing.", "Somebody else's window, or lamp, or fire, and a road by it.";
+    "small-theft", "a small theft that nobody ever noticed", "Only one person knows.", "Something went missing and was never missed.", "The one who took it is the only one who knows.";
+    "wait", "waiting for someone who is not coming", "Somebody stayed.", "A place was kept, and stayed kept.", "The one who waits half knows, and waits.";
+    "mended", "a thing mended so often that nothing of the first one is left", "It was looked after.", "It is the same one, and none of it is.", "Each part was replaced in turn, and nobody ever called it new.";
+    "inherit", "inheriting a thing one does not know how to use", "It came from before them.", "It came down to them, and they could only keep it.", "The one who knew what it was for is not there to say.";
+    "first-lie", "a kind lie told to spare someone, and believed", "Something was said out of kindness.", "It was not true, and it was the gentlest thing said that day.", "They never found out, and were happier.";
+    "return", "coming home and finding it smaller than it was", "Somebody went back.", "The place had not changed, and it did not fit.", "Everything was where it had been left, and lower, and nearer together.";
+    "overheard", "learning something important by overhearing what was not meant for one", "Somebody was listening.", "It was said to somebody else.", "A door was not quite shut, and it changed things.";
+    "shared-secret", "a secret that two people keep by never speaking of it", "There are two in it.", "Both of them know, and neither has said.", "It holds only as long as nobody mentions it.";
+    "wrong-turn", "a wrong turning that turned out better than the right one", "It did not go as planned.", "They were lost, and it was the best thing that happened.", "The road they meant to take would have been worse.";
+    "counting", "counting something over and over because one is afraid of the number", "There is a number in it.", "The sum does not change, and is taken again.", "As long as it is being counted it has not been lost.";
+    "gift-refused", "a gift that was refused", "Somebody offered.", "It was held out, and not taken.", "The giver carried it home again.";
+    "namesake", "being named after someone one never met", "It is about what one is called.", "The name was somebody's before, and they are only a story.", "People look for the other one in the face.";
+    "watch", "keeping watch over something that no longer needs it", "Somebody did not leave their place.", "The danger passed long ago, and the post was never stood down.", "It is guarded out of habit, or love.";
+    "forgiven", "being forgiven by someone who never knew what for", "Something was let go.", "The pardon was real, and the offense was never told.", "They said it was nothing, and did not know how much it was.";
+    "unfinished", "work left unfinished on purpose", "It was nearly done.", "It could have been done, and was set down one step short.", "Finishing it would have meant it was over.";
+    "echo", "hearing one's own words come back from someone else, changed", "Something was said twice.", "They said it once, and it returned a stranger.", "Somebody repeated it, and it was not what was meant any more.";
+    "spare-key", "keeping a key to a door one will never open again", "Something small was kept.", "It still fits, and it is never tried.", "The house is someone else's now, and the thing that opens it is in a pocket.";
+    "empty-chair", "setting a place at the table for someone who is gone", "It happens at a meal.", "There is one more than there are people.", "The plate is laid out every evening and nobody sits to it.";
+    "taught", "being outdone by someone one taught", "There are an elder and a younger in it.", "The lesson took better than was meant.", "The pupil does it finer now, and the teacher watches.";
+    "false-map", "following directions that were wrong, given in good faith", "Somebody asked the way.", "They were told kindly, and told wrong.", "The one who pointed believed it, and the road went nowhere.";
+    "stayed-night", "a stranger taken in for one night who is remembered for years", "Somebody knocked.", "They were gone by morning, and not from the talk of the house.", "One night under the roof, and the family still speaks of them.";
+    "last-time", "doing something for the last time without knowing it was the last", "It was an ordinary day.", "Nobody marked it, because nobody knew.", "They would have done it more slowly if they had known there would be no other.";
+    "held-back", "a skill kept hidden so as not to shame someone else", "Somebody held back.", "They could have done it better, and did not let on.", "They lost on purpose, or stayed quiet, so another could be the one who was good at it.";
+    "wrong-grave", "mourning at the wrong grave", "There is grief in it.", "The grief was true, and the place was not.", "The flowers went to a stranger for years.";
+    "saved-for", "saving something for a special day that never came", "Something was put away.", "It was too good for an ordinary day.", "It was found afterwards, unused, still in its paper.";
+    "dream-told", "telling a dream to someone and finding they had it too", "It began in sleep.", "Somebody said: I know that place.", "Two people who had never spoken of it had walked the same one at night.";
+    "credit", "letting someone else take the credit for one's work", "Something was made.", "The praise went to another, and the maker said nothing.", "They watched somebody thanked for it, and let it stand.";
+    "tree-planted", "planting something one will not live to see grown", "Somebody dug.", "It was for later than them.", "The shade will fall on people they will never meet.";
+    "wrong-house", "walking into the wrong house and being made welcome", "A door was opened.", "It was a mistake, and nobody said so.", "They were given supper before anyone asked who they were.";
+    "carried", "carrying something heavy a long way for someone who did not need it", "It was a long way.", "The trouble taken was not wanted.", "They arrived with it on their back and were told there had been no need.";
+    "name-forgotten", "forgetting the name of someone one loved", "Somebody is remembered.", "The face is there, and the voice, and one thing is not.", "They can see them plainly and cannot say what they were called.";
+    "two-versions", "two people remembering the same day differently, and both sure", "There was a day.", "Each tells it, and the tellings do not meet.", "Neither is lying, and it cannot have been both.";
+    "outgrown", "keeping a child's thing long after the child is grown", "Something small is in a cupboard.", "The one it fitted is taller than the door now.", "A shoe, or a toy, kept by the parent and forgotten by the child.";
+    "apology-late", "an apology made to someone who can no longer hear it", "Somebody was sorry.", "It was said aloud, to nobody.", "The words came years after the one they were for was gone.";
+    "weather", "a whole life steered by one day's weather", "It rained, or it did not.", "Had the sky been otherwise, so would everything after.", "They stayed in because of the storm, and that was where it all began.";
+    "unsung", "a song that everyone knows and no one will sing", "There is a tune.", "It is known by heart and kept behind the teeth.", "It belonged to a time or a person, and singing it would bring them back.";
+    "stand-in", "taking someone's place and being preferred to them", "One came instead of another.", "It was only meant to be for a while.", "When the first one returned, nobody wanted the change undone.";
+    "fear-small", "being afraid of a thing for years and finding it was small", "Somebody finally looked.", "It had been larger in the dark.", "The dreaded thing, met at last, was hardly anything.";
+    "unthanked", "a kindness from a stranger one never got to thank", "Someone helped.", "They were gone before anything could be said.", "The thanks are owed to a face with no name, and cannot be given.";
+    "other-road", "wondering about the life one would have had by choosing otherwise", "There was a choice.", "The other one is still thought about.", "Somewhere a different self took the other road, and is imagined often.";
+    "burned", "destroying something precious so that no one else can have it", "Something was ended on purpose.", "Better gone than in another's hands.", "They put it in the fire themselves.";
+    "false-brave", "being thought brave when one was only unable to run", "Somebody stood their ground.", "It looked like courage from outside.", "They were praised for staying, and had only been too frightened to move.";
+    "nickname", "a nickname whose reason everyone has forgotten", "Somebody is called something.", "Nobody remembers why.", "The joke it came from is lost and the name stuck.";
+    "came-back-better", "something borrowed that came back better than it went", "Something came back.", "It was not as it had been when it left.", "It was returned cleaned, or mended, or filled.";
+    "smell", "a smell that brings back a whole lost place", "It came in on the air.", "For a moment they were somewhere else entirely.", "One breath of it and the kitchen, or the street, was all there again.";
+    "older-than", "living to be older than one's parent ever was", "There is a birthday in it.", "They passed a mark that someone else never reached.", "From this year on they have had more years than their mother, or father, ever got.";
+    "strangers-picture", "a picture of strangers that someone keeps as if they were family", "Something is kept on a shelf.", "Nobody in it is known.", "The faces were bought, or found, and are loved anyway.";
+    "outlast", "an object outlasting everyone who cared about it", "It is still there.", "Those it mattered to are not.", "It sits in a shop or a ditch, and no one living knows what it meant.";
+    "found-after", "losing a thing and finding it only after getting another", "Something was looked for.", "It turned up when it was no longer needed.", "Now there are two, and the first was behind the dresser all along.";
+    "go-between", "softening someone's words while carrying them to another", "Somebody stood between two.", "What arrived was not quite what was sent.", "The messenger left out the cruel part, and peace was kept.";
+    "rival", "missing a rival once they are gone", "There were two who did not get on.", "Winning was no good without them.", "The enemy left, or died, and the days were flatter for it.";
+    "practice", "practicing long for a moment that passes in an instant", "There was a great deal of getting ready.", "It was over almost before it began.", "Months of rehearsal for a thing that took one breath.";
+    "wrong-praise", "being loved for the thing one likes least in oneself", "Somebody was admired.", "It was not for what they would have chosen.", "The part of themselves they would hide is the part others came for.";
+    "on-the-way", "being more at home on the way than at either end", "There is travelling in it.", "Arriving was the lesser part.", "They were happiest between the two places, and at neither.";
+    "token", "keeping a worthless thing because of who gave it", "It is worth nothing.", "It would not be sold for anything.", "A pebble, or a button, kept for the hand it came from.";
+    "storm-truce", "enemies sheltering together and parting without a word", "The weather drove them in.", "They would not have shared a roof by choice.", "For one night the quarrel was set down, and picked up again at the door.";
+    "voice", "hearing a dead person's voice in a living one", "Somebody spoke.", "For a moment it was another who was speaking.", "The grandchild laughed, and it was the grandfather's laugh exactly.";
+    "old-letter", "reading a letter meant for someone long dead", "Something was opened.", "It had waited a long time for other eyes.", "The one it was written to is long buried, and a stranger read it.";
+    "guide-lost", "leading others with confidence while being lost oneself", "Others followed.", "The one in front did not know either.", "They walked ahead as if sure, and prayed for a landmark.";
+    "unseen-work", "careful work done where no one will ever see it", "It was done well.", "No eye will fall on it.", "The back of the carving is as finished as the front.";
+    "wrong-words", "singing the wrong words for years and preferring them", "Something was misheard.", "The mistake was better.", "When they learned the true words they kept their own.";
+    "threshold", "standing at a door and not knocking", "Somebody came a long way.", "The last step was not taken.", "They stood outside with a hand raised, and went away again.";
+    "spared", "being spared by chance where others were not, and never knowing why", "Something terrible happened to many.", "One was left out of it.", "They were away that day, or late, and have asked why ever since.";
+    "gone-wild", "a tended place left to go wild, and lovelier for it", "Somebody stopped.", "What came after was not planned.", "The beds went to seed and to weeds, and people stop at the wall to look.";
+    "cost", "learning what something cost only long after it was given", "It was taken lightly.", "The giver had gone without.", "Years later they heard what had been sold to pay for it.";
+    "newcomer", "a stranger knowing a place better than those born there", "Somebody came from elsewhere.", "They saw what the others walked past.", "The newcomer could name every lane and the natives could not.";
+    "true-joke", "a true thing said as a joke so that it could be said", "People laughed.", "It was meant.", "It was the only way to say it, and nobody heard it as true.";
+    "early", "getting up before everyone to have the world alone", "It was very early.", "Nobody else was about, and that was the point.", "An hour taken before the house woke, kept to oneself and kept daily.";
+    "already-knew", "confessing something and finding the other already knew", "Somebody finally said it.", "It was not news.", "They had dreaded the telling for years, and were answered: I know.";
+    "appearances", "keeping up appearances for neighbors who are doing the same", "It is about how things look.", "Both sides of the fence are acting.", "Each house thinks the other is doing well, and neither is.";
+    "animal-knows", "an animal knowing something before the people do", "There is a creature in it.", "It was uneasy first.", "The dog would not go in, or the birds left, a day before anyone understood.";
+    "shortcut", "a shortcut that took longer", "Somebody thought to save time.", "The nearer way was not.", "They would have been there hours sooner by the long road.";
+    "last-coin", "spending one's last coin on something that is not needed", "There was very little left.", "It went on something that feeds nobody.", "The last of the money bought flowers, or a ribbon, or music.";
+    "name-carved", "finding one's own name written somewhere by a hand one does not know", "Something was read.", "It was the reader's own, and they had not put it there.", "Cut in a bench or written in a margin, by whom they never learned.";
+    "ferry", "helping others across and never crossing oneself", "Somebody takes people over.", "They always come back to the same side.", "Everyone they carry goes on, and they turn the boat round.";
+    "advice", "understanding a parent's advice only at the parent's age", "Something was said long ago.", "It made no sense then.", "The words came clear decades on, standing where the speaker had stood.";
+    "unbelieved", "a warning that was right and was not believed", "Somebody said so beforehand.", "They were not listened to.", "Afterwards nobody remembered who had told them.";
+    "mask", "playing a part so long it stops being a part", "It began as pretending.", "There came a day when there was nothing underneath it.", "They put the manner on for work, or safety, and could not find the way out of it.";
+    "winter-store", "sharing a store that was barely enough, and coming through anyway", "There was not enough.", "It was divided all the same.", "They gave from what would hardly do for themselves, and saw the spring.";
+    "runaway", "running away and finding nobody noticed", "Somebody left.", "They were not looked for.", "They came back by supper and it had not been remarked.";
+    "old-quarrel", "a quarrel kept up after both have forgotten its cause", "Two do not speak.", "Neither could say what began it.", "It is kept out of habit, and pride, and the reason is long gone.";
+    "handwriting", "knowing someone only by their handwriting", "There are notes, or letters.", "The two have never met.", "They would know the hand anywhere, and not the face.";
+    "enemy-kindness", "a kindness done by the one who had least cause to", "It was not expected from that quarter.", "The one who did it had no cause to.", "The one who liked them least was the one who quietly helped.";
+    "recipe", "making a dish from memory that never tastes as it did", "Somebody is cooking.", "It is nearly right, every time.", "Whatever the missing thing was went with the one who used to make it.";
+    "summit", "reaching the goal and feeling nothing", "Something long wanted was got.", "The joy did not come with it.", "They stood at the top at last and wondered what to do with the afternoon.";
+    "stray", "an animal that chose its person, not the other way about", "It turned up one day.", "Nobody went looking for it.", "It walked in, lay down, and was theirs from then on.";
+    "other-speech", "rehearsing what to say and saying something else", "The words were ready.", "Other ones came out.", "The practiced speech went unsaid, and what was said instead was truer.";
+    "light-left", "leaving a light on for oneself in an empty house", "A lamp is burning.", "Nobody is in to need it.", "They leave it lit when they go out, so as to come home to something.";
 ];
 
 fn theme(key: &str) -> Option<&'static Theme> {
@@ -166,6 +238,36 @@ fn weighing(world: &World) -> Vec<Value> {
         .unwrap_or_default()
 }
 
+/// How long a creature rests from a name that found its third meaning before it
+/// keeps another for that name (D54, David 11-24: "c").
+pub const REST_MS: i64 = 86_400_000;
+
+/// How many of `creature`'s third meanings `actor` has found.
+fn finds(v: &Value, actor: &str) -> usize {
+    v["struck"]
+        .as_array()
+        .map_or(0, |a| a.iter().filter(|s| *s == actor).count())
+}
+
+/// If `actor` found this creature's third meaning within the day: how long until it
+/// keeps another for them.
+fn resting(v: &Value, actor: &str, now: i64) -> Option<i64> {
+    if finds(v, actor) == 0 {
+        return None;
+    }
+    let left = REST_MS - (now - v["finds"][actor].as_i64().unwrap_or(0));
+    (left > 0).then_some(left)
+}
+
+fn hours(ms: i64) -> String {
+    let h = (ms + 3_599_999) / 3_600_000;
+    if h <= 1 {
+        "an hour".to_string()
+    } else {
+        format!("{h} hours")
+    }
+}
+
 fn nth(level: u8) -> &'static str {
     ["first", "second", "third"][(level.clamp(1, 3) - 1) as usize]
 }
@@ -191,13 +293,13 @@ pub fn ask(
     };
     let level = v["level"].as_u64().unwrap_or(2) as u8;
     let name = mind::display(world, creature);
-    if v["struck"]
-        .as_array()
-        .is_some_and(|a| a.iter().any(|s| s == actor))
-    {
-        return Ok(String::new());
-    }
     let now = world.now().0;
+    if let Some(left) = resting(&v, actor, now) {
+        return Ok(format!(
+            " You found what it kept under the others, and it rests from you a day after: it keeps another meaning for you in {}, so this one was heard as a story.",
+            hours(left)
+        ));
+    }
     let mut list = weighing(world);
     if let Some(m) = wait(world, actor, creature) {
         return Ok(format!(
@@ -246,11 +348,11 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
     let t = kept(world, creature)?;
     let v = secret(world, creature)?;
     let level = v["level"].as_u64().unwrap_or(2) as u8;
-    if v["struck"]
-        .as_array()
-        .is_some_and(|a| a.iter().any(|s| s == actor))
-    {
-        return Some("You found what I keep under the others, and I keep another now for whoever comes next. It is not yours to find twice.".to_string());
+    if let Some(left) = resting(&v, actor, world.now().0) {
+        return Some(format!(
+            "You found what I keep under the others. What I keep now is for whoever comes next; I will keep another for you in {}, and it will be worth a third less than the last.",
+            hours(left)
+        ));
     }
     let short = weighing(world)
         .iter()
@@ -267,6 +369,16 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
     } else {
         " (What weighs it is asleep tonight; it will keep.)"
     };
+    let again =
+        match finds(&v, actor) {
+            0 => String::new(),
+            n => {
+                format!(
+            " You have found {} of mine before, so this one is worth less by a third for each.",
+            if n == 1 { "one".to_string() } else { n.to_string() }
+        )
+            }
+        };
     let when = match wait(world, actor, creature) {
         Some(m) => format!(
             " I weigh your next in {m} minute{}.",
@@ -275,7 +387,7 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
         None => String::new(),
     };
     Some(format!(
-        "{} What I keep under it now is not a word but a meaning, the {} of three. {said} Tell me a story that is about that, in any words you like, and I will know it; I weigh one story an hour from a name, and say what I made of it a little after.{when}{sleeping}",
+        "{} What I keep under it now is not a word but a meaning, the {} of three.{again} {said} Tell me a story that is about that, in any words you like, and I will know it; I weigh one story an hour from a name, and say what I made of it a little after.{when}{sleeping}",
         if level == 2 { "The first was found." } else { "Two were found." },
         nth(level),
     ))
@@ -313,7 +425,7 @@ pub fn settle(world: &mut World, creature: EntityId) -> Result<bool, CommandErro
     let struck = v["struck"].clone();
     let turn = struck.as_array().map_or(0, Vec::len);
     let next = if should {
-        json!({"word": pick(creature, level, turn, "").key, "level": level, "struck": struck, "from": "meaning"})
+        json!({"word": pick(creature, level, turn, "").key, "level": level, "struck": struck, "from": "meaning", "finds": v["finds"]})
     } else {
         let (word, from) = super::secret::word_again(world, creature, level);
         json!({"word": word, "level": level, "struck": struck, "from": from})
@@ -400,11 +512,7 @@ fn weigh(
     };
     // The creature may have come apart, or another name found this meaning first.
     let still = kept(world, creature).is_some_and(|k| k.key == key)
-        && secret(world, creature).is_some_and(|v| {
-            !v["struck"]
-                .as_array()
-                .is_some_and(|a| a.iter().any(|s| *s == from))
-        });
+        && secret(world, creature).is_some_and(|v| resting(&v, &from, world.now().0).is_none());
     let score = if score == 3 && !still { 2 } else { score };
     j["done"] = json!(world.now().0);
     j["score"] = json!(score);
@@ -428,8 +536,20 @@ fn weigh(
                     .collect()
             })
             .unwrap_or_default();
-        struck.push(from.clone());
         let top = level >= super::secret::LEVELS;
+        // D54: each third meaning a name finds from one creature is worth a third
+        // less than the last.
+        let before = if top { finds(&v, &from) } else { 0 };
+        let less = (2.0f64 / 3.0).powi(before as i32);
+        let mut found_at = if v["finds"].is_object() {
+            v["finds"].clone()
+        } else {
+            json!({})
+        };
+        if top {
+            found_at[&from] = json!(world.now().0);
+        }
+        struck.push(from.clone());
         let next_level = (level + 1).min(super::secret::LEVELS);
         let next = pick(
             creature,
@@ -440,11 +560,11 @@ fn weigh(
         let mut changes = BTreeMap::new();
         changes.insert(
             "secret".into(),
-            Field::Plain(json!({"word": next.key, "level": next_level, "struck": if top { struck.clone() } else { Vec::new() }, "from": "meaning"})),
+            Field::Plain(json!({"word": next.key, "level": next_level, "struck": if top { struck.clone() } else { Vec::new() }, "from": "meaning", "finds": if top { found_at } else { Value::Null }})),
         );
         mind::set_mind_pub(world, Actor::Driver, creature, changes)?;
         let bonus = super::secret::BONUS[(level.clamp(1, 3) - 1) as usize];
-        let extra = (paid * (bonus - 1.0)).round().max(1.0);
+        let extra = (paid * (bonus - 1.0) * less).round().max(1.0);
         let earned = match super::find_citizen(world, &from) {
             Some(f) => Some(super::memory::earn_chunk(
                 world,
@@ -470,10 +590,11 @@ fn weigh(
             nth(level),
             t.meaning,
             match earned {
-                Some(c) => format!("You remember it: chunk-{} worth {extra:.1} XP, {} what the story paid, and vivid.", c.0, match ((bonus - 1.0) * 10.0).round() as i64 { 5 => "half", 10 => "as much again as", _ => "one and a half times" }),
+                Some(c) if before == 0 => format!("You remember it: chunk-{} worth {extra:.1} XP, {} what the story paid, and vivid.", c.0, match ((bonus - 1.0) * 10.0).round() as i64 { 5 => "half", 10 => "as much again as", _ => "one and a half times" }),
+                Some(c) => format!("You remember it: chunk-{} worth {extra:.1} XP, and vivid (a third less for each of its meanings you had found before).", c.0),
                 None => String::new(),
             },
-            if top { " That was the last of its three for you; it keeps another now for whoever comes next." } else { " There is another under that." }
+            if top { " That was the last of its three. What it keeps now is for whoever comes next; it will keep another for you in a day, worth a third less." } else { " There is another under that." }
         )
     } else {
         format!(

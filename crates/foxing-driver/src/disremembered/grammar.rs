@@ -16,6 +16,24 @@ const FUNCTION_WORDS: &[&str] = &[
     "while", "until", "before", "after", "said", "like", "one", "all", "some", "any", "none",
     "never", "always", "still", "again", "would", "could", "should", "will", "can", "may", "might",
     "must", "went", "came", "told", "kept",
+    // D55 (David, 11-24: "b"): a story in Spanish, French, German, Portuguese or
+    // Italian hangs on small words too, and a Spanish one truly about a creature's
+    // meaning was turned away as a list.
+    "el", "la", "los", "las", "un", "una", "y", "o", "pero", "de", "del", "que", "en", "con", "por",
+    "para", "se", "su", "sus", "lo", "le", "al", "es", "era", "fue", "como", "cuando", "donde",
+    "muy", "ya", "mi", "tu", "yo", "ella", "ellos", "nos", "sin", "hasta", "desde", "entre", "le",
+    "les", "des", "du", "et", "ou", "mais", "dans", "sur", "avec", "pour", "par", "qui", "ne",
+    "pas", "ce", "cette", "ces", "il", "elle", "ils", "nous", "vous", "je", "est", "sont", "avait",
+    "plus", "son", "sa", "ses", "au", "aux", "une", "si", "tout", "der", "die", "das", "den",
+    "dem", "des", "ein", "eine", "einen", "einem", "einer", "und", "oder", "aber", "von", "zu",
+    "mit", "auf", "aus", "bei", "nach", "ist", "war", "sind", "hat", "hatte", "nicht", "ich", "du",
+    "er", "sie", "es", "wir", "ihr", "sich", "als", "wie", "wenn", "dass", "noch", "nur", "auch",
+    "im", "am", "um", "os", "as", "um", "uma", "e", "ou", "mas", "do", "da", "dos", "das", "em",
+    "no", "na", "nos", "nas", "com", "por", "para", "que", "foi", "ele", "ela", "eles", "seu",
+    "sua", "ao", "nao", "não", "mais", "quando", "onde", "eu", "tem", "tinha", "ja", "já", "il",
+    "lo", "gli", "i", "uno", "ed", "ma", "di", "del", "della", "dei", "delle", "che", "con", "per",
+    "tra", "fra", "non", "si", "era", "sono", "ha", "aveva", "lui", "lei", "loro", "suo", "sua",
+    "alla", "nel", "nella", "dal", "come", "quando", "dove", "piu", "più", "io", "ci",
 ];
 
 /// The longest a sentence may run before it is a wall.
@@ -51,7 +69,7 @@ pub fn why_unfollowable(text: &str) -> Option<String> {
         .count() as f64;
     if small / total < FUNCTION_SHARE {
         return Some(
-            "there are too few small words in it (the, and, of, it, was: fewer than one word in six) to hold the rest together; it reads as a list, not a telling".to_string(),
+            "there are too few small words in it (the, and, of, it, was, or their like in Spanish, French, German, Portuguese or Italian: fewer than one word in six) to hold the rest together; it reads as a list, not a telling".to_string(),
         );
     }
     // Sentences: split on terminal punctuation; a wall of sixty words is not one.

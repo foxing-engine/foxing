@@ -30,10 +30,11 @@ pub const LEVELS: u8 = 3;
 /// What a story that carries the word pays, by level, as a factor.
 pub const BONUS: [f64; 3] = [1.5, 2.0, 2.5];
 /// D29: how many of the words a rung's word could be one story may carry and still
-/// strike. The first rung takes any story; the second hears three guesses to a
-/// story; the third hears one. (Two visitors of 11-10 climbed four ladders in four
+/// strike. The first and second rungs hear three guesses to a story (the first
+/// took any number until D57, David 11-24: one story carrying a hint's whole list
+/// of seventeen struck it); the third hears one. (Two visitors of 11-10 climbed four ladders in four
 /// minutes by putting a whole room's text in a story.)
-pub const GUESSES: [usize; 3] = [usize::MAX, 3, 1];
+pub const GUESSES: [usize; 3] = [3, 3, 1];
 /// How many misses before a hint narrows to the text, then to the sentence, by rung.
 const NARROWS: [(usize, usize); 3] = [(1, 2), (2, 4), (4, 8)];
 /// Words of the world, for a creature with nothing of its own to draw on.
@@ -698,10 +699,10 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
     // never had.
     let lent = from == "lore";
     let said = match level {
-        _ if lent => format!("There is a word under the others, and I do not say it. It is not mine; it is one of this world's own words, the kind the Threshold and the Fogbank are made of{}.", if level > 1 { ", the next of three" } else { "" }),
-        1 if from == "wanted" => "There is a word under the others, and I do not say it. It was in something I wanted before you came, and have not forgotten; ask me what I wanted once.".to_string(),
-        1 if born => "There is a word under the others, and I do not say it. It is the one that made me; whoever carried it knows it, and the record of my birth has it.".to_string(),
-        1 => "There is a word under the others, and I do not say it. It was in the first thing anyone told me; ask me to recite the first story.".to_string(),
+        _ if lent => format!("There is a word under the others, and I do not say it. It is not mine; it is one of this world's own words, the kind the Threshold and the Fogbank are made of{}.{}", if level > 1 { ", the next of three" } else { "" }, if level == 1 { " I hear three of the words it could be to a story; say more of them and I cannot tell which you meant." } else { "" }),
+        1 if from == "wanted" => "There is a word under the others, and I do not say it. It was in something I wanted before you came, and have not forgotten; ask me what I wanted once. I hear three of the words it could be to a story; say more of them and I cannot tell which you meant.".to_string(),
+        1 if born => "There is a word under the others, and I do not say it. It is the one that made me; whoever carried it knows it, and the record of my birth has it. I hear three of the words it could be to a story; say more of them and I cannot tell which you meant.".to_string(),
+        1 => "There is a word under the others, and I do not say it. It was in the first thing anyone told me; ask me to recite the first story. I hear three of the words it could be to a story; say more of them and I cannot tell which you meant.".to_string(),
         2 if from == "told" => "The first was found. The next was in the first thing anyone told me; ask me to recite it. I hear three of its words to a story now; say more of them and I cannot tell which you meant.".to_string(),
         2 => "The first was found. The next is in something I wanted once, and have not forgotten. I hear three of its words to a story now; say more of them and I cannot tell which you meant.".to_string(),
         _ => "The third and last is around me: a word of the room I stand in, as `look` says it. One of the room's words to a story and no more; say two and I cannot tell which you meant. And it moves on each time it is found. I weigh one guess at it from a name every three minutes; a story sent sooner I do not weigh at all.".to_string(),
