@@ -9263,7 +9263,7 @@ fn the_third_word_hears_one_guess_to_a_story_and_moves_on_when_found() {
     .unwrap_err()
     .to_string();
     assert!(
-        weighed.contains("still turning your last story over"),
+        weighed.contains("has heard a story of yours within the hour"),
         "{weighed}"
     );
     let declined = |w: &World| {
@@ -17166,4 +17166,54 @@ fn stories_go_round_oftener_and_the_second_word_is_a_meaning() {
     // The switch off: words again.
     admin(&mut w, "tyler", "sense", json!(["words"]));
     assert!(!secret::judged(&w, a));
+}
+
+#[test]
+fn a_word_whose_text_moved_on_is_drawn_again_from_the_text_the_hint_quotes() {
+    // The breaker of 11-24 carried every word of the sentence a hint quoted and
+    // struck nothing: the word had been drawn from a want that had since fallen off
+    // the creature's record.
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    for n in ["tyler", "polly"] {
+        login(&mut w, n, "test", PASS).unwrap();
+        ok(&mut w, n, "travel", json!(["east"]));
+    }
+    admin(&mut w, "tyler", "stock", json!(["Quillon, Marrowgate"]));
+    let c = admin(&mut w, "tyler", "earn", json!(["wisp", 300, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([&c, "wisp"]));
+    let fog = rooms::room_of(&w, find_citizen(&w, "tyler").unwrap().citizen).unwrap();
+    let named = combat::creatures_in(&w, fog)
+        .into_iter()
+        .map(|c| c.0)
+        .find(|&c| mind::name(&w, c).is_some())
+        .unwrap();
+    let given = mind::name(&w, named).unwrap().to_string();
+    ok(&mut w, "polly", "story", json!([&given, "Once a candle was left burning on a sill that nobody owned, and it burned until the morning came."]));
+    let mut changes = std::collections::BTreeMap::new();
+    changes.insert(
+        "secret".to_string(),
+        Field::Plain(json!({"word": "zeppelin", "level": 1, "struck": [], "from": "told"})),
+    );
+    mind::set_mind_pub(&mut w, Actor::Driver, named, changes).unwrap();
+    let (word, _, _) = secret::ensure(&mut w, named).unwrap().unwrap();
+    assert_ne!(word, "zeppelin");
+    let again = secret::ensure(&mut w, named).unwrap().unwrap().0;
+    assert_eq!(word, again);
+    // A story that carries the text it was drawn from says it.
+    let before = w
+        .recent_events(4000)
+        .iter()
+        .filter(|e| e.kind == secret::STRUCK)
+        .count();
+    let hit = secret::strike(&mut w, "tyler", named, &format!("I heard it said this way once, {word}, and I kept it by me through the whole long winter after.")).unwrap();
+    assert!(hit.is_some(), "the word drawn again is struck by saying it");
+    assert_eq!(
+        w.recent_events(4000)
+            .iter()
+            .filter(|e| e.kind == secret::STRUCK)
+            .count(),
+        before + 1
+    );
 }

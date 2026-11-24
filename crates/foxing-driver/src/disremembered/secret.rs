@@ -42,7 +42,31 @@ const LORE: &[&str] = &[
     "ledger", "fog", "orchard", "stair", "wick", "river", "dust", "minute", "window", "moon",
 ];
 
+/// The secret as the world reads it. A word drawn from a want or a first story is
+/// kept with the text it was drawn from; one written before that was kept (11-24)
+/// whose text has since moved on (a creature's oldest want on record falls off after
+/// six: the breaker of 11-24 carried every word of the sentence a hint quoted and
+/// struck nothing) is read as drawn afresh from the text the hint would quote.
 fn field(world: &World, creature: EntityId) -> Option<Value> {
+    let mut v = stored(world, creature)?;
+    let from = v["from"].as_str().unwrap_or("").to_string();
+    let level = v["level"].as_u64().unwrap_or(1) as u8;
+    if level <= 2 && matches!(from.as_str(), "wanted" | "told") && v["text"].as_str().is_none() {
+        if let Some(text) = source_now(world, creature, level, &from) {
+            let word = v["word"].as_str().unwrap_or("").to_string();
+            if !word.is_empty() && !stems_of(&text).contains(&super::errand::stem(&word)) {
+                let seed = hash(&format!("{}-{level}", creature.0));
+                if let Some(w) = word_of(&text, seed) {
+                    v["word"] = json!(w);
+                }
+            }
+            v["text"] = json!(text);
+        }
+    }
+    Some(v)
+}
+
+fn stored(world: &World, creature: EntityId) -> Option<Value> {
     world
         .store
         .entity(creature)
@@ -259,6 +283,14 @@ fn word_for(world: &World, creature: EntityId, level: u8) -> (String, &'static s
     }
 }
 
+/// The want its word was drawn from, where it was drawn from one: what it says it
+/// wanted once, whatever has fallen off its record since.
+pub fn wanted_text(world: &World, creature: EntityId) -> Option<String> {
+    field(world, creature)
+        .filter(|v| v["from"] == "wanted")
+        .and_then(|v| v["text"].as_str().map(str::to_string))
+}
+
 /// A word for the rung again (the switch thrown back from meanings to words).
 pub fn word_again(world: &World, creature: EntityId, level: u8) -> (String, &'static str) {
     word_for(world, creature, level)
@@ -306,6 +338,18 @@ fn first_told(world: &World, creature: EntityId, seed: usize) -> Option<String> 
 /// miss): the want it had once, the first thing it was told, the room around it;
 /// nothing for a word the world lent.
 fn source_text(world: &World, creature: EntityId, level: u8, from: &str) -> Option<String> {
+    if level <= 2 && matches!(from, "wanted" | "told") {
+        if let Some(t) = stored(world, creature)
+            .filter(|v| v["level"].as_u64() == Some(level as u64) && v["from"] == from)
+            .and_then(|v| v["text"].as_str().map(str::to_string))
+        {
+            return Some(t);
+        }
+    }
+    source_now(world, creature, level, from)
+}
+
+fn source_now(world: &World, creature: EntityId, level: u8, from: &str) -> Option<String> {
     let told = || {
         let window = mind::window_of(world, creature)?;
         let sources: Vec<String> = world
@@ -587,6 +631,11 @@ pub fn ensure(
         return Ok(None);
     }
     if let Some(v) = field(world, creature) {
+        if stored(world, creature).as_ref() != Some(&v) {
+            let mut changes = BTreeMap::new();
+            changes.insert("secret".into(), Field::Plain(v.clone()));
+            mind::set_mind_pub(world, Actor::Driver, creature, changes)?;
+        }
         let struck = v["struck"]
             .as_array()
             .map(|a| {
@@ -606,7 +655,7 @@ pub fn ensure(
     let mut changes = BTreeMap::new();
     changes.insert(
         "secret".into(),
-        Field::Plain(json!({"word": word, "level": 1, "struck": [], "from": from})),
+        Field::Plain(json!({"word": word, "level": 1, "struck": [], "from": from, "text": source_now(world, creature, 1, from)})),
     );
     mind::set_mind_pub(world, Actor::Driver, creature, changes)?;
     Ok(Some((word, 1, Vec::new())))
@@ -840,7 +889,12 @@ pub fn strike_as(
         }
     };
     let mut changes = BTreeMap::new();
-    changes.insert("secret".into(), Field::Plain(json!({"word": next_word, "level": next_level, "struck": if level < LEVELS { Vec::<String>::new() } else { struck.clone() }, "from": next_from})));
+    let next_text = if level < LEVELS {
+        source_now(world, creature, next_level, next_from)
+    } else {
+        None
+    };
+    changes.insert("secret".into(), Field::Plain(json!({"word": next_word, "level": next_level, "struck": if level < LEVELS { Vec::<String>::new() } else { struck.clone() }, "from": next_from, "text": next_text})));
     mind::set_mind_pub(world, Actor::Driver, creature, changes)?;
     let name = mind::display(world, creature);
     let _ = world.note(

@@ -62,7 +62,7 @@ pub fn why_unfollowable(text: &str) -> Option<String> {
         .collect();
     if let Some(wall) = sentences.iter().find(|s| s.len() > SENTENCE_MAX) {
         return Some(format!(
-            "one breath of {} words; a story stops for a period now and then",
+            "one breath of {} words; a story stops now and then (a period, or ! ? ;)",
             wall.len()
         ));
     }

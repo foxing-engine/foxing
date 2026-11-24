@@ -545,7 +545,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 // word its word could be, and was not it, is told so by the word.
                 let not_it = super::secret::miss_said(w, &ctx.actor, creature, &text);
                 return Err(CommandError::precondition(format!(
-                    "{name} is still turning your last story over: one an hour (its hour with you{}). {}{not_it}{}",
+                    "{name} has heard a story of yours within the hour and takes one an hour (its hour with you{}). {}{not_it}{}",
                     match hour_turns_in(w, &ctx.actor, creature) {
                         Some(ms) => format!(", which turns in {}", super::combat::human(ms)),
                         None => "; `wants` says when it turns".to_string(),

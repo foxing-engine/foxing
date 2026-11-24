@@ -684,7 +684,9 @@ WEIGH_SYSTEM = (
     "dry, brief, under 160 characters, no exclamation marks, no quotation marks, no "
     "mention of scores, rules or judges, and nothing but what a creature that heard a story "
     "would say. Unless the score is 3, the line must not state the meaning or paraphrase "
-    "it; it may say what the story was about instead. "
+    "it, and must not say what the story lacked, what was missing from it, or what the "
+    "creature did not hear in it: naming the absence names the meaning. Below 3 the line "
+    "speaks only of what the story did hold. The creature never says it keeps nothing. "
     "Answer with exactly one JSON object and nothing else: {\"score\": 0, \"line\": \"...\"}"
 )
 WEIGH_PLAIN = [

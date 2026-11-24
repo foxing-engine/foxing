@@ -199,14 +199,11 @@ pub fn ask(
     }
     let now = world.now().0;
     let mut list = weighing(world);
-    if list.iter().any(|j| {
-        j["from"] == actor
-            && j["creature"] == creature.0
-            && j["at"].as_i64().is_some_and(|at| now - at < 3_600_000)
-    }) {
+    if let Some(m) = wait(world, actor, creature) {
         return Ok(format!(
-            " Its {} word is a meaning, and it weighs one story an hour from a name against it; it has weighed one of yours within the hour, so this one was heard as a story.",
-            nth(level)
+            " Its {} word is a meaning, and it weighs one story an hour from a name against it; it has weighed one of yours within the hour, so this one was heard as a story. It weighs your next in {m} minute{}.",
+            nth(level),
+            if m == 1 { "" } else { "s" }
         ));
     }
     if !awake(world) {
@@ -270,11 +267,33 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
     } else {
         " (What weighs it is asleep tonight; it will keep.)"
     };
+    let when = match wait(world, actor, creature) {
+        Some(m) => format!(
+            " I weigh your next in {m} minute{}.",
+            if m == 1 { "" } else { "s" }
+        ),
+        None => String::new(),
+    };
     Some(format!(
-        "{} What I keep under it now is not a word but a meaning, the {} of three. {said} Tell me a story that is about that, in any words you like, and I will know it; I weigh one story an hour from a name, and say what I made of it a little after.{sleeping}",
+        "{} What I keep under it now is not a word but a meaning, the {} of three. {said} Tell me a story that is about that, in any words you like, and I will know it; I weigh one story an hour from a name, and say what I made of it a little after.{when}{sleeping}",
         if level == 2 { "The first was found." } else { "Two were found." },
         nth(level),
     ))
+}
+
+/// Minutes until `creature` weighs another story of `actor`'s, if it has weighed one
+/// within the hour (the breaker of 11-24 spent a story on a creature `wants` called
+/// ready: the hour it pays by and the hour it weighs by are two hours).
+pub fn wait(world: &World, actor: &str, creature: EntityId) -> Option<i64> {
+    let now = world.now().0;
+    weighing(world)
+        .iter()
+        .filter(|j| j["from"] == actor && j["creature"] == creature.0)
+        .filter_map(|j| j["at"].as_i64())
+        .map(|at| 3_600_000 - (now - at))
+        .filter(|ms| *ms > 0)
+        .max()
+        .map(|ms| (ms + 59_999) / 60_000)
 }
 
 /// The switch thrown, or a creature come to a rung: its secret is made to match. A
@@ -454,7 +473,7 @@ fn weigh(
                 Some(c) => format!("You remember it: chunk-{} worth {extra:.1} XP, {} what the story paid, and vivid.", c.0, match ((bonus - 1.0) * 10.0).round() as i64 { 5 => "half", 10 => "as much again as", _ => "one and a half times" }),
                 None => String::new(),
             },
-            if top { " There is none under that; it keeps another now for the next teller." } else { " There is another under that." }
+            if top { " That was the last of its three for you; it keeps another now for whoever comes next." } else { " There is another under that." }
         )
     } else {
         format!(
