@@ -451,7 +451,7 @@ fn weigh(
             nth(level),
             t.meaning,
             match earned {
-                Some(c) => format!("You remember it: chunk-{} worth {extra:.1} XP, {} of what the story paid, and vivid.", c.0, if bonus >= 2.0 { format!("{:.1} times", bonus - 1.0) } else { "half".to_string() }),
+                Some(c) => format!("You remember it: chunk-{} worth {extra:.1} XP, {} what the story paid, and vivid.", c.0, match ((bonus - 1.0) * 10.0).round() as i64 { 5 => "half", 10 => "as much again as", _ => "one and a half times" }),
                 None => String::new(),
             },
             if top { " There is none under that; it keeps another now for the next teller." } else { " There is another under that." }
