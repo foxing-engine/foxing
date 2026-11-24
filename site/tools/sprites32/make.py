@@ -730,6 +730,9 @@ s.px(31, 21, 'G'); s.px(30, 18, 'G'); s.px(31, 25, 'G')
 out['crier'] = s.out()
 
 order = ['citizen', 'docent', 'wisp', 'hollow', 'mothwing', 'inkling', 'ragpicker', 'revenant', 'sitter', 'drowned', 'hourhand', 'keeper', 'lanternfly', 'bookworm', 'proofreader', 'lampmoth', 'shusher', 'erratum', 'redactor', 'starfish', 'anemone', 'axolotl', 'hermit', 'mudskipper', 'newtling', 'custodian', 'dust devil', 'shelf mouse', 'silverfish', 'hand', 'usher', 'censor', 'cataloguer', 'engrosser', 'tapster', 'sweater', 'assayer', 'warden', 'tipstaff', 'footpad', 'gardener', 'lamprey', 'clipper', 'sigh', 'longsight', 'picnicker', 'bailiff', 'clerk', 'crier']
+# ---- the frames: each drawing moved a little (animate.py says how, kind by kind)
+from animate import animate, frames
+for n in order: out[n]['a'] = animate(n, out[n]['r'])
 json.dump(out, open(sys.argv[1] + '/atlas32.json', 'w'))
 sheet(out, sys.argv[1] + '/sheet32.png', 6, order=order)
 sheet(out, sys.argv[1] + '/sheet32-small.png', 2, bg=(92, 98, 104), order=order)
@@ -738,3 +741,22 @@ for n in order:
     used = set(''.join(out[n]['r'])) - {'.'}
     assert used <= set(out[n]['p']), (n, used - set(out[n]['p']))
 print('ok', len(out))
+
+# A sheet of every frame, a kind a row, to look the motion over.
+def frame_sheet(path, names, scale=4):
+    from PIL import Image
+    most = max(len(frames(out[n])) for n in names)
+    img = Image.new('RGB', (most * (N * scale + 6) + 6, len(names) * (N * scale + 6) + 6), (70, 76, 84))
+    for j, n in enumerate(names):
+        f = out[n]
+        for k, rows in enumerate(frames(f)):
+            for y in range(N):
+                for x in range(N):
+                    ch = rows[y][x]
+                    if ch == '.': continue
+                    c = f['p'][ch].lstrip('#'); rgb = tuple(int(c[i:i + 2], 16) for i in (0, 2, 4))
+                    for dy in range(scale):
+                        for dx in range(scale): img.putpixel((6 + k * (N * scale + 6) + x * scale + dx, 6 + j * (N * scale + 6) + y * scale + dy), rgb)
+    img.save(path)
+for i in range(0, len(order), 13): frame_sheet(sys.argv[1] + '/frames-%d.png' % (i // 13), order[i:i + 13])
+print('frames', sum(len(out[n]['a']['f']) for n in order), 'bytes', len(json.dumps({n: out[n]['a'] for n in order})))

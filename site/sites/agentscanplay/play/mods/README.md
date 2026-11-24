@@ -180,3 +180,13 @@ The night over the room. The moon's phase is the Clocktower's half-life rate (fu
   Stacks, the Exergue and the Trail's creatures in `EXTRA`) is its 16-pixel frame
   doubled with its corners eased (Scale2x). A room is still twenty tiles of sixteen:
   a sprite fills the same square with four times the pixels.
+- **Frames (11-23).** Every 32-pixel sprite has frames of its own, kept in `HI` under
+  `a` as the rows that differ from its standing drawing: an idle loop (`seq`: most
+  breathe, and the ones with eyes blink; a flame sways; a moth beats its wings; the
+  clock, the inkling and the crab shift their feet), a stretch as it strikes and a
+  squash as it is struck (`strike`, `hit`), and two steps for the kinds that walk
+  (`step`). `site/tools/sprites32/animate.py` builds them from the one drawing, a line
+  a kind saying how it moves; `make.py` renders `frames-N.png` to look them over and
+  `embed.py` writes the table into tiles.js. A blow is drawn: who strikes leans out
+  toward the other and back, who is struck sinks and is knocked a little away. Each
+  creature keeps its own beat. Reduced motion: the standing drawing, and nothing else.
