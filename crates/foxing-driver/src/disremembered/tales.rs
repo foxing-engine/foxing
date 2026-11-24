@@ -39,7 +39,7 @@ pub const MAX_TALES: usize = 5;
 /// A copy nobody mends is let go after this.
 pub const TALE_LIFE_MS: i64 = 5 * 86_400_000;
 /// A creature passes one story on, and then not again for this long (David: slowly).
-pub const PASS_EVERY_MS: i64 = 86_400_000;
+pub const PASS_EVERY_MS: i64 = 4 * 3_600_000;
 /// The teller's name wears one step a hand, one chance in this (David: by hop, with a
 /// percentage chance).
 pub const NAME_WEARS_ONE_IN: u32 = 2;
@@ -67,12 +67,15 @@ pub struct Tale {
     pub at: i64,
     /// Names paid for mending or claiming this copy.
     pub paid: Vec<String>,
+    /// When its holder last told it on (0: never). D48: the one longest untold goes
+    /// next, so every story a creature holds gets its turn.
+    pub told: i64,
 }
 
 impl Tale {
     fn json(&self) -> Value {
         json!({"id": self.id, "by": self.by, "credit": self.credit, "whose": self.whose, "first": self.first,
-               "hops": self.hops, "text": self.text, "keys": self.keys, "at": self.at, "paid": self.paid})
+               "hops": self.hops, "text": self.text, "keys": self.keys, "at": self.at, "paid": self.paid, "told": self.told})
     }
     fn from(v: &Value) -> Option<Tale> {
         let strs = |k: &str| -> Vec<String> {
@@ -95,6 +98,7 @@ impl Tale {
             keys: strs("keys"),
             at: v["at"].as_i64().unwrap_or(0),
             paid: strs("paid"),
+            told: v["told"].as_i64().unwrap_or(0),
         })
     }
     /// "it had from Gnosis", "someone told Tinsel", "nobody says whose".
@@ -229,6 +233,7 @@ pub fn heard(
             keys,
             at: now,
             paid: Vec::new(),
+            told: 0,
         });
     }
     keep(world, creature, tales, None)?;
@@ -303,7 +308,9 @@ fn named_here(world: &World, room: EntityId, but: EntityId) -> Vec<EntityId> {
 }
 
 /// One creature's turn to tell: if another named creature shares its room and it has
-/// told nothing for a day, it passes on the newest story the other lacks.
+/// told nothing for four hours, it passes on a story the other lacks: the one it has
+/// gone longest without telling (never told, oldest first), so each gets its turn
+/// (D48: at one a day and the newest first, a shepherd's own stories never went).
 pub fn pass(world: &mut World, c: EntityId) -> Result<bool, String> {
     let now = world.now().0;
     if told_lately(world, c) {
@@ -321,7 +328,7 @@ pub fn pass(world: &mut World, c: EntityId) -> Result<bool, String> {
         let Some(tale) = mine
             .iter()
             .filter(|t| words_of(&t.text) >= MIN_WORDS && !theirs.iter().any(|o| o.id == t.id))
-            .max_by_key(|t| t.at)
+            .min_by_key(|t| (t.told, t.at))
             .cloned()
         else {
             continue;
@@ -341,12 +348,17 @@ pub fn pass(world: &mut World, c: EntityId) -> Result<bool, String> {
             text: text.clone(),
             at: now,
             paid: Vec::new(),
+            told: 0,
             ..tale.clone()
         };
         let mut theirs = theirs;
         theirs.push(copy);
         keep(world, other, theirs, None).map_err(|e| e.to_string())?;
-        keep(world, c, mine.clone(), Some(now)).map_err(|e| e.to_string())?;
+        let mut mine = mine.clone();
+        if let Some(t) = mine.iter_mut().find(|t| t.id == tale.id) {
+            t.told = now;
+        }
+        keep(world, c, mine, Some(now)).map_err(|e| e.to_string())?;
         super::combat::narrate_room(
             world,
             c,
@@ -402,6 +414,7 @@ pub fn bequeath(
         text,
         at: world.now().0,
         paid: Vec::new(),
+        told: 0,
         ..tale.clone()
     };
     let mut theirs = of(world, heir);
@@ -409,8 +422,40 @@ pub fn bequeath(
     keep(world, heir, theirs, None)
 }
 
+/// D49: the way from `here` toward a named creature that lacks a story `c` could
+/// tell, one door off or two (most named creatures do not live next door to
+/// another): the door to take, who it is going to, and whether that door is the last.
+pub fn way_to_a_listener(
+    world: &World,
+    c: EntityId,
+    here: EntityId,
+) -> Option<(String, EntityId, bool)> {
+    if let Some((via, o)) = door_to_a_listener(world, c, here) {
+        return Some((via, o, true));
+    }
+    super::rooms::exits_of(world, here)
+        .iter()
+        .filter(|(_, to)| !super::plain_bool(world, **to, ROOM, "hidden"))
+        .find_map(|(via, to)| {
+            door_to_a_listener(world, c, *to).map(|(_, o)| (via.clone(), o, false))
+        })
+}
+
+/// Whether `creature` holds a story of `actor`'s, under their name and as they told
+/// it, that `text` is a telling of (D50: such a retelling renews it and pays nothing).
+pub fn holds_whole(world: &World, creature: EntityId, actor: &str, text: &str) -> bool {
+    let keys = super::exchange::story_words(text);
+    of(world, creature).iter().any(|t| {
+        t.credit == actor
+            && t.by == actor
+            && t.whose == 0
+            && t.hops == 0
+            && share(&t.keys, &keys) >= ALIKE
+    })
+}
+
 /// A door from `here` into a room where a named creature stands that lacks a story
-/// `c` could tell, for a creature at home with a day's telling unspent.
+/// `c` could tell, for a creature with its telling unspent.
 pub fn door_to_a_listener(
     world: &World,
     c: EntityId,

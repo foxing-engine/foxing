@@ -71,7 +71,7 @@ pub fn entity(world: &World) -> Option<EntityId> {
     world.store.of_kind("docent").next().map(|e| e.id)
 }
 
-fn field(world: &World, name: &str) -> Option<Value> {
+pub(crate) fn field(world: &World, name: &str) -> Option<Value> {
     let id = entity(world)?;
     match world
         .store
@@ -86,7 +86,10 @@ fn field(world: &World, name: &str) -> Option<Value> {
     }
 }
 
-fn write(world: &mut World, changes: BTreeMap<String, Value>) -> Result<EntityId, String> {
+pub(crate) fn write(
+    world: &mut World,
+    changes: BTreeMap<String, Value>,
+) -> Result<EntityId, String> {
     let id = entity(world).ok_or("the Docent does not stand")?;
     let mut fields = world
         .store
@@ -1479,6 +1482,8 @@ fn room_record(world: &World, room: EntityId) -> Vec<String> {
 /// the named creatures' wants, the newest rooms), and the Docent's state.
 pub fn report(world: &World) -> Value {
     let now = world.now().0;
+    // D33: the tool that reads this is the one that weighs meanings; it is listening.
+    super::meaning::listened(world);
     let hl = atlas_hl();
     // Open, and the ones the world gave up on within the hour (R73): the desk was
     // empty across a deploy, and a late page still finds the asker.
@@ -1574,6 +1579,10 @@ pub fn report(world: &World) -> Value {
         "court": super::court::pending(world),
         // The forearms the Bailiff is still thinking about.
         "tattoos": super::courthouse::pending_tattoos(world),
+        // D33: the stories being weighed against a creature's meaning.
+        "weighing": super::meaning::pending(world),
+        // Null until it has been thrown either way (the tool throws it on, once).
+        "sense": field(world, "sense"),
         "docent": {"name": NAME, "story": STORY},
         "answered": field(world, "answered").unwrap_or(json!(0)),
         "tidied": field(world, "tidied").unwrap_or(json!(0)),

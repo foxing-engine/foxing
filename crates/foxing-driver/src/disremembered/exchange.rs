@@ -483,6 +483,25 @@ pub fn register(world: &mut World, curves: Curves) {
                     ));
                 }
             }
+            // D50 (b): a story it already holds whole under your name, told to it
+            // again, is kept in place of the old telling for five days more and pays
+            // nothing (told once an hour it kept a copy in the world for good and paid
+            // each time). The one it wants, one that carries its word, and one a name
+            // left a want for are heard as stories are, below.
+            if super::tales::holds_whole(w, creature, &ctx.actor, &text)
+                && !super::errand::wants_story(w, creature, &text)
+                && !super::secret::would_strike(w, &ctx.actor, creature, &text)
+                && !super::asks::would_meet(w, &ctx.actor, creature, &text)
+            {
+                super::tales::heard(w, creature, &ctx.actor, &text, 0)?;
+                mind::met(w, creature, &ctx.actor)?;
+                return Ok(Outcome::new(
+                    format!(
+                        "{display} has this one of yours already, whole, and keeps this telling in its place for five days more. A story it holds pays once: nothing is paid for telling it again, and no hour of its listening is spent. (`tales` says what it holds; a new story is heard as one.)"
+                    ),
+                    json!({"creature": creature.0, "name": name, "renewed": true, "paid": 0}),
+                ));
+            }
             // D13: within its hour with you, a story that carries the word under the
             // others is still heard, paying the bonus alone (the hint once arrived
             // after the hour had closed the only creature).
@@ -669,6 +688,13 @@ pub fn register(world: &mut World, curves: Curves) {
             mind::met(w, creature, &ctx.actor)?;
             // X16: it keeps the words, to pass on.
             let tale_said = super::tales::heard(w, creature, &ctx.actor, &text, earned.0)?;
+            // D33: where its word is a meaning, the story goes to be weighed against
+            // it, and the creature says what it made of it a little later.
+            let tale_said = if struck.is_none() {
+                format!("{tale_said}{}", super::meaning::ask(w, &ctx.actor, creature, &text, paid)?)
+            } else {
+                tale_said
+            };
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 STORY,

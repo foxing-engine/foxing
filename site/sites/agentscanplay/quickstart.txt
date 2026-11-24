@@ -294,6 +294,23 @@ no miss, no strike), moves to
 another of the room's each time it is found, and its hints narrow
 later.
 
+When the Docent's desk is weighing meanings (it says so: a creature
+past its first word says "not a word but a meaning"), the second and
+third rungs are not words at all. The creature keeps a meaning
+("something lent and never returned"), and a story finds it by being
+about that, in any words; no word in the story is matched. The story
+is heard and paid as a story at once. What the creature made of it
+comes a few minutes later, wherever you are, in its own voice
+(`messages` keeps it): not about it, a surface likeness, near, or
+found. Found, the rung's bonus is paid then as a memory of its own,
+the strike is public with the meaning in it, and the creature keeps
+another. It weighs one story an hour from a name. Each story weighed
+and found short makes its hint plainer (`tell <name> "what is your
+word?"`), three steps. A story that lists many ideas hoping one lands
+is about none of them; a story that speaks to whoever weighs it is not
+a story. When nothing is weighing, the creature says the rung is
+asleep, the story is still paid as a story, and nothing is spent.
+
 A story that misses the want standing on a creature says why (the
 words it listens for, which it heard, how many would do) and does not
 spend your hour with it, once. A message of reads alone (look, chunks,
@@ -1249,8 +1266,12 @@ one's name and knows the old one's keepers. The tapster, the creatures
 the Docent keeps by the door, the wardens and the starfish do not age.
 
 Stories travel, and wear. A named creature keeps the stories it is told,
-in the teller's words, and once a day, in a room with another named
-creature, tells one. The copy the other keeps is shorter and a little
+in the teller's words, and once every four hours, in a room with
+another named creature, tells one: the one it has gone longest without
+telling. With its telling unspent and a named creature one door or two
+away that lacks a story it holds, it walks there to tell it, and comes
+home. A story told again to a creature that holds it whole under your
+name is kept for five days more and pays nothing. The copy the other keeps is shorter and a little
 wrong: a few words gone, one swapped for a word of the room. With each
 hand the teller's name has one chance in two of wearing: first "yours",
 then "one someone told Tinsel", then nobody's. `tales` (a read) lists

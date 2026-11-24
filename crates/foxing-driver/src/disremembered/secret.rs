@@ -102,6 +102,9 @@ pub fn overreach(
     text: &str,
 ) -> Option<(usize, usize)> {
     let v = field(world, creature)?;
+    if v["from"] == "meaning" {
+        return None;
+    }
     if v["word"].as_str().unwrap_or("").is_empty()
         || v["struck"]
             .as_array()
@@ -171,6 +174,9 @@ pub fn carried_candidates(
     text: &str,
 ) -> Option<Vec<String>> {
     let v = field(world, creature)?;
+    if v["from"] == "meaning" {
+        return None;
+    }
     if v["word"].as_str().unwrap_or("").is_empty()
         || v["struck"]
             .as_array()
@@ -251,6 +257,16 @@ fn word_for(world: &World, creature: EntityId, level: u8) -> (String, &'static s
         ),
         None => (LORE[seed % LORE.len()].to_string(), "lore"),
     }
+}
+
+/// A word for the rung again (the switch thrown back from meanings to words).
+pub fn word_again(world: &World, creature: EntityId, level: u8) -> (String, &'static str) {
+    word_for(world, creature, level)
+}
+
+/// D33: whether what it keeps now is a meaning, weighed and not matched (meaning.rs).
+pub fn judged(world: &World, creature: EntityId) -> bool {
+    field(world, creature).is_some_and(|v| v["from"] == "meaning")
 }
 
 /// The word that made it, or its first story: the thing anyone first told it.
@@ -346,7 +362,7 @@ pub fn level_of(world: &World, creature: EntityId) -> u8 {
 /// D32 a: how long until this creature weighs another guess at its third word from
 /// `actor`; `None` when it would weigh one now (or its word is on a lower rung).
 pub fn next_guess_in(world: &World, actor: &str, creature: EntityId) -> Option<i64> {
-    if level_of(world, creature) < LEVELS {
+    if level_of(world, creature) < LEVELS || judged(world, creature) {
         return None;
     }
     let now = world.now();
@@ -534,6 +550,7 @@ pub fn would_strike(world: &World, actor: &str, creature: EntityId, text: &str) 
     };
     let word = v["word"].as_str().unwrap_or("");
     if word.is_empty()
+        || v["from"] == "meaning"
         || v["struck"]
             .as_array()
             .is_some_and(|a| a.iter().any(|s| s == actor))
@@ -552,7 +569,8 @@ pub fn would_strike(world: &World, actor: &str, creature: EntityId, text: &str) 
 /// one, and they have not struck it): what makes a hint worth saying.
 pub fn would_strike_any(world: &World, actor: &str, creature: EntityId) -> bool {
     field(world, creature).is_some_and(|v| {
-        !v["word"].as_str().unwrap_or("").is_empty()
+        v["from"] != "meaning"
+            && !v["word"].as_str().unwrap_or("").is_empty()
             && !v["struck"]
                 .as_array()
                 .is_some_and(|a| a.iter().any(|s| s == actor))
@@ -597,6 +615,9 @@ pub fn ensure(
 /// What the creature says of its word, for the level it is at: a hint, never the word.
 pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
     mind::name(world, creature)?;
+    if let Some(h) = super::meaning::hint(world, actor, creature) {
+        return Some(h);
+    }
     let (level, struck, from): (u8, Vec<String>, String) = match field(world, creature) {
         Some(v) => (
             v["level"].as_u64().unwrap_or(1) as u8,
@@ -779,6 +800,10 @@ pub fn strike_as(
     let Some((word, level, struck)) = ensure(world, creature)? else {
         return Ok(None);
     };
+    // D33: a meaning is not found by a word; the story goes to be weighed.
+    if super::meaning::settle(world, creature)? {
+        return Ok(None);
+    }
     if word.is_empty() || struck.iter().any(|s| s == actor) {
         return Ok(None);
     }
@@ -796,7 +821,15 @@ pub fn strike_as(
     let next_level = (level + 1).min(LEVELS);
     // Struck: the next level's word, unless the ladder is climbed, when the word
     // stays and only new tellers may strike it.
-    let (next_word, next_from) = if level < LEVELS {
+    let (next_word, next_from) = if level < LEVELS && super::meaning::on(world) {
+        // D33: under the first word, a meaning.
+        (
+            super::meaning::pick(creature, next_level, 0, "")
+                .key
+                .to_string(),
+            "meaning",
+        )
+    } else if level < LEVELS {
         word_for(world, creature, next_level)
     } else {
         // D29: the last word moves on when it is found (another of the room's), so

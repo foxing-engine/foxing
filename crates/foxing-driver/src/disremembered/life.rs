@@ -605,8 +605,8 @@ fn business_of(world: &mut World, c: EntityId) -> Result<bool, String> {
     if hp < max * 0.5 {
         return Ok(false);
     }
-    // X16: with another named creature in the room and a day's telling unspent, it
-    // tells one of the stories it holds.
+    // X16: with another named creature in the room and its telling unspent (one
+    // every four hours, D48), it tells one of the stories it holds.
     if super::tales::pass(world, c)? {
         return Ok(true);
     }
@@ -681,6 +681,18 @@ fn business_of(world: &mut World, c: EntityId) -> Result<bool, String> {
     }
     // Nobody to find: home, a room at a time.
     if here != home {
+        // D49 (c): one door out on its way to tell a story two doors from home, it
+        // goes the second door before it turns back.
+        let near_home = super::errand::route(world, here, home).is_some_and(|p| p.len() == 1);
+        if near_home {
+            if let Some((via, other)) = super::tales::door_to_a_listener(world, c, here) {
+                let other = super::mind::display(world, other);
+                let leave = format!("{name} goes {via}, with something to tell {other}.");
+                let arrive = format!("{name} comes in, with something to tell {other}.");
+                super::combat::walk_said(world, c, here, &via, "tale", &leave, &arrive, BUSINESS)?;
+                return Ok(true);
+            }
+        }
         if let Some(path) = super::errand::route(world, here, home) {
             if let Some(via) = path.first() {
                 let leave = format!("{name} goes {via}, its business done.");
@@ -696,16 +708,20 @@ fn business_of(world: &mut World, c: EntityId) -> Result<bool, String> {
         set_home(world, c, here)?;
         return Ok(false);
     }
-    // X16: at home with a story untold today and a named neighbor a door away: it
-    // goes to tell it, one time in three, and comes home by the rule above.
-    if world.roll(3) == 0 {
-        if let Some((via, other)) = super::tales::door_to_a_listener(world, c, here) {
-            let other = super::mind::display(world, other);
-            let leave = format!("{name} goes {via}, with something to tell {other}.");
-            let arrive = format!("{name} comes in, with something to tell {other}.");
-            super::combat::walk_said(world, c, here, &via, "tale", &leave, &arrive, BUSINESS)?;
-            return Ok(true);
-        }
+    // X16, D49: at home with its telling unspent and a named creature one door or
+    // two away that lacks a story it holds: it goes to tell it, whenever its turn
+    // comes (it was one time in three, and in ninety minutes of a Watch nobody
+    // went), and comes home by the rule above.
+    if let Some((via, other, last)) = super::tales::way_to_a_listener(world, c, here) {
+        let other = super::mind::display(world, other);
+        let leave = format!("{name} goes {via}, with something to tell {other}.");
+        let arrive = if last {
+            format!("{name} comes in, with something to tell {other}.")
+        } else {
+            format!("{name} comes through, with something to tell {other}, farther on.")
+        };
+        super::combat::walk_said(world, c, here, &via, "tale", &leave, &arrive, BUSINESS)?;
+        return Ok(true);
     }
     // At home, with company: a line of its own, now and then.
     let company = world

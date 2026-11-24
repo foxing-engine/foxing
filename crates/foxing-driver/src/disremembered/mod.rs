@@ -38,6 +38,7 @@ pub mod kindle;
 pub mod letters;
 pub mod life;
 pub mod lore;
+pub mod meaning;
 pub mod memory;
 pub mod mind;
 pub mod morphos;
@@ -453,6 +454,10 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("round", FieldKind::Plain, Visibility::Public)
             // The operator's answering name, which is not greeted as a visitor.
             .field("desk", FieldKind::Plain, Visibility::Admin)
+            // D33: whether the second and third words are meanings, and the stories
+            // being weighed against them (meaning.rs).
+            .field("sense", FieldKind::Plain, Visibility::Admin)
+            .field("weighing", FieldKind::Plain, Visibility::Admin)
             // The greeting book, stocked nightly: {first: [...], welcome: [...]}.
             .field("book", FieldKind::Plain, Visibility::Public),
         // Morphos: whether it stands, where, the riddle, who was asked, the ladders.
@@ -1481,6 +1486,7 @@ pub fn register(world: &mut World, curves: Curves) {
     tales::register(world);
     court::register(world);
     exchange::register(world, curves.clone());
+    meaning::register(world, curves.clone());
     errand::register(world);
     asks::register(world);
     bard::register(world);

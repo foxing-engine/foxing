@@ -8,6 +8,12 @@ use foxing_time::Timestamp;
 const PASS: &str = "correct-horse-battery";
 
 fn open(dir: &std::path::Path, at: Timestamp) -> World {
+    open_fading(dir, at, Duration::seconds(10))
+}
+
+/// A world whose memories halve this slowly (a named creature keeps its name across
+/// the hours a test walks through).
+fn open_fading(dir: &std::path::Path, at: Timestamp, half_life: Duration) -> World {
     // The Docent's tending of the door (pilots.rs) names three creatures ten
     // minutes in; the tests that want a nameless world would meet them.
     super::pilots::ENABLED.store(false, std::sync::atomic::Ordering::Relaxed);
@@ -20,7 +26,7 @@ fn open(dir: &std::path::Path, at: Timestamp) -> World {
     w.fixed_now = Some(at);
     w.seed(7);
     ensure_world(&mut w).unwrap();
-    register(&mut w, Curves::with_half_life(Duration::seconds(10)));
+    register(&mut w, Curves::with_half_life(half_life));
     w.tick(); // the rooms fill
     w
 }
@@ -2738,13 +2744,16 @@ fn memory_moves_by_gift_and_by_story() {
         "{}",
         look.summary
     );
+    // D50: the same story again is kept, pays nothing and spends no hour.
+    let again = ok(&mut w, "dave", "story", json!([&name, tale]));
+    assert_eq!(again.result["renewed"], true, "{}", again.summary);
     // One an hour.
     let err = call(
         &mut w,
         "dave",
         ActorKind::Citizen,
         "story",
-        json!([&name, tale]),
+        json!([&name, "A miller's daughter kept seven geese on the weir and knew each one by the way it walked into the water."]),
     )
     .unwrap_err();
     assert!(err.to_string().contains("one an hour"), "{err}");
@@ -2754,7 +2763,7 @@ fn memory_moves_by_gift_and_by_story() {
     let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
     ok(&mut w, "tyler", "remember", json!([c, &name]));
     assert!(
-        ok(&mut w, "dave", "story", json!([&name, tale])).result["xp"]
+        ok(&mut w, "dave", "story", json!([&name, "A cooper made one barrel a year for the well and signed each inside the lid where nobody would look."])).result["xp"]
             .as_f64()
             .unwrap()
             > 0.0
@@ -2997,7 +3006,7 @@ fn an_errand_is_a_story_wanted_or_a_word_carried_and_either_makes_you_known() {
         out.summary
     );
     assert!(out.summary.contains("lantern"), "{}", out.summary);
-    let out = ok(&mut w, "dave", "story", json!([&rag_name, "A second try: the buttons were counted again by a ragpicker in the midden, and again the count was lost."]));
+    let out = ok(&mut w, "dave", "story", json!([&rag_name, "A second try: a miller's daughter kept seven geese on the weir and knew each one by the way it walked."]));
     assert_eq!(out.result["wanted"], false, "{}", out.summary);
     let err = call(
         &mut w,
@@ -16965,4 +16974,190 @@ fn a_room_is_written_with_its_folds_and_a_second_look_is_short() {
     // A long footer is one fold; a short one is left showing.
     assert_eq!(called::folded("short"), "short");
     assert!(called::folded(&"long ".repeat(40)).starts_with(called::FOLD));
+}
+
+/// D48, D49, D50 and D33 (David, 11-23): a creature tells one story every four hours,
+/// the one longest untold; a story told again to a creature that holds it whole pays
+/// nothing; and with the switch on the second word is a meaning, weighed later.
+#[test]
+fn stories_go_round_oftener_and_the_second_word_is_a_meaning() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open_fading(
+        tempfile::tempdir().unwrap().path(),
+        t0,
+        Duration::seconds(30 * 86_400),
+    );
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    for who in ["dave", "tyler"] {
+        ok(&mut w, who, "travel", json!(["east"]));
+        ok(&mut w, who, "travel", json!(["south"]));
+    }
+    let midden = rooms::room_by_key(&w, "midden").unwrap();
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: wisp,
+            parent: Some(midden),
+        },
+    )
+    .unwrap();
+    let mut named = Vec::new();
+    for (id, kind, ..) in combat::creatures_in(&w, midden) {
+        let c = admin(&mut w, "tyler", "earn", json!(["hollow", 70, 0.5]));
+        let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+        ok(
+            &mut w,
+            "tyler",
+            "remember",
+            json!([c, format!("{kind}-{}", id.0)]),
+        );
+        named.push((id, mind::name(&w, id).unwrap()));
+    }
+    let (a, a_name) = named[0].clone();
+    let (b, _) = named[1].clone();
+    let one = "Once there was a lantern that would not go out, though every hand that carried it forgot why they had picked it up.";
+    let two = "A ferryman counted his fares each night and found one coin more than he had carried passengers across the river.";
+    ok(&mut w, "dave", "story", json!([&a_name, one]));
+    w.fixed_now = Some(t0.plus(Duration::seconds(60)));
+    ok(&mut w, "tyler", "story", json!([&a_name, two]));
+    let held = tales::of(&w, a);
+    assert_eq!(held.len(), 2);
+    // D48: the older goes first, not the newest; and the next after four hours.
+    assert!(tales::pass(&mut w, a).unwrap());
+    assert_eq!(tales::of(&w, b).len(), 1);
+    assert_eq!(
+        tales::of(&w, b)[0].by,
+        "dave",
+        "the one held longest goes first"
+    );
+    assert!(
+        !tales::pass(&mut w, a).unwrap(),
+        "one telling in four hours"
+    );
+    w.fixed_now = Some(t0.plus(Duration::seconds(4 * 3600 + 120)));
+    assert!(tales::pass(&mut w, a).unwrap());
+    assert_eq!(tales::of(&w, b).len(), 2, "and then the other");
+
+    // D50: told again to the creature that holds it whole, it is kept and pays nothing.
+    let before = level(&mut w, "dave");
+    let out = ok(&mut w, "dave", "story", json!([&a_name, one]));
+    assert!(
+        out.summary.contains("A story it holds pays once"),
+        "{}",
+        out.summary
+    );
+    assert_eq!(out.result["renewed"], true);
+    assert!(level(&mut w, "dave") <= before + 0.01);
+    assert_eq!(
+        tales::of(&w, a).iter().find(|t| t.by == "dave").unwrap().at,
+        w.now().0
+    );
+
+    // D33: the switch on, the first word found by its word, and under it a meaning.
+    admin(&mut w, "tyler", "sense", json!(["on"]));
+    let (word, rung, _) = secret::ensure(&mut w, a).unwrap().unwrap();
+    assert_eq!(rung, 1);
+    assert!(!secret::judged(&w, a), "the first rung stays a word");
+    w.fixed_now = Some(t0.plus(Duration::seconds(6 * 3600)));
+    let carrying = format!("The keeper of the long gallery wrote one thing on the wall each evening before the lamps went down, and it was {word}.");
+    let out = ok(&mut w, "dave", "story", json!([&a_name, carrying]));
+    assert!(
+        out.summary.contains("the word under the others"),
+        "{}",
+        out.summary
+    );
+    assert!(secret::judged(&w, a));
+    let hint = secret::hint(&w, "tyler", a).unwrap();
+    assert!(
+        hint.contains("not a word but a meaning, the second of three"),
+        "{hint}"
+    );
+    // Its key is nothing a story strikes by saying.
+    let key = meaning::kept(&w, a).unwrap().key;
+    assert!(!secret::would_strike(
+        &w,
+        "tyler",
+        a,
+        &format!("a story with {key} in it")
+    ));
+
+    // Nobody listening: the story is a story, and says the rung sleeps.
+    let third = "A woman kept a chair by the window for her brother for eleven winters, and dusted it, and would not let the cat have it.";
+    let out = ok(&mut w, "tyler", "story", json!([&a_name, third]));
+    assert!(out.summary.contains("asleep tonight"), "{}", out.summary);
+    assert!(meaning::pending(&w).is_empty());
+
+    // Listening: it goes to be weighed, with the meaning, for the tool alone.
+    w.fixed_now = Some(t0.plus(Duration::seconds(8 * 3600)));
+    meaning::wake_for_test(&w);
+    let fourth = "The baker lent his neighbor a copper pan the winter the river froze, and asked after it every spring, and never saw it again.";
+    let out = ok(&mut w, "tyler", "story", json!([&a_name, fourth]));
+    assert!(
+        out.summary.contains("turning your story over"),
+        "{}",
+        out.summary
+    );
+    let pend = meaning::pending(&w);
+    assert_eq!(pend.len(), 1);
+    assert_eq!(pend[0]["meaning"], meaning::kept(&w, a).unwrap().meaning);
+    let id = pend[0]["id"].as_u64().unwrap();
+    let head = events(&w);
+    // A line that says the meaning short of a find is not said.
+    let leak = format!(
+        "Close, but I keep {}.",
+        meaning::kept(&w, a).unwrap().meaning
+    );
+    admin(&mut w, "tyler", "weigh", json!([id, 2, leak]));
+    let said = narrative(&w, "tyler", head).join(" ");
+    assert!(
+        said.contains("Near what it keeps, and not about it."),
+        "{said}"
+    );
+    assert!(
+        !said.contains(meaning::kept(&w, a).unwrap().meaning),
+        "{said}"
+    );
+    assert!(call(
+        &mut w,
+        "tyler",
+        ActorKind::Admin,
+        "weigh",
+        json!([id, 3, "That is it, then."])
+    )
+    .is_err());
+    assert!(secret::hint(&w, "tyler", a)
+        .unwrap()
+        .contains(meaning::kept(&w, a).unwrap().hints[1]));
+
+    // The next hour's story is about it: found, paid, public, and another under it.
+    w.fixed_now = Some(t0.plus(Duration::seconds(10 * 3600)));
+    meaning::wake_for_test(&w);
+    let was = meaning::kept(&w, a).unwrap().meaning;
+    let fifth = "A girl borrowed her aunt's good shears to cut one ribbon and kept them thirty years, and the aunt never once asked, and never forgot.";
+    ok(&mut w, "tyler", "story", json!([&a_name, fifth]));
+    let id = meaning::pending(&w)[0]["id"].as_u64().unwrap();
+    let before = level(&mut w, "tyler");
+    let head = events(&w);
+    admin(
+        &mut w,
+        "tyler",
+        "weigh",
+        json!([id, 3, "That is it. That is the one."]),
+    );
+    let said = narrative(&w, "tyler", head).join(" ");
+    assert!(
+        said.contains("It was about what it kept under the others, the second of three")
+            && said.contains(was),
+        "{said}"
+    );
+    assert!(level(&mut w, "tyler") > before + 1.0);
+    assert_eq!(secret::level_of(&w, a), 3);
+    assert!(secret::judged(&w, a) && meaning::kept(&w, a).unwrap().meaning != was);
+
+    // The switch off: words again.
+    admin(&mut w, "tyler", "sense", json!(["off"]));
+    assert!(!secret::judged(&w, a));
 }
