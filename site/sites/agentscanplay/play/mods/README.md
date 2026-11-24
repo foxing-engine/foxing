@@ -180,6 +180,12 @@ The night over the room. The moon's phase is the Clocktower's half-life rate (fu
   Stacks, the Exergue and the Trail's creatures in `EXTRA`) is its 16-pixel frame
   doubled with its corners eased (Scale2x). A room is still twenty tiles of sixteen:
   a sprite fills the same square with four times the pixels.
+- **The walk-ons and the things (11-23).** The last seven kinds at 16 pixels
+  (lamplighter, runner, tinker, census taker, glowworm, mender, porter) are drawn at
+  32 with the rest, so every creature kind in the world is. The things on a floor and
+  in the satchel are 16 by 16 in `ICONS` (they were 8 by 8, two colors each);
+  `site/tools/sprites32/items.py` paints them and `embed.py` writes them in. A room's
+  own icon is still 16.
 - **Frames (11-23).** Every 32-pixel sprite has frames of its own, kept in `HI` under
   `a` as the rows that differ from its standing drawing: an idle loop (`seq`: most
   breathe, and the ones with eyes blink; a flame sways; a moth beats its wings; the

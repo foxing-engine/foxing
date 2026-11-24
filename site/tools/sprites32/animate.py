@@ -110,7 +110,7 @@ def fig_eyes(g):
 
 # ---- which kind moves how ----
 FLAME = {'wisp': (1.0, 14.0), 'dust devil': (1.6, 8.0), 'sigh': (1.2, 12.0), 'lamprey': (1.0, 14.0)}
-TOPSWAY = {'anemone': (1.6, 15, 7.0), 'longsight': (1.5, 16, 12.0), 'bookworm': (1.3, 17, 10.0), 'drowned': (0, 0, 0)}
+TOPSWAY = {'glowworm': (1.2, 31, 16.0), 'anemone': (1.6, 15, 7.0), 'longsight': (1.5, 16, 12.0), 'bookworm': (1.3, 17, 10.0), 'drowned': (0, 0, 0)}
 WINGS = {'mothwing': (2, 31), 'lampmoth': (2, 31), 'lanternfly': (2, 17)}
 WALKS = {'citizen', 'docent'}
 SHUFFLE = {'hourhand': 3, 'inkling': 4, 'hermit': 3, 'erratum': 3, 'starfish': 0, 'silverfish': 0, 'clipper': 3, 'footpad': 3}
@@ -122,6 +122,7 @@ HELD = {  # a thing held out, bobbing against the breath: x, y, w, h
     'docent': (26, 21, 6, 10),
     'keeper': None,
 }
+GLOW = {'glowworm'}
 FLOATS = {'wisp', 'mothwing', 'lampmoth', 'lanternfly', 'dust devil', 'sigh', 'hand', 'silverfish'}
 
 def animate(name, rows):
