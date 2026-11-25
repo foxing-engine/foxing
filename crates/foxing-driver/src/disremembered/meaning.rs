@@ -337,8 +337,18 @@ pub fn ask(
     world
         .schedule_once(JOB_SLEPT, due, json!({"id": id}), |p| p["id"] == id)
         .map_err(CommandError::precondition)?;
+    // R269: a story told a moment after another name's find is weighed against
+    // what the creature keeps now, and a teller who read its hint before that is
+    // told (the Watch of 11-24: a story that was the hint over again missed).
+    let fresh = match (v["since"].as_i64(), v["by"].as_str()) {
+        (Some(at), Some(by)) if by != actor && now - at < 1_800_000 => format!(
+            " What it keeps is new: {by} found its last {} ago, so a hint you had before that was for another meaning.",
+            super::combat::human(now - at)
+        ),
+        _ => String::new(),
+    };
     Ok(format!(
-        " Its {} word is a meaning, not a word: it is turning your story over to see whether that is what it was about, and will say what it made of it in a few minutes, wherever you are (`messages` keeps it).",
+        " Its {} word is a meaning, not a word: it is turning your story over to see whether that is what it was about, and will say what it made of it in a few minutes, wherever you are (`messages` keeps it).{fresh}",
         nth(level)
     ))
 }
@@ -392,6 +402,30 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
         if level == 2 { "The first was found." } else { "Two were found." },
         nth(level),
     ))
+}
+
+/// What `wants` says of a creature on a meaning rung: that it keeps one, and when it
+/// will weigh a story of `actor`'s (R269: the hour it pays by was the only one said).
+pub fn wants_note(world: &World, actor: &str, creature: EntityId) -> String {
+    if kept(world, creature).is_none() {
+        return String::new();
+    }
+    let Some(v) = secret(world, creature) else {
+        return String::new();
+    };
+    if let Some(left) = resting(&v, actor, world.now().0) {
+        return format!(
+            "; you found its meaning, and it keeps another for you in {}",
+            hours(left)
+        );
+    }
+    match wait(world, actor, creature) {
+        Some(m) => format!(
+            "; it keeps a meaning, and weighs your next story against it in {m} minute{}",
+            if m == 1 { "" } else { "s" }
+        ),
+        None => "; it keeps a meaning, and will weigh a story of yours against it now".to_string(),
+    }
 }
 
 /// Minutes until `creature` weighs another story of `actor`'s, if it has weighed one
@@ -561,7 +595,7 @@ fn weigh(
         let mut changes = BTreeMap::new();
         changes.insert(
             "secret".into(),
-            Field::Plain(json!({"word": next.key, "level": next_level, "struck": if top { struck.clone() } else { Vec::new() }, "from": "meaning", "finds": if top { found_at } else { Value::Null }})),
+            Field::Plain(json!({"word": next.key, "level": next_level, "struck": if top { struck.clone() } else { Vec::new() }, "from": "meaning", "finds": if top { found_at } else { Value::Null }, "since": world.now().0, "by": from})),
         );
         mind::set_mind_pub(world, Actor::Driver, creature, changes)?;
         let bonus = super::secret::BONUS[(level.clamp(1, 3) - 1) as usize];

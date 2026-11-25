@@ -373,8 +373,20 @@ fn source_now(world: &World, creature: EntityId, level: u8, from: &str) -> Optio
     };
     match (level, from) {
         (_, "lore") => None,
+        // R269: a want made from a story it half holds is said with a frame of the
+        // world's own ("…", like the one it has mostly forgotten), and a word was
+        // drawn from the frame ("mostly", Lorrin, 11-24): the quoted words only.
         (1, "wanted") | (2, "wanted") => super::errand::wanted_once(world, creature)
-            .or_else(|| super::errand::of(world, creature).and_then(|e| e.story)),
+            .or_else(|| super::errand::of(world, creature).and_then(|e| e.story))
+            .map(
+                |t| match t.split_once("\", like the one it has mostly forgotten") {
+                    Some((quoted, _)) => quoted
+                        .trim_start_matches('"')
+                        .trim_end_matches('\u{2026}')
+                        .to_string(),
+                    None => t,
+                },
+            ),
         (1, _) | (2, _) => told(),
         _ => world
             .store

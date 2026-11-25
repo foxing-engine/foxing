@@ -1570,6 +1570,7 @@ pub fn report(world: &World) -> Value {
                 "homes": super::rooms::homes(),
                 "record": record,
                 "conclave": super::conclave::for_docent(world),
+                "almanac": super::almanac::said(world).0,
             })
         })
         .collect();
@@ -1584,6 +1585,8 @@ pub fn report(world: &World) -> Value {
         // Null until it has been thrown either way (the tool throws it on, once).
         "sense": field(world, "sense"),
         "docent": {"name": NAME, "story": STORY},
+        // R260: the desk did not know the Ripe Week in the Ripe Week.
+        "almanac": super::almanac::said(world).0,
         "answered": field(world, "answered").unwrap_or(json!(0)),
         "tidied": field(world, "tidied").unwrap_or(json!(0)),
         "round": field(world, "round").unwrap_or(json!(0)),

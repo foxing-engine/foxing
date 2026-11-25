@@ -292,7 +292,9 @@ def catalog():
     try:
         with urllib.request.urlopen(QUICKSTART, timeout=20) as r:
             text = r.read().decode("utf-8", "replace")
-        return text[:24000]
+        # The whole of it (R260: cut at 24,000 characters, the desk had never read the
+        # almanac, the Stacks or the Court, which come after).
+        return text[:120000]
     except Exception as e:  # noqa: BLE001
         log(f"the catalog could not be read ({e}); answering from the system line alone")
         return ""
@@ -344,6 +346,8 @@ def context(q):
     ]
     if room.get("dug"):
         lines.append(f"This is a room a visitor dug (by {room.get('dug_by')}); its memory stands at {round((room.get('memory') or 0) * 100)}%; hands that wrote in it: {', '.join(room.get('hands') or []) or 'none yet'}.")
+    if q.get("almanac"):
+        lines.append("The almanac today: " + str(q["almanac"])[:900])
     if room.get("record"):
         lines.append("The room's own record, oldest first (who dug, described, wrote in, remembered, came in):\n  " + "\n  ".join(room["record"]))
     if room.get("asker_now_in") and room.get("asker_now_in") != room.get("name"):

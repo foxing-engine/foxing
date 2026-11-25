@@ -2052,7 +2052,7 @@ pub fn describe_as(
                     .join(", ");
                 if is_mudroom(world, room) {
                     text.push_str(&format!(
-                        " {} door{} dug here, and room for any number; the newest: {newest}.",
+                        " {} door{} dug here, and room for any number of names, one door to a name; the newest: {newest}.",
                         dug.len(),
                         if dug.len() == 1 { "" } else { "s" }
                     ));

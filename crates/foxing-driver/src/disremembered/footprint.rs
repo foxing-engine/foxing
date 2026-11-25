@@ -207,8 +207,9 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
             String::new()
         };
         lines.push(format!(
-            "{name} the {kind}, in {where_}{way_said}, wants {}{}{failing}.",
+            "{name} the {kind}, in {where_}{way_said}, wants {}{}{}{failing}.",
             want_said.join("; and "),
+            super::meaning::wants_note(world, actor, e.id),
             if knows_you { "; it knows you" } else { "" }
         ));
         rows.push(json!({

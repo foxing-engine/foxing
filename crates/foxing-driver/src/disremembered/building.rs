@@ -540,6 +540,22 @@ pub const APPENDED: &str = "disremembered.appended";
 /// A room's description was set by `by`: `{by, room}`. Public.
 pub const DESCRIBED: &str = "disremembered.described";
 
+/// The room `actor` dug off `from`, by name (R261: the refusal did not say which room
+/// held the place, or that it frees).
+fn dug_name(world: &World, actor: &str, from: EntityId) -> Option<String> {
+    world
+        .store
+        .of_kind("room")
+        .filter(|e| e.owner.as_deref() == Some(actor))
+        .find(|e| {
+            matches!(
+                e.components.get(ROOM).and_then(|c| c.fields.get("origin")),
+                Some(Field::Plain(v)) if v.as_u64() == Some(from.0)
+            )
+        })
+        .and_then(|e| plain_str(world, e.id, ROOM, "name").map(str::to_string))
+}
+
 /// How many rooms `actor` has dug off `from`.
 fn dug_from(world: &World, actor: &str, from: EntityId) -> usize {
     world
@@ -776,7 +792,10 @@ pub fn register(world: &mut World, curves: super::Curves) {
                     // L3: a Steward's renown opens a second door off a seed room.
                     if dug_from(w, &ctx.actor, here) >= super::tending::seed_doors(w, &ctx.actor) {
                         return Err(CommandError::precondition(
-                            "You have already dug from this room: the world's own rooms, the Mudroom among them, take one door from each name (the Mudroom any number of names; a Steward's renown, two doors). Dig on from your own room, as often as you like.",
+                            format!("You have already dug from this room{}: the world's own rooms, the Mudroom among them, take one door from each name (the Mudroom any number of names; a Steward's renown, two doors). Dig on from your own room, as often as you like.", match dug_name(w, &ctx.actor, here) {
+                                Some(n) => format!(" (your door here goes to {n}, and is free again when that room is unmade)"),
+                                None => String::new(),
+                            }),
                         ));
                     }
                 } else if owner.as_deref() != Some(ctx.actor.as_str()) {

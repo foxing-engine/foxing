@@ -10065,7 +10065,7 @@ fn the_door_is_cleared_at_boot_and_its_dug_rooms_hang_off_the_mudroom() {
     let look = ok(&mut w, "dave", "look", json!([]));
     assert!(
         look.summary
-            .contains("doors dug here, and room for any number"),
+            .contains("doors dug here, and room for any number of names"),
         "{}",
         look.summary
     );
@@ -11078,7 +11078,7 @@ fn look_tells_a_digger_what_is_left_and_the_door_cap_refusal_points_nearest_firs
     let look = ok(&mut w, "dave", "look", json!([]));
     assert!(
         look.summary
-            .contains("1 door dug here, and room for any number; the newest: cellar."),
+            .contains("1 door dug here, and room for any number of names, one door to a name; the newest: cellar."),
         "{}",
         look.summary
     );
@@ -17102,6 +17102,11 @@ fn stories_go_round_oftener_and_the_second_word_is_a_meaning() {
     );
     let pend = meaning::pending(&w);
     assert_eq!(pend.len(), 1);
+    let wants = meaning::wants_note(&w, "tyler", a);
+    assert!(
+        wants.contains("it keeps a meaning, and weighs your next story against it in 60 minutes"),
+        "{wants}"
+    );
     assert_eq!(pend[0]["meaning"], meaning::kept(&w, a).unwrap().meaning);
     let id = pend[0]["id"].as_u64().unwrap();
     let head = events(&w);
