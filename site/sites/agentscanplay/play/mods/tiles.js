@@ -433,6 +433,39 @@ export default function install(m) {
     cache.set(key, c);
     return c;
   }
+  // The four figures, offered to a name that is still the hooded one (C22): a card
+  // over the picture, each figure drawn as it will stand, one tap to be it. "Later"
+  // puts the card away for the visit; `figure` is the same choice by hand.
+  const FIGURES = [["hunter", "for those who hunt"], ["teller", "for those who tell"], ["keeper", "for those who keep"], ["reader", "for those who read"]];
+  let figCard = null, figLater = false;
+  function offerFigures(frame) {
+    const want = frame === "citizen" && !figLater && m.actor;
+    if (!want) { if (figCard) { figCard.remove(); figCard = null; } return; }
+    if (figCard) return;
+    figCard = document.createElement("div");
+    figCard.setAttribute("role", "dialog"); figCard.setAttribute("aria-label", "Choose your figure");
+    figCard.style.cssText = "position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(10,14,20,.86);padding:10px;text-align:center;font-family:" + SANS + ";color:#ece5d3";
+    const h = document.createElement("div"); h.textContent = "Choose your figure"; h.style.cssText = "font-size:17px";
+    const sub = document.createElement("div"); sub.textContent = "It is how you are drawn, for you and for everyone. It changes nothing you can do."; sub.style.cssText = "font-size:12px;opacity:.75;max-width:34em";
+    const row = document.createElement("div"); row.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;justify-content:center";
+    for (const [key, why] of FIGURES) {
+      const b = document.createElement("button"); b.type = "button";
+      b.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:2px;min-width:74px;padding:8px 6px;border-radius:8px;border:1px solid rgba(217,181,122,.45);background:rgba(236,229,211,.06);color:inherit;font:inherit;cursor:pointer";
+      const src = frameCanvas("figure-" + key, null, 0);
+      const c = document.createElement("canvas"); c.width = 48; c.height = 48; c.style.cssText = "width:72px;height:72px;image-rendering:pixelated";
+      if (src) c.getContext("2d").drawImage(src, 0, 0);
+      const n = document.createElement("span"); n.textContent = "the " + key; n.style.cssText = "font-size:13px";
+      const w = document.createElement("span"); w.textContent = why; w.style.cssText = "font-size:10.5px;opacity:.7";
+      b.append(c, n, w);
+      b.addEventListener("click", () => { figLater = true; offerFigures(""); m.command("figure", [key]); });
+      row.append(b);
+    }
+    const later = document.createElement("button"); later.type = "button"; later.textContent = "later";
+    later.style.cssText = "border:0;background:none;color:inherit;opacity:.7;font:inherit;font-size:12px;text-decoration:underline;cursor:pointer;padding:6px";
+    later.addEventListener("click", () => { figLater = true; offerFigures(""); });
+    figCard.append(h, sub, row, later);
+    wrap.append(figCard);
+  }
   function iconCanvas(kind) {
     const f = ICONS[kind] || ICONS.thing;
     const key = "icon|" + kind;
@@ -599,7 +632,7 @@ export default function install(m) {
         if (p && p.here === false) {
           const trace = m.timed(p.trace);
           if (trace >= 0.15) things.push({ id: n.id, kind: "ghost", name, sprite: s, trace, tile: SLOTS[hash(n.id) % SLOTS.length] });
-        } else if (name === m.actor) things.push({ id: n.id, kind: "you", name, sprite: s, tile: [Math.floor(COLS / 2), 6] });
+        } else if (name === m.actor) { things.push({ id: n.id, kind: "you", name, sprite: s, tile: [Math.floor(COLS / 2), 6] }); offerFigures(s.frame); }
         else things.push({ id: n.id, kind: "citizen", name, sprite: Object.assign({}, s, { tint: "hsl(" + (hash(name) % 360) + ",45%,60%)", frame: s.frame || "citizen", atlas: s.atlas || m.atlasName }), tile: SLOTS[hash(n.id) % SLOTS.length] });
       } else if (n.kind === "docent") {
         things.push({ id: n.id, kind: "docent", name: (n.components["disremembered.docent"] || {}).name || "the Docent", sprite: s, tile: [COLS - 5, 3] });

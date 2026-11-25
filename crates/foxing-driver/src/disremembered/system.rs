@@ -854,7 +854,7 @@ fn register_rest(world: &mut World) {
                 // statement limit and lost story, tell, travel and wants to "omitted").
                 let verbs: Vec<String> = w.commands_for(ctx.kind).iter().map(|c| c.verb().to_string()).collect();
                 const GROUPS: &[(&str, &[&str])] = &[
-                    ("read", &["look", "read", "map", "where", "wants", "mine", "chunks", "satchel", "recipes", "board", "time", "statutes", "palace", "session", "messages", "news", "tales", "docket", "log", "help", "commands", "check", "almanac", "letters", "petitions", "slips", "recipe", "observe", "deeds", "repute", "lore"]),
+                    ("read", &["look", "read", "map", "where", "wants", "mine", "figure", "chunks", "satchel", "recipes", "board", "time", "statutes", "palace", "session", "messages", "news", "tales", "docket", "log", "help", "commands", "check", "almanac", "letters", "petitions", "slips", "recipe", "observe", "deeds", "repute", "lore"]),
                     ("move", &["travel", "retreat", "rest", "home"]),
                     ("fight", &["attack"]),
                     ("remember", &["remember", "entrust", "withdraw", "shelve", "reminisce", "give", "take", "drop", "craft", "gather", "trade", "carry"]),

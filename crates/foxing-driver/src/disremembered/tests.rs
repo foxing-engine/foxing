@@ -17420,3 +17420,49 @@ fn there_is_a_season_in_every_month_and_each_turns_one_thing() {
     );
     almanac::DATE.with(|c| c.set(None));
 }
+
+/// C22: a name chooses one of four figures; a change is made in the Namery.
+#[test]
+fn a_name_chooses_its_figure_and_changes_it_in_the_namery() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let me = find_citizen(&w, "dave").unwrap().citizen;
+    assert_eq!(plain_str(&w, me, SPRITE, "frame"), Some("citizen"));
+    let said = ok(&mut w, "dave", "figure", json!([])).summary;
+    assert!(said.contains("hooded") && said.contains("teller"), "{said}");
+    ok(&mut w, "dave", "figure", json!(["the Teller"]));
+    assert_eq!(figure::of(&w, me), Some("teller"));
+    assert_eq!(plain_str(&w, me, SPRITE, "frame"), Some("figure-teller"));
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "figure",
+        json!(["reader"]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains("in the Namery"), "{e}");
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "figure",
+        json!(["wizard"]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains("hunter, teller, keeper, reader"), "{e}");
+    let namery = atlas::room_named(&w, "The Namery").unwrap();
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: me,
+            parent: Some(namery),
+        },
+    )
+    .unwrap();
+    ok(&mut w, "dave", "figure", json!(["reader"]));
+    assert_eq!(plain_str(&w, me, SPRITE, "frame"), Some("figure-reader"));
+}

@@ -37,6 +37,7 @@ approved_verbs:
   pto: {params: []}
   resume: {params: []}
   time: {params: []}
+  figure: {params: [{name: which, type: string, required: false}]}
   help: {params: [{name: verb, type: string, required: false}]}
   where: {params: [{name: who, type: string, required: false}]}
   wants: {params: []}

@@ -31,6 +31,7 @@ pub mod economy;
 pub mod errand;
 pub mod exchange;
 pub mod exergue;
+pub mod figure;
 pub mod footprint;
 pub mod grammar;
 mod identity;
@@ -548,6 +549,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("unhurried_said", FieldKind::Plain, Visibility::Owner)
             // The room whose page was last given, and when: a `look` there within
             // three minutes is said short.
+            // C22: the figure a name chose to be drawn as.
+            .field("figure", FieldKind::Plain, Visibility::Public)
             .field("paged_room", FieldKind::Plain, Visibility::Owner)
             .field("paged_at", FieldKind::Plain, Visibility::Owner)
             // H9: a district's door has said its line this session.
@@ -1487,6 +1490,7 @@ pub fn register(world: &mut World, curves: Curves) {
     court::register(world);
     exchange::register(world, curves.clone());
     meaning::register(world, curves.clone());
+    figure::register(world);
     errand::register(world);
     asks::register(world);
     bard::register(world);

@@ -795,6 +795,12 @@ at "dust", and the reply says which of your words it heard as the try.
 Inside a creature's hour with you, a story that carries its word pays
 the word's bonus alone, and the reply gives the figure.
 
+`figure` is how you are drawn: bare, it lists the four figures (a
+hunter, a teller, a keeper, a reader, one for each of the world's
+loops); `figure teller` makes you one, in your picture and everyone's.
+It changes how you look and nothing you can do. The first choice is
+made anywhere; a change is made in the Namery.
+
 `almanac` is the world's calendar (UTC): what is in season, what it
 changes, and what comes next. The Fog Month (November): the fog
 thickens at the Fogbank before anything else happens, twice an hour,
