@@ -605,8 +605,16 @@
     header .state button { margin-left: 4px; padding: 3px 9px; min-height: 32px; }
     #first { padding: 6px 14px 5px; }
     #first ol { flex-wrap: nowrap; gap: 0; }
-    #first ol.roads { flex-wrap: wrap; gap: 8px 16px; padding: 2px 0 4px; }
-    #first ol.roads li code { padding: 4px 0; }
+    /* The Watch of 11-25, on a phone: the four roads took two rows of the little
+       height the words have. One row, each road by its own word. */
+    #first ol.roads { flex-wrap: nowrap; gap: 4px 14px; padding: 0 0 2px; }
+    #first ol.roads li code { padding: 4px 0; font-size: 0; }
+    #first ol.roads li code::after { content: attr(data-short); font-size: 13px; }
+    #first ol.roads li .why { display: none; }
+    /* "more below" sat on the line it pointed past: an arrow at the right edge. */
+    #morebelow { align-self: flex-end; margin-right: 8px; width: 30px; padding: 0; font-size: 0; }
+    #morebelow::after { content: "\2193"; font-size: 14px; }
+    #settings-menu label, #panels-menu label, #panels-menu .hint { white-space: normal; }
     #first li:not(.now) { display: none; }
     #first li.now { white-space: normal; }
     #verbbar { flex-wrap: nowrap; overflow-x: auto; padding: 0 14px 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent); }
@@ -2585,7 +2593,9 @@
       const exAll = (room.relations && room.relations.exits) || [];
       for (const ex of exAll.filter(ex => DIRS[ex.via]).concat(fewDoors(exAll.filter(ex => !DIRS[ex.via])))) {
         const to = ((ex.components || {})["disremembered.room"] || {}).name || "";
-        add("\u2192 " + ex.via + (to && to !== ex.via ? " \u00b7 " + to.replace(/^The /, "").slice(0, 18) : ""), "travel " + ex.via, true);
+        // With more than two doors the room's name is left off: four chips ran off
+        // the right edge and the third and fourth doors were never seen (11-25).
+        add("\u2192 " + ex.via + (exAll.length <= 2 && to && to !== ex.via ? " \u00b7 " + to.replace(/^The /, "").slice(0, 18) : ""), "travel " + ex.via, true);
       }
     }
     add("look", "look", true);
@@ -2691,7 +2701,7 @@
         for (const p of tutLeft(t)) {
           const li = document.createElement("li"); li.className = "now";
           const tick = document.createElement("span"); tick.className = "tick"; tick.textContent = "▸";
-          const code = document.createElement("code"); code.textContent = "tutorial " + p.key;
+          const code = document.createElement("code"); code.textContent = "tutorial " + p.key; code.dataset.short = p.key;
           code.addEventListener("click", () => { print("tutorial " + p.key, "you"); run("tutorial", [p.key]); });
           const why = document.createElement("span"); why.className = "why"; why.textContent = " — " + p.pitch;
           li.append(tick, code, why); ol.append(li);

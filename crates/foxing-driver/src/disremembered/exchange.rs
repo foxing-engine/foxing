@@ -491,8 +491,9 @@ pub fn register(world: &mut World, curves: Curves) {
             // nothing (told once an hour it kept a copy in the world for good and paid
             // each time). The one it wants, one that carries its word, and one a name
             // left a want for are heard as stories are, below.
+            // (The one it wants was let through too until 11-25: two of that Watch told
+            // a wanted story twice in its hour and were paid for both.)
             if super::tales::holds_whole(w, creature, &ctx.actor, &text)
-                && !super::errand::wants_story(w, creature, &text)
                 && !super::secret::would_strike(w, &ctx.actor, creature, &text)
                 && !super::asks::would_meet(w, &ctx.actor, creature, &text)
             {
@@ -668,7 +669,9 @@ pub fn register(world: &mut World, curves: Curves) {
             let alike_said = if alike.is_empty() {
                 String::new()
             } else {
-                format!(" ({} again)", alike.iter().take(4).cloned().collect::<Vec<_>>().join(", "))
+                // The words are kept as stems ("alway, arrived, became again" was said
+                // to a teller): how many, not which.
+                format!(" ({} of its words over again)", alike.len())
             };
             let heard_line = match repeats {
                 0 => String::new(),

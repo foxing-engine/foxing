@@ -265,6 +265,16 @@ pub fn register(world: &mut World) {
                 }
                 // R263/R264: a walker that has gone on its round is not a citizen who
                 // "will hear it when they return" (a name called lamplighter was told).
+                // A named creature in another room (the Watch of 11-25: "There is no
+                // one called Gedder" of a creature `wants` had just listed).
+                if let Some((_, at)) = mind::find_named(w, &typed) {
+                    let place = at
+                        .and_then(|r| super::plain_str(w, r, super::ROOM, "name").map(str::to_string))
+                        .unwrap_or_else(|| "another room".to_string());
+                    return Err(CommandError::precondition(format!(
+                        "{typed} is not here: it is in {place} (`travel \"{place}\"`), and a creature is told face to face."
+                    )));
+                }
                 if let Some(n) = mind::near_named(w, &typed) {
                     return Err(CommandError::precondition(format!(
                         "There is no one called {typed}. Did you mean {n}? (`wants` says where each named creature is.)"

@@ -348,7 +348,7 @@ pub fn ask(
         _ => String::new(),
     };
     Ok(format!(
-        " Its {} word is a meaning, not a word: it is turning your story over to see whether that is what it was about, and will say what it made of it in a few minutes, wherever you are (`messages` keeps it).{fresh}",
+        " Its {} word is a meaning, not a word: it is turning your story over to see whether that is what it was about, and will say what it made of it shortly (a minute or two as a rule), wherever you are (`messages` keeps it).{fresh}",
         nth(level)
     ))
 }
@@ -375,6 +375,13 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
         })
         .count();
     let said = t.hints[short.min(2)];
+    // The first hint could fit many meanings, and a newcomer took it for the meaning
+    // itself and was told a story that said it was "not about it" (11-25).
+    let faint = if short == 0 {
+        " That is the faintest way I say it, and it would fit a dozen things; each story I weigh and find short, I say it plainer."
+    } else {
+        ""
+    };
     let sleeping = if awake(world) {
         ""
     } else {
@@ -398,8 +405,8 @@ pub fn hint(world: &World, actor: &str, creature: EntityId) -> Option<String> {
         None => String::new(),
     };
     Some(format!(
-        "{} What I keep under it now is not a word but a meaning, the {} of three.{again} {said} Tell me a story that is about that, in any words you like, and I will know it; I weigh one story an hour from a name, and say what I made of it a little after.{when}{sleeping}",
-        if level == 2 { "The first was found." } else { "Two were found." },
+        "{} What I keep under it now is not a word but a meaning, the {} of three.{again} {said}{faint} Tell me a story that is about that, in any words you like, and I will know it; I weigh one story an hour from a name, and say what I made of it a little after.{when}{sleeping}",
+        if level == 2 { "My first was found before now." } else { "Two of mine were found before now." },
         nth(level),
     ))
 }
@@ -424,7 +431,7 @@ pub fn wants_note(world: &World, actor: &str, creature: EntityId) -> String {
             "; it keeps a meaning, and weighs your next story against it in {m} minute{}",
             if m == 1 { "" } else { "s" }
         ),
-        None => "; it keeps a meaning, and will weigh a story of yours against it now".to_string(),
+        None => "; it keeps a meaning, and weighs the next story you tell it against it, one an hour (ask its hint first)".to_string(),
     }
 }
 

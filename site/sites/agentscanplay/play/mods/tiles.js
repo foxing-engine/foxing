@@ -232,7 +232,28 @@ export default function install(m) {
   const said = new Map(); let sayTick = 0, sayCount = new Map();
   const MONO = "var(--mono,ui-monospace,Menlo,Consolas,monospace)", SANS = "system-ui,-apple-system,'Segoe UI',sans-serif";
   function sayBegin() { sayTick++; sayCount = new Map(); }
-  function sayEnd() { for (const [k, e] of said) if (e.tick !== sayTick) { e.el.remove(); said.delete(k); } }
+  // Labels in a row that would run into each other ("lanesouwickmaker" on a phone,
+  // where the letters do not shrink with the picture) take turns a line higher.
+  let rowSig = "";
+  function sayEnd() {
+    const row = [];
+    for (const [k, e] of said) {
+      if (e.tick !== sayTick) { e.el.remove(); said.delete(k); continue; }
+      if (k.startsWith("l|") && e.pos) row.push(e);
+    }
+    const sig = row.map(e => e.text + "@" + e.pos[0].toFixed(0) + "," + e.pos[1].toFixed(0)).join(";") + "|" + (canvas.clientWidth || 0);
+    if (sig === rowSig) return;
+    rowSig = sig;
+    row.sort((a, b) => a.pos[0] - b.pos[0]);
+    let last = null;
+    for (const e of row) {
+      if (e.w == null) e.w = e.el.offsetWidth;
+      const left = e.pos[0] - e.w / 2;
+      const up = !!(last && Math.abs(last.pos[1] - e.pos[1]) < 4 && left < last.right + 2 && !last.up);
+      e.el.style.marginTop = up ? "-1.45em" : "";
+      last = { pos: e.pos, right: e.pos[0] + e.w / 2, up };
+    }
+  }
   // x, y in the picture's own pixels. o: size (in those pixels), color, bg, bold,
   // font, align ("left" or centered), valign ("bottom", "top" or middle), alpha,
   // wrap (a width to wrap at, three lines at most), clamp (kept inside the picture).
@@ -252,6 +273,7 @@ export default function install(m) {
     if (text !== e.text) { e.el.textContent = text; e.text = text; e.w = null; }
     let tx = x * u;
     if (o.clamp && o.align !== "left") { if (e.w == null) e.w = e.el.offsetWidth; const half = e.w / 2 + 2; tx = Math.min(Math.max(tx, half), (canvas.clientWidth || W) - half); }
+    e.pos = [tx, y * u];
     const tr = "translate(" + tx.toFixed(1) + "px," + (y * u).toFixed(1) + "px) translate(" + (o.align === "left" ? "0" : "-50%") + "," + (o.valign === "bottom" ? "-100%" : o.valign === "top" ? "0" : "-50%") + ")";
     if (tr !== e.tr) { e.el.style.transform = tr; e.tr = tr; }
     const op = o.alpha == null || o.alpha >= 1 ? "" : Math.max(0, o.alpha).toFixed(2);
@@ -1395,9 +1417,13 @@ export default function install(m) {
       b.addEventListener("click", () => { closeMenu(); row.run(); });
       menu.append(b);
     }
+    // Placed on the screen, not in the picture: on a phone the picture is shorter
+    // than three rows of the menu, and the third was cut off (the Watch of 11-25).
     const r = wrap.getBoundingClientRect();
-    menu.style.left = Math.min(cx, r.width - 170) + "px"; menu.style.top = Math.min(cy, r.height - 40) + "px";
     menu.hidden = false; hideTip();
+    menu.style.position = "fixed";
+    menu.style.left = Math.max(6, Math.min(r.left + cx, window.innerWidth - menu.offsetWidth - 6)) + "px";
+    menu.style.top = Math.max(6, Math.min(r.top + cy, window.innerHeight - menu.offsetHeight - 6)) + "px";
   });
   document.addEventListener("click", (ev) => { if (!menu.hidden && !menu.contains(ev.target) && ev.target !== canvas) closeMenu(); });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeMenu(); });
