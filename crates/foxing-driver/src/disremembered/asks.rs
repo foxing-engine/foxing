@@ -436,7 +436,8 @@ pub fn carried(
             a.by
         ),
     )?;
-    let word_xp = (super::errand::WORD_XP * mind::scarcity(world)).round();
+    let word_xp =
+        (super::errand::WORD_XP * mind::scarcity(world) * super::almanac::wants(world).0).round();
     let on_top = mint(
         world,
         actor,

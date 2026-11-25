@@ -123,13 +123,13 @@ pub fn of(world: &World, creature: EntityId) -> Option<Errand> {
     };
     // C5: on the Night of One Story every named creature wants the same story,
     // whatever it wanted yesterday; a word to carry stands as it stood.
-    let e = if super::almanac::on(world, super::almanac::ONE_STORY)
-        && super::mind::name(world, creature).is_some()
-    {
+    let one =
+        super::almanac::the_story(world).filter(|_| super::mind::name(world, creature).is_some());
+    let e = if let Some((story, word)) = one {
         let day = world.now().0.div_euclid(86_400_000);
         Errand {
-            story: Some(super::almanac::THE_STORY.to_string()),
-            keywords: vec![super::almanac::THE_STORY_WORD.to_string()],
+            story: Some(story.to_string()),
+            keywords: vec![word.to_string()],
             story_by: "the almanac".to_string(),
             story_at: day * 86_400_000,
             story_until: (day + 1) * 86_400_000,
@@ -756,7 +756,8 @@ pub fn carried_word(
                 let f = me_by_name(world, actor)?;
                 let curves =
                     super::Curves::with_half_life(foxing_time::Duration::seconds(3 * 3600));
-                let word_xp = (WORD_XP * mind::scarcity(world)).round();
+                let word_xp =
+                    (WORD_XP * mind::scarcity(world) * super::almanac::wants(world).0).round();
                 let chunk = super::memory::earn_chunk(
                     world,
                     actor,
@@ -793,7 +794,7 @@ pub fn carried_word(
     let f = me_by_name(world, actor)?;
     let curves = super::Curves::with_half_life(foxing_time::Duration::seconds(3 * 3600));
     // A word carried pays more when names are few: the errands are what keep them.
-    let word_xp = (WORD_XP * mind::scarcity(world)).round();
+    let word_xp = (WORD_XP * mind::scarcity(world) * super::almanac::wants(world).0).round();
     let chunk = super::memory::earn_chunk(
         world,
         actor,

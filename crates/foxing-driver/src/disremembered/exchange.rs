@@ -623,7 +623,7 @@ pub fn register(world: &mut World, curves: Curves) {
             .round()
                 * if wanted {
                     // The one it wanted is worth double, and more when names are few.
-                    2.0 * super::mind::scarcity(w)
+                    2.0 * super::mind::scarcity(w) * super::almanac::wants(w).0
                 } else {
                     1.0
                 };

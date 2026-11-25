@@ -38,8 +38,9 @@ pub fn earn_chunk(
     let now = world.now();
     // New memory fades at the world's rate: the Clocktower's one lever on time. A
     // hoard's fades faster still, by the Conclave's statute, on the hoard alone.
-    let pace =
-        super::economy::rate(world, "half_life") / super::conclave::hoard_factor(world, actor);
+    // C5: and slower in a season that keeps (the First Pages, the Long Night).
+    let pace = super::economy::rate(world, "half_life") * super::almanac::keeps(world)
+        / super::conclave::hoard_factor(world, actor);
     let curve = match curves.active(vividity) {
         foxing_time::Curve::Exponential { half_life } => foxing_time::Curve::Exponential {
             half_life: foxing_time::Duration((half_life.0 as f64 * pace) as i64),

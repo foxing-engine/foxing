@@ -191,9 +191,11 @@ brief` for a page on one, or answer the lettered ones.
   (November), the Ripe Week (16 to 22 November), the Night of One Story (30
   November)). All three are in November because the world is three weeks old and a
   season nobody can walk into is not a first cut; the table is `almanac::SEASONS`.
-  - *a · Spread them over the year?* a) leave November as the world's own month
-    and add one season a month as each is thought of; b) move the Ripe Week to
-    September and the Night to midwinter now. Claude leans a.
+  - *Spread over the year, 11-25* (David: "more events spread throughout the
+    year"): thirteen more, a season in every month, each one of three turns (a
+    night of one story, a week when wants pay more, a time when memory keeps).
+    November's three stand where they were. Left: seasons with things of their
+    own, as the Ripe Week has its fruit (a material, a creature, a room that opens).
   - *Not in the first cut:* a season's first hour is not announced (the bells
     could say it); the board and the site do not show what is in season; the
     happenings are still the same six out of season.

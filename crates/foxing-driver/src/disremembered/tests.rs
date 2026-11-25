@@ -17364,3 +17364,59 @@ fn a_room_answers_without_its_apostrophe_or_a_letter_out() {
     let one = ok(&mut w, "tyler", "help", json!(["wants"])).summary;
     assert!(one.starts_with("wants\n"), "{one}");
 }
+
+/// C5 (David, 11-25: "more events spread throughout the year").
+#[test]
+fn there_is_a_season_in_every_month_and_each_turns_one_thing() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    for m in 1..=12u32 {
+        assert!(
+            almanac::SEASONS.iter().any(|s| s.from.0 == m),
+            "no season begins in month {m}"
+        );
+    }
+    for s in almanac::SEASONS {
+        assert!(s.from <= s.to, "{} runs backward", s.key);
+    }
+    // Out of season nothing is turned.
+    almanac::DATE.with(|c| c.set(Some((3, 3))));
+    assert_eq!(almanac::wants(&w).0, 1.0);
+    assert_eq!(almanac::keeps(&w), 1.0);
+    assert!(almanac::the_story(&w).is_none());
+    // A week when wants pay more.
+    almanac::DATE.with(|c| c.set(Some((3, 16))));
+    assert_eq!(almanac::wants(&w), (1.5, Some("the Spring Audit")));
+    // A night of one story.
+    almanac::DATE.with(|c| c.set(Some((2, 14))));
+    assert_eq!(
+        almanac::the_story(&w),
+        Some(("a letter written and never sent", "letter"))
+    );
+    // A night that keeps: a memory made on it has twice the half-life.
+    let half = |w: &mut World| {
+        let c = admin(w, "dave", "earn", json!(["wisp", 100, 0.5]));
+        let id = EntityId(c.result["chunk"].as_u64().unwrap());
+        match w.store.entity(id).unwrap().components[CHUNK]
+            .fields
+            .get("value")
+        {
+            Some(Field::Timed(t)) => match t.curve {
+                foxing_time::Curve::Exponential { half_life } => half_life.0,
+                _ => 0,
+            },
+            _ => 0,
+        }
+    };
+    almanac::DATE.with(|c| c.set(Some((3, 3))));
+    let plain = half(&mut w);
+    almanac::DATE.with(|c| c.set(Some((12, 21))));
+    assert_eq!(half(&mut w), plain * 2);
+    let said = ok(&mut w, "dave", "almanac", json!([])).summary;
+    assert!(
+        said.contains("the Long Night's Keeping") && said.contains("Later in the year:"),
+        "{said}"
+    );
+    almanac::DATE.with(|c| c.set(None));
+}

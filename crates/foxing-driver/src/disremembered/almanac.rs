@@ -11,6 +11,8 @@
 //! - **the Night of One Story** (30 November, the fog's last night): every named
 //!   creature in the world wants the same story.
 //!
+//! And thirteen more through the year (11-25), each one of three turns ([`Turn`]).
+//!
 //! A season is a row in [`SEASONS`]; what it does is wherever the thing it changes
 //! lives (`life::happen`, `weather::line`, `errand::of`), each asking [`on`].
 
@@ -18,6 +20,21 @@ use super::me;
 use crate::world::World;
 use foxing_registry::{Args, CommandSpec, Outcome};
 use serde_json::json;
+
+/// What a season turns. Most turn one of three things the whole world already has;
+/// the first cut's two (the Fog Month, the Ripe Week) are their own, wherever the
+/// thing they change lives.
+pub enum Turn {
+    /// Its own: asked after by key with [`on`].
+    Own,
+    /// Every named creature wants this story, known by this word, as on the Night
+    /// of One Story.
+    Story(&'static str, &'static str),
+    /// A want met (a story a creature wanted, a word carried) pays this much more.
+    Wants(f64),
+    /// A memory made now fades this much slower: its half-life times this.
+    Keeps(f64),
+}
 
 pub struct Season {
     pub key: &'static str,
@@ -28,19 +45,106 @@ pub struct Season {
     pub to: (u32, u32),
     /// What it does, for the almanac.
     pub does: &'static str,
+    pub turn: Turn,
 }
 
 pub const FOG_MONTH: &str = "fog-month";
 pub const RIPE_WEEK: &str = "ripe-week";
 pub const ONE_STORY: &str = "one-story";
 
+/// The year (C5, David 11-25: "more events spread throughout the year"). The first
+/// cut was three, all in November, the month the world was made; these are thirteen
+/// more, at least one in every month, each a row and no more: a night or a day when
+/// every named creature wants one story, a week when wants pay more, a week or a
+/// night when what is earned keeps longer. In order of the year.
 pub const SEASONS: &[Season] = &[
+    Season {
+        key: "first-pages",
+        name: "the First Pages",
+        from: (1, 1),
+        to: (1, 7),
+        does: "the year's first week is written in a firmer hand: a memory made now fades half again as slowly as one made any other week",
+        turn: Turn::Keeps(1.5),
+    },
+    Season {
+        key: "unsent-letters",
+        name: "the Night of Unsent Letters",
+        from: (2, 14),
+        to: (2, 14),
+        does: "every named creature in the world wants the same story, a letter written and never sent, and pays double for it as for any want",
+        turn: Turn::Story("a letter written and never sent", "letter"),
+    },
+    Season {
+        key: "spring-audit",
+        name: "the Spring Audit",
+        from: (3, 15),
+        to: (3, 21),
+        does: "the clerks count what is owed: a want met, a story a creature wanted or a word carried for it, pays half again as much",
+        turn: Turn::Wants(1.5),
+    },
+    Season {
+        key: "misfiling",
+        name: "the Misfiling",
+        from: (4, 1),
+        to: (4, 1),
+        does: "on the Day of Unfiled Things every named creature wants the same story, a thing put away in the wrong place, and pays double for it as for any want",
+        turn: Turn::Story("a thing put away in the wrong place", "wrong"),
+    },
+    Season {
+        key: "green-week",
+        name: "the Green Week",
+        from: (5, 10),
+        to: (5, 16),
+        does: "everything takes: a memory made now fades half again as slowly as one made any other week",
+        turn: Turn::Keeps(1.5),
+    },
+    Season {
+        key: "short-night",
+        name: "the Short Night",
+        from: (6, 21),
+        to: (6, 21),
+        does: "on the Midsummer Adjournment every named creature wants the same story, a night too short for what was meant to be said in it, and pays double for it as for any want",
+        turn: Turn::Story("a night too short for what was meant to be said in it", "night"),
+    },
+    Season {
+        key: "dog-days",
+        name: "the Dog Days",
+        from: (7, 12),
+        to: (7, 18),
+        does: "nobody will cross a room for themselves in the heat: a want met, a story a creature wanted or a word carried for it, pays half again as much",
+        turn: Turn::Wants(1.5),
+    },
+    Season {
+        key: "gleaning",
+        name: "the Gleaning",
+        from: (8, 20),
+        to: (8, 26),
+        does: "what was dropped is picked up and kept: a memory made now fades half again as slowly as one made any other week",
+        turn: Turn::Keeps(1.5),
+    },
+    Season {
+        key: "evening-out",
+        name: "the Evening-Out",
+        from: (9, 22),
+        to: (9, 22),
+        does: "day and night are the same length, and every named creature wants the same story, two things weighed and found equal, and pays double for it as for any want",
+        turn: Turn::Story("two things weighed and found equal", "equal"),
+    },
+    Season {
+        key: "borrowed-faces",
+        name: "the Night of Borrowed Faces",
+        from: (10, 31),
+        to: (10, 31),
+        does: "every named creature in the world wants the same story, someone taken for someone else, and pays double for it as for any want",
+        turn: Turn::Story("someone taken for someone else", "mistaken"),
+    },
     Season {
         key: FOG_MONTH,
         name: "the Fog Month",
         from: (11, 1),
         to: (11, 30),
         does: "the fog is heavier: it thickens at the Fogbank before anything else happens in the world, twice an hour, and brings a wisp more than the room keeps",
+        turn: Turn::Own,
     },
     Season {
         key: RIPE_WEEK,
@@ -48,6 +152,7 @@ pub const SEASONS: &[Season] = &[
         from: (11, 16),
         to: (11, 22),
         does: "the Orchard's hours ripen, the one week its fruit is a material: a ripe hour falls there about twice an hour, three lying at most (`take` it), and an orchard cordial is made of one and hollow water (`recipes`)",
+        turn: Turn::Own,
     },
     Season {
         key: ONE_STORY,
@@ -55,6 +160,31 @@ pub const SEASONS: &[Season] = &[
         from: (11, 30),
         to: (11, 30),
         does: "every named creature in the world wants the same story, a lantern lit against the fog, and pays double for it as for any want",
+        turn: Turn::Story(THE_STORY, THE_STORY_WORD),
+    },
+    Season {
+        key: "lean-weeks",
+        name: "the Lean Weeks",
+        from: (12, 8),
+        to: (12, 14),
+        does: "the stores run down and a favor is worth more: a want met, a story a creature wanted or a word carried for it, pays half again as much",
+        turn: Turn::Wants(1.5),
+    },
+    Season {
+        key: "long-night",
+        name: "the Long Night's Keeping",
+        from: (12, 21),
+        to: (12, 21),
+        does: "on the Long Night what is made is made to last: a memory made now fades twice as slowly as one made any other day",
+        turn: Turn::Keeps(2.0),
+    },
+    Season {
+        key: "years-lees",
+        name: "the Year's Lees",
+        from: (12, 28),
+        to: (12, 31),
+        does: "the year is drunk to the bottom, and every named creature wants the same story, the last of something, and pays double for it as for any want",
+        turn: Turn::Story("the last of something", "last"),
     },
 ];
 
@@ -99,6 +229,37 @@ fn within(s: &Season, md: (u32, u32)) -> bool {
 /// Whether a season is on.
 pub fn on(world: &World, key: &str) -> bool {
     today(world).is_some_and(|md| SEASONS.iter().any(|s| s.key == key && within(s, md)))
+}
+
+/// The one story every named creature wants today, and the word a telling is known
+/// by, when a season makes it so.
+pub fn the_story(world: &World) -> Option<(&'static str, &'static str)> {
+    now_on(world).into_iter().find_map(|s| match s.turn {
+        Turn::Story(story, word) => Some((story, word)),
+        _ => None,
+    })
+}
+
+/// How much more a want met pays today, and the season that makes it so.
+pub fn wants(world: &World) -> (f64, Option<&'static str>) {
+    now_on(world)
+        .into_iter()
+        .find_map(|s| match s.turn {
+            Turn::Wants(f) => Some((f, Some(s.name))),
+            _ => None,
+        })
+        .unwrap_or((1.0, None))
+}
+
+/// How much slower a memory made today fades.
+pub fn keeps(world: &World) -> f64 {
+    now_on(world)
+        .into_iter()
+        .find_map(|s| match s.turn {
+            Turn::Keeps(f) => Some(f),
+            _ => None,
+        })
+        .unwrap_or(1.0)
 }
 
 /// The seasons that are on.
@@ -231,12 +392,25 @@ pub fn said(world: &World) -> (String, serde_json::Value) {
     if on_now.is_empty() {
         lines.push("Nothing is in season today.".into());
     }
+    // The next three said whole; the rest of the year by name and date.
     if !ahead.is_empty() {
         lines.push(format!(
             "Ahead: {}.",
             ahead
                 .iter()
+                .take(3)
                 .map(|(_, s, _)| s.clone())
+                .collect::<Vec<_>>()
+                .join("; ")
+        ));
+    }
+    if ahead.len() > 3 {
+        lines.push(format!(
+            "Later in the year: {}.",
+            ahead
+                .iter()
+                .skip(3)
+                .map(|(_, s, _)| s.split(": ").next().unwrap_or(s).to_string())
                 .collect::<Vec<_>>()
                 .join("; ")
         ));
@@ -271,7 +445,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.almanac",
-            "The world's calendar: today's date (UTC), what is in season and what it changes, and what comes next with the days until it. Seasons are few and each changes one thing: the Fog Month, the Ripe Week, the Night of One Story; the Conclave's holidays stand on the same calendar.",
+            "The world's calendar: today's date (UTC), what is in season and what it changes, and what comes next with the days until it. There is a season in every month and each changes one thing: a night when every named creature wants one story, a week when wants pay more, a week when what is earned keeps longer, and November's own (the Fog Month, the Ripe Week, the Night of One Story); the Conclave's holidays stand on the same calendar.",
         ),
         Box::new(|w: &mut World, ctx, _: &Args| {
             me(w, ctx)?;

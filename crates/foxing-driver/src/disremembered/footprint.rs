@@ -153,11 +153,15 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
                 )
             } else {
                 format!(
-                    "a story about {s}{turned} (pays double{})",
+                    "a story about {s}{turned} (pays double{}{})",
                     if scarcity > 1.0 {
                         format!(", and {scarcity:.1}× while names are few")
                     } else {
                         String::new()
+                    },
+                    match super::almanac::wants(world) {
+                        (f, Some(season)) => format!(", and {f:.1}× in {season}"),
+                        _ => String::new(),
                     }
                 )
             });
