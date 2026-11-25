@@ -15,8 +15,16 @@ def boots(s, y, c, hi):
 
 # ---- the hunter: a short hooded cloak in fog green, leather, a quiver over the shoulder
 s = Spr({**SKIN, 'a': '#7f9a78', 'b': '#5d7a5c', 'c': '#3f5a44', 'l': '#b07a4a', 'm': '#855a36', 'n': '#5a3c24', 'd': '#3a3028', 'g': '#d9b57a', 'f': '#e9e1c8', 'r': '#b5483c'})
-s.poly([(33, 8), (37, 6), (39, 24), (35, 25)], 'lmn')            # quiver behind the shoulder
-for x in (34, 36, 38): s.line(x, 2, x, 7, 'f'); s.px(x, 2, 'r')
+# the quiver, slung across the back: its mouth rises behind the right shoulder at a
+# lean, three fletched arrows fanned out of it
+s.poly([(31, 20), (36, 22), (42, 9), (37, 7)], 'lmn')
+s.line(37, 7, 42, 9, 'n'); s.line(36, 9, 41, 11, 'g')            # its rim, and a band under it
+for (x0, y0, x1, y1) in ((38, 7, 38, 0), (40, 8, 43, 2), (42, 9, 47, 6)):
+    s.line(x0, y0, x1, y1, 'f')                                  # a pale shaft
+    dx, dy = (x1 - x0), (y1 - y0)
+    for t in (0.72, 1.0):                                        # red fletching at its end
+        s.px(x0 + dx * t, y0 + dy * t, 'r')
+    s.px(x0 + dx * 0.86, y0 + dy * 0.86, 'n')
 s.poly([(15, 30), (33, 30), (32, 41), (16, 41)], 'lmn')          # leggings
 s.rect(23, 33, 2, 8, 'n')
 s.poly([(12, 19), (36, 19), (38, 33), (10, 33)], 'abc')          # cloak, short
@@ -25,6 +33,7 @@ s.ell(24, 12, 9.4, 9.2, 'abc')                                   # hood
 s.poly([(19, 3), (24, 0), (27, 4)], 'abb')                        # hood's peak
 face(s, 24, 13.5)
 s.ell(24, 8.6, 6.4, 2.6, 'c')                                    # hood's shadow on the brow
+s.line(14, 28, 33, 19, 'n'); s.line(14, 27, 33, 18, 'm')         # the quiver's strap, hip to shoulder
 s.rect(13, 27, 22, 2, 'm'); s.rect(22, 26, 4, 4, 'g'); s.rect(23, 27, 2, 2, 'n')   # belt
 s.ell(11, 26, 2.6, 6, 'abc'); s.ell(37, 26, 2.6, 6, 'bcc')       # arms under the cloak
 s.rect(9, 31, 4, 3, 'k'); s.rect(35, 31, 4, 3, 'K')
