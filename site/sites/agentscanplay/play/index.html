@@ -615,6 +615,16 @@
     #morebelow { align-self: flex-end; margin-right: 8px; width: 30px; padding: 0; font-size: 0; }
     #morebelow::after { content: "\2193"; font-size: 14px; }
     #settings-menu label, #panels-menu label, #panels-menu .hint { white-space: normal; }
+    /* Room for the words (David, 11-25: "let's try collapsing the first hours card and
+       picture on the phone"; three of that morning's Watch said the words got a third
+       of the screen). The card, after three things done, is its step alone until its
+       arrow is tapped; the picture folds itself when a reply will not fit under it and
+       comes back when you change rooms. The bar says the room and brings it back. */
+    #first.tuck:not(.open) #first-steps, #first.tuck:not(.open) #first-do { display: none; }
+    #first.tuck:not(.open) .fh-now { padding: 0 8px; min-height: 0; }
+    #first.tuck:not(.open) #first-more { min-height: 26px; }
+    #main.collapsed #split { height: 30px; }
+    #main.collapsed #fold { width: 100%; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 30px; }
     #first li:not(.now) { display: none; }
     #first li.now { white-space: normal; }
     #verbbar { flex-wrap: nowrap; overflow-x: auto; padding: 0 14px 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent); }
@@ -4075,7 +4085,45 @@
       setFolded(folded);
     });
     on_("logout", () => { main.classList.add("collapsed"); fold.textContent = "scene ▸"; });
-    fold.addEventListener("click", (e) => { e.stopPropagation(); setFolded(!main.classList.contains("collapsed")); });
+    // On a phone the picture makes room for a long reply by itself, and comes back on
+    // arrival in another room. A fold or an opening by hand is the player's and
+    // stands: by hand open, it folds itself no more this visit.
+    const phone = window.matchMedia("(max-width: 560px)");
+    let auto = false, keepOpen = false, sawRoom = null, done = 0;
+    const roomName = () => { const r = subs.room && subs.room.root; const c = r && r.components && r.components["disremembered.room"]; return (c && c.name) || ""; };
+    function foldLabel() {
+      const on = main.classList.contains("collapsed");
+      const name = phone.matches && on ? roomName() : "";
+      fold.textContent = on ? (phone.matches ? "picture \u25b8" + (name ? "  \u00b7  " + name : "") : "scene \u25b8") : (phone.matches ? "picture \u25be" : "scene \u25be");
+    }
+    function autoFold(on) {
+      if (!actor || !phone.matches) return;
+      if (on && (keepOpen || main.classList.contains("collapsed"))) return;
+      if (!on && !auto) return;
+      auto = on; main.classList.toggle("collapsed", on); fold.setAttribute("aria-expanded", String(!on)); foldLabel();
+      if (!on) requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
+    }
+    on_("result", (command, args, body) => {
+      if (!phone.matches) return;
+      done += 1;
+      if (done === 3) $("first").classList.add("tuck");
+      // Two frames on: the reply is laid out and the room's read has had its chance.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const name = roomName();
+        if (sawRoom !== null && name && name !== sawRoom) { sawRoom = name; autoFold(false); return; }
+        if (name) sawRoom = name;
+        if (log.scrollHeight - log.scrollTop - log.clientHeight >= 48) autoFold(true);
+        else foldLabel();
+      }));
+    });
+    on_("observation", () => { if (phone.matches) { const name = roomName(); if (sawRoom !== null && name && name !== sawRoom) { sawRoom = name; autoFold(false); } else foldLabel(); } });
+    on_("login", () => { auto = false; keepOpen = false; sawRoom = null; done = 0; $("first").classList.remove("tuck"); foldLabel(); });
+    fold.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = main.classList.contains("collapsed");
+      if (auto && open) { auto = false; keepOpen = true; main.classList.remove("collapsed"); fold.setAttribute("aria-expanded", "true"); foldLabel(); return; }
+      auto = false; setFolded(!open); foldLabel();
+    });
     // The story keeps its last line in view when the furniture under it grows (the verb
     // chips arrive after the words and once covered the line just printed).
     if (typeof ResizeObserver === "function") {
