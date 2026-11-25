@@ -7069,7 +7069,7 @@ fn where_finds_a_way_you_remember_and_travel_takes_a_room_name() {
         "{}",
         one.summary
     );
-    assert!(one.summary.contains("<exit> (string):"), "{}", one.summary);
+    assert!(one.summary.contains("<exit>:"), "{}", one.summary);
     // A seed room not yet walked to: the signed way.
     let far = ok(&mut w, "dave", "where", json!(["The Overdue Desk"]));
     assert!(far.summary.contains("the signs say"), "{}", far.summary);
@@ -17282,4 +17282,70 @@ fn a_story_in_spanish_is_a_story_and_a_list_is_still_a_list() {
         "tide hinge moth ashes salt bell thread hollow ember ledger orchard stair wick river dust"
     )
     .is_some());
+}
+
+#[test]
+fn a_mistyped_name_is_asked_after_and_help_lists_a_verb_once() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    ok(&mut w, "tyler", "travel", json!(["east"]));
+    admin(&mut w, "tyler", "stock", json!(["Quillon, Marrowgate"]));
+    let c = admin(&mut w, "tyler", "earn", json!(["wisp", 300, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "tyler", "remember", json!([&c, "wisp"]));
+    let fog = rooms::room_of(&w, find_citizen(&w, "tyler").unwrap().citizen).unwrap();
+    let given = combat::creatures_in(&w, fog)
+        .into_iter()
+        .find_map(|c| mind::name(&w, c.0))
+        .unwrap();
+    let near = format!("{}x", &given[..given.len() - 1]);
+    let e = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "tell",
+        json!([&near, "hello there"]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains(&format!("Did you mean {given}?")), "{e}");
+    let e = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "story",
+        json!([
+            &near,
+            "one two three four five six seven eight nine ten eleven twelve thirteen"
+        ]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains(&format!("Did you mean {given}?")), "{e}");
+    let e = call(
+        &mut w,
+        "tyler",
+        ActorKind::Citizen,
+        "tell",
+        json!(["lamplighter", "hello"]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains("walks a round"), "{e}");
+    let help = ok(&mut w, "tyler", "help", json!([])).summary;
+    for v in ["solve", "index", "next", "read"] {
+        let n = help
+            .lines()
+            .filter(|l| l.contains(": "))
+            .flat_map(|l| l.split(": ").nth(1).unwrap_or("").split(", "))
+            .filter(|x| *x == v)
+            .count();
+        assert!(n <= 1, "{v} listed {n} times");
+    }
+    let one = ok(&mut w, "tyler", "help", json!(["story"])).summary;
+    assert!(
+        !one.contains("(entity)") && !one.contains("(text)"),
+        "{one}"
+    );
 }

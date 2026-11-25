@@ -237,6 +237,14 @@ pub fn register(world: &mut World) {
             }
             // A citizen, here or away.
             let typed = who.trim_start_matches("citizen-").to_string();
+            // R263/R264: a walker that has gone on its round is not a citizen who
+            // "will hear it when they return" (a name called lamplighter was told).
+            let walker = typed.trim_start_matches("the ").to_ascii_lowercase();
+            if super::antics::is_walker(&walker) {
+                return Err(CommandError::precondition(format!(
+                    "The {walker} is not here: it walks a round and will be by again. It hears only what is said to its face."
+                )));
+            }
             let Some(target) = super::canonical_name(w, &typed) else {
                 // A kind typed where every one of the kind has a name ("tell wisp"
                 // beside Fallis and Tinsel) is answered with the names, not "no such
@@ -253,6 +261,13 @@ pub fn register(world: &mut World) {
                         if of_kind.len() == 1 { "" } else { "s" },
                         if of_kind.len() == 1 { "has" } else { "each have" },
                         of_kind.join(", ")
+                    )));
+                }
+                // R263/R264: a walker that has gone on its round is not a citizen who
+                // "will hear it when they return" (a name called lamplighter was told).
+                if let Some(n) = mind::near_named(w, &typed) {
+                    return Err(CommandError::precondition(format!(
+                        "There is no one called {typed}. Did you mean {n}? (`wants` says where each named creature is.)"
                     )));
                 }
                 // R224: the same answer here, where a name nobody holds is first met.

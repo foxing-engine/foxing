@@ -402,7 +402,10 @@ pub fn register(world: &mut World, curves: Curves) {
                     .and_then(|r| super::plain_str(w, r, super::ROOM, "name").map(str::to_string));
                 return Err(CommandError::precondition(match away {
                     Some(place) => format!("There is no {who} here: {who} is in {place} (`travel \"{place}\"`), and a story is told face to face."),
-                    None => format!("There is no {who} here. `wants` says which named creatures are where."),
+                    None => match mind::near_named(w, &who) {
+                        Some(n) => format!("There is no {who} here. Did you mean {n}? (`wants` says which named creatures are where.)"),
+                        None => format!("There is no {who} here. `wants` says which named creatures are where."),
+                    },
                 }));
             };
             let display = mind::display(w, creature);

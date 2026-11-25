@@ -1240,9 +1240,15 @@ export default function install(m) {
     say("hud|hp", "hp", x0, y0, { size: 5, align: "left" });
     px(x0 + 12, y0 - 2, 40, 4, NIGHT);
     if (hp != null) px(x0 + 12, y0 - 2, Math.round(40 * Math.max(0, Math.min(1, hp / max))), 4, hp / max > 0.5 ? MOSS : hp / max > 0.25 ? DUST : EMBER);
-    say("hud|level", "level " + Math.round(level), x0 + 56, y0, { size: 5, align: "left" });
+    // On a phone the picture is narrower than its own letters (they do not go under
+    // ten pixels), and "level 0" was written over "atk 1": the bar alone there, the
+    // figures being in the row under the picture.
+    const narrow = (canvas.clientWidth || W) / W < 1.5;
     const attack = 2 + Math.floor(0.6 * Math.sqrt(Math.max(0, level)));
-    say("hud|atk", "atk " + attack, x0 + 94, y0, { size: 5, align: "left" });
+    if (!narrow) {
+      say("hud|level", "level " + Math.round(level), x0 + 56, y0, { size: 5, align: "left" });
+      say("hud|atk", "atk " + attack, x0 + 94, y0, { size: 5, align: "left" });
+    }
     // Hover over the bar: what each figure is and how it moves.
     const rate = bodyC && bodyC.hp && bodyC.hp.curve && bodyC.hp.curve.Linear ? bodyC.hp.curve.Linear.rate_per_ms : 0;
     let fall = 0;

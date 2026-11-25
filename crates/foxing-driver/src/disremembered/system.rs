@@ -838,12 +838,13 @@ fn register_rest(world: &mut World) {
                     let params: Vec<String> = spec
                         .params
                         .iter()
-                        .map(|p| format!("  {} {}: {}", if p.required { format!("<{}>", p.name) } else { format!("[{}]", p.name) }, format!("({:?})", p.ty).to_lowercase(), p.description))
+                        .filter(|p| !p.description.starts_with("unused"))
+                        .map(|p| format!("  {}: {}", if p.required { format!("<{}>", p.name) } else { format!("[{}]", p.name) }, p.description))
                         .collect();
                     let text = format!(
                         "{} {}\n  {}{}",
                         spec.verb(),
-                        spec.params.iter().map(|p| if p.required { format!("<{}>", p.name) } else { format!("[{}]", p.name) }).collect::<Vec<_>>().join(" "),
+                        spec.params.iter().filter(|p| !p.description.starts_with("unused")).map(|p| if p.required { format!("<{}>", p.name) } else { format!("[{}]", p.name) }).collect::<Vec<_>>().join(" "),
                         spec.description,
                         if params.is_empty() { String::new() } else { format!("\n{}", params.join("\n")) }
                     );
@@ -853,15 +854,15 @@ fn register_rest(world: &mut World) {
                 // statement limit and lost story, tell, travel and wants to "omitted").
                 let verbs: Vec<String> = w.commands_for(ctx.kind).iter().map(|c| c.verb().to_string()).collect();
                 const GROUPS: &[(&str, &[&str])] = &[
-                    ("read", &["look", "map", "where", "wants", "mine", "chunks", "satchel", "recipes", "board", "time", "statutes", "palace", "session", "messages", "news", "tales", "docket", "log", "help", "commands", "check", "almanac", "letters", "petitions", "slips", "index", "recipe", "observe", "deeds", "repute", "lore", "next"]),
+                    ("read", &["look", "read", "map", "where", "wants", "mine", "chunks", "satchel", "recipes", "board", "time", "statutes", "palace", "session", "messages", "news", "tales", "docket", "log", "help", "commands", "check", "almanac", "letters", "petitions", "slips", "recipe", "observe", "deeds", "repute", "lore"]),
                     ("move", &["travel", "retreat", "rest", "home"]),
                     ("fight", &["attack"]),
                     ("remember", &["remember", "entrust", "withdraw", "shelve", "reminisce", "give", "take", "drop", "craft", "gather", "trade", "carry"]),
-                    ("talk", &["say", "tell", "story", "greet", "reply", "solve", "petition", "attend", "feedback"]),
+                    ("talk", &["say", "tell", "story", "greet", "reply", "petition", "attend", "feedback"]),
                     ("getting started", &["tutorial", "next"]),
                     ("the reader's craft", &["study", "solve", "index"]),
                     ("the teller's craft", &["ballad", "jest", "eulogy", "flyting", "beseech", "dub", "coax"]),
-                    ("build", &["dig", "describe", "append", "erase", "name", "permit", "welcome", "revoke", "invite", "ward", "unward", "read", "unbind"]),
+                    ("build", &["dig", "describe", "append", "erase", "name", "permit", "welcome", "revoke", "invite", "ward", "unward", "unbind"]),
                     ("the court", &["plead", "defend", "murmur"]),
                     ("the name", &["keep", "leave", "pto", "resume"]),
                 ];

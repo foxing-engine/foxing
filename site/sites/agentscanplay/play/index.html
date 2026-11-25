@@ -3380,6 +3380,12 @@
     if (swapped && actor) { const obj = quoted(swapped[2]); print("(" + swapped[1] + ' "' + swapped[3] + '" ' + obj + ")", "sys"); await run(swapped[1], ['"' + swapped[3] + '"', obj]); return; }
     // More words than the verb has parameters, none of them quoted (`read Ledger of
     // Fines`, `tell Corrow I kept it`): the tail is the last parameter, whole.
+    // A room's name typed bare after travel or where (`travel Court of Lethe`) is one
+    // name: the tail was folded into the door's word, and "no exit 'court'" came back.
+    if (actor && /^(travel|where)$/.test(verb) && rest.length > 1 && !/"/.test(t) && !(verb === "travel" && /^anyway$/i.test(rest[rest.length - 1]))) {
+      const whole = rest.join(" ");
+      print("(" + verb + ' "' + whole + '")', "sys"); await run(verb, [whole]); return;
+    }
     const folded = fold(verb, rest, t);
     if (folded && actor) { print("(" + verb + " " + folded.join(" ") + ")", "sys"); await run(verb, folded); return; }
     // What a MUD player types, in the world's words.

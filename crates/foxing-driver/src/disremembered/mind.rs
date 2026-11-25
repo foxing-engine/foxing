@@ -293,6 +293,40 @@ pub fn find_named(world: &World, given: &str) -> Option<(EntityId, Option<Entity
         .map(|e| (e.id, e.parent))
 }
 
+/// The named creature whose name is nearest a mistyped one (a letter or two out), for
+/// "did you mean" (R266: `tell Kenoch` and `story Lorin` were told there was no such
+/// creature, with Kennoch and Lorrin in the room).
+pub fn near_named(world: &World, typed: &str) -> Option<String> {
+    let want = typed.trim().to_ascii_lowercase();
+    if want.len() < 3 {
+        return None;
+    }
+    fn distance(a: &str, b: &str) -> usize {
+        let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
+        let mut row: Vec<usize> = (0..=b.len()).collect();
+        for i in 1..=a.len() {
+            let mut last = row[0];
+            row[0] = i;
+            for j in 1..=b.len() {
+                let keep = row[j];
+                row[j] = (row[j] + 1)
+                    .min(row[j - 1] + 1)
+                    .min(last + usize::from(a[i - 1] != b[j - 1]));
+                last = keep;
+            }
+        }
+        row[b.len()]
+    }
+    world
+        .store
+        .of_kind("creature")
+        .filter_map(|e| name(world, e.id))
+        .map(|n| (distance(&want, &n.to_ascii_lowercase()), n))
+        .filter(|(d, n)| *d > 0 && (*d <= 2 || n.to_ascii_lowercase().starts_with(&want)))
+        .min_by_key(|(d, _)| *d)
+        .map(|(_, n)| n)
+}
+
 /// David, 11-22: "we should hide the creature identifier from the player (give each
 /// an adjective to distinguish them)". Where two unnamed creatures of a kind stood
 /// together they were wisp-31833 and wisp-32564. Now each has a word of its own:
