@@ -3030,7 +3030,10 @@ pub fn register(world: &mut World, curves: Curves) {
                             None if twins > 1 => super::mind::tagged(w, c.0),
                             None => kind.to_string(),
                         }
-                    }).collect::<Vec<_>>().join(", ")) + &where_
+                    }).collect::<Vec<_>>().join(", ")) + &match args.str("creature").and_then(|t| super::mind::near_named(w, t)) {
+                        Some(n) => format!(" (Did you mean {n}? A creature with a name is struck only by that name.)"),
+                        None => String::new(),
+                    } + &where_
                 }));
             };
             let cname = plain_str(w, creature, CREATURE, "name").unwrap_or("?").to_string();

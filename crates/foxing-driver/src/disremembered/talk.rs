@@ -78,7 +78,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.tell",
-            "Say something to one citizen or creature here. Said in a room it is said aloud: whoever else stands there hears \"X says to Y\" (a word for one pair of ears is sent from another room, and reaches them wherever they are). A citizen who is away hears it when they return. A creature with a name answers from what it remembers; one without a name does not understand you.",
+            "Say something to one citizen or creature here. Said in a room it is said aloud: whoever else stands there hears \"X says to Y\" (a word for one pair of ears is sent from another room, and reaches them wherever they are). A citizen who is away hears it when they return. `tell docent \"a question\"` asks the Docent, who answers within a few minutes wherever you are (six questions an hour from a name). A creature with a name answers from what it remembers; one without a name does not understand you.",
         )
         .param("who", ParamType::Entity, true, "a citizen, or a creature by kind or by name")
         .param("text", ParamType::Text, true, "what you say, quoted"),

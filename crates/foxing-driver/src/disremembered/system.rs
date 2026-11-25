@@ -842,9 +842,9 @@ fn register_rest(world: &mut World) {
                         .map(|p| format!("  {}: {}", if p.required { format!("<{}>", p.name) } else { format!("[{}]", p.name) }, p.description))
                         .collect();
                     let text = format!(
-                        "{} {}\n  {}{}",
+                        "{}{}\n  {}{}",
                         spec.verb(),
-                        spec.params.iter().filter(|p| !p.description.starts_with("unused")).map(|p| if p.required { format!("<{}>", p.name) } else { format!("[{}]", p.name) }).collect::<Vec<_>>().join(" "),
+                        spec.params.iter().filter(|p| !p.description.starts_with("unused")).map(|p| if p.required { format!(" <{}>", p.name) } else { format!(" [{}]", p.name) }).collect::<String>(),
                         spec.description,
                         if params.is_empty() { String::new() } else { format!("\n{}", params.join("\n")) }
                     );

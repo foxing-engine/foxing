@@ -1282,6 +1282,36 @@ pub fn room_named(world: &World, text: &str) -> Option<EntityId> {
     if exact.is_some() {
         return exact;
     }
+    // The Watch of 11-25: "Lamplighters Lane", the apostrophe left out, was "no
+    // exit", and so was a name one letter out ("Court of Lethee"). A name without
+    // its apostrophes, or a long one a letter away, when it is one room's alone.
+    let bare = |s: &str| s.replace('\'', "");
+    let one_off = |a: &str, b: &str| {
+        let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
+        if a.len().abs_diff(b.len()) > 1 || a.len() < 8 {
+            return false;
+        }
+        let pre = a.iter().zip(&b).take_while(|(x, y)| x == y).count();
+        let suf = a[pre..]
+            .iter()
+            .rev()
+            .zip(b[pre..].iter().rev())
+            .take_while(|(x, y)| x == y)
+            .count();
+        a.len().max(b.len()) - pre - suf <= 1
+    };
+    let wanted = bare(&want);
+    let mut near = world.store.of_kind("room").filter(|e| {
+        let name = bare(&loose(
+            plain_str(world, e.id, ROOM, "name").unwrap_or_default(),
+        ));
+        name == wanted || one_off(&name, &wanted)
+    });
+    if let Some(first) = near.next() {
+        if near.next().is_none() {
+            return Some(first.id);
+        }
+    }
     // R134: a word of the name, when it names one room alone ("where picnic" was
     // refused while "where lookout" answered).
     let mut by_word = world.store.of_kind("room").filter(|e| {
@@ -1451,6 +1481,11 @@ pub fn register(world: &mut World, curves: Curves) {
             }
             // "The Bindery", with its article, is the room and not the name Bindery;
             // and the Court's own text calls it the Courtroom.
+            // A creature as `look` prints it ("Fallis the wisp") is its given name.
+            let who = match who.split_once(" the ") {
+                Some((given, _)) if super::mind::find_named(w, given).is_some() => given.to_string(),
+                _ => who,
+            };
             let the_room = if loose(&who) == "courtroom" {
                 rooms::room_by_key(w, "court-of-lethe")
             } else if who.to_lowercase().starts_with("the ") {
@@ -1465,7 +1500,10 @@ pub fn register(world: &mut World, curves: Curves) {
                 ("The Docent".to_string(), super::docent::room(w))
             } else if let Some((c, r)) = super::mind::find_named(w, &who) {
                 (super::mind::display(w, c), r)
-            } else if let Some((cz, spelled)) = super::canonical_name(w, &who).and_then(|n| super::find_citizen(w, &n).map(|f| (f, n))) {
+            } else if let Some((cz, spelled)) = super::canonical_name(w, &who)
+                .filter(|_| !super::antics::is_walker(&who.trim().to_ascii_lowercase()))
+                .and_then(|n| super::find_citizen(w, &n).map(|f| (f, n)))
+            {
                 let present = super::presence::is_here(w, cz.citizen);
                 if !present {
                     return Ok(Outcome::new(

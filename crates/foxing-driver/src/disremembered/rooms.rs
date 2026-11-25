@@ -3311,12 +3311,19 @@ fn walk(
         .map(|(_, b)| b.to_string())
         .unwrap_or_else(|| out.summary.clone());
     out.summary = match &stopped {
-        None => format!("You walk {} to {target}. {body}", said.join(", ")),
+        // The doors' words are doors, not places walked ("You walk gate (Postern),
+        // west to the Hall" read as a list of nouns): "by gate (Postern), then west".
+        None => format!("You walk by {}, to {target}. {body}", said.join(", then ")),
         Some(why) => format!(
-            "You walk {} toward {target} and stop: {}. {}{body}",
-            said.join(", "),
+            "You walk by {}, toward {target}, and stop: {}{} {}{body}",
+            said.join(", then "),
             // R195: a refusal that ends in its own period made "…where you stand..".
             why.trim_end_matches('.'),
+            if why.trim_end_matches('.').ends_with(')') {
+                ""
+            } else {
+                "."
+            },
             if rest.is_empty() {
                 String::new()
             } else {

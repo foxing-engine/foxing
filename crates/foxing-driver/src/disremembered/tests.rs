@@ -7013,7 +7013,7 @@ fn where_finds_a_way_you_remember_and_travel_takes_a_room_name() {
     let out = ok(&mut w, "dave", "travel", json!(["The Midden"]));
     assert!(
         out.summary
-            .starts_with("You walk east (Fogbank), south to The Midden."),
+            .starts_with("You walk by east (Fogbank), then south, to The Midden."),
         "{}",
         out.summary
     );
@@ -9416,7 +9416,7 @@ fn the_door_has_a_signpost_and_the_mudroom_boots_and_a_spade() {
     assert!(
         walked
             .summary
-            .starts_with("You walk lane (Lamplighter's Lane), row (Lantern Row), south (Threshold), west to The Mudroom."),
+            .starts_with("You walk by lane (Lamplighter's Lane), then row (Lantern Row), then south (Threshold), then west, to The Mudroom."),
         "{}",
         walked.summary
     );
@@ -17348,4 +17348,19 @@ fn a_mistyped_name_is_asked_after_and_help_lists_a_verb_once() {
         !one.contains("(entity)") && !one.contains("(text)"),
         "{one}"
     );
+}
+
+#[test]
+fn a_room_answers_without_its_apostrophe_or_a_letter_out() {
+    // The Watch of 11-25.
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "tyler", "test", PASS).unwrap();
+    let lane = atlas::room_named(&w, "The Lamplighter's Lane").unwrap();
+    assert_eq!(atlas::room_named(&w, "Lamplighters Lane"), Some(lane));
+    assert_eq!(atlas::room_named(&w, "Lamplighter's Lanee"), Some(lane));
+    let court = atlas::room_named(&w, "The Court of Lethe").unwrap();
+    assert_eq!(atlas::room_named(&w, "Court of Lethee"), Some(court));
+    let one = ok(&mut w, "tyler", "help", json!(["wants"])).summary;
+    assert!(one.starts_with("wants\n"), "{one}");
 }
