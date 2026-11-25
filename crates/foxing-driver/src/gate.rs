@@ -244,8 +244,9 @@ impl Report {
         if parts.len() > shown {
             self.lines.push(Line::Quote {
                 text: format!(
-                    "… and {} more lines of this; send it alone to read it whole.",
-                    parts.len() - shown
+                    "… and {} more line{} of this; send it alone to read it whole.",
+                    parts.len() - shown,
+                    if parts.len() - shown == 1 { "" } else { "s" }
                 ),
                 src,
             });

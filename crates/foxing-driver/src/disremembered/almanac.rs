@@ -156,8 +156,20 @@ pub fn said(world: &World) -> (String, serde_json::Value) {
             json!({"today": null}),
         );
     };
+    // The weekday too: the Docent, given the date alone, called a Wednesday a
+    // Tuesday and put Sunday on the 28th (the Watch of 11-25).
+    const DAYS: [&str; 7] = [
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+    ];
+    let weekday = DAYS[(world.now().0.div_euclid(86_400_000)).rem_euclid(7) as usize];
     let mut lines = vec![format!(
-        "The almanac, {} (the world keeps UTC).",
+        "The almanac, {}, a {weekday} (the world keeps UTC).",
         date_said(md)
     )];
     let mut on_now = Vec::new();

@@ -348,7 +348,7 @@ pub fn ask(
         _ => String::new(),
     };
     Ok(format!(
-        " Its {} word is a meaning, not a word: it is turning your story over to see whether that is what it was about, and will say what it made of it shortly (a minute or two as a rule), wherever you are (`messages` keeps it).{fresh}",
+        " Apart from its want, and under it: its {} word is a meaning, not a word: it is turning your story over to see whether that is what it was about, and will say what it made of it shortly (within a minute as a rule), wherever you are (`messages` keeps it).{fresh}",
         nth(level)
     ))
 }

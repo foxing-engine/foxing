@@ -144,8 +144,12 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
                 // Full from others: said here, so the list does not send you to a
                 // creature that refuses (the Watch of 11-06).
                 format!(
-                    "nothing from you yet: it is full for the hour (it has heard {} from others; only a story that carries a word of its you have not found is heard before then). When the hour turns, a story about {s}{turned}",
-                    super::exchange::STORIES_AN_HOUR
+                    "nothing from you yet: it is full for the hour (it has heard {} from others; only a story that carries a word of its you have not found is heard before then). When the hour turns{}, a story about {s}{turned}",
+                    super::exchange::STORIES_AN_HOUR,
+                    match super::exchange::room_in(world, e.id) {
+                        Some(m) => format!(", in {m} minute{}", if m == 1 { "" } else { "s" }),
+                        None => String::new(),
+                    }
                 )
             } else {
                 format!(

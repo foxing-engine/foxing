@@ -50,6 +50,21 @@ pub fn heard_this_hour(world: &World, creature: EntityId) -> usize {
         .count()
 }
 
+/// Minutes until a creature that is full for the hour takes another story: when the
+/// oldest of the hour's stories is an hour old (the Watch of 11-25: every other
+/// refusal gave minutes and this one said "until that hour turns").
+pub fn room_in(world: &World, creature: EntityId) -> Option<i64> {
+    let now = world.now();
+    world
+        .recent_events(2000)
+        .iter()
+        .filter(|e| e.kind == STORY && e.payload["creature"] == creature.0)
+        .map(|e| STORY_COOLDOWN_MS - now.since(e.at).0)
+        .filter(|ms| *ms > 0)
+        .min()
+        .map(|ms| (ms + 59_999) / 60_000)
+}
+
 /// How long until `actor`'s hour with `creature` turns: the time left on the newest
 /// paid story (none when nothing is on the clock).
 pub fn ready_in(world: &World, actor: &str, creature: EntityId) -> Option<i64> {
@@ -573,7 +588,11 @@ pub fn register(world: &mut World, curves: Curves) {
                 }
                 let not_it = super::secret::miss_said(w, &ctx.actor, creature, &text);
                 return Err(CommandError::precondition(format!(
-                    "{name} has heard {STORIES_AN_HOUR} stories in its hour and is turning them over; it takes no more until that hour turns{}. `wants` names another.{not_it}",
+                    "{name} has heard {STORIES_AN_HOUR} stories in its hour and is turning them over; it takes no more until that hour turns{}{}. `wants` names another.{not_it}",
+                    match room_in(w, creature) {
+                        Some(m) => format!(" (in {m} minute{})", if m == 1 { "" } else { "s" }),
+                        None => String::new(),
+                    },
                     if word_left {
                         let n = super::secret::tries(w, &ctx.actor, creature);
                         format!(", but for one that carries the word under the others, and it weighed that one for it ({n} tr{} of yours at this word so far)", if n == 1 { "y" } else { "ies" })

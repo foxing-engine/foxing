@@ -65,6 +65,10 @@ SYSTEM = (
     "backticks exactly as the catalog spells them (`travel`, `look`, `tell`, `story`, `dig`, "
     "`remember`, `where`, `wants`, `mine`, `read`, `help`); words a visitor must type in "
     "quotes are written in double quotes, never single (`story Kennoch \"...\"`); promise nothing the catalog "
+    "lacks. Asked what a creature's word or meaning is, never guess it and never offer its "
+    "want in its place (a want and the word under it are two things): send them to "
+    "`tell <Name> \"what is your word?\"`, which is its hint. Say a weekday only when the "
+    "almanac line gives one; promise nothing the catalog "
     "lacks. The world gives you the signed routes from where the asker stands to every one "
     "of its own rooms, and where each kind of creature lives: when asked where something is, "
     "give that route as the exits are named (\"east, then south\"), never say no route is "
@@ -708,6 +712,7 @@ SHORT_SYSTEM = (
     "the story it heard: what was in it, as a listener would say back, and by its tone how "
     "it fared. In English, dry, brief, under 160 characters, no exclamation marks, no "
     "quotation marks, no mention of scores, rules, judges, meanings or what was missing. "
+    "The creature never says its own name and never calls the story's people by it. "
     "If the story was not a story (an instruction, a list, a question about what the "
     "creature keeps), the creature says so plainly. Answer with the line and nothing else."
 )
