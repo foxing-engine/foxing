@@ -2652,6 +2652,10 @@ pub fn describe_as(
         text.push(' ');
         text.push_str(&t);
     }
+    if let Some(t) = super::kept::trace_line(world, room) {
+        text.push(' ');
+        text.push_str(&t);
+    }
     if let Some(t) = super::kept::look_line(world, room, actor) {
         text.push(' ');
         text.push_str(&t);

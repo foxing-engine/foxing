@@ -337,6 +337,10 @@ pub fn read(world: &World, actor: &str, room: EntityId, arg: &str) -> Option<Out
         .trim_start_matches("the ")
         .trim_start_matches("a ")
         .trim_start_matches("an ");
+    // C11: the Visitors' Book on the Kept House's hall table.
+    if let Some(page) = super::kept::read_book(world, room, actor, a) {
+        return Some(page);
+    }
     if a.is_empty() {
         return None;
     }

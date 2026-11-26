@@ -917,6 +917,13 @@ pub fn business(world: &mut World) -> Result<(), String> {
                 continue;
             }
         }
+        // C11: who boards at the Kept House keeps to its own room unless a calling
+        // takes it out (Watch 29: they walked to whoever fed them, and stood in the
+        // hall in a crowd while their rooms were empty).
+        if super::kept::of_house(world, c) {
+            let _ = super::kept::go_home(world, c);
+            continue;
+        }
         if done >= BUSINESS_PER_TICK {
             continue;
         }
@@ -936,7 +943,35 @@ fn wind_business(world: &mut World) -> Result<(), String> {
 
 // ---- wiring -----------------------------------------------------------------------
 
+/// The called have a turn of their own every two minutes, besides the one in the
+/// business tick (Watch 29: a work stood at "0 of 3 told" for nine minutes, a step a
+/// tick being a room every ten).
+pub const JOB_CALLED: &str = "disremembered.called_tick";
+const CALLED_EVERY_MS: i64 = 120_000;
+
+fn called_tick(world: &mut World) -> Result<(), String> {
+    let named: Vec<EntityId> = world
+        .store
+        .of_kind("creature")
+        .filter(|e| super::mind::name(world, e.id).is_some())
+        .map(|e| e.id)
+        .collect();
+    for c in named {
+        if let Err(e) = called_turn(world, c) {
+            eprintln!("a calling step failed for creature {}: {e}", c.0);
+        }
+    }
+    let due = world.now().plus(foxing_time::Duration(CALLED_EVERY_MS));
+    world
+        .schedule_once(JOB_CALLED, due, json!({}), |_| true)
+        .map(|_| ())
+}
+
 pub fn ensure(world: &mut World) -> Result<(), String> {
+    if !world.jobs.has(JOB_CALLED, |_| true) {
+        let due = world.now().plus(foxing_time::Duration(CALLED_EVERY_MS));
+        world.schedule_once(JOB_CALLED, due, json!({}), |_| true)?;
+    }
     if !world.jobs.has(JOB_HAPPENING, |_| true) {
         wind_happening(world)?;
     }
@@ -949,4 +984,5 @@ pub fn ensure(world: &mut World) -> Result<(), String> {
 pub fn register(world: &mut World) {
     world.on_job(JOB_HAPPENING, Box::new(|w: &mut World, _| happen(w)));
     world.on_job(JOB_BUSINESS, Box::new(|w: &mut World, _| business(w)));
+    world.on_job(JOB_CALLED, Box::new(|w: &mut World, _| called_tick(w)));
 }

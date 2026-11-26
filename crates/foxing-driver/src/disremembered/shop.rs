@@ -125,10 +125,50 @@ pub fn keep_in(world: &mut World) -> Result<(), String> {
             )
             .map_err(|e| e.to_string())?;
     }
+    // One shopkeep. (Watch 29: the one fed to a name before feeding was refused stood
+    // beside a fresh one the room had spawned, each copying the other.) The plain one
+    // stays, with everything on the shelves; the named one goes back to being it.
+    let all: Vec<EntityId> = world
+        .store
+        .children(r)
+        .filter(|e| {
+            e.kind == "creature" && plain_str(world, e.id, CREATURE, "name") == Some(KEEPER)
+        })
+        .map(|e| e.id)
+        .collect();
+    if all.len() > 1 {
+        let stays = all
+            .iter()
+            .copied()
+            .find(|c| super::mind::name(world, *c).is_none())
+            .unwrap_or(all[0]);
+        for go in all.into_iter().filter(|c| *c != stays) {
+            let things: Vec<EntityId> = world
+                .store
+                .children(go)
+                .filter(|e| e.kind == "item")
+                .map(|e| e.id)
+                .collect();
+            for t in things {
+                world
+                    .record(
+                        Actor::Driver,
+                        StoreEvent::EntityMoved {
+                            id: t,
+                            parent: Some(stays),
+                        },
+                    )
+                    .map_err(|e| e.to_string())?;
+            }
+            world
+                .record(Actor::Driver, StoreEvent::EntityRemoved { id: go })
+                .map_err(|e| e.to_string())?;
+        }
+    }
     Ok(())
 }
 
-/// What the shopkeep says to a memory or a story offered it: it deals in them and
+/// What the shopkeep says to a memory/// What the shopkeep says to a memory or a story offered it: it deals in them and
 /// does not take them in.
 pub fn refuses(world: &World, creature: EntityId) -> Option<String> {
     (plain_str(world, creature, CREATURE, "name") == Some(KEEPER)).then(|| {
@@ -633,6 +673,7 @@ pub fn register(world: &mut World) {
                     let Some(item) = on_shelf else {
                         return Err(mine);
                     };
+                    meant(w, &what, item)?;
                     let name = super::craft::display(w, item);
                     let asked = ticket(w, item);
                     let from = plain_str(w, item, ITEM, "sold_by").map(|b| format!(" It had it off {b}.")).unwrap_or_default();

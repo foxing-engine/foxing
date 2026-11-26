@@ -59,7 +59,7 @@ pub const WORK_ROOMS: usize = 3;
 /// Between an heir's lessons.
 pub const LESSON_MS: i64 = 3_600_000;
 /// Steps a grudge waits, met and unsettled or never met, before it petitions.
-pub const GRUDGE_PATIENCE: u64 = 6;
+pub const GRUDGE_PATIENCE: u64 = 15;
 const LINE_MAX: usize = 200;
 
 /// The kinds of thing a creature may want collected: the word looked for in a
@@ -187,7 +187,16 @@ pub fn menu(world: &World, c: EntityId) -> Vec<Offer> {
         super::combat::creatures_in(world, *r)
             .into_iter()
             .map(|x| x.0)
-            .find(|&o| o != c && mind::name(world, o).is_none() && ordinary(world, o))
+            .find(|&o| {
+                // Not the house's walkers (a lamplighter is nobody's apprentice:
+                // Watch 29's Sallow took one up and could do nothing with it), nor
+                // anything of the Kept House.
+                o != c
+                    && mind::name(world, o).is_none()
+                    && ordinary(world, o)
+                    && !super::combat::OFFICERS.contains(&kind_of(world, o).as_str())
+                    && !super::kept::of_house(world, o)
+            })
             .map(|o| (o, *r))
     });
     if let Some((o, r)) = apprentice {
@@ -1088,7 +1097,7 @@ pub fn step(world: &mut World, c: EntityId) -> Result<bool, String> {
                         // It waits a turn or two for someone to tell it to.
                         let audience = citizens_here(world, stop);
                         let waited = state["waited"].as_u64().unwrap_or(0);
-                        if audience.is_empty() && waited < 2 {
+                        if audience.is_empty() && waited < 4 {
                             state["waited"] = json!(waited + 1);
                             false
                         } else {

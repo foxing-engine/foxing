@@ -214,6 +214,8 @@ function iconFor(name) {
 }
 // The room's motifs, from its words.
 const MOTIFS = [
+  // C11: the Kept House is boards and lamplight in every room, whatever its rooms are called.
+  ["lanterns", /kept-(hall|parlour|kitchen|landing|bedroom|attic)|souvenir-shop/],
   ["mint", /exergue|counting bar|die room|striking floor|assay|mintmark|purse room|mint\b|coin/],
   ["water", /water|cistern|shallow|undertow|drown|sluice|flood|moonpool|stillwater|tide|pool|choir|inkwell|lamprey/],
   ["shelves", /archive|stack|reading|catalogue|catalog|shelf|shelves|ledger|library|book|carrel|periodical|desk|minute|engross|lectern|robing|annex/],
@@ -465,7 +467,8 @@ export default function install(m) {
       for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (!solid(x, y) && (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1))) g.fillRect(x, y, 1, 1);
     }
     rows.forEach((row, y) => { for (let x = 0; x < n; x++) { const ch = row[x]; if (ch && ch !== ".") { g.fillStyle = pal[ch] || "#f0f"; g.fillRect(x, y, 1, 1); } } });
-    if (tint) { g.globalCompositeOperation = "source-atop"; g.fillStyle = tint; g.globalAlpha = 0.38; g.fillRect(0, 0, n, n); g.globalAlpha = 1; g.globalCompositeOperation = "source-over"; }
+    // (The Kept House's six share one drawing and are told apart by the color of the gown: a stronger wash.)
+    if (tint) { g.globalCompositeOperation = "source-atop"; g.fillStyle = tint; g.globalAlpha = frame === "boarder" ? 0.62 : 0.38; g.fillRect(0, 0, n, n); g.globalAlpha = 1; g.globalCompositeOperation = "source-over"; }
     cache.set(key, c);
     return c;
   }
@@ -527,6 +530,8 @@ export default function install(m) {
   // A sprite's own tint, when it is a hybrid drawn in a parent's frame: the frame's
   // first color is the kind's; a different tint on the component is a mix.
   function spriteTint(sprite) {
+    // The Kept House's six share one drawing: the gown takes each one's own color.
+    if (sprite && sprite.frame === "boarder" && sprite.tint) return sprite.tint;
     const f = sprite && frameData(sprite.frame); if (!f || !sprite.tint) return null;
     const own = Object.values(f.p)[0];
     if (sprite.frame === "citizen") return sprite.tint.startsWith("hsl") ? sprite.tint : null;
@@ -894,6 +899,78 @@ export default function install(m) {
       // The works: two gears meshing on the wall, turning against each other.
       gear(5 * T, 14, 7, 8, 0.6, "#b08a3a"); gear(5 * T + 13, 17, 5, 6, -0.8, "#d9b57a");
       if (k === "pendulum-room") { const a = Math.sin(t * 1.2) * 0.35; px(DOORS.north[0] * T + 8, 2, 1, 2, "#b08a3a"); ctx.strokeStyle = "#b08a3a"; ctx.lineWidth = SCALE; ctx.beginPath(); ctx.moveTo((DOORS.north[0] * T + 8) * SCALE, 4 * SCALE); ctx.lineTo((DOORS.north[0] * T + 8 + Math.sin(a) * 40) * SCALE, (4 + Math.cos(a) * 40) * SCALE); ctx.stroke(); ctx.fillStyle = "#d9b57a"; ctx.beginPath(); ctx.arc((DOORS.north[0] * T + 8 + Math.sin(a) * 40) * SCALE, (4 + Math.cos(a) * 40) * SCALE, 4 * SCALE, 0, Math.PI * 2); ctx.fill(); }
+    }
+    // C17 and C11 (Watch 29: "a floor and a figure", "drawn like every other room"):
+    // the Souvenir Shop's wares, tickets and jar, and the Kept House's furniture.
+    const flick = (i) => (Math.floor(t * 3 + i) % 4 === 0 ? "#fff2c8" : "#ffcf7a");
+    if (k === "souvenir-shop") {
+      // Three shelves on the north wall, a thing and its paper ticket in every place.
+      const wares = ["#b5483c", "#d9b57a", "#6f8f6a", "#7fc9e0", "#c9824a", "#8a5a7a", "#e3bf78", "#9aa0a8"];
+      for (let row = 0; row < 3; row++) {
+        px(T, 7 + row * 8, W - 2 * T, 1, "#3a2418");
+        for (let i = 0; i < 17; i++) {
+          const x = T + 4 + i * 16 + (row % 2) * 5, c = wares[(i * 3 + row * 5) % wares.length];
+          if ((i + row) % 5 === 4) continue;
+          px(x, 3 + row * 8, 4 + (i % 3), 4, c); px(x, 3 + row * 8, 1, 1, "#f6f0e0"); px(x + 1, 8 + row * 8, 3, 2, "#f6f0e0");
+        }
+      }
+      // The counter, with the duster left on it, and the jar by the door.
+      px(6 * T, 3 * T + 2, 8 * T, 9, "#3a2418"); px(6 * T, 3 * T + 2, 8 * T, 2, "#6a4a30"); px(6 * T + 6, 3 * T, 10, 2, "#c9824a");
+      const jx = DOORS.south[0] * T + T + 6, jy = H - 22;
+      px(jx, jy, 8, 10, "rgba(190,225,235,.55)"); px(jx + 1, jy - 2, 6, 2, "#8a6a42"); px(jx + 1, jy + 1, 1, 6, "rgba(255,255,255,.7)"); px(jx + 2, jy + 6, 4, 3, "#e3bf78");
+    }
+    if (k === "kept-hall") {
+      // Coat hooks with names under them, the table with the book, the rug, the stairs.
+      const coats = ["#c9a05a", "#7a6a9a", "#d0823a", "#5a8a8a", "#6a9a5a", "#5a6ab0", "#8a8a7a"];
+      for (let i = 0; i < 7; i++) { const x = 2 * T + i * 13; px(x, 9, 2, 2, "#b08a3a"); if (i !== 2) { px(x - 2, 11, 6, 13, coats[i]); px(x - 2, 11, 6, 2, shade(hex(coats[i]), 1.25)); } px(x - 2, 27, 6, 1, "#f6f0e0"); }
+      px(4 * T, 5 * T, 3 * T, 4 * T, "#7a3a34"); px(4 * T + 2, 5 * T + 2, 3 * T - 4, 4 * T - 4, "#9a5a48"); for (let i = 0; i < 5; i++) px(4 * T + 4, 5 * T + 6 + i * 11, 3 * T - 8, 1, "#d9b57a");
+      px(9 * T, 3 * T + 2, 2 * T + 6, 12, "#3a2418"); px(9 * T, 3 * T + 2, 2 * T + 6, 2, "#6a4a30");
+      px(9 * T + 9, 3 * T - 1, 9, 6, "#f6f0e0"); px(9 * T + 18, 3 * T - 1, 9, 6, "#e8e2d2"); px(9 * T + 17, 3 * T - 1, 1, 6, "#8a6a42"); for (let i = 0; i < 3; i++) { px(9 * T + 11, 3 * T + 1 + i * 2, 5, 1, "#5a5448"); px(9 * T + 20, 3 * T + 1 + i * 2, 5, 1, "#5a5448"); }
+      for (let i = 0; i < 6; i++) { px(W - 4 * T + i * 6, 2 * T + 2 + i * 5, 3 * T - i * 6, 5, i % 2 ? "#5a3a2a" : "#6a4a30"); px(W - 4 * T + i * 6, 2 * T + 2 + i * 5, 3 * T - i * 6, 1, "#8a6a42"); }
+    }
+    if (k === "kept-parlour") {
+      // The banked fire, four clocks that agree about nothing, two chairs that do not match.
+      px(8 * T, 8, 4 * T, 24, "#2a211c"); px(8 * T + 6, 14, 4 * T - 12, 18, "#120e0c");
+      for (let i = 0; i < 5; i++) px(8 * T + 12 + i * 8, 27 - (i % 2) * 2, 5, 4, i % 2 ? "#e09a4a" : "#b5483c");
+      px(8 * T + 20, 24, 3, 3, flick(1)); px(8 * T - 3, 6, 4 * T + 6, 3, "#6a4a30");
+      const hands = [0.4, 2.1, 3.9, 5.2];
+      for (let i = 0; i < 4; i++) { const cx = 8 * T + 6 + i * 17; px(cx - 3, -1 + (i % 2), 7, 7, i % 2 ? "#d9b57a" : "#b08a3a"); px(cx - 2, (i % 2), 5, 5, "#f1ece0"); px(cx, 2 + (i % 2), 1, 1, "#1f242c"); px(cx + Math.round(Math.cos(hands[i] + t * (0.02 + i * 0.01)) * 1.6), 2 + (i % 2) + Math.round(Math.sin(hands[i] + t * (0.02 + i * 0.01)) * 1.6), 1, 1, "#1f242c"); }
+      px(5 * T, 4 * T, 26, 22, "#6a3f5c"); px(5 * T + 3, 4 * T + 8, 20, 12, "#8a5a7a"); px(5 * T, 4 * T, 26, 5, "#7a4a6a");
+      px(13 * T, 4 * T + 2, 24, 20, "#4a664a"); px(13 * T + 3, 4 * T + 9, 18, 11, "#6f8f6a"); px(13 * T, 4 * T + 2, 24, 5, "#5a7a5a");
+    }
+    if (k === "kept-kitchen") {
+      // The range that is never quite out, the pot, the salt box, the long pale table.
+      px(3 * T, 10, 5 * T, 22, "#26262c"); px(3 * T, 10, 5 * T, 3, "#4a4a54"); px(3 * T + 8, 20, 18, 10, "#120e0c"); px(3 * T + 11, 25, 12, 4, "#e09a4a"); px(3 * T + 15, 23, 4, 3, flick(2));
+      px(3 * T + 44, 2, 20, 10, "#6f7884"); px(3 * T + 42, 1, 24, 2, "#9aa0a8"); for (let i = 0; i < 3; i++) px(3 * T + 48 + i * 5, -4 - ((Math.floor(t * 2) + i) % 3), 2, 4, "rgba(230,232,236,.35)");
+      px(W - 3 * T, 14, 10, 12, "#c9b089"); px(W - 3 * T, 14, 10, 3, "#e2c9a0");
+      px(6 * T, 5 * T, 8 * T, 16, "#d6c7a4"); px(6 * T, 5 * T, 8 * T, 2, "#ece0c2"); px(6 * T + 2, 5 * T + 16, 3, 6, "#8a6a42"); px(14 * T - 5, 5 * T + 16, 3, 6, "#8a6a42");
+      px(7 * T, 5 * T + 4, 10, 6, "#c9824a"); px(11 * T, 5 * T + 3, 8, 8, "#f1ece0"); px(11 * T + 2, 5 * T + 5, 4, 4, "#b5483c");
+    }
+    if (k === "kept-landing") {
+      // The window, the sloping desk under it, the shelf of letters, the corrected sign.
+      px(9 * T, 4, 2 * T, 20, "#26303c"); px(9 * T + 2, 6, 2 * T - 4, 16, "#4a5f7a"); px(9 * T + T - 1, 4, 2, 20, "#8a6a42"); px(9 * T, 13, 2 * T, 2, "#8a6a42");
+      px(8 * T + 8, 3 * T, 3 * T, 14, "#5a3a2a"); px(8 * T + 8, 3 * T, 3 * T, 3, "#7a5438"); px(9 * T, 3 * T + 2, 16, 8, "#f6f0e0"); for (let i = 0; i < 3; i++) px(9 * T + 2, 3 * T + 4 + i * 2, 11, 1, "#5a5448"); px(9 * T + 22, 3 * T + 1, 3, 4, "#1f242c");
+      px(3 * T, 10, 3 * T, 2, "#3a2418"); for (let i = 0; i < 9; i++) px(3 * T + 2 + i * 5, 4 + (i % 3), 4, 6 - (i % 3), i % 2 ? "#f6f0e0" : "#e2d6b8");
+      px(W - 5 * T, 8, 2 * T + 4, 9, "#f1ece0"); px(W - 5 * T + 3, 11, 20, 1, "#1f242c"); px(W - 5 * T + 3, 14, 14, 1, "#b5483c"); px(W - 5 * T + 19, 13, 10, 1, "#4a5f7a");
+    }
+    if (k === "kept-bedroom") {
+      // The narrow bed under a quilt made of other quilts, the work basket, a splinted chair.
+      const patches = ["#b5483c", "#d9b57a", "#6f8f6a", "#4a5f7a", "#c9824a", "#8a5a7a"];
+      px(3 * T, 3 * T, 3 * T, 5 * T, "#5a3a2a"); px(3 * T + 3, 3 * T + 3, 3 * T - 6, 14, "#f1ece0");
+      for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) px(3 * T + 3 + c * 14, 3 * T + 19 + r * 11, 14, 11, patches[(r * 2 + c * 3 + r * c) % patches.length]);
+      px(13 * T, 6 * T, 16, 10, "#c9a45e"); px(13 * T, 6 * T, 16, 2, "#e2c08a"); px(13 * T + 3, 6 * T - 3, 4, 4, "#b5483c"); px(13 * T + 9, 6 * T - 2, 4, 3, "#f6f0e0");
+      px(15 * T, 3 * T, 12, 3, "#7a5438"); px(15 * T, 3 * T + 3, 2, 12, "#7a5438"); px(15 * T + 10, 3 * T + 3, 2, 12, "#7a5438"); px(15 * T + 10, 3 * T + 7, 2, 4, "#f6f0e0");
+      px(8 * T, 6, 2 * T, 22, "#4a664a"); px(8 * T + 2, 6, 2 * T - 4, 3, "#6f8f6a"); px(8 * T + 14, 16, 2, 2, "#e3bf78");
+    }
+    if (k === "kept-attic") {
+      // The skylight propped open with a book and its light on the floor, the chair tipped back, the chart.
+      px(8 * T, 0, 4 * T, 14, "#1b2638"); for (let i = 0; i < 6; i++) px(8 * T + 6 + (i * 23) % (4 * T - 10), 2 + (i * 5) % 10, 1, 1, (Math.floor(t + i) % 4) ? "#e8e4d0" : "#8a8e86");
+      px(8 * T - 2, 14, 4 * T + 4, 2, "#8a6a42"); px(12 * T - 6, 10, 6, 4, "#b5483c");
+      const gl = ctx.createRadialGradient(10 * T * SCALE, 5 * T * SCALE, 4 * SCALE, 10 * T * SCALE, 5 * T * SCALE, 40 * SCALE);
+      gl.addColorStop(0, "rgba(200,215,255,.22)"); gl.addColorStop(1, "rgba(200,215,255,0)"); ctx.fillStyle = gl; ctx.fillRect(0, 0, W * SCALE, H * SCALE);
+      px(10 * T - 6, 4 * T, 12, 4, "#7a5438"); px(10 * T - 6, 4 * T + 4, 2, 10, "#7a5438"); px(10 * T + 4, 4 * T - 8, 2, 22, "#7a5438");
+      px(3 * T, 6, 3 * T, 20, "#f1ece0"); for (let i = 0; i < 7; i++) px(3 * T + 4 + (i * 11) % (3 * T - 8), 9 + (i * 7) % 14, 1, 1, "#1f242c"); px(3 * T + 6, 12, 18, 1, "rgba(60,60,70,.5)"); px(3 * T + 12, 18, 22, 1, "rgba(60,60,70,.5)");
+      px(W - 2 * T - 6, 3 * T, 6, 5 * T, "#26303c"); px(W - 2 * T - 5, 3 * T + 2, 4, 5 * T - 4, "#c9a070");
     }
     if (k === "session-benches") {
       // The table with the mace across it, and the clock with one hour marked.

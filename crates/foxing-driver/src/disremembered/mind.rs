@@ -821,6 +821,10 @@ pub fn check_tier(world: &mut World, creature: EntityId) -> Result<(), CommandEr
     if super::kept::of_house(world, creature) {
         want = want.max(1);
     }
+    // A traveler is gone tomorrow: it takes up nothing of its own.
+    if super::kept::is_traveler(world, creature) {
+        want = want.min(1);
+    }
     // The shopkeep keeps a shop, and is never more or less than that (Watch 28: fed
     // to a name and then past the bar, it walked out and the shop was shut).
     if plain_str(world, creature, CREATURE, "name") == Some(super::shop::KEEPER) {

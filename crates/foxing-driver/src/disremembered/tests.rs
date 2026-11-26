@@ -18163,6 +18163,12 @@ fn the_kept_house_boards_six_and_keeps_a_book() {
         "{}",
         look.summary
     );
+    let page = ok(&mut w, "dave", "read", json!(["book"]));
+    assert!(
+        page.summary.contains("in six hands") && page.summary.contains("Wimble the housekeeper"),
+        "{}",
+        page.summary
+    );
     let lines = kept::lines(&w);
     let wrong = kept::RESIDENTS
         .iter()

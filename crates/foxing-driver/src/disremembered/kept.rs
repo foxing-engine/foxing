@@ -63,6 +63,8 @@ pub struct Resident {
     pub room: &'static str,
     /// Its lines in the Visitors' Book, one a month in turn.
     pub book: [&'static str; 3],
+    /// What it leaves in its room when it is on the road, by which it can be known.
+    pub trace: &'static str,
 }
 
 pub const RESIDENTS: &[Resident] = &[
@@ -75,6 +77,7 @@ pub const RESIDENTS: &[Resident] = &[
             "Eleven spoons in the drawer. There were eleven yesterday. I mention it for completeness.",
             "One guest, one candle, one complaint. All three accounted for.",
         ],
+        trace: "A list is pinned by the door in a square hand: \"Hooks, seven. Coats, six. Mine makes seven; taken with me. Back tomorrow, to count again.\"",
     },
     Resident {
         kind: "watchman",
@@ -85,6 +88,7 @@ pub const RESIDENTS: &[Resident] = &[
             "It is a quarter past something. It usually is.",
             "Stayed up until it was early. I recommend it.",
         ],
+        trace: "All four clocks have been stopped at different hours, and a note is propped against the last: \"Gone out. Do not wind them; I like to come home to an argument.\"",
     },
     Resident {
         kind: "cook",
@@ -95,6 +99,7 @@ pub const RESIDENTS: &[Resident] = &[
             "The soup was better the second day, as people are.",
             "Left a crust for whoever is hungry after me. Do not thank me, eat it.",
         ],
+        trace: "A pot stands off the heat under a cloth, with a spoon across it and a note: \"Tomorrow's. Salt it when I am back, not before.\"",
     },
     Resident {
         kind: "copyist",
@@ -105,6 +110,7 @@ pub const RESIDENTS: &[Resident] = &[
             "A good house; a semicolon of a house: it joins what would otherwise be two lonely things.",
             "Whoever wrote above me: 'their', not 'there'.",
         ],
+        trace: "A half-copied letter lies on the desk, weighted with the ink bottle; in the margin, small: \"Resume at the semicolon.\"",
     },
     Resident {
         kind: "seamster",
@@ -115,6 +121,7 @@ pub const RESIDENTS: &[Resident] = &[
             "Nothing here is broken that a length of thread would not see to.",
             "Mended the hem of the hall rug. Nobody asked. Nobody trips now.",
         ],
+        trace: "A needle stands in the arm of the chair with a thread still through it, and one glove has four fingers done.",
     },
     Resident {
         kind: "stargazer",
@@ -125,6 +132,7 @@ pub const RESIDENTS: &[Resident] = &[
             "Rain on the skylight until four. I counted it as company.",
             "The window on the east side shows tomorrow a little early.",
         ],
+        trace: "The skylight is shut and latched, and tomorrow's weather is pencilled on the chart, with the hour.",
     },
 ];
 
@@ -380,6 +388,50 @@ pub fn tick(world: &mut World) -> Result<(), String> {
     Ok(())
 }
 
+/// One of the house found out of its room with nothing in hand goes back to it.
+pub fn go_home(world: &mut World, c: EntityId) -> Result<(), String> {
+    let Some(r) = resident_of(world, c) else {
+        return Ok(());
+    };
+    let (Some(room), Some(here)) = (super::rooms::room_by_key(world, r.room), here_of(world, c))
+    else {
+        return Ok(());
+    };
+    if here == room
+        || Some(here) == super::rooms::room_by_key(world, ROAD)
+        || super::calling::of(world, c).is_some()
+        || super::combat::fought_by(world, c).is_some()
+    {
+        return Ok(());
+    }
+    super::combat::narrate_room(
+        world,
+        c,
+        &format!(
+            "{} the {} remembers something left undone and goes back to its own room.",
+            r.name, r.kind
+        ),
+    );
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::EntityMoved {
+                id: c,
+                parent: Some(room),
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    super::combat::narrate_room(
+        world,
+        c,
+        &format!(
+            "{} the {} comes back in and takes up where it left off.",
+            r.name, r.kind
+        ),
+    );
+    Ok(())
+}
+
 /// A resident was felled and stood (combat.rs): it is carried to its own room, whole.
 /// What it says to the one who felled it, or `None` for any other creature.
 pub fn felled(world: &mut World, c: EntityId) -> Option<String> {
@@ -495,16 +547,76 @@ fn keep_book(world: &mut World, b: Value) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// The hall's line under `look`: the book, and for this name which lines are done.
+fn found_by(world: &World, actor: &str) -> Vec<u64> {
+    book(world)["right"][actor]
+        .as_array()
+        .map(|a| a.iter().filter_map(Value::as_u64).collect())
+        .unwrap_or_default()
+}
+
+fn boarders(world: &World) -> String {
+    RESIDENTS
+        .iter()
+        .map(|r| {
+            format!(
+                "{} the {} ({})",
+                r.name,
+                r.kind,
+                super::rooms::room_by_key(world, r.room)
+                    .and_then(|x| plain_str(world, x, ROOM, "name"))
+                    .unwrap_or("?")
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// The hall's line under `look`: that the book is there, how far this name has got,
+/// and who is away. The page itself is `read book` (Watch 29: with all six lines in
+/// it, every `look` in the hall was three thousand characters).
 pub fn look_line(world: &World, room: EntityId, actor: &str) -> Option<String> {
     if Some(room) != super::rooms::room_by_key(world, HALL) {
         return None;
     }
-    let b = book(world);
-    let done: Vec<u64> = b["right"][actor]
-        .as_array()
-        .map(|a| a.iter().filter_map(Value::as_u64).collect())
-        .unwrap_or_default();
+    let done = found_by(world, actor).len();
+    let away = away_today(world)
+        .map(|r| {
+            format!(
+                " {} is on the road today and a traveler has the room; home tomorrow.",
+                r.name
+            )
+        })
+        .unwrap_or_else(|| " Everyone is home today.".to_string());
+    Some(format!(
+        "The Visitors' Book lies open on the hall table: six unsigned lines, one by each who boards here (`read book`; you have ascribed {done} of 6).{away}"
+    ))
+}
+
+/// In the room of one who is on the road: what it left there (Watch 29: with a
+/// resident away its line could only be had by elimination).
+pub fn trace_line(world: &World, room: EntityId) -> Option<String> {
+    let r = away_today(world)?;
+    if Some(room) != super::rooms::room_by_key(world, r.room) {
+        return None;
+    }
+    let c = find(world, r)?;
+    if here_of(world, c) != super::rooms::room_by_key(world, ROAD) {
+        return None;
+    }
+    Some(format!(
+        "{} is on the road, and has left the room as it leaves it: {}",
+        r.name, r.trace
+    ))
+}
+
+/// The book's page, for `read book` in the hall.
+pub fn read_book(world: &World, room: EntityId, actor: &str, arg: &str) -> Option<Outcome> {
+    if Some(room) != super::rooms::room_by_key(world, HALL)
+        || !(arg.contains("book") || arg.contains("page") || arg.contains("visitor"))
+    {
+        return None;
+    }
+    let done = found_by(world, actor);
     let shown: Vec<String> = lines(world)
         .iter()
         .enumerate()
@@ -516,18 +628,13 @@ pub fn look_line(world: &World, room: EntityId, actor: &str) -> Option<String> {
             }
         })
         .collect();
-    let away = away_today(world)
-        .map(|r| {
-            format!(
-                " {} is on the road today and a traveler has the room; home tomorrow.",
-                r.name
-            )
-        })
-        .unwrap_or_else(|| " Everyone is home today.".to_string());
-    Some(format!(
-        "The Visitors' Book lies open on the hall table, this month's page in six hands, unsigned: {} Six board here: {}.{away} Each gives itself away in what it does and says; `ascribe <line> <name>` says who wrote one ({LINE_XP:.0} XP vivid for each you get right, {BOOK_XP:.0} more for all six, once a month; a wrong guess closes that line to you for an hour).",
-        shown.join(" "),
-        RESIDENTS.iter().map(|r| format!("{} the {} ({})", r.name, r.kind, super::rooms::room_by_key(world, r.room).and_then(|x| plain_str(world, x, ROOM, "name")).unwrap_or("?"))).collect::<Vec<_>>().join(", ")
+    Some(Outcome::new(
+        format!(
+            "This month's page of the Visitors' Book, in six hands, unsigned: {} Six board here: {}. Each has one thing it cannot leave alone, and shows it in what it does when you stand by it a while and in the room it keeps. `ascribe <line> <name>` says who wrote one: {LINE_XP:.0} XP vivid for each you get right, {BOOK_XP:.0} more for all six, once a month; a wrong guess closes that line to you for an hour. The page turns with the month.",
+            shown.join(" "),
+            boarders(world)
+        ),
+        json!({"read": "book", "lines": lines(world).iter().map(|l| l.0).collect::<Vec<_>>(), "found": done}),
     ))
 }
 
