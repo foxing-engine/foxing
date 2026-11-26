@@ -244,6 +244,50 @@ fn lines(kind: &str) -> &'static [&'static str] {
             "{who} raps its staff once on the floor for silence and seems put out to find it already had it.",
             "{who} straightens a row of chairs that nobody has sat in, starting from the wrong end.",
         ],
+        // C11: the Kept House. Each has one thing it cannot leave alone, and the
+        // Visitors' Book is matched to them by it.
+        "housekeeper" => &[
+            "{who} counts the coat hooks, then counts them again from the other end, and is satisfied.",
+            "{who} says, to nobody, \"Four cups out, four cups back,\" and writes it down.",
+            "{who} looks {you} over as an item newly arrived, and appears to enter you in a column.",
+            "{who} finds one of something where there should be two, and stands quite still until the other turns up.",
+        ],
+        "watchman" => &[
+            "{who} looks at each of the clocks in turn and trusts none of them.",
+            "{who} remarks that it is later than it was, as if that were news it had been keeping for {you}.",
+            "{who} yawns at an hour when nobody else would, and seems to enjoy it.",
+            "{who} winds something. It is not clear what; it is not clear it needed it.",
+        ],
+        "cook" => &[
+            "{who} tastes from the pot, considers, and reaches for the salt without looking.",
+            "{who} tells {you} that whatever is the matter, it would be less so after a bowl of something.",
+            "{who} moves the pot a hand's width off the heat, for tomorrow's sake.",
+            "{who} cuts the heel off a loaf and leaves it on the sill for whoever comes down hungry.",
+        ],
+        "copyist" => &[
+            "{who} reads a line back under its breath, stops at a comma, and moves it.",
+            "{who} corrects something on the wall with one stroke and looks relieved.",
+            "{who} says \"fewer, not less\" to {you}, though you had not spoken.",
+            "{who} rules a margin, admires it, and writes nothing in it.",
+        ],
+        "seamster" => &[
+            "{who} finds a loose thread on {you} and has it off before you can object.",
+            "{who} turns a thing over to see where it gave way, and nods as if it had told the truth.",
+            "{who} sews a button onto something that had not lost one, to be on the safe side.",
+            "{who} bites off a thread and says that it will hold, and it will.",
+        ],
+        "stargazer" => &[
+            "{who} tips back under the skylight and names something up there, quietly, in case it is listening.",
+            "{who} tells {you} what the weather will do, and is specific about the hour.",
+            "{who} marks the chart with a pencil kept behind its ear, and rubs the mark out again.",
+            "{who} looks out of the east window and says tomorrow looks all right from here.",
+        ],
+        "traveler" => &[
+            "{who} unpacks one thing, looks at it, and packs it again.",
+            "{who} asks {you} how far it is to somewhere you have not heard of, and nods at the answer you do not give.",
+            "{who} dries a boot by holding it near where a fire would be.",
+            "{who} says the beds are better here than the last place, and does not say where that was.",
+        ],
         "shopkeep" => &[
             "{who} dusts something that is not dusty, and puts it back a finger's width to the left.",
             "{who} rewrites a ticket in the same small hand, with the same figure on it.",

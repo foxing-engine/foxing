@@ -96,6 +96,7 @@ approved_verbs:
   greet: {params: [{name: text, type: text, required: false}]}
   feedback: {params: [{name: text, type: text, required: true}]}
   tell: {params: [{name: who, type: entity, required: true}, {name: text, type: text, required: true}]}
+  ascribe: {params: [{name: line, type: integer, required: true}, {name: name, type: string, required: true}]}
   appraise: {params: [{name: thing, type: text, required: true}]}
   sell: {params: [{name: what, type: text, required: true}]}
   buy: {params: [{name: what, type: text, required: true}]}

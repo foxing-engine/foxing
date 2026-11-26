@@ -566,7 +566,7 @@ fn wind_happening(world: &mut World) -> Result<(), String> {
 
 // ---- business ---------------------------------------------------------------------
 
-fn creature_hp(world: &World, c: EntityId) -> (f64, f64) {
+pub(super) fn creature_hp(world: &World, c: EntityId) -> (f64, f64) {
     let hp = plain_num(world, c, CREATURE, "hp").unwrap_or(0.0);
     let max = plain_num(world, c, CREATURE, "max_hp").unwrap_or(hp.max(1.0));
     (hp, max)

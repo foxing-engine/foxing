@@ -163,6 +163,7 @@ fn ordinary(world: &World, c: EntityId) -> bool {
     !super::combat::is_boss(&kind)
         && kind != "tapster"
         && kind != "shopkeep"
+        && kind != super::kept::TRAVELER
         && !super::starfish::is(world, c)
 }
 

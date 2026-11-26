@@ -36,6 +36,7 @@ pub mod figure;
 pub mod footprint;
 pub mod grammar;
 mod identity;
+pub mod kept;
 pub mod kindle;
 pub mod letters;
 pub mod life;
@@ -248,6 +249,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("key", FieldKind::Plain, Visibility::Public)
             // C17: the jar by the Souvenir Shop's door ({worth, from}).
             .field("jar", FieldKind::Plain, Visibility::Public)
+            // C11: the Visitors' Book of the Kept House ({month, right, wrong}).
+            .field("book", FieldKind::Plain, Visibility::Public)
             // The last dozen names through, with when: the chalk tally and the bench.
             .field("came_through", FieldKind::Plain, Visibility::Public)
             .field("name", FieldKind::Plain, Visibility::Public)
@@ -440,6 +443,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // The fourth level: the calling in hand, when the desk was asked to
             // choose one, when the last ended and how, how many it has done, and
             // the den it dug.
+            // C11: which resident of the Kept House it is.
+            .field("resident", FieldKind::Plain, Visibility::Public)
             .field("calling", FieldKind::Plain, Visibility::Public)
             .field("calling_asked", FieldKind::Plain, Visibility::Public)
             .field("calling_rested", FieldKind::Plain, Visibility::Public)
@@ -960,6 +965,7 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     trail::ensure(world)?;
     tide::ensure(world)?;
     life::ensure(world)?;
+    kept::ensure(world)?;
     antics::ensure(world)?;
     pilots::ensure(world)?;
     mind::ensure_wander(world)
@@ -1502,6 +1508,7 @@ pub fn register(world: &mut World, curves: Curves) {
     trail::register(world);
     tide::register(world);
     life::register(world);
+    kept::register_jobs(world);
     antics::register(world);
     pilots::register(world);
     combat::register(world, curves.clone());
@@ -1510,6 +1517,7 @@ pub fn register(world: &mut World, curves: Curves) {
     mind::register(world);
     calling::register(world);
     shop::register(world);
+    kept::register(world);
     speech::register(world);
     talk::register(world);
     letters::register(world);

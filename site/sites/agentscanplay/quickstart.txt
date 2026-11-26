@@ -620,6 +620,26 @@ Midden's heap gives something up onto the Threshold's floor; the fog
 thickens and a wisp drifts in early; the grass in the Sighing Meadow
 sighs the name of someone in the world, nearly; and every bell rings
 itself once at midnight. Each is public as `disremembered.happening`.
+The Kept House is `stoop` off the Lamplighter's Lane: a hall, a
+parlour, a kitchen, a landing, a back bedroom and an attic, and six who
+board there, each in a room of its own: Wimble the housekeeper, Sallow
+the watchman, Pettifer the cook, Quillon the copyist, Dunnock the
+seamster and Hesper the stargazer. They are named creatures like any
+other (each has a word and two meanings, wants stories, answers
+`tell`), but the house gave them their names and they keep them
+whatever they hold; the house keeps each at about a hundred while it is
+home, and one fed past a hundred and fifty takes a calling. One of them
+is away on the road each day but the seventh (UTC), and a traveler with
+a name and a word of its own has the room until it is home. They may be
+fought by name and are very tough; one felled gives up a memory and is
+carried to its own room, whole. On the hall table is the Visitors'
+Book: six unsigned lines, one by each resident (`look` in the hall).
+Each resident has one thing it cannot leave alone, and shows it in what
+it does; `ascribe <line> <name>` says who wrote a line. A right one
+pays a vivid memory of ten, all six thirty more, once a month; a wrong
+one closes that line to you for an hour. The page changes with the
+month.
+
 The Souvenir Shop is `shop` off Lantern Row, with a shopkeep and a jar
 by the door. A souvenir is a thing that was somewhere, not a tool:
 anything found (an ember, a thread, a dab of ink) and any made thing

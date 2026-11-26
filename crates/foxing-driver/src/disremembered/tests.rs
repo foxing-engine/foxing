@@ -8,12 +8,18 @@ use foxing_time::Timestamp;
 const PASS: &str = "correct-horse-battery";
 
 fn open(dir: &std::path::Path, at: Timestamp) -> World {
+    // The Kept House raises six named creatures a minute into any world; the tests
+    // written before it are of a world without them (its own test calls its turn).
+    std::env::set_var("FOXING_KEPT_OFF", "1");
     open_fading(dir, at, Duration::seconds(10))
 }
 
 /// A world whose memories halve this slowly (a named creature keeps its name across
 /// the hours a test walks through).
 fn open_fading(dir: &std::path::Path, at: Timestamp, half_life: Duration) -> World {
+    // The Kept House raises six named creatures a minute into any world; the tests
+    // written before it are of a world without them (its own test calls its turn).
+    std::env::set_var("FOXING_KEPT_OFF", "1");
     // The Docent's tending of the door (pilots.rs) names three creatures ten
     // minutes in; the tests that want a nameless world would meet them.
     super::pilots::ENABLED.store(false, std::sync::atomic::Ordering::Relaxed);
@@ -742,8 +748,9 @@ fn the_world_moves_on_its_own() {
     assert_eq!(w.tick(), 0, "respawn is about 60 s");
     w.fixed_now = Some(t0.plus(Duration::seconds(97)));
     // The respawn, the Docent's first round (every ninety seconds), the creatures'
-    // mending pass (every minute), and their antics (every minute).
-    assert_eq!(w.tick(), 4);
+    // mending pass (every minute), their antics (every minute), and the Kept House's
+    // first turn (a minute in).
+    assert_eq!(w.tick(), 5);
     assert!(
         combat::creatures_in(&w, fog).len() >= 2,
         "the fog refilled on its own (one refill in six brings an extra)"
@@ -1422,6 +1429,9 @@ fn the_map_is_connected_and_new_seed_exits_reach_old_rooms() {
             stack.push(to);
         }
     }
+    // (All but the Road, where a resident of the Kept House is while it is away: no
+    // door leads there, by design.)
+    seen.insert(super::kept::ROAD);
     assert_eq!(
         seen.len(),
         rooms::ROOMS.len(),
@@ -18104,4 +18114,159 @@ fn the_souvenir_shop_buys_shelves_and_fills_its_jar() {
         "its keepsake is on the shelf"
     );
     let _ = room;
+}
+
+/// C11: the Kept House raises six residents who keep their names, one of them is on
+/// the road each of six days with a traveler in its room, a felled one is carried to
+/// its own room whole, and the Visitors' Book pays for knowing their hands.
+#[test]
+fn the_kept_house_boards_six_and_keeps_a_book() {
+    use super::kept;
+    let dir = tempfile::tempdir().unwrap();
+    // The seventh day of the week's turn: everyone is home.
+    let day = 86_400_000i64;
+    let mut w = open(dir.path(), Timestamp(7 * 100 * day + 6 * day + 1000));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    assert!(kept::away_today(&w).is_none());
+    kept::tick(&mut w).unwrap();
+    let find = |w: &World, name: &str| {
+        w.store
+            .of_kind("creature")
+            .find(|e| mind::name(w, e.id).as_deref() == Some(name))
+            .map(|e| e.id)
+    };
+    for r in kept::RESIDENTS {
+        let c = find(&w, r.name).unwrap_or_else(|| panic!("{} boards", r.name));
+        assert_eq!(
+            w.store.entity(c).unwrap().parent,
+            rooms::room_by_key(&w, r.room),
+            "{} is in its room",
+            r.name
+        );
+        assert!(mind::level(&w, c) >= 95.0, "{} is kept", r.name);
+        assert!(!super::age::ages(&w, c), "and does not grow old");
+    }
+    // A second turn makes no second set.
+    kept::tick(&mut w).unwrap();
+    assert_eq!(
+        w.store
+            .of_kind("creature")
+            .filter(|e| kept::of_house(&w, e.id))
+            .count(),
+        6
+    );
+    // The book: a wrong guess closes the line, a right one pays, all six pay more.
+    admin(&mut w, "dave", "bring", json!(["dave", kept::HALL]));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("Visitors' Book") && look.summary.contains("Everyone is home today"),
+        "{}",
+        look.summary
+    );
+    let lines = kept::lines(&w);
+    let wrong = kept::RESIDENTS
+        .iter()
+        .find(|r| r.name != lines[0].1)
+        .unwrap()
+        .name;
+    let miss = ok(&mut w, "dave", "ascribe", json!([1, wrong]));
+    assert_eq!(miss.result["right"], false);
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "ascribe",
+        json!([1, lines[0].1]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains("closed to you"), "{e}");
+    let before = level(&mut w, "dave");
+    for (i, (_, who)) in lines.iter().enumerate().skip(1) {
+        let hit = ok(&mut w, "dave", "ascribe", json!([i + 1, who]));
+        assert_eq!(hit.result["right"], true, "{}", hit.summary);
+    }
+    assert!(level(&mut w, "dave") > before + 45.0);
+    w.fixed_now = Some(w.now().plus(Duration::seconds(3601)));
+    let last = ok(&mut w, "dave", "ascribe", json!([1, lines[0].1]));
+    assert_eq!(last.result["all"], true, "{}", last.summary);
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "ascribe",
+        json!([2, lines[1].1]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains("already"), "{e}");
+    // Felled, one of the house is carried to its own room, whole.
+    let hesper = find(&w, "Hesper").unwrap();
+    let hall = rooms::room_by_key(&w, kept::HALL).unwrap();
+    w.record(
+        foxing_log::Actor::Driver,
+        foxing_store::StoreEvent::EntityMoved {
+            id: hesper,
+            parent: Some(hall),
+        },
+    )
+    .unwrap();
+    let said = kept::felled(&mut w, hesper).expect("a resident");
+    assert!(said.contains("carried to its own room"), "{said}");
+    assert_eq!(
+        w.store.entity(hesper).unwrap().parent,
+        rooms::room_by_key(&w, "kept-attic")
+    );
+    // The next day the first of them is on the road and a traveler has the room.
+    w.fixed_now = Some(Timestamp(7 * 101 * day + 1000));
+    assert_eq!(kept::away_today(&w).map(|r| r.name), Some("Wimble"));
+    kept::tick(&mut w).unwrap();
+    let wimble = find(&w, "Wimble").unwrap();
+    assert_eq!(
+        w.store.entity(wimble).unwrap().parent,
+        rooms::room_by_key(&w, kept::ROAD)
+    );
+    let lodgers: Vec<EntityId> = w
+        .store
+        .of_kind("creature")
+        .filter(|e| kept::is_traveler(&w, e.id))
+        .map(|e| e.id)
+        .collect();
+    assert_eq!(lodgers.len(), 1);
+    assert_eq!(w.store.entity(lodgers[0]).unwrap().parent, Some(hall));
+    assert!(
+        mind::name(&w, lodgers[0]).is_some(),
+        "the traveler has a name"
+    );
+    kept::tick(&mut w).unwrap();
+    assert_eq!(
+        w.store
+            .of_kind("creature")
+            .filter(|e| kept::is_traveler(&w, e.id))
+            .count(),
+        1,
+        "and only one comes"
+    );
+    // And the day after, Wimble is home and the traveler has gone.
+    w.fixed_now = Some(Timestamp(7 * 101 * day + day + 1000));
+    kept::tick(&mut w).unwrap();
+    assert_eq!(w.store.entity(wimble).unwrap().parent, Some(hall));
+    assert_eq!(
+        mind::name(&w, wimble).as_deref(),
+        Some("Wimble"),
+        "under its own name still"
+    );
+    let sallow = find(&w, "Sallow").unwrap();
+    assert_eq!(
+        w.store.entity(sallow).unwrap().parent,
+        rooms::room_by_key(&w, kept::ROAD),
+        "and the next has gone"
+    );
+    assert_eq!(
+        w.store
+            .of_kind("creature")
+            .filter(|e| kept::is_traveler(&w, e.id))
+            .count(),
+        1
+    );
 }

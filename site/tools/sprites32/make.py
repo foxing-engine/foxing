@@ -542,6 +542,26 @@ s.line(24, 23, 28, 12, 'w'); s.ell(28.5, 9, 2.6, 3.6, 'Rrr'); s.px(27, 7, 'R'); 
 s.rect(4, 22, 4, 5, 't'); s.rect(5, 23, 2, 1, 'q'); s.rect(5, 25, 2, 1, 'q'); s.px(6, 21, 'h')                 # a ticket on its string
 out['shopkeep'] = s.out()
 
+# ---- boarder: one of the Kept House's own, in a dressing gown with a candle (each wears its own color, by tint)
+s = fig({'C': '#f1ece0', 'c': '#d6cdb6', 'd': '#a89f8a', 'f': '#e9d5b8', 'F': '#c7b094', 'k': '#1a1612', 'G': '#e8e2d2', 'g': '#c9c2b0', 'q': '#8f8878', 'h': '#7a6a58', 'w': '#f6f0e0', 'y': '#fff2c8', 'o': '#ffcf7a', 'b': '#b08a5a'})
+s.poly([(10, 14), (22, 14), (24, 29), (8, 29)], 'Ggq'); s.line(16, 14, 14, 29, 'q')                           # the gown, wrapped over
+s.rect(9, 21, 14, 2, 'q'); s.px(15, 23, 'q'); s.px(15, 24, 'q'); s.px(17, 23, 'q')                             # the cord, tied
+s.poly([(11, 14), (16, 18), (21, 14)], 'gqq')
+s.ell(16, 3.8, 5.0, 2.0, 'h'); s.rect(11, 4, 1, 3, 'h'); s.rect(21, 4, 1, 3, 'h')                               # hair, flattened by a pillow
+s.px(13, 9, 'k'); s.px(18, 9, 'k'); s.line(14, 11, 17, 11, 'F')
+s.rect(5, 20, 2, 6, 'w'); s.px(5, 19, 'o'); s.px(6, 18, 'y'); s.px(5, 18, 'o'); s.px(6, 17, 'o'); s.rect(4, 26, 4, 1, 'b')   # the candle in its dish
+s.rect(10, 30, 4, 1, 'q'); s.rect(18, 30, 4, 1, 'q')                                                           # slippers
+out['boarder'] = s.out()
+
+# ---- traveler: a long coat the color of the road, a hat pulled down, a pack and a stick
+s = fig({'C': '#f1ece0', 'c': '#d6cdb6', 'd': '#a89f8a', 'f': '#e9d5b8', 'F': '#c7b094', 'k': '#1a1612', 'T': '#9a927e', 't': '#7a7362', 'u': '#565040', 'h': '#4a4234', 'H': '#6a604c', 'p': '#8a6a42', 'P': '#b08a5a', 'w': '#7a5c38', 'r': '#b5483c'})
+s.poly([(10, 14), (22, 14), (25, 30), (7, 30)], 'Ttu'); s.line(16, 14, 16, 30, 'u')                           # the coat, to the boots
+s.rect(8, 5, 16, 2, 'h'); s.ell(16, 3.6, 4.6, 2.6, 'Hhh'); s.rect(11, 6, 10, 1, 'u')                             # the hat, brim down
+s.px(13, 9, 'k'); s.px(18, 9, 'k'); s.rect(12, 12, 8, 2, 'r'); s.px(20, 14, 'r'); s.px(21, 15, 'r')            # a scarf
+s.ell(24, 17, 3.4, 4.4, 'Ppw'); s.line(21, 14, 23, 13, 'w'); s.rect(23, 16, 3, 1, 'w')                         # the pack, behind a shoulder
+s.line(5, 30, 7, 10, 'w'); s.px(7, 9, 'w'); s.px(6, 20, 'P')                                                    # the stick
+out['traveler'] = s.out()
+
 # ---- sweater: stooped, a leather bag that is not empty, coin dust on its hands
 s = fig({'C': '#a08a5a', 'c': '#7a6a4a', 'd': '#4a3e2a', 'f': '#d8c8a8', 'F': '#b3a384', 'k': '#1a1612', 'B': '#8a5c40', 'b': '#5a3a2a', 'x': '#3a2418', 'G': '#ffe9a8', 'g': '#ffcf7a', 'o': '#c98a2b'})
 s.rect(10, 2, 12, 3, 'd'); s.rect(8, 5, 16, 1, 'k'); s.rect(10, 2, 12, 1, 'c')                                 # a soft cap pulled down
@@ -819,7 +839,7 @@ s.poly([(21, 15), (25, 16), (28, 14), (25, 13)], 'cdd'); s.rect(26, 12, 3, 2, 'F
 s.line(16, 15, 16, 28, 'd'); s.rect(11, 20, 10, 1, 'd'); s.px(16, 20, 's')
 out['porter'] = s.out()
 
-order = ['shopkeep', 'citizen', 'docent', 'wisp', 'hollow', 'mothwing', 'inkling', 'ragpicker', 'revenant', 'sitter', 'drowned', 'hourhand', 'keeper', 'lanternfly', 'bookworm', 'proofreader', 'lampmoth', 'shusher', 'erratum', 'redactor', 'starfish', 'anemone', 'axolotl', 'hermit', 'mudskipper', 'newtling', 'custodian', 'dust devil', 'shelf mouse', 'silverfish', 'hand', 'usher', 'censor', 'cataloguer', 'engrosser', 'tapster', 'sweater', 'assayer', 'warden', 'tipstaff', 'footpad', 'gardener', 'lamprey', 'clipper', 'sigh', 'longsight', 'picnicker', 'bailiff', 'clerk', 'crier', 'lamplighter', 'runner', 'tinker', 'census taker', 'glowworm', 'mender', 'porter']
+order = ['shopkeep', 'boarder', 'traveler', 'citizen', 'docent', 'wisp', 'hollow', 'mothwing', 'inkling', 'ragpicker', 'revenant', 'sitter', 'drowned', 'hourhand', 'keeper', 'lanternfly', 'bookworm', 'proofreader', 'lampmoth', 'shusher', 'erratum', 'redactor', 'starfish', 'anemone', 'axolotl', 'hermit', 'mudskipper', 'newtling', 'custodian', 'dust devil', 'shelf mouse', 'silverfish', 'hand', 'usher', 'censor', 'cataloguer', 'engrosser', 'tapster', 'sweater', 'assayer', 'warden', 'tipstaff', 'footpad', 'gardener', 'lamprey', 'clipper', 'sigh', 'longsight', 'picnicker', 'bailiff', 'clerk', 'crier', 'lamplighter', 'runner', 'tinker', 'census taker', 'glowworm', 'mender', 'porter']
 # ---- the frames: each drawing moved a little (animate.py says how, kind by kind)
 from animate import animate, frames
 for n in order: out[n]['a'] = animate(n, out[n]['r'])

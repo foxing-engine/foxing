@@ -262,6 +262,15 @@ pub const CREATURES: &[CreatureDef] = &[
     // who shave what you carry, the Assayer, and the Wardens over the Purse. (D37c,
     // 11-16: the Wardens were 320 and 34; "a wall, not a goal", and David took them
     // down a little and made the Purse worth the trip.)
+    // C11: who boards at the Kept House, and whoever is passing through (kept.rs).
+    // Very tough, at David's word; they start nothing.
+    CreatureDef { key: "housekeeper", name: "housekeeper", hp: 600.0, attack: 8.0, xp: 20.0, aggressive: false, strike_seconds: 8, ambush: "counts you once, as it counts everything, and puts down what it was carrying.", glyph: "H", tint: "#c9a05a" },
+    CreatureDef { key: "watchman", name: "watchman", hp: 600.0, attack: 8.0, xp: 20.0, aggressive: false, strike_seconds: 8, ambush: "looks at the nearest clock, then at you, and finds you early for this.", glyph: "W", tint: "#7a6a9a" },
+    CreatureDef { key: "cook", name: "cook", hp: 600.0, attack: 8.0, xp: 20.0, aggressive: false, strike_seconds: 8, ambush: "sets the ladle down where it will find it again, which is all the warning there is.", glyph: "K", tint: "#d0823a" },
+    CreatureDef { key: "copyist", name: "copyist", hp: 600.0, attack: 8.0, xp: 20.0, aggressive: false, strike_seconds: 8, ambush: "caps its ink before anything else. Then it attends to you.", glyph: "Q", tint: "#5a8a8a" },
+    CreatureDef { key: "seamster", name: "seamster", hp: 600.0, attack: 8.0, xp: 20.0, aggressive: false, strike_seconds: 8, ambush: "bites off the thread, tucks the needle into its collar, and stands.", glyph: "M", tint: "#6a9a5a" },
+    CreatureDef { key: "stargazer", name: "stargazer", hp: 600.0, attack: 8.0, xp: 20.0, aggressive: false, strike_seconds: 8, ambush: "takes its eye from the skylight with real reluctance.", glyph: "G", tint: "#5a6ab0" },
+    CreatureDef { key: "traveler", name: "traveler", hp: 600.0, attack: 8.0, xp: 20.0, aggressive: false, strike_seconds: 8, ambush: "has been set on in worse places than this, and says so.", glyph: "T", tint: "#8a8a7a" },
     // C17: the shopkeep of the Souvenir Shop. It fights nobody and is worth nothing
     // felled; a bare `attack` never picks it.
     CreatureDef { key: "shopkeep", name: "shopkeep", hp: 200.0, attack: 0.0, xp: 0.0, aggressive: false, strike_seconds: 12, ambush: "puts down the duster and looks at you over its spectacles, which is all it does.", glyph: "S", tint: "#8a6a7a" },
@@ -340,6 +349,13 @@ pub const ATTACK_PER_ROOT_LEVEL: f64 = 0.6;
 /// Kinds a bare `attack` never picks: the Conclave's officers and the Stacks' keepers.
 pub const OFFICERS: &[&str] = &[
     "shopkeep",
+    "housekeeper",
+    "watchman",
+    "cook",
+    "copyist",
+    "seamster",
+    "stargazer",
+    "traveler",
     "crier",
     "clerk",
     "bailiff",
@@ -3330,6 +3346,10 @@ pub fn register(world: &mut World, curves: Curves) {
                         },
                         super::mind::shaken_for(w, creature).map(human).unwrap_or_else(|| "a while".into())
                     ));
+                    // C11: one of the Kept House's own is carried to its room, whole.
+                    if let Some(carried) = super::kept::felled(w, creature) {
+                        lines.push(carried.trim().to_string());
+                    }
                     return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "creature_id": creature.0, "killed": false, "taken": chunk.0, "with": source, "xp": worth, "was": was, "left": left, "hp": hp(w, f.citizen)})));
                 }
                 // Win: the chunk's vividity is how close you came to dying; a moth

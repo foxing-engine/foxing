@@ -241,7 +241,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "lamplighters-lane",
         name: "The Lamplighter's Lane",
         description: "A narrow lane between a wall of books and a wall of trees, with a ladder left leaning at every tenth post by someone who meant to come back for it. The lamps here are lit by hand, and somebody still does it. Behind you the Row; ahead, fruit on the air and a clock that is not striking. Nothing hunts here.",
-        exits: &[("row", "lantern-row"), ("orchard", "orchard"), ("gate", POSTERN)],
+        exits: &[("row", "lantern-row"), ("orchard", "orchard"), ("gate", POSTERN), ("stoop", "kept-hall")],
         spawn: None,
         former: &[],
         tint: "#b89a5e",
@@ -1054,6 +1054,72 @@ pub const ROOMS: &[RoomDef] = &[
         spawn: Some(("shopkeep", 1, 900)),
         former: &[],
         tint: "#8a6a7a",
+    },
+    // C11 (David, 11-25 and 11-26): the Kept House, where six named creatures board
+    // (kept.rs). Nothing spawns here: the house raises its own.
+    RoomDef {
+        key: "kept-hall",
+        name: "The Kept House",
+        description: "Up a stoop at the end of the Lane, a tall narrow house with a lamp in every window, and inside it a hall: coat hooks with names under them, a table with a book lying open, a rug with one mended hem, and stairs. It smells of soup and candle and somebody's ironing. Six board here, and a seventh hook is kept for whoever is passing through. Nothing hunts here.",
+        exits: &[("out", "lamplighters-lane"), ("parlour", "kept-parlour"), ("kitchen", "kept-kitchen"), ("stairs", "kept-landing")],
+        spawn: None,
+        former: &[],
+        tint: "#a8845c",
+    },
+    RoomDef {
+        key: "kept-parlour",
+        name: "The Parlour",
+        description: "Two armchairs that do not match, a fire banked for the night, and four clocks on the mantel that agree about nothing. The curtains are drawn at every hour. Whoever sits up here sits up late. Nothing hunts here.",
+        exits: &[("hall", "kept-hall")],
+        spawn: None,
+        former: &[],
+        tint: "#8a6a5a",
+    },
+    RoomDef {
+        key: "kept-kitchen",
+        name: "The House Kitchen",
+        description: "A range that is never quite out, a pot that is never quite empty, a salt box by the door worn smooth at the lid, and a long table scrubbed pale. Something is always a day from being ready. Nothing hunts here.",
+        exits: &[("hall", "kept-hall")],
+        spawn: None,
+        former: &[],
+        tint: "#b08a50",
+    },
+    RoomDef {
+        key: "kept-landing",
+        name: "The Landing",
+        description: "The turn of the stair, wide enough for a sloping desk under the window and a shelf of other people's letters waiting to be copied fair. A sign over the top step has been corrected in a second hand, and the correction corrected in a third. Nothing hunts here.",
+        exits: &[("hall", "kept-hall"), ("bedroom", "kept-bedroom"), ("attic", "kept-attic")],
+        spawn: None,
+        former: &[],
+        tint: "#8f8672",
+    },
+    RoomDef {
+        key: "kept-bedroom",
+        name: "The Back Bedroom",
+        description: "A narrow bed under a quilt made of other quilts, a work basket, and on every surface something waiting its turn: a glove with one finger done, a chair with a splinted leg, a curtain with a button sewn to it for no reason the curtain knows. Nothing hunts here.",
+        exits: &[("landing", "kept-landing")],
+        spawn: None,
+        former: &[],
+        tint: "#7f8a7a",
+    },
+    RoomDef {
+        key: "kept-attic",
+        name: "The Attic",
+        description: "Under the slope of the roof, a skylight propped open with a book, a chair tipped back beneath it, and a chart pinned to the rafters with more pencil on it than print. The east window is a little ahead of the others. Nothing hunts here.",
+        exits: &[("landing", "kept-landing")],
+        spawn: None,
+        former: &[],
+        tint: "#5f6a8a",
+    },
+    // Where a resident is while it is away: no door leads here, and it is on no map.
+    RoomDef {
+        key: "kept-road",
+        name: "The Road",
+        description: "A road going on. Whoever is on it is not where you are.",
+        exits: &[],
+        spawn: None,
+        former: &[],
+        tint: "#6a6a6a",
     },
 ];
 
@@ -2583,6 +2649,10 @@ pub fn describe_as(
         text.push_str(&t);
     }
     if let Some(t) = super::age::look_line(world, room) {
+        text.push(' ');
+        text.push_str(&t);
+    }
+    if let Some(t) = super::kept::look_line(world, room, actor) {
         text.push(' ');
         text.push_str(&t);
     }
