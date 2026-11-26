@@ -60,6 +60,9 @@ pub const BEGINS: [(&str, &str, &str, &str); 4] = [
 
 /// What a figure's own thing does, by its kind.
 pub fn begins_does(kind: &str) -> Option<&'static str> {
+    if kind == "targe" {
+        return Some(TARGE.1);
+    }
     BEGINS.iter().find(|b| b.1 == kind).map(|b| b.3)
 }
 
@@ -74,14 +77,36 @@ pub fn begin(
     let Some((_, kind, name, _)) = BEGINS.iter().find(|b| b.0 == figure) else {
         return Ok(None);
     };
+    let s = craft::satchel(world, actor, citizen)?;
+    let curves = super::Curves::from_env();
+    // The hunter is drawn with a buckler, and has one (David, 11-25: a second hand,
+    // "with the buckler a real item there"; the Watch found the arm empty).
+    if figure == "hunter"
+        && !carried(world, citizen)
+            .iter()
+            .any(|i| origin(world, *i) == "targe")
+    {
+        craft::make(
+            world,
+            &curves,
+            foxing_log::Actor::Driver,
+            Some(actor.to_string()),
+            s,
+            TARGE.0,
+            "made",
+            "targe",
+            None,
+            &[],
+            0,
+            false,
+        )?;
+    }
     if carried(world, citizen)
         .iter()
         .any(|i| origin(world, *i) == *kind)
     {
         return Ok(None);
     }
-    let s = craft::satchel(world, actor, citizen)?;
-    let curves = super::Curves::from_env();
     craft::make(
         world,
         &curves,
@@ -99,11 +124,17 @@ pub fn begin(
     Ok(Some(name))
 }
 
+/// The hunter's second thing: its name and what it does.
+pub const TARGE: (&str, &str) = (
+    "a small buckler",
+    "on your other arm, the first blow of a fight lands a point lighter",
+);
+
 /// The place a thing of this family works from, if it has one.
 pub fn place_of(family: &str) -> Option<&'static str> {
     Some(match family {
         "dart" | "sword" | "lute" | "keys" | "primer" => "hand",
-        "buckler" => "off",
+        "buckler" | "targe" => "off",
         "charm" | "lens" | "brine" | "brine-glass" => "neck",
         "bandage" | "jar" | "salve" | "splint" => "pocket",
         "lantern" => "light",
@@ -355,10 +386,13 @@ pub fn said(world: &World, citizen: EntityId) -> (String, Value) {
     for (key, _, bare) in PLACES {
         match m.get(key).filter(|(id, _)| items.contains(id)) {
             Some((id, _)) => {
+                // A command in the line is a button on the page: on a phone the
+                // satchel's panel is not on the screen, and this reply is the places.
                 parts.push(format!(
-                    "{}: {}",
+                    "{}: {} (`stow {}`)",
                     bare.trim_start_matches("your "),
-                    name_of(world, *id)
+                    name_of(world, *id),
+                    if key == "off" { "arm" } else { key }
                 ));
                 data.insert(
                     key.to_string(),
@@ -378,10 +412,20 @@ pub fn said(world: &World, citizen: EntityId) -> (String, Value) {
         .collect();
     let mut text = format!("At work: {}.", parts.join("; "));
     if !idle.is_empty() {
-        let names: Vec<&str> = idle.iter().map(String::as_str).collect();
+        let mut holds: Vec<String> = idle
+            .iter()
+            .map(|n| {
+                format!(
+                    "`hold {}`",
+                    n.trim_start_matches("a ").trim_start_matches("an ")
+                )
+            })
+            .collect();
+        holds.sort();
+        holds.dedup();
         text.push_str(&format!(
-            " In the satchel and not at work until it is put in its place (`hold <thing>`, or `wear`): {}.",
-            super::called::listed(&names)
+            " In the satchel and not at work until it is put in its place: {}.",
+            holds.join(", ")
         ));
     }
     (text, json!({"places": Value::Object(data), "idle": idle}))

@@ -138,7 +138,8 @@ pub fn register(world: &mut World) {
             let given = super::places::begin(w, &ctx.actor, f.citizen, key)?;
             let with = match given {
                 Some(name) => format!(
-                    " You are given {name}: {}.",
+                    " You are given {name}{}: {}.",
+                    if *key == "hunter" { " and a small buckler for the other arm (the first blow of a fight lands a point lighter)" } else { "" },
                     super::places::begins_does(super::places::BEGINS.iter().find(|b| b.0 == *key).map(|b| b.1).unwrap_or("")).unwrap_or("it is yours")
                 ),
                 None => String::new(),

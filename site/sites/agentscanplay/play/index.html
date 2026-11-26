@@ -4225,7 +4225,10 @@
       // Two frames on: the reply is laid out and the room's read has had its chance.
       requestAnimationFrame(() => requestAnimationFrame(() => {
         const name = roomName();
-        if (sawRoom !== null && name && name !== sawRoom) { sawRoom = name; autoFold(false); return; }
+        // Opened by hand, it stays open in that room; in the next it folds for a
+        // long reply again (it stayed open for the whole visit, and the Watch of
+        // 11-25 read a long reply four lines at a time under it).
+        if (sawRoom !== null && name && name !== sawRoom) { sawRoom = name; keepOpen = false; autoFold(false); return; }
         if (name) sawRoom = name;
         if (log.scrollHeight - log.scrollTop - log.clientHeight >= 48) autoFold(true);
         else foldLabel();

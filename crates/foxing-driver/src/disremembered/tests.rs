@@ -17492,14 +17492,19 @@ fn a_thing_works_from_its_place_and_a_figure_begins_with_its_own() {
     assert!(craft::carries(&w, me, "sword").is_some());
     assert!((combat::to_hit(&w, me) - (combat::HIT_BASE + combat::SWORD_HIT)).abs() < 1e-9);
     let sat = ok(&mut w, "dave", "satchel", json!([])).summary;
-    assert!(sat.contains("At work: hand: a short sword"), "{sat}");
+    assert!(
+        sat.contains(
+            "At work: hand: a short sword (`stow hand`); other arm: a small buckler (`stow arm`)"
+        ),
+        "{sat}"
+    );
     // Stowed, it does nothing; held again, it works.
     ok(&mut w, "dave", "stow", json!(["hand"]));
     assert!(craft::carries(&w, me, "sword").is_none());
     assert!((combat::to_hit(&w, me) - combat::HIT_BASE).abs() < 1e-9);
     let sat = ok(&mut w, "dave", "satchel", json!([])).summary;
     assert!(
-        sat.contains("not at work until it is put in its place") && sat.contains("a short sword"),
+        sat.contains("not at work until it is put in its place: `hold short sword`"),
         "{sat}"
     );
     let held = ok(&mut w, "dave", "hold", json!(["short sword"])).summary;

@@ -2231,6 +2231,16 @@ pub(crate) fn creature_strikes(
             }
         }
     }
+    // C21: the hunter's own small buckler, on the other arm: the first blow of a
+    // fight lands a point lighter, and it does not wear out.
+    if fight_rounds(world, citizen, creature) == 0
+        && dmg > 1.0
+        && super::craft::carries(world, citizen, "buckler").is_none()
+        && super::craft::carries(world, citizen, "targe").is_some()
+    {
+        dmg -= 1.0;
+        notes.push("your small buckler turned a point of that one".to_string());
+    }
     let before = hp(world, citizen);
     let whole = max_hp(world, citizen);
     let mut after = before - dmg;

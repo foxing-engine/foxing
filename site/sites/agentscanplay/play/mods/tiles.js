@@ -252,14 +252,21 @@ export default function install(m) {
     const sig = row.map(e => e.text + "@" + e.pos[0].toFixed(0) + "," + e.pos[1].toFixed(0)).join(";") + "|" + (canvas.clientWidth || 0);
     if (sig === rowSig) return;
     rowSig = sig;
+    // Left to right; each takes the lowest of four lines where it touches nothing
+    // already set down (exits against exits, a name against a door's word).
     row.sort((a, b) => a.pos[0] - b.pos[0]);
-    let last = null;
+    const put = [];
     for (const e of row) {
       if (e.w == null) e.w = e.el.offsetWidth;
-      const left = e.pos[0] - e.w / 2;
-      const up = !!(last && Math.abs(last.pos[1] - e.pos[1]) < 4 && left < last.right + 2 && !last.up);
-      e.el.style.marginTop = up ? "-1.45em" : "";
-      last = { pos: e.pos, right: e.pos[0] + e.w / 2, up };
+      if (e.h == null) e.h = e.el.offsetHeight || 14;
+      const x0 = e.pos[0] - e.w / 2 - 2, x1 = e.pos[0] + e.w / 2 + 2;
+      let up = 0;
+      for (; up < 3; up++) {
+        const y = e.pos[1] - up * (e.h + 1);
+        if (!put.some(p => x0 < p.x1 && x1 > p.x0 && Math.abs(p.y - y) < e.h)) break;
+      }
+      e.el.style.marginTop = up ? (-up * (e.h + 1)) + "px" : "";
+      put.push({ x0, x1, y: e.pos[1] - up * (e.h + 1) });
     }
   }
   // x, y in the picture's own pixels. o: size (in those pixels), color, bg, bold,
@@ -469,7 +476,13 @@ export default function install(m) {
     later.style.cssText = "border:0;background:none;color:inherit;opacity:.7;font:inherit;font-size:12px;text-decoration:underline;cursor:pointer;padding:6px";
     later.addEventListener("click", () => { figLater = true; offerFigures(""); });
     figCard.append(h, sub, row, later);
-    wrap.append(figCard);
+    // On a phone the picture is a strip, often folded: the card cut the keeper and
+    // the reader in half inside it, or was not seen at all (the Watch of 11-25).
+    // There it takes the whole screen.
+    if (window.matchMedia && window.matchMedia("(max-width: 560px)").matches) {
+      figCard.style.position = "fixed"; figCard.style.zIndex = "60"; figCard.style.background = "rgba(10,14,20,.97)";
+      document.body.append(figCard);
+    } else wrap.append(figCard);
   }
   function iconCanvas(kind) {
     const f = ICONS[kind] || ICONS.thing;
