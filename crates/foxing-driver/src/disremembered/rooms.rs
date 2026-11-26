@@ -2327,6 +2327,11 @@ pub fn describe_as(
                     }
                     _ => holds,
                 };
+                // The fourth level: what it has taken up.
+                let holds = match c["mind"]["calling"].as_str() {
+                    Some(said) => format!("{holds}; {said}"),
+                    None => holds,
+                };
                 // A child says whose it is; a mutant that it is a strange one.
                 let born = match c["parents"].as_array() {
                     Some(p) if p.len() == 2 => format!(

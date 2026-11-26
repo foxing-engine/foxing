@@ -153,6 +153,7 @@ approved_verbs:
   tattoo: {params: [{name: name, type: string, required: true}, {name: nickname, type: text, required: true}]}
   judge: {params: [{name: case, type: integer, required: true}, {name: verdict, type: string, required: true}, {name: opinion, type: text, required: true}, {name: model, type: string, required: false}]}
   weigh: {params: [{name: id, type: integer, required: true}, {name: score, type: integer, required: true}, {name: line, type: text, required: true}, {name: model, type: string, required: false}]}
+  calling: {params: [{name: creature, type: integer, required: true}, {name: goal, type: string, required: true}, {name: line, type: text, required: false}, {name: model, type: string, required: false}]}
   sense: {params: [{name: as, type: string, required: false}]}
   greeting: {params: [{name: text, type: text, required: true}, {name: kind, type: string, required: false}]}
   epitaph: {params: [{name: text, type: text, required: true}]}

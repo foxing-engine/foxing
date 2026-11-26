@@ -174,6 +174,35 @@ fn keep_niches(world: &mut World, niches: Vec<Value>) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// A gift left at a niche by one of the living (calling.rs): it counts as a reading,
+/// so the niche is kept two weeks more, and the sill remembers who left it. Returns
+/// how the niche is said ("the niche of Pimlet the mothwing").
+pub fn gift(world: &mut World, n: u64, from: &str) -> Result<String, String> {
+    let mut all = niches(world);
+    if all.is_empty() {
+        return Ok("an empty niche".to_string());
+    }
+    let i = all
+        .iter()
+        .position(|x| x["n"].as_u64() == Some(n))
+        .unwrap_or(0);
+    let now = world.now().0;
+    all[i]["read_at"] = json!(now);
+    let mut gifts = all[i]["gifts"].as_array().cloned().unwrap_or_default();
+    gifts.push(json!({"from": from, "at": now}));
+    if gifts.len() > 6 {
+        gifts.remove(0);
+    }
+    all[i]["gifts"] = json!(gifts);
+    let said = format!(
+        "the niche of {} the {}",
+        all[i]["name"].as_str().unwrap_or("one who went before"),
+        all[i]["kind"].as_str().unwrap_or("creature")
+    );
+    keep_niches(world, all)?;
+    Ok(said)
+}
+
 fn last_read(n: &Value) -> i64 {
     n["read_at"]
         .as_i64()
@@ -563,6 +592,18 @@ pub fn read(world: &mut World, room: EntityId, arg: &str) -> Option<Result<Outco
         (Some(_), Some(true)) => " A younger one answers to its name where it lived.".to_string(),
         (Some(h), _) => format!(" Its heir is {h}."),
         _ => String::new(),
+    };
+    let gifts: Vec<&str> = n["gifts"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|g| g["from"].as_str()).collect())
+        .unwrap_or_default();
+    let heir = if gifts.is_empty() {
+        heir
+    } else {
+        format!(
+            "{heir} Something small has been left in it, by {}.",
+            gifts.join(", and by ")
+        )
     };
     Some(Ok(Outcome::new(
         format!(

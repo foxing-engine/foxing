@@ -60,6 +60,152 @@ pub fn memory(world: &World, room: EntityId) -> Option<f64> {
         .and_then(|v| v.as_f64())
 }
 
+/// A den's memory fades on a week; its keeper puts it back (calling.rs).
+pub const DEN_HALF_LIFE_MS: i64 = 7 * 86_400_000;
+
+/// A room dug by a creature for itself (calling.rs): a door off `from`, owned by the
+/// creature under its full style ("Kennoch the mothwing", which is no citizen's
+/// name), described, and remembered for a week at a time.
+pub fn dig_for(
+    world: &mut World,
+    label: &str,
+    from: EntityId,
+    exit: &str,
+    name: &str,
+) -> Result<EntityId, String> {
+    if exits_of(world, from).contains_key(exit) {
+        return Err(format!("the room already has an exit '{exit}'"));
+    }
+    // Two of a name: the second is numbered by its id, below.
+    let taken = name_free(world, name, None).is_err();
+    let id = world.store.allocate_id();
+    let name = if taken {
+        format!("{name} ({})", id.0)
+    } else {
+        name.to_string()
+    };
+    let now = world.now();
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::EntityCreated {
+                id,
+                kind: "room".into(),
+                owner: Some(label.to_string()),
+                parent: None,
+                scopes: vec![],
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    let key = key_for(&name, id);
+    let hl = Duration(DEN_HALF_LIFE_MS);
+    let mut fields = BTreeMap::new();
+    fields.insert("key".into(), Field::Plain(json!(key)));
+    fields.insert("name".into(), Field::Plain(json!(name)));
+    fields.insert(
+        "description".into(),
+        Field::Plain(json!(format!("A room {label} dug for itself: low, close, and exactly the size of what it holds. Nothing here was put down by accident."))),
+    );
+    fields.insert(
+        "memory".into(),
+        Field::Timed(TimedValue::new(
+            1.0,
+            now,
+            Curve::Exponential { half_life: hl },
+        )),
+    );
+    fields.insert("half_life_ms".into(), Field::Plain(json!(hl.0)));
+    fields.insert("permits".into(), Field::Plain(json!({})));
+    fields.insert("welcomes".into(), Field::Plain(json!({})));
+    fields.insert("origin".into(), Field::Plain(json!(from.0)));
+    fields.insert("dug_with".into(), Field::Plain(json!("what it holds")));
+    fields.insert("dug_at".into(), Field::Plain(json!(now.0)));
+    let fields = merged(world, id, fields);
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::ComponentSet {
+                id,
+                component: ROOM.into(),
+                fields,
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    let mut back = serde_json::Map::new();
+    back.insert(opposite(exit).to_string(), json!(from.0));
+    let mut ef = BTreeMap::new();
+    ef.insert("exits".into(), Field::Plain(Value::Object(back)));
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::ComponentSet {
+                id,
+                component: EXITS.into(),
+                fields: ef,
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::ComponentSet {
+                id,
+                component: super::SPRITE.into(),
+                fields: super::sprite_fields("#", "#7a6f5f", dug_frame(exit, &name)),
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    let mut exits: serde_json::Map<String, Value> = exits_of(world, from)
+        .into_iter()
+        .map(|(k, v)| (k, json!(v.0)))
+        .collect();
+    exits.insert(exit.to_string(), json!(id.0));
+    let mut ef = BTreeMap::new();
+    ef.insert("exits".into(), Field::Plain(Value::Object(exits)));
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::ComponentSet {
+                id: from,
+                component: EXITS.into(),
+                fields: ef,
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    let _ = world.note(
+        Actor::Driver,
+        DUG,
+        json!({"by": label, "room": id.0, "key": key, "name": name, "from": from.0, "exit": exit, "with": "what it holds"}),
+    );
+    Ok(id)
+}
+
+/// A room's memory put back whole, on the half-life it has.
+pub fn renew(world: &mut World, room: EntityId) -> Result<(), String> {
+    let hl = half_life(world, room).unwrap_or(Duration(DEN_HALF_LIFE_MS));
+    let mut fields = BTreeMap::new();
+    fields.insert(
+        "memory".into(),
+        Field::Timed(TimedValue::new(
+            1.0,
+            world.now(),
+            Curve::Exponential { half_life: hl },
+        )),
+    );
+    let fields = merged(world, room, fields);
+    world
+        .record(
+            Actor::Driver,
+            StoreEvent::ComponentSet {
+                id: room,
+                component: ROOM.into(),
+                fields,
+            },
+        )
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
 /// The half-life a built room's memory fades on, for the Docent's reckoning.
 pub fn half_life_of(world: &World, room: EntityId) -> Option<Duration> {
     half_life(world, room)
@@ -1043,6 +1189,10 @@ pub fn register(world: &mut World, curves: super::Curves) {
                 let before = super::mind::display(w, creature);
                 let (source, level) = super::mind::give(w, ctx.actor.as_str(), chunk, creature)?;
                 let after = super::mind::display(w, creature);
+                // A grudge against this name is settled by a memory given.
+                if let Some(line) = super::calling::settled_by(w, creature, &ctx.actor) {
+                    super::combat::narrate(w, &ctx.actor, line.trim().to_string());
+                }
                 // What the level means next: a name at sixty for the unnamed; for a
                 // named one, whether its name is failing (a named Vellic at 58 was told
                 // "at 60 it would be named").
@@ -1050,6 +1200,8 @@ pub fn register(world: &mut World, curves: super::Curves) {
                 let next = if named {
                     if level < super::mind::FAILING_BELOW {
                         format!(" Its name is failing under {:.0}; what it holds halves like any memory, so keep feeding it.", super::mind::FAILING_BELOW)
+                    } else if level < super::calling::BAR {
+                        format!(" At {:.0} it would hold enough to want something of its own: a calling.", super::calling::BAR)
                     } else {
                         String::new()
                     }
@@ -1058,6 +1210,7 @@ pub fn register(world: &mut World, curves: super::Curves) {
                     // and the 75 at which it hits harder was invisible until crossed.
                     let tier_next = super::mind::TIERS
                         .iter()
+                        .take(1)
                         .find(|(_, bar, _)| level < *bar)
                         .map(|(_, bar, what)| format!(" At {bar:.0} it would be {what}."))
                         .unwrap_or_default();

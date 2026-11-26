@@ -1582,6 +1582,9 @@ pub fn report(world: &World) -> Value {
         "tattoos": super::courthouse::pending_tattoos(world),
         // D33: the stories being weighed against a creature's meaning.
         "weighing": super::meaning::pending(world),
+        // The fourth level: called creatures with nothing in hand, each with the
+        // goals the world could carry out for it, for the model to choose among.
+        "callings": super::calling::pending(world),
         // Null until it has been thrown either way (the tool throws it on, once).
         "sense": field(world, "sense"),
         "docent": {"name": NAME, "story": STORY},

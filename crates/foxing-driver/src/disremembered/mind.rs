@@ -26,7 +26,7 @@ pub const TIER: &str = "disremembered.tier";
 pub const TAKEN: &str = "disremembered.taken";
 
 /// The bars, in level, and where each tier is lost again (half the bar).
-pub const TIERS: &[(u32, f64, &str)] = &[(1, 60.0, "named")];
+pub const TIERS: &[(u32, f64, &str)] = &[(1, 60.0, "named"), (2, super::calling::BAR, "called")];
 
 /// How long a creature stays shaken after a memory is taken, if its room says nothing.
 const SHAKEN_SECONDS: i64 = 300;
@@ -819,11 +819,46 @@ pub fn check_tier(world: &mut World, creature: EntityId) -> Result<(), CommandEr
     if want == have {
         return Ok(());
     }
+    // A calling goes with the level that carried it.
+    if have >= super::calling::TIER && want < super::calling::TIER {
+        super::calling::lost(world, creature).map_err(CommandError::internal)?;
+    }
     let kind = plain_str(world, creature, CREATURE, "name")
         .unwrap_or("?")
         .to_string();
     let mut changes = BTreeMap::new();
     changes.insert("tier".into(), Field::Plain(json!(want)));
+    // The fourth level (calling.rs): between named and called the name stays as it
+    // is; what changes is that it wants something, or stops wanting it.
+    if have >= 1 && want >= 1 {
+        set_mind(world, Actor::Driver, creature, changes)?;
+        let given = name(world, creature);
+        let _ = world.note(
+            Actor::Driver,
+            TIER,
+            json!({"creature": creature.0, "kind": kind, "name": given, "from": have, "to": want, "level": lvl}),
+        );
+        let who = display(world, creature);
+        if want > have {
+            world.notice(format!(
+                "**{who}** holds enough now to want something of its own."
+            ));
+            super::combat::narrate_room(
+                world,
+                creature,
+                &format!("{who} has gone still, the way a thing does when it has just thought of something it means to do. It holds enough now to want something of its own."),
+            );
+        } else {
+            super::combat::narrate_room(
+                world,
+                creature,
+                &format!(
+                    "{who} loses the thread of whatever it was about. It still knows its name."
+                ),
+            );
+        }
+        return Ok(());
+    }
     // A child born with a sealed name opens it now; a creature that had a name takes
     // it back; anyone else is dealt one from the Namery's pool, or, that empty, from
     // the fixed list.
@@ -1166,6 +1201,8 @@ pub fn summary(world: &World, creature: EntityId) -> Value {
         "level": level(world, creature),
         "kept_by": keepers(world, creature),
         "shaken": shaken(world, creature),
+        // The fourth level: what it has taken up, as `look` says it.
+        "calling": super::calling::said(world, creature),
     })
 }
 
@@ -1419,91 +1456,110 @@ pub fn confide(world: &mut World) -> Result<usize, String> {
         let Some(listener) = others.iter().copied().find(|&c| name(world, c).is_none()) else {
             continue;
         };
-        // The story it holds best.
-        let Some(window) = window_of(world, teller) else {
-            continue;
-        };
-        let now = world.now();
-        let best = world
-            .store
-            .children(window)
-            .filter(|e| e.kind == "chunk")
-            .filter_map(|e| {
-                let v = world
-                    .store
-                    .read_field(e.id, CHUNK, "value", now)
-                    .ok()?
-                    .as_f64()?;
-                Some((e.id, v))
-            })
-            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
-        let Some((chunk, value)) = best else {
-            continue;
-        };
-        let story = plain_str(world, chunk, CHUNK, "source")
-            .unwrap_or("something")
-            .to_string();
-        let teller_name = name(world, teller).unwrap_or_default();
-        let teller_kind = plain_str(world, teller, CREATURE, "name")
-            .unwrap_or("?")
-            .to_string();
-        let listener_kind = plain_str(world, listener, CREATURE, "name")
-            .unwrap_or("?")
-            .to_string();
-        let listener_name = name(world, listener);
-        let paid = (value / 2.0).clamp(4.0, 40.0).round();
-        let to = ensure_window(world, listener).map_err(|e| e.to_string())?;
-        let curves = super::Curves::from_env();
-        let kept = super::memory::earn_chunk(
-            world,
-            "nobody",
-            to,
-            // Of the story itself, not of the telling of the telling: a chunk once
-            // read "Pell's story of Ossian's story of the smell of rain".
-            &format!(
-                "{teller_name}'s story of {}",
-                story.rsplit("'s story of ").next().unwrap_or(&story)
-            ),
-            paid,
-            0.6,
-            &curves,
-        )
-        .map_err(|e| e.to_string())?;
-        // The listener has a mind now, kept by the teller: the sweep minds it, and
-        // `look` shows what it holds.
-        let mut kept_by = mind_field(world, listener, "kept")
-            .and_then(Value::as_array)
-            .cloned()
-            .unwrap_or_default();
-        kept_by.push(json!({"by": teller_name, "with": format!("its story of {story}"), "creature": teller.0}));
-        let mut changes = BTreeMap::new();
-        changes.insert("kept".into(), Field::Plain(Value::Array(kept_by)));
-        set_mind(world, Actor::Driver, listener, changes).map_err(|e| e.to_string())?;
-        let _ = world.note(
-            Actor::Driver,
-            CONFIDED,
-            json!({"teller": teller.0, "teller_name": teller_name, "kind": teller_kind, "listener": listener.0, "listener_kind": listener_kind, "listener_name": listener_name, "room": room.0, "story": story, "chunk": kept.0, "paid": paid, "named": count, "chance": chance}),
-        );
-        let whom = match &listener_name {
-            Some(n) => format!("{n} the {listener_kind}"),
-            None => format!("the {listener_kind}"),
-        };
-        let how = match count {
-            0..=2 => {
-                "low and quick, the way a thing is told when there may be no one else to tell it to"
-            }
-            3..=4 => "low, as if there were not many left who could carry it",
-            _ => "as if it had only just thought of it",
-        };
-        super::combat::narrate_room(
-            world,
-            teller,
-            &format!("{teller_name} the {teller_kind} tells {whom} a story, {how}: {story}."),
-        );
-        check_tier(world, listener).map_err(|e| e.to_string())?;
-        told += 1;
+        if confide_to(world, teller, listener, count)? {
+            told += 1;
+        }
     }
     Ok(told)
+}
+
+/// One telling: a named creature tells an unnamed one the story it holds best, and
+/// the listener keeps half of it. `count` is how many named there are, for how it is
+/// told. Whether anything was told.
+pub fn confide_to(
+    world: &mut World,
+    teller: EntityId,
+    listener: EntityId,
+    count: usize,
+) -> Result<bool, String> {
+    let Some(room) = world.store.entity(teller).and_then(|e| e.parent) else {
+        return Ok(false);
+    };
+    // The story it holds best.
+    let Some(window) = window_of(world, teller) else {
+        return Ok(false);
+    };
+    let now = world.now();
+    let best = world
+        .store
+        .children(window)
+        .filter(|e| e.kind == "chunk")
+        .filter_map(|e| {
+            let v = world
+                .store
+                .read_field(e.id, CHUNK, "value", now)
+                .ok()?
+                .as_f64()?;
+            Some((e.id, v))
+        })
+        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+    let Some((chunk, value)) = best else {
+        return Ok(false);
+    };
+    let story = plain_str(world, chunk, CHUNK, "source")
+        .unwrap_or("something")
+        .to_string();
+    let teller_name = name(world, teller).unwrap_or_default();
+    let teller_kind = plain_str(world, teller, CREATURE, "name")
+        .unwrap_or("?")
+        .to_string();
+    let listener_kind = plain_str(world, listener, CREATURE, "name")
+        .unwrap_or("?")
+        .to_string();
+    let listener_name = name(world, listener);
+    let paid = (value / 2.0).clamp(4.0, 40.0).round();
+    let to = ensure_window(world, listener).map_err(|e| e.to_string())?;
+    let curves = super::Curves::from_env();
+    let kept = super::memory::earn_chunk(
+        world,
+        "nobody",
+        to,
+        // Of the story itself, not of the telling of the telling: a chunk once
+        // read "Pell's story of Ossian's story of the smell of rain".
+        &format!(
+            "{teller_name}'s story of {}",
+            story.rsplit("'s story of ").next().unwrap_or(&story)
+        ),
+        paid,
+        0.6,
+        &curves,
+    )
+    .map_err(|e| e.to_string())?;
+    // The listener has a mind now, kept by the teller: the sweep minds it, and
+    // `look` shows what it holds.
+    let mut kept_by = mind_field(world, listener, "kept")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    kept_by.push(
+        json!({"by": teller_name, "with": format!("its story of {story}"), "creature": teller.0}),
+    );
+    let mut changes = BTreeMap::new();
+    changes.insert("kept".into(), Field::Plain(Value::Array(kept_by)));
+    set_mind(world, Actor::Driver, listener, changes).map_err(|e| e.to_string())?;
+    let _ = world.note(
+        Actor::Driver,
+        CONFIDED,
+        json!({"teller": teller.0, "teller_name": teller_name, "kind": teller_kind, "listener": listener.0, "listener_kind": listener_kind, "listener_name": listener_name, "room": room.0, "story": story, "chunk": kept.0, "paid": paid, "named": count, "chance": urgency(count)}),
+    );
+    let whom = match &listener_name {
+        Some(n) => format!("{n} the {listener_kind}"),
+        None => format!("the {listener_kind}"),
+    };
+    let how = match count {
+        0..=2 => {
+            "low and quick, the way a thing is told when there may be no one else to tell it to"
+        }
+        3..=4 => "low, as if there were not many left who could carry it",
+        _ => "as if it had only just thought of it",
+    };
+    super::combat::narrate_room(
+        world,
+        teller,
+        &format!("{teller_name} the {teller_kind} tells {whom} a story, {how}: {story}."),
+    );
+    check_tier(world, listener).map_err(|e| e.to_string())?;
+    Ok(true)
 }
 
 /// A named creature walked out of a room the world has forgotten:

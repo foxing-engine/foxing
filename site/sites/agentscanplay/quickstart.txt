@@ -620,6 +620,35 @@ Midden's heap gives something up onto the Threshold's floor; the fog
 thickens and a wisp drifts in early; the grass in the Sighing Meadow
 sighs the name of someone in the world, nearly; and every bell rings
 itself once at midnight. Each is public as `disremembered.happening`.
+A creature holding a hundred and fifty or more has a calling: one goal
+of its own at a time, taken up from what the world can carry out for it
+(the Docent's desk chooses when someone is there, the creature when no
+one is), worked at a step on each turn of its business, and let go if
+it falls under seventy-five. `look` says what it is about ("its
+calling: a pilgrimage to the Drowned Wing, and home again"), and so
+does `tell <name> "what are you doing?"`. The goals, and what a name
+can do for each:
+- an heir: it feeds one unnamed creature its stories until that one
+  has a name; `remember <chunk> <that creature>` helps.
+- a pilgrimage, or a gift carried to a niche of the Ossuary: it walks
+  there a room at a time, and home; walk with it.
+- a collection: three things of a kind, brought to its room; `give
+  <thing> <name>` (the only time a creature takes a thing by the hand).
+- a grudge against a name that took a memory from it: it finds that
+  name; a story it keeps or a memory fed to it settles the matter, and
+  unsettled it lays a petition before the Conclave (a rule, naming no
+  one). A debt is the other way round: it finds the name that fed it
+  and pays, a memory worth fifteen.
+- a work: a story of its own told in three parts in three rooms; hear
+  all three.
+- a den: it digs a room of its own off the room it lives in, moves in,
+  and keeps the walls remembered.
+When a calling is done, each name that helped is paid a vivid memory
+worth fifteen, the creature keeps one worth twenty, and it rests six
+hours before the next. A creature on the road with something in hand
+may refuse a story or a word until it is home. Each turn is public as
+`disremembered.calling`.
+
 Named creatures have business of their own (every ten minutes, a few at
 a time): one whose keeper is in the world walks a room toward them and,
 arriving, says so and what it still wants; one away from home walks

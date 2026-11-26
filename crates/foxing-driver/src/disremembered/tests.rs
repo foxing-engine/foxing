@@ -17675,3 +17675,267 @@ fn a_thing_works_from_its_place_and_a_figure_begins_with_its_own() {
     .to_string();
     assert!(e.contains("has no place on you"), "{e}");
 }
+
+/// The fourth level (David, 11-25): at a hundred and fifty a named creature takes up
+/// a goal of its own from the menu the world offers, works at it on its business,
+/// and the names that helped are paid when it is done.
+#[test]
+fn a_creature_holding_enough_takes_up_a_calling() {
+    use super::{calling, craft};
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    combat::fill(&mut w, fog).unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    // Named at seventy: no calling, and the feeding says where the next bar is.
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 70, 0.5]));
+    let fed = ok(
+        &mut w,
+        "dave",
+        "remember",
+        json!([format!("chunk-{}", c.result["chunk"]), "wisp"]),
+    );
+    let _ = fed;
+    let name = mind::name(&w, wisp).expect("named");
+    assert_eq!(mind::tier(&w, wisp), 1);
+    // Fed past the bar: called, and it keeps the name it had.
+    let c = admin(&mut w, "dave", "earn", json!(["more", 200, 0.5]));
+    ok(
+        &mut w,
+        "dave",
+        "remember",
+        json!([format!("chunk-{}", c.result["chunk"]), name.clone()]),
+    );
+    assert_eq!(mind::tier(&w, wisp), calling::TIER);
+    assert_eq!(mind::name(&w, wisp).as_deref(), Some(name.as_str()));
+    // Its turn puts it before the desk, with a menu of what the world can do.
+    assert!(calling::pending(&w).is_empty());
+    life::business(&mut w).unwrap();
+    let waiting = calling::pending(&w);
+    assert_eq!(waiting.len(), 1, "{waiting:?}");
+    let menu: Vec<&str> = waiting[0]["menu"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|m| m["goal"].as_str())
+        .collect();
+    assert!(
+        menu.contains(&"collection") && menu.contains(&"debt") && menu.contains(&"work"),
+        "{menu:?}"
+    );
+    // The desk may only choose from the menu.
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Admin,
+        "calling",
+        json!([wisp.0, "conquest", "I want it all."]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains("Not on its menu"), "{e}");
+    admin(
+        &mut w,
+        "dave",
+        "calling",
+        json!([
+            wisp.0,
+            "collection",
+            "I had three of something once, and I want them back."
+        ]),
+    );
+    assert!(calling::pending(&w).is_empty());
+    let state = calling::of(&w, wisp).expect("a calling");
+    let word = state["word"].as_str().unwrap().to_string();
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("its calling: a collection"),
+        "{}",
+        look.summary
+    );
+    let asked = ok(
+        &mut w,
+        "dave",
+        "tell",
+        json!([name.clone(), "what are you doing?"]),
+    );
+    let _ = asked;
+    // The wrong thing is looked at and not taken; three of the right kind finish it.
+    let dave = find_citizen(&w, "dave").unwrap().citizen;
+    let sat = craft::satchel(&mut w, "dave", dave).unwrap();
+    let make = |w: &mut World, name: &str| {
+        craft::make(
+            w,
+            &curves(),
+            foxing_log::Actor::Driver,
+            Some("dave".into()),
+            sat,
+            name,
+            "made",
+            "thing",
+            Some("dave"),
+            &[],
+            1,
+            false,
+        )
+        .unwrap()
+    };
+    make(&mut w, "a pebble");
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "give",
+        json!(["pebble", name.clone()]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains("does not take it"), "{e}");
+    let before = level(&mut w, "dave");
+    let head = events(&w);
+    for i in 0..3 {
+        let item = make(&mut w, &format!("a {word} of sorts"));
+        let got = ok(
+            &mut w,
+            "dave",
+            "give",
+            json!([format!("item-{}", item.0), name.clone()]),
+        );
+        assert!(
+            got.summary.contains(&format!("{} of 3", i + 1)) || got.summary.contains("all 3"),
+            "{}",
+            got.summary
+        );
+    }
+    assert!(calling::of(&w, wisp).is_none(), "done");
+    assert!(level(&mut w, "dave") > before + 10.0, "the helper is paid");
+    let said = narrative(&w, "dave", head);
+    assert!(
+        said.iter().any(|l| l.contains("you had a hand in it")),
+        "{said:?}"
+    );
+    assert!(w
+        .recent_events(200)
+        .iter()
+        .any(|e| e.kind == calling::CALLING && e.payload["stage"] == "done"));
+    // It rests before the next: its turn does not put it before the desk again.
+    life::business(&mut w).unwrap();
+    assert!(calling::pending(&w).is_empty());
+}
+
+/// A pilgrimage is walked a room a turn, there and home, and the name that walked
+/// with it is remembered; unanswered by the desk, the world chooses for itself.
+#[test]
+fn a_called_creature_walks_its_pilgrimage_and_comes_home() {
+    use super::calling;
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    combat::fill(&mut w, fog).unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 260, 0.5]));
+    ok(
+        &mut w,
+        "dave",
+        "remember",
+        json!([format!("chunk-{}", c.result["chunk"]), "wisp"]),
+    );
+    assert_eq!(mind::tier(&w, wisp), calling::TIER);
+    life::business(&mut w).unwrap();
+    let menu = calling::menu(&w, wisp);
+    assert!(
+        menu.iter().any(|o| o.key == "pilgrimage"),
+        "a far room is on the menu"
+    );
+    calling::take(&mut w, wisp, "pilgrimage", "", "test").unwrap();
+    let target = EntityId(calling::of(&w, wisp).unwrap()["target"].as_u64().unwrap());
+    let mut reached = false;
+    for _ in 0..40 {
+        life::business(&mut w).unwrap();
+        if w.store.entity(wisp).unwrap().parent == Some(target) {
+            reached = true;
+        }
+        if calling::of(&w, wisp).is_none() {
+            break;
+        }
+    }
+    assert!(reached, "it stood in the far room");
+    assert!(calling::of(&w, wisp).is_none(), "and finished");
+    assert_eq!(
+        w.store.entity(wisp).unwrap().parent,
+        Some(fog),
+        "home again"
+    );
+    let last = w
+        .recent_events(400)
+        .into_iter()
+        .rev()
+        .find(|e| e.kind == calling::CALLING)
+        .unwrap();
+    assert_eq!(last.payload["stage"], "done", "{:?}", last.payload);
+}
+
+/// The goals that need nobody's help run to their end by the world's own rules: a
+/// debt found and paid, a work told in three rooms, a den dug and moved into.
+#[test]
+fn a_debt_a_work_and_a_den_run_to_their_end() {
+    use super::calling;
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    combat::fill(&mut w, fog).unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 400, 0.5]));
+    ok(
+        &mut w,
+        "dave",
+        "remember",
+        json!([format!("chunk-{}", c.result["chunk"]), "wisp"]),
+    );
+    life::business(&mut w).unwrap();
+    for goal in ["debt", "work", "den"] {
+        let keys: Vec<&str> = calling::menu(&w, wisp).iter().map(|o| o.key).collect();
+        assert!(keys.contains(&goal), "{goal} is on the menu: {keys:?}");
+        calling::take(&mut w, wisp, goal, "I mean to.", "test").unwrap();
+        let before = level(&mut w, "dave");
+        for _ in 0..40 {
+            // dave stays where he is, speaking, so he is in the world to be found.
+            ok(&mut w, "dave", "look", json!([]));
+            life::business(&mut w).unwrap();
+            if calling::of(&w, wisp).is_none() {
+                break;
+            }
+        }
+        let last = w
+            .recent_events(600)
+            .into_iter()
+            .rev()
+            .find(|e| e.kind == calling::CALLING)
+            .unwrap();
+        assert_eq!(last.payload["stage"], "done", "{goal}: {:?}", last.payload);
+        if goal == "debt" {
+            assert!(
+                level(&mut w, "dave") > before + 10.0,
+                "{goal} pays the name it was for"
+            );
+        }
+    }
+    let den = calling::den_of(&w, wisp).expect("a den");
+    assert_eq!(
+        w.store.entity(wisp).unwrap().parent,
+        Some(den),
+        "it lives there"
+    );
+    assert!(
+        rooms::exits_of(&w, fog).values().any(|r| *r == den),
+        "a door off its old home"
+    );
+    // And a den is not dug twice.
+    assert!(!calling::menu(&w, wisp).iter().any(|o| o.key == "den"));
+}

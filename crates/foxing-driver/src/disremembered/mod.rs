@@ -18,6 +18,7 @@ pub mod bindery;
 pub mod board;
 pub mod building;
 pub mod called;
+pub mod calling;
 pub mod cloak;
 pub(crate) mod combat;
 pub mod conclave;
@@ -430,6 +431,15 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("named_since", FieldKind::Plain, Visibility::Public)
             .field("old_since", FieldKind::Plain, Visibility::Public)
             .field("life_bought", FieldKind::Plain, Visibility::Public)
+            // The fourth level: the calling in hand, when the desk was asked to
+            // choose one, when the last ended and how, how many it has done, and
+            // the den it dug.
+            .field("calling", FieldKind::Plain, Visibility::Public)
+            .field("calling_asked", FieldKind::Plain, Visibility::Public)
+            .field("calling_rested", FieldKind::Plain, Visibility::Public)
+            .field("calling_done", FieldKind::Plain, Visibility::Public)
+            .field("calling_last", FieldKind::Plain, Visibility::Public)
+            .field("den", FieldKind::Plain, Visibility::Public)
             .field("life_extra_ms", FieldKind::Plain, Visibility::Public)
             .field("heir_of", FieldKind::Plain, Visibility::Public)
             .field("shaken_until", FieldKind::Plain, Visibility::Public)
@@ -1491,6 +1501,7 @@ pub fn register(world: &mut World, curves: Curves) {
     memory::register(world, curves.clone());
     presence::register(world, curves.clone());
     mind::register(world);
+    calling::register(world);
     speech::register(world);
     talk::register(world);
     letters::register(world);

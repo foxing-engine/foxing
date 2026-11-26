@@ -276,8 +276,19 @@ pub fn register(world: &mut World, curves: Curves) {
                     ));
                 }
                 if let Some(c) = mind::find_here(w, here, &typed) {
+                    // The fourth level: a creature gathering a collection takes a
+                    // thing by the hand, if it is the kind it wants.
+                    let what = args.str("chunk").unwrap_or("").trim().to_string();
+                    if !what.starts_with("chunk-") && super::calling::of(w, c).is_some() {
+                        let mine = super::craft::satchel(w, &ctx.actor, f.citizen)?;
+                        if let Ok(item) = super::craft::resolve_item(w, &what, mine) {
+                            if let Some(done) = super::calling::given(w, &ctx.actor, c, item) {
+                                return done;
+                            }
+                        }
+                    }
                     return Err(CommandError::precondition(format!(
-                        "{} is a creature; `give` reaches a name at a keyboard or through the gate who stands here (`look` marks each). To feed it a memory, `remember <chunk> {typed}`; to hand it a thing, nothing takes one yet.",
+                        "{} is a creature; `give` reaches a name at a keyboard or through the gate who stands here (`look` marks each). To feed it a memory, `remember <chunk> {typed}`; a creature takes a thing by the hand only when it is gathering that kind (`look` says what one with a calling is about).",
                         mind::display(w, c)
                     )));
                 }
@@ -430,6 +441,10 @@ pub fn register(world: &mut World, curves: Curves) {
                 }));
             };
             let display = mind::display(w, creature);
+            // The fourth level: on the road with something in hand, it may refuse.
+            if let Some(no) = super::calling::busy(w, creature, &ctx.actor) {
+                return Err(CommandError::precondition(no));
+            }
             // The tapster at the Counting Bar takes a story about money, by the ounce.
             if super::plain_str(w, creature, super::CREATURE, "name") == Some("tapster") {
                 return super::exergue::bar_story(w, ctx, creature, args.str("text").unwrap_or(""));
@@ -780,6 +795,10 @@ pub fn register(world: &mut World, curves: Curves) {
                 super::combat::narrate(w, &ctx.actor, line.clone());
             }
             mind::check_tier(w, creature)?;
+            // A grudge against this teller is settled by a story it kept.
+            if let Some(line) = super::calling::settled_by(w, creature, &ctx.actor) {
+                super::combat::narrate(w, &ctx.actor, line.trim().to_string());
+            }
             Ok(Outcome::new(
                 // The creature's answer reaches the teller as it reaches the room, a
                 // narrator line, so the outcome does not repeat it.

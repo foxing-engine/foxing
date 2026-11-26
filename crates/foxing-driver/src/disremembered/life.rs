@@ -605,6 +605,23 @@ fn business_of(world: &mut World, c: EntityId) -> Result<bool, String> {
     if hp < max * 0.5 {
         return Ok(false);
     }
+    // The fourth level: a called creature's own goal comes before its keeper, its
+    // stories and its way home (calling.rs).
+    // (One that held enough before the level existed, or grew past the bar by a
+    // story, is found here: its tier is reckoned when it is fed.)
+    if super::mind::tier(world, c) < super::calling::TIER
+        && super::mind::level(world, c) >= super::calling::BAR
+    {
+        super::mind::check_tier(world, c).map_err(|e| e.to_string())?;
+    }
+    if super::mind::tier(world, c) >= super::calling::TIER {
+        if super::calling::step(world, c)? {
+            return Ok(true);
+        }
+        if super::calling::of(world, c).is_some() {
+            return Ok(false);
+        }
+    }
     // X16: with another named creature in the room and its telling unspent (one
     // every four hours, D48), it tells one of the stories it holds.
     if super::tales::pass(world, c)? {

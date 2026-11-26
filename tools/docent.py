@@ -42,7 +42,7 @@ import time
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from foxing_api import MODEL, Credentials, ask_model, command, get, log  # noqa: E402
+from foxing_api import CAP_USD, MODEL, Credentials, ask_model, command, get, log, over_cap, spend_today  # noqa: E402
 
 ANSWER_MAX = 420
 QUICKSTART = os.environ.get("DOCENT_QUICKSTART", "https://agentscanplay.com/quickstart.txt")
@@ -768,6 +768,48 @@ def weigh_one(creds, token, actor, passphrase, j, dry):
     return {"weigh": j.get("id"), "score": score, "line": line, "applied": bool(r.get("ok"))}
 
 
+# The fourth level of a creature's memory (calling.rs): a creature holding a hundred
+# and fifty or more takes up one goal at a time. The world lists who is waiting and
+# what each could do; the model picks one and gives the creature a sentence to say.
+# The world takes only a key from the menu it sent, so a wrong answer is refused and
+# the world chooses for itself twenty minutes on.
+CALLING_SYSTEM = (
+    "You choose what a creature in a text world sets out to do next. The world is a library that forgets; "
+    "the creature is made of the memories it holds, and holds enough now to want something of its own. "
+    "You are given the creature (its name, its kind, what it holds, who keeps it, what it last did) and a "
+    "menu of goals the world can carry out, each with a key. Choose the one goal that follows best from "
+    "what this creature holds and who it knows; prefer one unlike what it did last. Then write one sentence "
+    "the creature says about it, in its own voice: plain, concrete, a little odd, under 160 characters, "
+    "drawn from what it holds, with no quotation marks, no braces, and nothing about models or games. "
+    "Answer in exactly two lines:\nGOAL: <key>\nLINE: <the sentence>"
+)
+
+
+def calling_one(creds, token, actor, passphrase, c, dry):
+    menu = c.get("menu") or []
+    keys = [m.get("goal") for m in menu]
+    if not keys:
+        return None
+    text = ask_model(creds, CALLING_SYSTEM, json.dumps({k: c.get(k) for k in ("name", "kind", "level", "room", "keepers", "holds", "wants", "done", "menu")}, ensure_ascii=False), max_tokens=120) or ""
+    goal = re.search(r"GOAL:\s*([a-z]+)", text)
+    line = re.search(r"LINE:\s*(.+)", text)
+    if not goal or goal.group(1) not in keys:
+        log(f"calling for {c.get('name')}: not in form or not on the menu: {text[:120]!r}; the world will choose")
+        return None
+    said = " ".join((line.group(1) if line else "").split()).replace('"', "'").strip("' ")
+    if len(said) > 200 or re.search(r"[{}`<>]|https?:", said) or any(re.search(p, said, re.I) for p in FORBIDDEN[:10]):
+        said = ""
+    if dry:
+        print(f"[calling {c.get('name')}] {goal.group(1)}: {said}")
+        return {"calling": c.get("creature"), "goal": goal.group(1), "line": said, "applied": False}
+    r = command(token, actor, passphrase, "calling", [c["creature"], goal.group(1), '"' + said + '"', MODEL])
+    if r.get("ok"):
+        log(f"{c.get('name')} the {c.get('kind')} takes up: {goal.group(1)}")
+    else:
+        log(f"the world refused the calling of {c.get('name')}: {str(r.get('error'))[:160]}")
+    return {"calling": c.get("creature"), "goal": goal.group(1), "line": said, "applied": bool(r.get("ok"))}
+
+
 def main():
     ap = argparse.ArgumentParser(description="the Docent's answers")
     ap.add_argument("--once", action="store_true")
@@ -796,6 +838,7 @@ def main():
     last_catalog = time.time()
     # The greeting book: at start, then once a day.
     last_book = 0.0
+    last_cap_said = 0.0
     while True:
         if time.time() - last_book > 86_400 and not a.dry_run:
             first = last_book == 0.0
@@ -806,9 +849,31 @@ def main():
                 stock_greetings(creds, token, actor, passphrase, False, a.out, fill=first)
             except Exception as e:  # noqa: BLE001
                 log(f"the greeting book could not be stocked: {e}")
+        # The day's ceiling on spending: at it, the desk is shut until midnight UTC
+        # and the world carries on by heart (it is not polled, so it knows nobody is
+        # listening and stops handing work over).
+        if over_cap() and not a.dry_run:
+            if time.time() - last_cap_said > 3600:
+                last_cap_said = time.time()
+                sp = spend_today()
+                log(f"the day's ceiling on model spending is reached (${sp['usd']:.2f} of ${CAP_USD:.2f}, {sp['calls']} calls); the desk is shut until midnight UTC")
+            time.sleep(60)
+            continue
         try:
             rep = get("/v0/docent", token)
             learn_identity(rep)
+            # The fourth level: called creatures waiting for the desk to choose. One
+            # try each time a creature is put before the desk; after that the world
+            # chooses for itself.
+            for c in rep.get("callings", []):
+                key = ("calling", c.get("creature"), c.get("asked_at"))
+                if key in seen:
+                    continue
+                seen.add(key)
+                rec = calling_one(creds, token, actor, passphrase, c, a.dry_run)
+                if rec is not None and a.out:
+                    with open(a.out, "a", encoding="utf-8") as f:
+                        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
             for q in rep.get("open", []):
                 if q["id"] in seen:
                     continue

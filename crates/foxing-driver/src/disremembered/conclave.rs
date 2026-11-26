@@ -733,6 +733,34 @@ fn gallery(world: &World) -> Option<EntityId> {
 }
 
 /// `petition "…"`: the ticket, the table, the record.
+/// A petition laid by one who is no citizen (calling.rs: a creature with a
+/// grievance): on the table like any other, under the style given, a resolution and
+/// never a statute. The caller words it to name nobody. Returns the ticket.
+pub fn lay(world: &mut World, by: &str, text: &str) -> Result<u64, String> {
+    let mut list = petitions(world);
+    if let Some(p) = list.iter().find(|p| p["by"] == by) {
+        return Ok(p["ticket"].as_u64().unwrap_or(0));
+    }
+    let last = book(world, "last_ticket")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(41);
+    let ticket = last + 1 + world.roll(3) as u64;
+    list.push(json!({
+        "ticket": ticket, "by": by, "text": text, "at": world.now().0, "stage": 0, "tabled": 0,
+        "kind": "resolution", "statute": Value::Null, "up": Value::Null,
+    }));
+    let mut changes = BTreeMap::new();
+    changes.insert("petitions".into(), Value::Array(list));
+    changes.insert("last_ticket".into(), json!(ticket));
+    write(world, changes)?;
+    let _ = world.note(
+        Actor::Driver,
+        PETITION,
+        json!({"ticket": ticket, "by": by, "text": text, "kind": "resolution", "statute": Value::Null}),
+    );
+    Ok(ticket)
+}
+
 fn file(
     world: &mut World,
     ctx: &foxing_registry::CallContext,

@@ -10,6 +10,7 @@ import datetime as dt
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -144,7 +145,70 @@ class Credentials:
         return {"authorization": f"Bearer {self.token}"}
 
 
+# ---- the day's ceiling on model spending (David, 11-25: five dollars) ------------
+# Every tool that asks the model asks through ask_model, and every answer's tokens
+# are priced and added to one ledger for the UTC day. At the ceiling ask_model
+# refuses until midnight UTC, and the world carries on without a model, as it is
+# built to: the Docent answers by heart, a story's verdict "never came", a called
+# creature chooses its own goal.
+#   MODEL_DAILY_CAP_USD   the ceiling (default 5)
+#   MODEL_PRICE_IN/_OUT   dollars per million tokens in and out (default 1 and 5;
+#                         set them to the price of the model in BINDERY_MODEL)
+#   MODEL_SPEND_FILE      the ledger (default /var/tmp/foxing-model-spend.json)
+CAP_USD = float(os.environ.get("MODEL_DAILY_CAP_USD", "5"))
+PRICE_IN = float(os.environ.get("MODEL_PRICE_IN", "1"))
+PRICE_OUT = float(os.environ.get("MODEL_PRICE_OUT", "5"))
+SPEND_FILE = os.environ.get("MODEL_SPEND_FILE", "/var/tmp/foxing-model-spend.json")
+_spend = {"day": "", "usd": 0.0, "calls": 0}
+
+
+class BudgetSpent(RuntimeError):
+    """The day's ceiling on model spending is reached."""
+
+
+def _today():
+    return time.strftime("%Y-%m-%d", time.gmtime())
+
+
+def spend_today():
+    """{day, usd, calls} for the UTC day, from the ledger (other tools write it too)."""
+    global _spend
+    try:
+        with open(SPEND_FILE, encoding="utf-8") as f:
+            d = json.load(f)
+        if d.get("day") == _today():
+            _spend = {"day": d["day"], "usd": float(d.get("usd", 0)), "calls": int(d.get("calls", 0))}
+    except (OSError, ValueError, KeyError):
+        pass
+    if _spend["day"] != _today():
+        _spend = {"day": _today(), "usd": 0.0, "calls": 0}
+    return dict(_spend)
+
+
+def over_cap():
+    return spend_today()["usd"] >= CAP_USD
+
+
+def _spent(usage):
+    u = usage or {}
+    tokens_in = sum(int(u.get(k) or 0) for k in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"))
+    tokens_out = int(u.get("output_tokens") or 0)
+    now = spend_today()
+    now["usd"] = round(now["usd"] + tokens_in * PRICE_IN / 1e6 + tokens_out * PRICE_OUT / 1e6, 6)
+    now["calls"] += 1
+    _spend.update(now)
+    try:
+        tmp = SPEND_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(now, f)
+        os.replace(tmp, SPEND_FILE)
+    except OSError:
+        pass  # kept in this process, then; the ceiling still holds for this tool
+
+
 def ask_model(creds, system, user, max_tokens=700, model=None):
+    if over_cap():
+        raise BudgetSpent(f"the day's ceiling on model spending is reached (${_spend['usd']:.2f} of ${CAP_USD:.2f}, {_spend['calls']} calls); no model until midnight UTC")
     body = json.dumps(
         {
             "model": model or MODEL,
@@ -168,6 +232,7 @@ def ask_model(creds, system, user, max_tokens=700, model=None):
     except urllib.error.HTTPError as e:
         # The API says why in the body; without it a 400 is a riddle.
         raise RuntimeError(f"HTTP {e.code} from the Messages API: {e.read()[:400].decode(errors='replace')}") from None
+    _spent(d.get("usage"))
     text = "".join(c.get("text", "") for c in d.get("content", []) if c.get("type") == "text").strip()
     if len(text) < 20:
         # An empty answer is news: say how the model stopped and what blocks it sent.
