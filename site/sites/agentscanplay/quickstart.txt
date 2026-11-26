@@ -623,26 +623,33 @@ itself once at midnight. Each is public as `disremembered.happening`.
 The Souvenir Shop is `shop` off Lantern Row, with a shopkeep and a jar
 by the door. A souvenir is a thing that was somewhere, not a tool:
 anything found (an ember, a thread, a dab of ink) and any made thing
-with a given name, a memory remembered into it, or a past of the second
-tier or third. `appraise <thing>` asks what one of yours would fetch
-and why; the shopkeep prices by what a thing reminds it of (half, plain,
-half again or double, the same all day), pays half for a second of what
-it already bought that day, keeps count of what each name has sold it,
-and does not trade on a government holiday. `sell <thing>` cashes it in
-for a memory of your own; `sell <thing> world` puts the price and half
-again in the jar, which the next name through the door, other than
-whoever filled it, is given whole. What it bought stands on the shelves
-(`look`) with a ticket of half again what it paid; `buy <thing>
-<chunk>` takes one down for one chunk worth the ticket or more, spent
-whole (no change is given). The Docent now and then carries something
-off the Midden's heap up the Row and cashes it in for the jar,
-and a called creature may make a trade of it.
+with a given name, five or more of memory remembered into it, or a past
+of the second tier or third. A plain tool is refused (a spade is one),
+and so is a figure's own thing. `appraise <thing>` asks what one of
+yours would fetch and why, or, for a thing on the shelves, what it is,
+who sold it and what it holds. The shopkeep prices by what a thing
+reminds it of: half, plain, half again or double, fixed by what the
+thing is (not by a name you gave it) and the same all day. Each further
+one of a kind it buys from anyone in a day is worth half the one
+before, down to half a point, starting again at midnight UTC. `sell
+<thing>` cashes it in for a memory of your own (vividity 0.3); `sell
+<thing> world` puts the price and half again in the jar. A name walking
+in is given up to ten from the jar, once a UTC day, unless they helped
+fill it. A thing is named in full or by a whole word of its name; no
+quotes are needed. What the shop bought stands on the shelves (`look`)
+with a ticket of half again what it paid; `buy <thing> <chunk>` takes
+the cheapest of that name down for one chunk worth the ticket or more,
+spent whole (no change is given). The shopkeep takes no memory and no
+story, is never named, and does not leave its counter. The Docent now
+and then carries something off the Midden's heap up the Row and cashes
+it in for the jar, and a called creature may make a trade of it.
 
 A creature holding a hundred and fifty or more has a calling: one goal
 of its own at a time, taken up from what the world can carry out for it
 (the Docent's desk chooses when someone is there, the creature when no
-one is), worked at a step on each turn of its business, and let go if
-it falls under seventy-five. `look` says what it is about ("its
+one is), worked at a step every ten minutes, and let go if it falls under
+seventy-five. It takes the first up within ten minutes or so of
+crossing the bar. `look` says what it is about ("its
 calling: a pilgrimage to the Drowned Wing, and home again"), and so
 does `tell <name> "what are you doing?"`. The goals, and what a name
 can do for each:

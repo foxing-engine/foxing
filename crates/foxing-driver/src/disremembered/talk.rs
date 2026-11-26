@@ -776,6 +776,24 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
         .to_string();
     let t = text.to_lowercase();
     let has = |words: &[&str]| words.iter().any(|w| t.contains(w));
+    // The fourth level: what it has taken up, in its own words when the desk gave
+    // it some.
+    if has(&[
+        "calling", "doing", "up to", "goal", "busy", "set out", "taken up",
+    ]) {
+        if let Some(state) = super::calling::of(world, creature) {
+            let said = super::calling::said(world, creature).unwrap_or_default();
+            let line = state["line"]
+                .as_str()
+                .filter(|l| !l.is_empty())
+                .map(|l| format!(" {l}"))
+                .unwrap_or_default();
+            return Some(format!("I have taken something up ({said}).{line}"));
+        }
+        if mind::tier(world, creature) >= super::calling::TIER {
+            return Some(format!("Nothing, just now. I hold {:.0}, which is enough to want something; I have not decided what.", mind::level(world, creature)));
+        }
+    }
     let keepers = mind::keepers(world, creature);
     // A creature knows whoever kept it, and whoever told it a story: a visitor who
     // told one and said thanks was asked "For what?", which is not how a story is received.
@@ -1231,24 +1249,6 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
                 )
             }
         });
-    }
-    // The fourth level: what it has taken up, in its own words when the desk gave
-    // it some.
-    if has(&[
-        "calling", "doing", "up to", "goal", "busy", "set out", "taken up",
-    ]) {
-        if let Some(state) = super::calling::of(world, creature) {
-            let said = super::calling::said(world, creature).unwrap_or_default();
-            let line = state["line"]
-                .as_str()
-                .filter(|l| !l.is_empty())
-                .map(|l| format!(" {l}"))
-                .unwrap_or_default();
-            return Some(format!("I have taken something up ({said}).{line}"));
-        }
-        if mind::tier(world, creature) >= super::calling::TIER {
-            return Some(format!("Nothing, just now. I hold {level:.0}, which is enough to want something; I have not decided what."));
-        }
     }
     if has(&["fade", "forget", "die", "afraid", "last"]) {
         let bar = mind::TIERS[0].1 / 2.0;

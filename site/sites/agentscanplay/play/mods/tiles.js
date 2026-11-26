@@ -1842,6 +1842,12 @@ export default function install(m) {
       const rows = [
         ...(spot ? [worn ? ["put away " + it.name, () => m.command("stow", ["item-" + it.id])] : ["hold " + it.name, () => m.command("hold", ["item-" + it.id])]] : []),
         ...into.map(r => ["make " + r.name, () => m.prefill("craft " + r.recipe + " ")]),
+        // C17: over the Souvenir Shop's counter a thing can be priced and sold by thumb.
+        ...(scene.key === "souvenir-shop" ? [
+          ["appraise " + it.name, () => m.command("appraise", ["item-" + it.id])],
+          ["sell " + it.name, () => m.command("sell", ["item-" + it.id])],
+          ["sell it for the jar", () => m.command("sell", ["item-" + it.id + " world"])],
+        ] : []),
         ["drop " + it.name, () => m.command("drop", ['"' + it.name + '"'])],
         ["read " + it.name, () => m.command("read", ["item-" + it.id])],
         ["give to \u2026", () => m.prefill("give " + (/ /.test(it.name) ? '"' + it.name.replace(/^(?:a|an|the) /, "") + '"' : it.name) + " ")],

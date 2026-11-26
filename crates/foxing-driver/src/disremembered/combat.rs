@@ -2299,8 +2299,10 @@ pub(crate) fn creature_strikes(
                 ));
                 after = to;
             }
-        } else if let Some(b) =
-            super::craft::carries(world, citizen, "bandage").filter(|_| after > 0.0)
+        } else if let Some(b) = super::craft::carries(world, citizen, "bandage")
+            // One with a memory in it is a keepsake first: it is not spent on a
+            // wound by itself (Watch 28: fifty-six of memory went with it).
+            .filter(|b| after > 0.0 && super::craft::held(world, *b) < 1.0)
         {
             // C21 (David, 11-25: "1:c", the pocket another early use): a plain
             // bandage or a poultice in the pocket binds a wound too, a little. Until

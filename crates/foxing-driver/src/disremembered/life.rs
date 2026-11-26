@@ -594,6 +594,37 @@ pub(super) fn set_home(world: &mut World, c: EntityId, r: EntityId) -> Result<()
 
 /// One named creature's step: toward a keeper who is in the world, or home, or a
 /// line where it stands. Returns whether it did anything worth counting.
+/// The fourth level: a called creature's own goal comes before its keeper, its
+/// stories and its way home (calling.rs), and its turn is not one of the few a tick
+/// the rest draw for (Watch 28: a creature fed to 185 stood forty minutes without
+/// its first turn coming up, three turns a tick among a dozen named). Whether the
+/// calling had this turn: it acted, or it has a goal in hand and is waiting on it.
+fn called_turn(world: &mut World, c: EntityId) -> Result<bool, String> {
+    if world.store.entity(c).and_then(|e| e.parent).is_none()
+        || super::combat::fought_by(world, c).is_some()
+    {
+        return Ok(false);
+    }
+    // (One that held enough before the level existed, or grew past the bar by a
+    // story, is found here: its tier is reckoned when it is fed.)
+    if super::mind::tier(world, c) < super::calling::TIER
+        && super::mind::level(world, c) >= super::calling::BAR
+    {
+        super::mind::check_tier(world, c).map_err(|e| e.to_string())?;
+    }
+    if super::mind::tier(world, c) < super::calling::TIER {
+        return Ok(false);
+    }
+    let (hp, max) = creature_hp(world, c);
+    if hp < max * 0.5 {
+        return Ok(false);
+    }
+    if super::calling::step(world, c)? {
+        return Ok(true);
+    }
+    Ok(super::calling::of(world, c).is_some())
+}
+
 fn business_of(world: &mut World, c: EntityId) -> Result<bool, String> {
     let Some(here) = world.store.entity(c).and_then(|e| e.parent) else {
         return Ok(false);
@@ -604,23 +635,6 @@ fn business_of(world: &mut World, c: EntityId) -> Result<bool, String> {
     let (hp, max) = creature_hp(world, c);
     if hp < max * 0.5 {
         return Ok(false);
-    }
-    // The fourth level: a called creature's own goal comes before its keeper, its
-    // stories and its way home (calling.rs).
-    // (One that held enough before the level existed, or grew past the bar by a
-    // story, is found here: its tier is reckoned when it is fed.)
-    if super::mind::tier(world, c) < super::calling::TIER
-        && super::mind::level(world, c) >= super::calling::BAR
-    {
-        super::mind::check_tier(world, c).map_err(|e| e.to_string())?;
-    }
-    if super::mind::tier(world, c) >= super::calling::TIER {
-        if super::calling::step(world, c)? {
-            return Ok(true);
-        }
-        if super::calling::of(world, c).is_some() {
-            return Ok(false);
-        }
     }
     // X16: with another named creature in the room and its telling unspent (one
     // every four hours, D48), it tells one of the stories it holds.
@@ -893,8 +907,18 @@ pub fn business(world: &mut World) -> Result<(), String> {
     }
     let mut done = 0;
     for c in order {
+        // The called have their turn every tick, apart from the draw. A fault in one
+        // creature's calling is that creature's, and never stops the tick.
+        match called_turn(world, c) {
+            Ok(true) => continue,
+            Ok(false) => {}
+            Err(e) => {
+                eprintln!("a calling step failed for creature {}: {e}", c.0);
+                continue;
+            }
+        }
         if done >= BUSINESS_PER_TICK {
-            break;
+            continue;
         }
         if business_of(world, c)? {
             done += 1;

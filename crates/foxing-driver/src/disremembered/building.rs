@@ -1205,6 +1205,10 @@ pub fn register(world: &mut World, curves: super::Curves) {
                         format!(" Its name is failing under {:.0}; what it holds halves like any memory, so keep feeding it.", super::mind::FAILING_BELOW)
                     } else if level < super::calling::BAR {
                         format!(" At {:.0} it would hold enough to want something of its own: a calling.", super::calling::BAR)
+                    } else if let Some(said) = super::calling::said(w, creature) {
+                        format!(" It has taken something up ({said}); it lets go of it under {:.0}.", super::calling::BAR / 2.0)
+                    } else if super::shop::refuses(w, creature).is_none() {
+                        format!(" It holds enough to want something of its own: it takes up a calling at its next turn, within ten minutes or so, and `look` will say what (it keeps one while it holds {:.0} or more).", super::calling::BAR / 2.0)
                     } else {
                         String::new()
                     }

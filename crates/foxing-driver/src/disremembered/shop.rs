@@ -58,6 +58,10 @@ pub const WORTH_MAX: f64 = 40.0;
 pub const JAR_TAKE: f64 = 10.0;
 /// The least the shopkeep pays for anything.
 pub const LEAST: f64 = 0.5;
+/// How vivid a memory the shop pays is: the shopkeep's, not yours, so it keeps a
+/// little worse than a hard fight's and far worse than a story's (Watch 28: at a
+/// half it was a way to make a fading memory keep).
+pub const PAID_VIVIDITY: f64 = 0.3;
 
 /// What a thing may remind the shopkeep of: the factor, and what it says.
 const REMINDS: &[(f64, &str)] = &[
@@ -154,7 +158,11 @@ pub fn worth(world: &World, item: EntityId) -> Result<f64, String> {
     let tier = super::past::tier(world, item) as f64;
     let held = super::craft::held(world, item);
     let named = plain_str(world, item, ITEM, "given_name").is_some();
-    let made = plain_str(world, item, ITEM, "kind") == Some("made");
+    // A tool is a made thing, or anything that does something (a spade off the
+    // Mudroom's rack is taken, not made, and is a tool all the same: Watch 28).
+    let made = plain_str(world, item, ITEM, "kind") == Some("made")
+        || plain_str(world, item, ITEM, "effect").is_some_and(|e| !e.is_empty())
+        || name.to_lowercase().contains("spade");
     // (Every made thing is of the first tier; the second and third are the ones
     // with a past of their own.)
     let tier = if made { (tier - 1.0).max(0.0) } else { tier };
@@ -180,7 +188,11 @@ fn hash(s: &str) -> u64 {
 /// same verdict.
 fn reminds(world: &World, item: EntityId) -> (f64, &'static str) {
     let day = world.now().0 / 86_400_000;
-    let name = super::craft::display(world, item).to_lowercase();
+    // By what the thing is, never by a name its owner gave it (Watch 28: `name` is
+    // free and repeatable, and each new name rolled the verdict again).
+    let name = plain_str(world, item, ITEM, "name")
+        .map(str::to_lowercase)
+        .unwrap_or_else(|| super::craft::display(world, item).to_lowercase());
     REMINDS[(hash(&format!("{name}:{day}")) % REMINDS.len() as u64) as usize]
 }
 
@@ -375,13 +387,17 @@ pub fn came_in(world: &mut World, actor: &str, to: EntityId) -> Result<Option<St
         return Ok(None);
     }
     let (worth, from) = jar_of(world);
-    if worth < 1.0 || from.iter().any(|f| f == actor) {
+    if worth < 1.0 {
         return Ok(None);
+    }
+    // Said, where it was silent: why the jar is not for you this time.
+    if from.iter().any(|f| f == actor) {
+        return Ok(Some(format!("The jar by the door holds {worth:.1}, and some of it is yours: what you put in is for whoever comes next, and that is not you.")));
     }
     let mut b = book(world);
     let day = day_of(world);
     if b["took"][actor].as_i64() == Some(day) {
-        return Ok(None);
+        return Ok(Some(format!("The jar by the door holds {worth:.1}. It has given to you once today, and gives a name once a day.")));
     }
     let Some(f) = find_citizen(world, actor) else {
         return Ok(None);
@@ -395,7 +411,7 @@ pub fn came_in(world: &mut World, actor: &str, to: EntityId) -> Result<Option<St
         f.window,
         "what was left in the jar at the Souvenir Shop, for whoever came next",
         take,
-        0.6,
+        PAID_VIVIDITY,
         &curves,
     )
     .map_err(|e| e.to_string())?;
@@ -533,6 +549,37 @@ pub fn docent_brings(world: &mut World) -> Result<bool, String> {
     Ok(true)
 }
 
+/// Over the counter a thing is named in full or by a whole word of its name, or by
+/// its id: a letter or two is not enough to sell by (Watch 28: `sell "wi"` sold a
+/// wisp ember, and `appraise "a"` found a sword).
+fn meant(w: &World, typed: &str, item: EntityId) -> Result<(), CommandError> {
+    let t = typed.to_lowercase();
+    if t.starts_with("item-") || t.chars().all(|c| c.is_ascii_digit()) {
+        return Ok(());
+    }
+    let name = super::craft::display(w, item);
+    let strip = |s: &str| {
+        let s = s.trim().to_lowercase();
+        ["a ", "an ", "the "]
+            .iter()
+            .find_map(|a| s.strip_prefix(a).map(str::to_string))
+            .unwrap_or(s)
+    };
+    let (t, n) = (strip(&t), strip(&name));
+    if t.len() >= 3
+        && (t == n
+            || n.split(|c: char| !c.is_alphanumeric())
+                .any(|word| word == t)
+            || n.contains(&format!("{t} "))
+            || n.ends_with(&format!(" {t}")))
+    {
+        return Ok(());
+    }
+    Err(CommandError::precondition(format!(
+        "The shopkeep waits. \"Which thing? Say its name, or a whole word of it.\" The nearest to '{typed}' is {name}: `{name}` in full names it."
+    )))
+}
+
 /// A name as typed, without its quotes.
 fn unquote(s: &str) -> String {
     s.trim()
@@ -576,7 +623,10 @@ pub fn register(world: &mut World) {
             let sat = super::craft::satchel(w, &ctx.actor, f.citizen)?;
             let what = unquote(args.str("thing").unwrap_or(""));
             let item = match super::craft::resolve_item(w, &what, sat) {
-                Ok(item) => item,
+                Ok(item) => {
+                    meant(w, &what, item)?;
+                    item
+                }
                 Err(mine) => {
                     // Not yours: one on the shelves is looked at instead.
                     let on_shelf = keeper(w).and_then(|k| super::craft::resolve_item(w, &what, k).ok());
@@ -630,6 +680,7 @@ pub fn register(world: &mut World) {
                 .find_map(|t| lower.strip_suffix(t).filter(|rest| rest.is_empty() || rest.ends_with(' ') || rest.ends_with('"')).map(|rest| (line[..rest.len()].to_string(), t.to_string())))
                 .unwrap_or((line.clone(), String::new()));
             let item = super::craft::resolve_item(w, &unquote(&thing), sat)?;
+            meant(w, &unquote(&thing), item)?;
             let name = super::craft::display(w, item);
             let for_world = matches!(to.as_str(), "world" | "jar" | "the world" | "for the world");
             if !to.is_empty() && !for_world {
@@ -647,7 +698,7 @@ pub fn register(world: &mut World) {
                 format!("It drops {worth:.1} into the jar by the door, for whoever comes next, and writes a ticket.")
             } else {
                 let curves = super::Curves::from_env();
-                let chunk = super::memory::earn_chunk(w, &ctx.actor, f.window, &format!("what the Souvenir Shop gave for {name}"), worth, 0.5, &curves)?;
+                let chunk = super::memory::earn_chunk(w, &ctx.actor, f.window, &format!("what the Souvenir Shop gave for {name}"), worth, PAID_VIVIDITY, &curves)?;
                 format!("It counts {worth:.1} into your hand as a memory (chunk-{}), and writes a ticket.", chunk.0)
             };
             for other in w
@@ -690,7 +741,15 @@ pub fn register(world: &mut World) {
                     shelf(w).iter().map(|(_, n, t)| format!("{n} ({t:.1})")).collect::<Vec<_>>().join(", ")
                 ))
             })?;
+            meant(w, &unquote(thing), item)?;
             let name = super::craft::display(w, item);
+            // Of like things on the shelves, the cheapest comes down.
+            let item = shelf(w)
+                .into_iter()
+                .filter(|(_, n, _)| *n == name)
+                .min_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal))
+                .map(|x| x.0)
+                .unwrap_or(item);
             let asked = ticket(w, item);
             let chunk = super::memory::resolve_chunk(w, ctx, &unquote(chunk_word), &[f.window, f.palace])?;
             let value = w.store.read_field(chunk, CHUNK, "value", w.now()).ok().and_then(|v| v.as_f64()).or_else(|| plain_num(w, chunk, CHUNK, "value")).unwrap_or(0.0);

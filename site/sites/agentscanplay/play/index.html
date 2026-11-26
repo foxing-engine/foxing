@@ -1266,6 +1266,9 @@
   // takes the page as it is. What the world printed under the cards is cleared at
   // the end, and one `look` begins the visit.
   function welcome(name) {
+    // A reload before the last card brings the cards back (Watch 28: they were lost
+    // for good, and the name went on with none of what they set up).
+    try { localStorage.setItem("dis.welcome." + name, "1"); } catch (e) {}
     const box = $("welcome"), picked = {};
     const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
     const cards = [
@@ -1290,6 +1293,7 @@
     function finish(skipped) {
       box.hidden = true; box.replaceChildren();
       document.body.classList.remove("welcoming");
+      try { localStorage.removeItem("dis.welcome." + name); } catch (e) {}
       // The page, by the answers.
       if (picked.see) {
         const fr = $("foldreplies");
@@ -1772,14 +1776,17 @@
     lastAct = Date.now();
     composeLogin();
     $("q-run").disabled = false;
-    if (body.fresh) document.body.classList.add("welcoming");
+    let unwelcomed = false;
+    try { unwelcomed = localStorage.getItem("dis.welcome." + name) === "1"; } catch (e) {}
+    const fresh = body.fresh || unwelcomed;
+    if (fresh) document.body.classList.add("welcoming");
     else print("Welcome back, " + name + ".", "sys");
     const live = await connect();
     if (live) { $("link").textContent = "Live session."; } else { try { const h = await api("/health"); if (h.body) cursor = h.body.events || 0; } catch (e) {} startPolling(); }
     emit("login", name, live);
     keys.strip();
     firstHours.begin();
-    if (body.fresh) { welcome(name); return true; }
+    if (fresh) { welcome(name); return true; }
     await run("look", [], true);
     return true;
   }
