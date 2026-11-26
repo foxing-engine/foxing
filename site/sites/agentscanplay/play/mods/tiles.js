@@ -438,8 +438,13 @@ export default function install(m) {
   // puts the card away for the visit; `figure` is the same choice by hand.
   const FIGURES = [["hunter", "for those who hunt"], ["teller", "for those who tell"], ["keeper", "for those who keep"], ["reader", "for those who read"]];
   let figCard = null, figLater = false;
+  // For the page's welcome, which asks the same thing with a paragraph round it.
+  window.disFigure = (key) => {
+    const src = frameCanvas("figure-" + key, null, 0); if (!src) return null;
+    const c = document.createElement("canvas"); c.width = 48; c.height = 48; c.getContext("2d").drawImage(src, 0, 0); return c;
+  };
   function offerFigures(frame) {
-    const want = frame === "citizen" && !figLater && m.actor;
+    const want = frame === "citizen" && !figLater && m.actor && !document.body.classList.contains("welcoming");
     if (!want) { if (figCard) { figCard.remove(); figCard = null; } return; }
     if (figCard) return;
     figCard = document.createElement("div");

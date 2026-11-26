@@ -252,6 +252,34 @@
   #tip b { display: block; font-weight: 600; color: var(--dust); text-transform: capitalize; letter-spacing: .02em; margin-bottom: 4px; }
   #tip p { margin: 0 0 5px; } #tip p:last-child { margin-bottom: 0; } #tip p:nth-of-type(2) { color: var(--dust); }
   #you [data-tip] { cursor: help; }
+  /* The welcome (David, 11-25: a new name on a phone met "a wall of text"; "let's
+     break it up … by asking some framing questions to set things up for them … and
+     give them a paragraph of information each time"). Four cards over the words,
+     one paragraph and one choice to each; the page is set by the answers, and what
+     the world said meanwhile is put away. */
+  #term { position: relative; }
+  #welcome { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; gap: 14px; padding: 22px max(18px, 6%); background: var(--night, #0e141d); overflow-y: auto; }
+  /* Centered when it fits, from the top when it does not (a centered column that
+     overflows loses its head). */
+  #welcome > :first-child { margin-top: auto; }
+  #welcome > :last-child { margin-bottom: auto; }
+  @media (max-width: 560px) { #welcome { position: fixed; z-index: 60; padding: 18px 16px; gap: 12px; } #welcome h3 { font-size: 20px; } #welcome p { font-size: 15.5px; } #welcome .picks button { padding: 10px 10px; min-height: 0; } }
+  #welcome[hidden] { display: none; }
+  #welcome h3 { margin: 0; font: 500 22px/1.25 var(--serif, Georgia, serif); color: var(--ink); }
+  #welcome p { margin: 0; font: 16px/1.55 var(--serif, Georgia, serif); color: var(--ink); max-width: 34em; }
+  #welcome .ask { font: 600 13px/1.3 system-ui, sans-serif; color: var(--dust); margin-top: 4px; }
+  #welcome .picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; max-width: 36em; }
+  #welcome .picks.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #welcome .picks button { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; padding: 12px 14px; min-height: 64px; border-radius: 10px; border: 1px solid rgba(217,181,122,.5); background: rgba(236,229,211,.05); color: var(--ink); font: 600 15px/1.25 system-ui, sans-serif; cursor: pointer; }
+  #welcome .picks button:hover, #welcome .picks button:focus-visible { background: rgba(217,181,122,.16); outline: none; border-color: var(--dust); }
+  #welcome .picks button small { font: 400 12.5px/1.35 system-ui, sans-serif; color: var(--dim); }
+  #welcome .picks button canvas { width: 56px; height: 56px; image-rendering: pixelated; align-self: center; }
+  #welcome .picks.four button { align-items: center; text-align: center; }
+  #welcome .foot { display: flex; align-items: center; gap: 12px; font: 12px system-ui, sans-serif; color: var(--dim); }
+  #welcome .foot button { background: none; border: 0; color: var(--dim); font: inherit; text-decoration: underline; cursor: pointer; padding: 6px 0; }
+  #welcome .dots { letter-spacing: 4px; color: var(--dust); }
+  body.welcoming #log > *, body.welcoming #first, body.welcoming #morebelow, body.welcoming #acts { visibility: hidden; }
+  body.taps #keystrip { display: none; }
   #keystrip { font-size: 11.5px; color: var(--dim); margin: 6px 20px 0; line-height: 1.9; }
   #keystrip b { color: var(--dust); font-weight: 600; margin-right: 4px; }
   #keystrip kbd { font: inherit; font-size: 10.5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; margin: 0 3px 0 8px; color: var(--dust); }
@@ -1077,6 +1105,7 @@
     </section>
     <button type="button" id="log-tab" hidden aria-expanded="false" title="The transcript, folded: open it, or turn the fold off in settings">log ▴</button>
     <div id="log" role="log" aria-live="polite" aria-relevant="additions"></div>
+    <div id="welcome" role="dialog" aria-label="Welcome" hidden></div>
     <button type="button" id="morebelow" hidden title="This reply goes on below">more below ↓</button>
     <div id="hint"></div>
     <div id="verbbar" aria-label="What you can do here"></div>
@@ -1230,7 +1259,87 @@
   }
   let myLevel = 0;      // what you hold now, for a door's level to be read against
   // For a mod, or a test of the page: print a line as the world would.
+  let foldScene = null;
   window.disPrint = (text, cls) => print(text, cls || "");
+  // The welcome: four cards for a name just made. Each answer sets the page; the
+  // second is also the figure and the road (`figure`, `tutorial`). "Skip" on any card
+  // takes the page as it is. What the world printed under the cards is cleared at
+  // the end, and one `look` begins the visit.
+  function welcome(name) {
+    const box = $("welcome"), picked = {};
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
+    const cards = [
+      { head: "Welcome, " + name + ".",
+        text: "This is a world where everything you earn fades. Your level is only what you still remember, and a fight you nearly lost stays with you longest. What you dig, make and write is still here after you have gone.",
+        ask: "How do you like to take a place in?", key: "see",
+        picks: [["show", "Show me", "The picture leads; the words stay short until you ask for more."], ["tell", "Tell me", "The words lead, in full; the picture is folded away until you want it."]] },
+      { head: "Four ways to live here",
+        text: "None of them is wrong, and you can change your mind at any time. Each comes with a look of its own and a small thing in your hand, and the Docent, who keeps the door, will walk you five steps down the one you choose.",
+        ask: "What did you come to do?", key: "road", four: true,
+        picks: [["hunt", "Hunt", "Fight what drifts in the fog.", "hunter"], ["tell", "Tell", "Earn by stories, told to creatures with names.", "teller"], ["keep", "Keep", "Dig a room of your own and tend it.", "keeper"], ["read", "Read", "Read closely; answer what is pinned up.", "reader"]] },
+      { head: "Two ways to do anything",
+        text: "You can tap: the picture, the doors under it, and the buttons that appear under the words. Or you can type a verb and a name, like look, or travel east; help lists them all. Both always work, and you can mix them.",
+        ask: "Which will you mostly use?", key: "hands",
+        picks: [["tap", "I'll tap", "Buttons for what can be done here are kept in front."], ["type", "I'll type", "The keys that save typing are shown, and the line is ready."]] },
+      { head: "One thing to keep",
+        text: "Your passphrase. Nothing recovers it, so write it down. A name nobody speaks for thirty days is forgotten, and everything done under a name is public. That is all you need: the rest the world will tell you as you meet it.",
+        ask: "", key: "go",
+        picks: [["go", "Begin", "Step through the door."]] },
+    ];
+    let at = 0;
+    function finish(skipped) {
+      box.hidden = true; box.replaceChildren();
+      document.body.classList.remove("welcoming");
+      // The page, by the answers.
+      if (picked.see) {
+        const fr = $("foldreplies");
+        if (fr) { fr.checked = picked.see === "show"; fr.dispatchEvent(new Event("change")); }
+        if (typeof foldScene === "function") foldScene(picked.see === "tell");
+      }
+      if (picked.hands) {
+        document.body.classList.toggle("taps", picked.hands === "tap");
+        try { localStorage.setItem("disremembered.hands", picked.hands); } catch (e) {}
+      }
+      // What was said under the cards is put away: the visit begins on one look.
+      $("log").replaceChildren();
+      print("Welcome, " + name + "." + (skipped ? " Type tutorial and the Docent walks you in; help lists the verbs." : ""), "sys");
+      (async () => {
+        if (picked.road) {
+          const fig = { hunt: "hunter", tell: "teller", keep: "keeper", read: "reader" }[picked.road];
+          await run("figure", [fig], true);
+          await run("tutorial", [picked.road], true);
+        }
+        // "Show me": the picture has the room, and the card above the first step;
+        // a paragraph of room here was the wall again. "Tell me": the room, in words.
+        if (picked.see === "show") print("You are standing at a door of the world. The picture is the room; the card above is your first step, and look says the room in words whenever you want them.", "sys");
+        else await run("look", [], true);
+        if (picked.hands === "type") $("in").focus();
+      })();
+    }
+    function show() {
+      const c = cards[at];
+      box.replaceChildren();
+      box.append(el("h3", "", c.head), el("p", "", c.text));
+      if (c.ask) box.append(el("div", "ask", c.ask));
+      const picks = el("div", "picks" + (c.four ? " four" : ""));
+      for (const [val, label, why, fig] of c.picks) {
+        const b = el("button"); b.type = "button";
+        if (fig && typeof window.disFigure === "function") { const cv = window.disFigure(fig); if (cv) b.append(cv); }
+        b.append(el("span", "", label), el("small", "", why));
+        b.addEventListener("click", () => { picked[c.key] = val; at += 1; if (at >= cards.length) finish(false); else show(); });
+        picks.append(b);
+      }
+      box.append(picks);
+      const foot = el("div", "foot");
+      foot.append(el("span", "dots", cards.map((_, i) => (i === at ? "\u25cf" : "\u25cb")).join("")));
+      if (at < cards.length - 1) { const sk = el("button", "", "skip"); sk.type = "button"; sk.addEventListener("click", () => finish(true)); foot.append(sk); }
+      box.append(foot);
+      box.hidden = false;
+      const first = picks.querySelector("button"); if (first) first.focus({ preventScroll: true });
+    }
+    show();
+  }
+  try { document.body.classList.toggle("taps", localStorage.getItem("disremembered.hands") === "tap"); } catch (e) {}
   // Folds: a stretch the world wrote between these two (they print as nothing) is
   // kept behind a button. A stretch inside a row opens from one button at the row's
   // end; a stretch that is whole rows has its own, named by how it begins.
@@ -1663,14 +1772,14 @@
     lastAct = Date.now();
     composeLogin();
     $("q-run").disabled = false;
-    print(body.fresh
-      ? "Welcome, " + name + ". Your passphrase is set; you will need it next time. The Docent is asking what you came to do: pick a road on the card above (it ticks itself off as you go), click anything in the picture to act on it, or type help for one worked line per verb."
-      : "Welcome back, " + name + ".", "sys");
+    if (body.fresh) document.body.classList.add("welcoming");
+    else print("Welcome back, " + name + ".", "sys");
     const live = await connect();
     if (live) { $("link").textContent = "Live session."; } else { try { const h = await api("/health"); if (h.body) cursor = h.body.events || 0; } catch (e) {} startPolling(); }
     emit("login", name, live);
     keys.strip();
     firstHours.begin();
+    if (body.fresh) { welcome(name); return true; }
     await run("look", [], true);
     return true;
   }
@@ -4065,6 +4174,7 @@
       main.style.setProperty("--scene-h", px + "px");
       try { localStorage.setItem("disremembered.sceneH", String(px)); } catch (e) {}
     }
+    foldScene = (on) => { auto = false; keepOpen = !on; setFolded(on); foldLabel(); };
     function setFolded(on) {
       main.classList.toggle("collapsed", on);
       fold.textContent = on ? "scene ▸" : "scene ▾";
