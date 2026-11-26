@@ -1240,6 +1240,9 @@ pub fn to_hit(world: &World, citizen: EntityId) -> f64 {
         .clamp(0.05, 1.0)
 }
 
+/// C21: what a plain bandage or a poultice in the pocket gives back when a blow
+/// leaves its bearer under a third of itself (a surgeon's gives twenty).
+pub const PLAIN_BANDAGE_MENDS: f64 = 8.0;
 /// C21: what a short sword in the hand adds to a blow's chance.
 pub const SWORD_HIT: f64 = 0.05;
 /// D35: by a second-tier lantern's light a strike lands nine in ten.
@@ -2000,8 +2003,14 @@ pub fn sized_up(
     } else {
         "not yours as you stand"
     };
+    // C21 (David, 11-25: "2:b"): the sword's one in twenty is in the count, and said.
+    let sword = if super::craft::carries(world, citizen, "sword").is_some() {
+        " (your short sword lands one more in twenty)"
+    } else {
+        ""
+    };
     Some(format!(
-        "Sized up, as you stand now: {who} would take about {rounds:.0} of your blows, misses counted, and it would need about {stand:.0} of its own to fell you ({verdict})"
+        "Sized up, as you stand now: {who} would take about {rounds:.0} of your blows, misses counted{sword}, and it would need about {stand:.0} of its own to fell you ({verdict})"
     ))
 }
 
@@ -2024,8 +2033,14 @@ pub fn sized_up_fight(world: &World, citizen: EntityId, window: EntityId) -> Opt
     } else {
         "not yours as you stand: `retreat`, then `travel` out at once"
     };
+    // C21 (David, 11-25: "2:b"): the sword's one in twenty is in the count, and said.
+    let sword = if super::craft::carries(world, citizen, "sword").is_some() {
+        " (your short sword lands one more in twenty)"
+    } else {
+        ""
+    };
     Some(format!(
-        "Sized up, as the fight stands: {who} would take about {rounds:.0} more of your blows, misses counted, and it would need about {stand:.0} more of its own to fell you ({verdict})"
+        "Sized up, as the fight stands: {who} would take about {rounds:.0} more of your blows, misses counted{sword}, and it would need about {stand:.0} more of its own to fell you ({verdict})"
     ))
 }
 
@@ -2276,6 +2291,28 @@ pub(crate) fn creature_strikes(
                     "your {} binds it as it lands, {:.0} back: {:.0} of {whole:.0}",
                     short(name),
                     (to.ceil() - after.max(0.0).ceil()).max(0.0),
+                    to.ceil()
+                ));
+                after = to;
+            }
+        } else if let Some(b) =
+            super::craft::carries(world, citizen, "bandage").filter(|_| after > 0.0)
+        {
+            // C21 (David, 11-25: "1:c", the pocket another early use): a plain
+            // bandage or a poultice in the pocket binds a wound too, a little. Until
+            // now it waited for a bite that will not close, and nothing near the door
+            // leaves one: it took the pocket for nothing.
+            if let Ok(name) = super::craft::spend(
+                world,
+                &who,
+                b,
+                &format!("Bound a wound from a {ckind} as it was made"),
+            ) {
+                let to = (after + PLAIN_BANDAGE_MENDS).min(whole);
+                notes.push(format!(
+                    "the {} in your pocket binds it as it lands, {:.0} back: {:.0} of {whole:.0}, and it is spent",
+                    short(name),
+                    (to.ceil() - after.ceil()).max(0.0),
                     to.ceil()
                 ));
                 after = to;

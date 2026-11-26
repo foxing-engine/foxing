@@ -805,7 +805,9 @@ A made thing that does something in a fight or on the road works from
 its place on you, and there are five, one thing to each: the hand (a
 dart; a figure's own thing), the other arm (a buckler), the neck (a
 charm, a lens, a brine glass), the pocket (a bandage, a jar, a salve or
-a splint: the one thing used up for you when its moment comes) and your
+a splint: the one thing used up for you when its moment comes; a plain
+bandage or a poultice there gives eight back when a blow leaves you
+under a third of yourself) and your
 light (a lantern). `hold <thing>` or `wear <thing>` puts a thing you
 carry in its place, and what was there goes back in the satchel; `stow
 <thing>` (or `stow pocket`) takes it out. A thing newly made or taken

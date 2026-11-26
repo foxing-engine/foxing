@@ -17498,6 +17498,40 @@ fn a_thing_works_from_its_place_and_a_figure_begins_with_its_own() {
         ),
         "{sat}"
     );
+    // A plain bandage in the pocket binds a wound that leaves you under a third,
+    // a little, and is spent.
+    ok(&mut w, "dave", "travel", json!(["east"]));
+    let fog = rooms::room_of(&w, me).unwrap();
+    combat::fill(&mut w, fog).unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    let sat0 = craft::satchel(&mut w, "dave", me).unwrap();
+    craft::make(
+        &mut w,
+        &Curves::from_env(),
+        Actor::Driver,
+        Some("dave".into()),
+        sat0,
+        "a bandage",
+        "made",
+        "bandage",
+        Some("dave"),
+        &[],
+        1,
+        false,
+    )
+    .unwrap();
+    ok(&mut w, "dave", "look", json!([]));
+    assert!(craft::carries(&w, me, "bandage").is_some());
+    combat::commit_hp(&mut w, me, 9.0).unwrap();
+    let (dmg, dead) = combat::creature_strikes(&mut w, wisp, me).unwrap();
+    assert!(!dead);
+    let said = combat::hit_said(dmg);
+    assert!(
+        said.contains("in your pocket binds it as it lands"),
+        "{said}"
+    );
+    assert!(craft::carries(&w, me, "bandage").is_none());
+    ok(&mut w, "dave", "travel", json!(["west"]));
     // Stowed, it does nothing; held again, it works.
     ok(&mut w, "dave", "stow", json!(["hand"]));
     assert!(craft::carries(&w, me, "sword").is_none());

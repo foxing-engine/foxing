@@ -4328,7 +4328,10 @@
       if (opts.w) sec.dataset.defaultW = opts.w + "px";
       if (title) { const h = document.createElement("h2"); h.textContent = title; sec.append(h); }
       const scene = $("scene");
-      if (opts.at === "end") scene.append(sec); else scene.prepend(sec);
+      // `after`: straight after another panel (the satchel under the picture; it was
+      // at the foot of the column, under the map, and its places went unseen).
+      const prev = opts.after && scene.querySelector(':scope > section[data-panel="' + CSS.escape(opts.after) + '"]');
+      if (prev) prev.after(sec); else if (opts.at === "end") scene.append(sec); else scene.prepend(sec);
       layout.apply();
       return sec;
     },

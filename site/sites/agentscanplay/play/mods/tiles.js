@@ -1593,7 +1593,7 @@ export default function install(m) {
     if (mm && scene) { const t = thingNamed(mm[1]); if (t) { flashes.set(t.id, performance.now() + 100); const you = scene.things.find(t2 => t2.kind === "you"); if (!acts.has(t.id)) { act(t, "strike", you); act(you, "hit", t, 110); } } hurt = performance.now() + 500; floatOver(scene.things.find(t2 => t2.kind === "you"), "−" + mm[2], EMBER); sfx.hurt(); }
   }
   // ---- the satchel: what you carry, drawn; click a thing to drop, read or give it ----
-  const satPanel = m.panel("Satchel", { id: "satchel", w: 300, at: "end" });
+  const satPanel = m.panel("Satchel", { id: "satchel", w: 300, at: "end", after: "scene" });
   const satGrid = document.createElement("div");
   satGrid.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;padding:4px 0;min-height:52px;position:relative";
   satGrid.setAttribute("aria-label", "Your satchel; click a thing to act on it");
