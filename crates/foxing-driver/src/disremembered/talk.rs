@@ -790,6 +790,9 @@ pub fn reply(world: &World, creature: EntityId, actor: &str, text: &str) -> Opti
                 .unwrap_or_default();
             return Some(format!("I have taken something up ({said}).{line}"));
         }
+        if let Some(rest) = super::calling::resting(world, creature) {
+            return Some(rest);
+        }
         if mind::tier(world, creature) >= super::calling::TIER {
             return Some(format!("Nothing, just now. I hold {:.0}, which is enough to want something; I have not decided what.", mind::level(world, creature)));
         }

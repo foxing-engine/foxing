@@ -783,7 +783,12 @@ fn the_world_moves_on_its_own() {
     assert_eq!(round.result["killed"], json!(false), "{}", round.summary);
     let hp_after_round = combat::hp(&w, f.citizen);
     w.fixed_now = Some(t0.plus(Duration::seconds(97 + 19 + 19)));
-    assert_eq!(w.tick(), 1, "one strike job due");
+    // (And the called creatures' two-minute turn, which comes due here too.)
+    assert_eq!(
+        w.tick(),
+        2,
+        "one strike job due, and the called creatures' turn"
+    );
     assert!(
         combat::hp(&w, f.citizen) < hp_after_round + 1.9,
         "the wisp struck (healing is 0.1 per second)"

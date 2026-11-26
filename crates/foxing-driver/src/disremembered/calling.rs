@@ -1307,6 +1307,28 @@ pub fn said(world: &World, c: EntityId) -> Option<String> {
     Some(format!("its calling: {said}{more}"))
 }
 
+/// What a called creature says of itself between one calling and the next: what it
+/// last did, and that it is resting on it (Watch 29: an hour after raising an heir it
+/// said it had not decided what it wanted, as if nothing had happened).
+pub fn resting(world: &World, c: EntityId) -> Option<String> {
+    let last = mind_val(world, c, "calling_last")?;
+    let at = mind_val(world, c, "calling_rested")?.as_i64()?;
+    let left = REST_MS - (world.now().0 - at);
+    if left <= 0 || mind::tier(world, c) < TIER {
+        return None;
+    }
+    let said = last["said"].as_str().unwrap_or("something");
+    Some(if last["done"] == true {
+        format!("I set out to do something and did it ({said}). I am resting on that; ask me again in {}.", super::combat::human(left))
+    } else {
+        format!(
+            "I took something up and let it go ({said}; {}). I will want something else in {}.",
+            last["how"].as_str().unwrap_or("it came to nothing"),
+            super::combat::human(left)
+        )
+    })
+}
+
 /// Why it will not stop for a story or a word, if it will not: it is on the road
 /// with something in hand, and the asker is not who it is looking for.
 pub fn busy(world: &World, c: EntityId, actor: &str) -> Option<String> {
