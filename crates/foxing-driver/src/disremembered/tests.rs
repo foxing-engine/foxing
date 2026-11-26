@@ -17498,6 +17498,13 @@ fn a_thing_works_from_its_place_and_a_figure_begins_with_its_own() {
         ),
         "{sat}"
     );
+    // What is held is on the sprite, for every client that draws the figure; put
+    // away, it is gone from there.
+    assert_eq!(plain_str(&w, me, SPRITE, "held"), Some("sword targe"));
+    ok(&mut w, "dave", "stow", json!(["hand"]));
+    assert_eq!(plain_str(&w, me, SPRITE, "held"), Some("targe"));
+    ok(&mut w, "dave", "hold", json!(["sword"]));
+    assert_eq!(plain_str(&w, me, SPRITE, "held"), Some("sword targe"));
     // A plain bandage in the pocket binds a wound that leaves you under a third,
     // a little, and is spent.
     ok(&mut w, "dave", "travel", json!(["east"]));

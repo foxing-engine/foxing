@@ -616,7 +616,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("glyph", FieldKind::Plain, Visibility::Public)
             .field("tint", FieldKind::Plain, Visibility::Public)
             .field("atlas", FieldKind::Plain, Visibility::Public)
-            .field("frame", FieldKind::Plain, Visibility::Public),
+            .field("frame", FieldKind::Plain, Visibility::Public)
+            // C21: the kinds a figure holds where they are seen, a word each.
+            .field("held", FieldKind::Plain, Visibility::Public),
         ComponentSchema::new(CREATURE, 1)
             .field("name", FieldKind::Plain, Visibility::Public)
             .field("hp", FieldKind::Plain, Visibility::Public)

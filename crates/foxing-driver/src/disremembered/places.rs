@@ -459,6 +459,49 @@ pub fn settle(world: &mut World, actor: &str) {
     for s in said {
         super::combat::narrate(world, actor, s);
     }
+    show(world, actor, citizen, &m);
+}
+
+/// What is held is drawn: the kinds in the hand, on the other arm, at the neck and
+/// carried as a light go on the name's sprite (`held`, a word each), where every
+/// client that draws the figure can read them. The pocket is not seen.
+fn show(
+    world: &mut World,
+    actor: &str,
+    citizen: EntityId,
+    m: &BTreeMap<String, (EntityId, String)>,
+) {
+    let held = ["hand", "off", "neck", "light"]
+        .iter()
+        .filter_map(|p| m.get(*p))
+        .map(|(id, _)| family(world, *id))
+        .filter(|f| !f.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let Some(mut fields) = world
+        .store
+        .entity(citizen)
+        .and_then(|e| e.components.get(super::SPRITE))
+        .map(|c| c.fields.clone())
+    else {
+        return;
+    };
+    let was = match fields.get("held") {
+        Some(Field::Plain(v)) => v.as_str().unwrap_or("").to_string(),
+        _ => String::new(),
+    };
+    if was == held {
+        return;
+    }
+    fields.insert("held".into(), Field::Plain(json!(held)));
+    let _ = world.record(
+        foxing_log::Actor::Citizen(actor.to_string()),
+        foxing_store::StoreEvent::ComponentSet {
+            id: citizen,
+            component: super::SPRITE.into(),
+            fields,
+        },
+    );
 }
 
 fn plain_str_u64(world: &World, citizen: EntityId, field: &str) -> Option<u64> {

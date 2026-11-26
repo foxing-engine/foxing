@@ -22,8 +22,53 @@ for n in order:
 # ---- the frames: each drawing moved a little (animate.py says how, kind by kind)
 from animate import animate, frames
 for n in order: out[n]['a'] = animate(n, out[n]['r'])
+# ---- what a figure holds (figures.held): each thing laid on its figure and run
+# through the figure's frames with it, and what it adds to each frame kept as runs,
+# {row: [[x, cells], ...]}. Its colors get letters no figure uses, one table for all.
+from animate import frames as _frames
+pool = {}
+def letter(hexcolor):
+    if hexcolor not in pool: pool[hexcolor] = chr(0xC0 + len(pool))
+    return pool[hexcolor]
+held = {}
+for fig, kinds in figures.held().items():
+    base = out[fig]; base_frames = _frames(base)
+    held[fig] = {}
+    for kind, (pal, rows) in kinds.items():
+        both = [''.join(letter(pal[o]) if o != '.' else b for b, o in zip(br, orow)) for br, orow in zip(base['r'], rows)]
+        with_it = {'r': both, 'a': animate(fig, both)}
+        fr = _frames(with_it)
+        assert len(fr) == len(base_frames), (fig, kind, len(fr), len(base_frames))
+        per = []
+        for bf, wf in zip(base_frames, fr):
+            runs = {}
+            for y in range(SIZE):
+                x = 0
+                while x < SIZE:
+                    if wf[y][x] != bf[y][x]:
+                        x0 = x
+                        while x < SIZE and wf[y][x] != bf[y][x]: x += 1
+                        assert '.' not in wf[y][x0:x], (fig, kind, y)
+                        runs.setdefault(str(y), []).append([x0, wf[y][x0:x]])
+                    else: x += 1
+            per.append(runs)
+        held[fig][kind] = [0 if k and r == per[0] else r for k, r in enumerate(per)]
 dest = argv[1]
 os.makedirs(dest, exist_ok=True)
+json.dump({'p': {v: k for k, v in pool.items()}, 'f': held}, open(dest + '/held48.json', 'w'))
+# a sheet to look at: each figure empty-handed, then with its own thing, then with everything else
+def laid(fig, kinds):
+    rows = [list(r) for r in out[fig]['r']]
+    for k in kinds:
+        for y, runs in held[fig][k][0].items():
+            for x0, cells in runs:
+                for i, c in enumerate(cells): rows[int(y)][x0 + i] = c
+    return {'p': {**out[fig]['p'], **{v: k for k, v in pool.items()}}, 'r': [''.join(r) for r in rows]}
+look = {}
+for fig in figures.FIGURES:
+    own = figures.OWN[fig[7:]][0]
+    look[fig] = out[fig]; look[fig + '+own'] = laid(fig, [own, 'targe', 'charm']); look[fig + '+dart'] = laid(fig, ['dart', 'buckler', 'lens', 'lantern'])
+sheet(look, dest + '/held-look.png', 6, order=list(look), per_row=6)
 json.dump({n: out[n] for n in order}, open(dest + '/atlas48.json', 'w'))
 sheet(out, dest + '/sheet48.png', 3, order=order, per_row=10)
 sheet(out, dest + '/sheet48-small.png', 1, bg=(92, 98, 104), order=order, per_row=20)

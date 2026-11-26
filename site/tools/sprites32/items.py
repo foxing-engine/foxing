@@ -207,6 +207,28 @@ s = I('cordial', {'g': '#cfe0e6', 'G': '#8aa8b0', 'k': '#2a3a40', 'l': '#ffcf7a'
 s.rect(7, 1, 2, 2, 'c'); s.rect(6, 3, 4, 3, 'k'); s.rect(7, 3, 2, 3, 'g'); s.poly([(4, 6), (12, 6), (12, 15), (4, 15)], 'k'); s.rect(5, 7, 6, 7, 'G'); s.rect(5, 9, 6, 5, 'm'); s.rect(5, 9, 2, 5, 'l'); s.rect(9, 9, 2, 5, 'd')
 s.rect(6, 10, 4, 3, 'p'); s.px(7, 11, 'd'); s.px(8, 11, 'd'); s.px(5, 7, 'g')
 
+# a short sword: the blade up and to the left, a gold guard, a bound grip
+s = I('sword', {'s': '#e6e9ee', 't': '#aab2bd', 'u': '#6f7884', 'k': '#1f242c', 'y': '#e3bf78', 'Y': '#a8853e', 'n': '#5a3c24'})
+for i in range(9): s.px(3 + i, 2 + i, 'k'); s.px(4 + i, 2 + i, 'k'); s.px(2 + i, 3 + i, 'k')
+for i in range(9): s.px(3 + i, 3 + i, 't'); s.px(3 + i, 2 + i, 's') if i else None
+s.px(2, 2, 's'); s.line(8, 12, 12, 8, 'k'); s.line(8, 13, 13, 8, 'y'); s.px(8, 13, 'Y'); s.px(13, 8, 'Y')
+s.px(12, 12, 'n'); s.px(13, 13, 'n'); s.px(12, 13, 'k'); s.px(13, 12, 'k'); s.px(14, 14, 'y')
+
+# a small lute: a pear of pale wood, a dark rose, the neck up to the right
+s = I('lute', {'L': '#e2c08a', 'M': '#c29a5e', 'N': '#8a6436', 'k': '#3a2a1c', 'S': '#f1e6c8'})
+s.ell(6.5, 10.5, 5.2, 4.8, 'k'); s.ell(6.5, 10.5, 4.3, 3.9, 'LMN'); s.ell(6.5, 10.5, 1.3, 1.3, 'k')
+s.line(9, 7, 13, 3, 'k'); s.line(10, 7, 14, 3, 'N'); s.line(9, 6, 13, 2, 'M'); s.rect(13, 1, 2, 2, 'N'); s.px(12, 1, 'S'); s.px(15, 3, 'S'); s.px(15, 1, 'S')
+s.line(5, 12, 11, 6, 'S')
+
+# a primer: a small green book, a ribbon out of it
+s = I('primer', {'l': '#8fb08a', 'm': '#6f8f6a', 'd': '#48664a', 'k': '#22331f', 'p': '#f1ece0', 'g': '#e3bf78', 'r': '#b5483c'})
+s.poly([(3, 2), (13, 2), (13, 14), (3, 14)], 'k'); s.rect(4, 3, 8, 10, 'm'); s.rect(4, 3, 2, 10, 'l'); s.rect(10, 3, 2, 10, 'd'); s.rect(12, 3, 1, 10, 'p')
+s.rect(6, 5, 4, 1, 'g'); s.rect(6, 7, 3, 1, 'g'); s.rect(8, 13, 1, 2, 'r'); s.px(8, 15, 'r')
+
+# a poultice: a folded cloth, green showing at the fold, tied
+s = I('poultice', {'l': '#f1ece0', 'm': '#d6d0c2', 'd': '#a8a294', 'k': '#4a463e', 'g': '#7f9a78', 'G': '#5d7a5c', 's': '#8a6a2f'})
+s.ell(8, 9.5, 6.2, 4.6, 'k'); s.ell(8, 9.5, 5.3, 3.7, 'lmd'); s.rect(4, 8, 8, 2, 'g'); s.rect(4, 9, 8, 1, 'G'); s.rect(7, 5, 2, 9, 's'); s.px(6, 5, 's'); s.px(9, 4, 's')
+
 # a thing: a parcel tied with string
 s = I('thing', {'l': '#d6cfbc', 'm': '#bdb7a6', 'd': '#7a6f5f', 'k': '#3a342a', 's': '#8a6a2f'})
 s.poly([(2, 5), (14, 5), (14, 14), (2, 14)], 'k'); s.rect(3, 6, 10, 7, 'm'); s.rect(3, 6, 3, 7, 'l'); s.rect(10, 6, 3, 7, 'd')

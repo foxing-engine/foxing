@@ -11,5 +11,14 @@ for name, f in atlas.items():
     if 'a' in f: body += ', a: ' + json.dumps(f['a'], separators=(',', ':'))
     lines.append('  ' + json.dumps(name) + ': { ' + body + ' },')
 s = s[:i] + 'const HI = {\n' + '\n'.join(lines) + '\n};\n' + s[j:]
+# What the figures hold (held48.json), as the HELD table.
+import os
+if os.path.exists(sys.argv[1] + '/held48.json'):
+    held = json.load(open(sys.argv[1] + '/held48.json'))
+    i = s.index('const HELD = {\n'); j = s.index('\n};\n', i) + 4
+    lines = ['  p: ' + json.dumps(held['p']) + ',']
+    for fig, kinds in held['f'].items():
+        lines.append('  ' + json.dumps(fig) + ': ' + json.dumps(kinds, separators=(',', ':')) + ',')
+    s = s[:i] + 'const HELD = {\n' + '\n'.join(lines) + '\n};\n' + s[j:]
 open(path, 'w').write(s)
 print('embedded', len(atlas), 'sprites;', len(s), 'bytes')
