@@ -729,31 +729,119 @@ export default function install(m) {
   }
 
   // ---- drawing the room ----
+  // C22, the rooms: the floor and the walls drawn, where they were a checker of the
+  // room's tint under a flat band. Painted once a room at twice the picture's grain
+  // (the grain the figures are drawn at) and kept; every shade is the room's own
+  // tint, lit from the upper left like everything that stands on it. What the floor
+  // is goes by the room's motif: boards where there are shelves, benches or lamps,
+  // turf in a garden, packed earth in fog, pavers under water, plate in the mint,
+  // flagstones anywhere else.
+  const backs = new Map();
+  function roomBack() {
+    const key = scene.id + "|" + scene.tint + "|" + scene.motif;
+    if (backs.has(key)) return backs.get(key);
+    if (backs.size > 16) backs.clear();
+    const F = 2, c = document.createElement("canvas"); c.width = W * F; c.height = H * F;
+    const g = c.getContext("2d"), base = hex(scene.tint), motif = scene.motif;
+    let sd = hash("back:" + scene.id) >>> 0;
+    const r = () => { sd = (sd + 0x6D2B79F5) >>> 0; let t = Math.imul(sd ^ (sd >>> 15), 1 | sd); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const f = (x, y, w, h, k, mix) => { g.fillStyle = shade(base, k, mix || 0); g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+    const dim = (x, y, w, h, a) => { g.fillStyle = "rgba(8,10,16," + a + ")"; g.fillRect(x, y, w, h); };
+    const FT = T * F, top = WALL_TOP * FT, WF = W * F, HF = H * F;
+    const wood = motif === "shelves" || motif === "benches" || motif === "lanterns";
+    // ---- the floor
+    if (wood) {
+      // Boards laid across, their ends staggered, a nail at each end, a line of grain.
+      for (let y = top; y < HF; y += 8) for (let x = -Math.floor(r() * 40); x < WF;) {
+        const len = 44 + Math.floor(r() * 52), k = 0.53 + r() * 0.08;
+        f(x, y, len, 8, k); f(x, y, len, 1, k + 0.05); f(x, y + 7, len, 1, k - 0.13); f(x + len - 1, y, 1, 8, k - 0.13);
+        f(x + 4 + r() * len * 0.5, y + 2 + Math.floor(r() * 4), 6 + r() * 16, 1, k - 0.04);
+        if (r() < 0.5) f(x + 8 + r() * len * 0.6, y + 2 + Math.floor(r() * 4), 4 + r() * 8, 1, k + 0.03);
+        f(x + 2, y + 3, 1, 1, k - 0.17); f(x + len - 4, y + 3, 1, 1, k - 0.17);
+        x += len;
+      }
+    } else if (motif === "garden" || motif === "fog") {
+      // Turf, or packed earth: no joints, a mottle; tufts and a few flowers on the
+      // one, pebbles on the other.
+      f(0, top, WF, HF - top, 0.55);
+      for (let i = 0; i < 1500; i++) f(r() * WF, top + r() * (HF - top), 2 + r() * 3, 1 + (r() < 0.3 ? 1 : 0), 0.49 + r() * 0.13);
+      if (motif === "garden") {
+        for (let i = 0; i < 260; i++) { const x = Math.floor(r() * WF), y = top + 4 + Math.floor(r() * (HF - top - 8)); f(x, y, 1, 3, 0.74); f(x + 1, y + 1, 1, 2, 0.66); f(x - 1, y + 2, 1, 1, 0.42); }
+        for (let i = 0; i < 26; i++) { const x = Math.floor(r() * WF), y = top + 6 + Math.floor(r() * (HF - top - 14)); f(x, y, 2, 2, 0.9, 0.7); f(x + 1, y + 1, 1, 1, 0.9, 0.3); f(x, y + 2, 1, 2, 0.4); }
+        // Stepping stones from the south door up toward the north.
+        const cx = DOORS.south[0] * FT + FT / 2;
+        for (let y = HF - 22, n = 0; y > top + 6; y -= 15, n++) { const x = cx - 8 + (n % 2 ? 5 : -5) + Math.floor(r() * 3), w = 15 + Math.floor(r() * 4); f(x + 1, y + 1, w, 8, 0.36); f(x, y, w, 8, 0.7, 0.12); f(x, y, w, 1, 0.8, 0.18); f(x + 2, y + 7, w - 4, 1, 0.56); f(x + 3 + r() * 6, y + 3, 3, 1, 0.6); }
+      } else {
+        for (let i = 0; i < 90; i++) { const x = Math.floor(r() * WF), y = top + 4 + Math.floor(r() * (HF - top - 10)), w = 2 + Math.floor(r() * 3); f(x, y, w, 2, 0.7); f(x, y, w, 1, 0.78); f(x, y + 2, w, 1, 0.38); }
+        for (let i = 0; i < 14; i++) { const x = r() * WF, y = top + 8 + r() * (HF - top - 20); for (let n = 0; n < 5; n++) f(x + n * 2, y + (n % 2), 2, 1, 0.42); }
+      }
+    } else if (motif === "mint") {
+      // Plate: squares of metal a tile across, bevelled, a rivet at each corner.
+      for (let y = top; y < HF; y += FT) for (let x = 0; x < WF; x += FT) {
+        const k = 0.53 + r() * 0.06;
+        f(x, y, FT, FT, k); f(x, y, FT, 1, k + 0.08); f(x, y, 1, FT, k + 0.05); f(x, y + FT - 1, FT, 1, k - 0.16); f(x + FT - 1, y, 1, FT, k - 0.16);
+        for (const [dx, dy] of [[4, 4], [FT - 6, 4], [4, FT - 6], [FT - 6, FT - 6]]) { f(x + dx, y + dy, 2, 2, k + 0.2); f(x + dx + 1, y + dy + 1, 1, 1, k - 0.2); }
+        if (r() < 0.3) for (let n = 0; n < 6; n++) f(x + 8 + n * 2, y + 10 + n + Math.floor(r() * 2), 2, 1, k - 0.05);
+      }
+    } else if (motif === "water") {
+      // Pavers: small squares, two tones, worn at the edges.
+      for (let y = top; y < HF; y += 16) for (let x = 0; x < WF; x += 16) {
+        const k = (((x + y) / 16) % 2 ? 0.52 : 0.57) + r() * 0.04;
+        f(x, y, 16, 16, k); f(x, y, 16, 1, k + 0.05); f(x, y, 1, 16, k + 0.03); f(x, y + 15, 16, 1, 0.37); f(x + 15, y, 1, 16, 0.37);
+        if (r() < 0.25) f(x + 3 + r() * 8, y + 3 + r() * 8, 2, 2, k - 0.07);
+      }
+    } else {
+      // Flagstones: courses a half tile deep, stones of no two widths, a crack here and there.
+      for (let y = top; y < HF; y += 16) for (let x = -Math.floor(r() * 24); x < WF;) {
+        const w = 20 + Math.floor(r() * 26), k = 0.51 + r() * 0.1;
+        f(x, y, w, 16, k); f(x, y, w, 1, k + 0.07); f(x, y, 1, 16, k + 0.04); f(x, y + 15, w, 1, 0.36); f(x + w - 1, y, 1, 16, 0.36);
+        f(x + 3 + r() * (w - 8), y + 3 + r() * 9, 2, 1, k - 0.08); f(x + 3 + r() * (w - 8), y + 3 + r() * 9, 1, 1, k + 0.09);
+        if (r() < 0.07) { const cx = x + 4 + Math.floor(r() * (w - 12)); for (let n = 0; n < 6; n++) f(cx + n + (n > 2 ? 1 : 0), y + 4 + n, 2, 1, 0.38); }
+        x += w;
+      }
+    }
+    // ---- the north wall, two tiles tall
+    const courses = (bw, bh, rough) => {
+      for (let y = 4, row = 0; y < top - 6; y += bh, row++) for (let x = -(row % 2 ? bw / 2 : 0) - (rough ? Math.floor(r() * 6) : 0); x < WF;) {
+        const w = rough ? bw - 6 + Math.floor(r() * 12) : bw, k = 0.3 + r() * (rough ? 0.12 : 0.09);
+        f(x, y, w, bh, k); f(x, y, w, 1, k + 0.06); f(x, y, 1, bh, k + 0.03); f(x, y + bh - 1, w, 1, 0.18); f(x + w - 1, y, 1, bh, 0.18);
+        if (r() < 0.2) f(x + 2 + r() * (w - 6), y + 2 + r() * (bh - 4), 2, 1, k - 0.06);
+        x += w;
+      }
+    };
+    f(0, 0, WF, top, 0.28);
+    if (wood) {
+      // Panelling: planks to a rail, squares of panel under it.
+      for (let x = 0; x < WF; x += 12) { const k = 0.29 + r() * 0.05; f(x, 4, 12, 36, k); f(x, 4, 1, 36, k + 0.05); f(x + 11, 4, 1, 36, 0.19); if (r() < 0.4) f(x + 3 + r() * 5, 8 + r() * 24, 1, 5, k - 0.05); }
+      f(0, 40, WF, 3, 0.42); f(0, 40, WF, 1, 0.5); f(0, 43, WF, 1, 0.17);
+      for (let x = 2; x < WF; x += 28) { f(x, 46, 24, 11, 0.25); f(x, 46, 24, 1, 0.18); f(x, 46, 1, 11, 0.18); f(x + 23, 46, 1, 11, 0.36); f(x, 56, 24, 1, 0.36); }
+    } else if (motif === "fog") courses(24, 12, true);
+    else if (motif === "mint") { courses(32, 18, false); g.fillStyle = "rgba(176,138,58,.55)"; g.fillRect(0, 21, WF, 2); g.fillStyle = "rgba(60,44,16,.5)"; g.fillRect(0, 23, WF, 1); }
+    else courses(16, 9, false);
+    if (motif === "garden") {
+      // Ivy over the stone: hanging runs of leaf, thick at the top.
+      for (let i = 0; i < 46; i++) { const x = Math.floor(r() * WF), len = 8 + Math.floor(r() * 34); for (let y = 2; y < len; y += 2) { const dx = Math.round(Math.sin(y / 5 + i) * 2); f(x + dx, y, 3, 2, 0.5 + r() * 0.2); f(x + dx, y, 1, 1, 0.8); if (r() < 0.3) f(x + dx + 3, y + 1, 2, 2, 0.46); } }
+    }
+    f(0, 0, WF, 4, 0.4); f(0, 0, WF, 1, 0.48); f(0, 3, WF, 1, 0.17);                      // the cornice
+    f(0, top - 6, WF, 6, 0.23); f(0, top - 6, WF, 1, 0.36); f(0, top - 1, WF, 1, 0.14);   // the skirting
+    // The wall's shadow on the floor, and the west wall's.
+    dim(0, top, WF, 3, 0.24); dim(0, top + 3, WF, 3, 0.13); dim(0, top + 6, WF, 4, 0.06);
+    dim(8, top, 3, HF - top, 0.2); dim(11, top, 3, HF - top, 0.09);
+    // ---- the side and south walls, seen from above: a cap of stone, jointed
+    f(0, top, 8, HF - top, 0.31); f(WF - 8, top, 8, HF - top, 0.31); f(0, HF - 8, WF, 8, 0.31);
+    f(7, top, 1, HF - top - 8, 0.17); f(0, top, 1, HF - top, 0.4); f(WF - 8, top, 1, HF - top - 8, 0.44); f(8, HF - 8, WF - 16, 1, 0.44);
+    for (let y = top + 6; y < HF - 8; y += 16) { f(1, y, 6, 1, 0.2); f(WF - 7, y + 8, 7, 1, 0.2); }
+    for (let x = 12; x < WF - 8; x += 20) f(x, HF - 7, 1, 7, 0.2);
+    backs.set(key, c);
+    return c;
+  }
   function drawRoom(now) {
     const base = hex(scene.tint);
     const seed = scene.id;
     const motif = scene.motif;
-    // Floor: two-tone checker with grain.
-    for (let y = WALL_TOP; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-      const n = rnd(seed, x * 31 + y * 17);
-      const check = (x + y) % 2 === 0 ? 0.58 : 0.53;
-      px(x * T, y * T, T, T, shade(base, check + n * 0.08));
-      if (n > 0.72) px(x * T + 5 + Math.floor(n * 5), y * T + 9, 3, 1, shade(base, 0.72));
-      if (n < 0.08) px(x * T + 3, y * T + 4, 1, 1, shade(base, 0.42));
-    }
-    // The north wall: two tiles tall, darker, with a baseboard line.
-    for (let x = 0; x < COLS; x++) {
-      const n = rnd(seed, 900 + x);
-      px(x * T, 0, T, WALL_TOP * T, shade(base, 0.3 + n * 0.05));
-      px(x * T, WALL_TOP * T - 2, T, 2, shade(base, 0.22));
-      // Brickwork hint.
-      px(x * T + ((x % 2) ? 8 : 0), 7, 8, 1, shade(base, 0.26));
-      px(x * T, 16, T, 1, shade(base, 0.26));
-    }
-    // Side and south walls as a dark rim.
-    px(0, WALL_TOP * T, 4, (ROWS - WALL_TOP) * T, shade(base, 0.3));
-    px(W - 4, WALL_TOP * T, 4, (ROWS - WALL_TOP) * T, shade(base, 0.3));
-    px(0, H - 4, W, 4, shade(base, 0.3));
+    const back = roomBack();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(back, 0, 0, back.width, back.height, 0, 0, W * SCALE, H * SCALE);
     // Motifs on the wall and the floor.
     drawMotif(motif, base, seed, now);
     drawKeyProps(base, seed, now);
