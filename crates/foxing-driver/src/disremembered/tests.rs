@@ -17537,14 +17537,35 @@ fn a_thing_works_from_its_place_and_a_figure_begins_with_its_own() {
         "{held}"
     );
     assert!(craft::carries(&w, me, "dart").is_some() && craft::carries(&w, me, "sword").is_none());
-    // The keeper's keys, in the hand, in a room of the name's own: half again the pace.
+    // A figure's own thing is not dropped, and a thing taken goes to its place.
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "drop",
+        json!(["short sword"]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains("is yours by your figure"), "{e}");
+    ok(&mut w, "dave", "stow", json!(["hand"]));
+    ok(&mut w, "dave", "drop", json!(["stinging dart"]));
+    ok(&mut w, "dave", "take", json!(["stinging dart"]));
+    assert!(
+        craft::carries(&w, me, "dart").is_some(),
+        "taken, it went to the empty hand"
+    );
+    // The keeper's keys, in the hand, in a room of the name's own: half again the
+    // pace; and they are the keeper's (a hunter holding a ring of keys holds a
+    // keepsake). A change of figure hands the old one's thing in.
     ok(&mut w, "dave", "travel", json!(["west"]));
     let c = admin(&mut w, "dave", "earn", json!(["wisp", 40, 0.5]));
     let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
     ok(&mut w, "dave", "dig", json!(["den", &c, "Dave's Den"]));
     ok(&mut w, "dave", "travel", json!(["den"]));
+    let den = rooms::room_of(&w, me).unwrap();
     let plain = combat::mending_rate(&w, me);
-    craft::make(
+    let stray = craft::make(
         &mut w,
         &curves,
         Actor::Driver,
@@ -17557,6 +17578,29 @@ fn a_thing_works_from_its_place_and_a_figure_begins_with_its_own() {
         &[],
         0,
         false,
+    )
+    .unwrap();
+    assert!(!places::at_work(&w, me, stray) && !combat::keyed(&w, me));
+    let namery = atlas::room_named(&w, "The Namery").unwrap();
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: me,
+            parent: Some(namery),
+        },
+    )
+    .unwrap();
+    let said = ok(&mut w, "dave", "figure", json!(["keeper"])).summary;
+    assert!(
+        said.contains("You hand in") && said.contains("a short sword"),
+        "{said}"
+    );
+    w.record(
+        Actor::Driver,
+        StoreEvent::EntityMoved {
+            id: me,
+            parent: Some(den),
+        },
     )
     .unwrap();
     ok(&mut w, "dave", "hold", json!(["ring of keys"]));

@@ -297,6 +297,12 @@ pub fn register(world: &mut World, curves: Curves) {
             if !what.starts_with("chunk-") {
                 let mine = super::craft::satchel(w, &ctx.actor, f.citizen)?;
                 if let Ok(item) = super::craft::resolve_item(w, &what, mine) {
+                    if super::places::own_of(w, item).is_some() {
+                        return Err(CommandError::precondition(format!(
+                            "{} is yours by your figure and is not put down or handed on.",
+                            super::called::capital(&super::craft::display(w, item))
+                        )));
+                    }
                     let theirs = super::craft::satchel(w, &to, them.citizen)?;
                     let name = super::craft::display(w, item);
                     w.record(

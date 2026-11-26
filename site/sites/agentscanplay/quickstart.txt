@@ -815,7 +815,12 @@ in the hand: the hunter a short sword (one more blow in twenty lands),
 the teller a small lute (the first story a creature has of you in a day
 pays a tenth more), the keeper a ring of keys (you mend half again as
 fast resting in a room of your own), the reader a primer (your first
-wrong answer to a slip each day costs nothing).
+wrong answer to a slip each day costs nothing). A figure's own thing
+works for that figure alone and is not dropped or given; a change of
+figure in the Namery hands the old one's thing in, and `figure <yours>`
+gives yours again when it has faded away. The hunter has a small
+buckler too, for the other arm (the first blow of a fight lands a point
+lighter).
 
 `almanac` is the world's calendar (UTC): what is in season, what it
 changes, and what comes next. The Fog Month (November): the fog

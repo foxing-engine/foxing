@@ -225,8 +225,73 @@ fn keep(
     super::set_citizen_fields(world, actor, citizen, changes)
 }
 
+/// The figure a thing is the own thing of, if it is one (a short sword is the
+/// hunter's; so is the small buckler).
+pub fn own_of(world: &World, item: EntityId) -> Option<&'static str> {
+    let o = origin(world, item);
+    if o == "targe" {
+        return Some("hunter");
+    }
+    BEGINS.iter().find(|b| b.1 == o).map(|b| b.0)
+}
+
+/// A figure's own thing in the satchel of a name that is not that figure: a
+/// keepsake. (The Watch of 11-25 went round the four figures in the Namery and
+/// came out a hunter with a primer for slips and a lute for stories, "so the
+/// figure choice is cosmetic".)
+fn keepsake(world: &World, citizen: EntityId, item: EntityId) -> bool {
+    own_of(world, item).is_some_and(|f| super::figure::of(world, citizen) != Some(f))
+}
+
+/// A thing just picked up goes to its place if the place is empty (`settle` knows
+/// a new thing by its number, and a thing taken from the floor is an old one).
+pub fn offer(world: &mut World, actor: &str, citizen: EntityId, item: EntityId) {
+    let Some(p) = place_of(&family(world, item)) else {
+        return;
+    };
+    if keepsake(world, citizen, item) {
+        return;
+    }
+    let mut m = map(world, citizen);
+    if m.get(p)
+        .is_some_and(|(id, _)| carried(world, citizen).contains(id))
+    {
+        return;
+    }
+    m.insert(p.to_string(), (item, origin(world, item)));
+    if keep(world, actor, citizen, &m, None).is_ok() {
+        let line = format!(
+            "{} goes {} (`satchel` says what is at work).",
+            super::called::capital(&name_of(world, item)),
+            where_said(p)
+        );
+        super::combat::narrate(world, actor, line);
+    }
+}
+
+/// Take back the own things of every figure but `figure` (a name that changes
+/// figure in the Namery hands the old one's thing in).
+pub fn hand_in(world: &mut World, actor: &str, citizen: EntityId, figure: &str) -> Vec<String> {
+    let gone: Vec<EntityId> = carried(world, citizen)
+        .into_iter()
+        .filter(|i| own_of(world, *i).is_some_and(|f| f != figure))
+        .collect();
+    let mut names = Vec::new();
+    for id in gone {
+        names.push(name_of(world, id));
+        let _ = world.record(
+            foxing_log::Actor::Citizen(actor.to_string()),
+            foxing_store::StoreEvent::EntityRemoved { id },
+        );
+    }
+    names
+}
+
 /// Whether a carried thing is at work: in its place, or of a kind that has none.
 pub fn at_work(world: &World, citizen: EntityId, item: EntityId) -> bool {
+    if keepsake(world, citizen, item) {
+        return false;
+    }
     match place_of(&family(world, item)) {
         None => true,
         Some(p) => map(world, citizen)
@@ -308,6 +373,27 @@ pub fn settle(world: &mut World, actor: &str) {
             }
             None => {
                 m.remove(place);
+                // Emptied, with something else that belongs there waiting (a
+                // poultice dropped, a bandage in the satchel): said, not left a trap.
+                let placed: Vec<EntityId> = m.values().map(|v| v.0).collect();
+                if let Some(w) = items.iter().find(|i| {
+                    !placed.contains(i)
+                        && place_of(&family(world, **i)) == Some(place.as_str())
+                        && !keepsake(world, citizen, **i)
+                }) {
+                    let n = name_of(world, *w);
+                    said.push(format!(
+                        "{} is empty now, and {n} waits in the satchel: `hold {}` puts it there.",
+                        super::called::capital(
+                            PLACES
+                                .iter()
+                                .find(|x| x.0 == place.as_str())
+                                .map(|x| x.2)
+                                .unwrap_or("its place")
+                        ),
+                        n.trim_start_matches("a ").trim_start_matches("an ")
+                    ));
+                }
             }
         }
     }

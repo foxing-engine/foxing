@@ -2492,6 +2492,8 @@ pub fn register(world: &mut World, curves: Curves) {
                 },
             )
             .map_err(internal)?;
+            // C21: taken, it goes to its place if the place is empty.
+            super::places::offer(w, &ctx.actor, f.citizen, item);
             let name = display(w, item);
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
@@ -2541,6 +2543,14 @@ pub fn register(world: &mut World, curves: Curves) {
             let item = resolve_item(w, args.str("item").unwrap_or(""), s).map_err(|_| {
                 CommandError::precondition("You carry no such thing; satchel lists what you have.")
             })?;
+            // A figure's own thing is not put down (dropped and asked for again, it
+            // was two: the Watch of 11-25 held two swords and two lutes).
+            if super::places::own_of(w, item).is_some() {
+                return Err(CommandError::precondition(format!(
+                    "{} is yours by your figure and is not put down or handed on; `stow` puts it away, and a change of figure in the Namery hands it in.",
+                    super::called::capital(&display(w, item))
+                )));
+            }
             w.record(
                 Actor::Citizen(ctx.actor.clone()),
                 StoreEvent::EntityMoved {

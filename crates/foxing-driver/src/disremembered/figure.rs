@@ -134,6 +134,8 @@ pub fn register(world: &mut World) {
                 }
             }
             set(w, &ctx.actor, f.citizen, key)?;
+            // A figure's own thing is the figure's: the old one's is handed in.
+            let handed = super::places::hand_in(w, &ctx.actor, f.citizen, key);
             // C21: each figure begins with its own thing, a real one, in the hand.
             let given = super::places::begin(w, &ctx.actor, f.citizen, key)?;
             let with = match given {
@@ -145,7 +147,10 @@ pub fn register(world: &mut World) {
                 None => String::new(),
             };
             Ok(Outcome::new(
-                format!("You are the {key} now: {drawn}. It is how you are drawn, in your picture and in everyone's.{with}"),
+                format!(
+                    "You are the {key} now: {drawn}. It is how you are drawn, in your picture and in everyone's.{}{with}",
+                    if handed.is_empty() { String::new() } else { format!(" You hand in {}: it was the other figure's.", handed.join(" and ")) }
+                ),
                 json!({"figure": key, "given": given}),
             ))
         }),
