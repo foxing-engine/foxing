@@ -350,8 +350,20 @@ pub fn settle(world: &mut World, actor: &str) {
     let seen_was = plain_str_u64(world, citizen, "places_seen");
     let seen = seen_was.unwrap_or(from).max(from.saturating_sub(1));
     let mut said = Vec::new();
+    // Another figure's thing does not hold a place: it is a keepsake.
+    let kept: Vec<String> = m
+        .iter()
+        .filter(|(_, (id, _))| items.contains(id) && keepsake(world, citizen, *id))
+        .map(|(k, _)| k.clone())
+        .collect();
+    for k in kept {
+        if let Some((id, _)) = m.remove(&k) {
+            said.push(format!("{} is another figure's, and does nothing for you: it goes back in the satchel, a keepsake.", super::called::capital(&name_of(world, id))));
+        }
+    }
+    let before_kept = m.clone();
     // What has gone has left its place; another of its kind takes it.
-    for (place, (id, org)) in before.iter() {
+    for (place, (id, org)) in before_kept.iter() {
         if items.contains(id) {
             continue;
         }
@@ -493,7 +505,11 @@ pub fn said(world: &World, citizen: EntityId) -> (String, Value) {
     }
     let idle: Vec<String> = items
         .iter()
-        .filter(|i| place_of(&family(world, **i)).is_some() && !m.values().any(|v| v.0 == **i))
+        .filter(|i| {
+            place_of(&family(world, **i)).is_some()
+                && !m.values().any(|v| v.0 == **i)
+                && !keepsake(world, citizen, **i)
+        })
         .map(|i| name_of(world, *i))
         .collect();
     let mut text = format!("At work: {}.", parts.join("; "));
