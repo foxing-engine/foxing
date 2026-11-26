@@ -18003,7 +18003,7 @@ fn the_souvenir_shop_buys_shelves_and_fills_its_jar() {
     assert!(price >= 1.0);
     // Sold for the world: nothing in the seller's hand, half again in the jar.
     let before = level(&mut w, "dave");
-    let sold = ok(&mut w, "dave", "sell", json!(["ember", "world"]));
+    let sold = ok(&mut w, "dave", "sell", json!(["ember world"]));
     assert_eq!(sold.result["to"], "world");
     assert!(
         (sold.result["paid"].as_f64().unwrap() - (price * 1.5 * 2.0).round() / 2.0).abs() < 0.01
@@ -18026,6 +18026,11 @@ fn the_souvenir_shop_buys_shelves_and_fills_its_jar() {
         level(&mut w, "erin") > erin_before + 1.0,
         "erin has the jar"
     );
+    // Once a day: out and in again gives nothing more.
+    let erin_now = level(&mut w, "erin");
+    ok(&mut w, "erin", "travel", json!(["out"]));
+    ok(&mut w, "erin", "travel", json!(["shop"]));
+    assert!(level(&mut w, "erin") <= erin_now + 0.01);
     assert!(narrative(&w, "erin", head)
         .iter()
         .any(|l| l.contains("For whoever came next")));
@@ -18033,10 +18038,28 @@ fn the_souvenir_shop_buys_shelves_and_fills_its_jar() {
     make(&mut w, "a wisp ember", "material");
     let again = ok(&mut w, "dave", "sell", json!(["ember"]));
     assert!(
-        again.summary.contains("I have one of those now") && again.summary.contains("I keep count"),
+        again
+            .summary
+            .contains("each one after the first is worth half")
+            && again.summary.contains("I keep count"),
         "{}",
         again.summary
     );
+    // The shopkeep takes no memory: it cannot be fed to a name and walk off.
+    let c = admin(&mut w, "dave", "earn", json!(["bribe", 200, 0.5]));
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "remember",
+        json!([format!("chunk-{}", c.result["chunk"]), "shopkeep"]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains("samples the stock"), "{e}");
+    // A thing on the shelf can be looked at.
+    let seen = ok(&mut w, "erin", "appraise", json!(["wisp ember"]));
+    assert_eq!(seen.result["shelf"], true, "{}", seen.summary);
     assert!(level(&mut w, "dave") > before + 0.4);
     // Bought back with one chunk worth the ticket, spent whole.
     let c = admin(&mut w, "erin", "earn", json!(["savings", 30, 0.5]));
@@ -18044,7 +18067,7 @@ fn the_souvenir_shop_buys_shelves_and_fills_its_jar() {
         &mut w,
         "erin",
         "buy",
-        json!(["ember", format!("chunk-{}", c.result["chunk"])]),
+        json!([format!("wisp ember chunk-{}", c.result["chunk"])]),
     );
     assert!(got.summary.contains("in your satchel"), "{}", got.summary);
     assert_eq!(shop::shelf(&w).len(), 1);

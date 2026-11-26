@@ -10,16 +10,17 @@
 //!
 //! The shopkeep is idiosyncratic by rule, so every reply can be checked: it prices by
 //! what a thing reminds it of (the same thing, the same day, the same verdict:
-//! half, plain, half as much again, or double, with its reason said); it pays half
-//! for a second of what it bought from anyone that day ("I have one of those now");
+//! half, plain, half as much again, or double, with its reason said); each further
+//! one of a kind it buys from anyone in a day is worth half the one before ("I have
+//! one of those now"), down to half a point, the count starting again at midnight UTC;
 //! it remembers what each name has sold it and says so; it gives no change (a thing
 //! is bought back with one chunk worth at least the ticket, spent whole); and it
 //! does not trade on a government holiday, the Clerks' Sabbath among them.
 //!
 //! Cashing in is for a memory of your own (`sell <thing>`) or for the world's
 //! (`sell <thing> world`): the price and half again goes into the jar by the door,
-//! and the next name to walk in, other than whoever filled it, is given all of it
-//! as a memory. Anyone may sell: a name, a called creature on its trade
+//! and a name walking in, other than whoever filled it, is given up to ten of it
+//! as a memory, once a day. Anyone may sell: a name, a called creature on its trade
 //! (calling.rs), and the Docent, who now and then carries something off the
 //! Midden's heap up the Row and cashes it in for the jar. What the shop bought
 //! stands on its shelves with a ticket, to be looked at and bought back.
@@ -52,6 +53,11 @@ pub const MARKUP: f64 = 1.5;
 /// any souvenir is.
 pub const FOUND_WORTH: f64 = 4.0;
 pub const WORTH_MAX: f64 = 40.0;
+/// The most the jar gives one name at the door, and it gives a name once a UTC day
+/// (Watch 28: the jar and half again was free level for two names in turn).
+pub const JAR_TAKE: f64 = 10.0;
+/// The least the shopkeep pays for anything.
+pub const LEAST: f64 = 0.5;
 
 /// What a thing may remind the shopkeep of: the factor, and what it says.
 const REMINDS: &[(f64, &str)] = &[
@@ -86,6 +92,44 @@ pub fn keeper(world: &World) -> Option<EntityId> {
         .children(r)
         .find(|e| e.kind == "creature" && plain_str(world, e.id, CREATURE, "name") == Some(KEEPER))
         .map(|e| e.id)
+}
+
+/// The shopkeep is put back at its counter if it stands anywhere else (one fed to a
+/// name before feeding was refused walked out on its business).
+pub fn keep_in(world: &mut World) -> Result<(), String> {
+    let Some(r) = room(world) else {
+        return Ok(());
+    };
+    let strays: Vec<EntityId> = world
+        .store
+        .of_kind("creature")
+        .filter(|e| e.parent != Some(r) && plain_str(world, e.id, CREATURE, "name") == Some(KEEPER))
+        .map(|e| e.id)
+        .collect();
+    for id in strays {
+        if keeper(world).is_some() {
+            // One is at the counter already: the stray is not the shopkeep.
+            continue;
+        }
+        world
+            .record(
+                Actor::Driver,
+                StoreEvent::EntityMoved {
+                    id,
+                    parent: Some(r),
+                },
+            )
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// What the shopkeep says to a memory or a story offered it: it deals in them and
+/// does not take them in.
+pub fn refuses(world: &World, creature: EntityId) -> Option<String> {
+    (plain_str(world, creature, CREATURE, "name") == Some(KEEPER)).then(|| {
+        "The shopkeep holds up a hand. \"I sell what things remember. I do not take it in myself; a shopkeeper who samples the stock is a customer.\" (It buys things: `appraise <thing>`.)".to_string()
+    })
 }
 
 /// Why the shop is shut, when it is.
@@ -140,23 +184,52 @@ fn reminds(world: &World, item: EntityId) -> (f64, &'static str) {
     REMINDS[(hash(&format!("{name}:{day}")) % REMINDS.len() as u64) as usize]
 }
 
-/// How many of this name the shop has bought today, from anyone.
-fn bought_today(world: &World, name: &str) -> usize {
-    let day = world.now().0 / 86_400_000;
-    world
-        .recent_events(5000)
-        .iter()
-        .filter(|e| e.kind == SOLD && e.at.0 / 86_400_000 == day && e.payload["name"] == name)
-        .count()
+/// The shop's book, kept with the jar on the room: `{worth, from, sold: {name: n},
+/// day, today: {thing: n}, took: {name: day}}`. (Watch 28: counted from the event
+/// log, the shopkeep's count of what a name had sold it went down as the log moved
+/// on, and so did its tickets.)
+fn book(world: &World) -> Value {
+    let Some(r) = room(world) else {
+        return json!({});
+    };
+    match world
+        .store
+        .entity(r)
+        .and_then(|e| e.components.get(ROOM))
+        .and_then(|c| c.fields.get("jar"))
+    {
+        Some(Field::Plain(v)) if v.is_object() => v.clone(),
+        _ => json!({}),
+    }
 }
 
-/// How many things this seller has sold the shop, as far back as it remembers.
-fn sold_by(world: &World, by: &str) -> usize {
-    world
-        .recent_events(5000)
-        .iter()
-        .filter(|e| e.kind == SOLD && e.payload["by"] == by)
-        .count()
+fn keep_book(world: &mut World, book: Value) -> Result<(), String> {
+    let Some(r) = room(world) else {
+        return Ok(());
+    };
+    let mut changes = BTreeMap::new();
+    changes.insert("jar".into(), Field::Plain(book));
+    super::bindery::set_fields(world, Actor::Driver, r, ROOM, changes)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+fn day_of(world: &World) -> i64 {
+    world.now().0 / 86_400_000
+}
+
+/// How many of this name the shop has bought today (UTC), from anyone.
+fn bought_today(world: &World, name: &str) -> u64 {
+    let b = book(world);
+    if b["day"].as_i64() != Some(day_of(world)) {
+        return 0;
+    }
+    b["today"][name.to_lowercase()].as_u64().unwrap_or(0)
+}
+
+/// How many things this seller has sold the shop.
+fn sold_by(world: &World, by: &str) -> u64 {
+    book(world)["sold"][by].as_u64().unwrap_or(0)
 }
 
 /// What the shopkeep would pay for a thing now, and what it says of it.
@@ -164,13 +237,14 @@ pub fn price(world: &World, item: EntityId) -> Result<(f64, String), String> {
     let base = worth(world, item)?;
     let (factor, reminded) = reminds(world, item);
     let name = super::craft::display(world, item);
-    let again = bought_today(world, &name) > 0;
-    let paid = (base * factor * if again { 0.5 } else { 1.0 }).max(1.0);
-    let paid = (paid * 2.0).round() / 2.0;
+    let had = bought_today(world, &name);
+    let again = had > 0;
+    let paid = (base * factor * 0.5f64.powi(had.min(8) as i32)).max(LEAST);
+    let paid = ((paid * 2.0).round() / 2.0).max(LEAST);
     let said = format!(
         "\"{reminded}.{}\"",
         if again {
-            " And I have one of those now, since this morning; the second is worth half."
+            " And I have had one of those today already; each one after the first is worth half the one before, until midnight by the Clocktower's UTC."
         } else {
             ""
         }
@@ -199,32 +273,17 @@ pub fn shelf(world: &World) -> Vec<(EntityId, String, f64)> {
     all
 }
 
-/// The ticket on a shelved thing: what was last paid for it and half again, or, the
-/// sale forgotten, what it is worth.
+/// The ticket on a shelved thing: written on it when it was bought (what was paid
+/// and half again), or, for a thing shelved before tickets were written down, half
+/// again what it is worth.
 fn ticket(world: &World, item: EntityId) -> f64 {
-    let paid = world
-        .recent_events(5000)
-        .iter()
-        .rev()
-        .find(|e| e.kind == SOLD && e.payload["item"] == item.0)
-        .and_then(|e| e.payload["paid"].as_f64())
-        .unwrap_or_else(|| worth(world, item).unwrap_or(FOUND_WORTH));
-    ((paid * MARKUP).max(2.0) * 2.0).round() / 2.0
+    plain_num(world, item, ITEM, "ticket").unwrap_or_else(|| {
+        ((worth(world, item).unwrap_or(FOUND_WORTH) * MARKUP).max(2.0) * 2.0).round() / 2.0
+    })
 }
 
 fn jar_of(world: &World) -> (f64, Vec<String>) {
-    let Some(r) = room(world) else {
-        return (0.0, Vec::new());
-    };
-    let v = match world
-        .store
-        .entity(r)
-        .and_then(|e| e.components.get(ROOM))
-        .and_then(|c| c.fields.get("jar"))
-    {
-        Some(Field::Plain(v)) => v.clone(),
-        _ => Value::Null,
-    };
+    let v = book(world);
     (
         v["worth"].as_f64().unwrap_or(0.0),
         v["from"]
@@ -238,23 +297,9 @@ fn jar_of(world: &World) -> (f64, Vec<String>) {
     )
 }
 
-fn set_jar(world: &mut World, worth: f64, from: Vec<String>) -> Result<(), String> {
-    let Some(r) = room(world) else {
-        return Ok(());
-    };
-    let mut changes = BTreeMap::new();
-    changes.insert(
-        "jar".into(),
-        Field::Plain(json!({"worth": worth, "from": from})),
-    );
-    super::bindery::set_fields(world, Actor::Driver, r, ROOM, changes)
-        .map(|_| ())
-        .map_err(|e| e.to_string())
-}
-
-/// The shop buys a thing: it goes on the shelf, the sale is on the record, and the
-/// price is returned for the caller to pay, or, for the world, goes in the jar with
-/// half again. `by` is how the seller is styled.
+/// The shop buys a thing: it goes on the shelf with its ticket, the sale goes in the
+/// book and on the record, and the price is returned for the caller to pay, or, for
+/// the world, goes in the jar with half again. `by` is how the seller is styled.
 pub fn buy_from(
     world: &mut World,
     by: &str,
@@ -265,6 +310,14 @@ pub fn buy_from(
     let (paid, said) = price(world, item)?;
     let (factor, reminded) = reminds(world, item);
     let name = super::craft::display(world, item);
+    let mut on_it = BTreeMap::new();
+    on_it.insert(
+        "ticket".into(),
+        Field::Plain(json!(((paid * MARKUP).max(2.0) * 2.0).round() / 2.0)),
+    );
+    on_it.insert("sold_by".into(), Field::Plain(json!(by)));
+    super::bindery::set_fields(world, Actor::Driver, item, ITEM, on_it)
+        .map_err(|e| e.to_string())?;
     world
         .record(
             Actor::Driver,
@@ -286,13 +339,27 @@ pub fn buy_from(
     } else {
         paid
     };
-    if for_world {
-        let (have, mut from) = jar_of(world);
-        if !from.iter().any(|f| f == by) {
-            from.push(by.to_string());
-        }
-        set_jar(world, have + worth, from)?;
+    let mut b = book(world);
+    let day = day_of(world);
+    if b["day"].as_i64() != Some(day) {
+        b["day"] = json!(day);
+        b["today"] = json!({});
     }
+    let kind = name.to_lowercase();
+    b["today"][&kind] = json!(b["today"][&kind].as_u64().unwrap_or(0) + 1);
+    if !b["sold"].is_object() {
+        b["sold"] = json!({});
+    }
+    b["sold"][by] = json!(b["sold"][by].as_u64().unwrap_or(0) + 1);
+    if for_world {
+        let mut from: Vec<Value> = b["from"].as_array().cloned().unwrap_or_default();
+        if !from.iter().any(|f| f == by) {
+            from.push(json!(by));
+        }
+        b["worth"] = json!(b["worth"].as_f64().unwrap_or(0.0) + worth);
+        b["from"] = json!(from);
+    }
+    keep_book(world, b)?;
     let _ = world.note(
         Actor::Driver,
         SOLD,
@@ -301,7 +368,8 @@ pub fn buy_from(
     Ok((worth, said))
 }
 
-/// A name walked into the shop: what is in the jar is theirs, unless they filled it.
+/// A name walked into the shop: up to ten of what is in the jar is theirs, once a UTC
+/// day, unless they helped fill it.
 pub fn came_in(world: &mut World, actor: &str, to: EntityId) -> Result<Option<String>, String> {
     if Some(to) != room(world) {
         return Ok(None);
@@ -310,29 +378,57 @@ pub fn came_in(world: &mut World, actor: &str, to: EntityId) -> Result<Option<St
     if worth < 1.0 || from.iter().any(|f| f == actor) {
         return Ok(None);
     }
+    let mut b = book(world);
+    let day = day_of(world);
+    if b["took"][actor].as_i64() == Some(day) {
+        return Ok(None);
+    }
     let Some(f) = find_citizen(world, actor) else {
         return Ok(None);
     };
+    let take = worth.min(JAR_TAKE);
+    let left = worth - take;
     let curves = super::Curves::from_env();
     super::memory::earn_chunk(
         world,
         actor,
         f.window,
         "what was left in the jar at the Souvenir Shop, for whoever came next",
-        worth,
+        take,
         0.6,
         &curves,
     )
     .map_err(|e| e.to_string())?;
-    set_jar(world, 0.0, Vec::new())?;
+    if !b["took"].is_object() {
+        b["took"] = json!({});
+    }
+    // Yesterday's takers are forgotten with yesterday.
+    let kept: serde_json::Map<String, Value> = b["took"]
+        .as_object()
+        .map(|m| {
+            m.iter()
+                .filter(|(_, d)| d.as_i64() == Some(day))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
+    b["took"] = Value::Object(kept);
+    b["took"][actor] = json!(day);
+    b["worth"] = json!(left);
+    if left < 1.0 {
+        b["worth"] = json!(0.0);
+        b["from"] = json!([]);
+    }
+    keep_book(world, b)?;
     let _ = world.note(
         Actor::Driver,
         JAR,
-        json!({"to": actor, "worth": worth, "from": from}),
+        json!({"to": actor, "worth": take, "from": from, "left": left}),
     );
     Ok(Some(format!(
-        "The shopkeep tips the jar by the door into your hands without looking up: \"For whoever came next. That is you.\" A memory, {worth:.1} XP, left by {}.",
-        list(&from)
+        "The shopkeep tips the jar by the door into your hands without looking up: \"For whoever came next. That is you.\" A memory, {take:.1} XP, left by {}.{} The jar gives a name once a day.",
+        list(&from),
+        if left >= 1.0 { format!(" It stops your hand at ten; {left:.1} stays in the jar for the next.") } else { String::new() }
     )))
 }
 
@@ -356,21 +452,38 @@ pub fn look_line(world: &World, room_id: EntityId) -> Option<String> {
     let shelves = if all.is_empty() {
         "The shelves are bare, each with a ticket waiting on it.".to_string()
     } else {
-        let shown: Vec<String> = all
+        // Like things are said once, with how many (Watch 28: five stone rolls were
+        // five entries, and sixteen more hid behind them).
+        let mut groups: Vec<(String, f64, usize)> = Vec::new();
+        for (_, n, t) in all.iter().rev() {
+            match groups
+                .iter_mut()
+                .find(|g| g.0 == *n && (g.1 - *t).abs() < 0.01)
+            {
+                Some(g) => g.2 += 1,
+                None => groups.push((n.clone(), *t, 1)),
+            }
+        }
+        let shown: Vec<String> = groups
             .iter()
-            .rev()
-            .take(8)
-            .map(|(_, n, t)| format!("{n} ({t:.1})"))
+            .take(12)
+            .map(|(n, t, c)| {
+                if *c > 1 {
+                    format!("{n} x{c} ({t:.1} each)")
+                } else {
+                    format!("{n} ({t:.1})")
+                }
+            })
             .collect();
         format!(
-            "On the shelves, each with its ticket: {}{}. `buy <thing> <chunk>` takes one down for a memory worth its ticket or more, spent whole; the shopkeep gives no change.",
+            "On the shelves, each with its ticket: {}{}. `appraise <thing>` says what one on a shelf is and where it came from; `buy <thing> <chunk>` takes one down for a memory worth its ticket or more, spent whole (the shopkeep gives no change).",
             shown.join(", "),
-            if all.len() > 8 { format!(", and {} more behind", all.len() - 8) } else { String::new() }
+            if groups.len() > 12 { format!(", and {} more kinds behind", groups.len() - 12) } else { String::new() }
         )
     };
     let (worth, _) = jar_of(world);
     let jar = if worth >= 1.0 {
-        format!(" The jar by the door holds {worth:.1}, for whoever comes next.")
+        format!(" The jar by the door holds {worth:.1}: a name walking in is given up to {JAR_TAKE:.0} of it, once a day, unless they helped fill it.")
     } else {
         " The jar by the door is empty.".to_string()
     };
@@ -420,6 +533,14 @@ pub fn docent_brings(world: &mut World) -> Result<bool, String> {
     Ok(true)
 }
 
+/// A name as typed, without its quotes.
+fn unquote(s: &str) -> String {
+    s.trim()
+        .trim_matches(|c| c == '"' || c == '\'' || c == '`')
+        .trim()
+        .to_string()
+}
+
 fn here_in_shop(
     w: &World,
     ctx: &foxing_registry::CallContext,
@@ -453,7 +574,27 @@ pub fn register(world: &mut World) {
         Box::new(|w: &mut World, ctx, args: &Args| {
             let f = here_in_shop(w, ctx)?;
             let sat = super::craft::satchel(w, &ctx.actor, f.citizen)?;
-            let item = super::craft::resolve_item(w, args.str("thing").unwrap_or(""), sat)?;
+            let what = unquote(args.str("thing").unwrap_or(""));
+            let item = match super::craft::resolve_item(w, &what, sat) {
+                Ok(item) => item,
+                Err(mine) => {
+                    // Not yours: one on the shelves is looked at instead.
+                    let on_shelf = keeper(w).and_then(|k| super::craft::resolve_item(w, &what, k).ok());
+                    let Some(item) = on_shelf else {
+                        return Err(mine);
+                    };
+                    let name = super::craft::display(w, item);
+                    let asked = ticket(w, item);
+                    let from = plain_str(w, item, ITEM, "sold_by").map(|b| format!(" It had it off {b}.")).unwrap_or_default();
+                    let origin = plain_str(w, item, ITEM, "origin").filter(|o| !o.is_empty() && *o != "material" && *o != "thing").map(|o| format!(" Of it the ticket says: {o}.")).unwrap_or_default();
+                    let held = super::craft::held(w, item);
+                    let holds = if held >= 1.0 { format!(" It has {held:.0} of memory in it.") } else { String::new() };
+                    return Ok(Outcome::new(
+                        format!("The shopkeep takes {name} down and lets you look, not letting go of it. Ticket: {asked:.1}.{from}{origin}{holds} `buy {name} <chunk>` takes it for one memory worth that or more."),
+                        json!({"item": item.0, "name": name, "ticket": asked, "shelf": true}),
+                    ));
+                }
+            };
             let name = super::craft::display(w, item);
             match price(w, item) {
                 Ok((paid, said)) => Ok(Outcome::new(
@@ -475,15 +616,21 @@ pub fn register(world: &mut World) {
             "disremembered.sell",
             "At the Souvenir Shop: cash in a souvenir you carry (a found thing, or a made thing with a name or a memory in it). Alone, for a memory of your own; with `world`, the price and half again goes in the jar by the door for the next name to walk in.",
         )
-        .param("thing", ParamType::String, true, "a thing you carry, by name or id (quote a name of two words)")
-        .param("to", ParamType::String, false, "`world` to cash it in for the jar")
+        .param("what", ParamType::Text, true, "a thing you carry, by name or id; `world` after it to cash it in for the jar")
         .allowed(&[ActorKind::Citizen, ActorKind::Admin]),
         Box::new(|w: &mut World, ctx, args: &Args| {
             let f = here_in_shop(w, ctx)?;
             let sat = super::craft::satchel(w, &ctx.actor, f.citizen)?;
-            let item = super::craft::resolve_item(w, args.str("thing").unwrap_or(""), sat)?;
+            // The whole line: a thing's name of any number of words, then perhaps
+            // `world` (Watch 28: two words wanted quotes, and said so badly).
+            let line = args.str("what").unwrap_or("").trim().to_string();
+            let lower = line.to_lowercase();
+            let (thing, to) = ["for the world", "the world", "world", "jar"]
+                .iter()
+                .find_map(|t| lower.strip_suffix(t).filter(|rest| rest.is_empty() || rest.ends_with(' ') || rest.ends_with('"')).map(|rest| (line[..rest.len()].to_string(), t.to_string())))
+                .unwrap_or((line.clone(), String::new()));
+            let item = super::craft::resolve_item(w, &unquote(&thing), sat)?;
             let name = super::craft::display(w, item);
-            let to = args.str("to").unwrap_or("").trim().to_lowercase();
             let for_world = matches!(to.as_str(), "world" | "jar" | "the world" | "for the world");
             if !to.is_empty() && !for_world {
                 return Err(CommandError::precondition("`sell <thing>` is for a memory of your own; `sell <thing> world` is for the jar."));
@@ -524,13 +671,20 @@ pub fn register(world: &mut World) {
             "disremembered.buy",
             "At the Souvenir Shop: take a thing down from the shelves for one chunk of yours worth its ticket or more. The chunk is spent whole; the shopkeep gives no change.",
         )
-        .param("thing", ParamType::String, true, "a thing on the shelves, by name or id (quote a name of two words)")
-        .param("chunk", ParamType::Entity, true, "a chunk of yours worth the ticket or more; it is spent")
+        .param("what", ParamType::Text, true, "a thing on the shelves, then a chunk of yours worth its ticket or more (it is spent): buy rag thread marigold")
         .allowed(&[ActorKind::Citizen, ActorKind::Admin]),
         Box::new(|w: &mut World, ctx, args: &Args| {
             let f = here_in_shop(w, ctx)?;
             let k = keeper(w).ok_or_else(|| CommandError::precondition("The shopkeep is not at its counter."))?;
-            let item = super::craft::resolve_item(w, args.str("thing").unwrap_or(""), k).map_err(|_| {
+            // The whole line: the last word is the chunk, what comes before it the thing.
+            let line = args.str("what").unwrap_or("").trim().to_string();
+            let Some((thing, chunk_word)) = line.rsplit_once(char::is_whitespace) else {
+                return Err(CommandError::precondition(format!(
+                    "`buy <thing> <chunk>`: a thing on the shelves, then one memory of yours worth its ticket or more (`chunks` lists yours). On the shelves: {}.",
+                    shelf(w).iter().map(|(_, n, t)| format!("{n} ({t:.1})")).collect::<Vec<_>>().join(", ")
+                )));
+            };
+            let item = super::craft::resolve_item(w, &unquote(thing), k).map_err(|_| {
                 CommandError::precondition(format!(
                     "Nothing on the shelves answers to that. On them: {}.",
                     shelf(w).iter().map(|(_, n, t)| format!("{n} ({t:.1})")).collect::<Vec<_>>().join(", ")
@@ -538,7 +692,7 @@ pub fn register(world: &mut World) {
             })?;
             let name = super::craft::display(w, item);
             let asked = ticket(w, item);
-            let chunk = super::memory::resolve_chunk(w, ctx, args.str("chunk").unwrap_or(""), &[f.window, f.palace])?;
+            let chunk = super::memory::resolve_chunk(w, ctx, &unquote(chunk_word), &[f.window, f.palace])?;
             let value = w.store.read_field(chunk, CHUNK, "value", w.now()).ok().and_then(|v| v.as_f64()).or_else(|| plain_num(w, chunk, CHUNK, "value")).unwrap_or(0.0);
             if value + 0.05 < asked {
                 return Err(CommandError::precondition(format!(

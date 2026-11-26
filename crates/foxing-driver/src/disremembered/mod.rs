@@ -358,6 +358,9 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("made_by", FieldKind::Plain, Visibility::Public)
             .field("made_of", FieldKind::Plain, Visibility::Public)
             .field("uses", FieldKind::Plain, Visibility::Public)
+            // C17: the ticket the Souvenir Shop wrote on it, and who it had it off.
+            .field("ticket", FieldKind::Plain, Visibility::Public)
+            .field("sold_by", FieldKind::Plain, Visibility::Public)
             .field("pilot", FieldKind::Plain, Visibility::Public)
             .field("memory", FieldKind::Timed, Visibility::Public)
             // A fixture stands in its room; a shaped thing has a given name, a text,

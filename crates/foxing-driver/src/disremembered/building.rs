@@ -1187,6 +1187,9 @@ pub fn register(world: &mut World, curves: super::Curves) {
                     return super::reading::vigil(w, ctx, &f, creature, chunk, &curves);
                 }
                 let before = super::mind::display(w, creature);
+                if let Some(no) = super::shop::refuses(w, creature) {
+                    return Err(CommandError::precondition(no));
+                }
                 let (source, level) = super::mind::give(w, ctx.actor.as_str(), chunk, creature)?;
                 let after = super::mind::display(w, creature);
                 // A grudge against this name is settled by a memory given.

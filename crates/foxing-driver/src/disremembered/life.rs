@@ -866,6 +866,8 @@ pub fn business(world: &mut World) -> Result<(), String> {
         None => cool_tempers(world)?,
     }
     super::tales::prune(world)?;
+    // C17: the shopkeep is at its counter, wherever it was left.
+    super::shop::keep_in(world)?;
     // C17: now and then the Docent carries something off the Midden to the shop.
     if world.roll(6) == 0 {
         super::shop::docent_brings(world)?;
@@ -878,6 +880,9 @@ pub fn business(world: &mut World) -> Result<(), String> {
         .store
         .of_kind("creature")
         .filter(|e| super::mind::name(world, e.id).is_some())
+        .filter(|e| {
+            super::plain_str(world, e.id, super::CREATURE, "name") != Some(super::shop::KEEPER)
+        })
         .map(|e| e.id)
         .collect();
     // A rolled order, a few a tick.

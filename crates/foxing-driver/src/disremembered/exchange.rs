@@ -441,6 +441,9 @@ pub fn register(world: &mut World, curves: Curves) {
                 }));
             };
             let display = mind::display(w, creature);
+            if let Some(no) = super::shop::refuses(w, creature) {
+                return Err(CommandError::precondition(no));
+            }
             // The fourth level: on the road with something in hand, it may refuse.
             if let Some(no) = super::calling::busy(w, creature, &ctx.actor) {
                 return Err(CommandError::precondition(no));

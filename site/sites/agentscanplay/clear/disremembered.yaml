@@ -97,8 +97,8 @@ approved_verbs:
   feedback: {params: [{name: text, type: text, required: true}]}
   tell: {params: [{name: who, type: entity, required: true}, {name: text, type: text, required: true}]}
   appraise: {params: [{name: thing, type: text, required: true}]}
-  sell: {params: [{name: thing, type: string, required: true}, {name: to, type: string, required: false}]}
-  buy: {params: [{name: thing, type: string, required: true}, {name: chunk, type: entity, required: true}]}
+  sell: {params: [{name: what, type: text, required: true}]}
+  buy: {params: [{name: what, type: text, required: true}]}
   give: {params: [{name: chunk, type: entity, required: true}, {name: citizen, type: entity, required: true}]}
   story: {params: [{name: creature, type: entity, required: true}, {name: text, type: text, required: true}]}
   home: {params: [{name: door, type: string, required: false}]}

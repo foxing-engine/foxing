@@ -816,6 +816,11 @@ pub fn check_tier(world: &mut World, creature: EntityId) -> Result<(), CommandEr
     {
         want = want.max(have);
     }
+    // The shopkeep keeps a shop, and is never more or less than that (Watch 28: fed
+    // to a name and then past the bar, it walked out and the shop was shut).
+    if plain_str(world, creature, CREATURE, "name") == Some(super::shop::KEEPER) {
+        return Ok(());
+    }
     if want == have {
         return Ok(());
     }
