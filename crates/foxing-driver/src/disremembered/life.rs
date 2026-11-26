@@ -866,6 +866,10 @@ pub fn business(world: &mut World) -> Result<(), String> {
         None => cool_tempers(world)?,
     }
     super::tales::prune(world)?;
+    // C17: now and then the Docent carries something off the Midden to the shop.
+    if world.roll(6) == 0 {
+        super::shop::docent_brings(world)?;
+    }
     // X18: who is old, who goes to the Ossuary, which niche is swept.
     super::age::tick(world)?;
     // X6: the Court's stages that move by time.

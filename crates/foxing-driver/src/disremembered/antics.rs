@@ -244,6 +244,12 @@ fn lines(kind: &str) -> &'static [&'static str] {
             "{who} raps its staff once on the floor for silence and seems put out to find it already had it.",
             "{who} straightens a row of chairs that nobody has sat in, starting from the wrong end.",
         ],
+        "shopkeep" => &[
+            "{who} dusts something that is not dusty, and puts it back a finger's width to the left.",
+            "{who} rewrites a ticket in the same small hand, with the same figure on it.",
+            "{who} looks at {you}, then at a shelf, as if working out where you would go.",
+            "{who} turns a thing over to see what is written underneath, and seems reassured that nothing is.",
+        ],
         "tapster" => &[
             "{who} polishes a glass, holds it to the light, and weighs the light.",
             "{who} chalks a figure on the slate, rubs out the last digit, and chalks a kinder one.",

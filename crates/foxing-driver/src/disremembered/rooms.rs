@@ -229,7 +229,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "lantern-row",
         name: "Lantern Row",
         description: "A row of lanterns on iron hooks, each one lighting as you pass and going dark behind you. They remember being lit. They do not remember by whom. Nothing hunts here.",
-        exits: &[("south", ARRIVAL), ("north", "archive"), ("down", "stairwell"), ("lane", "lamplighters-lane")],
+        exits: &[("south", ARRIVAL), ("north", "archive"), ("down", "stairwell"), ("lane", "lamplighters-lane"), ("shop", "souvenir-shop")],
         spawn: Some(("lanternfly", 2, 90)),
         former: &[],
         tint: "#c9a86a",
@@ -1044,6 +1044,16 @@ pub const ROOMS: &[RoomDef] = &[
         spawn: None,
         former: &[],
         tint: "#6e4a3a",
+    },
+    // C17 (David, 11-25): the Souvenir Shop and its shopkeep (shop.rs).
+    RoomDef {
+        key: "souvenir-shop",
+        name: "The Souvenir Shop",
+        description: "A narrow shop under the last lantern of the Row, shelved to the ceiling, every shelf edged with a paper ticket in the same small hand. Nothing here is useful and all of it was somewhere once. Behind the counter the shopkeep is dusting something that is not dusty, and by the door stands a jar. Nothing hunts here.",
+        exits: &[("out", "lantern-row")],
+        spawn: Some(("shopkeep", 1, 900)),
+        former: &[],
+        tint: "#8a6a7a",
     },
 ];
 
@@ -2576,6 +2586,10 @@ pub fn describe_as(
         text.push(' ');
         text.push_str(&t);
     }
+    if let Some(t) = super::shop::look_line(world, room) {
+        text.push(' ');
+        text.push_str(&t);
+    }
     if let Some(t) = super::under::look_line(world, room) {
         text.push(' ');
         text.push_str(&t);
@@ -3142,6 +3156,10 @@ pub fn register(world: &mut World) {
             super::combat::on_arrival(w, &ctx.actor, f.citizen, to).map_err(internal)?;
             super::building::visited(w, to).map_err(internal)?;
             super::building::came_through(w, to, &ctx.actor).map_err(internal)?;
+            // C17: the jar by the Souvenir Shop's door is for whoever comes next.
+            if let Some(said) = super::shop::came_in(w, &ctx.actor, to).map_err(internal)? {
+                super::combat::narrate(w, &ctx.actor, said);
+            }
             // L3: a glowworm's light, and a first visit of the day to a tended room.
             if let Some(said) = super::tending::on_arrival(w, &ctx.actor, f.citizen, f.window, to).map_err(internal)? {
                 super::combat::narrate(w, &ctx.actor, said);

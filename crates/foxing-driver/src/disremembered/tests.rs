@@ -8148,7 +8148,7 @@ fn the_docent_keeps_busy_on_its_round_when_no_one_is_at_the_door() {
     // and unmakes the test room when it reaches it.
     let mut carried = false;
     let mut razed = false;
-    for _ in 0..200 {
+    for _ in 0..400 {
         let did = docent::round_step(&mut w).unwrap();
         if did.iter().any(|d| d.starts_with("carried a wisp ember")) {
             carried = true;
@@ -11129,7 +11129,7 @@ fn look_tells_a_digger_what_is_left_and_the_door_cap_refusal_points_nearest_firs
     // rooms by the signed way; the Threshold takes no digs and is not listed.
     assert!(
         msg.contains("nearest first: The Mudroom (any number, 1 step back); The Fogbank (5 left, 2 steps: east, east)")
-            || msg.contains("nearest first: The Mudroom (any number, 1 step back); Lantern Row (4 left, 2 steps: east, north)"),
+            || msg.contains("nearest first: The Mudroom (any number, 1 step back); Lantern Row (3 left, 2 steps: east, north)"),
         "{msg}"
     );
     assert!(!msg.contains("The Threshold ("), "{msg}");
@@ -17938,4 +17938,147 @@ fn a_debt_a_work_and_a_den_run_to_their_end() {
     );
     // And a den is not dug twice.
     assert!(!calling::menu(&w, wisp).iter().any(|o| o.key == "den"));
+}
+
+/// C17: the Souvenir Shop buys what a thing was and not what it does, prices by
+/// what the thing reminds it of, keeps what it bought on a shelf with a ticket,
+/// and its jar is for whoever comes next.
+#[test]
+fn the_souvenir_shop_buys_shelves_and_fills_its_jar() {
+    use super::{calling, craft, shop};
+    let dir = tempfile::tempdir().unwrap();
+    let mut w = open(dir.path(), Timestamp(0));
+    login(&mut w, "dave", "test", PASS).unwrap();
+    login(&mut w, "erin", "test", PASS).unwrap();
+    let room = shop::room(&w).expect("the shop is in the world");
+    assert!(shop::keeper(&w).is_some(), "with its shopkeep");
+    let dave = find_citizen(&w, "dave").unwrap().citizen;
+    let sat = craft::satchel(&mut w, "dave", dave).unwrap();
+    let make = |w: &mut World, name: &str, kind: &str| {
+        craft::make(
+            w,
+            &curves(),
+            foxing_log::Actor::Driver,
+            Some("dave".into()),
+            sat,
+            name,
+            kind,
+            "thing",
+            Some("dave"),
+            &[],
+            1,
+            false,
+        )
+        .unwrap()
+    };
+    make(&mut w, "a wisp ember", "material");
+    make(&mut w, "a plain hammer", "made");
+    // Only over the counter.
+    let e = call(&mut w, "dave", ActorKind::Citizen, "sell", json!(["ember"]))
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("Souvenir Shop"), "{e}");
+    admin(&mut w, "dave", "bring", json!(["dave", shop::KEY]));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("shelves are bare"),
+        "{}",
+        look.summary
+    );
+    // A tool is refused; a found thing is priced, the same twice.
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "sell",
+        json!(["hammer"]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains("is a tool"), "{e}");
+    let a = ok(&mut w, "dave", "appraise", json!(["ember"]));
+    let b = ok(&mut w, "dave", "appraise", json!(["ember"]));
+    assert_eq!(a.result["price"], b.result["price"]);
+    let price = a.result["price"].as_f64().unwrap();
+    assert!(price >= 1.0);
+    // Sold for the world: nothing in the seller's hand, half again in the jar.
+    let before = level(&mut w, "dave");
+    let sold = ok(&mut w, "dave", "sell", json!(["ember", "world"]));
+    assert_eq!(sold.result["to"], "world");
+    assert!(
+        (sold.result["paid"].as_f64().unwrap() - (price * 1.5 * 2.0).round() / 2.0).abs() < 0.01
+    );
+    assert!(level(&mut w, "dave") <= before + 0.01);
+    assert_eq!(shop::shelf(&w).len(), 1);
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(
+        look.summary.contains("a wisp ember (")
+            && look.summary.contains("The jar by the door holds"),
+        "{}",
+        look.summary
+    );
+    // The next name through the door is given the jar; the one who filled it is not.
+    let erin_before = level(&mut w, "erin");
+    let head = events(&w);
+    admin(&mut w, "dave", "bring", json!(["erin", "lantern-row"]));
+    ok(&mut w, "erin", "travel", json!(["shop"]));
+    assert!(
+        level(&mut w, "erin") > erin_before + 1.0,
+        "erin has the jar"
+    );
+    assert!(narrative(&w, "erin", head)
+        .iter()
+        .any(|l| l.contains("For whoever came next")));
+    // A second of the same that day is worth half, and sold for oneself it pays.
+    make(&mut w, "a wisp ember", "material");
+    let again = ok(&mut w, "dave", "sell", json!(["ember"]));
+    assert!(
+        again.summary.contains("I have one of those now") && again.summary.contains("I keep count"),
+        "{}",
+        again.summary
+    );
+    assert!(level(&mut w, "dave") > before + 0.4);
+    // Bought back with one chunk worth the ticket, spent whole.
+    let c = admin(&mut w, "erin", "earn", json!(["savings", 30, 0.5]));
+    let got = ok(
+        &mut w,
+        "erin",
+        "buy",
+        json!(["ember", format!("chunk-{}", c.result["chunk"])]),
+    );
+    assert!(got.summary.contains("in your satchel"), "{}", got.summary);
+    assert_eq!(shop::shelf(&w).len(), 1);
+    // A called creature can carry something of its own there and come home.
+    let fog = rooms::room_by_key(&w, "fogbank").unwrap();
+    combat::fill(&mut w, fog).unwrap();
+    let wisp = combat::creatures_in(&w, fog)[0].0;
+    admin(&mut w, "dave", "bring", json!(["dave", "fogbank"]));
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 180, 0.5]));
+    ok(
+        &mut w,
+        "dave",
+        "remember",
+        json!([format!("chunk-{}", c.result["chunk"]), "wisp"]),
+    );
+    calling::take(&mut w, wisp, "trade", "", "test").unwrap();
+    for _ in 0..40 {
+        life::business(&mut w).unwrap();
+        if calling::of(&w, wisp).is_none() {
+            break;
+        }
+    }
+    let last = w
+        .recent_events(600)
+        .into_iter()
+        .rev()
+        .find(|e| e.kind == calling::CALLING)
+        .unwrap();
+    assert_eq!(last.payload["stage"], "done", "{:?}", last.payload);
+    assert!(
+        shop::shelf(&w)
+            .iter()
+            .any(|(_, n, _)| n.contains("keepsake")),
+        "its keepsake is on the shelf"
+    );
+    let _ = room;
 }

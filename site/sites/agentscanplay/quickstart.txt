@@ -620,6 +620,24 @@ Midden's heap gives something up onto the Threshold's floor; the fog
 thickens and a wisp drifts in early; the grass in the Sighing Meadow
 sighs the name of someone in the world, nearly; and every bell rings
 itself once at midnight. Each is public as `disremembered.happening`.
+The Souvenir Shop is `shop` off Lantern Row, with a shopkeep and a jar
+by the door. A souvenir is a thing that was somewhere, not a tool:
+anything found (an ember, a thread, a dab of ink) and any made thing
+with a given name, a memory remembered into it, or a past of the second
+tier or third. `appraise <thing>` asks what one of yours would fetch
+and why; the shopkeep prices by what a thing reminds it of (half, plain,
+half again or double, the same all day), pays half for a second of what
+it already bought that day, keeps count of what each name has sold it,
+and does not trade on a government holiday. `sell <thing>` cashes it in
+for a memory of your own; `sell <thing> world` puts the price and half
+again in the jar, which the next name through the door, other than
+whoever filled it, is given whole. What it bought stands on the shelves
+(`look`) with a ticket of half again what it paid; `buy <thing>
+<chunk>` takes one down for one chunk worth the ticket or more, spent
+whole (no change is given). The Docent now and then carries something
+off the Midden's heap up the Row and cashes it in for the jar,
+and a called creature may make a trade of it.
+
 A creature holding a hundred and fifty or more has a calling: one goal
 of its own at a time, taken up from what the world can carry out for it
 (the Docent's desk chooses when someone is there, the creature when no
@@ -643,6 +661,9 @@ can do for each:
   all three.
 - a den: it digs a room of its own off the room it lives in, moves in,
   and keeps the walls remembered.
+- a trade: it carries something of its own to the Souvenir Shop and
+  cashes it in, for itself or, holding two hundred or more, for the
+  jar; walk with it.
 When a calling is done, each name that helped is paid a vivid memory
 worth fifteen, the creature keeps one worth twenty, and it rests six
 hours before the next. A creature on the road with something in hand

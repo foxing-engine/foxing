@@ -56,6 +56,7 @@ pub mod reading;
 pub mod rooms;
 pub mod secret;
 pub mod session;
+pub mod shop;
 pub mod slips;
 pub mod speech;
 pub mod stacks;
@@ -245,6 +246,8 @@ pub fn schemas() -> Vec<ComponentSchema> {
             .field("door", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(ROOM, 2)
             .field("key", FieldKind::Plain, Visibility::Public)
+            // C17: the jar by the Souvenir Shop's door ({worth, from}).
+            .field("jar", FieldKind::Plain, Visibility::Public)
             // The last dozen names through, with when: the chalk tally and the bench.
             .field("came_through", FieldKind::Plain, Visibility::Public)
             .field("name", FieldKind::Plain, Visibility::Public)
@@ -987,6 +990,7 @@ pub fn reserved_name(world: &World, name: &str) -> Option<String> {
         "conclave",
         "clocktower",
         "tapster",
+        "shopkeep",
         "assayer",
         "warden",
         "clerk",
@@ -1502,6 +1506,7 @@ pub fn register(world: &mut World, curves: Curves) {
     presence::register(world, curves.clone());
     mind::register(world);
     calling::register(world);
+    shop::register(world);
     speech::register(world);
     talk::register(world);
     letters::register(world);

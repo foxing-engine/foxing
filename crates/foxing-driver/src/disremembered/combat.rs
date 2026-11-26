@@ -262,6 +262,9 @@ pub const CREATURES: &[CreatureDef] = &[
     // who shave what you carry, the Assayer, and the Wardens over the Purse. (D37c,
     // 11-16: the Wardens were 320 and 34; "a wall, not a goal", and David took them
     // down a little and made the Purse worth the trip.)
+    // C17: the shopkeep of the Souvenir Shop. It fights nobody and is worth nothing
+    // felled; a bare `attack` never picks it.
+    CreatureDef { key: "shopkeep", name: "shopkeep", hp: 200.0, attack: 0.0, xp: 0.0, aggressive: false, strike_seconds: 12, ambush: "puts down the duster and looks at you over its spectacles, which is all it does.", glyph: "S", tint: "#8a6a7a" },
     CreatureDef { key: "tapster", name: "tapster", hp: 150.0, attack: 12.0, xp: 400.0, aggressive: false, strike_seconds: 10, ambush: "sets down the glass it was drying and looks at you the way a scale looks at a weight.", glyph: "t", tint: "#b07a4a" },
     CreatureDef { key: "clipper", name: "clipper", hp: 45.0, attack: 8.0, xp: 150.0, aggressive: true, strike_seconds: 9, ambush: "comes along the rack with its shears open.", glyph: "c", tint: "#9aa4ad" },
     CreatureDef { key: "sweater", name: "sweater", hp: 70.0, attack: 11.0, xp: 260.0, aggressive: true, strike_seconds: 9, ambush: "steps out from behind the press, shaking a leather bag that is not empty.", glyph: "s", tint: "#a08a5a" },
@@ -336,6 +339,7 @@ pub const ATTACK_PER_ROOT_LEVEL: f64 = 0.6;
 /// at any level, and death cost a 2,000-XP delver nothing it noticed.
 /// Kinds a bare `attack` never picks: the Conclave's officers and the Stacks' keepers.
 pub const OFFICERS: &[&str] = &[
+    "shopkeep",
     "crier",
     "clerk",
     "bailiff",

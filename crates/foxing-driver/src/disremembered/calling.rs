@@ -160,6 +160,7 @@ fn ordinary(world: &World, c: EntityId) -> bool {
     let kind = kind_of(world, c);
     !super::combat::is_boss(&kind)
         && kind != "tapster"
+        && kind != "shopkeep"
         && !super::starfish::is(world, c)
         && !mind::is_pilot(world, c)
 }
@@ -277,6 +278,17 @@ pub fn menu(world: &World, c: EntityId) -> Vec<Offer> {
                     room_name(world, home)
                 ),
                 data: json!({"door": door, "from": home.0}),
+            });
+        }
+    }
+    // A trade: something of its own, carried to the Souvenir Shop (shop.rs).
+    if let Some(shop) = super::shop::room(world) {
+        if super::shop::keeper(world).is_some() && super::errand::route(world, home, shop).is_some()
+        {
+            out.push(Offer {
+                key: "trade",
+                said: "a trade: something of its own carried to the Souvenir Shop on Lantern Row, and cashed in".to_string(),
+                data: json!({}),
             });
         }
     }
@@ -707,6 +719,111 @@ pub fn step(world: &mut World, c: EntityId) -> Result<bool, String> {
                         };
                         save(world, c, &state)?;
                         finish(world, c, true, &how, companions(&state, 2))?;
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+        "trade" => {
+            let Some(shop) = super::shop::room(world) else {
+                finish(world, c, false, "the shop is gone", vec![])?;
+                return Ok(true);
+            };
+            if phase == 0 {
+                match go(
+                    world,
+                    c,
+                    shop,
+                    "with something to sell",
+                    "with something to sell",
+                ) {
+                    Ok(true) => {
+                        if super::shop::closed(world).is_some()
+                            || super::shop::keeper(world).is_none()
+                        {
+                            // Shut: it waits at the door for the blind to go up.
+                            false
+                        } else {
+                            let own = mind::name(world, c).unwrap_or_default();
+                            let curves = super::Curves::from_env();
+                            let item = super::craft::make(
+                                world,
+                                &curves,
+                                Actor::Driver,
+                                None,
+                                shop,
+                                &format!("{own}'s keepsake"),
+                                "material",
+                                &format!(
+                                    "carried from {} by {own} the {}",
+                                    room_name(world, home),
+                                    kind_of(world, c)
+                                ),
+                                None,
+                                &[],
+                                0,
+                                false,
+                            )
+                            .map_err(|e| e.to_string())?;
+                            // Rich, it sells for the world; otherwise for itself.
+                            let for_world = mind::level(world, c) >= BAR * 4.0 / 3.0;
+                            let by = format!("{own} the {}", kind_of(world, c));
+                            let (worth, said) = super::shop::buy_from(world, &by, item, for_world)?;
+                            if !for_world {
+                                if let Ok(w) = mind::ensure_window_pub(world, c) {
+                                    let _ = super::memory::earn_chunk(
+                                        world,
+                                        "nobody",
+                                        w,
+                                        "what the Souvenir Shop gave for something of its own",
+                                        worth,
+                                        0.6,
+                                        &curves,
+                                    );
+                                }
+                            }
+                            super::combat::narrate_room(
+                                world,
+                                c,
+                                &format!(
+                                    "{name} sets something small of its own on the counter. The shopkeep holds it up to the lamp. {said} {}",
+                                    if for_world {
+                                        format!("{worth:.1} goes into the jar by the door, for whoever comes next; {name} wanted it that way.")
+                                    } else {
+                                        format!("It counts {worth:.1} out, and {name} keeps it.")
+                                    }
+                                ),
+                            );
+                            state["phase"] = json!(1);
+                            state["sold_for"] = json!(worth);
+                            true
+                        }
+                    }
+                    Ok(false) => true,
+                    Err(_) => {
+                        finish(world, c, false, "the way to the shop is shut", vec![])?;
+                        return Ok(true);
+                    }
+                }
+            } else {
+                match go(
+                    world,
+                    c,
+                    home,
+                    "its trade done, going home",
+                    "home from the shop",
+                ) {
+                    Ok(false) => true,
+                    _ => {
+                        count_company(world, c, &mut state);
+                        save(world, c, &state)?;
+                        finish(
+                            world,
+                            c,
+                            true,
+                            "something of its own sold at the Souvenir Shop",
+                            companions(&state, 2),
+                        )?;
                         return Ok(true);
                     }
                 }
