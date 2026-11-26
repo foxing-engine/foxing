@@ -244,7 +244,7 @@ pub const RECIPES: &[Recipe] = &[
         name: "a poultice",
         of: &["hollow water", "moth dust"],
         chunk_at_least: 0.0,
-        does: "does what a bandage does, once: carried, it takes a bleeding bite as it lands, or closes one on `rest` and mends ten. Made of what lies about the Threshold, for a name that has not found thread",
+        does: "does what a bandage does, once: carried, it takes a bleeding bite as it lands, or closes one on `rest` and mends ten. Made of what a newcomer can `gather` near the door (hollow water in the Fogbank, moth dust in the Orchard), for a name that has not found thread",
         uses: 1,
         fixed: false,
         takes_lines: false,
@@ -1732,7 +1732,9 @@ pub(crate) fn resolve_item(
                 None if id_wanted.is_some() && bare.starts_with("item-") => CommandError::precondition(
                     "Nothing here answers to a number; `look` gives each thing its name.".to_string(),
                 ),
-                None => CommandError::precondition(format!("There is no {bare} here to speak of.")),
+                // The Watch of 11-25 tried `take hollow water` in three rooms: a room's
+                // own makings are gathered, not taken.
+                None => CommandError::precondition(format!("There is no {bare} here to speak of. (What lies on the ground is taken; a room's own makings are gathered: `gather` here, once an hour, where `recipes` says a making is found.)")),
             }
         })
 }

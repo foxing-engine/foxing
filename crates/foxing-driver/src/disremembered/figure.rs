@@ -116,7 +116,13 @@ pub fn register(world: &mut World) {
                 )));
             };
             if mine == Some(*key) {
-                return Ok(Outcome::new(format!("You are the {key} already."), json!({"figure": key})));
+                // Its own thing fades as everything does (the Watch of 11-25: "a gift
+                // that rots away to nothing, with no way to get it back"): asked for
+                // again when it has gone, it is given again.
+                return Ok(match super::places::begin(w, &ctx.actor, f.citizen, key)? {
+                    Some(name) => Outcome::new(format!("You are the {key} already, and yours had gone: you are given {name} again."), json!({"figure": key, "given": name})),
+                    None => Outcome::new(format!("You are the {key} already."), json!({"figure": key})),
+                });
             }
             if mine.is_some() {
                 let here = super::rooms::room_of(w, f.citizen);

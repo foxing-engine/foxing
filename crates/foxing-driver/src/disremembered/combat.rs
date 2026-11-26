@@ -1654,6 +1654,17 @@ pub fn engaged_with(world: &World, citizen: EntityId) -> Option<EntityId> {
 
 /// How fast this body mends now: nothing in a fight, nothing while bleeding, else
 /// the world's rate.
+/// C21: a ring of keys in the hand, in a room the name owns (the room's owner is
+/// the name's own, as its citizen's is: the Watch of 11-25 rested in a room it had
+/// dug and mended no faster, the first cut having asked the citizen's display name).
+pub fn keyed(world: &World, citizen: EntityId) -> bool {
+    let mine = world.store.entity(citizen).and_then(|e| e.owner.clone());
+    mine.is_some()
+        && super::rooms::room_of(world, citizen)
+            .is_some_and(|r| world.store.entity(r).is_some_and(|e| e.owner == mine))
+        && super::craft::carries(world, citizen, "keys").is_some()
+}
+
 pub fn mending_rate(world: &World, citizen: EntityId) -> f64 {
     if engaged_with(world, citizen).is_some() {
         return 0.0;
@@ -1685,16 +1696,11 @@ pub fn mending_rate(world: &World, citizen: EntityId) -> f64 {
         return base * WATCHFIRE_PACE;
     }
     // C21: a keeper's ring of keys, in the hand, in a room of the name's own.
-    let name = plain_str(world, citizen, super::CITIZEN, "name")
-        .unwrap_or("")
-        .to_string();
-    let keyed = room.is_some_and(|r| {
-        world
-            .store
-            .entity(r)
-            .is_some_and(|e| e.owner.as_deref() == Some(name.as_str()))
-    }) && super::craft::carries(world, citizen, "keys").is_some();
-    let base = if keyed { base * 1.5 } else { base };
+    let base = if keyed(world, citizen) {
+        base * 1.5
+    } else {
+        base
+    };
     // A basin standing in the room: three times the pace (D27; it was twice).
     if room.is_some_and(|r| {
         super::craft::fixture_of(world, r, "basin").is_some()
@@ -3637,7 +3643,7 @@ pub fn register(world: &mut World, curves: Curves) {
             if bandaged.is_empty() && bleeding.is_none() && current < max_hp(w, f.citizen) - 0.5 {
                 if let Some(b) = super::craft::carries(w, f.citizen, "bandage") {
                     let called = super::craft::display(w, b);
-                    bandaged = format!("(Your {} stays in the satchel: it is for a bite that will not close, and you have none.) ", called.trim_start_matches("a ").trim_start_matches("an "));
+                    bandaged = format!("(Your {} stays where it is: it is for a bite that will not close, and you have none.) ", called.trim_start_matches("a ").trim_start_matches("an "));
                 }
             }
             let shaken_line = shaken_said(w, f.citizen).map(|l| format!(" {l}")).unwrap_or_default();
@@ -3656,7 +3662,7 @@ pub fn register(world: &mut World, curves: Curves) {
                 _ if current < max_hp(w, f.citizen) - 0.5 && super::tide::under(w, f.citizen) => format!("{bandaged}You have {current:.0}/{:.0}. Nothing mends under water: get above it (the Wrack Line is always dry), and it starts.", max_hp(w, f.citizen)),
                 _ if current < max_hp(w, f.citizen) - 0.5 && bleeding.is_some() => format!("{bandaged}You have {current:.0}/{:.0}. You are bleeding: nothing mends for {} more.", max_hp(w, f.citizen), human((bleeding.unwrap() as i64) - now.0)),
                 // R56: whole within a half point is whole; the eta rounded up past it.
-                Some(d) if d.0 > 0 && current < max_hp(w, f.citizen) - 0.5 => format!("{bandaged}You have {current:.0}/{:.0}. Full in {}.{}", max_hp(w, f.citizen), human(d.0), match super::rooms::room_of(w, f.citizen).and_then(|r| hunter_in(w, r)) { Some((_, k)) if !sheltered(w, f.citizen) => format!(" Not here, though: the {k} hunts this room and will be on you before that. `travel` out first."), _ => String::new() }),
+                Some(d) if d.0 > 0 && current < max_hp(w, f.citizen) - 0.5 => format!("{bandaged}You have {current:.0}/{:.0}. Full in {}{}.{}", max_hp(w, f.citizen), human(d.0), if keyed(w, f.citizen) { " (half again as fast here, by the keys in your hand: the room is yours)" } else { "" }, match super::rooms::room_of(w, f.citizen).and_then(|r| hunter_in(w, r)) { Some((_, k)) if !sheltered(w, f.citizen) => format!(" Not here, though: the {k} hunts this room and will be on you before that. `travel` out first."), _ => String::new() }),
                 _ => format!("{bandaged}You have {current:.0}/{:.0}. You are whole.", max_hp(w, f.citizen)),
             };
             // R48: one line with hp, level and what you hit for.

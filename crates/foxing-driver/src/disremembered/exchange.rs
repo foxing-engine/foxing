@@ -787,7 +787,7 @@ pub fn register(world: &mut World, curves: Curves) {
                     paid / 2.0,
                     missed.as_deref().map(|m| format!(" {m}")).unwrap_or_default(),
                     if known > 1.0 { format!(" ({display} knew you already, and pays a {} {known:.1} times.)", super::bard::title(w, &ctx.actor).unwrap_or("teller")) } else { String::new() }
-                ),
+                ) + if lute { " (A tenth more, for the lute in your hand: its first story of yours today.)" } else { "" },
                 json!({"creature": creature.0, "name": name, "words": words, "distinct": distinct, "earned": earned.0, "xp": paid, "kept": kept.0, "level": level, "wanted": wanted, "wanted_early": wanted_early, "missed": missed, "repeats": repeats, "struck": struck.as_ref().map(|(b, w, l)| json!({"word": w, "level": l, "bonus": b}))}),
             ))
         }),

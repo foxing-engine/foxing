@@ -17532,6 +17532,31 @@ fn a_thing_works_from_its_place_and_a_figure_begins_with_its_own() {
         "{held}"
     );
     assert!(craft::carries(&w, me, "dart").is_some() && craft::carries(&w, me, "sword").is_none());
+    // The keeper's keys, in the hand, in a room of the name's own: half again the pace.
+    ok(&mut w, "dave", "travel", json!(["west"]));
+    let c = admin(&mut w, "dave", "earn", json!(["wisp", 40, 0.5]));
+    let c = format!("chunk-{}", c.result["chunk"].as_u64().unwrap());
+    ok(&mut w, "dave", "dig", json!(["den", &c, "Dave's Den"]));
+    ok(&mut w, "dave", "travel", json!(["den"]));
+    let plain = combat::mending_rate(&w, me);
+    craft::make(
+        &mut w,
+        &curves,
+        Actor::Driver,
+        Some("dave".into()),
+        s,
+        "a ring of keys",
+        "made",
+        "keys",
+        None,
+        &[],
+        0,
+        false,
+    )
+    .unwrap();
+    ok(&mut w, "dave", "hold", json!(["ring of keys"]));
+    assert!(combat::keyed(&w, me));
+    assert!((combat::mending_rate(&w, me) - plain * 1.5).abs() < 1e-9);
     // A thing with no place works from the satchel as it did.
     craft::make(
         &mut w,

@@ -471,7 +471,10 @@ pub fn register(world: &mut World) {
                 }
             };
             let Some((item, _)) = m.remove(&place) else {
-                return Err(CommandError::precondition(format!("There is nothing {}.", where_said(&place))));
+                return Err(CommandError::precondition(format!(
+                    "{} is empty already.",
+                    super::called::capital(PLACES.iter().find(|x| x.0 == place).map(|x| x.2).unwrap_or("that place"))
+                )));
             };
             keep(w, &ctx.actor, f.citizen, &m, None)?;
             Ok(Outcome::new(

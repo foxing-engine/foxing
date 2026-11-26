@@ -2723,12 +2723,17 @@
     if (chunks.length) add("chunks", "chunks", true);
     if (hp != null && max && hp < max - 0.5) add("rest", "rest", true);
     let fought = false;
+    const WALKERS = /^(lamplighter|porter|runner|tinker|census taker|mender|crier|bailiff|clerk)$/;
     for (const n of things || []) {
       if (n.kind === "creature") {
         const c = n.components["disremembered.creature"], mind = n.components["disremembered.mind"], named = mind && mind.name;
         if (named) {
           add("story " + mind.name, 'story ' + mind.name + ' "');
           add("tell " + mind.name, 'tell ' + mind.name + ' "');
+        } else if (WALKERS.test(c.name || "")) {
+          // One about its round is not fought (the world refuses it): a word to it,
+          // not a blow. The Watch of 11-25 was offered "attack tinker".
+          add("tell " + c.name, 'tell "' + c.name + '" "');
         } else if (!fought) { add("attack " + c.name, "attack " + c.name); fought = true; }
         if (cheapest) add("remember → " + (named ? mind.name : c.name), "remember " + chunkWord(cheapest.id) + " " + (named ? mind.name : c.name));
       } else if (n.kind === "item") {
