@@ -226,6 +226,12 @@ pub fn register(world: &mut World) {
                             json!({"to": name, "text": text, "answered": true, "canned": true}),
                         ));
                     }
+                    if name == super::shop::KEEPER {
+                        return Ok(Outcome::new(
+                            format!("You say to the shopkeep, \"{text}\" It considers you over its spectacles. \"I talk tickets,\" it says. \"Put a thing on the counter.\" (`appraise <thing>` asks what one of yours would fetch; `look` shows the shelves.)"),
+                            json!({"to": name, "text": text, "answered": false}),
+                        ));
+                    }
                     // R43: how one gets a name, in the same breath.
                     return Ok(Outcome::new(
                         format!("You say to the {name}, \"{text}\" It does not understand you. It is only {}; it {}. Only a named creature answers: feed one to sixty (`remember <chunk> {name}`) and it has a name and an ear.", super::mind::an(&name), super::mind::goes_on(&name)),
@@ -276,6 +282,12 @@ pub fn register(world: &mut World) {
                     let place = at
                         .and_then(|r| super::plain_str(w, r, super::ROOM, "name").map(str::to_string))
                         .unwrap_or_else(|| "another room".to_string());
+                    // C11: one of the Kept House on the road is nowhere you can walk.
+                    if at.is_some() && at == super::rooms::room_by_key(w, super::kept::ROAD) {
+                        return Err(CommandError::precondition(format!(
+                            "{typed} is away on the road today and will be home tomorrow; a traveler has its room at the Kept House meanwhile, and what it left there says something of it."
+                        )));
+                    }
                     return Err(CommandError::precondition(format!(
                         "{typed} is not here: it is in {place} (`travel \"{place}\"`), and a creature is told face to face."
                     )));

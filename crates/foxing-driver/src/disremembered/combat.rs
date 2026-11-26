@@ -3104,7 +3104,7 @@ pub fn register(world: &mut World, curves: Curves) {
                             )));
                         }
                         format!(
-                            "Nothing unnamed is here to fight{}. {} {} a name, and {} struck only by that name; felled, it loses the name and the stories told to it.",
+                            "Nothing unnamed is here to fight{}. {} {} a name, and {} struck only by that name; felled, it loses the name and the stories told to it (but who boards at the Kept House keeps its name, gives up one memory, and is carried to its room).",
                             if shaken.is_empty() { String::new() } else { format!(" ({})", shaken.join("; ")) },
                             named.join(" and "),
                             if named.len() == 1 { "has" } else { "have" },
@@ -3182,7 +3182,15 @@ pub fn register(world: &mut World, curves: Curves) {
                 began = Some(clock_line(w, creature, &ctx.actor));
                 // R97: a named creature felled loses its name and what was told to
                 // it; said at the first strike, and its keepers are told the kill.
-                if let Some(n) = super::mind::name(w, creature) {
+                if super::kept::of_house(w, creature) {
+                    // C11: the Kept House's own keep their names (Watch 29: the line
+                    // below said otherwise of them).
+                    began = Some(format!(
+                        "{} {} is of the Kept House and keeps its name whatever befalls it: felled, it gives up one memory and is carried to its own room, whole. It is very tough.",
+                        began.unwrap_or_default(),
+                        super::mind::name(w, creature).unwrap_or_default()
+                    ));
+                } else if let Some(n) = super::mind::name(w, creature) {
                     let keepers = super::mind::keepers(w, creature);
                     began = Some(format!(
                         "{} {n} has a name: if it falls, it is a {cname} again, and what was told to it goes with you{}.",

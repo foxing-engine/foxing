@@ -654,13 +654,24 @@ pub fn register(world: &mut World) {
                     "The Visitors' Book is on the hall table of the Kept House, `stoop` off the Lamplighter's Lane (`where \"Kept House\"`).",
                 ));
             }
+            // The book is for a name that means to come back (Watch 29: a fresh
+            // passing name took all six in one message, and another could after it).
+            if super::is_passing(w, f.citizen) {
+                return Err(CommandError::precondition(
+                    "The book is ascribed by a name that is kept: a passing name is gone in an hour, and the page is a month's. `keep` makes yours one (the first is free), and then the book is open to you.",
+                ));
+            }
             let all = lines(w);
             let n = args.int("line").unwrap_or(0);
             if n < 1 || n as usize > all.len() {
                 return Err(CommandError::precondition(format!("The page has {} lines; `ascribe <line> <name>` wants one of them by its number.", all.len())));
             }
             let said = args.str("name").unwrap_or("").trim().trim_matches('"').to_lowercase();
-            let Some(guess) = RESIDENTS.iter().find(|r| r.name.to_lowercase() == said || r.kind == said) else {
+            let said = said.trim_start_matches("the ").to_string();
+            let Some(guess) = RESIDENTS
+                .iter()
+                .find(|r| r.name.to_lowercase() == said || r.kind == said || said == format!("{} the {}", r.name.to_lowercase(), r.kind))
+            else {
                 return Err(CommandError::precondition(format!(
                     "Nobody of that name boards here. The six: {}.",
                     RESIDENTS.iter().map(|r| r.name).collect::<Vec<_>>().join(", ")
@@ -676,7 +687,7 @@ pub fn register(world: &mut World) {
             if let Some(t) = b["wrong"][&ctx.actor][&key].as_i64() {
                 if now - t < WRONG_MS {
                     return Err(CommandError::precondition(format!(
-                        "You guessed at that line and missed; it is closed to you for {} more. The others are open, and the one who wrote it is somewhere in the house, being itself.",
+                        "You guessed at that line and missed; it is closed to you for {} more. The others are open.",
                         super::combat::human(WRONG_MS - (now - t))
                     )));
                 }

@@ -674,6 +674,14 @@ pub fn register(world: &mut World) {
                         return Err(mine);
                     };
                     meant(w, &what, item)?;
+                    // The one `buy` would take down: the cheapest of that name.
+                    let like = super::craft::display(w, item);
+                    let item = shelf(w)
+                        .into_iter()
+                        .filter(|(_, n, _)| *n == like)
+                        .min_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal))
+                        .map(|x| x.0)
+                        .unwrap_or(item);
                     let name = super::craft::display(w, item);
                     let asked = ticket(w, item);
                     let from = plain_str(w, item, ITEM, "sold_by").map(|b| format!(" It had it off {b}.")).unwrap_or_default();

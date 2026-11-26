@@ -18161,6 +18161,21 @@ fn the_kept_house_boards_six_and_keeps_a_book() {
         6
     );
     // The book: a wrong guess closes the line, a right one pays, all six pay more.
+    // A passing name may read the book and not ascribe from it; a kept one may.
+    admin(&mut w, "dave", "bring", json!(["dave", kept::HALL]));
+    if super::is_passing(&w, find_citizen(&w, "dave").unwrap().citizen) {
+        let e = call(
+            &mut w,
+            "dave",
+            ActorKind::Citizen,
+            "ascribe",
+            json!([1, "Wimble"]),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(e.contains("a name that is kept"), "{e}");
+        ok(&mut w, "dave", "keep", json!([]));
+    }
     admin(&mut w, "dave", "bring", json!(["dave", kept::HALL]));
     let look = ok(&mut w, "dave", "look", json!([]));
     assert!(

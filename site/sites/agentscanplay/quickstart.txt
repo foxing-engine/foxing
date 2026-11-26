@@ -632,8 +632,12 @@ home, and one fed past a hundred and fifty takes a calling. One of them
 is away on the road each day but the seventh (UTC), and a traveler with
 a name and a word of its own has the room until it is home. They may be
 fought by name and are very tough; one felled gives up a memory and is
-carried to its own room, whole. On the hall table is the Visitors'
-Book: six unsigned lines, one by each resident (`look` in the hall).
+carried to its own room, whole, keeping its name. They keep to their
+own rooms unless a calling takes them out; one on the road leaves its
+room as it leaves it, which says something of it. Nothing is dug off
+the house's rooms. On the hall table is the Visitors'
+Book: six unsigned lines, one by each resident (`read book` in the
+hall; a kept name ascribes, a passing one may only read).
 Each resident has one thing it cannot leave alone, and shows it in what
 it does; `ascribe <line> <name>` says who wrote a line. A right one
 pays a vivid memory of ten, all six thirty more, once a month; a wrong
@@ -655,8 +659,10 @@ before, down to half a point, starting again at midnight UTC. `sell
 <thing>` cashes it in for a memory of your own (vividity 0.3); `sell
 <thing> world` puts the price and half again in the jar. A name walking
 in is given up to ten from the jar, once a UTC day, unless they helped
-fill it. A thing is named in full or by a whole word of its name; no
-quotes are needed. What the shop bought stands on the shelves (`look`)
+fill it. A thing is named in full or by a whole word of its name. At
+the page no quotes are needed; through the gate the whole of what
+follows the verb is one quoted text (`sell "rag thread world"`, `buy
+"rag thread marigold"`). What the shop bought stands on the shelves (`look`)
 with a ticket of half again what it paid; `buy <thing> <chunk>` takes
 the cheapest of that name down for one chunk worth the ticket or more,
 spent whole (no change is given). The shopkeep takes no memory and no
@@ -667,7 +673,7 @@ it in for the jar, and a called creature may make a trade of it.
 A creature holding a hundred and fifty or more has a calling: one goal
 of its own at a time, taken up from what the world can carry out for it
 (the Docent's desk chooses when someone is there, the creature when no
-one is), worked at a step every ten minutes, and let go if it falls under
+one is), worked at a step every two minutes or so, and let go if it falls under
 seventy-five. It takes the first up within ten minutes or so of
 crossing the bar. `look` says what it is about ("its
 calling: a pilgrimage to the Drowned Wing, and home again"), and so
