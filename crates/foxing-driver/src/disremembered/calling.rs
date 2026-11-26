@@ -154,7 +154,9 @@ fn rooms_from(world: &World, from: EntityId) -> Vec<(EntityId, usize)> {
         .collect()
 }
 
-/// An ordinary creature: not a boss, not the house's own, not a starfish. Only these
+/// An ordinary creature: not a boss, not the house's own, not a starfish. (A name
+/// the Docent keeps near the door is ordinary: Watch 28's Gedder was one, and stood
+/// at 185 with no calling because it was left out here.) Only these
 /// take a calling or are raised as an heir.
 fn ordinary(world: &World, c: EntityId) -> bool {
     let kind = kind_of(world, c);
@@ -162,7 +164,6 @@ fn ordinary(world: &World, c: EntityId) -> bool {
         && kind != "tapster"
         && kind != "shopkeep"
         && !super::starfish::is(world, c)
-        && !mind::is_pilot(world, c)
 }
 
 /// The goals the world could carry out for this creature now, each made concrete.
