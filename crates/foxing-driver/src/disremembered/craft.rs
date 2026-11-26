@@ -1449,8 +1449,10 @@ pub fn carries(world: &World, citizen: EntityId, recipe: &str) -> Option<EntityI
         .children(satchel)
         .filter(|e| e.kind == "item")
         .find(|e| {
-            plain_str(world, e.id, ITEM, "origin") == Some(recipe)
-                || plain_str(world, e.id, ITEM, "effect") == Some(recipe)
+            (plain_str(world, e.id, ITEM, "origin") == Some(recipe)
+                || plain_str(world, e.id, ITEM, "effect") == Some(recipe))
+                // C21: a thing with a place works from its place.
+                && super::places::at_work(world, citizen, e.id)
         })
         .map(|e| e.id)
 }
@@ -1471,6 +1473,7 @@ pub fn carries_fine(world: &World, citizen: EntityId, family: &str) -> Option<En
             (plain_str(world, e.id, ITEM, "origin") == Some(family)
                 || plain_str(world, e.id, ITEM, "effect") == Some(family))
                 && super::past::tier(world, e.id) >= 2
+                && super::places::at_work(world, citizen, e.id)
         })
         .map(|e| e.id)
 }
@@ -2363,7 +2366,18 @@ pub fn register(world: &mut World, curves: Curves) {
                     if !does.contains(&l) {
                         does.push(l);
                     }
+                } else if let Some(d) = super::places::begins_does(origin) {
+                    // A figure's own thing is no recipe's.
+                    let l = format!("{}: {d}", t["name"].as_str().unwrap_or("it"));
+                    if !does.contains(&l) {
+                        does.push(l);
+                    }
                 }
+            }
+            // C21: what is at work, place by place, and what waits to be placed.
+            if !things.is_empty() {
+                text.push(' ');
+                text.push_str(&super::places::said(w, f.citizen).0);
             }
             if !does.is_empty() {
                 text.push_str(&format!(" What they do: {}.", does.join("; ")));

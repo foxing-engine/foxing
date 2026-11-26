@@ -47,14 +47,19 @@ fn call(
     if matches!(kind, ActorKind::Citizen) && verb != "look" {
         rooms::page_stale(w, actor);
     }
-    w.call(
+    let out = w.call(
         &CallContext {
             actor: actor.into(),
             kind,
         },
         verb,
         &args,
-    )
+    );
+    // As the gate does: what was made or taken goes to its place.
+    if out.is_ok() && matches!(kind, ActorKind::Citizen) {
+        places::settle(w, actor);
+    }
+    out
 }
 
 thread_local! {
@@ -7441,6 +7446,7 @@ fn nothing_mends_in_a_fight_or_while_bleeding() {
         false,
     )
     .unwrap();
+    places::settle(&mut w, "dave");
     assert_eq!(craft::carries(&w, dave, "bandage"), Some(bandage));
     let mut line = None;
     for _ in 0..40 {
@@ -7491,6 +7497,7 @@ fn nothing_mends_in_a_fight_or_while_bleeding() {
         false,
     )
     .unwrap();
+    places::settle(&mut w, "dave");
     let out = ok(&mut w, "dave", "rest", json!([]));
     assert!(
         out.summary
@@ -14083,7 +14090,9 @@ fn second_tier_things_are_for_fights() {
     let (dmg, _) = combat::creature_strikes(&mut w, wisp, dave).unwrap();
     assert!(dmg <= 2.0, "{dmg}");
     assert!(combat::strike_notes().contains("half a blow; it wears off now"));
-    // Under a third of yourself, the surgeon's bandage binds the wound as it lands.
+    // Under a third of yourself, the surgeon's bandage binds the wound as it lands
+    // (C21: from the pocket, where the salve went first).
+    ok(&mut w, "dave", "hold", json!(["surgeon's bandage"]));
     combat::commit_hp(&mut w, dave, 9.0).unwrap();
     let (dmg, dead) = combat::creature_strikes(&mut w, wisp, dave).unwrap();
     assert!(!dead);
@@ -14103,6 +14112,7 @@ fn second_tier_things_are_for_fights() {
     assert_eq!(combat::hp(&w, dave).ceil(), 1.0);
     // Your own blows: the dart goes in with one that lands, and the salve gives
     // back four for it.
+    ok(&mut w, "dave", "hold", json!(["frill salve"]));
     combat::commit_hp(&mut w, dave, 12.0).unwrap();
     let hollows = rooms::room_by_key(&w, "shallows").unwrap();
     w.record(
@@ -17465,4 +17475,88 @@ fn a_name_chooses_its_figure_and_changes_it_in_the_namery() {
     .unwrap();
     ok(&mut w, "dave", "figure", json!(["reader"]));
     assert_eq!(plain_str(&w, me, SPRITE, "frame"), Some("figure-reader"));
+}
+
+/// C21: a thing works from its place; one thing to a place; each figure begins
+/// with its own.
+#[test]
+fn a_thing_works_from_its_place_and_a_figure_begins_with_its_own() {
+    let t0 = Timestamp(1_000_000);
+    let mut w = open(tempfile::tempdir().unwrap().path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    let me = find_citizen(&w, "dave").unwrap().citizen;
+    ok(&mut w, "dave", "look", json!([]));
+    // The hunter is given a short sword, and it goes to the hand by itself.
+    let said = ok(&mut w, "dave", "figure", json!(["hunter"])).summary;
+    assert!(said.contains("You are given a short sword"), "{said}");
+    assert!(craft::carries(&w, me, "sword").is_some());
+    assert!((combat::to_hit(&w, me) - (combat::HIT_BASE + combat::SWORD_HIT)).abs() < 1e-9);
+    let sat = ok(&mut w, "dave", "satchel", json!([])).summary;
+    assert!(sat.contains("At work: hand: a short sword"), "{sat}");
+    // Stowed, it does nothing; held again, it works.
+    ok(&mut w, "dave", "stow", json!(["hand"]));
+    assert!(craft::carries(&w, me, "sword").is_none());
+    assert!((combat::to_hit(&w, me) - combat::HIT_BASE).abs() < 1e-9);
+    let sat = ok(&mut w, "dave", "satchel", json!([])).summary;
+    assert!(
+        sat.contains("not at work until it is put in its place") && sat.contains("a short sword"),
+        "{sat}"
+    );
+    let held = ok(&mut w, "dave", "hold", json!(["short sword"])).summary;
+    assert!(held.contains("in your hand now"), "{held}");
+    assert!(craft::carries(&w, me, "sword").is_some());
+    // A second thing for the same place stays in the satchel until it is held, and
+    // then the first goes back.
+    let s = craft::satchel(&mut w, "dave", me).unwrap();
+    let curves = Curves::from_env();
+    craft::make(
+        &mut w,
+        &curves,
+        Actor::Driver,
+        Some("dave".into()),
+        s,
+        "a stinging dart",
+        "made",
+        "dart",
+        None,
+        &[],
+        3,
+        false,
+    )
+    .unwrap();
+    ok(&mut w, "dave", "look", json!([]));
+    assert!(craft::carries(&w, me, "dart").is_none());
+    let held = ok(&mut w, "dave", "hold", json!(["dart"])).summary;
+    assert!(
+        held.contains("A short sword goes back in the satchel"),
+        "{held}"
+    );
+    assert!(craft::carries(&w, me, "dart").is_some() && craft::carries(&w, me, "sword").is_none());
+    // A thing with no place works from the satchel as it did.
+    craft::make(
+        &mut w,
+        &curves,
+        Actor::Driver,
+        Some("dave".into()),
+        s,
+        "a ribbon marker",
+        "made",
+        "ribbon-marker",
+        None,
+        &[],
+        2,
+        false,
+    )
+    .unwrap();
+    assert!(craft::carries(&w, me, "ribbon-marker").is_some());
+    let e = call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "wear",
+        json!(["ribbon marker"]),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains("has no place on you"), "{e}");
 }

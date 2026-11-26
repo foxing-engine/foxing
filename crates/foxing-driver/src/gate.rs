@@ -1674,6 +1674,11 @@ fn run_request(
         }
         match world.call(&ctx, &verb, &args) {
             Ok(out) => {
+                // C21: what was just made or taken goes to its place; what was
+                // spent or given has left it.
+                if matches!(kind, ActorKind::Citizen) {
+                    crate::disremembered::places::settle(world, actor);
+                }
                 if out.result["died"] == Value::Bool(true) {
                     woke = true;
                     fell_at = Some(n);

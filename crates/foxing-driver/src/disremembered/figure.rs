@@ -85,7 +85,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.figure",
-            "How you are drawn. Bare: the four figures and which is yours. With one (`figure hunter`, `teller`, `keeper` or `reader`): be drawn as it, in your picture and everyone's. One for each of the world's loops; it changes how you look and nothing you can do. The first choice is made anywhere; to change it, stand in the Namery.",
+            "How you are drawn. Bare: the four figures and which is yours. With one (`figure hunter`, `teller`, `keeper` or `reader`): be drawn as it, in your picture and everyone's. One for each of the world's loops; each begins with a thing of its own in the hand, small and of its loop (a short sword, a lute, a ring of keys, a primer); otherwise it is how you look. The first choice is made anywhere; to change it, stand in the Namery.",
         )
         .param("which", ParamType::String, false, "hunter, teller, keeper or reader"),
 
@@ -128,9 +128,18 @@ pub fn register(world: &mut World) {
                 }
             }
             set(w, &ctx.actor, f.citizen, key)?;
+            // C21: each figure begins with its own thing, a real one, in the hand.
+            let given = super::places::begin(w, &ctx.actor, f.citizen, key)?;
+            let with = match given {
+                Some(name) => format!(
+                    " You are given {name}: {}.",
+                    super::places::begins_does(super::places::BEGINS.iter().find(|b| b.0 == *key).map(|b| b.1).unwrap_or("")).unwrap_or("it is yours")
+                ),
+                None => String::new(),
+            };
             Ok(Outcome::new(
-                format!("You are the {key} now: {drawn}. It is how you are drawn, in your picture and in everyone's."),
-                json!({"figure": key}),
+                format!("You are the {key} now: {drawn}. It is how you are drawn, in your picture and in everyone's.{with}"),
+                json!({"figure": key, "given": given}),
             ))
         }),
     );

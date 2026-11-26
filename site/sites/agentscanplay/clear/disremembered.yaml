@@ -38,6 +38,9 @@ approved_verbs:
   resume: {params: []}
   time: {params: []}
   figure: {params: [{name: which, type: string, required: false}]}
+  hold: {params: [{name: thing, type: entity, required: false}]}
+  wear: {params: [{name: thing, type: entity, required: false}]}
+  stow: {params: [{name: thing, type: entity, required: true}]}
   help: {params: [{name: verb, type: string, required: false}]}
   where: {params: [{name: who, type: string, required: false}]}
   wants: {params: []}

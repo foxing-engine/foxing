@@ -1591,11 +1591,39 @@ export default function install(m) {
   // What you could make now: a row of buttons over the grid, one a thing.
   const satMake = document.createElement("div");
   satMake.style.cssText = "display:none;flex-wrap:wrap;gap:6px;margin:0 0 6px";
-  satPanel.append(satMake, satGrid);
+  // C21: the five places on the body, over the grid: what is in each, and a tap to
+  // put it back. A thing that has a place works only from it.
+  const PLACE_OF = { dart: "hand", sword: "hand", lute: "hand", keys: "hand", primer: "hand", buckler: "off", charm: "neck", lens: "neck", brine: "neck", "brine-glass": "neck", bandage: "pocket", jar: "pocket", salve: "pocket", splint: "pocket", lantern: "light" };
+  const PLACE_NAMES = [["hand", "hand"], ["off", "arm"], ["neck", "neck"], ["pocket", "pocket"], ["light", "light"]];
+  let places = {};
+  const placeOf = (it) => PLACE_OF[it.effect] || PLACE_OF[it.origin] || null;
+  const atWork = (it) => Object.values(places).some(p => p && p.id === it.id);
+  const satWorn = document.createElement("div");
+  satWorn.style.cssText = "display:none;gap:4px;margin:0 0 6px;flex-wrap:wrap;align-items:flex-end";
+  function drawWorn() {
+    satWorn.replaceChildren();
+    const any = satchel.some(it => placeOf(it));
+    satWorn.style.display = m.actor && any ? "flex" : "none";
+    if (!any) return;
+    for (const [key, label] of PLACE_NAMES) {
+      const it = places[key] && satchel.find(x => x.id === places[key].id);
+      const b = document.createElement("button"); b.type = "button";
+      b.style.cssText = "width:46px;height:56px;padding:2px;border-radius:6px;background:rgba(18,26,37,.6);color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font:inherit;cursor:" + (it ? "pointer" : "default") + ";border:1px " + (it ? "solid var(--dust,#d9b57a)" : "dashed var(--line,#334)");
+      const ic = document.createElement("canvas"); ic.width = 32; ic.height = 32; ic.style.cssText = "width:32px;height:32px;image-rendering:pixelated";
+      if (it) { const g = ic.getContext("2d"); g.imageSmoothingEnabled = false; const src = iconCanvas(iconFor(it.name)); g.drawImage(src, 0, 0, src.width, src.height, 0, 0, 32, 32); }
+      const lab = document.createElement("span"); lab.textContent = label; lab.style.cssText = "font-size:9px;line-height:1;color:var(--dim)";
+      b.append(ic, lab);
+      b.title = it ? it.name + ", in its place and at work" + (it.uses ? " (" + it.uses + " use" + (it.uses === 1 ? "" : "s") + " left)" : "") + ". A tap puts it back in the satchel." : "Nothing here. A thing that belongs here does nothing until it is held: tap it below.";
+      b.setAttribute("aria-label", label + ": " + (it ? it.name : "nothing"));
+      if (it) b.addEventListener("click", (e) => { e.stopPropagation(); m.command("stow", [key === "off" ? "arm" : key]); });
+      satWorn.append(b);
+    }
+  }
+  satPanel.append(satMake, satWorn, satGrid);
   const SAT_QUERY = {
     root: "self",
-    select: {},
-    relations: { contents: { kinds: ["satchel"], select: {}, relations: { contents: { kinds: ["item"], select: { "disremembered.item": ["name", "given_name", "kind", "memory", "uses", "effect", "made_by"], "disremembered.sprite": "*" } } } } },
+    select: { "disremembered.citizen": ["places"] },
+    relations: { contents: { kinds: ["satchel"], select: {}, relations: { contents: { kinds: ["item"], select: { "disremembered.item": ["name", "given_name", "kind", "memory", "uses", "effect", "origin", "made_by"], "disremembered.sprite": "*" } } } } },
     timed: "curve", commands: false,
   };
   let satchel = [];
@@ -1606,7 +1634,7 @@ export default function install(m) {
   function satStacks() {
     const out = [], byName = new Map();
     for (const it of satchel) {
-      const plain = !it.given && !it.made_by && !it.uses;
+      const plain = !it.given && !it.made_by && !it.uses && !placeOf(it);
       if (!plain) { out.push({ it, n: 1, all: [it] }); continue; }
       const st = byName.get(it.name);
       if (st) { st.n += 1; st.all.push(it); if (it.memory < st.it.memory) st.it = it; }
@@ -1672,9 +1700,14 @@ export default function install(m) {
       tile.style.borderColor = "var(--dust,#d9b57a)"; tile.style.boxShadow = "0 0 10px rgba(217,181,122,.35)";
       tile.title += " Goes into " + into.map(r => r.name).join(", ") + ", which you could make now.";
     }
+    // C21: a thing with a place is at work (ringed whole) or waiting (dashed, dim).
+    const spot = placeOf(it), worn = spot && atWork(it);
+    if (worn) { tile.style.borderColor = "var(--dust,#d9b57a)"; tile.title += " In its place, and at work."; }
+    else if (spot) { tile.style.borderStyle = "dashed"; ic.style.opacity = String(Math.min(0.5, Number(ic.style.opacity))); tile.title += " Not at work: it does nothing until you hold it."; }
     tile.addEventListener("click", (ev) => {
       ev.stopPropagation();
       const rows = [
+        ...(spot ? [worn ? ["put away " + it.name, () => m.command("stow", ["item-" + it.id])] : ["hold " + it.name, () => m.command("hold", ["item-" + it.id])]] : []),
         ...into.map(r => ["make " + r.name, () => m.prefill("craft " + r.recipe + " ")]),
         ["drop " + it.name, () => m.command("drop", ['"' + it.name + '"'])],
         ["read " + it.name, () => m.command("read", ["item-" + it.id])],
@@ -1694,7 +1727,7 @@ export default function install(m) {
     return tile;
   }
   function drawSatchel() {
-    satGrid.replaceChildren();
+    satGrid.replaceChildren(); drawWorn();
     const can = m.actor ? makeable : [];
     satPanel.style.borderColor = can.length ? "var(--dust,#d9b57a)" : "";
     satPanel.style.boxShadow = can.length ? "0 0 0 1px rgba(217,181,122,.35), 0 0 22px rgba(217,181,122,.22)" : "";
@@ -1727,9 +1760,10 @@ export default function install(m) {
     const items = [];
     for (const sat of sats) for (const n of (sat.relations && sat.relations.contents) || []) {
       const it = n.components["disremembered.item"] || {};
-      items.push({ id: n.id, name: it.name || "something", given: it.given_name || null, memory: it.memory != null ? Math.max(0, Math.min(1, m.timed(it.memory))) : 1, uses: it.uses || 0, effect: it.effect || null, made_by: it.made_by || null });
+      items.push({ id: n.id, name: it.name || "something", given: it.given_name || null, memory: it.memory != null ? Math.max(0, Math.min(1, m.timed(it.memory))) : 1, uses: it.uses || 0, effect: it.effect || null, origin: it.origin || null, made_by: it.made_by || null });
     }
     satchel = items;
+    places = (root && root.components && root.components["disremembered.citizen"] && root.components["disremembered.citizen"].places) || {};
     // What you carry changed: what you could make may have.
     const key = items.map(i => i.id).sort().join();
     if (key !== satKey) { satKey = key; askRecipes(); }

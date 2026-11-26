@@ -48,6 +48,7 @@ pub mod news;
 pub mod nouns;
 pub mod past;
 pub mod pilots;
+pub mod places;
 pub mod presence;
 pub mod preview;
 pub mod reading;
@@ -458,6 +459,7 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // D33: whether the second and third words are meanings, and the stories
             // being weighed against them (meaning.rs).
             .field("sense", FieldKind::Plain, Visibility::Admin)
+            .field("places_from", FieldKind::Plain, Visibility::Admin)
             .field("weighing", FieldKind::Plain, Visibility::Admin)
             // The greeting book, stocked nightly: {first: [...], welcome: [...]}.
             .field("book", FieldKind::Plain, Visibility::Public),
@@ -551,6 +553,11 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // three minutes is said short.
             // C22: the figure a name chose to be drawn as.
             .field("figure", FieldKind::Plain, Visibility::Public)
+            // C21: what is in each of the five places, and the newest thing this
+            // name has been asked about; the day a reader's primer forgave a miss.
+            .field("places", FieldKind::Plain, Visibility::Public)
+            .field("places_seen", FieldKind::Plain, Visibility::Owner)
+            .field("primer_day", FieldKind::Plain, Visibility::Owner)
             .field("paged_room", FieldKind::Plain, Visibility::Owner)
             .field("paged_at", FieldKind::Plain, Visibility::Owner)
             // H9: a district's door has said its line this session.
@@ -928,6 +935,7 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     namery::ensure(world)?;
     docent::ensure(world)?;
     docent::ensure_round(world)?;
+    places::ensure(world);
     board::ensure(world)?;
     combat::ensure_regen(world)?;
     morphos::ensure(world)?;
@@ -1491,6 +1499,7 @@ pub fn register(world: &mut World, curves: Curves) {
     exchange::register(world, curves.clone());
     meaning::register(world, curves.clone());
     figure::register(world);
+    places::register(world);
     errand::register(world);
     asks::register(world);
     bard::register(world);

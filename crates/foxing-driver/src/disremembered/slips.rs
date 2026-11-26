@@ -702,6 +702,29 @@ fn answer(world: &mut World, ctx: &CallContext, text: &str) -> Result<Outcome, C
                 json!({"slip": slip.district, "right": false, "free": true}),
             ));
         }
+        // C21: a reader's primer, in the hand: the first miss of a day is forgiven.
+        let day = world.now().0.div_euclid(86_400_000);
+        let forgave = match world
+            .store
+            .entity(f.citizen)
+            .and_then(|e| e.components.get(CITIZEN))
+            .and_then(|c| c.fields.get("primer_day"))
+        {
+            Some(Field::Plain(v)) => v.as_i64(),
+            _ => None,
+        };
+        if forgave != Some(day) && super::craft::carries(world, f.citizen, "primer").is_some() {
+            let mut changes = BTreeMap::new();
+            changes.insert("primer_day".to_string(), Field::Plain(json!(day)));
+            super::set_citizen_fields(world, &ctx.actor, f.citizen, changes)?;
+            return Ok(Outcome::new(
+                format!(
+                    "That is not what the world says tonight. You look it up in your primer and the desk lets it pass: the slip hears you again at once, this once today. Where a reader might look: {}.",
+                    asked.look
+                ),
+                json!({"slip": slip.district, "right": false, "free": true}),
+            ));
+        }
         t.tried.insert(slip.room.to_string(), world.now().0);
         keep(world, &ctx.actor, f.citizen, &t)?;
         return Ok(Outcome::new(

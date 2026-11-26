@@ -1240,6 +1240,8 @@ pub fn to_hit(world: &World, citizen: EntityId) -> f64 {
         .clamp(0.05, 1.0)
 }
 
+/// C21: what a short sword in the hand adds to a blow's chance.
+pub const SWORD_HIT: f64 = 0.05;
 /// D35: by a second-tier lantern's light a strike lands nine in ten.
 pub const HIT_LIT: f64 = 0.9;
 fn hit_base(world: &World, citizen: EntityId) -> f64 {
@@ -1247,6 +1249,9 @@ fn hit_base(world: &World, citizen: EntityId) -> f64 {
         || super::tending::lit(world, citizen)
     {
         HIT_LIT
+    } else if super::craft::carries(world, citizen, "sword").is_some() {
+        // C21: a hunter's short sword, in the hand.
+        HIT_BASE + SWORD_HIT
     } else {
         HIT_BASE
     }
@@ -1679,6 +1684,17 @@ pub fn mending_rate(world: &World, citizen: EntityId) -> f64 {
     {
         return base * WATCHFIRE_PACE;
     }
+    // C21: a keeper's ring of keys, in the hand, in a room of the name's own.
+    let name = plain_str(world, citizen, super::CITIZEN, "name")
+        .unwrap_or("")
+        .to_string();
+    let keyed = room.is_some_and(|r| {
+        world
+            .store
+            .entity(r)
+            .is_some_and(|e| e.owner.as_deref() == Some(name.as_str()))
+    }) && super::craft::carries(world, citizen, "keys").is_some();
+    let base = if keyed { base * 1.5 } else { base };
     // A basin standing in the room: three times the pace (D27; it was twice).
     if room.is_some_and(|r| {
         super::craft::fixture_of(world, r, "basin").is_some()

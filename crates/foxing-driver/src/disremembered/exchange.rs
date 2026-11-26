@@ -678,7 +678,15 @@ pub fn register(world: &mut World, curves: Curves) {
             // pays a teller of standing more (the Watch of 11-21: "a creature knowing
             // me changed no payout").
             let known = super::bard::known_bonus(w, &ctx.actor, creature);
-            let paid = (paid * known).round();
+            // C21: a teller's lute, in the hand: the first story a creature has of
+            // this name in a day pays a tenth more.
+            let lute = super::craft::carries(w, f.citizen, "lute").is_some() && {
+                let now = w.now();
+                !w.recent_events(2000).iter().any(|e| {
+                    e.kind == STORY && e.payload["creature"] == creature.0 && e.payload["from"] == ctx.actor.as_str() && now.since(e.at).0 < 86_400_000
+                })
+            };
+            let paid = (paid * known * if lute { 1.1 } else { 1.0 }).round();
             if wanted {
                 super::bard::did(w, &ctx.actor, "want");
             }

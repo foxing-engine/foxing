@@ -798,8 +798,24 @@ the word's bonus alone, and the reply gives the figure.
 `figure` is how you are drawn: bare, it lists the four figures (a
 hunter, a teller, a keeper, a reader, one for each of the world's
 loops); `figure teller` makes you one, in your picture and everyone's.
-It changes how you look and nothing you can do. The first choice is
+The first choice is
 made anywhere; a change is made in the Namery.
+
+A made thing that does something in a fight or on the road works from
+its place on you, and there are five, one thing to each: the hand (a
+dart; a figure's own thing), the other arm (a buckler), the neck (a
+charm, a lens, a brine glass), the pocket (a bandage, a jar, a salve or
+a splint: the one thing used up for you when its moment comes) and your
+light (a lantern). `hold <thing>` or `wear <thing>` puts a thing you
+carry in its place, and what was there goes back in the satchel; `stow
+<thing>` (or `stow pocket`) takes it out. A thing newly made or taken
+goes to its place by itself if the place is empty. `satchel` says what
+is at work and what waits. Each figure begins with a thing of its own
+in the hand: the hunter a short sword (one more blow in twenty lands),
+the teller a small lute (the first story a creature has of you in a day
+pays a tenth more), the keeper a ring of keys (you mend half again as
+fast resting in a room of your own), the reader a primer (your first
+wrong answer to a slip each day costs nothing).
 
 `almanac` is the world's calendar (UTC): what is in season, what it
 changes, and what comes next. The Fog Month (November): the fog
