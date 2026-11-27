@@ -1197,7 +1197,10 @@ pub fn register(world: &mut World, curves: super::Curves) {
                 if let Some(no) = super::shop::refuses(w, creature) {
                     return Err(CommandError::precondition(no));
                 }
+                let held_before = super::mind::level(w, creature);
                 let (source, level) = super::mind::give(w, ctx.actor.as_str(), chunk, creature)?;
+                // What was fed to a called creature's apprentice counts to the feeder.
+                super::calling::fed(w, creature, ctx.actor.as_str(), level - held_before);
                 let after = super::mind::display(w, creature);
                 // A grudge against this name is settled by a memory given.
                 if let Some(line) = super::calling::settled_by(w, creature, &ctx.actor) {

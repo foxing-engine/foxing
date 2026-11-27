@@ -51,6 +51,16 @@ pub const CHOOSE_WAIT_MS: i64 = 20 * 60_000;
 pub const GIVE_UP_MS: i64 = 3 * 86_400_000;
 /// What helping a calling through is worth, and what the creature keeps of it.
 pub const HELP_XP: f64 = 15.0;
+/// What helping a calling through pays (David, 11-26: "helping a calling should be
+/// more valuable"; the Watch had a helper spend sixty and get fifteen): this much
+/// for having a hand in it, and three quarters of what the helper put in on top, up
+/// to a ceiling. What is put in: memory fed to an apprentice; a thing given to a
+/// collection at what the shop would call it worth, eight at least; five for each
+/// step walked with a pilgrim, a mourner or a trader, forty at most; twelve for each
+/// part of a work heard; twenty-five for settling a grudge.
+pub const HELP_BASE: f64 = 25.0;
+pub const HELP_SHARE: f64 = 0.75;
+pub const HELP_MAX: f64 = 120.0;
 pub const DONE_XP: f64 = 20.0;
 /// A collection is this many things.
 pub const COLLECTED: u64 = 3;
@@ -507,12 +517,22 @@ fn finish(
             let Some(f) = find_citizen(world, &h) else {
                 continue;
             };
+            let gave = state["gave"][&h].as_f64().unwrap_or(0.0)
+                + match goal.as_str() {
+                    "pilgrimage" | "ossuary" | "trade" => {
+                        (state["with"][&h].as_f64().unwrap_or(0.0) * 5.0).min(40.0)
+                    }
+                    "work" => state["heard"][&h].as_f64().unwrap_or(0.0) * 12.0,
+                    "grudge" => 25.0,
+                    _ => 0.0,
+                };
+            let pay = ((HELP_BASE + HELP_SHARE * gave).min(HELP_MAX) * 2.0).round() / 2.0;
             if super::memory::earn_chunk(
                 world,
                 &h,
                 f.window,
                 &format!("helping {name} with its calling ({how})"),
-                HELP_XP,
+                pay,
                 0.8,
                 &curves,
             )
@@ -521,7 +541,7 @@ fn finish(
                 super::combat::narrate(
                     world,
                     &h,
-                    format!("{name} has done what it set out to do ({how}), and you had a hand in it: a memory of that is yours, {HELP_XP:.0} XP, vivid."),
+                    format!("{name} has done what it set out to do ({how}), and you had a hand in it: a memory of that is yours, {pay:.1} XP, vivid ({HELP_BASE:.0} for the hand, and the rest for what you put into it)."),
                 );
                 paid.push(h);
             }
@@ -1352,6 +1372,30 @@ pub fn busy(world: &World, c: EntityId, actor: &str) -> Option<String> {
     ))
 }
 
+/// A memory was fed to a creature (building.rs): if a called creature is raising it
+/// as its heir, what the feeder put in is counted to them for when the calling is
+/// done.
+pub fn fed(world: &mut World, apprentice: EntityId, actor: &str, amount: f64) {
+    if amount <= 0.0 {
+        return;
+    }
+    let teachers: Vec<EntityId> = world
+        .store
+        .of_kind("creature")
+        .filter(|e| {
+            of(world, e.id)
+                .is_some_and(|st| st["goal"] == "heir" && st["apprentice"] == apprentice.0)
+        })
+        .map(|e| e.id)
+        .collect();
+    for t in teachers {
+        if let Some(mut state) = of(world, t) {
+            state["gave"][actor] = json!(state["gave"][actor].as_f64().unwrap_or(0.0) + amount);
+            let _ = save(world, t, &state);
+        }
+    }
+}
+
 /// A thing handed to a creature (`give <thing> <creature>`): taken if it is what a
 /// collection wants. `None`: this creature takes nothing by the hand.
 pub fn given(
@@ -1391,6 +1435,8 @@ pub fn given(
         givers.push(json!(actor));
     }
     state["givers"] = json!(givers);
+    let put_in = super::shop::worth(world, item).unwrap_or(0.0).max(8.0);
+    state["gave"][actor] = json!(state["gave"][actor].as_f64().unwrap_or(0.0) + put_in);
     if let Err(e) = save(world, c, &state) {
         return Some(Err(CommandError::internal(e)));
     }

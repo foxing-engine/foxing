@@ -95,9 +95,9 @@ pub const RESIDENTS: &[Resident] = &[
         name: "Pettifer",
         room: "kept-kitchen",
         book: [
-            "Needed salt. Most things do.",
-            "The soup was better the second day, as people are.",
-            "Left a crust for whoever is hungry after me. Do not thank me, eat it.",
+            "It wanted something. Most things do. I saw to it.",
+            "Better the second day, as people are.",
+            "Left a little for whoever comes down after me. Do not thank me.",
         ],
         trace: "A pot stands off the heat under a cloth, with a spoon across it and a note: \"Tomorrow's. Salt it when I am back, not before.\"",
     },
@@ -106,9 +106,9 @@ pub const RESIDENTS: &[Resident] = &[
         name: "Quillon",
         room: "kept-landing",
         book: [
-            "The sign on the stair says 'Mind you're head'. I have minded it. I have also corrected it.",
-            "A good house; a semicolon of a house: it joins what would otherwise be two lonely things.",
-            "Whoever wrote above me: 'their', not 'there'.",
+            "The notice on the stair has been seen to. It will need seeing to again.",
+            "A good house; it joins what would otherwise be two lonely things.",
+            "To whoever wrote above me: you know what you did.",
         ],
         trace: "A half-copied letter lies on the desk, weighted with the ink bottle; in the margin, small: \"Resume at the semicolon.\"",
     },
@@ -117,9 +117,9 @@ pub const RESIDENTS: &[Resident] = &[
         name: "Dunnock",
         room: "kept-bedroom",
         book: [
-            "Found a button on the stair and sewed it to the curtain so it would not be lost again.",
-            "Nothing here is broken that a length of thread would not see to.",
-            "Mended the hem of the hall rug. Nobody asked. Nobody trips now.",
+            "Found something loose on the stair and fixed it where it would not be lost again.",
+            "Nothing here is past saving.",
+            "Saw to the rug. Nobody asked. Nobody trips now.",
         ],
         trace: "A needle stands in the arm of the chair with a thread still through it, and one glove has four fingers done.",
     },
@@ -128,13 +128,33 @@ pub const RESIDENTS: &[Resident] = &[
         name: "Hesper",
         room: "kept-attic",
         book: [
-            "Clear tonight from the attic. Three stars I knew and one I did not.",
-            "Rain on the skylight until four. I counted it as company.",
-            "The window on the east side shows tomorrow a little early.",
+            "Clear tonight. Three I knew and one I did not.",
+            "Rain until four. I counted it as company.",
+            "The east side shows tomorrow a little early.",
         ],
         trace: "The skylight is shut and latched, and tomorrow's weather is pencilled on the chart, with the hour.",
     },
 ];
+
+/// Lines in the book that nobody who boards here wrote: two a month, left by
+/// travelers passing through, some of them close enough to a resident's manner to be
+/// taken for it (David, 11-26, after the Watch found the page one sitting's work).
+const PASSING_LINES: [[&str; 2]; 3] = [
+    [
+        "Two nights. Would have stayed three, but the road does not keep.",
+        "Counted the stairs going up and again coming down, and got different answers.",
+    ],
+    [
+        "Passing through. It was hot, and nobody asked my business.",
+        "Lost a glove here once. Found it on the hook, mended. Did not ask who.",
+    ],
+    [
+        "Slept well. Dreamed of a different house and preferred this one.",
+        "Arrived by the east road at an hour I will not write down.",
+    ],
+];
+/// Who wrote a passing line, for `ascribe <line> traveler`.
+pub const PASSING: &str = "a traveler";
 
 /// The names travelers go by, one a stay in turn.
 const ROAD_NAMES: &[&str] = &[
@@ -509,6 +529,9 @@ pub fn lines(world: &World) -> Vec<(&'static str, &'static str)> {
         .iter()
         .map(|r| (r.book[m.rem_euclid(3) as usize], r.name))
         .collect();
+    for line in PASSING_LINES[m.rem_euclid(3) as usize] {
+        all.push((line, PASSING));
+    }
     // A different order each month, the same for everyone.
     let n = all.len();
     all.rotate_left((m.rem_euclid(n as i64)) as usize);
@@ -516,6 +539,8 @@ pub fn lines(world: &World) -> Vec<(&'static str, &'static str)> {
         all.reverse();
     }
     all.swap(1, 4);
+    all.swap(0, 6);
+    all.swap(3, 7);
     all
 }
 
@@ -529,10 +554,14 @@ fn book(world: &World) -> Value {
         .and_then(|e| e.components.get(ROOM))
         .and_then(|c| c.fields.get("book"))
     {
-        Some(Field::Plain(v)) if v.is_object() && v["month"].as_i64() == Some(month(world)) => {
+        // (page 2: the page grew two lines on 11-26 and its numbers moved; what was
+        // found on the six-line page is found again.)
+        Some(Field::Plain(v))
+            if v.is_object() && v["month"].as_i64() == Some(month(world)) && v["page"] == 2 =>
+        {
             v.clone()
         }
-        _ => json!({"month": month(world), "right": {}, "wrong": {}}),
+        _ => json!({"month": month(world), "page": 2, "right": {}, "wrong": {}}),
     }
 }
 
@@ -588,7 +617,7 @@ pub fn look_line(world: &World, room: EntityId, actor: &str) -> Option<String> {
         })
         .unwrap_or_else(|| " Everyone is home today.".to_string());
     Some(format!(
-        "The Visitors' Book lies open on the hall table: six unsigned lines, one by each who boards here (`read book`; you have ascribed {done} of 6).{away}"
+        "The Visitors' Book lies open on the hall table: eight unsigned lines, six by those who board here and two by travelers who passed through (`read book`; you have ascribed {done} of 8).{away}"
     ))
 }
 
@@ -630,7 +659,7 @@ pub fn read_book(world: &World, room: EntityId, actor: &str, arg: &str) -> Optio
         .collect();
     Some(Outcome::new(
         format!(
-            "This month's page of the Visitors' Book, in six hands, unsigned: {} Six board here: {}. Each has one thing it cannot leave alone, and shows it in what it does when you stand by it a while and in the room it keeps. `ascribe <line> <name>` says who wrote one: {LINE_XP:.0} XP vivid for each you get right, {BOOK_XP:.0} more for all six, once a month; a wrong guess closes that line to you for an hour. The page turns with the month.",
+            "This month's page of the Visitors' Book, in eight hands, unsigned: {} Six board here: {}. Two of the lines were left by travelers passing through, and some of those sound like someone of the house. Each has one thing it cannot leave alone, and shows it in what it does when you stand by it a while and in the room it keeps. `ascribe <line> <name>` says who wrote one (`ascribe <line> traveler` for a line that is nobody's of the house): {LINE_XP:.0} XP vivid for each you get right, {BOOK_XP:.0} more for the whole page, once a month; a wrong guess closes that line to you for an hour. The page turns with the month.",
             shown.join(" "),
             boarders(world)
         ),
@@ -668,14 +697,19 @@ pub fn register(world: &mut World) {
             }
             let said = args.str("name").unwrap_or("").trim().trim_matches('"').to_lowercase();
             let said = said.trim_start_matches("the ").to_string();
-            let Some(guess) = RESIDENTS
+            let passing = matches!(said.as_str(), "traveler" | "a traveler" | "travelers" | "nobody" | "no one" | "none" | "passing" | "stranger" | "a stranger");
+            let guess = RESIDENTS
                 .iter()
-                .find(|r| r.name.to_lowercase() == said || r.kind == said || said == format!("{} the {}", r.name.to_lowercase(), r.kind))
-            else {
+                .find(|r| r.name.to_lowercase() == said || r.kind == said || said == format!("{} the {}", r.name.to_lowercase(), r.kind));
+            if guess.is_none() && !passing {
                 return Err(CommandError::precondition(format!(
-                    "Nobody of that name boards here. The six: {}.",
+                    "Nobody of that name boards here. The six: {}. Two lines on the page were left by travelers passing through: `ascribe <line> traveler` says so of one.",
                     RESIDENTS.iter().map(|r| r.name).collect::<Vec<_>>().join(", ")
                 )));
+            }
+            let (guess_name, guess_style) = match guess {
+                Some(r) => (r.name, format!("{} the {}", r.name, r.kind)),
+                None => (PASSING, "a traveler passing through".to_string()),
             };
             let mut b = book(w);
             let now = w.now().0;
@@ -693,7 +727,7 @@ pub fn register(world: &mut World) {
                 }
             }
             let (line, who) = all[n as usize - 1];
-            let right = who == guess.name;
+            let right = who == guess_name;
             let mut all_six = false;
             let reply = if right {
                 done.push(n as u64);
@@ -703,14 +737,14 @@ pub fn register(world: &mut World) {
                 }
                 b["right"][&ctx.actor] = json!(done);
                 let curves = super::Curves::from_env();
-                super::memory::earn_chunk(w, &ctx.actor, f.window, &format!("knowing {}'s hand in the Visitors' Book", guess.name), LINE_XP, 0.9, &curves)?;
+                super::memory::earn_chunk(w, &ctx.actor, f.window, &format!("knowing {}'s hand in the Visitors' Book", guess_name), LINE_XP, 0.9, &curves)?;
                 let more = if all_six {
                     super::memory::earn_chunk(w, &ctx.actor, f.window, "knowing everyone who boards at the Kept House by how they write", BOOK_XP, 0.9, &curves)?;
-                    format!(" That is all six: you know the house by its handwriting, and that is a memory too, {BOOK_XP:.0} XP, vivid. The page turns with the month.")
+                    format!(" That is the whole page: you know the house by its handwriting, and who only passed through it, and that is a memory too, {BOOK_XP:.0} XP, vivid. The page turns with the month.")
                 } else {
                     format!(" {} of {} found.", done.len(), all.len())
                 };
-                format!("\"{line}\" Yes: that is {} the {}, and nobody else in the house would have put it that way. A memory, {LINE_XP:.0} XP, vivid.{more}", guess.name, guess.kind)
+                format!("\"{line}\" Yes: that is {guess_style}, and nobody else would have put it that way. A memory, {LINE_XP:.0} XP, vivid.{more}")
             } else {
                 if !b["wrong"].is_object() {
                     b["wrong"] = json!({});
@@ -719,16 +753,16 @@ pub fn register(world: &mut World) {
                     b["wrong"][&ctx.actor] = json!({});
                 }
                 b["wrong"][&ctx.actor][&key] = json!(now);
-                format!("\"{line}\" You say {}; the hand is not {}'s. That line is closed to you for an hour. Go and listen to them: each has one thing it cannot leave alone.", guess.name, guess.name)
+                format!("\"{line}\" You say {guess_style}; it is not. That line is closed to you for an hour. Go and listen to them: each has one thing it cannot leave alone, and two of these lines are nobody's who boards here.")
             };
             keep_book(w, b).map_err(CommandError::internal)?;
             let _ = w.note(
                 Actor::Citizen(ctx.actor.clone()),
                 ASCRIBED,
-                json!({"by": ctx.actor, "line": n, "to": guess.name, "right": right, "all": all_six}),
+                json!({"by": ctx.actor, "line": n, "to": guess_name, "right": right, "all": all_six}),
             );
             let _ = find_citizen(w, &ctx.actor);
-            Ok(Outcome::new(reply, json!({"line": n, "to": guess.name, "right": right, "all": all_six})))
+            Ok(Outcome::new(reply, json!({"line": n, "to": guess_name, "right": right, "all": all_six})))
         }),
     );
 }

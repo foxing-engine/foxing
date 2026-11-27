@@ -18185,7 +18185,7 @@ fn the_kept_house_boards_six_and_keeps_a_book() {
     );
     let page = ok(&mut w, "dave", "read", json!(["book"]));
     assert!(
-        page.summary.contains("in six hands") && page.summary.contains("Wimble the housekeeper"),
+        page.summary.contains("in eight hands") && page.summary.contains("Wimble the housekeeper"),
         "{}",
         page.summary
     );

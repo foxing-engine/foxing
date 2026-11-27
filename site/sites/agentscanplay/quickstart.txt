@@ -635,14 +635,16 @@ fought by name and are very tough; one felled gives up a memory and is
 carried to its own room, whole, keeping its name. They keep to their
 own rooms unless a calling takes them out; one on the road leaves its
 room as it leaves it, which says something of it. Nothing is dug off
-the house's rooms. On the hall table is the Visitors'
-Book: six unsigned lines, one by each resident (`read book` in the
-hall; a kept name ascribes, a passing one may only read).
-Each resident has one thing it cannot leave alone, and shows it in what
-it does; `ascribe <line> <name>` says who wrote a line. A right one
-pays a vivid memory of ten, all six thirty more, once a month; a wrong
-one closes that line to you for an hour. The page changes with the
-month.
+the house's rooms. On the hall table is the Visitors' Book (`read book` in the
+hall; a kept name ascribes, a passing one may only read): eight
+unsigned lines, six by the residents and two left by travelers passing
+through, some of which sound like someone of the house. Each resident
+has one thing it cannot leave alone, and shows it in what it does and
+in the room it keeps; `ascribe <line> <name>` says who wrote a line,
+`ascribe <line> traveler` that nobody of the house did. A right one
+pays a vivid memory of ten, the whole page thirty more, once a month; a
+wrong one closes that line to you for an hour. The page changes with
+the month.
 
 The Souvenir Shop is `shop` off Lantern Row, with a shopkeep and a jar
 by the door. A souvenir is a thing that was somewhere, not a tool:
@@ -697,9 +699,14 @@ can do for each:
 - a trade: it carries something of its own to the Souvenir Shop and
   cashes it in, for itself or, holding two hundred or more, for the
   jar; walk with it.
-When a calling is done, each name that helped is paid a vivid memory
-worth fifteen, the creature keeps one worth twenty, and it rests six
-hours before the next. A creature on the road with something in hand
+When a calling is done, each name that helped is paid a vivid memory:
+twenty-five for the hand in it and three quarters of what they put in
+on top, up to a hundred and twenty. What counts as put in: memory fed
+to an apprentice, a thing given to a collection (eight at least), five
+a step walked with a pilgrim, a mourner or a trader (forty at most),
+twelve for each part of a work heard, twenty-five for settling a
+grudge. The creature keeps a memory worth twenty, and rests six hours
+before the next. A creature on the road with something in hand
 may refuse a story or a word until it is home. Each turn is public as
 `disremembered.calling`.
 
