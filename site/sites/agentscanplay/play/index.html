@@ -4186,7 +4186,13 @@
       main.style.setProperty("--scene-h", px + "px");
       try { localStorage.setItem("disremembered.sceneH", String(px)); } catch (e) {}
     }
-    foldScene = (on) => { auto = false; keepOpen = !on; setFolded(on); foldLabel(); };
+    // A name that chose "Show me" keeps the picture open from room to room and login
+    // to login, until it folds it by hand (Watch 28: it was folded again at the first
+    // long reply, and a newcomer who had asked for the picture landed on a wall of words).
+    let pinned = false;
+    try { pinned = localStorage.getItem("disremembered.showme") === "1"; } catch (e) {}
+    const pin = (on) => { pinned = on; try { localStorage.setItem("disremembered.showme", on ? "1" : "0"); } catch (e) {} };
+    foldScene = (on) => { auto = false; keepOpen = !on; pin(!on); setFolded(on); foldLabel(); };
     function setFolded(on) {
       main.classList.toggle("collapsed", on);
       fold.textContent = on ? "scene ▸" : "scene ▾";
@@ -4235,19 +4241,19 @@
         // Opened by hand, it stays open in that room; in the next it folds for a
         // long reply again (it stayed open for the whole visit, and the Watch of
         // 11-25 read a long reply four lines at a time under it).
-        if (sawRoom !== null && name && name !== sawRoom) { sawRoom = name; keepOpen = false; autoFold(false); return; }
+        if (sawRoom !== null && name && name !== sawRoom) { sawRoom = name; keepOpen = pinned; autoFold(false); return; }
         if (name) sawRoom = name;
         if (log.scrollHeight - log.scrollTop - log.clientHeight >= 48) autoFold(true);
         else foldLabel();
       }));
     });
     on_("observation", () => { if (phone.matches) { const name = roomName(); if (sawRoom !== null && name && name !== sawRoom) { sawRoom = name; autoFold(false); } else foldLabel(); } });
-    on_("login", () => { auto = false; keepOpen = false; sawRoom = null; done = 0; $("first").classList.remove("tuck"); foldLabel(); });
+    on_("login", () => { auto = false; keepOpen = pinned; sawRoom = null; done = 0; $("first").classList.remove("tuck"); foldLabel(); });
     fold.addEventListener("click", (e) => {
       e.stopPropagation();
       const open = main.classList.contains("collapsed");
       if (auto && open) { auto = false; keepOpen = true; main.classList.remove("collapsed"); fold.setAttribute("aria-expanded", "true"); foldLabel(); return; }
-      auto = false; setFolded(!open); foldLabel();
+      auto = false; if (!open) pin(false); setFolded(!open); foldLabel();
     });
     // The story keeps its last line in view when the furniture under it grows (the verb
     // chips arrive after the words and once covered the line just printed).

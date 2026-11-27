@@ -657,9 +657,21 @@ pub fn read_book(world: &World, room: EntityId, actor: &str, arg: &str) -> Optio
             }
         })
         .collect();
+    let open: Vec<String> = (1..=lines(world).len() as u64)
+        .filter(|i| !done.contains(i))
+        .map(|i| format!("`ascribe {i}`"))
+        .collect();
+    let taps = if open.is_empty() {
+        String::new()
+    } else {
+        format!(
+            " A line by its number reads it back with each choice: {}.",
+            open.join(" ")
+        )
+    };
     Some(Outcome::new(
         format!(
-            "This month's page of the Visitors' Book, in eight hands, unsigned: {} Six board here: {}. Two of the lines were left by travelers passing through, and some of those sound like someone of the house. Each has one thing it cannot leave alone, and shows it in what it does when you stand by it a while and in the room it keeps. `ascribe <line> <name>` says who wrote one (`ascribe <line> traveler` for a line that is nobody's of the house): {LINE_XP:.0} XP vivid for each you get right, {BOOK_XP:.0} more for the whole page, once a month; a wrong guess closes that line to you for an hour. The page turns with the month.",
+            "This month's page of the Visitors' Book, in eight hands, unsigned: {} Six board here: {}. Two of the lines were left by travelers passing through, and some of those sound like someone of the house. Each has one thing it cannot leave alone, and shows it in what it does when you stand by it a while and in the room it keeps. `ascribe <line> <name>` says who wrote one (`ascribe <line> traveler` for a line that is nobody's of the house): {LINE_XP:.0} XP vivid for each you get right, {BOOK_XP:.0} more for the whole page, once a month; a wrong guess closes that line to you for an hour. The page turns with the month.{taps}",
             shown.join(" "),
             boarders(world)
         ),
@@ -674,7 +686,7 @@ pub fn register(world: &mut World) {
             "In the hall of the Kept House: say which resident wrote a line of the Visitors' Book (`look` there shows the six lines, numbered). Each right one pays a vivid memory, all six a larger one, once a month; a wrong guess closes that line to you for an hour.",
         )
         .param("line", ParamType::Integer, true, "the line's number in the book, 1 to 6")
-        .param("name", ParamType::String, true, "the resident you say wrote it")
+        .param("name", ParamType::String, false, "the resident you say wrote it, or `traveler`; left off, the line is read back with each choice to tap")
         .allowed(&[ActorKind::Citizen, ActorKind::Admin]),
         Box::new(|w: &mut World, ctx, args: &Args| {
             let f = me(w, ctx)?;
@@ -694,6 +706,17 @@ pub fn register(world: &mut World) {
             let n = args.int("line").unwrap_or(0);
             if n < 1 || n as usize > all.len() {
                 return Err(CommandError::precondition(format!("The page has {} lines; `ascribe <line> <name>` wants one of them by its number.", all.len())));
+            }
+            // A line with no name: read back, with each choice as a command to tap
+            // (Watch 29: on a phone `ascribe` could only be typed).
+            if args.str("name").unwrap_or("").trim().is_empty() {
+                let (line, _) = all[n as usize - 1];
+                let mut choices: Vec<String> = RESIDENTS.iter().map(|r| format!("`ascribe {n} {}`", r.name)).collect();
+                choices.push(format!("`ascribe {n} traveler`"));
+                return Ok(Outcome::new(
+                    format!("Line {n}: \"{line}\" Who wrote it? {}", choices.join(" ")),
+                    json!({"line": n, "choices": RESIDENTS.iter().map(|r| r.name).collect::<Vec<_>>()}),
+                ));
             }
             let said = args.str("name").unwrap_or("").trim().trim_matches('"').to_lowercase();
             let said = said.trim_start_matches("the ").to_string();

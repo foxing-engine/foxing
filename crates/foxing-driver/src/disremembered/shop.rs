@@ -798,6 +798,14 @@ pub fn register(world: &mut World) {
             // missing (Watch 29: `buy "moth dust"` held "no memory called 'dust'").
             if let Ok(whole) = super::craft::resolve_item(w, &unquote(&line), k) {
                 if meant(w, &unquote(&line), whole).is_ok() {
+                    // The one that would come down: the cheapest of that name.
+                    let like = super::craft::display(w, whole);
+                    let whole = shelf(w)
+                        .into_iter()
+                        .filter(|(_, n, _)| *n == like)
+                        .min_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal))
+                        .map(|x| x.0)
+                        .unwrap_or(whole);
                     return Err(CommandError::precondition(format!(
                         "{} is on the shelves at {:.1}. Say what you pay with after it: `buy {} <chunk>`, one memory of yours worth that or more (`chunks` lists them by their words), spent whole.",
                         super::craft::display(w, whole),

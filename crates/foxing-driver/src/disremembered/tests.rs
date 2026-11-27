@@ -18190,6 +18190,13 @@ fn the_kept_house_boards_six_and_keeps_a_book() {
         page.summary
     );
     let lines = kept::lines(&w);
+    // A line by its number alone reads it back with each choice to tap.
+    let asked = ok(&mut w, "dave", "ascribe", json!([2]));
+    assert!(
+        asked.summary.contains("Who wrote it?") && asked.summary.contains("`ascribe 2 traveler`"),
+        "{}",
+        asked.summary
+    );
     let wrong = kept::RESIDENTS
         .iter()
         .find(|r| r.name != lines[0].1)

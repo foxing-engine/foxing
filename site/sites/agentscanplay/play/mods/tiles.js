@@ -1445,7 +1445,8 @@ export default function install(m) {
     if (!shade2 || shade2.width !== canvas.width || shade2.height !== canvas.height) { shade2 = document.createElement("canvas"); shade2.width = canvas.width; shade2.height = canvas.height; }
     const dg = shade2.getContext("2d");
     dg.globalCompositeOperation = "source-over"; dg.clearRect(0, 0, shade2.width, shade2.height);
-    dg.fillStyle = "rgba(9,13,20," + (scene.motif === "lanterns" ? 0.46 : 0.6) + ")"; dg.fillRect(0, 0, shade2.width, shade2.height);
+    // (A lived-in room with its lamps lit is not a cellar: the Kept House, the shop and the Wickmaker's Bench were near black, Watches 28 and 29.)
+    dg.fillStyle = "rgba(9,13,20," + (/^kept-|^souvenir-shop$|wickmaker/.test(scene.key || "") ? 0.28 : scene.motif === "lanterns" ? 0.46 : 0.6) + ")"; dg.fillRect(0, 0, shade2.width, shade2.height);
     dg.globalCompositeOperation = "destination-out";
     const flick = (l) => l.seed == null || STILL ? 1 : 1 + 0.06 * Math.sin(now / 170 + l.seed) + 0.035 * Math.sin(now / 61 + l.seed * 3);
     for (const l of lights) {
