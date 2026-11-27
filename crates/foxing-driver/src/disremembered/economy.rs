@@ -459,9 +459,9 @@ pub fn dashboard(world: &World) -> Value {
 fn prose(rate: &str, up: bool) -> &'static str {
     match (rate, up) {
         ("worth", true) => "the fog is thick with things worth remembering",
-        ("worth", false) => "the creatures are thin tonight",
+        ("worth", false) => "what hunts is thin tonight, and worth less",
         ("pay", true) => "stories carry further this hour",
-        ("pay", false) => "the creatures listen with half an ear",
+        ("pay", false) => "a story is heard with half an ear",
         ("half_life", true) => "memory keeps",
         ("half_life", false) => "memory thins",
         ("respawn", true) => "the rooms are slow to fill",
@@ -470,8 +470,8 @@ fn prose(rate: &str, up: bool) -> &'static str {
         ("drop", false) => "what comes apart leaves little",
         ("price", true) => "the ground is hard and things are dear",
         ("price", false) => "the ground is soft and things are cheap",
-        ("mend", true) => "the creatures mend quickly tonight",
-        ("mend", false) => "the creatures keep their wounds",
+        ("mend", true) => "wounds close quickly, theirs before yours",
+        ("mend", false) => "a wound given tonight stays given",
         _ => "something has shifted",
     }
 }

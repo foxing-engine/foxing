@@ -363,7 +363,14 @@ pub fn kept(world: &World, actor: &str) -> Vec<String> {
                     out.push(n);
                 }
             }
-            "item" if plain_str(world, e.id, ITEM, "made_by") == Some(actor) => {
+            // (Held by you still: one you made and sold, gave or spent is not
+            // "still yours", Watch 28.)
+            "item"
+                if plain_str(world, e.id, ITEM, "made_by") == Some(actor)
+                    && e.parent
+                        .and_then(|p| world.store.entity(p))
+                        .is_some_and(|p| p.owner.as_deref() == Some(actor)) =>
+            {
                 out.push(super::craft::display(world, e.id));
             }
             _ => {}

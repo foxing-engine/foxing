@@ -1393,7 +1393,7 @@ export default function install(m) {
         const menuRows = OFFICER && !t.given
           ? [{ label: "Look", run: () => m.command("look", []) }, { label: "Read the room", run: () => m.command("read", []) }]
           : t.given
-          ? [{ label: "Talk to " + t.given, run: () => m.prefill("tell " + t.given + ' "') }, { label: "Tell " + t.given + " a story", run: () => m.prefill("story " + t.given + ' "') }, { label: "Give " + t.given + " a memory", run: () => m.prefill("remember " + bestChunk() + " " + t.given) }, { label: "Attack " + t.given, run: () => m.command("attack", [t.given]), warn: true }]
+          ? [{ label: "Talk to " + t.given, run: () => m.prefill("tell " + t.given + ' "') }, { label: "Tell " + t.given + " a story", run: () => m.prefill("story " + t.given + ' "') }, { label: "Give " + t.given + " a memory", run: () => m.prefill("remember " + bestChunk() + " " + t.given) }, ...(/^(shopkeep|housekeeper|watchman|cook|copyist|seamster|stargazer|traveler|boarder)$/.test((t.sprite && t.sprite.frame) || t.kind || "") ? [] : [{ label: "Attack " + t.given, run: () => m.command("attack", [t.given]), warn: true }])]
           : [{ label: "Attack " + (twins ? ref : who), run: () => m.command("attack", [ref]) }, { label: "Give it a memory (names it at 60)", run: () => m.prefill("remember " + bestChunk() + " " + (/ /.test(ref) ? '"' + ref + '"' : ref)) }, { label: "Look", run: () => m.command("look", []) }];
         hot.set(x + "," + y, { target: t.given || ref, label: (twins ? ref : who) + (t.max ? " (" + Number(t.hp).toFixed(0) + "/" + t.max + ")" : "") + (t.given ? " — talk, story, memory, attack" : " — attack, or feed it"), primary: t.given ? () => m.prefill("story " + t.given + ' "') : OFFICER ? () => m.command("look", []) : () => m.command("attack", [ref]), menu: menuRows });
       } else if (t.kind === "you") {
@@ -1922,7 +1922,7 @@ export default function install(m) {
         ...(spot ? [worn ? ["put away " + it.name, () => m.command("stow", ["item-" + it.id])] : ["hold " + it.name, () => m.command("hold", ["item-" + it.id])]] : []),
         ...into.map(r => ["make " + r.name, () => m.prefill("craft " + r.recipe + " ")]),
         // C17: over the Souvenir Shop's counter a thing can be priced and sold by thumb.
-        ...(scene.key === "souvenir-shop" ? [
+        ...(scene.key === "souvenir-shop" && !/^(sword|targe|lute|keys|primer)$/.test(it.origin || "") ? [
           ["appraise " + it.name, () => m.command("appraise", ["item-" + it.id])],
           ["sell " + it.name, () => m.command("sell", ["item-" + it.id])],
           ["sell it for the jar", () => m.command("sell", ["item-" + it.id + " world"])],

@@ -212,6 +212,16 @@ pub fn worth(world: &World, item: EntityId) -> Result<f64, String> {
         ));
     }
     let base = if made { 6.0 } else { FOUND_WORTH };
+    // A thing half forgotten is worth less, down to half (Watch 28: one "19%
+    // remembered" fetched the full price).
+    let kept = world
+        .store
+        .read_field(item, ITEM, "memory", world.now())
+        .ok()
+        .and_then(|v| v.as_f64())
+        .unwrap_or(1.0)
+        .clamp(0.0, 1.0);
+    let base = base * (0.5 + 0.5 * kept);
     Ok((base + held / 3.0 + tier * 6.0 + if named { 3.0 } else { 0.0 }).min(WORTH_MAX))
 }
 
@@ -784,6 +794,18 @@ pub fn register(world: &mut World) {
                     shelf(w).iter().map(|(_, n, t)| format!("{n} ({t:.1})")).collect::<Vec<_>>().join(", ")
                 )));
             };
+            // The whole line names a thing on the shelves: the chunk is what is
+            // missing (Watch 29: `buy "moth dust"` held "no memory called 'dust'").
+            if let Ok(whole) = super::craft::resolve_item(w, &unquote(&line), k) {
+                if meant(w, &unquote(&line), whole).is_ok() {
+                    return Err(CommandError::precondition(format!(
+                        "{} is on the shelves at {:.1}. Say what you pay with after it: `buy {} <chunk>`, one memory of yours worth that or more (`chunks` lists them by their words), spent whole.",
+                        super::craft::display(w, whole),
+                        ticket(w, whole),
+                        super::craft::display(w, whole)
+                    )));
+                }
+            }
             let item = super::craft::resolve_item(w, &unquote(thing), k).map_err(|_| {
                 CommandError::precondition(format!(
                     "Nothing on the shelves answers to that. On them: {}.",
@@ -807,6 +829,7 @@ pub fn register(world: &mut World) {
                     "The shopkeep taps the ticket: {asked:.1}. \"That memory is worth {value:.1}. I do not take two small ones for one large one; they are not the same thing.\""
                 )));
             }
+            let from_palace = w.store.entity(chunk).and_then(|e| e.parent) == Some(f.palace);
             let sat = super::craft::satchel(w, &ctx.actor, f.citizen)?;
             w.record(Actor::Citizen(ctx.actor.clone()), StoreEvent::EntityRemoved { id: chunk }).map_err(super::internal)?;
             w.record(Actor::Citizen(ctx.actor.clone()), StoreEvent::EntityMoved { id: item, parent: Some(sat) }).map_err(super::internal)?;
@@ -818,7 +841,12 @@ pub fn register(world: &mut World) {
             Ok(Outcome::new(
                 format!(
                     "The shopkeep takes {name} down, blows on it, and takes your memory for it ({value:.1} against a ticket of {asked:.1}){}. {name} is in your satchel. \"It was somebody's. Now it is yours, which is a different thing.\"",
-                    if value > asked + 0.5 { "; it gives no change, and looks as if change had never been invented" } else { "" }
+                    match (value > asked + 0.5, from_palace) {
+                        (true, true) => "; it gives no change, and looks as if change had never been invented. That memory came off your palace's shelf, where it was keeping",
+                        (true, false) => "; it gives no change, and looks as if change had never been invented",
+                        (false, true) => "; that memory came off your palace's shelf, where it was keeping",
+                        (false, false) => "",
+                    }
                 ),
                 json!({"item": item.0, "name": name, "ticket": asked, "paid": value}),
             ))

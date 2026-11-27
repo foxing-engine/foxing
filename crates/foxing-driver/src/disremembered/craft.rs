@@ -2468,7 +2468,17 @@ pub fn register(world: &mut World, curves: Curves) {
             let item = resolve_item(w, args.str("item").unwrap_or(""), room).map_err(|e| {
                 let said = e.to_string();
                 match said.strip_prefix(&format!("{} took the ", ctx.actor)) {
-                    Some(rest) => CommandError::precondition(format!("You took the {} It is in your satchel (`satchel`).", rest.replace("; there is none here now.", ": there is none here now."))),
+                    Some(rest) => {
+                        // (Said only while it is still there: one sold or spent since
+                        // was "in your satchel" all the same, Watch 28.)
+                        let typed = args.str("item").unwrap_or("").to_string();
+                        let held = satchel(w, &ctx.actor, f.citizen).ok().is_some_and(|sat| resolve_item(w, &typed, sat).is_ok());
+                        CommandError::precondition(format!(
+                            "You took the {}{}",
+                            rest.replace("; there is none here now.", ": there is none here now."),
+                            if held { " It is in your satchel (`satchel`)." } else { " It is not in your satchel now: spent, sold, given or dropped since." }
+                        ))
+                    }
                     None => e,
                 }
             })?;

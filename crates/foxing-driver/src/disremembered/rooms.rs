@@ -3113,6 +3113,19 @@ pub fn register(world: &mut World) {
                             plain_str(w, *to, ROOM, "name").unwrap_or("?")
                         )
                     });
+                // A door of that name one room on (Watch 29: `travel hall` from the
+                // Kept House's attic, whose only door is `landing`, was offered two
+                // unrelated halls).
+                let beyond = order.iter().find_map(|(via, to)| {
+                    exits_of(w, **to).get(&exit).map(|far| {
+                        format!(
+                            " A door called '{exit}' is one room on, in {}: `travel {via}`, then `travel {exit}` (or `travel \"{}\"`, which walks the way).",
+                            plain_str(w, **to, ROOM, "name").unwrap_or("?"),
+                            plain_str(w, *far, ROOM, "name").unwrap_or("?")
+                        )
+                    })
+                });
+                let near = near.or(beyond);
                 let meant = near.unwrap_or_else(|| {
                     let mut rooms: Vec<String> = w
                         .store

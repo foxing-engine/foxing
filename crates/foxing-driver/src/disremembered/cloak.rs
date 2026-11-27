@@ -314,7 +314,10 @@ pub fn register(world: &mut World) {
             if super::is_passing(w, f.citizen) {
                 presence::forget(w, f.citizen).map_err(CommandError::internal)?;
                 return Ok(Outcome::new(
-                    format!("You go, and the world forgets the name {} as you asked. {THANKS}", ctx.actor),
+                    format!(
+                        "You go, and the world forgets the name {} as you asked: what it carried and remembered goes with it, and nothing of it is kept (a kept name, `keep`, is the kind that comes back to its memories). {THANKS}",
+                        ctx.actor
+                    ),
                     json!({"left": true, "forgotten": true, "thanks": THANKS}),
                 ));
             }

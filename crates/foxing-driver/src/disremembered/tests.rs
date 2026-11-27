@@ -4880,7 +4880,7 @@ fn the_clocktower_strikes_the_hour_and_moves_the_rates_in_prose() {
     assert!(w.tick() >= 1);
     let said = narrative(&w, "dave", head);
     assert!(
-        said.iter().any(|l| l == "The Clocktower strikes. The fog is thick with things worth remembering; stories carry further this hour; the ground is soft and things are cheap; and the creatures keep their wounds."),
+        said.iter().any(|l| l == "The Clocktower strikes. The fog is thick with things worth remembering; stories carry further this hour; the ground is soft and things are cheap; and a wound given tonight stays given."),
         "{said:?}"
     );
     assert!(narrative(&w, "tyler", head)
