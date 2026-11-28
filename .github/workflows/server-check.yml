@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       what:
-        description: "analytics | driver | vitals | verify-checkpoint | rehearse-archive | archive-live (moves the live log: David's go) | all"
+        description: "analytics | driver | vitals | errors (the HTTP error sweep, both servers) | verify-checkpoint | rehearse-archive | archive-live (moves the live log: David's go) | all"
         default: "all"
       minutes:
         description: "vitals only: how long to sample (1 to 25)"
@@ -38,7 +38,33 @@ jobs:
             IdentitiesOnly yes
             StrictHostKeyChecking yes
           EOF
+      # The HTTP error sweep (David, 11-28): what the analytics store holds of 4xx and
+      # 5xx, on the game server and on the site's, read for security risks and
+      # misconfigurations. Read-only. This log is public: the script prints counts and
+      # paths, and no address, name or user-agent string.
+      - uses: actions/checkout@v4
+        if: github.event.inputs.what == 'errors'
+      - name: Error sweep
+        if: github.event.inputs.what == 'errors'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          echo "######## game server"
+          ssh -o BatchMode=yes -o ConnectTimeout=15 game "python3 - 14" < .github/scripts/errors_sweep.py || echo "(the game server's sweep failed: $?)"
+          VPS_HOST=$(printf '%s' "$VPS_HOST" | tr -d '\r\n ')
+          printf '%s\n' "${{ secrets.VPS_KNOWN_HOSTS }}" | tr -d '\r' | grep -v '^#' >> ~/.ssh/known_hosts
+          cat >> ~/.ssh/config <<EOF
+          Host vps
+            HostName $VPS_HOST
+            User $GAME_USER
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+          echo; echo "######## site server"
+          ssh -o BatchMode=yes -o ConnectTimeout=15 vps "python3 - 14" < .github/scripts/errors_sweep.py || echo "(the site server's sweep failed: $?)"
       - name: Look
+        if: github.event.inputs.what != 'errors'
         env:
           WHAT: ${{ github.event.inputs.what }}
           MINUTES: ${{ github.event.inputs.minutes }}
