@@ -2573,13 +2573,22 @@ pub(crate) fn die(
     let level = super::memory::level(world, f.window) + on_shelf;
     let (fall, ever) = super::death::record_fall(world, actor, f.citizen, killer)?;
     let share = death_share(level) * 0.5f64.powi(fall.saturating_sub(1) as i32).max(FALL_FLOOR);
-    let owed = level * share;
+    // (Nor is it counted in what the fall's share is a share of.)
+    let kept_by_bearer = super::vellum::borne_of(world, actor)
+        .filter(|&c| super::vellum::is_borne(world, c))
+        .and_then(|c| world.store.read_field(c, CHUNK, "value", world.now()).ok())
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let owed = (level - kept_by_bearer).max(0.0) * share;
     let fell_in = super::rooms::room_of(world, f.citizen);
     let mut chunks: Vec<(EntityId, String, f64)> = world
         .store
         .children(f.window)
         .chain(world.store.children(f.palace))
         .filter(|e| e.kind == "chunk")
+        // David, 11-28: "a fall does not take a commended memory". What the bearer
+        // keeps is not in the draw.
+        .filter(|e| !super::vellum::is_borne(world, e.id))
         .map(|e| {
             (
                 e.id,

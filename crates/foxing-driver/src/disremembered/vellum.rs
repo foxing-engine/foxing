@@ -444,7 +444,7 @@ pub fn register(world: &mut World) {
             };
             Ok(Outcome::new(
                 format!(
-                    "You commend your oldest memory to {NAME}: chunk-{}, {source}.{mended} {NAME} reads it once, scrapes a place for it on its own skin, and writes it there under everything else it carries. It is still yours.{lies} It does not fade while {NAME} lives. If the bearer is ever felled, it lets go of all it carries, and this fades again from that day.",
+                    "You commend your oldest memory to {NAME}: chunk-{}, {source}.{mended} {NAME} reads it once, scrapes a place for it on its own skin, and writes it there under everything else it carries. It is still yours.{lies} It does not fade while {NAME} lives, and a fall of yours does not take it. If the bearer is ever felled, it lets go of all it carries, and this fades again from that day.",
                     chunk.0
                 ),
                 json!({"chunk": chunk.0, "was": was, "now": whole, "bearer": c.0}),

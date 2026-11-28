@@ -18400,6 +18400,13 @@ fn the_vellum_way_ends_at_a_bearer_who_keeps_the_oldest_memory() {
     w.fixed_now = Some(t0.plus(Duration::seconds(3000)));
     assert!((value(&w, first) - 30.0).abs() < 1e-6, "it does not fade");
     assert!(value(&w, later) < 0.01, "the other does");
+    // A fall does not take it (David, 11-28).
+    let f2 = find_citizen(&w, "dave").unwrap();
+    for _ in 0..3 {
+        combat::die(&mut w, "dave", &f2, None).unwrap();
+    }
+    assert!((value(&w, first) - 30.0).abs() < 1e-6, "a fall leaves it");
+    admin(&mut w, "dave", "bring", json!(["dave", vellum::END]));
     // One memory a name.
     let e = call(&mut w, "dave", ActorKind::Citizen, "commend", json!([]))
         .unwrap_err()
