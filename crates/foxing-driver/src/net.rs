@@ -1441,6 +1441,23 @@ async fn log(
     Ok(Json(json!({"events": events, "cursor": cursor})))
 }
 
+/// Where a browser at the bare address is sent: the page that plays this world.
+async fn front_door() -> axum::response::Redirect {
+    let to = std::env::var("FOXING_HOME_URL")
+        .unwrap_or_else(|_| "https://agentscanplay.com/play/".to_string());
+    axum::response::Redirect::temporary(&to)
+}
+
+/// Agents are welcome at every door here; the file exists so that asking for it is
+/// not an error.
+async fn robots() -> &'static str {
+    "User-agent: *\nAllow: /\n"
+}
+
+async fn no_icon() -> axum::http::StatusCode {
+    axum::http::StatusCode::NO_CONTENT
+}
+
 pub fn router(shared: Shared) -> Router {
     use axum::http::{header, HeaderValue, Method};
     use tower_http::cors::CorsLayer;
@@ -1459,6 +1476,12 @@ pub fn router(shared: Shared) -> Router {
         ])
         .max_age(std::time::Duration::from_secs(3600));
     Router::new()
+        // The error sweep of 11-28: a person who typed the game's address got a 404
+        // (280 of them in a fortnight), and so did every browser's favicon and every
+        // crawler's robots.txt. The front door points at the page.
+        .route("/", get(front_door))
+        .route("/robots.txt", get(robots))
+        .route("/favicon.ico", get(no_icon))
         .route("/health", get(health))
         .route("/v0/whoami", get(whoami))
         .route("/v0/commands", get(commands))
