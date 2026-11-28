@@ -1127,7 +1127,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "vellum-1",
         name: "The First Skin",
         description: "A passage as thin as a page held edgewise, walled in hide scraped pale. Somebody's accounts were here once; you can see where the figures were, and not what they came to. The way goes on.",
-        exits: &[("out", "archive"), ("on", "vellum-2")],
+        exits: &[("out", "archive"), ("onward", "vellum-2")],
         spawn: None,
         former: &[],
         tint: "#cdbf9c",
@@ -1136,7 +1136,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "vellum-2",
         name: "The Second Skin",
         description: "Thinner. The hide has been written on and scraped and written on, and the older hand shows through the newer like a vein. Neither can be read. The way goes on.",
-        exits: &[("out", "vellum-1"), ("on", "vellum-3")],
+        exits: &[("out", "vellum-1"), ("onward", "vellum-3")],
         spawn: None,
         former: &[],
         tint: "#c9bb98",
@@ -1145,7 +1145,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "vellum-3",
         name: "The Third Skin",
         description: "The walls give a little when you touch them, and come back. A prayer was scraped off this one to make room for a recipe, and the recipe scraped off to make room for nothing. The way goes on.",
-        exits: &[("out", "vellum-2"), ("on", "vellum-4")],
+        exits: &[("out", "vellum-2"), ("onward", "vellum-4")],
         spawn: None,
         former: &[],
         tint: "#c5b794",
@@ -1154,7 +1154,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "vellum-4",
         name: "The Fourth Skin",
         description: "There is a hole here the size of a thumb where the scraper went through, and somebody has written carefully around it, twice, a hundred years apart. The way goes on.",
-        exits: &[("out", "vellum-3"), ("on", "vellum-5")],
+        exits: &[("out", "vellum-3"), ("onward", "vellum-5")],
         spawn: None,
         former: &[],
         tint: "#c1b390",
@@ -1163,7 +1163,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "vellum-5",
         name: "The Fifth Skin",
         description: "Half way, or it may be. The hide here is ruled for music and holds a list of debts, and under the debts a face, drawn once and not finished. The way goes on.",
-        exits: &[("out", "vellum-4"), ("on", "vellum-6")],
+        exits: &[("out", "vellum-4"), ("onward", "vellum-6")],
         spawn: None,
         former: &[],
         tint: "#bdaf8c",
@@ -1172,7 +1172,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "vellum-6",
         name: "The Sixth Skin",
         description: "You have to turn your shoulders to pass. What was written here last was written small, to save the skin, and has been scraped off all the same. The way goes on.",
-        exits: &[("out", "vellum-5"), ("on", "vellum-7")],
+        exits: &[("out", "vellum-5"), ("onward", "vellum-7")],
         spawn: None,
         former: &[],
         tint: "#b9ab88",
@@ -1181,7 +1181,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "vellum-7",
         name: "The Seventh Skin",
         description: "Light comes through the walls from no side in particular. Held up to it, this skin has been five things, and the first of them is the plainest: a name, and a date, and nothing after. The way goes on.",
-        exits: &[("out", "vellum-6"), ("on", "vellum-8")],
+        exits: &[("out", "vellum-6"), ("onward", "vellum-8")],
         spawn: None,
         former: &[],
         tint: "#b5a784",
@@ -1190,7 +1190,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "vellum-8",
         name: "The Eighth Skin",
         description: "The hide is worn to the color of the light behind it. Whoever scraped this one last did not write on it again, and whoever comes next will not need to scrape. The way goes on.",
-        exits: &[("out", "vellum-7"), ("on", "vellum-9")],
+        exits: &[("out", "vellum-7"), ("onward", "vellum-9")],
         spawn: None,
         former: &[],
         tint: "#b1a380",
@@ -1199,7 +1199,7 @@ pub const ROOMS: &[RoomDef] = &[
         key: "vellum-9",
         name: "The Ninth Skin",
         description: "So thin that your own shadow shows on the far side of it. There is no writing left to make out, only where the pen pressed. The way goes on, a little further.",
-        exits: &[("out", "vellum-8"), ("on", "vellum-end")],
+        exits: &[("out", "vellum-8"), ("onward", "vellum-end")],
         spawn: None,
         former: &[],
         tint: "#ada07c",
@@ -1553,7 +1553,9 @@ pub fn ensure_rooms(world: &mut World) -> Result<(), String> {
                 ];
                 (COMPASS.contains(&name.as_str())
                     || (def.key == POSTERN && name.as_str() == "in")
-                    || RETIRED.contains(&(def.key, name.as_str())))
+                    || RETIRED.contains(&(def.key, name.as_str()))
+                    // C19: the Way's doors were `on` for an hour; the gate drops the word.
+                    || (def.key.starts_with("vellum-") && name.as_str() == "on"))
                     && to.as_u64().is_some_and(|t| seed_ids.contains(&t))
                     && !def.exits.iter().any(|(n, _)| n == name)
             })

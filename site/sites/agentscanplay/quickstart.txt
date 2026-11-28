@@ -647,7 +647,7 @@ wrong one closes that line to you for an hour. The page changes with
 the month.
 
 The Vellum Way is `vellum` off the Unfiled Archive: nine thin rooms
-and a last one, `on` and `on`. Nothing lives, grows or is dug along it,
+and a last one, `onward` each time ("on" alone is a joining word to the gate). Nothing lives, grows or is dug along it,
 no sign names its rooms, and it is walked a door at a time (no
 `travel <name>` reaches into it). At the end stands Tacit the bearer.
 `commend` there, for a kept name, gives your oldest memory (the first

@@ -18347,7 +18347,7 @@ fn the_vellum_way_ends_at_a_bearer_who_keeps_the_oldest_memory() {
         "on no sign"
     );
     for _ in 0..9 {
-        ok(&mut w, "dave", "travel", json!(["on"]));
+        ok(&mut w, "dave", "travel", json!(["onward"]));
     }
     assert_eq!(
         rooms::room_of(&w, f.citizen),
