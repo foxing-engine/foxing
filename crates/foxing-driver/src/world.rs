@@ -379,6 +379,11 @@ impl World {
         } else if agent_channel {
             self.notices
                 .push(format!("**{actor}** is back, via {origin}{from}."));
+        } else if from.contains("not from the lab") && !long_away {
+            // David, 11-28: an unknown visitor is the thing to know about, and one
+            // who came back by the page within a day was not said at all.
+            self.notices
+                .push(format!("**{actor}** is back, via {origin}{from}."));
         } else if long_away {
             self.notices.push(format!(
                 "**{actor}** is back after {} days, via {origin}{from}.",

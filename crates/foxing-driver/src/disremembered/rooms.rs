@@ -3234,6 +3234,8 @@ pub fn register(world: &mut World) {
                         .store
                         .of_kind("room")
                         .filter(|e| e.owner.is_none())
+                        // (The Vellum Way answers to no name, and was offered by one.)
+                        .filter(|e| !super::plain_bool(w, e.id, ROOM, "hidden"))
                         .filter_map(|e| plain_str(w, e.id, ROOM, "name"))
                         .filter(|n| {
                             exit.len() > 2

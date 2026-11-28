@@ -1734,7 +1734,7 @@ pub(crate) fn resolve_item(
                 ),
                 // The Watch of 11-25 tried `take hollow water` in three rooms: a room's
                 // own makings are gathered, not taken.
-                None => CommandError::precondition(format!("There is no {bare} here to speak of. (What lies on the ground is taken; a room's own makings are gathered: `gather` here, once an hour, where `recipes` says a making is found.)")),
+                None => CommandError::precondition(format!("There is no {bare} here loose, as a thing dropped or left is. (What a room gives of itself is gathered, not taken: `gather` here, once an hour, where `recipes` says a making is found.)")),
             }
         })
 }

@@ -479,13 +479,17 @@ export default function install(m) {
   // puts the card away for the visit; `figure` is the same choice by hand.
   const FIGURES = [["hunter", "for those who hunt"], ["teller", "for those who tell"], ["keeper", "for those who keep"], ["reader", "for those who read"]];
   let figCard = null, figLater = false;
+  // Watch 30: "later" lasted one visit, and the card dimmed the picture on every
+  // one after. It is remembered a week for the name on this device.
+  const figKey = () => "dis.figlater." + (m.actor || "");
+  const figPutOff = () => { try { return Date.now() - Number(localStorage.getItem(figKey()) || 0) < 7 * 86400000; } catch (e) { return false; } };
   // For the page's welcome, which asks the same thing with a paragraph round it.
   window.disFigure = (key) => {
     const src = frameCanvas("figure-" + key, null, 0); if (!src) return null;
     const c = document.createElement("canvas"); c.width = 48; c.height = 48; c.getContext("2d").drawImage(src, 0, 0); return c;
   };
   function offerFigures(frame) {
-    const want = frame === "citizen" && !figLater && m.actor && !document.body.classList.contains("welcoming");
+    const want = frame === "citizen" && !figLater && m.actor && !figPutOff() && !document.body.classList.contains("welcoming");
     if (!want) { if (figCard) { figCard.remove(); figCard = null; } return; }
     if (figCard) return;
     figCard = document.createElement("div");
@@ -507,8 +511,9 @@ export default function install(m) {
       row.append(b);
     }
     const later = document.createElement("button"); later.type = "button"; later.textContent = "later";
-    later.style.cssText = "border:0;background:none;color:inherit;opacity:.7;font:inherit;font-size:12px;text-decoration:underline;cursor:pointer;padding:6px";
-    later.addEventListener("click", () => { figLater = true; offerFigures(""); });
+    later.style.cssText = "border:0;background:none;color:inherit;opacity:.8;font:inherit;font-size:14px;text-decoration:underline;cursor:pointer;padding:12px 24px";
+    later.addEventListener("click", () => { figLater = true; try { localStorage.setItem(figKey(), String(Date.now())); } catch (e) {} offerFigures(""); });
+    later.title = "Not now: `figure` chooses one whenever you like";
     figCard.append(h, sub, row, later);
     // On a phone the picture is a strip, often folded: the card cut the keeper and
     // the reader in half inside it, or was not seen at all (the Watch of 11-25).

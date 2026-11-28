@@ -1056,6 +1056,18 @@ pub fn step(world: &mut World, c: EntityId) -> Result<bool, String> {
                         if goal == "grudge" && steps >= GRUDGE_PATIENCE * 2 {
                             state["phase"] = json!(2);
                         }
+                        // Watch 30: a debt to a name the world has forgotten had
+                        // nobody to pay and nobody to help, for three days.
+                        if goal == "debt" && find_citizen(world, &who).is_none() {
+                            finish(
+                                world,
+                                c,
+                                false,
+                                "the name it owed has gone out of the world",
+                                vec![],
+                            )?;
+                            return Ok(true);
+                        }
                         if here != home {
                             let _ = go(world, c, home, "going home, for now", "home, for now");
                             true
