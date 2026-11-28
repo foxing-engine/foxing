@@ -924,6 +924,10 @@ pub fn business(world: &mut World) -> Result<(), String> {
             let _ = super::kept::go_home(world, c);
             continue;
         }
+        // C19: the bearer stands at the end of the Way and goes nowhere.
+        if super::vellum::is_bearer(world, c) {
+            continue;
+        }
         if done >= BUSINESS_PER_TICK {
             continue;
         }

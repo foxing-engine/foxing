@@ -18303,3 +18303,125 @@ fn the_kept_house_boards_six_and_keeps_a_book() {
         1
     );
 }
+
+#[test]
+fn the_vellum_way_ends_at_a_bearer_who_keeps_the_oldest_memory() {
+    use super::vellum;
+    let dir = tempfile::tempdir().unwrap();
+    let t0 = Timestamp(1_800_000_000_000);
+    let mut w = open(dir.path(), t0);
+    login(&mut w, "dave", "test", PASS).unwrap();
+    w.fixed_now = Some(t0);
+    let f = find_citizen(&w, "dave").unwrap();
+    // The oldest memory, and a later one.
+    let first = super::memory::earn_chunk(
+        &mut w,
+        "dave",
+        f.window,
+        "the first thing",
+        30.0,
+        0.5,
+        &curves(),
+    )
+    .unwrap();
+    let later = super::memory::earn_chunk(
+        &mut w,
+        "dave",
+        f.window,
+        "a later thing",
+        30.0,
+        0.5,
+        &curves(),
+    )
+    .unwrap();
+    // The Way is walked from the Archive, a door at a time: ten rooms, nothing in
+    // any of them, and none answers to its name.
+    admin(&mut w, "dave", "bring", json!(["dave", "archive"]));
+    ok(&mut w, "dave", "travel", json!([vellum::DOOR]));
+    let here = rooms::room_of(&w, f.citizen).unwrap();
+    assert_eq!(Some(here), rooms::room_by_key(&w, vellum::FIRST));
+    assert!(combat::creatures_in(&w, here).is_empty());
+    assert!(call(&mut w, "dave", ActorKind::Citizen, "gather", json!([])).is_err());
+    assert!(
+        super::atlas::rooms_matching(&w, "skin").is_empty(),
+        "on no sign"
+    );
+    for _ in 0..9 {
+        ok(&mut w, "dave", "travel", json!(["on"]));
+    }
+    assert_eq!(
+        rooms::room_of(&w, f.citizen),
+        rooms::room_by_key(&w, vellum::END)
+    );
+    // Nobody yet; the Way's turn stands the bearer there, and a second makes no second.
+    let e = call(&mut w, "dave", ActorKind::Citizen, "commend", json!([]))
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("the bearer is not here"), "{e}");
+    vellum::tick(&mut w).unwrap();
+    vellum::tick(&mut w).unwrap();
+    let bearers: Vec<_> = w
+        .store
+        .of_kind("creature")
+        .filter(|e| vellum::is_bearer(&w, e.id))
+        .map(|e| e.id)
+        .collect();
+    assert_eq!(bearers.len(), 1);
+    assert_eq!(mind::name(&w, bearers[0]).as_deref(), Some(vellum::NAME));
+    assert!(!super::age::ages(&w, bearers[0]));
+    // A passing name is refused; a kept one is heard.
+    if super::is_passing(&w, f.citizen) {
+        let e = call(&mut w, "dave", ActorKind::Citizen, "commend", json!([]))
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("passing name"), "{e}");
+        ok(&mut w, "dave", "keep", json!([]));
+    }
+    // Both have faded by half and more; the oldest is made whole, and holds.
+    w.fixed_now = Some(t0.plus(Duration::seconds(600)));
+    let value = |w: &World, c| {
+        w.store
+            .read_field(c, super::CHUNK, "value", w.now())
+            .unwrap()
+            .as_f64()
+            .unwrap()
+    };
+    assert!(value(&w, first) < 10.0);
+    let out = ok(&mut w, "dave", "commend", json!([]));
+    assert_eq!(out.result["chunk"], json!(first.0), "{}", out.summary);
+    assert!(
+        (value(&w, first) - 30.0).abs() < 1e-6,
+        "{}",
+        value(&w, first)
+    );
+    assert!(vellum::is_borne(&w, first));
+    let look = ok(&mut w, "dave", "look", json!([]));
+    assert!(look.summary.contains("One is yours"), "{}", look.summary);
+    w.fixed_now = Some(t0.plus(Duration::seconds(3000)));
+    assert!((value(&w, first) - 30.0).abs() < 1e-6, "it does not fade");
+    assert!(value(&w, later) < 0.01, "the other does");
+    // One memory a name.
+    let e = call(&mut w, "dave", ActorKind::Citizen, "commend", json!([]))
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("it has yours"), "{e}");
+    // Shelved, it is as still on the shelf.
+    ok(
+        &mut w,
+        "dave",
+        "shelve",
+        json!([format!("chunk-{}", first.0)]),
+    );
+    w.fixed_now = Some(t0.plus(Duration::seconds(6000)));
+    assert!((value(&w, first) - 30.0).abs() < 1e-6, "nor on the shelf");
+    // Felled, the bearer lets go of all it carries, and it fades from there.
+    let said = vellum::felled(&mut w, bearers[0]).unwrap();
+    assert!(said.contains("one memory"), "{said}");
+    assert!(!vellum::is_borne(&w, first));
+    assert!(vellum::borne_of(&w, "dave").is_none());
+    w.fixed_now = Some(t0.plus(Duration::seconds(1_000_000)));
+    assert!(value(&w, first) < 30.0, "{}", value(&w, first));
+    // And the Way can be walked again.
+    let again = ok(&mut w, "dave", "commend", json!([]));
+    assert_eq!(again.result["chunk"], json!(first.0));
+}

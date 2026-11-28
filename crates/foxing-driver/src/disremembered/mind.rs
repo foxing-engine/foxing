@@ -825,6 +825,10 @@ pub fn check_tier(world: &mut World, creature: EntityId) -> Result<(), CommandEr
     if super::kept::is_traveler(world, creature) {
         want = want.min(1);
     }
+    // C19: the bearer keeps its name and its place, and takes up nothing else.
+    if super::vellum::is_bearer(world, creature) {
+        want = 1;
+    }
     // The shopkeep keeps a shop, and is never more or less than that (Watch 28: fed
     // to a name and then past the bar, it walked out and the shop was shut).
     if plain_str(world, creature, CREATURE, "name") == Some(super::shop::KEEPER) {

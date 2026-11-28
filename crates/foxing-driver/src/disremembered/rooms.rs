@@ -269,8 +269,8 @@ pub const ROOMS: &[RoomDef] = &[
     RoomDef {
         key: "archive",
         name: "The Unfiled Archive",
-        description: "Shelves to the ceiling and ledgers on every one, but the ink lifts off the page the moment you read it and drifts for the rafters. Some of it has learned to flutter. An iron stair turns up to a mezzanine: the Reading Rooms, where creatures are told and not struck.",
-        exits: &[("south", "lantern-row"), ("down", "lower-stacks"), ("up", "mezzanine"), ("names", "namery")],
+        description: "Shelves to the ceiling and ledgers on every one, but the ink lifts off the page the moment you read it and drifts for the rafters. Some of it has learned to flutter. An iron stair turns up to a mezzanine: the Reading Rooms, where creatures are told and not struck. Between two presses a gap no wider than a spine is hung with a scraped hide for a curtain (`vellum`); no sign says where it goes.",
+        exits: &[("south", "lantern-row"), ("down", "lower-stacks"), ("up", "mezzanine"), ("names", "namery"), ("vellum", "vellum-1")],
         spawn: Some(("inkling", 3, 45)),
         former: &[],
         tint: "#4a4e6b",
@@ -1120,6 +1120,98 @@ pub const ROOMS: &[RoomDef] = &[
         spawn: None,
         former: &[],
         tint: "#6a6a6a",
+    },
+    // C19: the Vellum Way (vellum.rs). Nothing spawns, nothing is gathered, and no
+    // room of it says where it goes; the rooms are hidden from every sign.
+    RoomDef {
+        key: "vellum-1",
+        name: "The First Skin",
+        description: "A passage as thin as a page held edgewise, walled in hide scraped pale. Somebody's accounts were here once; you can see where the figures were, and not what they came to. The way goes on.",
+        exits: &[("out", "archive"), ("on", "vellum-2")],
+        spawn: None,
+        former: &[],
+        tint: "#cdbf9c",
+    },
+    RoomDef {
+        key: "vellum-2",
+        name: "The Second Skin",
+        description: "Thinner. The hide has been written on and scraped and written on, and the older hand shows through the newer like a vein. Neither can be read. The way goes on.",
+        exits: &[("out", "vellum-1"), ("on", "vellum-3")],
+        spawn: None,
+        former: &[],
+        tint: "#c9bb98",
+    },
+    RoomDef {
+        key: "vellum-3",
+        name: "The Third Skin",
+        description: "The walls give a little when you touch them, and come back. A prayer was scraped off this one to make room for a recipe, and the recipe scraped off to make room for nothing. The way goes on.",
+        exits: &[("out", "vellum-2"), ("on", "vellum-4")],
+        spawn: None,
+        former: &[],
+        tint: "#c5b794",
+    },
+    RoomDef {
+        key: "vellum-4",
+        name: "The Fourth Skin",
+        description: "There is a hole here the size of a thumb where the scraper went through, and somebody has written carefully around it, twice, a hundred years apart. The way goes on.",
+        exits: &[("out", "vellum-3"), ("on", "vellum-5")],
+        spawn: None,
+        former: &[],
+        tint: "#c1b390",
+    },
+    RoomDef {
+        key: "vellum-5",
+        name: "The Fifth Skin",
+        description: "Half way, or it may be. The hide here is ruled for music and holds a list of debts, and under the debts a face, drawn once and not finished. The way goes on.",
+        exits: &[("out", "vellum-4"), ("on", "vellum-6")],
+        spawn: None,
+        former: &[],
+        tint: "#bdaf8c",
+    },
+    RoomDef {
+        key: "vellum-6",
+        name: "The Sixth Skin",
+        description: "You have to turn your shoulders to pass. What was written here last was written small, to save the skin, and has been scraped off all the same. The way goes on.",
+        exits: &[("out", "vellum-5"), ("on", "vellum-7")],
+        spawn: None,
+        former: &[],
+        tint: "#b9ab88",
+    },
+    RoomDef {
+        key: "vellum-7",
+        name: "The Seventh Skin",
+        description: "Light comes through the walls from no side in particular. Held up to it, this skin has been five things, and the first of them is the plainest: a name, and a date, and nothing after. The way goes on.",
+        exits: &[("out", "vellum-6"), ("on", "vellum-8")],
+        spawn: None,
+        former: &[],
+        tint: "#b5a784",
+    },
+    RoomDef {
+        key: "vellum-8",
+        name: "The Eighth Skin",
+        description: "The hide is worn to the color of the light behind it. Whoever scraped this one last did not write on it again, and whoever comes next will not need to scrape. The way goes on.",
+        exits: &[("out", "vellum-7"), ("on", "vellum-9")],
+        spawn: None,
+        former: &[],
+        tint: "#b1a380",
+    },
+    RoomDef {
+        key: "vellum-9",
+        name: "The Ninth Skin",
+        description: "So thin that your own shadow shows on the far side of it. There is no writing left to make out, only where the pen pressed. The way goes on, a little further.",
+        exits: &[("out", "vellum-8"), ("on", "vellum-end")],
+        spawn: None,
+        former: &[],
+        tint: "#ada07c",
+    },
+    RoomDef {
+        key: "vellum-end",
+        name: "The Flyleaf",
+        description: "The last skin is blank and always was: the leaf a binder leaves at the back for whatever the book did not say. It is wide enough here to stand beside somebody. Nothing hunts here.",
+        exits: &[("out", "vellum-9")],
+        spawn: None,
+        former: &[],
+        tint: "#e0d6b8",
     },
 ];
 
@@ -2657,6 +2749,10 @@ pub fn describe_as(
         text.push_str(&t);
     }
     if let Some(t) = super::kept::look_line(world, room, actor) {
+        text.push(' ');
+        text.push_str(&t);
+    }
+    if let Some(t) = super::vellum::look_line(world, room, actor) {
         text.push(' ');
         text.push_str(&t);
     }

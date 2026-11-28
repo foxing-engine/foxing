@@ -897,6 +897,11 @@ pub fn register(world: &mut World, curves: super::Curves) {
             let here = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
             // C11: the Kept House is the house's own; nothing is dug off its rooms
             // (Watch 29: a closet off the Landing fifteen minutes after it opened).
+            if super::vellum::of_way(w, here) {
+                return Err(CommandError::precondition(
+                    "The skin is too thin to dig: a spade goes through it and into the writing underneath. Nothing is dug off the Vellum Way.",
+                ));
+            }
             if plain_str(w, here, ROOM, "key").is_some_and(|k| k.starts_with("kept-")) {
                 return Err(CommandError::precondition(
                     "The Kept House is the house's own, walls and all: nothing is dug off its rooms. The Lamplighter's Lane outside takes a door.",

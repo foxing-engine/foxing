@@ -174,6 +174,7 @@ fn ordinary(world: &World, c: EntityId) -> bool {
         && kind != "tapster"
         && kind != "shopkeep"
         && kind != super::kept::TRAVELER
+        && kind != super::vellum::BEARER
         && !super::starfish::is(world, c)
 }
 

@@ -270,6 +270,8 @@ pub const CREATURES: &[CreatureDef] = &[
     CreatureDef { key: "copyist", name: "copyist", hp: 600.0, attack: 8.0, xp: 20.0, aggressive: false, strike_seconds: 8, ambush: "caps its ink before anything else. Then it attends to you.", glyph: "Q", tint: "#5a8a8a" },
     CreatureDef { key: "seamster", name: "seamster", hp: 600.0, attack: 8.0, xp: 20.0, aggressive: false, strike_seconds: 8, ambush: "bites off the thread, tucks the needle into its collar, and stands.", glyph: "M", tint: "#6a9a5a" },
     CreatureDef { key: "stargazer", name: "stargazer", hp: 600.0, attack: 8.0, xp: 20.0, aggressive: false, strike_seconds: 8, ambush: "takes its eye from the skylight with real reluctance.", glyph: "G", tint: "#5a6ab0" },
+    // C19: who stands at the end of the Vellum Way (vellum.rs). As tough as the house's.
+    CreatureDef { key: "bearer", name: "bearer", hp: 600.0, attack: 8.0, xp: 20.0, aggressive: false, strike_seconds: 8, ambush: "closes its hands on what it is carrying before it does anything else.", glyph: "B", tint: "#d8c9a0" },
     CreatureDef { key: "traveler", name: "traveler", hp: 600.0, attack: 8.0, xp: 20.0, aggressive: false, strike_seconds: 8, ambush: "has been set on in worse places than this, and says so.", glyph: "T", tint: "#8a8a7a" },
     // C17: the shopkeep of the Souvenir Shop. It fights nobody and is worth nothing
     // felled; a bare `attack` never picks it.
@@ -356,6 +358,7 @@ pub const OFFICERS: &[&str] = &[
     "seamster",
     "stargazer",
     "traveler",
+    "bearer",
     "crier",
     "clerk",
     "bailiff",
@@ -527,7 +530,12 @@ pub fn narrate_others(world: &mut World, entity: EntityId, text: &str, except: &
     narrate_room_but(world, entity, text, Some(except));
 }
 
-fn narrate_room_but(world: &mut World, entity: EntityId, text: &str, except: Option<&str>) {
+pub(super) fn narrate_room_but(
+    world: &mut World,
+    entity: EntityId,
+    text: &str,
+    except: Option<&str>,
+) {
     let Some(room) = world.store.entity(entity).and_then(|e| e.parent) else {
         return;
     };
@@ -2137,7 +2145,7 @@ pub fn leave_by_level(world: &mut World, actor: &str, citizen: EntityId) {
     narrate(
         world,
         actor,
-        "You have reached level 100, and the world's leave ends there (it holds past 100 only while the Docent is walking you down a road), before your first hour is out and for good: what hunts, hunts you now. A room's `look` says what hunts whoever stays in it (the Shallows' hollows, the drowned, an anemone), and `where` and the signposts say which ways pass through such a room. Nothing else has changed.",
+        "You have reached level 100. One thing changes, now and for good: creatures that hunt will attack you first. Until now they only struck back when you struck them, because your name was new; that protection has ended. Most creatures do not hunt, and still leave you alone. Before you stop in a room, `look`: it says if something hunts there (the Shallows' hollows, the drowned, an anemone). `where` and the signposts say which ways pass through such a room. Nothing else has changed.",
     );
 }
 
@@ -3182,7 +3190,13 @@ pub fn register(world: &mut World, curves: Curves) {
                 began = Some(clock_line(w, creature, &ctx.actor));
                 // R97: a named creature felled loses its name and what was told to
                 // it; said at the first strike, and its keepers are told the kill.
-                if super::kept::of_house(w, creature) {
+                if super::vellum::is_bearer(w, creature) {
+                    began = Some(format!(
+                        "{} {} carries memories for the names that walked the Way to it, and they do not fade while it stands. Felled, it lets go of every one of them. It is very tough: this is work for a large party.",
+                        began.unwrap_or_default(),
+                        super::vellum::NAME
+                    ));
+                } else if super::kept::of_house(w, creature) {
                     // C11: the Kept House's own keep their names (Watch 29: the line
                     // below said otherwise of them).
                     began = Some(format!(
@@ -3357,6 +3371,10 @@ pub fn register(world: &mut World, curves: Curves) {
                     // C11: one of the Kept House's own is carried to its room, whole.
                     if let Some(carried) = super::kept::felled(w, creature) {
                         lines.push(carried.trim().to_string());
+                    }
+                    // C19: the bearer, felled, lets go of all it carries.
+                    if let Some(let_go) = super::vellum::felled(w, creature) {
+                        lines.push(let_go);
                     }
                     return Ok(Outcome::new(lines.join(" "), json!({"creature": cname, "creature_id": creature.0, "killed": false, "taken": chunk.0, "with": source, "xp": worth, "was": was, "left": left, "hp": hp(w, f.citizen)})));
                 }

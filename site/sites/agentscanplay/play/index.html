@@ -331,6 +331,7 @@
      just moved shows its move for a few seconds, moss up and ember down. */
   #lane { flex: none; display: flex; flex-wrap: wrap; gap: 2px 16px; padding: 4px 20px 3px; background: var(--panel); border-bottom: 1px solid var(--line); font-size: 12px; color: var(--dim); white-space: nowrap; }
   #lane[hidden] { display: none; }
+  #scene > section.shown { box-shadow: 0 0 0 2px var(--dust); transition: box-shadow .2s; }
   #lane span.k { color: var(--dim); }
   #lane span.v { color: var(--ink); }
   #lane span.d { margin-left: 4px; font-size: 11px; }
@@ -3350,6 +3351,7 @@
       }
       if (opts.state) { const st = document.createElement("span"); st.className = "state" + (opts.bad ? " bad" : ""); st.textContent = " " + opts.state; c.append(st); }
       if (opts.run) { c.classList.add("click"); c.title = opts.title || opts.run; c.addEventListener("click", () => { chain = after(() => run(opts.run, [])); }); }
+      if (opts.go) { c.classList.add("click"); c.title = opts.title || ""; c.setAttribute("role", "button"); c.addEventListener("click", opts.go); }
       return c;
     }
     async function askStrike() {
@@ -3386,6 +3388,23 @@
         else if (hp < max - 0.05) state = "mending";
         if (b.numb_until && b.numb_until > now) { state = (state ? state + ", " : "") + "numb " + span(b.numb_until - now); bad = true; }
         frag.append(cell("hp", "hp", hp.toFixed(0) + "/" + max, { num: hp, step: 1, fix: 0, state, bad }));
+      }
+      // The satchel, one tap away (David, 11-27): on a phone it sat under the folded
+      // picture and was reached by unfolding and scrolling. The panel when there is
+      // one; the words otherwise.
+      {
+        const bag = subs["mod:satchel"] && subs["mod:satchel"].root;
+        const inside = bag && bag.relations && bag.relations.contents && bag.relations.contents[0];
+        const n = inside && inside.relations && inside.relations.contents ? inside.relations.contents.length : null;
+        frag.append(cell("satchel", "satchel", n == null ? "open" : String(n), { title: "Open your satchel", go: () => {
+          const sec = document.querySelector('#scene > section[data-panel="satchel"]');
+          if (!sec || sec.hidden) { chain = after(() => run("satchel", [])); return; }
+          if (typeof foldScene === "function") foldScene(false);
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            const sc = $("scene"), a = sec.getBoundingClientRect(), b = sc.getBoundingClientRect(); sc.scrollTop += a.top - b.top - 6; sc.scrollLeft += a.left - b.left - 6;
+            sec.classList.add("shown"); setTimeout(() => sec.classList.remove("shown"), 1400);
+          }));
+        } }));
       }
       frag.append(cell("chunks", "chunks", String(chunks.length), { num: chunks.length, step: 1, fix: 0, run: "chunks" }));
       const falls = Array.isArray(cz.falls) ? cz.falls.filter(t => now - t < 12 * 3600 * 1000).length : 0;

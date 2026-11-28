@@ -70,6 +70,7 @@ pub mod tide;
 pub mod trail;
 pub mod tutorial;
 pub mod under;
+pub mod vellum;
 pub mod weather;
 
 use crate::world::World;
@@ -243,12 +244,16 @@ pub fn schemas() -> Vec<ComponentSchema> {
             // Where it was earned: "passing" when a passing name earned it. The mark
             // travels with the chunk through every hand it passes.
             .field("provenance", FieldKind::Plain, Visibility::Public)
+            // C19: in the bearer's keeping at the end of the Vellum Way (does not fade).
+            .field("borne", FieldKind::Plain, Visibility::Public)
             // A door only the holder can take: `{from, exit, to}` (Morphos's third rung).
             .field("door", FieldKind::Plain, Visibility::Owner),
         ComponentSchema::new(ROOM, 2)
             .field("key", FieldKind::Plain, Visibility::Public)
             // C17: the jar by the Souvenir Shop's door ({worth, from}).
             .field("jar", FieldKind::Plain, Visibility::Public)
+            // C19: what the bearer keeps, on the Flyleaf ({name: chunk id}).
+            .field("borne", FieldKind::Plain, Visibility::Public)
             // C11: the Visitors' Book of the Kept House ({month, right, wrong}).
             .field("book", FieldKind::Plain, Visibility::Public)
             // The last dozen names through, with when: the chalk tally and the bench.
@@ -966,6 +971,7 @@ pub fn ensure_world(world: &mut World) -> Result<(), String> {
     tide::ensure(world)?;
     life::ensure(world)?;
     kept::ensure(world)?;
+    vellum::ensure(world)?;
     antics::ensure(world)?;
     pilots::ensure(world)?;
     mind::ensure_wander(world)
@@ -1518,6 +1524,7 @@ pub fn register(world: &mut World, curves: Curves) {
     calling::register(world);
     shop::register(world);
     kept::register(world);
+    vellum::register(world);
     speech::register(world);
     talk::register(world);
     letters::register(world);

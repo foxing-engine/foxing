@@ -646,6 +646,19 @@ pays a vivid memory of ten, the whole page thirty more, once a month; a
 wrong one closes that line to you for an hour. The page changes with
 the month.
 
+The Vellum Way is `vellum` off the Unfiled Archive: nine thin rooms
+and a last one, `on` and `on`. Nothing lives, grows or is dug along it,
+no sign names its rooms, and it is walked a door at a time (no
+`travel <name>` reaches into it). At the end stands Tacit the bearer.
+`commend` there, for a kept name, gives your oldest memory (the first
+made of those in your window and on your shelf) into its keeping: the
+memory stays yours and where it lies, is made whole again up to 40 XP,
+and does not fade while the bearer lives. One memory a name. The bearer
+may be fought and is as tough as the Kept House's own; felled, it lets
+go of every memory it carries, each fades again from that moment, and
+the Way is walked again. A borne memory given away or spent leaves its
+keeping.
+
 The Souvenir Shop is `shop` off Lantern Row, with a shopkeep and a jar
 by the door. A souvenir is a thing that was somewhere, not a tool:
 anything found (an ember, a thread, a dab of ink) and any made thing

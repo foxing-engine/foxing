@@ -510,6 +510,10 @@ pub fn register_jobs(world: &mut World) {
             if let Err(e) = tick(w) {
                 eprintln!("the Kept House's turn failed: {e}");
             }
+            // C19: the Vellum Way's turn rides with the house's.
+            if let Err(e) = super::vellum::tick(w) {
+                eprintln!("the Vellum Way's turn failed: {e}");
+            }
             wind(w, EVERY_MS)
         }),
     );

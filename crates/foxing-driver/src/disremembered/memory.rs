@@ -39,14 +39,7 @@ pub fn earn_chunk(
     // New memory fades at the world's rate: the Clocktower's one lever on time. A
     // hoard's fades faster still, by the Conclave's statute, on the hoard alone.
     // C5: and slower in a season that keeps (the First Pages, the Long Night).
-    let pace = super::economy::rate(world, "half_life") * super::almanac::keeps(world)
-        / super::conclave::hoard_factor(world, actor);
-    let curve = match curves.active(vividity) {
-        foxing_time::Curve::Exponential { half_life } => foxing_time::Curve::Exponential {
-            half_life: foxing_time::Duration((half_life.0 as f64 * pace) as i64),
-        },
-        c => c,
-    };
+    let curve = fade_curve(world, actor, vividity, curves);
     let mut fields = BTreeMap::new();
     fields.insert(
         "value".into(),
@@ -83,6 +76,23 @@ pub fn earn_chunk(
         }
     }
     Ok(id)
+}
+
+/// How a memory of this vividity fades in a name's window, made now.
+pub fn fade_curve(
+    world: &World,
+    actor: &str,
+    vividity: f64,
+    curves: &Curves,
+) -> foxing_time::Curve {
+    let pace = super::economy::rate(world, "half_life") * super::almanac::keeps(world)
+        / super::conclave::hoard_factor(world, actor);
+    match curves.active(vividity) {
+        foxing_time::Curve::Exponential { half_life } => foxing_time::Curve::Exponential {
+            half_life: foxing_time::Duration((half_life.0 as f64 * pace) as i64),
+        },
+        c => c,
+    }
 }
 
 /// Whether a chunk was earned by a passing name, wherever it is now.
@@ -145,7 +155,7 @@ fn chunk_rows(
                 .ok()
                 .is_some_and(|t| matches!(t.curve, foxing_time::Curve::PowerLaw { .. }));
             let halves = halving_ms(world, e.id);
-            json!({"id": e.id.0, "source": f("source"), "tier": f("tier"), "size": f("size"), "vividity": f("vividity"), "value": f("value"), "halves_ms": halves, "shelved": shelved, "taxed": f("taxed"), "provenance": f("provenance")})
+            json!({"id": e.id.0, "source": f("source"), "tier": f("tier"), "size": f("size"), "vividity": f("vividity"), "value": f("value"), "halves_ms": halves, "shelved": shelved, "taxed": f("taxed"), "provenance": f("provenance"), "borne": super::vellum::is_borne(world, e.id)})
         })
         .collect();
     rows.sort_by(|a, b| {
@@ -233,7 +243,11 @@ fn rows_text(rows: &[Value]) -> Vec<String> {
                         if r["shelved"] == true { "in" } else { "every" },
                         super::combat::human(ms)
                     ))
-                    .unwrap_or_default(),
+                    .unwrap_or_else(|| if r["borne"] == true {
+                        "  does not fade (the bearer keeps it)".to_string()
+                    } else {
+                        String::new()
+                    }),
                 if r["taxed"].is_number() {
                     "  (taxed)"
                 } else {
@@ -533,6 +547,8 @@ pub fn register(world: &mut World, curves: Curves) {
             w.record(actor.clone(), StoreEvent::FieldRecurved { id, component: CHUNK.into(), field: "value".into(), curve: c.palace(vividity) }).map_err(internal)?;
             w.record(actor.clone(), StoreEvent::FieldSet { id, component: CHUNK.into(), field: "tier".into(), value: json!("palace") }).map_err(internal)?;
             w.record(actor, StoreEvent::EntityMoved { id, parent: Some(f.palace) }).map_err(internal)?;
+            // C19: what the bearer keeps does not fade on the shelf either.
+            super::vellum::hold(w, id);
             let v = w.store.read_field(id, CHUNK, "value", w.now()).map_err(internal)?;
             Ok(Outcome::new(
                 format!("You shelve chunk-{} at {:.2}. It will fade slowly now, and count for nothing until you reminisce.", id.0, v.as_f64().unwrap_or(0.0)),
@@ -591,6 +607,8 @@ pub fn register(world: &mut World, curves: Curves) {
                 },
             )
             .map_err(internal)?;
+            // C19: what the bearer keeps comes back as still as it went.
+            super::vellum::hold(w, id);
             w.record(
                 actor.clone(),
                 StoreEvent::FieldSet {

@@ -85,6 +85,7 @@ pub fn ages(world: &World, creature: EntityId) -> bool {
         && kind != "tapster"
         && kind != "shopkeep"
         && !super::kept::of_house(world, creature)
+        && !super::vellum::is_bearer(world, creature)
         && !super::starfish::is(world, creature)
         && !super::mind::is_pilot(world, creature)
 }
