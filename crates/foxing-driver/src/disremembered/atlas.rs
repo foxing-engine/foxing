@@ -1276,9 +1276,13 @@ pub fn room_named(world: &World, text: &str) -> Option<EntityId> {
     if want.is_empty() {
         return None;
     }
+    // C19: a room on no sign (the Vellum Way's, the Road) answers to no name: the
+    // Watch of 11-28 crossed the whole Way with `travel "Flyleaf"`.
+    let shown = |e: &&foxing_store::Entity| !super::plain_bool(world, e.id, ROOM, "hidden");
     let exact = world
         .store
         .of_kind("room")
+        .filter(shown)
         .find(|e| {
             let name = plain_str(world, e.id, ROOM, "name").unwrap_or_default();
             loose(name) == want
@@ -1308,7 +1312,7 @@ pub fn room_named(world: &World, text: &str) -> Option<EntityId> {
         a.len().max(b.len()) - pre - suf <= 1
     };
     let wanted = bare(&want);
-    let mut near = world.store.of_kind("room").filter(|e| {
+    let mut near = world.store.of_kind("room").filter(shown).filter(|e| {
         let name = bare(&loose(
             plain_str(world, e.id, ROOM, "name").unwrap_or_default(),
         ));
@@ -1321,7 +1325,7 @@ pub fn room_named(world: &World, text: &str) -> Option<EntityId> {
     }
     // R134: a word of the name, when it names one room alone ("where picnic" was
     // refused while "where lookout" answered).
-    let mut by_word = world.store.of_kind("room").filter(|e| {
+    let mut by_word = world.store.of_kind("room").filter(shown).filter(|e| {
         let name = loose(plain_str(world, e.id, ROOM, "name").unwrap_or_default());
         // R192: a possessive answers to its stem ("wickmaker" finds the
         // Wickmaker's Bench, whose door is `wickmaker`).

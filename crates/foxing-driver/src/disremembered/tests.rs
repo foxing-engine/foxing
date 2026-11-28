@@ -18431,4 +18431,22 @@ fn the_vellum_way_ends_at_a_bearer_who_keeps_the_oldest_memory() {
     // And the Way can be walked again.
     let again = ok(&mut w, "dave", "commend", json!([]));
     assert_eq!(again.result["chunk"], json!(first.0));
+    // Spent or given away, the place stays taken: no second memory while it lives.
+    w.record(Actor::Driver, StoreEvent::EntityRemoved { id: first })
+        .unwrap();
+    vellum::tick(&mut w).unwrap();
+    let e = call(&mut w, "dave", ActorKind::Citizen, "commend", json!([]))
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("takes no second"), "{e}");
+    // And the Way answers to no name: it is walked.
+    admin(&mut w, "dave", "bring", json!(["dave", "archive"]));
+    assert!(call(
+        &mut w,
+        "dave",
+        ActorKind::Citizen,
+        "travel",
+        json!(["Flyleaf"])
+    )
+    .is_err());
 }

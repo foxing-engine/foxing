@@ -98,7 +98,10 @@ fn keep(world: &mut World, b: &BTreeMap<String, u64>) -> Result<(), String> {
 
 /// The chunk the Bearer keeps for this name, if it does.
 pub fn borne_of(world: &World, actor: &str) -> Option<EntityId> {
-    borne(world).get(actor).map(|&id| EntityId(id))
+    borne(world)
+        .get(actor)
+        .filter(|&&id| id != 0)
+        .map(|&id| EntityId(id))
 }
 
 /// Whether a memory is in the Bearer's keeping (the `chunks` listing says so).
@@ -265,6 +268,7 @@ pub fn tick(world: &mut World) -> Result<(), String> {
     };
     let mut b = borne(world);
     let was = b.len();
+    let mut changed = false;
     match bearer(world) {
         Some(c) => {
             if world.store.entity(c).and_then(|e| e.parent) != Some(room)
@@ -283,15 +287,19 @@ pub fn tick(world: &mut World) -> Result<(), String> {
             top_up(world, c)?;
             let gone: Vec<String> = b
                 .iter()
-                .filter(|(who, &id)| !still_theirs(world, who, EntityId(id)))
+                .filter(|(who, &id)| id != 0 && !still_theirs(world, who, EntityId(id)))
                 .map(|(who, _)| who.clone())
                 .collect();
+            // (Watch 30: a borne memory spent into a bandage freed the place, and the
+            // next oldest was commended after it. One memory a name: the place stays
+            // taken, empty, until the bearer is felled.)
             for who in gone {
-                if let Some(id) = b.remove(&who) {
+                if let Some(id) = b.insert(who.clone(), 0).filter(|&id| id != 0) {
                     release(world, &who, EntityId(id))?;
+                    changed = true;
                 }
             }
-            for id in b.values() {
+            for id in b.values().filter(|&&id| id != 0) {
                 hold(world, EntityId(*id));
             }
         }
@@ -299,12 +307,14 @@ pub fn tick(world: &mut World) -> Result<(), String> {
             // It came apart altogether: nothing is borne, and another stands in its
             // place, holding nothing of anyone's.
             for (who, id) in std::mem::take(&mut b) {
-                release(world, &who, EntityId(id))?;
+                if id != 0 {
+                    release(world, &who, EntityId(id))?;
+                }
             }
             raise(world, room)?;
         }
     }
-    if b.len() != was {
+    if b.len() != was || changed {
         keep(world, &b)?;
     }
     Ok(())
@@ -316,7 +326,10 @@ pub fn felled(world: &mut World, c: EntityId) -> Option<String> {
     if !is_bearer(world, c) {
         return None;
     }
-    let b = borne(world);
+    let b: BTreeMap<String, u64> = borne(world)
+        .into_iter()
+        .filter(|(_, id)| *id != 0)
+        .collect();
     let n = b.len();
     for (who, id) in &b {
         let _ = release(world, who, EntityId(*id));
@@ -340,15 +353,20 @@ pub fn look_line(world: &World, room: EntityId, actor: &str) -> Option<String> {
     if Some(room) != end(world) {
         return None;
     }
-    let n = borne(world).len();
+    let all = borne(world);
+    let n = all.values().filter(|&&id| id != 0).count();
     let carrying = match n {
         0 => "It is carrying nothing yet.".to_string(),
         1 => "It is carrying one memory, for one name.".to_string(),
         n => format!("It is carrying {n} memories, one each for {n} names."),
     };
+    let spent = all
+        .get(actor)
+        .is_some_and(|&id| id == 0 || !still_theirs(world, actor, EntityId(id)));
     let yours = match borne_of(world, actor) {
+        _ if spent => " It kept one for you, and you have since spent it or given it away; it holds your place empty, and takes no second while it lives.".to_string(),
         Some(id) => format!(" One is yours: chunk-{}, which does not fade while {NAME} lives.", id.0),
-        None => " `commend` gives your oldest memory into its keeping: it stays yours, is made whole again (up to 40 XP), and does not fade while the bearer lives. One memory a name, and the name must be kept.".to_string(),
+        None => " `commend` gives your oldest memory into its keeping: it stays yours, is brought back to what it was worth when it was made (40 XP at most), and does not fade while the bearer lives. One memory a name, and the name must be kept.".to_string(),
     };
     Some(format!(
         "{NAME} the bearer keeps what it is given. {carrying}{yours}"
@@ -359,7 +377,7 @@ pub fn register(world: &mut World) {
     world.register(
         CommandSpec::new(
             "disremembered.commend",
-            "At the end of the Vellum Way, before the bearer: give your oldest memory into its keeping. The memory stays yours and where it lies, is made whole again (up to 40 XP), and does not fade while the bearer lives. One memory a name; a kept name only. If the bearer is ever felled it lets go of all it carries, and the Way is walked again.",
+            "At the end of the Vellum Way, before the bearer: give your oldest memory into its keeping. The memory stays yours and where it lies, is brought back to what it was worth when it was made (40 XP at most), and does not fade while the bearer lives. One memory a name; a kept name only. If the bearer is ever felled it lets go of all it carries, and the Way is walked again.",
         )
         .allowed(&[ActorKind::Citizen, ActorKind::Admin]),
         Box::new(|w: &mut World, ctx, _args: &Args| {
@@ -392,8 +410,14 @@ pub fn register(world: &mut World) {
                         "{NAME} carries one memory for a name, and it has yours: chunk-{id}. It does not fade while the bearer lives."
                     )));
                 }
-                release(w, &ctx.actor, EntityId(id)).map_err(CommandError::internal)?;
-                b.remove(&ctx.actor);
+                if id != 0 {
+                    release(w, &ctx.actor, EntityId(id)).map_err(CommandError::internal)?;
+                    b.insert(ctx.actor.clone(), 0);
+                    keep(w, &b).map_err(CommandError::internal)?;
+                }
+                return Err(CommandError::precondition(format!(
+                    "{NAME} carries one memory for a name, and it carried yours until you spent it or gave it away. It holds your place empty, and takes no second while it lives."
+                )));
             }
             let Some(chunk) = oldest(w, &f) else {
                 return Err(CommandError::precondition(format!(
