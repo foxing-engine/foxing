@@ -193,7 +193,7 @@ pub fn wants(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError>
             want_said.push(if has_word {
                 format!("the word \u{201c}{w}\u{201d} carried to {to} (you have it from {name}{already})")
             } else {
-                format!("a word carried to {to} (stand with {name} or tell it, and it gives you the word{already})")
+                format!("a word carried to {to} (be in the room with {name}, or `tell` it anything, and it gives you the word{already})")
             });
         }
         let word_wanted = word.is_some() && word_to.is_some();
@@ -571,7 +571,7 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
                 if fixed {
                     "made by you, standing"
                 } else {
-                    "made by you"
+                    "your making"
                 }
             } else {
                 "a book"

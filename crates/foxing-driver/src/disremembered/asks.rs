@@ -243,7 +243,7 @@ pub fn clause(world: &World, creature: EntityId, actor: &str) -> Option<(String,
         ("word", Some(to)) => format!(
             "{} word carried to {to}{}, which pays {}'s staked memory (worth {worth:.0} now) and the carrying besides",
             if mine { "your".to_string() } else { format!("{}'s", a.by) },
-            if has { format!(": {}", quoted(&a)) } else { " (stand with it or tell it, and it gives you the word)".to_string() },
+            if has { format!(": {}", quoted(&a)) } else { " (be in its room, or `tell` it anything, and it gives you the word)".to_string() },
             if mine { "your".to_string() } else { a.by.clone() },
         ),
         _ => format!(

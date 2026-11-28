@@ -771,21 +771,29 @@ export default function install(m) {
         x += len;
       }
     } else if (motif === "vellum") {
-      // Hide, scraped: a pale mottle, the ruled lines of what was written last, and
-      // under them, fainter and aslant, the hand that was scraped away.
-      f(0, top, WF, HF - top, 0.6);
-      for (let i = 0; i < 900; i++) f(r() * WF, top + r() * (HF - top), 3 + r() * 9, 1 + (r() < 0.4 ? 1 : 0), 0.56 + r() * 0.08);
-      for (let y = top + 10; y < HF - 6; y += 9) for (let x = 14 + Math.floor(r() * 10); x < WF - 16;) {
-        const w = 3 + Math.floor(r() * 12);
-        if (r() < 0.82) f(x, y, w, 1, 0.5 - r() * 0.05);
-        x += w + 3 + Math.floor(r() * 4);
+      // Hide, scraped: pale and nearly smooth. What was written last shows as broken
+      // lines of a running hand, and under it, fainter and aslant, the hand that was
+      // scraped away. Each skin along the Way carries less; the Flyleaf is blank.
+      const nth = /vellum-(\d)/.exec(scene.key || ""), ink = nth ? Math.max(0.15, 1 - (Number(nth[1]) - 1) / 9) : 0;
+      f(0, top, WF, HF - top, 0.7);
+      for (let i = 0; i < 260; i++) f(r() * WF, top + r() * (HF - top), 8 + r() * 30, 2 + r() * 3, 0.68 + r() * 0.05);
+      for (let i = 0; i < 60; i++) f(r() * WF, top + r() * (HF - top), 1, 1, 0.6);
+      // The older hand, aslant.
+      for (let n = 0; n < Math.round(16 * ink); n++) {
+        const y0 = top + 10 + r() * (HF - top - 40), x0 = 14 + r() * WF * 0.5, len = 50 + r() * 150;
+        for (let t = 0; t < len;) { const w = 3 + Math.floor(r() * 7); f(x0 + t, y0 + t * 0.22 + Math.sin(t / 5) * 1.5, w, 1, 0.74); t += w + 2 + Math.floor(r() * 3); }
       }
-      for (let n = 0; n < 22; n++) {
-        const y0 = top + 8 + r() * (HF - top - 16), x0 = r() * WF * 0.6, len = 60 + r() * 160;
-        for (let t = 0; t < len; t += 4 + Math.floor(r() * 3)) if (r() < 0.7) f(x0 + t, y0 + t * 0.18, 2 + r() * 3, 1, 0.66);
+      // The newer hand: a few lines of unequal length, a wavering baseline, words of unequal width.
+      for (let n = 0, y = top + 16 + r() * 8; n < Math.round(9 * ink) && y < HF - 16; n++, y += 13 + r() * 9) {
+        const x1 = 18 + r() * 30, x2 = WF - 20 - r() * (WF * 0.5);
+        for (let x = x1; x < x2;) {
+          const w = 4 + Math.floor(r() * 11), dy = Math.round(Math.sin(x / 37 + n) * 1.2);
+          if (r() < 0.85) { f(x, y + dy, w, 1, 0.56); if (r() < 0.5) f(x + Math.floor(r() * w), y + dy - 2, 1, 2, 0.58); if (r() < 0.3) f(x + Math.floor(r() * w), y + dy + 1, 1, 2, 0.58); }
+          x += w + 3 + Math.floor(r() * 3);
+        }
       }
-      // A hole or two where the scraper went through.
-      for (let n = 0; n < 2; n++) { const x = 30 + r() * (WF - 60), y = top + 20 + r() * (HF - top - 40); f(x, y, 5, 3, 0.3); f(x + 1, y - 1, 3, 5, 0.3); f(x + 1, y, 3, 3, 0.18); }
+      // A hole where the scraper went through, on some skins.
+      if (ink > 0 && r() < 0.6) { const x = 40 + r() * (WF - 80), y = top + 24 + r() * (HF - top - 50); f(x, y, 6, 4, 0.4); f(x + 1, y - 1, 4, 6, 0.4); f(x + 1, y, 4, 4, 0.22); f(x - 1, y - 2, 8, 1, 0.76); }
     } else if (motif === "garden" || motif === "fog") {
       // Turf, or packed earth: no joints, a mottle; tufts and a few flowers on the
       // one, pebbles on the other.
@@ -841,6 +849,11 @@ export default function install(m) {
       for (let x = 0; x < WF; x += 12) { const k = 0.29 + r() * 0.05; f(x, 4, 12, 36, k); f(x, 4, 1, 36, k + 0.05); f(x + 11, 4, 1, 36, 0.19); if (r() < 0.4) f(x + 3 + r() * 5, 8 + r() * 24, 1, 5, k - 0.05); }
       f(0, 40, WF, 3, 0.42); f(0, 40, WF, 1, 0.5); f(0, 43, WF, 1, 0.17);
       for (let x = 2; x < WF; x += 28) { f(x, 46, 24, 11, 0.25); f(x, 46, 24, 1, 0.18); f(x, 46, 1, 11, 0.18); f(x + 23, 46, 1, 11, 0.36); f(x, 56, 24, 1, 0.36); }
+    } else if (motif === "vellum") {
+      // The wall is the skin itself, stretched: pale, a seam of stitches along the top.
+      f(0, 4, WF, top - 10, 0.62);
+      for (let i = 0; i < 80; i++) f(r() * WF, 5 + r() * (top - 14), 10 + r() * 30, 2, 0.6 + r() * 0.05);
+      for (let x = 6; x < WF; x += 9) { f(x, 8, 4, 1, 0.42); f(x + 1, 9, 1, 1, 0.5); }
     } else if (motif === "fog") courses(24, 12, true);
     else if (motif === "mint") { courses(32, 18, false); g.fillStyle = "rgba(176,138,58,.55)"; g.fillRect(0, 21, WF, 2); g.fillStyle = "rgba(60,44,16,.5)"; g.fillRect(0, 23, WF, 1); }
     else courses(16, 9, false);
@@ -1464,7 +1477,7 @@ export default function install(m) {
     const dg = shade2.getContext("2d");
     dg.globalCompositeOperation = "source-over"; dg.clearRect(0, 0, shade2.width, shade2.height);
     // (A lived-in room with its lamps lit is not a cellar: the Kept House, the shop and the Wickmaker's Bench were near black, Watches 28 and 29.)
-    dg.fillStyle = "rgba(9,13,20," + (/^kept-|^souvenir-shop$|wickmaker/.test(scene.key || "") ? 0.28 : scene.motif === "lanterns" ? 0.46 : 0.6) + ")"; dg.fillRect(0, 0, shade2.width, shade2.height);
+    dg.fillStyle = "rgba(9,13,20," + (/^vellum-/.test(scene.key || "") ? 0.14 : /^kept-|^souvenir-shop$|wickmaker/.test(scene.key || "") ? 0.28 : scene.motif === "lanterns" ? 0.46 : 0.6) + ")"; dg.fillRect(0, 0, shade2.width, shade2.height);
     dg.globalCompositeOperation = "destination-out";
     const flick = (l) => l.seed == null || STILL ? 1 : 1 + 0.06 * Math.sin(now / 170 + l.seed) + 0.035 * Math.sin(now / 61 + l.seed * 3);
     for (const l of lights) {

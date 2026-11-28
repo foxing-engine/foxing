@@ -612,7 +612,13 @@ pub fn look_line(world: &World, room: EntityId, actor: &str) -> Option<String> {
         return None;
     }
     let done = found_by(world, actor).len();
+    // (Watch 30: Pettifer, kept home by a calling in hand, was "on the road today"
+    // while it stood in the kitchen.)
     let away = away_today(world)
+        .filter(|r| {
+            find(world, r)
+                .is_some_and(|c| here_of(world, c) == super::rooms::room_by_key(world, ROAD))
+        })
         .map(|r| {
             format!(
                 " {} is on the road today and a traveler has the room; home tomorrow.",

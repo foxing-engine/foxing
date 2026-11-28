@@ -2145,7 +2145,7 @@ pub fn leave_by_level(world: &mut World, actor: &str, citizen: EntityId) {
     narrate(
         world,
         actor,
-        "You have reached level 100. One thing changes, now and for good: creatures that hunt will attack you first. Until now they only struck back when you struck them, because your name was new; that protection has ended. Most creatures do not hunt, and still leave you alone. Before you stop in a room, `look`: it says if something hunts there (the Shallows' hollows, the drowned, an anemone). `where` and the signposts say which ways pass through such a room. Nothing else has changed.",
+        "You have reached level 100. One thing changes, now and for good: creatures that hunt will attack you first. Until now they only struck back when you struck them, because your name was new; that protection has ended. It does not come back if your level fades under 100 again. Most creatures do not hunt, and still leave you alone until you strike them. Before you stop in a room, `look`: it says if something hunts there (the Shallows' hollows, the drowned, an anemone), and `where` and the signposts say which ways pass through such a room. If a hunter reaches you, it strikes every few seconds while you stay: `retreat`, then `travel` out. Nothing else has changed.",
     );
 }
 
@@ -3662,11 +3662,13 @@ pub fn register(world: &mut World, curves: Curves) {
                 let in_me_whole = (max_hp(w, f.citizen) / its).floor();
                 if chp > 0.0 {
                     format!(
-                        " A second stand now would take about {rounds_now:.0} round{}{} to fell it, and you could stand about {in_me_now:.0} of its blows. Once you are whole it would take about {rounds_then:.0} round{} against the {chp_then:.0} hit points it will have by then, and you could stand about {in_me_whole:.0} blows{}{}.",
+                        " A second stand now would take about {rounds_now:.0} round{}{} to fell it, and {}. Once you are whole it would take about {rounds_then:.0} round{} against the {chp_then:.0} hit points it will have by then, and you could stand about {in_me_whole:.0} blows{}{}.",
                         if rounds_now == 1.0 { "" } else { "s" },
                         // The rounds count misses: a shaken hand at one in four lands
                         // reads as "3 rounds for 10 hp with a hit of 7" (the Watch of 11-07).
                         if hit < 0.7 { " (your hand unsteady: fewer of your swings land)" } else { "" },
+                        // Watch 30: "you could stand about 0 of its blows".
+                        if in_me_now < 1.0 { "its next blow could fell you".to_string() } else { format!("you could stand about {in_me_now:.0} of its blows") },
                         if rounds_then == 1.0 { "" } else { "s" },
                         // R94: the level fades while you rest, and a point of attack with it.
                         if me_whole_in_ms > 3 * 60_000 { " (a round more, maybe, as your level fades while you rest)" } else { "" },

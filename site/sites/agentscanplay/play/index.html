@@ -941,6 +941,8 @@
     header .state > #state { flex-basis: 100%; order: 9; font-size: 11px; }
     header .state button { margin-left: 0; padding: 6px 10px; font-size: 12.5px; }
     #scene { max-height: 27vh; padding: 8px 10px; }
+    /* The Watch of 11-28: "(+46.6 since you came)" pushed the satchel off a phone's row. */
+    #lane span.since, #lane span.state:not(.bad) { display: none; }
     #log { min-height: 30vh; }
     #first { padding: 6px 12px; } #first .why { display: none; }
     #settings-menu input[type="checkbox"], #panels-menu input[type="checkbox"] { width: 22px; height: 22px; vertical-align: middle; margin-right: 8px; }
@@ -3378,7 +3380,7 @@
         if (Date.now() - mv.at < 6000) lv.classList.add("fell");
         if (mv.at !== movedAt) print("Your level fell " + (-mv.d).toFixed(1) + ", to " + level.toFixed(1) + ": a memory spent, given or lost.", "sys");
       }
-      if (since != null && Math.abs(since) >= 0.05) { const d = document.createElement("span"); d.className = "d " + (since >= 0 ? "up" : "down"); d.textContent = "(" + (since >= 0 ? "+" : "") + since.toFixed(1) + " since you came)"; lv.append(d); }
+      if (since != null && Math.abs(since) >= 0.05) { const d = document.createElement("span"); d.className = "d since " + (since >= 0 ? "up" : "down"); d.textContent = "(" + (since >= 0 ? "+" : "") + since.toFixed(1) + " since you came)"; lv.append(d); }
       frag.append(lv);
       if (b.hp) {
         const hp = timed(b.hp), max = b.max_hp || 30;

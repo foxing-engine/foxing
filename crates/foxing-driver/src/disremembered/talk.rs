@@ -241,8 +241,15 @@ pub fn register(world: &mut World) {
                 // The answer is in the outcome; the room hears it as a narrator line,
                 // the teller not twice (a carried word's reply printed twice on the page).
                 speak_to(w, creature, &ctx.actor, &answer, false)?;
+                // Watch 30: two testers gave a wanted story with `tell` and were answered
+                // as for small talk. A dozen words said is likely a story meant.
+                let nudge = if text.split_whitespace().count() >= 12 {
+                    format!(" (That was said to it, not told: a story is given, and paid for, with `story {name} \"...\"`.)")
+                } else {
+                    String::new()
+                };
                 return Ok(Outcome::new(
-                    format!("You say to {name}, \"{text}\" {name} says, \"{answer}\""),
+                    format!("You say to {name}, \"{text}\" {name} says, \"{answer}\"{nudge}"),
                     json!({"to": name, "text": text, "answered": true, "reply": answer}),
                 ));
             }
