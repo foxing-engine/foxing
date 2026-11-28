@@ -3532,6 +3532,7 @@ pub fn register(world: &mut World, curves: Curves) {
             // R253: `retreat south` was refused whole at the gate. A way is heard and
             // not walked: the reply says so.
             let way_note = match args.str("way").map(str::trim).filter(|s| !s.is_empty()) {
+                Some(way) if way.eq_ignore_ascii_case("anyway") => String::new(),
                 Some(way) => format!(" (`retreat` only breaks off, where you stand; `travel {way}` is the walking.)"),
                 None => String::new(),
             };
@@ -3563,6 +3564,17 @@ pub fn register(world: &mut World, curves: Curves) {
                 return Ok(noted(Outcome::new(
                     format!("You open {jname} as you turn. The {cname} strikes at where the fog says you are, and you are not there. {}; you are away with {:.0}/{:.0}.", if jar_left > 1.5 { "The jar is good for one more" } else { "The jar is spent" }, hp_said(w, f.citizen), max_hp(w, f.citizen)),
                     json!({"retreated": true, "jar": true, "taken": 0, "hp": hp(w, f.citizen)}),
+                )));
+            }
+            // R272: a retreat at low health killed with no warning of the parting
+            // blow's size. Said once, before the back is turned; `retreat anyway` turns.
+            let reach = plain_num(w, creature, CREATURE, "attack").unwrap_or(1.0) + 2.0;
+            let have = hp(w, f.citizen);
+            let anyway = args.str("way").is_some_and(|x| x.trim().eq_ignore_ascii_case("anyway"));
+            if have <= reach && !anyway {
+                return Err(CommandError::precondition(format!(
+                    "Turning your back costs one whole blow, and the {cname}'s is {:.0} to {:.0}; you have {:.0}. That could fell you. `retreat anyway` turns all the same; a swing might end it first (`attack`); a jar of fog covers a retreat.",
+                    reach - 2.0, reach, have.ceil()
                 )));
             }
             let (taken, dead) = creature_strikes(w, creature, f.citizen).map_err(internal)?;

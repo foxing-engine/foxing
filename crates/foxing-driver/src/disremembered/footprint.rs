@@ -551,7 +551,13 @@ pub fn mine(world: &World, actor: &str, hl: f64) -> Result<Value, CommandError> 
                     .and_then(|c| world.store.entity(c))
                     .and_then(|c| c.owner.clone())
                     .unwrap_or_default();
-                if who == actor {
+                // R271: a thing in its place and at work was "in your satchel".
+                let at_work = h
+                    .parent
+                    .is_some_and(|c| super::places::at_work(world, c, e.id));
+                if who == actor && at_work {
+                    "on you, in its place and at work".to_string()
+                } else if who == actor {
                     "in your satchel".to_string()
                 } else {
                     format!("carried by {who}")

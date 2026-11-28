@@ -216,6 +216,8 @@ function iconFor(name) {
 const MOTIFS = [
   // C11: the Kept House is boards and lamplight in every room, whatever its rooms are called.
   ["lanterns", /kept-(hall|parlour|kitchen|landing|bedroom|attic)|souvenir-shop/],
+  // C19: the Vellum Way is hide, scraped and written over.
+  ["vellum", /vellum-(\d|end)/],
   ["mint", /exergue|counting bar|die room|striking floor|assay|mintmark|purse room|mint\b|coin/],
   ["water", /water|cistern|shallow|undertow|drown|sluice|flood|moonpool|stillwater|tide|pool|choir|inkwell|lamprey/],
   ["shelves", /archive|stack|reading|catalogue|catalog|shelf|shelves|ledger|library|book|carrel|periodical|desk|minute|engross|lectern|robing|annex/],
@@ -768,6 +770,22 @@ export default function install(m) {
         f(x + 2, y + 3, 1, 1, k - 0.17); f(x + len - 4, y + 3, 1, 1, k - 0.17);
         x += len;
       }
+    } else if (motif === "vellum") {
+      // Hide, scraped: a pale mottle, the ruled lines of what was written last, and
+      // under them, fainter and aslant, the hand that was scraped away.
+      f(0, top, WF, HF - top, 0.6);
+      for (let i = 0; i < 900; i++) f(r() * WF, top + r() * (HF - top), 3 + r() * 9, 1 + (r() < 0.4 ? 1 : 0), 0.56 + r() * 0.08);
+      for (let y = top + 10; y < HF - 6; y += 9) for (let x = 14 + Math.floor(r() * 10); x < WF - 16;) {
+        const w = 3 + Math.floor(r() * 12);
+        if (r() < 0.82) f(x, y, w, 1, 0.5 - r() * 0.05);
+        x += w + 3 + Math.floor(r() * 4);
+      }
+      for (let n = 0; n < 22; n++) {
+        const y0 = top + 8 + r() * (HF - top - 16), x0 = r() * WF * 0.6, len = 60 + r() * 160;
+        for (let t = 0; t < len; t += 4 + Math.floor(r() * 3)) if (r() < 0.7) f(x0 + t, y0 + t * 0.18, 2 + r() * 3, 1, 0.66);
+      }
+      // A hole or two where the scraper went through.
+      for (let n = 0; n < 2; n++) { const x = 30 + r() * (WF - 60), y = top + 20 + r() * (HF - top - 40); f(x, y, 5, 3, 0.3); f(x + 1, y - 1, 3, 5, 0.3); f(x + 1, y, 3, 3, 0.18); }
     } else if (motif === "garden" || motif === "fog") {
       // Turf, or packed earth: no joints, a mottle; tufts and a few flowers on the
       // one, pebbles on the other.

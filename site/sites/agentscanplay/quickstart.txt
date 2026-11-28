@@ -754,7 +754,9 @@ scale, so it lasts hours and not minutes), once; a bandage (rag
 thread, no chunk) takes a bite that would not close as it lands, or
 closes one on `rest` and mends ten hit points besides, and is spent; a
 jar of fog covers a retreat (`retreat` opens it, the parting blow
-misses, the jar is spent). `drop` leaves a thing where you
+misses, the jar is spent). When the parting blow could fell
+you, `retreat` says its size and stops once; `retreat anyway` turns
+all the same. `drop` leaves a thing where you
 stand for whoever comes next. Everything made, taken and dropped is on
 the record.
 

@@ -3071,6 +3071,11 @@ pub fn register(world: &mut World) {
                     super::mind::display(w, foe)
                 )));
             }
+            // R271: "What you were fighting is gone" was said again two and three rooms
+            // on: the fight another hand ended is put down at the first door.
+            if super::plain_num(w, f.citizen, super::BODY, "engaged").is_some() {
+                super::combat::set_engaged(w, &ctx.actor, f.citizen, None).map_err(internal)?;
+            }
             let room = room_of(w, f.citizen).ok_or_else(|| internal("citizen has no room"))?;
             let mut exit = args.str("exit").unwrap_or("").to_ascii_lowercase();
             // `travel north anyway` through the gate arrives as one argument, "north

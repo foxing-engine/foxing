@@ -1265,6 +1265,13 @@ pub fn room_named(world: &World, text: &str) -> Option<EntityId> {
     // typed as "moonpool described" (the gate strips a comma), "An Unnamed Digging"
     // arrived as "unnamed digging" (the gate reads "an" as a connector), and "Back To
     // Somewhere" lost its "to".
+    // R265: the Court of Lethe is "the Courtroom" in its own first sentence, and
+    // `where Courtroom` was refused.
+    let text = if loose(text) == "courtroom" {
+        "court-of-lethe"
+    } else {
+        text
+    };
     let want = loose(text);
     if want.is_empty() {
         return None;
